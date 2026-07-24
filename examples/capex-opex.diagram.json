@@ -1,0 +1,131 @@
+{
+  "$schema": "../schema/diagram.schema.json",
+  "version": 1,
+  "name": "capex-opex",
+  "canvas": {
+    "width": 960,
+    "height": 720,
+    "padding": 48
+  },
+  "shapes": [
+    {
+      "id": "y-axis",
+      "type": "line",
+      "x": 120,
+      "y": 110,
+      "x2": 120,
+      "y2": 620,
+      "strokeWidth": 4
+    },
+    {
+      "id": "x-axis",
+      "type": "line",
+      "x": 120,
+      "y": 620,
+      "x2": 840,
+      "y2": 620,
+      "strokeWidth": 4
+    },
+    {
+      "id": "currency",
+      "type": "text",
+      "x": 76,
+      "y": 70,
+      "text": "$",
+      "fontSize": 36,
+      "weight": 600
+    },
+    {
+      "id": "capex-1",
+      "type": "rect",
+      "x": 230,
+      "y": 510,
+      "width": 220,
+      "height": 96,
+      "label": "Codex - $200",
+      "tone": "blue"
+    },
+    {
+      "id": "capex-2",
+      "type": "rect",
+      "x": 230,
+      "y": 408,
+      "width": 220,
+      "height": 96,
+      "label": "Codex - $200",
+      "tone": "blue"
+    },
+    {
+      "id": "capex-3",
+      "type": "rect",
+      "x": 230,
+      "y": 306,
+      "width": 220,
+      "height": 96,
+      "label": "Codex - $200",
+      "tone": "blue"
+    },
+    {
+      "id": "capex-4",
+      "type": "rect",
+      "x": 230,
+      "y": 204,
+      "width": 220,
+      "height": 96,
+      "label": "Codex - $200",
+      "tone": "blue"
+    },
+    {
+      "id": "opex-1",
+      "type": "rect",
+      "x": 540,
+      "y": 510,
+      "width": 220,
+      "height": 96,
+      "label": "Codex - $200",
+      "tone": "orange"
+    },
+    {
+      "id": "opex-2",
+      "type": "rect",
+      "x": 540,
+      "y": 408,
+      "width": 220,
+      "height": 96,
+      "label": "Codex - $200",
+      "tone": "orange"
+    },
+    {
+      "id": "opex-3",
+      "type": "rect",
+      "x": 540,
+      "y": 306,
+      "width": 220,
+      "height": 96,
+      "label": "Codex - $200",
+      "tone": "orange"
+    },
+    {
+      "id": "capex-label",
+      "type": "text",
+      "x": 230,
+      "y": 654,
+      "width": 220,
+      "text": "CAPEX",
+      "fontSize": 26,
+      "weight": 600,
+      "align": "middle"
+    },
+    {
+      "id": "opex-label",
+      "type": "text",
+      "x": 540,
+      "y": 654,
+      "width": 220,
+      "text": "OPEX",
+      "fontSize": 26,
+      "weight": 600,
+      "align": "middle"
+    }
+  ]
+}

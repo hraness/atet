@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/CCLRTE/diagram/main/schema/diagram.schema.json",
+  "title": "Diagram specification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "name", "canvas", "shapes"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "padding": { "type": "number", "minimum": 0 }
+      }
+    },
+    "shapes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/shape" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "tone": {
+      "enum": ["neutral", "blue", "orange", "green", "red", "purple", "yellow"]
+    },
+    "baseShape": {
+      "type": "object",
+      "required": ["id", "type", "x", "y"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$" },
+        "type": { "type": "string" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "tone": { "$ref": "#/$defs/tone" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "shape": {
+      "oneOf": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/baseShape" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "type", "x", "y", "width", "height"],
+              "properties": {
+                "id": true,
+                "type": { "enum": ["rect", "ellipse"] },
+                "x": true,
+                "y": true,
+                "tone": true,
+                "opacity": true,
+                "width": { "type": "number", "exclusiveMinimum": 0 },
+                "height": { "type": "number", "exclusiveMinimum": 0 },
+                "radius": { "type": "number", "minimum": 0 },
+                "label": { "type": "string" },
+                "icon": { "type": "string" },
+                "iconSize": { "type": "number", "exclusiveMinimum": 0 },
+                "strokeWidth": { "type": "number", "minimum": 0 },
+                "fill": { "type": "boolean" }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/baseShape" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "type", "x", "y", "text"],
+              "properties": {
+                "id": true,
+                "type": { "const": "text" },
+                "x": true,
+                "y": true,
+                "tone": true,
+                "opacity": true,
+                "text": { "type": "string" },
+                "width": { "type": "number", "exclusiveMinimum": 0 },
+                "fontSize": { "type": "number", "exclusiveMinimum": 0 },
+                "weight": { "enum": [400, 500, 600, 700] },
+                "align": { "enum": ["start", "middle", "end"] }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/baseShape" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "type", "x", "y", "x2", "y2"],
+              "properties": {
+                "id": true,
+                "type": { "const": "line" },
+                "x": true,
+                "y": true,
+                "tone": true,
+                "opacity": true,
+                "x2": { "type": "number" },
+                "y2": { "type": "number" },
+                "strokeWidth": { "type": "number", "exclusiveMinimum": 0 }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "label": { "type": "string" },
+        "tone": { "$ref": "#/$defs/tone" },
+        "start": { "enum": ["auto", "top", "right", "bottom", "left"] },
+        "end": { "enum": ["auto", "top", "right", "bottom", "left"] },
+        "bend": { "type": "number" },
+        "arrowhead": { "enum": ["arrow", "triangle", "none"] }
+      }
+    }
+  }
+}
