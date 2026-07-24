@@ -3,7 +3,7 @@
 - `src/` – typed spec parsing, SVG/PNG rendering, `.tldr` interoperability, desktop discovery, and the CLI.
 - `dist/` – committed Bun-targeted CLI and programmatic entrypoints used by immutable GitHub installs.
 - `schema/` – the public JSON Schema for authored diagram specifications.
-- `skills/diagram/` – the reusable Agent Skill shipped with the package.
+- `skills/graphics/` – the reusable Agent Skill shipped with the package.
 - `examples/` – small literal specifications and optional adapter examples.
 - `scripts/` – package-boundary verification.
 

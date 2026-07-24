@@ -1,11 +1,11 @@
 ---
-name: diagram
+name: graphics
 description: Create or update concise diagrams from a literal user prompt, keep a checked `.diagram.json` source, generate light/dark image exports, and provide editable tldraw interchange. Use for diagrams, flowcharts, maps, visual explanations, architecture overviews, bar charts, `.tldr` files, or paired knowledge-base visuals.
 ---
 
 # Create clear diagrams
 
-Use the installed `diagram` CLI as the deterministic adapter. Keep the authored
+Use the installed `graphics` CLI as the deterministic adapter. Keep the authored
 `.diagram.json` source; treat `.light.svg`, `.dark.svg`, `.light.png`,
 `.dark.png`, and `.tldr` as replaceable exports.
 
@@ -25,7 +25,7 @@ Treat the user's prompt as the complete content specification.
 
 ## Find the source
 
-1. Read local repository instructions and look for `diagram.config.*`.
+1. Read local repository instructions and look for `graphics.config.*`.
 2. Search for an existing same-subject `.diagram.json` before creating one.
 3. Update that source rather than editing generated images or creating a
    duplicate.
@@ -62,11 +62,11 @@ Do not “improve” literal data to satisfy these preferences. The prompt wins.
 
 ## Author and render
 
-Use the public schema URL or run `diagram init` for a starter:
+Use the public schema URL or run `graphics init` for a starter:
 
 ```sh
-diagram check diagrams/<slug>.diagram.json --strict
-diagram render diagrams/<slug>.diagram.json
+graphics check diagrams/<slug>.diagram.json --strict
+graphics render diagrams/<slug>.diagram.json
 ```
 
 The render command overwrites the consistent same-stem exports. Inspect both
@@ -85,10 +85,10 @@ tldraw SDK or desktop app to create. Open it in tldraw Offline when a person
 wants direct canvas editing:
 
 ```sh
-diagram open diagrams/<slug>.tldr
+graphics open diagrams/<slug>.tldr
 ```
 
-If the optional app is absent, `diagram desktop install` resolves the current
+If the optional app is absent, `graphics desktop install` resolves the current
 official release, verifies its published SHA-256 digest, and launches the
 platform installer. The app imports `.tldr` as an unsaved document; save it
 there to create its newer native `.tldraw` bundle. Never rewrite a native
@@ -96,8 +96,8 @@ there to create its newer native `.tldraw` bundle. Never rewrite a native
 
 ## Verify
 
-1. Run `diagram check <source> --strict`.
-2. Run `diagram render <source>`.
+1. Run `graphics check <source> --strict`.
+2. Run `graphics render <source>`.
 3. Confirm all five artifacts exist beside the source or in the requested
    output directory.
 4. Inspect light and dark output at actual size.

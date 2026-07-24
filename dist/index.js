@@ -75,11 +75,11 @@ function sanitizeIcon(icon) {
 }
 
 // src/config.ts
-var defaultNames = [
-  "diagram.config.ts",
-  "diagram.config.mjs",
-  "diagram.config.js",
-  "diagram.config.json"
+var configNames = [
+  { current: "graphics.config.ts", legacy: "diagram.config.ts" },
+  { current: "graphics.config.mjs", legacy: "diagram.config.mjs" },
+  { current: "graphics.config.js", legacy: "diagram.config.js" },
+  { current: "graphics.config.json", legacy: "diagram.config.json" }
 ];
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -140,7 +140,7 @@ function parseTheme(value, at) {
 }
 function parseConfig(value) {
   if (!isRecord(value))
-    throw new Error("Diagram config must export an object");
+    throw new Error("Graphics config must export an object");
   const font = value.font === undefined ? undefined : parseFont(value.font, "font");
   const icons = value.icons === undefined ? undefined : parseIcons(value.icons, "icons");
   let theme;
@@ -159,10 +159,17 @@ function parseConfig(value) {
   };
 }
 async function discoverConfig(directory) {
-  for (const name of defaultNames) {
-    const candidate = resolve(directory, name);
+  for (const names of configNames) {
+    const candidate = resolve(directory, names.current);
     if (await pathExists(candidate))
       return candidate;
+  }
+  for (const names of configNames) {
+    const candidate = resolve(directory, names.legacy);
+    if (await pathExists(candidate)) {
+      const replacement = resolve(directory, names.current);
+      throw new Error(`Legacy Graphics config found at ${candidate}. Rename it to ${replacement}; Graphics 0.2 does not auto-load diagram.config.*.`);
+    }
   }
   return null;
 }
@@ -1338,7 +1345,7 @@ async function getLatestDesktopRelease() {
   const response = await fetch(releaseApi, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "CCLRTE-diagram",
+      "User-Agent": "CCLRTE-graphics",
       "X-GitHub-Api-Version": "2022-11-28"
     }
   });
@@ -1354,7 +1361,7 @@ async function sha256(filePath) {
 }
 async function download(asset, filePath) {
   const response = await fetch(asset.browser_download_url, {
-    headers: { "User-Agent": "CCLRTE-diagram" },
+    headers: { "User-Agent": "CCLRTE-graphics" },
     redirect: "follow"
   });
   if (!response.ok || response.body === null) {
@@ -1389,7 +1396,7 @@ function spawnDetached(command) {
 async function installDesktop(options) {
   const release = await getLatestDesktopRelease();
   const asset = selectDesktopAsset(release);
-  const cacheDirectory = join2(homedir(), ".cache", "diagram", "installers", release.tag_name);
+  const cacheDirectory = join2(homedir(), ".cache", "graphics", "installers", release.tag_name);
   const installerPath = join2(cacheDirectory, asset.name);
   let reusable = false;
   if (await pathExists(installerPath)) {
@@ -1466,7 +1473,7 @@ async function openInDesktop(filePath) {
     throw new Error(`File does not exist: ${absolutePath}`);
   const application = await findDesktopApplication();
   if (application === null) {
-    throw new Error(`tldraw Offline is not installed. Run "diagram desktop install" or visit ${desktopDownloadPage}`);
+    throw new Error(`tldraw Offline is not installed. Run "graphics desktop install" or visit ${desktopDownloadPage}`);
   }
   if (hostPlatform() === "darwin") {
     spawnDetached(["open", "-a", application, absolutePath]);
@@ -1483,7 +1490,7 @@ import { homedir as homedir2 } from "os";
 import { dirname as dirname4, join as join3, resolve as resolve4 } from "path";
 import { fileURLToPath } from "url";
 function bundledSkillPath() {
-  return resolve4(dirname4(fileURLToPath(import.meta.url)), "../skills/diagram");
+  return resolve4(dirname4(fileURLToPath(import.meta.url)), "../skills/graphics");
 }
 function targetRoot(target, scope, projectDirectory) {
   const directory = target === "codex" ? ".codex" : target === "claude" ? ".claude" : ".agents";
@@ -1493,7 +1500,12 @@ async function installSkill(options) {
   const source = bundledSkillPath();
   if (!await pathExists(source))
     throw new Error(`Bundled skill is missing: ${source}`);
-  const destination = join3(targetRoot(options.target, options.scope, resolve4(options.projectDirectory ?? process.cwd())), "diagram");
+  const root = targetRoot(options.target, options.scope, resolve4(options.projectDirectory ?? process.cwd()));
+  const legacy = join3(root, "diagram");
+  if (await pathExists(legacy)) {
+    throw new Error(`Legacy diagram skill found at ${legacy}. Remove or move that directory, then rerun "graphics skill install --target ${options.target} --scope ${options.scope}". Graphics will not install both skills side by side.`);
+  }
+  const destination = join3(root, "graphics");
   if (await pathExists(destination)) {
     if (!options.force) {
       throw new Error(`Skill already exists at ${destination}; pass --force to replace it`);

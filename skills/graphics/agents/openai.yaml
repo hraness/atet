@@ -1,4 +1,4 @@
 interface:
-  display_name: "Diagram"
+  display_name: "Graphics"
   short_description: "Create clear editable diagrams and themed exports"
   default_prompt: "Create or update a concise diagram that follows my prompt literally."

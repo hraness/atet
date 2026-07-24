@@ -15,9 +15,9 @@ async function run(command: readonly string[], cwd: string): Promise<void> {
 }
 
 const repository = process.cwd()
-const work = await mkdtemp(join(tmpdir(), "diagram-package-smoke-"))
+const work = await mkdtemp(join(tmpdir(), "graphics-package-smoke-"))
 try {
-  const archive = join(work, "diagram.tgz")
+  const archive = join(work, "graphics.tgz")
   const consumer = join(work, "consumer")
   await mkdir(consumer)
   await run(
@@ -37,7 +37,7 @@ try {
     JSON.stringify({ private: true, type: "module" }),
   )
   await run([process.execPath, "add", archive, "--ignore-scripts"], consumer)
-  const binary = join(consumer, "node_modules", ".bin", "diagram")
+  const binary = join(consumer, "node_modules", ".bin", "graphics")
   await run([binary, "--help"], consumer)
   await run([binary, "init", "smoke.diagram.json"], consumer)
   await run([binary, "render", "smoke.diagram.json"], consumer)
@@ -50,13 +50,13 @@ try {
       "node",
       "--input-type=module",
       "-e",
-      'const api = await import("@cclrte/diagram"); if (typeof api.renderSvg !== "function") process.exit(1)',
+      'const api = await import("@cclrte/graphics"); if (typeof api.renderSvg !== "function") process.exit(1)',
     ],
     consumer,
   )
-  const skill = join(consumer, "node_modules", "@cclrte", "diagram", "skills", "diagram", "SKILL.md")
-  if (!(await Bun.file(skill).exists())) throw new Error("Packed package omitted skills/diagram")
-  const installedSkill = join(consumer, ".agents", "skills", "diagram", "SKILL.md")
+  const skill = join(consumer, "node_modules", "@cclrte", "graphics", "skills", "graphics", "SKILL.md")
+  if (!(await Bun.file(skill).exists())) throw new Error("Packed package omitted skills/graphics")
+  const installedSkill = join(consumer, ".agents", "skills", "graphics", "SKILL.md")
   if (!(await Bun.file(installedSkill).exists())) {
     throw new Error("Packaged CLI could not install its bundled skill")
   }
@@ -67,7 +67,7 @@ try {
   await writeFile(
     join(consumer, "index.ts"),
     [
-      'import { parseDiagramSpec, type DiagramConfig } from "@cclrte/diagram"',
+      'import { parseDiagramSpec, type DiagramConfig } from "@cclrte/graphics"',
       "const config = {} satisfies DiagramConfig",
       "void config",
       "void parseDiagramSpec({ version: 1, name: \"typed\", canvas: { width: 1, height: 1 }, shapes: [] })",

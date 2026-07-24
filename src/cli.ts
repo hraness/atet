@@ -16,23 +16,23 @@ import {
 import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.ts"
 import { pathExists } from "./fs.ts"
 
-const version = "0.1.0"
+const version = "0.2.0"
 
-const help = `diagram ${version}
+const help = `graphics ${version}
 
 Create concise diagrams from a checked JSON source.
 
 Usage:
-  diagram init [file]
-  diagram check <file> [--config <file>] [--strict]
-  diagram render <file> [--out-dir <directory>] [--config <file>] [--scale <number>]
-  diagram open <file.tldr|file.tldraw>
-  diagram doctor
-  diagram desktop status
-  diagram desktop url
-  diagram desktop install [--yes] [--download-only]
-  diagram skill path
-  diagram skill install [--target codex|claude|agents] [--scope user|project] [--force]
+  graphics init [file]
+  graphics check <file> [--config <file>] [--strict]
+  graphics render <file> [--out-dir <directory>] [--config <file>] [--scale <number>]
+  graphics open <file.tldr|file.tldraw>
+  graphics doctor
+  graphics desktop status
+  graphics desktop url
+  graphics desktop install [--yes] [--download-only]
+  graphics skill path
+  graphics skill install [--target codex|claude|agents] [--scope user|project] [--force]
 
 Render writes the same five replaceable artifacts on every run:
   <name>.tldr
@@ -96,7 +96,7 @@ function printFindings(findings: Awaited<ReturnType<typeof checkDiagramFile>>["f
 }
 
 const starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/diagram/main/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/graphics/main/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },
@@ -200,7 +200,7 @@ async function main(args: readonly string[]): Promise<void> {
 
   if (command === "doctor") {
     const status = await desktopStatus()
-    console.log(`diagram ${version}`)
+    console.log(`graphics ${version}`)
     console.log(`Bun ${process.versions.bun ?? "not detected"}`)
     console.log("Headless SVG/PNG renderer ready")
     console.log(
@@ -254,7 +254,7 @@ async function main(args: readonly string[]): Promise<void> {
       )
       return
     }
-    throw new Error("Use diagram desktop status, url, or install")
+    throw new Error("Use graphics desktop status, url, or install")
   }
 
   if (command === "skill") {
@@ -282,10 +282,10 @@ async function main(args: readonly string[]): Promise<void> {
           : { projectDirectory: parsed.options.project }),
         force: parsed.flags.has("force"),
       })
-      console.log(`Installed diagram skill at ${destination}`)
+      console.log(`Installed graphics skill at ${destination}`)
       return
     }
-    throw new Error("Use diagram skill path or install")
+    throw new Error("Use graphics skill path or install")
   }
 
   throw new Error(`Unknown command: ${command}\n\n${help}`)

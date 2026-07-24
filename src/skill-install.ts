@@ -8,7 +8,7 @@ export type SkillTarget = "codex" | "claude" | "agents"
 export type SkillScope = "user" | "project"
 
 export function bundledSkillPath(): string {
-  return resolve(dirname(fileURLToPath(import.meta.url)), "../skills/diagram")
+  return resolve(dirname(fileURLToPath(import.meta.url)), "../skills/graphics")
 }
 
 function targetRoot(target: SkillTarget, scope: SkillScope, projectDirectory: string): string {
@@ -25,10 +25,18 @@ export async function installSkill(options: {
 }): Promise<string> {
   const source = bundledSkillPath()
   if (!(await pathExists(source))) throw new Error(`Bundled skill is missing: ${source}`)
-  const destination = join(
-    targetRoot(options.target, options.scope, resolve(options.projectDirectory ?? process.cwd())),
-    "diagram",
+  const root = targetRoot(
+    options.target,
+    options.scope,
+    resolve(options.projectDirectory ?? process.cwd()),
   )
+  const legacy = join(root, "diagram")
+  if (await pathExists(legacy)) {
+    throw new Error(
+      `Legacy diagram skill found at ${legacy}. Remove or move that directory, then rerun "graphics skill install --target ${options.target} --scope ${options.scope}". Graphics will not install both skills side by side.`,
+    )
+  }
+  const destination = join(root, "graphics")
   if (await pathExists(destination)) {
     if (!options.force) {
       throw new Error(`Skill already exists at ${destination}; pass --force to replace it`)

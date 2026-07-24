@@ -1,13 +1,13 @@
 # Fonts and icon adapters
 
-`diagram` deliberately ships no commercial font and no large icon set.
+`graphics` deliberately ships no commercial font and no large icon set.
 
 ## Custom font
 
-Create `diagram.config.ts` beside the source:
+Create `graphics.config.ts` beside the source:
 
 ```ts
-import type { DiagramConfig } from "@cclrte/diagram"
+import type { DiagramConfig } from "@cclrte/graphics"
 
 export default {
   font: {
@@ -42,7 +42,7 @@ the export adapter owns custom typography.
 An icon definition has a view box and SVG body:
 
 ```ts
-import type { DiagramConfig } from "@cclrte/diagram"
+import type { DiagramConfig } from "@cclrte/graphics"
 
 export default {
   icons: {
@@ -64,7 +64,7 @@ separate movable tldraw shapes.
 
 To use a third-party icon package, write a small local adapter that converts the
 package's data into `{ viewBox, body }`. Keep that package in the consuming
-repository rather than adding it to `diagram`. Preserve the icon package's
+repository rather than adding it to `graphics`. Preserve the icon package's
 license and attribution requirements.
 
 Icon bodies may contain ordinary SVG geometry such as `path`, `circle`, `rect`,

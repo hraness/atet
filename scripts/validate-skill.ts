@@ -1,7 +1,7 @@
 import { access, readFile } from "node:fs/promises"
 import { join } from "node:path"
 
-const root = join(process.cwd(), "skills", "diagram")
+const root = join(process.cwd(), "skills", "graphics")
 const skillPath = join(root, "SKILL.md")
 const text = await readFile(skillPath, "utf8")
 const match = /^---\n([\s\S]*?)\n---\n/.exec(text)
@@ -21,7 +21,7 @@ const keys = Object.keys(frontmatter).sort()
 if (keys.join(",") !== "description,name") {
   throw new Error(`SKILL.md frontmatter must contain only name and description, received ${keys}`)
 }
-if (frontmatter.name !== "diagram") throw new Error("Skill name must be diagram")
+if (frontmatter.name !== "graphics") throw new Error("Skill name must be graphics")
 if ((frontmatter.description?.length ?? 0) < 40) {
   throw new Error("Skill description must explain capability and triggers")
 }
@@ -43,4 +43,4 @@ const openai = await readFile(join(root, "agents", "openai.yaml"), "utf8")
 for (const required of ["display_name:", "short_description:", "default_prompt:"]) {
   if (!openai.includes(required)) throw new Error(`agents/openai.yaml is missing ${required}`)
 }
-console.log("diagram skill is valid")
+console.log("graphics skill is valid")

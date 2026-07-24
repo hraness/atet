@@ -1,6 +1,6 @@
 # Notices
 
-`diagram` is an independent project and is not affiliated with or endorsed by
+Graphics is an independent project and is not affiliated with or endorsed by
 tldraw, Inc.
 
 The runtime package does not include the tldraw SDK or tldraw Offline. It writes
@@ -9,7 +9,7 @@ diagram into compatible tldraw software. The development test suite optionally
 uses the upstream `tldraw` package to check compatibility; that package remains
 under the [tldraw license](https://tldraw.dev/community/license).
 
-The optional `diagram desktop install` command downloads an unmodified installer
+The optional `graphics desktop install` command downloads an unmodified installer
 from the official
 [`tldraw/tldraw-offline`](https://github.com/tldraw/tldraw-offline) GitHub
 release and verifies the SHA-256 digest published by GitHub. tldraw Offline is
