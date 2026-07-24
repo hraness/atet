@@ -15,7 +15,7 @@ Copy this prompt into Codex, Claude Code, or another coding agent:
 
 ```text
 Install the diagram CLI and bundled Agent Skill from
-https://github.com/CCLRTE/diagram at the immutable v0.1.0 tag. Follow the
+https://github.com/hraness/diagram at the immutable v0.1.0 tag. Follow the
 repository README, install the skill in this agent runner's configured skills
 directory, run `diagram doctor`, and verify the installation by rendering the
 included example. Do not install tldraw Offline unless I ask to edit the canvas
@@ -33,7 +33,7 @@ Install the immutable release and then place the bundled skill where your agent
 runner discovers skills:
 
 ```sh
-bun add --global github:CCLRTE/diagram#v0.1.0
+bun add --global github:hraness/diagram#v0.1.0
 diagram skill install --target codex --scope user
 diagram doctor
 ```
@@ -53,7 +53,7 @@ shipped inside the installed package.
 Contributors can install from a checkout:
 
 ```sh
-git clone https://github.com/CCLRTE/diagram.git
+git clone https://github.com/hraness/diagram.git
 cd diagram
 bun install --frozen-lockfile
 bun run check
@@ -84,7 +84,7 @@ The source stays readable and reviewable:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/CCLRTE/diagram/main/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/diagram/main/schema/diagram.schema.json",
   "version": 1,
   "name": "example-flow",
   "canvas": { "width": 960, "height": 540, "padding": 64 },

@@ -8,11 +8,11 @@
   "packageManager": "bun@1.3.14",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CCLRTE/diagram.git"
+    "url": "git+https://github.com/hraness/diagram.git"
   },
-  "homepage": "https://github.com/CCLRTE/diagram#readme",
+  "homepage": "https://github.com/hraness/diagram#readme",
   "bugs": {
-    "url": "https://github.com/CCLRTE/diagram/issues"
+    "url": "https://github.com/hraness/diagram/issues"
   },
   "keywords": [
     "diagram",

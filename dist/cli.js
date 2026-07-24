@@ -1638,7 +1638,7 @@ function printFindings(findings) {
   }
 }
 var starter = {
-  $schema: "https://raw.githubusercontent.com/CCLRTE/diagram/main/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/diagram/main/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },
