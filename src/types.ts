@@ -11,6 +11,8 @@ export type Tone =
 
 export type Anchor = "auto" | "top" | "right" | "bottom" | "left"
 export type ColorMode = "light" | "dark"
+export type StackDirection = "horizontal" | "vertical"
+export type StackAlign = "start" | "center" | "end"
 
 export interface DiagramCanvas {
   readonly width: number
@@ -55,6 +57,7 @@ export interface LineShape extends BaseShape {
 }
 
 export type DiagramShape = BoxShape | TextShape | LineShape
+export type StackShape = Omit<BoxShape, "x" | "y">
 
 export interface DiagramEdge {
   readonly id: string
@@ -68,6 +71,13 @@ export interface DiagramEdge {
   readonly arrowhead?: "arrow" | "triangle" | "none"
 }
 
+export interface StackDiagramEdge
+  extends Omit<DiagramEdge, "start" | "end" | "bend"> {
+  readonly start?: "auto"
+  readonly end?: "auto"
+  readonly bend?: 0
+}
+
 export interface DiagramSpec {
   readonly $schema?: string
   readonly version: typeof diagramVersion
@@ -76,6 +86,25 @@ export interface DiagramSpec {
   readonly shapes: readonly DiagramShape[]
   readonly edges?: readonly DiagramEdge[]
 }
+
+export interface StackLayout {
+  readonly type: "stack"
+  readonly direction: StackDirection
+  readonly gap?: number
+  readonly align?: StackAlign
+}
+
+export interface StackDiagramSource {
+  readonly $schema?: string
+  readonly version: typeof diagramVersion
+  readonly name: string
+  readonly canvas: DiagramCanvas
+  readonly layout: StackLayout
+  readonly shapes: readonly StackShape[]
+  readonly edges?: readonly StackDiagramEdge[]
+}
+
+export type DiagramSource = DiagramSpec | StackDiagramSource
 
 export interface IconDefinition {
   readonly viewBox: string

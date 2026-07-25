@@ -21,3 +21,17 @@ Raster output uses
 [`@resvg/resvg-js`](https://github.com/yisibl/resvg-js), distributed under the
 Mozilla Public License 2.0. It is installed as a separate runtime dependency
 and is not relicensed by this project.
+
+Raster-to-SVG conversion uses
+[`VTracer`](https://github.com/visioncortex/vtracer), distributed under the MIT
+License. The package does not bundle VTracer. On first use it downloads an
+unmodified macOS or Linux platform archive from the official VTracer 0.6.4
+GitHub release, verifies both archive and extracted binary SHA-256, and caches
+the binary outside the package.
+
+Raster decoding and fidelity measurement use
+[`sharp`](https://github.com/lovell/sharp), distributed under the Apache
+License 2.0. Sharp's prebuilt
+[`libvips`](https://github.com/libvips/libvips) dependency is distributed under
+the GNU Lesser General Public License 3.0 or later. Both remain separately
+installed runtime dependencies and are not relicensed by this project.

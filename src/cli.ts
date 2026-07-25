@@ -11,12 +11,14 @@ import {
   installDesktop,
   openInDesktop,
   renderDiagramFile,
+  runMcpServer,
   selectDesktopAsset,
+  vectorizeImage,
 } from "./index.ts"
 import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.ts"
 import { pathExists } from "./fs.ts"
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 const help = `graphics ${version}
 
@@ -26,6 +28,8 @@ Usage:
   graphics init [file]
   graphics check <file> [--config <file>] [--strict]
   graphics render <file> [--out-dir <directory>] [--config <file>] [--scale <number>]
+  graphics vectorize <image> --output <file.svg> [--json] [--duotone <#rgb,#rgb>]
+  graphics mcp --root <workspace>
   graphics open <file.tldr|file.tldraw>
   graphics doctor
   graphics desktop status
@@ -44,6 +48,14 @@ Render writes the same five replaceable artifacts on every run:
 The .tldr file is editable tldraw interchange. It imports into tldraw Offline,
 which can save the newer app-owned .tldraw bundle. Rendering does not require
 tldraw Offline or the tldraw SDK.
+
+Vectorize adaptively traces a raster with a checksum-pinned VTracer binary.
+It enforces bounded input, decode, time, path, and output budgets and emits a
+safe path-only SVG (plus an internal vector alpha mask when fidelity requires).
+
+MCP exposes only root-relative check_diagram and render_diagram tools for a
+trusted local workspace. It uses built-in assets, never executes workspace
+config, and writes protocol messages only to stdout.
 `
 
 interface ParsedArguments {
@@ -84,6 +96,33 @@ function requiredPositional(parsed: ParsedArguments, index: number, label: strin
   return value
 }
 
+function requiredOption(parsed: ParsedArguments, name: string): string {
+  const value = parsed.options[name]
+  if (value === undefined) throw new Error(`--${name} is required`)
+  return value
+}
+
+function parsePositiveInteger(value: string | undefined, name: string): number | undefined {
+  if (value === undefined) return undefined
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`--${name} must be a positive integer`)
+  }
+  return parsed
+}
+
+function parseDuotone(value: string | undefined): readonly [string, string] | undefined {
+  if (value === undefined) return undefined
+  const colors = value.split(",").map((color) => color.trim())
+  if (
+    colors.length !== 2 ||
+    colors.some((color) => !/^#[a-f0-9]{3}(?:[a-f0-9]{3})?$/iu.test(color))
+  ) {
+    throw new Error("--duotone must contain two #rgb or #rrggbb colors separated by a comma")
+  }
+  return [colors[0]!, colors[1]!]
+}
+
 function printFindings(findings: Awaited<ReturnType<typeof checkDiagramFile>>["findings"]): void {
   if (findings.length === 0) {
     console.log("No diagram lint findings.")
@@ -96,16 +135,15 @@ function printFindings(findings: Awaited<ReturnType<typeof checkDiagramFile>>["f
 }
 
 const starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/graphics/main/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/graphics/v0.3.0/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },
+  layout: { type: "stack", direction: "horizontal", gap: 160, align: "center" },
   shapes: [
     {
       id: "source",
       type: "rect",
-      x: 100,
-      y: 170,
       width: 240,
       height: 160,
       label: "Source",
@@ -115,8 +153,6 @@ const starter = {
     {
       id: "result",
       type: "rect",
-      x: 620,
-      y: 170,
       width: 240,
       height: 160,
       label: "Result",
@@ -191,6 +227,57 @@ async function main(args: readonly string[]): Promise<void> {
     return
   }
 
+  if (command === "vectorize") {
+    const parsed = parseArguments(
+      rest,
+      new Set(["output", "duotone", "alpha-cutoff", "timeout-ms"]),
+    )
+    const unknownFlags = [...parsed.flags].filter((flag) => flag !== "json")
+    if (unknownFlags.length > 0) {
+      throw new Error(`Unknown vectorize option: --${unknownFlags[0]}`)
+    }
+    if (parsed.positionals.length > 1) {
+      throw new Error("graphics vectorize accepts exactly one raster input")
+    }
+    const output = requiredOption(parsed, "output")
+    if (!output.toLowerCase().endsWith(".svg")) {
+      throw new Error("--output must end in .svg")
+    }
+    const alphaCutoff = parsePositiveInteger(parsed.options["alpha-cutoff"], "alpha-cutoff")
+    const timeoutMs = parsePositiveInteger(parsed.options["timeout-ms"], "timeout-ms")
+    const duotone = parseDuotone(parsed.options.duotone)
+    const result = await vectorizeImage(
+      requiredPositional(parsed, 0, "raster image"),
+      {
+        ...(alphaCutoff === undefined ? {} : { alphaCutoff }),
+        ...(duotone === undefined ? {} : { duotone }),
+        ...(timeoutMs === undefined ? {} : { limits: { maxDurationMs: timeoutMs } }),
+        outputPath: output,
+      },
+    )
+    if (parsed.flags.has("json")) {
+      console.log(JSON.stringify({ ...result.receipt, outputPath: result.outputPath }, null, 2))
+    } else {
+      console.log(
+        `Vectorized ${result.receipt.width}×${result.receipt.height} with `
+          + `${result.receipt.profile}/${result.receipt.representation}: ${result.outputPath}`,
+      )
+    }
+    return
+  }
+
+  if (command === "mcp") {
+    const parsed = parseArguments(rest, new Set(["root"]))
+    if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
+      throw new Error("graphics mcp accepts only --root <workspace>")
+    }
+    await runMcpServer({
+      rootDirectory: requiredOption(parsed, "root"),
+      serverVersion: version,
+    })
+    return
+  }
+
   if (command === "open") {
     const parsed = parseArguments(rest, new Set())
     await openInDesktop(requiredPositional(parsed, 0, "tldraw file"))
@@ -203,6 +290,12 @@ async function main(args: readonly string[]): Promise<void> {
     console.log(`graphics ${version}`)
     console.log(`Bun ${process.versions.bun ?? "not detected"}`)
     console.log("Headless SVG/PNG renderer ready")
+    console.log(
+      process.platform === "win32"
+        ? "Adaptive raster-to-SVG vectorizer unavailable on Windows (fails closed with tool_platform)"
+        : "Adaptive raster-to-SVG vectorizer ready (VTracer downloads on first use)",
+    )
+    console.log("Root-relative MCP check/render server ready (trusted local workspace)")
     console.log(
       status.installedPath === null
         ? "tldraw Offline not installed (optional)"

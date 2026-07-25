@@ -1,6 +1,6 @@
 ---
 name: graphics
-description: Create or update concise diagrams from a literal user prompt, keep a checked `.diagram.json` source, generate light/dark image exports, and provide editable tldraw interchange. Use for diagrams, flowcharts, maps, visual explanations, architecture overviews, bar charts, `.tldr` files, or paired knowledge-base visuals.
+description: Create or update concise diagrams from a literal user prompt, keep a checked `.diagram.json` source, generate light/dark image exports, provide editable tldraw interchange, or convert caller-owned raster artwork to bounded SVG. Use for diagrams, flowcharts, maps, visual explanations, architecture overviews, bar charts, `.tldr` files, paired knowledge-base visuals, or image-to-SVG conversion.
 ---
 
 # Create clear diagrams
@@ -29,9 +29,10 @@ Treat the user's prompt as the complete content specification.
 2. Search for an existing same-subject `.diagram.json` before creating one.
 3. Update that source rather than editing generated images or creating a
    duplicate.
-4. In a knowledge base with `kb/`, use
-   `kb/diagrams/<slug>.diagram.json` and pair it with
-   `kb/notes/<slug>.md`. Embed or link the rendered light/dark image according
+4. In a knowledge base with `info/`, use
+   `info/diagrams/<slug>.diagram.json` and pair it with
+   `info/notes/<slug>.md`. In a repository that still uses `kb/`, use the same
+   relative paths there. Embed or link the rendered light/dark image according
    to the host's convention, and link knowledge through the note rather than
    through a binary canvas.
 5. Outside a knowledge base, default to `diagrams/<slug>.diagram.json`.
@@ -60,6 +61,32 @@ Apply these defaults deeply:
 
 Do not “improve” literal data to satisfy these preferences. The prompt wins.
 
+## Let deterministic layout own ordinary coordinates
+
+Use a coordinate-free `stack` layout for one horizontal or vertical sequence:
+
+```json
+{
+  "layout": {
+    "type": "stack",
+    "direction": "horizontal",
+    "gap": 160,
+    "align": "center"
+  }
+}
+```
+
+- Array order controls placement only. Draw an edge only when the prompt
+  supplied that relationship.
+- Keep stack shapes to rectangles or ellipses and omit `x` and `y`.
+- Use the default 160px gap unless the prompt or publication frame requires a
+  different runway.
+- Switch to positioned mode for branching, non-adjacent edges, charts, free
+  text, lines, or deliberately unequal placement. Do not force those meanings
+  into a one-dimensional stack.
+- If a stack does not fit, increase the canvas or reduce authored dimensions
+  explicitly. Do not silently shrink shapes or gaps.
+
 ## Author and render
 
 Use the public schema URL or run `graphics init` for a starter:
@@ -77,6 +104,52 @@ If the repository uses its own font or icon package, read
 [customization.md](references/customization.md). Do not add MonoLisa or another
 licensed font to the repository. Default rendering uses the system sans-serif
 stack.
+
+## Vectorize a raster without changing its meaning
+
+When the user asks to convert caller-owned raster artwork to SVG, keep the
+raster as the source and treat the SVG as a replaceable derivative:
+
+```sh
+graphics vectorize path/to/input.png --output path/to/input.svg --json
+```
+
+- Do not redraw, relabel, crop, recolor, or simplify the subject beyond the
+  trace mechanics the command measures.
+- Use `--duotone '#primary,#secondary'` only when the user explicitly asks for
+  that two-color adaptation.
+- Preserve the emitted receipt in task output or an adjacent provenance record
+  when auditability matters.
+- Do not bypass input, decoded-pixel, duration, path, byte, or fidelity gates.
+- Inspect the SVG at its intended size. A successful trace is not evidence
+  that an unfamiliar symbol communicates the intended concept.
+
+VTracer downloads from its checksum-pinned official release on first use. Use
+`GRAPHICS_VTRACER_PATH` only for a compatible local 0.6.4 binary; Graphics still
+records its hash. Never add an upscaling model, embedded raster fallback, or
+commercial font to make a trace pass.
+
+Bounded vectorization is currently supported on macOS and Linux. On Windows,
+report the deliberate `tool_platform` failure; do not bypass it with an
+unbounded temporary output file.
+
+## Use a connected tool server narrowly
+
+When `check_diagram` and `render_diagram` are available through Graphics MCP,
+prefer them for validation and repeatable export. Continue to edit the checked
+source directly; the initial tool surface does not create or rewrite source.
+
+- Pass only root-relative `.diagram.json` paths.
+- Treat `check_diagram` as read-only.
+- Treat `render_diagram` as approval to replace the five documented generated
+  artifacts, never the source.
+- Use the CLI rather than MCP for a source above 64 shapes or 128 edges. MCP
+  returns at most 40 findings and reports when that list is truncated.
+- MCP mode deliberately uses built-in themes and icons and never executes
+  workspace config. Use the CLI outside MCP when a trusted local config is
+  required.
+- Do not expect `vectorize` through the initial MCP surface. Use the explicit
+  CLI command so its possible first-use download remains visible.
 
 ## Use tldraw deliberately
 

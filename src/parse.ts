@@ -3,12 +3,20 @@ import {
   type Anchor,
   type BoxShape,
   type DiagramEdge,
+  type DiagramSource,
   type DiagramShape,
   type DiagramSpec,
   type LineShape,
+  type StackAlign,
+  type StackDiagramEdge,
+  type StackDiagramSource,
+  type StackDirection,
+  type StackLayout,
+  type StackShape,
   type TextShape,
   type Tone,
 } from "./types.ts"
+import { resolveDiagramSource } from "./layout.ts"
 
 const tones = new Set<Tone>([
   "neutral",
@@ -20,6 +28,8 @@ const tones = new Set<Tone>([
   "yellow",
 ])
 const anchors = new Set<Anchor>(["auto", "top", "right", "bottom", "left"])
+const stackDirections = new Set<StackDirection>(["horizontal", "vertical"])
+const stackAlignments = new Set<StackAlign>(["start", "center", "end"])
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
 const namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
@@ -294,6 +304,77 @@ function parseShape(value: unknown, index: number, issues: string[]): DiagramSha
   return null
 }
 
+function parseStackShape(value: unknown, index: number, issues: string[]): StackShape | null {
+  const at = `shapes[${index}]`
+  if (!isRecord(value)) {
+    issues.push(`${at} must be an object`)
+    return null
+  }
+  validateKnownKeys(
+    value,
+    new Set([
+      "id",
+      "type",
+      "tone",
+      "opacity",
+      "width",
+      "height",
+      "radius",
+      "label",
+      "icon",
+      "iconSize",
+      "strokeWidth",
+      "fill",
+    ]),
+    at,
+    issues,
+  )
+  const id = readString(value, "id", at, issues)
+  if (id !== undefined && !idPattern.test(id)) {
+    issues.push(`${at}.id must contain only letters, numbers, underscores, or hyphens`)
+  }
+  const type = readString(value, "type", at, issues)
+  if (type !== undefined && type !== "rect" && type !== "ellipse") {
+    issues.push(`${at}.type must be rect or ellipse in a stack layout`)
+  }
+  const width = readNumber(value, "width", at, issues, { positive: true })
+  const height = readNumber(value, "height", at, issues, { positive: true })
+  const tone = readOptionalTone(value, "tone", at, issues)
+  const opacity = readOptionalNumber(value, "opacity", at, issues, { nonNegative: true })
+  if (opacity !== undefined && opacity > 1) issues.push(`${at}.opacity must not exceed 1`)
+  const radius = readOptionalNumber(value, "radius", at, issues, { nonNegative: true })
+  const label = readOptionalString(value, "label", at, issues)
+  const icon = readOptionalString(value, "icon", at, issues)
+  const iconSize = readOptionalNumber(value, "iconSize", at, issues, { positive: true })
+  const strokeWidth = readOptionalNumber(value, "strokeWidth", at, issues, {
+    nonNegative: true,
+  })
+  const fill = value.fill
+  if (fill !== undefined && typeof fill !== "boolean") issues.push(`${at}.fill must be a boolean`)
+  if (
+    id === undefined ||
+    (type !== "rect" && type !== "ellipse") ||
+    width === undefined ||
+    height === undefined
+  ) {
+    return null
+  }
+  return {
+    id,
+    type,
+    width,
+    height,
+    ...(tone === undefined ? {} : { tone }),
+    ...(opacity === undefined ? {} : { opacity }),
+    ...(radius === undefined ? {} : { radius }),
+    ...(label === undefined ? {} : { label }),
+    ...(icon === undefined ? {} : { icon }),
+    ...(iconSize === undefined ? {} : { iconSize }),
+    ...(strokeWidth === undefined ? {} : { strokeWidth }),
+    ...(typeof fill === "boolean" ? { fill } : {}),
+  }
+}
+
 function parseEdge(value: unknown, index: number, issues: string[]): DiagramEdge | null {
   const at = `edges[${index}]`
   if (!isRecord(value)) {
@@ -347,10 +428,63 @@ function parseEdge(value: unknown, index: number, issues: string[]): DiagramEdge
   }
 }
 
-export function parseDiagramSpec(value: unknown): DiagramSpec {
+function parseStackLayout(value: unknown, issues: string[]): StackLayout | null {
+  if (!isRecord(value)) {
+    issues.push("layout must be an object")
+    return null
+  }
+  validateKnownKeys(value, new Set(["type", "direction", "gap", "align"]), "layout", issues)
+  if (value.type !== "stack") issues.push("layout.type must be stack")
+  const direction = value.direction
+  if (
+    typeof direction !== "string" ||
+    !stackDirections.has(direction as StackDirection)
+  ) {
+    issues.push("layout.direction must be horizontal or vertical")
+  }
+  const gap = readOptionalNumber(value, "gap", "layout", issues, { nonNegative: true })
+  const align = value.align
+  if (
+    align !== undefined &&
+    (typeof align !== "string" || !stackAlignments.has(align as StackAlign))
+  ) {
+    issues.push("layout.align must be start, center, or end")
+  }
+  if (
+    value.type !== "stack" ||
+    typeof direction !== "string" ||
+    !stackDirections.has(direction as StackDirection)
+  ) {
+    return null
+  }
+  return {
+    type: "stack",
+    direction: direction as StackDirection,
+    ...(gap === undefined ? {} : { gap }),
+    ...(align === undefined || !stackAlignments.has(align as StackAlign)
+      ? {}
+      : { align: align as StackAlign }),
+  }
+}
+
+export function parseDiagramSource(value: unknown): DiagramSource {
   const issues: string[] = []
   if (!isRecord(value)) throw new DiagramValidationError(["root must be an object"])
-  validateKnownKeys(value, new Set(["$schema", "version", "name", "canvas", "shapes", "edges"]), "root", issues)
+  const isStackSource = "layout" in value
+  validateKnownKeys(
+    value,
+    new Set([
+      "$schema",
+      "version",
+      "name",
+      "canvas",
+      "shapes",
+      "edges",
+      ...(isStackSource ? ["layout"] : []),
+    ]),
+    "root",
+    issues,
+  )
 
   if (value.version !== diagramVersion) issues.push(`version must be ${diagramVersion}`)
   const name = readString(value, "name", "root", issues)
@@ -374,14 +508,24 @@ export function parseDiagramSpec(value: unknown): DiagramSpec {
     }
   }
 
+  const layout = isStackSource ? parseStackLayout(value.layout, issues) : null
   const shapesValue = value.shapes
-  const shapes: DiagramShape[] = []
+  const positionedShapes: DiagramShape[] = []
+  const stackShapes: StackShape[] = []
   if (!Array.isArray(shapesValue)) {
     issues.push("shapes must be an array")
   } else {
+    if (isStackSource && (shapesValue.length < 1 || shapesValue.length > 9)) {
+      issues.push("stack layouts must contain between 1 and 9 shapes")
+    }
     for (const [index, shape] of shapesValue.entries()) {
-      const parsed = parseShape(shape, index, issues)
-      if (parsed !== null) shapes.push(parsed)
+      if (isStackSource) {
+        const parsed = parseStackShape(shape, index, issues)
+        if (parsed !== null) stackShapes.push(parsed)
+      } else {
+        const parsed = parseShape(shape, index, issues)
+        if (parsed !== null) positionedShapes.push(parsed)
+      }
     }
   }
 
@@ -398,6 +542,7 @@ export function parseDiagramSpec(value: unknown): DiagramSpec {
     }
   }
 
+  const shapes = isStackSource ? stackShapes : positionedShapes
   const allIds = new Set<string>()
   for (const [kind, records] of [
     ["shape", shapes],
@@ -409,7 +554,12 @@ export function parseDiagramSpec(value: unknown): DiagramSpec {
     }
   }
   const connectableIds = new Set(
-    shapes.filter((shape): shape is BoxShape => shape.type === "rect" || shape.type === "ellipse").map((shape) => shape.id),
+    shapes
+      .filter(
+        (shape): shape is BoxShape | StackShape =>
+          shape.type === "rect" || shape.type === "ellipse",
+      )
+      .map((shape) => shape.id),
   )
   for (const edge of edges) {
     if (!connectableIds.has(edge.from)) issues.push(`edge ${edge.id} has unknown or non-connectable from id ${edge.from}`)
@@ -417,15 +567,78 @@ export function parseDiagramSpec(value: unknown): DiagramSpec {
     if (edge.from === edge.to) issues.push(`edge ${edge.id} cannot connect a shape to itself`)
   }
 
-  if (issues.length > 0 || name === undefined || canvas === null) {
+  if (isStackSource) {
+    const indexes = new Map(stackShapes.map((shape, index) => [shape.id, index]))
+    const connectedPairs = new Set<string>()
+    for (const edge of edges) {
+      const fromIndex = indexes.get(edge.from)
+      const toIndex = indexes.get(edge.to)
+      if (
+        fromIndex !== undefined &&
+        toIndex !== undefined &&
+        Math.abs(fromIndex - toIndex) !== 1
+      ) {
+        issues.push(`edge ${edge.id} must connect adjacent stack shapes`)
+      }
+      if (fromIndex !== undefined && toIndex !== undefined && fromIndex !== toIndex) {
+        const pair = [fromIndex, toIndex].sort((left, right) => left - right).join(":")
+        if (connectedPairs.has(pair)) {
+          issues.push(`edge ${edge.id} duplicates a connection between the same stack shapes`)
+        }
+        connectedPairs.add(pair)
+      }
+      if (edge.start !== undefined && edge.start !== "auto") {
+        issues.push(`edge ${edge.id}.start must be auto or omitted in a stack layout`)
+      }
+      if (edge.end !== undefined && edge.end !== "auto") {
+        issues.push(`edge ${edge.id}.end must be auto or omitted in a stack layout`)
+      }
+      if (edge.bend !== undefined && edge.bend !== 0) {
+        issues.push(`edge ${edge.id}.bend must be 0 or omitted in a stack layout`)
+      }
+    }
+  }
+
+  if (
+    issues.length > 0 ||
+    name === undefined ||
+    canvas === null ||
+    (isStackSource && layout === null)
+  ) {
     throw new DiagramValidationError(issues)
   }
-  return {
+  const common = {
     ...("$schema" in value && typeof value.$schema === "string" ? { $schema: value.$schema } : {}),
     version: diagramVersion,
     name,
     canvas,
-    shapes,
+  } as const
+  if (isStackSource) {
+    const stackEdges: readonly StackDiagramEdge[] = edges.map((edge) => ({
+      id: edge.id,
+      from: edge.from,
+      to: edge.to,
+      ...(edge.label === undefined ? {} : { label: edge.label }),
+      ...(edge.tone === undefined ? {} : { tone: edge.tone }),
+      ...(edge.start === "auto" ? { start: edge.start } : {}),
+      ...(edge.end === "auto" ? { end: edge.end } : {}),
+      ...(edge.bend === 0 ? { bend: edge.bend } : {}),
+      ...(edge.arrowhead === undefined ? {} : { arrowhead: edge.arrowhead }),
+    }))
+    return {
+      ...common,
+      layout: layout as StackLayout,
+      shapes: stackShapes,
+      ...(edgesValue === undefined ? {} : { edges: stackEdges }),
+    } satisfies StackDiagramSource
+  }
+  return {
+    ...common,
+    shapes: positionedShapes,
     ...(edgesValue === undefined ? {} : { edges }),
   }
+}
+
+export function parseDiagramSpec(value: unknown): DiagramSpec {
+  return resolveDiagramSource(parseDiagramSource(value))
 }

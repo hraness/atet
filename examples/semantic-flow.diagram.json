@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/hraness/graphics/v0.3.0/schema/diagram.schema.json",
+  "version": 1,
+  "name": "semantic-flow",
+  "canvas": {
+    "width": 1200,
+    "height": 480
+  },
+  "layout": {
+    "type": "stack",
+    "direction": "horizontal"
+  },
+  "shapes": [
+    {
+      "id": "prompt",
+      "type": "ellipse",
+      "width": 200,
+      "height": 128,
+      "label": "Prompt",
+      "tone": "purple"
+    },
+    {
+      "id": "graphics",
+      "type": "rect",
+      "width": 220,
+      "height": 168,
+      "radius": 28,
+      "label": "Graphics",
+      "tone": "blue"
+    },
+    {
+      "id": "artifact",
+      "type": "ellipse",
+      "width": 200,
+      "height": 128,
+      "label": "Artifact",
+      "tone": "green"
+    }
+  ],
+  "edges": [
+    {
+      "id": "prompt-graphics",
+      "from": "prompt",
+      "to": "graphics"
+    },
+    {
+      "id": "graphics-artifact",
+      "from": "graphics",
+      "to": "artifact"
+    }
+  ]
+}

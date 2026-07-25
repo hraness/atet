@@ -14,11 +14,34 @@ import {
   selectDesktopAsset,
 } from "./desktop.ts"
 import { builtInIcons } from "./icons.ts"
+import {
+  resolveDiagramSource,
+  resolveStackLayout,
+  stackLayoutDefaults,
+  StackLayoutError,
+} from "./layout.ts"
 import { lintDiagram } from "./lint.ts"
-import { DiagramValidationError, parseDiagramSpec } from "./parse.ts"
+import {
+  graphicsMcpProtocolVersion,
+  graphicsMcpServerName,
+  graphicsMcpTools,
+  GraphicsMcpToolRuntime,
+  mcpMaximumRenderedPixels,
+  mcpMaximumScale,
+  mcpSourceByteLimit,
+  runMcpServer,
+  WorkspaceBoundary,
+  WorkspaceBoundaryError,
+} from "./mcp/index.ts"
+import {
+  DiagramValidationError,
+  parseDiagramSource,
+  parseDiagramSpec,
+} from "./parse.ts"
 import { renderPng, renderSvg, resolveEdge } from "./render.ts"
 import { bundledSkillPath, installSkill } from "./skill-install.ts"
 import { serializeTldr } from "./tldr.ts"
+import { vectorizeImage } from "./vectorize/vectorize.ts"
 
 export const diagramApi = Object.freeze({
   artifactSummary,
@@ -30,18 +53,34 @@ export const diagramApi = Object.freeze({
   DiagramValidationError,
   findDesktopApplication,
   getLatestDesktopRelease,
+  graphicsMcpProtocolVersion,
+  graphicsMcpServerName,
+  graphicsMcpTools,
+  GraphicsMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
+  mcpMaximumRenderedPixels,
+  mcpMaximumScale,
+  mcpSourceByteLimit,
   openInDesktop,
+  parseDiagramSource,
   parseDiagramSpec,
   readDiagramFile,
   renderDiagramFile,
   renderPng,
   renderSvg,
   resolveEdge,
+  resolveDiagramSource,
+  resolveStackLayout,
+  runMcpServer,
   selectDesktopAsset,
   serializeTldr,
+  stackLayoutDefaults,
+  StackLayoutError,
+  vectorizeImage,
+  WorkspaceBoundary,
+  WorkspaceBoundaryError,
 })
 
 export {
@@ -54,17 +93,65 @@ export {
   DiagramValidationError,
   findDesktopApplication,
   getLatestDesktopRelease,
+  graphicsMcpProtocolVersion,
+  graphicsMcpServerName,
+  graphicsMcpTools,
+  GraphicsMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
+  mcpMaximumRenderedPixels,
+  mcpMaximumScale,
+  mcpSourceByteLimit,
   openInDesktop,
+  parseDiagramSource,
   parseDiagramSpec,
   readDiagramFile,
   renderDiagramFile,
   renderPng,
   renderSvg,
+  resolveDiagramSource,
   resolveEdge,
+  resolveStackLayout,
+  runMcpServer,
   selectDesktopAsset,
   serializeTldr,
+  stackLayoutDefaults,
+  StackLayoutError,
+  vectorizeImage,
+  WorkspaceBoundary,
+  WorkspaceBoundaryError,
 }
 export type * from "./types.ts"
+export type {
+  JsonRpcFailure,
+  JsonRpcId,
+  JsonRpcResponseId,
+  JsonRpcResponse,
+  JsonRpcSuccess,
+  McpServerOptions,
+  McpTextContent,
+  McpToolDefinition,
+  McpToolResult,
+} from "./mcp/index.ts"
+export {
+  VectorizeError,
+  vectorizeDefaultLimits,
+  vectorizeHardLimits,
+  vectorizeProfileNames,
+  VTRACER_VERSION,
+  vtracerReleases,
+} from "./vectorize/index.ts"
+export type {
+  VectorizeErrorCode,
+  VectorizeInput,
+  VectorizeLimits,
+  VectorizeOptions,
+  VectorizeOutputMode,
+  VectorizeProfile,
+  VectorizeProvenance,
+  VectorizeQualityReceipt,
+  VectorizeReceipt,
+  VectorizeRepresentation,
+  VectorizeResult,
+} from "./vectorize/index.ts"

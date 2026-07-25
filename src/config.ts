@@ -108,7 +108,7 @@ async function discoverConfig(directory: string): Promise<string | null> {
     if (await pathExists(candidate)) {
       const replacement = resolve(directory, names.current)
       throw new Error(
-        `Legacy Graphics config found at ${candidate}. Rename it to ${replacement}; Graphics 0.2 does not auto-load diagram.config.*.`,
+        `Legacy Graphics config found at ${candidate}. Rename it to ${replacement}; Graphics does not auto-load diagram.config.*.`,
       )
     }
   }

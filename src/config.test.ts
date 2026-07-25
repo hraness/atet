@@ -14,7 +14,7 @@ describe("Graphics config discovery", () => {
       await expect(
         loadDiagramConfig({ searchDirectory: directory }),
       ).rejects.toThrow(
-        `Legacy Graphics config found at ${legacy}. Rename it to ${replacement}; Graphics 0.2 does not auto-load diagram.config.*.`,
+        `Legacy Graphics config found at ${legacy}. Rename it to ${replacement}; Graphics does not auto-load diagram.config.*.`,
       )
     } finally {
       await rm(directory, { recursive: true, force: true })

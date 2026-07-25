@@ -168,7 +168,7 @@ async function discoverConfig(directory) {
     const candidate = resolve(directory, names.legacy);
     if (await pathExists(candidate)) {
       const replacement = resolve(directory, names.current);
-      throw new Error(`Legacy Graphics config found at ${candidate}. Rename it to ${replacement}; Graphics 0.2 does not auto-load diagram.config.*.`);
+      throw new Error(`Legacy Graphics config found at ${candidate}. Rename it to ${replacement}; Graphics does not auto-load diagram.config.*.`);
     }
   }
   return null;
@@ -551,6 +551,241 @@ function lintDiagram(spec) {
 // src/types.ts
 var diagramVersion = 1;
 
+// src/layout.ts
+var stackLayoutDefaults = {
+  gap: 160,
+  padding: 64,
+  align: "center"
+};
+var coordinatePrecision = 3;
+var coordinateScale = 10 ** coordinatePrecision;
+
+class StackLayoutError extends Error {
+  issues;
+  constructor(issues) {
+    super(`Invalid stack layout:
+${issues.map((issue) => `- ${issue}`).join(`
+`)}`);
+    this.name = "StackLayoutError";
+    this.issues = issues;
+  }
+}
+function coordinateFromUnits(value) {
+  return value / coordinateScale;
+}
+function normalizedScaledCoordinate(value) {
+  const scaled = value * coordinateScale;
+  return normalizedGridValue(scaled);
+}
+function normalizedGridValue(value) {
+  const nearest = Math.round(value);
+  return Math.abs(value - nearest) <= 0.000000001 ? nearest : value;
+}
+function floorGridValue(value) {
+  return Math.floor(normalizedGridValue(value));
+}
+function ceilGridValue(value) {
+  return Math.ceil(normalizedGridValue(value));
+}
+function coordinateUnits(value, label, positive, rounding, issues) {
+  if (!Number.isFinite(value) || (positive ? value <= 0 : value < 0)) {
+    issues.push(positive ? `${label} must be positive` : `${label} must not be negative`);
+    return 0;
+  }
+  const scaled = normalizedScaledCoordinate(value);
+  const units = rounding === "ceil" ? ceilGridValue(scaled) : floorGridValue(scaled);
+  if (!Number.isSafeInteger(units)) {
+    issues.push(`${label} must be a finite coordinate within the supported range`);
+    return 0;
+  }
+  if (positive && units < 1) {
+    issues.push(`${label} must occupy at least ${coordinateFromUnits(1)}px in the layout grid`);
+    return 0;
+  }
+  return units;
+}
+function positionedShape(shape, mainPosition, crossPosition, horizontal) {
+  return {
+    ...shape,
+    x: coordinateFromUnits(horizontal ? mainPosition : crossPosition),
+    y: coordinateFromUnits(horizontal ? crossPosition : mainPosition)
+  };
+}
+function authoredMainSize(shape, horizontal) {
+  return horizontal ? shape.width : shape.height;
+}
+function emittedMainPlacement(shapes, horizontal, gap, issues) {
+  if (shapes.length === 0)
+    return { offsets: [], span: 0 };
+  const offsets = [];
+  let offset = 0;
+  for (const [index, shape] of shapes.entries()) {
+    offsets.push(offset);
+    if (index === shapes.length - 1)
+      break;
+    const advance = coordinateUnits(authoredMainSize(shape, horizontal) + gap, `space after shape ${shape.id}`, true, "ceil", issues);
+    offset += advance;
+    if (!Number.isSafeInteger(offset)) {
+      issues.push("stack positions exceed the supported coordinate range");
+      return { offsets, span: Number.POSITIVE_INFINITY };
+    }
+  }
+  const last = shapes.at(-1);
+  const span = offset + (last === undefined ? 0 : normalizedScaledCoordinate(authoredMainSize(last, horizontal)));
+  if (!Number.isFinite(span) || !Number.isSafeInteger(Math.ceil(span))) {
+    issues.push("stack extent exceeds the supported coordinate range");
+  }
+  return { offsets, span };
+}
+function clampedGridPosition(ideal, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, Math.round(ideal)));
+}
+function resolvedAnchors(fromIndex, toIndex, horizontal) {
+  const forward = fromIndex < toIndex;
+  if (horizontal) {
+    return forward ? { start: "right", end: "left" } : { start: "left", end: "right" };
+  }
+  return forward ? { start: "bottom", end: "top" } : { start: "top", end: "bottom" };
+}
+function resolvedEdge(edge, indexes, horizontal) {
+  const fromIndex = indexes.get(edge.from);
+  const toIndex = indexes.get(edge.to);
+  if (fromIndex === undefined || toIndex === undefined) {
+    throw new StackLayoutError([
+      `edge ${edge.id} must reference shapes that belong to the stack`
+    ]);
+  }
+  const anchors = resolvedAnchors(fromIndex, toIndex, horizontal);
+  return {
+    ...edge,
+    start: anchors.start,
+    end: anchors.end,
+    bend: 0
+  };
+}
+function stackStructureIssues(source) {
+  const issues = [];
+  if (source.shapes.length < 1 || source.shapes.length > 9) {
+    issues.push("stack layouts must contain between 1 and 9 shapes");
+  }
+  const indexes = new Map;
+  const recordIds = new Set;
+  for (const [index, shape] of source.shapes.entries()) {
+    if (recordIds.has(shape.id)) {
+      issues.push(`shape id ${shape.id} is duplicated`);
+    } else {
+      indexes.set(shape.id, index);
+      recordIds.add(shape.id);
+    }
+  }
+  const connectedPairs = new Set;
+  for (const stackEdge of source.edges ?? []) {
+    const edge = stackEdge;
+    if (recordIds.has(edge.id)) {
+      issues.push(`edge id ${edge.id} is duplicated`);
+    }
+    recordIds.add(edge.id);
+    const fromIndex = indexes.get(edge.from);
+    const toIndex = indexes.get(edge.to);
+    if (fromIndex === undefined) {
+      issues.push(`edge ${edge.id} has unknown from id ${edge.from}`);
+    }
+    if (toIndex === undefined) {
+      issues.push(`edge ${edge.id} has unknown to id ${edge.to}`);
+    }
+    if (fromIndex !== undefined && toIndex !== undefined) {
+      if (fromIndex === toIndex) {
+        issues.push(`edge ${edge.id} cannot connect a shape to itself`);
+      } else {
+        if (Math.abs(fromIndex - toIndex) !== 1) {
+          issues.push(`edge ${edge.id} must connect adjacent stack shapes`);
+        }
+        const pair = [fromIndex, toIndex].sort((left, right) => left - right).join(":");
+        if (connectedPairs.has(pair)) {
+          issues.push(`edge ${edge.id} duplicates a connection between the same stack shapes`);
+        }
+        connectedPairs.add(pair);
+      }
+    }
+    if (edge.start !== undefined && edge.start !== "auto") {
+      issues.push(`edge ${edge.id}.start must be auto or omitted in a stack layout`);
+    }
+    if (edge.end !== undefined && edge.end !== "auto") {
+      issues.push(`edge ${edge.id}.end must be auto or omitted in a stack layout`);
+    }
+    if (edge.bend !== undefined && edge.bend !== 0) {
+      issues.push(`edge ${edge.id}.bend must be 0 or omitted in a stack layout`);
+    }
+  }
+  return issues;
+}
+function resolveStackLayout(source) {
+  const issues = [...stackStructureIssues(source)];
+  const horizontal = source.layout.direction === "horizontal";
+  coordinateUnits(source.canvas.width, "canvas width", true, "floor", issues);
+  coordinateUnits(source.canvas.height, "canvas height", true, "floor", issues);
+  const gapValue = source.layout.gap ?? stackLayoutDefaults.gap;
+  coordinateUnits(gapValue, "stack gap", false, "ceil", issues);
+  const paddingValue = source.canvas.padding ?? stackLayoutDefaults.padding;
+  const padding = coordinateUnits(paddingValue, "canvas padding", false, "ceil", issues);
+  for (const shape of source.shapes) {
+    coordinateUnits(shape.width, `shape ${shape.id} width`, true, "ceil", issues);
+    coordinateUnits(shape.height, `shape ${shape.id} height`, true, "ceil", issues);
+  }
+  const align = source.layout.align ?? stackLayoutDefaults.align;
+  const canvasMainValue = horizontal ? source.canvas.width : source.canvas.height;
+  const canvasCrossValue = horizontal ? source.canvas.height : source.canvas.width;
+  const mainPlacement = emittedMainPlacement(source.shapes, horizontal, gapValue, issues);
+  const maximumMainStart = floorGridValue(normalizedScaledCoordinate(canvasMainValue - paddingValue) - mainPlacement.span);
+  if (padding > maximumMainStart) {
+    const requiredMain = ceilGridValue(mainPlacement.span);
+    const availableMain = floorGridValue(normalizedScaledCoordinate(canvasMainValue - paddingValue * 2));
+    issues.push(`${source.layout.direction} stack needs ${coordinateFromUnits(requiredMain)}px but only ${coordinateFromUnits(availableMain)}px remain inside ${paddingValue}px padding`);
+  }
+  const crossStarts = source.shapes.map((shape) => {
+    const authoredSize = horizontal ? shape.height : shape.width;
+    const maximum = floorGridValue(normalizedScaledCoordinate(canvasCrossValue - paddingValue - authoredSize));
+    if (padding > maximum) {
+      const requiredCross = ceilGridValue(normalizedScaledCoordinate(authoredSize));
+      const availableCross = floorGridValue(normalizedScaledCoordinate(canvasCrossValue - paddingValue * 2));
+      issues.push(`shape ${shape.id} needs ${coordinateFromUnits(requiredCross)}px on the cross axis but only ${coordinateFromUnits(availableCross)}px remain inside ${paddingValue}px padding`);
+    }
+    return { authoredSize, maximum };
+  });
+  if (issues.length > 0)
+    throw new StackLayoutError(issues);
+  const mainStart = clampedGridPosition((normalizedScaledCoordinate(canvasMainValue) - mainPlacement.span) / 2, padding, maximumMainStart);
+  const shapes = source.shapes.map((shape, index) => {
+    const crossStart = crossStarts[index];
+    if (crossStart === undefined) {
+      throw new StackLayoutError([
+        `shape ${shape.id} has no cross-axis placement`
+      ]);
+    }
+    const crossPosition = align === "start" ? padding : align === "end" ? crossStart.maximum : clampedGridPosition(normalizedScaledCoordinate((canvasCrossValue - crossStart.authoredSize) / 2), padding, crossStart.maximum);
+    const mainPosition = mainStart + (mainPlacement.offsets[index] ?? 0);
+    const positioned = positionedShape(shape, mainPosition, crossPosition, horizontal);
+    return positioned;
+  });
+  const indexes = new Map(shapes.map((shape, index) => [shape.id, index]));
+  const edges = source.edges?.map((edge) => resolvedEdge(edge, indexes, horizontal));
+  return {
+    ...source.$schema === undefined ? {} : { $schema: source.$schema },
+    version: source.version,
+    name: source.name,
+    canvas: {
+      width: source.canvas.width,
+      height: source.canvas.height,
+      padding: paddingValue
+    },
+    shapes,
+    ...edges === undefined ? {} : { edges }
+  };
+}
+function resolveDiagramSource(source) {
+  return "layout" in source ? resolveStackLayout(source) : source;
+}
+
 // src/parse.ts
 var tones2 = new Set([
   "neutral",
@@ -562,6 +797,8 @@ var tones2 = new Set([
   "yellow"
 ]);
 var anchors = new Set(["auto", "top", "right", "bottom", "left"]);
+var stackDirections = new Set(["horizontal", "vertical"]);
+var stackAlignments = new Set(["start", "center", "end"]);
 var idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 var namePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -759,6 +996,68 @@ function parseShape(value, index, issues) {
   issues.push(`${at}.type must be rect, ellipse, text, or line`);
   return null;
 }
+function parseStackShape(value, index, issues) {
+  const at = `shapes[${index}]`;
+  if (!isRecord2(value)) {
+    issues.push(`${at} must be an object`);
+    return null;
+  }
+  validateKnownKeys(value, new Set([
+    "id",
+    "type",
+    "tone",
+    "opacity",
+    "width",
+    "height",
+    "radius",
+    "label",
+    "icon",
+    "iconSize",
+    "strokeWidth",
+    "fill"
+  ]), at, issues);
+  const id = readString(value, "id", at, issues);
+  if (id !== undefined && !idPattern.test(id)) {
+    issues.push(`${at}.id must contain only letters, numbers, underscores, or hyphens`);
+  }
+  const type = readString(value, "type", at, issues);
+  if (type !== undefined && type !== "rect" && type !== "ellipse") {
+    issues.push(`${at}.type must be rect or ellipse in a stack layout`);
+  }
+  const width = readNumber(value, "width", at, issues, { positive: true });
+  const height = readNumber(value, "height", at, issues, { positive: true });
+  const tone = readOptionalTone(value, "tone", at, issues);
+  const opacity = readOptionalNumber(value, "opacity", at, issues, { nonNegative: true });
+  if (opacity !== undefined && opacity > 1)
+    issues.push(`${at}.opacity must not exceed 1`);
+  const radius = readOptionalNumber(value, "radius", at, issues, { nonNegative: true });
+  const label = readOptionalString(value, "label", at, issues);
+  const icon = readOptionalString(value, "icon", at, issues);
+  const iconSize = readOptionalNumber(value, "iconSize", at, issues, { positive: true });
+  const strokeWidth = readOptionalNumber(value, "strokeWidth", at, issues, {
+    nonNegative: true
+  });
+  const fill = value.fill;
+  if (fill !== undefined && typeof fill !== "boolean")
+    issues.push(`${at}.fill must be a boolean`);
+  if (id === undefined || type !== "rect" && type !== "ellipse" || width === undefined || height === undefined) {
+    return null;
+  }
+  return {
+    id,
+    type,
+    width,
+    height,
+    ...tone === undefined ? {} : { tone },
+    ...opacity === undefined ? {} : { opacity },
+    ...radius === undefined ? {} : { radius },
+    ...label === undefined ? {} : { label },
+    ...icon === undefined ? {} : { icon },
+    ...iconSize === undefined ? {} : { iconSize },
+    ...strokeWidth === undefined ? {} : { strokeWidth },
+    ...typeof fill === "boolean" ? { fill } : {}
+  };
+}
 function parseEdge(value, index, issues) {
   const at = `edges[${index}]`;
   if (!isRecord2(value)) {
@@ -797,11 +1096,47 @@ function parseEdge(value, index, issues) {
     ...arrowhead === undefined ? {} : { arrowhead }
   };
 }
-function parseDiagramSpec(value) {
+function parseStackLayout(value, issues) {
+  if (!isRecord2(value)) {
+    issues.push("layout must be an object");
+    return null;
+  }
+  validateKnownKeys(value, new Set(["type", "direction", "gap", "align"]), "layout", issues);
+  if (value.type !== "stack")
+    issues.push("layout.type must be stack");
+  const direction = value.direction;
+  if (typeof direction !== "string" || !stackDirections.has(direction)) {
+    issues.push("layout.direction must be horizontal or vertical");
+  }
+  const gap = readOptionalNumber(value, "gap", "layout", issues, { nonNegative: true });
+  const align = value.align;
+  if (align !== undefined && (typeof align !== "string" || !stackAlignments.has(align))) {
+    issues.push("layout.align must be start, center, or end");
+  }
+  if (value.type !== "stack" || typeof direction !== "string" || !stackDirections.has(direction)) {
+    return null;
+  }
+  return {
+    type: "stack",
+    direction,
+    ...gap === undefined ? {} : { gap },
+    ...align === undefined || !stackAlignments.has(align) ? {} : { align }
+  };
+}
+function parseDiagramSource(value) {
   const issues = [];
   if (!isRecord2(value))
     throw new DiagramValidationError(["root must be an object"]);
-  validateKnownKeys(value, new Set(["$schema", "version", "name", "canvas", "shapes", "edges"]), "root", issues);
+  const isStackSource = "layout" in value;
+  validateKnownKeys(value, new Set([
+    "$schema",
+    "version",
+    "name",
+    "canvas",
+    "shapes",
+    "edges",
+    ...isStackSource ? ["layout"] : []
+  ]), "root", issues);
   if (value.version !== diagramVersion)
     issues.push(`version must be ${diagramVersion}`);
   const name = readString(value, "name", "root", issues);
@@ -823,15 +1158,26 @@ function parseDiagramSpec(value) {
       canvas = { width, height, ...padding === undefined ? {} : { padding } };
     }
   }
+  const layout = isStackSource ? parseStackLayout(value.layout, issues) : null;
   const shapesValue = value.shapes;
-  const shapes = [];
+  const positionedShapes = [];
+  const stackShapes = [];
   if (!Array.isArray(shapesValue)) {
     issues.push("shapes must be an array");
   } else {
+    if (isStackSource && (shapesValue.length < 1 || shapesValue.length > 9)) {
+      issues.push("stack layouts must contain between 1 and 9 shapes");
+    }
     for (const [index, shape] of shapesValue.entries()) {
-      const parsed = parseShape(shape, index, issues);
-      if (parsed !== null)
-        shapes.push(parsed);
+      if (isStackSource) {
+        const parsed = parseStackShape(shape, index, issues);
+        if (parsed !== null)
+          stackShapes.push(parsed);
+      } else {
+        const parsed = parseShape(shape, index, issues);
+        if (parsed !== null)
+          positionedShapes.push(parsed);
+      }
     }
   }
   const edgesValue = value.edges;
@@ -847,6 +1193,7 @@ function parseDiagramSpec(value) {
       }
     }
   }
+  const shapes = isStackSource ? stackShapes : positionedShapes;
   const allIds = new Set;
   for (const [kind, records] of [
     ["shape", shapes],
@@ -867,17 +1214,69 @@ function parseDiagramSpec(value) {
     if (edge.from === edge.to)
       issues.push(`edge ${edge.id} cannot connect a shape to itself`);
   }
-  if (issues.length > 0 || name === undefined || canvas === null) {
+  if (isStackSource) {
+    const indexes = new Map(stackShapes.map((shape, index) => [shape.id, index]));
+    const connectedPairs = new Set;
+    for (const edge of edges) {
+      const fromIndex = indexes.get(edge.from);
+      const toIndex = indexes.get(edge.to);
+      if (fromIndex !== undefined && toIndex !== undefined && Math.abs(fromIndex - toIndex) !== 1) {
+        issues.push(`edge ${edge.id} must connect adjacent stack shapes`);
+      }
+      if (fromIndex !== undefined && toIndex !== undefined && fromIndex !== toIndex) {
+        const pair = [fromIndex, toIndex].sort((left, right) => left - right).join(":");
+        if (connectedPairs.has(pair)) {
+          issues.push(`edge ${edge.id} duplicates a connection between the same stack shapes`);
+        }
+        connectedPairs.add(pair);
+      }
+      if (edge.start !== undefined && edge.start !== "auto") {
+        issues.push(`edge ${edge.id}.start must be auto or omitted in a stack layout`);
+      }
+      if (edge.end !== undefined && edge.end !== "auto") {
+        issues.push(`edge ${edge.id}.end must be auto or omitted in a stack layout`);
+      }
+      if (edge.bend !== undefined && edge.bend !== 0) {
+        issues.push(`edge ${edge.id}.bend must be 0 or omitted in a stack layout`);
+      }
+    }
+  }
+  if (issues.length > 0 || name === undefined || canvas === null || isStackSource && layout === null) {
     throw new DiagramValidationError(issues);
   }
-  return {
+  const common = {
     ..."$schema" in value && typeof value.$schema === "string" ? { $schema: value.$schema } : {},
     version: diagramVersion,
     name,
-    canvas,
-    shapes,
+    canvas
+  };
+  if (isStackSource) {
+    const stackEdges = edges.map((edge) => ({
+      id: edge.id,
+      from: edge.from,
+      to: edge.to,
+      ...edge.label === undefined ? {} : { label: edge.label },
+      ...edge.tone === undefined ? {} : { tone: edge.tone },
+      ...edge.start === "auto" ? { start: edge.start } : {},
+      ...edge.end === "auto" ? { end: edge.end } : {},
+      ...edge.bend === 0 ? { bend: edge.bend } : {},
+      ...edge.arrowhead === undefined ? {} : { arrowhead: edge.arrowhead }
+    }));
+    return {
+      ...common,
+      layout,
+      shapes: stackShapes,
+      ...edgesValue === undefined ? {} : { edges: stackEdges }
+    };
+  }
+  return {
+    ...common,
+    shapes: positionedShapes,
     ...edgesValue === undefined ? {} : { edges }
   };
+}
+function parseDiagramSpec(value) {
+  return resolveDiagramSource(parseDiagramSource(value));
 }
 
 // src/tldr.ts
@@ -1484,39 +1883,1286 @@ async function openInDesktop(filePath) {
   }
 }
 
+// src/mcp/tools.ts
+import { rename as rename3, rm as rm3, writeFile as writeFile2 } from "fs/promises";
+import { dirname as dirname5, join as join3 } from "path";
+
+// src/mcp/boundary.ts
+import { open, mkdir as mkdir3, realpath, stat } from "fs/promises";
+import {
+  dirname as dirname4,
+  isAbsolute as isAbsolute2,
+  relative,
+  resolve as resolve4,
+  win32
+} from "path";
+var mcpSourceByteLimit = 1024 * 1024;
+
+class WorkspaceBoundaryError extends Error {
+  code;
+  constructor(code, message) {
+    super(message);
+    this.name = "WorkspaceBoundaryError";
+    this.code = code;
+  }
+}
+function filesystemCode(error) {
+  if (typeof error === "object" && error !== null && "code" in error && typeof error.code === "string") {
+    return error.code;
+  }
+  return;
+}
+function normalizeRelativePath(value, options) {
+  if (value.length === 0 || value.includes("\x00")) {
+    throw new WorkspaceBoundaryError("INVALID_PATH", "Path must be a non-empty root-relative path.");
+  }
+  if (isAbsolute2(value) || win32.isAbsolute(value) || /^[A-Za-z]:/.test(value)) {
+    throw new WorkspaceBoundaryError("INVALID_PATH", "Absolute paths are not allowed.");
+  }
+  const segments = value.split(/[\\/]/).filter((segment) => segment !== "" && segment !== ".");
+  if (segments.includes("..")) {
+    throw new WorkspaceBoundaryError("INVALID_PATH", "Parent-directory traversal is not allowed.");
+  }
+  if (segments.length === 0) {
+    if (!options.allowRoot) {
+      throw new WorkspaceBoundaryError("INVALID_PATH", "Path must identify a file below the root.");
+    }
+    return { native: ".", portable: "." };
+  }
+  return {
+    native: segments.join("/"),
+    portable: segments.join("/")
+  };
+}
+function isConfined(rootDirectory, target) {
+  const fromRoot = relative(rootDirectory, target);
+  return fromRoot === "" || !fromRoot.startsWith("..") && !isAbsolute2(fromRoot);
+}
+async function readUtf8WithCap(filePath) {
+  let handle;
+  try {
+    handle = await open(filePath, "r");
+    const metadata = await handle.stat();
+    if (!metadata.isFile()) {
+      throw new WorkspaceBoundaryError("SOURCE_NOT_FILE", "Diagram source must be a regular file.");
+    }
+    if (metadata.size > mcpSourceByteLimit) {
+      throw new WorkspaceBoundaryError("SOURCE_TOO_LARGE", `Diagram source exceeds the ${mcpSourceByteLimit}-byte limit.`);
+    }
+    const buffer = Buffer.allocUnsafe(mcpSourceByteLimit + 1);
+    let bytesRead = 0;
+    while (bytesRead <= mcpSourceByteLimit) {
+      const next = await handle.read(buffer, bytesRead, mcpSourceByteLimit + 1 - bytesRead, null);
+      if (next.bytesRead === 0)
+        break;
+      bytesRead += next.bytesRead;
+    }
+    if (bytesRead > mcpSourceByteLimit) {
+      throw new WorkspaceBoundaryError("SOURCE_TOO_LARGE", `Diagram source exceeds the ${mcpSourceByteLimit}-byte limit.`);
+    }
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, bytesRead));
+    } catch {
+      throw new WorkspaceBoundaryError("SOURCE_ENCODING", "Diagram source must contain valid UTF-8.");
+    }
+  } catch (error) {
+    if (error instanceof WorkspaceBoundaryError)
+      throw error;
+    const code = filesystemCode(error);
+    if (code === "ENOENT") {
+      throw new WorkspaceBoundaryError("SOURCE_NOT_FOUND", "Diagram source does not exist.");
+    }
+    throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Diagram source could not be read.");
+  } finally {
+    await handle?.close();
+  }
+}
+
+class WorkspaceBoundary {
+  rootDirectory;
+  constructor(rootDirectory) {
+    this.rootDirectory = rootDirectory;
+  }
+  static async create(rootDirectory) {
+    let resolvedRoot;
+    try {
+      resolvedRoot = await realpath(resolve4(rootDirectory));
+      if (!(await stat(resolvedRoot)).isDirectory()) {
+        throw new WorkspaceBoundaryError("OUTPUT_NOT_DIRECTORY", "MCP root must be a directory.");
+      }
+    } catch (error) {
+      if (error instanceof WorkspaceBoundaryError)
+        throw error;
+      throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "MCP root could not be opened.");
+    }
+    return new WorkspaceBoundary(resolvedRoot);
+  }
+  assertConfined(target) {
+    if (!isConfined(this.rootDirectory, target)) {
+      throw new WorkspaceBoundaryError("PATH_OUTSIDE_ROOT", "Path resolves outside the MCP root.");
+    }
+  }
+  toRelativePath(absolutePath) {
+    this.assertConfined(absolutePath);
+    const fromRoot = relative(this.rootDirectory, absolutePath);
+    return fromRoot === "" ? "." : fromRoot.split("\\").join("/");
+  }
+  async readSource(value) {
+    const normalized = normalizeRelativePath(value, { allowRoot: false });
+    const lexicalPath = resolve4(this.rootDirectory, normalized.native);
+    this.assertConfined(lexicalPath);
+    let canonicalPath;
+    try {
+      canonicalPath = await realpath(lexicalPath);
+    } catch (error) {
+      if (filesystemCode(error) === "ENOENT") {
+        throw new WorkspaceBoundaryError("SOURCE_NOT_FOUND", "Diagram source does not exist.");
+      }
+      throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Diagram source could not be resolved.");
+    }
+    this.assertConfined(canonicalPath);
+    return {
+      absolutePath: canonicalPath,
+      relativePath: this.toRelativePath(canonicalPath),
+      text: await readUtf8WithCap(canonicalPath)
+    };
+  }
+  async prepareOutputDirectory(value) {
+    const normalized = normalizeRelativePath(value, { allowRoot: true });
+    const lexicalPath = resolve4(this.rootDirectory, normalized.native);
+    this.assertConfined(lexicalPath);
+    let ancestor = lexicalPath;
+    for (;; ) {
+      try {
+        const canonicalAncestor = await realpath(ancestor);
+        this.assertConfined(canonicalAncestor);
+        break;
+      } catch (error) {
+        if (error instanceof WorkspaceBoundaryError)
+          throw error;
+        if (filesystemCode(error) !== "ENOENT") {
+          throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Output directory could not be resolved.");
+        }
+        const parent = dirname4(ancestor);
+        if (parent === ancestor) {
+          throw new WorkspaceBoundaryError("PATH_OUTSIDE_ROOT", "Output directory resolves outside the MCP root.");
+        }
+        ancestor = parent;
+      }
+    }
+    try {
+      await mkdir3(lexicalPath, { recursive: true });
+      const canonicalPath = await realpath(lexicalPath);
+      this.assertConfined(canonicalPath);
+      if (!(await stat(canonicalPath)).isDirectory()) {
+        throw new WorkspaceBoundaryError("OUTPUT_NOT_DIRECTORY", "Output path must be a directory.");
+      }
+      return {
+        absolutePath: canonicalPath,
+        relativePath: this.toRelativePath(canonicalPath)
+      };
+    } catch (error) {
+      if (error instanceof WorkspaceBoundaryError)
+        throw error;
+      throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Output directory could not be created.");
+    }
+  }
+}
+
+// src/mcp/tools.ts
+var mcpMaximumScale = 4;
+var mcpMaximumRenderedPixels = 16777216;
+var mcpMaximumShapes = 64;
+var mcpMaximumEdges = 128;
+var mcpMaximumReturnedFindings = 40;
+var defaultScale = 2;
+var maximumShapeIdsPerFinding = 12;
+var builtInConfig = Object.freeze({ icons: builtInIcons });
+var findingSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["code", "message", "shapeIds"],
+  properties: {
+    code: { type: "string" },
+    message: { type: "string" },
+    shapeIds: { type: "array", items: { type: "string" } }
+  }
+};
+var graphicsMcpTools = Object.freeze([
+  {
+    name: "check_diagram",
+    title: "Check diagram",
+    description: "Parse and lint one root-relative Graphics diagram source without changing files. Uses only built-in icons and themes.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["path"],
+      properties: {
+        path: {
+          type: "string",
+          description: "Root-relative path to a diagram JSON source (1 MiB maximum)."
+        }
+      }
+    },
+    outputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["ok", "source", "findings", "summary"],
+      properties: {
+        ok: { const: true },
+        source: { type: "string" },
+        findings: { type: "array", items: findingSchema },
+        summary: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "shapeCount",
+            "edgeCount",
+            "findingCount",
+            "returnedFindingCount",
+            "findingsTruncated"
+          ],
+          properties: {
+            shapeCount: { type: "integer", minimum: 0 },
+            edgeCount: { type: "integer", minimum: 0 },
+            findingCount: { type: "integer", minimum: 0 },
+            returnedFindingCount: { type: "integer", minimum: 0 },
+            findingsTruncated: { type: "boolean" }
+          }
+        }
+      }
+    },
+    annotations: {
+      title: "Check diagram",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    }
+  },
+  {
+    name: "render_diagram",
+    title: "Render diagram",
+    description: "Render one root-relative Graphics diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["path"],
+      properties: {
+        path: {
+          type: "string",
+          description: "Root-relative path to a diagram JSON source (1 MiB maximum)."
+        },
+        out_dir: {
+          type: "string",
+          description: "Optional root-relative output directory. Defaults to the source directory."
+        },
+        scale: {
+          type: "number",
+          exclusiveMinimum: 0,
+          maximum: mcpMaximumScale,
+          default: defaultScale,
+          description: "PNG scale. The scaled canvas may contain at most 16,777,216 pixels."
+        }
+      }
+    },
+    outputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["ok", "source", "scale", "findings", "artifacts", "summary"],
+      properties: {
+        ok: { const: true },
+        source: { type: "string" },
+        scale: { type: "number" },
+        findings: { type: "array", items: findingSchema },
+        artifacts: {
+          type: "object",
+          additionalProperties: false,
+          required: ["tldr", "lightSvg", "darkSvg", "lightPng", "darkPng"],
+          properties: {
+            tldr: { type: "string" },
+            lightSvg: { type: "string" },
+            darkSvg: { type: "string" },
+            lightPng: { type: "string" },
+            darkPng: { type: "string" }
+          }
+        },
+        summary: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "shapeCount",
+            "edgeCount",
+            "findingCount",
+            "returnedFindingCount",
+            "findingsTruncated"
+          ],
+          properties: {
+            shapeCount: { type: "integer", minimum: 0 },
+            edgeCount: { type: "integer", minimum: 0 },
+            findingCount: { type: "integer", minimum: 0 },
+            returnedFindingCount: { type: "integer", minimum: 0 },
+            findingsTruncated: { type: "boolean" }
+          }
+        }
+      }
+    },
+    annotations: {
+      title: "Render diagram",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false
+    }
+  }
+]);
+
+class ToolFailure extends Error {
+  code;
+  issues;
+  constructor(code, message, issues) {
+    super(message);
+    this.name = "ToolFailure";
+    this.code = code;
+    if (issues !== undefined)
+      this.issues = issues;
+  }
+}
+function isRecord4(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function safeFragment(value, maximumLength = 160) {
+  return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, maximumLength);
+}
+function safeIssues(issues) {
+  return issues.slice(0, 24).map((issue) => safeFragment(issue, 240));
+}
+function rejectUnknownKeys(value, allowed) {
+  const unknown = Object.keys(value).filter((key) => !allowed.has(key));
+  if (unknown.length > 0) {
+    throw new ToolFailure("INVALID_ARGUMENTS", `Unsupported argument: ${safeFragment(unknown[0] ?? "unknown")}.`);
+  }
+}
+function parsePath(value) {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "path must be a non-empty root-relative string.");
+  }
+  if (!value.toLowerCase().endsWith(".diagram.json")) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "path must end in .diagram.json.");
+  }
+  return value;
+}
+function parseCheckArguments(value) {
+  if (!isRecord4(value)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
+  }
+  rejectUnknownKeys(value, new Set(["path"]));
+  return { path: parsePath(value.path) };
+}
+function parseRenderArguments(value) {
+  if (!isRecord4(value)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
+  }
+  rejectUnknownKeys(value, new Set(["path", "out_dir", "scale"]));
+  const outDirectory = value.out_dir;
+  if (outDirectory !== undefined && (typeof outDirectory !== "string" || outDirectory.length === 0)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "out_dir must be a non-empty root-relative string when present.");
+  }
+  const scale = value.scale ?? defaultScale;
+  if (typeof scale !== "number" || !Number.isFinite(scale) || scale <= 0 || scale > mcpMaximumScale) {
+    throw new ToolFailure("RENDER_LIMIT", `scale must be greater than zero and no more than ${mcpMaximumScale}.`);
+  }
+  return {
+    path: parsePath(value.path),
+    ...outDirectory === undefined ? {} : { outDirectory },
+    scale
+  };
+}
+function assertBuiltInIcons(spec) {
+  for (const shape of spec.shapes) {
+    if ((shape.type === "rect" || shape.type === "ellipse") && shape.icon !== undefined && !Object.hasOwn(builtInIcons, shape.icon)) {
+      throw new ToolFailure("UNKNOWN_ICON", `Shape ${safeFragment(shape.id)} requests unavailable built-in icon ${safeFragment(shape.icon)}.`);
+    }
+  }
+}
+function assertComplexityLimits(spec) {
+  const edgeCount = spec.edges?.length ?? 0;
+  if (spec.shapes.length > mcpMaximumShapes || edgeCount > mcpMaximumEdges) {
+    throw new ToolFailure("COMPLEXITY_LIMIT", `Diagram may contain at most ${mcpMaximumShapes} shapes and ${mcpMaximumEdges} edges in MCP mode.`);
+  }
+}
+function assertRawComplexityLimits(value) {
+  if (!isRecord4(value))
+    return;
+  const shapeCount = Array.isArray(value.shapes) ? value.shapes.length : 0;
+  const edgeCount = Array.isArray(value.edges) ? value.edges.length : 0;
+  if (shapeCount > mcpMaximumShapes || edgeCount > mcpMaximumEdges) {
+    throw new ToolFailure("COMPLEXITY_LIMIT", `Diagram may contain at most ${mcpMaximumShapes} shapes and ${mcpMaximumEdges} edges in MCP mode.`);
+  }
+}
+function assertRenderLimits(spec, scale) {
+  const scaledWidth = spec.canvas.width * scale;
+  const scaledHeight = spec.canvas.height * scale;
+  const pixels = Math.ceil(scaledWidth) * Math.ceil(scaledHeight);
+  if (!Number.isFinite(pixels) || scaledWidth < 1 || scaledHeight < 1 || pixels > mcpMaximumRenderedPixels) {
+    throw new ToolFailure("RENDER_LIMIT", `Scaled canvas must be at least 1 pixel on each axis and no more than ${mcpMaximumRenderedPixels.toLocaleString("en-US")} pixels total.`);
+  }
+}
+function publicFinding(finding) {
+  return {
+    code: safeFragment(finding.code, 64),
+    message: safeFragment(finding.message, 240),
+    shapeIds: finding.shapeIds.slice(0, maximumShapeIdsPerFinding).map((shapeId2) => safeFragment(shapeId2, 120))
+  };
+}
+function publicFindings(findings) {
+  return findings.slice(0, mcpMaximumReturnedFindings).map(publicFinding);
+}
+function diagramSummary(spec, findingCount, returnedFindingCount) {
+  return {
+    shapeCount: spec.shapes.length,
+    edgeCount: spec.edges?.length ?? 0,
+    findingCount,
+    returnedFindingCount,
+    findingsTruncated: returnedFindingCount < findingCount
+  };
+}
+function successResult(text, structuredContent) {
+  return {
+    content: [{ type: "text", text }],
+    structuredContent
+  };
+}
+function failureResult(error) {
+  let code = "INTERNAL_ERROR";
+  let message = "The tool failed safely.";
+  let issues;
+  if (error instanceof ToolFailure) {
+    code = error.code;
+    message = safeFragment(error.message, 320);
+    issues = error.issues;
+  } else if (error instanceof WorkspaceBoundaryError) {
+    code = error.code;
+    message = safeFragment(error.message, 320);
+  } else if (error instanceof DiagramValidationError) {
+    code = "INVALID_DIAGRAM";
+    message = "Diagram source did not pass validation.";
+    issues = safeIssues(error.issues);
+  } else if (typeof error === "object" && error !== null && "issues" in error && Array.isArray(error.issues) && error.issues.every((issue) => typeof issue === "string")) {
+    code = "INVALID_LAYOUT";
+    message = "Diagram layout could not be resolved.";
+    issues = safeIssues(error.issues);
+  }
+  const issueText = issues === undefined || issues.length === 0 ? "" : `
+${issues.map((issue) => `- ${issue}`).join(`
+`)}`;
+  return {
+    content: [{ type: "text", text: `[${code}] ${message}${issueText}` }],
+    isError: true
+  };
+}
+function portableDirectory(filePath) {
+  const separator = filePath.lastIndexOf("/");
+  return separator === -1 ? "." : filePath.slice(0, separator);
+}
+async function atomicOverwrite(filePath, data) {
+  const temporaryPath = join3(dirname5(filePath), `.${crypto.randomUUID()}.graphics-mcp.tmp`);
+  try {
+    await writeFile2(temporaryPath, data, { flag: "wx" });
+    try {
+      await rename3(temporaryPath, filePath);
+    } catch (error) {
+      const code = typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
+      if (code !== "EEXIST" && code !== "EPERM")
+        throw error;
+      await rm3(filePath, { force: true });
+      await rename3(temporaryPath, filePath);
+    }
+  } finally {
+    await rm3(temporaryPath, { force: true });
+  }
+}
+async function loadDiagram(boundary, path) {
+  const source = await boundary.readSource(path);
+  let parsed;
+  try {
+    parsed = JSON.parse(source.text);
+  } catch {
+    throw new ToolFailure("INVALID_JSON", "Diagram source is not valid JSON.");
+  }
+  assertRawComplexityLimits(parsed);
+  const spec = parseDiagramSpec(parsed);
+  assertComplexityLimits(spec);
+  assertBuiltInIcons(spec);
+  return { source, spec };
+}
+
+class GraphicsMcpToolRuntime {
+  boundary;
+  renderQueue = Promise.resolve();
+  constructor(boundary) {
+    this.boundary = boundary;
+  }
+  static async create(rootDirectory) {
+    return new GraphicsMcpToolRuntime(await WorkspaceBoundary.create(rootDirectory));
+  }
+  enqueueRender(operation) {
+    const result = this.renderQueue.then(operation, operation);
+    this.renderQueue = result.then(() => {
+      return;
+    }, () => {
+      return;
+    });
+    return result;
+  }
+  async call(name, argumentsValue) {
+    try {
+      if (name === "check_diagram") {
+        const options = parseCheckArguments(argumentsValue);
+        return await this.check(options);
+      }
+      if (name === "render_diagram") {
+        const options = parseRenderArguments(argumentsValue);
+        return await this.enqueueRender(() => this.render(options));
+      }
+      throw new ToolFailure("UNKNOWN_TOOL", "Requested tool is not available.");
+    } catch (error) {
+      return failureResult(error);
+    }
+  }
+  async check(options) {
+    const { source, spec } = await loadDiagram(this.boundary, options.path);
+    const allFindings = lintDiagram(spec);
+    const findings = publicFindings(allFindings);
+    const summary = diagramSummary(spec, allFindings.length, findings.length);
+    const text = allFindings.length === 0 ? `Checked ${source.relativePath}: no findings.` : `Checked ${source.relativePath}: ${allFindings.length} finding${allFindings.length === 1 ? "" : "s"}; ${findings.length} returned in structured content${findings.length < allFindings.length ? " (truncated)" : ""}.`;
+    return successResult(text, {
+      ok: true,
+      source: source.relativePath,
+      findings,
+      summary
+    });
+  }
+  async render(options) {
+    const { source, spec } = await loadDiagram(this.boundary, options.path);
+    assertRenderLimits(spec, options.scale);
+    const outputDirectory = await this.boundary.prepareOutputDirectory(options.outDirectory ?? portableDirectory(source.relativePath));
+    const tldr = serializeTldr(spec, builtInConfig);
+    const [light, dark] = await Promise.all([
+      renderSvg(spec, "light", builtInConfig),
+      renderSvg(spec, "dark", builtInConfig)
+    ]);
+    const lightPng = renderPng(light, builtInConfig, options.scale);
+    const darkPng = renderPng(dark, builtInConfig, options.scale);
+    const absoluteArtifacts = {
+      spec: source.absolutePath,
+      tldr: join3(outputDirectory.absolutePath, `${spec.name}.tldr`),
+      lightSvg: join3(outputDirectory.absolutePath, `${spec.name}.light.svg`),
+      darkSvg: join3(outputDirectory.absolutePath, `${spec.name}.dark.svg`),
+      lightPng: join3(outputDirectory.absolutePath, `${spec.name}.light.png`),
+      darkPng: join3(outputDirectory.absolutePath, `${spec.name}.dark.png`)
+    };
+    await Promise.all([
+      atomicOverwrite(absoluteArtifacts.tldr, tldr),
+      atomicOverwrite(absoluteArtifacts.lightSvg, light.svg),
+      atomicOverwrite(absoluteArtifacts.darkSvg, dark.svg),
+      atomicOverwrite(absoluteArtifacts.lightPng, lightPng),
+      atomicOverwrite(absoluteArtifacts.darkPng, darkPng)
+    ]);
+    const artifacts = {
+      tldr: this.boundary.toRelativePath(absoluteArtifacts.tldr),
+      lightSvg: this.boundary.toRelativePath(absoluteArtifacts.lightSvg),
+      darkSvg: this.boundary.toRelativePath(absoluteArtifacts.darkSvg),
+      lightPng: this.boundary.toRelativePath(absoluteArtifacts.lightPng),
+      darkPng: this.boundary.toRelativePath(absoluteArtifacts.darkPng)
+    };
+    const allFindings = lintDiagram(spec);
+    const findings = publicFindings(allFindings);
+    const summary = diagramSummary(spec, allFindings.length, findings.length);
+    const text = [
+      `Rendered ${source.relativePath} with built-in assets:`,
+      ...Object.values(artifacts).map((artifact) => `- ${artifact}`)
+    ].join(`
+`);
+    return successResult(text, {
+      ok: true,
+      source: source.relativePath,
+      scale: options.scale,
+      findings,
+      artifacts,
+      summary
+    });
+  }
+}
+
+// src/mcp/server.ts
+var graphicsMcpProtocolVersion = "2025-11-25";
+var graphicsMcpServerName = "hraness-graphics";
+var maximumMessageBytes = 1024 * 1024;
+function isRecord5(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isJsonRpcId(value) {
+  return typeof value === "string" || typeof value === "number" && Number.isSafeInteger(value);
+}
+function isInitializeParams(value) {
+  return isRecord5(value) && typeof value.protocolVersion === "string" && isRecord5(value.capabilities) && isRecord5(value.clientInfo) && typeof value.clientInfo.name === "string" && typeof value.clientInfo.version === "string";
+}
+function parseRequest(value) {
+  if (!isRecord5(value) || value.jsonrpc !== "2.0" || typeof value.method !== "string" || value.method.length === 0 || "id" in value && !isJsonRpcId(value.id)) {
+    throw new Error("invalid request");
+  }
+  return {
+    jsonrpc: "2.0",
+    ..."id" in value ? { id: value.id } : {},
+    method: value.method,
+    ..."params" in value ? { params: value.params } : {}
+  };
+}
+function success(id, result) {
+  return { jsonrpc: "2.0", id, result };
+}
+function failure(id, code, message) {
+  return { jsonrpc: "2.0", id, error: { code, message } };
+}
+function parseToolCall(params) {
+  if (!isRecord5(params) || typeof params.name !== "string" || params.arguments !== undefined && !isRecord5(params.arguments)) {
+    throw new Error("invalid params");
+  }
+  const unknownKeys = Object.keys(params).filter((key) => key !== "name" && key !== "arguments");
+  if (unknownKeys.length > 0)
+    throw new Error("invalid params");
+  return {
+    name: params.name,
+    argumentsValue: params.arguments ?? {}
+  };
+}
+
+class GraphicsMcpSession {
+  runtime;
+  serverVersion;
+  state = "new";
+  constructor(runtime, serverVersion) {
+    this.runtime = runtime;
+    this.serverVersion = serverVersion;
+  }
+  async handle(value) {
+    let request;
+    try {
+      request = parseRequest(value);
+    } catch {
+      return failure(null, -32600, "Invalid Request");
+    }
+    const notification = request.id === undefined;
+    if (request.method === "notifications/initialized") {
+      if (!notification) {
+        return failure(request.id, -32600, "Invalid Request");
+      }
+      if (this.state === "initializing")
+        this.state = "ready";
+      return null;
+    }
+    if (notification)
+      return null;
+    const id = request.id;
+    if (request.method === "initialize") {
+      if (this.state !== "new" || !isInitializeParams(request.params)) {
+        return failure(id, -32602, "Invalid initialize parameters");
+      }
+      this.state = "initializing";
+      return success(id, {
+        protocolVersion: graphicsMcpProtocolVersion,
+        capabilities: {
+          tools: { listChanged: false }
+        },
+        serverInfo: {
+          name: graphicsMcpServerName,
+          version: this.serverVersion
+        },
+        instructions: "Use check_diagram and render_diagram only with root-relative .diagram.json paths. The server uses built-in assets and never executes workspace configuration."
+      });
+    }
+    if (this.state !== "ready") {
+      return failure(id, -32002, "Server is not initialized");
+    }
+    if (request.method === "ping")
+      return success(id, {});
+    if (request.method === "tools/list") {
+      if (request.params !== undefined && (!isRecord5(request.params) || Object.keys(request.params).length > 0)) {
+        return failure(id, -32602, "Invalid tools/list parameters");
+      }
+      return success(id, { tools: graphicsMcpTools });
+    }
+    if (request.method === "tools/call") {
+      try {
+        const toolCall = parseToolCall(request.params);
+        if (!graphicsMcpTools.some((tool) => tool.name === toolCall.name)) {
+          return failure(id, -32602, "Unknown tool");
+        }
+        return success(id, await this.runtime.call(toolCall.name, toolCall.argumentsValue));
+      } catch {
+        return failure(id, -32602, "Invalid tools/call parameters");
+      }
+    }
+    return failure(id, -32601, "Method not found");
+  }
+}
+async function defaultWriteLine(line) {
+  await new Promise((resolve5, reject) => {
+    process.stdout.write(`${line}
+`, (error) => {
+      if (error === null || error === undefined)
+        resolve5();
+      else
+        reject(error);
+    });
+  });
+}
+function defaultInput() {
+  return process.stdin;
+}
+async function emitResponse(writeLine, response) {
+  await writeLine(JSON.stringify(response));
+}
+async function processLine(line, session, writeLine) {
+  if (line.byteLength === 0)
+    return;
+  let value;
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(line);
+    if (text.trim() === "")
+      return;
+    value = JSON.parse(text);
+  } catch {
+    await emitResponse(writeLine, failure(null, -32700, "Parse error"));
+    return;
+  }
+  if (Array.isArray(value)) {
+    await emitResponse(writeLine, failure(null, -32600, "Invalid Request"));
+    return;
+  }
+  const response = await session.handle(value);
+  if (response !== null)
+    await emitResponse(writeLine, response);
+}
+async function runMcpServer(options = {}) {
+  const runtime = await GraphicsMcpToolRuntime.create(options.rootDirectory ?? process.cwd());
+  const session = new GraphicsMcpSession(runtime, options.serverVersion ?? "0.3.0");
+  const writeLine = options.writeLine ?? defaultWriteLine;
+  let buffered = Buffer.alloc(0);
+  for await (const chunk of options.input ?? defaultInput()) {
+    const bytes = typeof chunk === "string" ? Buffer.from(chunk, "utf8") : Buffer.from(chunk);
+    buffered = Buffer.concat([buffered, bytes]);
+    if (buffered.byteLength > maximumMessageBytes && !buffered.includes(10)) {
+      buffered = Buffer.alloc(0);
+      await emitResponse(writeLine, failure(null, -32700, "Parse error"));
+      continue;
+    }
+    for (;; ) {
+      const newline = buffered.indexOf(10);
+      if (newline === -1)
+        break;
+      let line = buffered.subarray(0, newline);
+      buffered = buffered.subarray(newline + 1);
+      if (line.at(-1) === 13)
+        line = line.subarray(0, -1);
+      if (line.byteLength > maximumMessageBytes) {
+        await emitResponse(writeLine, failure(null, -32700, "Parse error"));
+      } else {
+        await processLine(line, session, writeLine);
+      }
+    }
+  }
+  if (buffered.byteLength > 0) {
+    if (buffered.byteLength > maximumMessageBytes) {
+      await emitResponse(writeLine, failure(null, -32700, "Parse error"));
+    } else {
+      await processLine(buffered, session, writeLine);
+    }
+  }
+}
 // src/skill-install.ts
-import { cp, mkdir as mkdir3, rm as rm3 } from "fs/promises";
+import { cp, mkdir as mkdir4, rm as rm4 } from "fs/promises";
 import { homedir as homedir2 } from "os";
-import { dirname as dirname4, join as join3, resolve as resolve4 } from "path";
+import { dirname as dirname6, join as join4, resolve as resolve5 } from "path";
 import { fileURLToPath } from "url";
 function bundledSkillPath() {
-  return resolve4(dirname4(fileURLToPath(import.meta.url)), "../skills/graphics");
+  return resolve5(dirname6(fileURLToPath(import.meta.url)), "../skills/graphics");
 }
 function targetRoot(target, scope, projectDirectory) {
   const directory = target === "codex" ? ".codex" : target === "claude" ? ".claude" : ".agents";
-  return scope === "user" ? join3(homedir2(), directory, "skills") : join3(projectDirectory, directory, "skills");
+  return scope === "user" ? join4(homedir2(), directory, "skills") : join4(projectDirectory, directory, "skills");
 }
 async function installSkill(options) {
   const source = bundledSkillPath();
   if (!await pathExists(source))
     throw new Error(`Bundled skill is missing: ${source}`);
-  const root = targetRoot(options.target, options.scope, resolve4(options.projectDirectory ?? process.cwd()));
-  const legacy = join3(root, "diagram");
+  const root = targetRoot(options.target, options.scope, resolve5(options.projectDirectory ?? process.cwd()));
+  const legacy = join4(root, "diagram");
   if (await pathExists(legacy)) {
     throw new Error(`Legacy diagram skill found at ${legacy}. Remove or move that directory, then rerun "graphics skill install --target ${options.target} --scope ${options.scope}". Graphics will not install both skills side by side.`);
   }
-  const destination = join3(root, "graphics");
+  const destination = join4(root, "graphics");
   if (await pathExists(destination)) {
     if (!options.force) {
       throw new Error(`Skill already exists at ${destination}; pass --force to replace it`);
     }
-    await rm3(destination, { recursive: true, force: true });
+    await rm4(destination, { recursive: true, force: true });
   }
-  await mkdir3(dirname4(destination), { recursive: true });
+  await mkdir4(dirname6(destination), { recursive: true });
   await cp(source, destination, { recursive: true, errorOnExist: true });
   return destination;
 }
 
+// src/vectorize/types.ts
+var vectorizeProfileNames = ["balanced", "detailed", "photo"];
+
+class VectorizeError extends Error {
+  code;
+  details;
+  constructor(code, message, details = {}, options) {
+    super(message, options);
+    this.name = "VectorizeError";
+    this.code = code;
+    this.details = details;
+  }
+}
+
+// src/vectorize/command.ts
+var MAX_COMMAND_OUTPUT_BYTES = 64 * 1024;
+var TERMINATION_GRACE_MS = 50;
+var HARD_KILL_WAIT_MS = 500;
+var timeoutMarker = Symbol("bounded-command-timeout");
+var isolateSpawnedProcessGroups = true;
+async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) {
+  if (command.length === 0) {
+    throw new VectorizeError("invalid_input", "A bounded command requires a command.");
+  }
+  if (timeoutMs < 1) {
+    throw new VectorizeError("timeout", "VTracer exceeded the conversion time limit.");
+  }
+  const maxStdoutBytes = options.maxStdoutBytes ?? MAX_COMMAND_OUTPUT_BYTES;
+  if (!Number.isSafeInteger(maxStdoutBytes) || maxStdoutBytes < 1) {
+    throw new VectorizeError("invalid_input", "The command stdout limit must be positive.");
+  }
+  let child;
+  const ownsProcessGroup = isolateSpawnedProcessGroups;
+  try {
+    child = Bun.spawn([...command], {
+      detached: ownsProcessGroup,
+      env: process.env,
+      stderr: "pipe",
+      stdin: options.stdin ?? "ignore",
+      stdout: "pipe",
+      windowsHide: true
+    });
+  } catch (error) {
+    throw executionError(failureCode, error);
+  }
+  const streamAbort = new AbortController;
+  const stdoutTask = readBoundedText(child.stdout, maxStdoutBytes, streamAbort.signal, "VTracer emitted too much primary output.");
+  const stderrTask = readBoundedText(child.stderr, MAX_COMMAND_OUTPUT_BYTES, streamAbort.signal, "VTracer emitted too much diagnostic output.");
+  const executionTask = Promise.all([
+    child.exited,
+    stdoutTask,
+    stderrTask
+  ]).then(([exitCode, stdout, stderr]) => {
+    if (exitCode !== 0) {
+      throw new VectorizeError(failureCode, [
+        `Command failed (${exitCode}): ${command[0] ?? "unknown"}`,
+        stderr.trim()
+      ].filter(Boolean).join(`
+`), { exitCode });
+    }
+    return { stderr, stdout };
+  });
+  let timer;
+  const timeoutTask = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => reject(timeoutMarker), timeoutMs);
+  });
+  try {
+    return await Promise.race([executionTask, timeoutTask]);
+  } catch (error) {
+    let cleanupError;
+    try {
+      await terminateAndWait(child, ownsProcessGroup);
+    } catch (caught) {
+      cleanupError = caught;
+    } finally {
+      streamAbort.abort();
+      await settlesWithin(Promise.allSettled([stdoutTask, stderrTask]), HARD_KILL_WAIT_MS);
+    }
+    if (error === timeoutMarker) {
+      throw new VectorizeError("timeout", cleanupError === undefined ? "VTracer exceeded the conversion time limit." : "VTracer exceeded the conversion time limit and did not terminate cleanly.", cleanupError === undefined ? {} : { cleanup: String(cleanupError) });
+    }
+    if (error instanceof VectorizeError)
+      throw error;
+    if (cleanupError instanceof VectorizeError)
+      throw cleanupError;
+    throw executionError(failureCode, error);
+  } finally {
+    if (timer !== undefined)
+      clearTimeout(timer);
+  }
+}
+async function terminateAndWait(child, ownsProcessGroup) {
+  if (process.platform === "win32") {
+    await killWindowsProcessTree(child.pid);
+  } else if (!ownsProcessGroup) {
+    safelyKillChild(child, "SIGTERM");
+    await delay(TERMINATION_GRACE_MS);
+    safelyKillChild(child, "SIGKILL");
+  } else {
+    safelyKillPosixProcessGroup(child, "SIGTERM");
+    await delay(TERMINATION_GRACE_MS);
+    safelyKillPosixProcessGroup(child, "SIGKILL");
+  }
+  if (await settlesWithin(child.exited, HARD_KILL_WAIT_MS))
+    return;
+  throw new VectorizeError("trace_failed", "VTracer did not exit after forced termination.");
+}
+function safelyKillChild(child, signal) {
+  try {
+    child.kill(signal);
+  } catch {}
+}
+function safelyKillPosixProcessGroup(child, signal) {
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    try {
+      child.kill(signal);
+    } catch {}
+  }
+}
+async function killWindowsProcessTree(pid) {
+  let killer;
+  try {
+    killer = Bun.spawn(["taskkill.exe", "/PID", String(pid), "/T", "/F"], {
+      detached: false,
+      stderr: "pipe",
+      stdin: "ignore",
+      stdout: "pipe",
+      windowsHide: true
+    });
+  } catch {
+    return;
+  }
+  const drain = Promise.all([
+    readBoundedText(killer.stdout, MAX_COMMAND_OUTPUT_BYTES, AbortSignal.timeout(HARD_KILL_WAIT_MS), "Process-tree cleanup emitted too much output."),
+    readBoundedText(killer.stderr, MAX_COMMAND_OUTPUT_BYTES, AbortSignal.timeout(HARD_KILL_WAIT_MS), "Process-tree cleanup emitted too much output.")
+  ]);
+  if (!await settlesWithin(Promise.all([killer.exited, drain]), HARD_KILL_WAIT_MS)) {
+    try {
+      killer.kill("SIGKILL");
+    } catch {}
+  }
+}
+async function settlesWithin(promise, durationMs) {
+  return new Promise((resolve6) => {
+    let finished = false;
+    const timer = setTimeout(() => finish(false), durationMs);
+    promise.then(() => finish(true), () => finish(true));
+    function finish(settled) {
+      if (finished)
+        return;
+      finished = true;
+      clearTimeout(timer);
+      resolve6(settled);
+    }
+  });
+}
+async function readBoundedText(stream, maximumBytes, signal, limitMessage) {
+  const reader = stream.getReader();
+  const chunks = [];
+  let bytes = 0;
+  const cancel = () => {
+    reader.cancel().catch(() => {
+      return;
+    });
+  };
+  signal.addEventListener("abort", cancel, { once: true });
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done)
+        break;
+      bytes += value.byteLength;
+      if (bytes > maximumBytes) {
+        await reader.cancel();
+        throw new VectorizeError("output_limit", limitMessage, {
+          bytes,
+          maximumBytes
+        });
+      }
+      chunks.push(value);
+    }
+    return Buffer.concat(chunks, bytes).toString("utf8");
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    reader.releaseLock();
+  }
+}
+function delay(durationMs) {
+  return new Promise((resolve6) => {
+    setTimeout(resolve6, durationMs);
+  });
+}
+function executionError(failureCode, cause) {
+  return new VectorizeError(failureCode, "VTracer could not be executed.", {}, { cause: cause instanceof Error ? cause : new Error(String(cause)) });
+}
+
+// src/vectorize/limits.ts
+var vectorizeHardLimits = Object.freeze({
+  maxDecodedPixels: 16777216,
+  maxDimension: 4096,
+  maxDurationMs: 120000,
+  maxInputBytes: 16 * 1024 * 1024,
+  maxOutputBytes: 2000000,
+  maxPaths: 12000
+});
+var vectorizeDefaultLimits = Object.freeze({
+  ...vectorizeHardLimits,
+  maxDurationMs: 30000
+});
+var limitNames = Object.keys(vectorizeHardLimits);
+function resolveVectorizeLimits(input) {
+  const resolved = {
+    maxDecodedPixels: input?.maxDecodedPixels ?? vectorizeDefaultLimits.maxDecodedPixels,
+    maxDimension: input?.maxDimension ?? vectorizeDefaultLimits.maxDimension,
+    maxDurationMs: input?.maxDurationMs ?? vectorizeDefaultLimits.maxDurationMs,
+    maxInputBytes: input?.maxInputBytes ?? vectorizeDefaultLimits.maxInputBytes,
+    maxOutputBytes: input?.maxOutputBytes ?? vectorizeDefaultLimits.maxOutputBytes,
+    maxPaths: input?.maxPaths ?? vectorizeDefaultLimits.maxPaths
+  };
+  for (const name of limitNames) {
+    const value = resolved[name];
+    const hardLimit = vectorizeHardLimits[name];
+    if (!Number.isInteger(value) || value < 1 || value > hardLimit) {
+      throw new VectorizeError("invalid_input", `${name} must be a positive integer no greater than ${hardLimit}.`, { hardLimit, name, value });
+    }
+  }
+  return Object.freeze(resolved);
+}
+
+class VectorizeDeadline {
+  #deadline;
+  constructor(durationMs) {
+    this.#deadline = performance.now() + durationMs;
+  }
+  assert(stage) {
+    if (this.remainingMs() <= 0) {
+      throw new VectorizeError("timeout", `Vectorization timed out during ${stage}.`, { stage });
+    }
+  }
+  remainingMs() {
+    return Math.max(0, Math.ceil(this.#deadline - performance.now()));
+  }
+}
+
+// src/vectorize/tool.ts
+var VTRACER_VERSION = "0.6.4";
+var frozenRelease = (release) => Object.freeze(release);
+var vtracerReleases = Object.freeze({
+  "darwin-arm64": frozenRelease({
+    archiveSha256: "4a597fd2df8b961d60620df40a7436109427d86e5c028758e6e8796b02d3d996",
+    binarySha256: "77e495bbe212448240387fba3b6d8bc62ba20ecfb6f3c22967e51600f1cc6e66",
+    format: "tar.gz",
+    url: `https://github.com/visioncortex/vtracer/releases/download/${VTRACER_VERSION}/vtracer-aarch64-apple-darwin.tar.gz`
+  }),
+  "darwin-x64": frozenRelease({
+    archiveSha256: "f0d755292c2602d772d63d658a3498b23eca8b5620d4b92a991bd035d5abed16",
+    binarySha256: "0f9f88f989b757e27973a5c4b42665153070183d0787656ee8af2249ab326b78",
+    format: "tar.gz",
+    url: `https://github.com/visioncortex/vtracer/releases/download/${VTRACER_VERSION}/vtracer-x86_64-apple-darwin.tar.gz`
+  }),
+  "linux-arm64": frozenRelease({
+    archiveSha256: "cbd05ad4f491d12dd139ada61485ca1d24db9f981cbe1658632a083cd0ac1a71",
+    binarySha256: "a4b33b6c4066a6b9187802c6efc8b89e211318e12a17164b9d1dd1f29ac5e502",
+    format: "tar.gz",
+    url: `https://github.com/visioncortex/vtracer/releases/download/${VTRACER_VERSION}/vtracer-aarch64-unknown-linux-musl.tar.gz`
+  }),
+  "linux-x64": frozenRelease({
+    archiveSha256: "9290ba0c90e224d6d212836dff5491407c1718bcb72f80b2b5a4a01816df5e40",
+    binarySha256: "6f31499257076bd94de3e976844cf7ca5643f1e194a2bf0599b13f3719452aec",
+    format: "tar.gz",
+    url: `https://github.com/visioncortex/vtracer/releases/download/${VTRACER_VERSION}/vtracer-x86_64-unknown-linux-musl.tar.gz`
+  }),
+  "win32-x64": frozenRelease({
+    archiveSha256: "6b5bc17a6b017129ee40461df254f65d16f3b494c001a8541d41861066b716bf",
+    binarySha256: "4ad8d35e566cd15caf582063b8349bd082b8fa2bd461e99d116fc63ad8fdeca0",
+    format: "zip",
+    url: `https://github.com/visioncortex/vtracer/releases/download/${VTRACER_VERSION}/vtracer-x86_64-pc-windows-msvc.zip`
+  })
+});
+var MAX_ARCHIVE_BYTES = 4 * 1024 * 1024;
+var MAX_TOOL_BYTES = 16 * 1024 * 1024;
+var FILE_CHUNK_BYTES = 64 * 1024;
+
+// src/vectorize/supervisor.ts
+import { fileURLToPath as fileURLToPath2 } from "url";
+import { mkdtemp, rm as rm5 } from "fs/promises";
+import { tmpdir } from "os";
+import { dirname as dirname7, join as join5 } from "path";
+
+// src/vectorize/worker-protocol.ts
+var VECTORIZE_WORKER_PROTOCOL = 1;
+var MAX_VECTORIZE_REQUEST_BYTES = Math.ceil(vectorizeHardLimits.maxInputBytes / 3) * 4 + 512 * 1024;
+var MAX_VECTORIZE_RESPONSE_BYTES = vectorizeHardLimits.maxOutputBytes * 2 + 512 * 1024;
+
+// src/vectorize/supervisor.ts
+var vectorizeErrorCodes = new Set([
+  "input_limit",
+  "invalid_input",
+  "output_limit",
+  "quality_limit",
+  "timeout",
+  "tool_download",
+  "tool_integrity",
+  "tool_platform",
+  "tool_version",
+  "trace_failed",
+  "unsafe_svg"
+]);
+var WORKER_SHUTDOWN_RESERVE_MS = 250;
+var WORKER_RESPONSE_RESERVE_MS = 100;
+async function runVectorizeWorker(input, options) {
+  const startedAt = performance.now();
+  const limits = resolveVectorizeLimits(options.limits);
+  if (process.platform === "win32") {
+    throw new VectorizeError("tool_platform", "Bounded VTracer streaming is unavailable on Windows.", { platform: process.platform });
+  }
+  const workerInput = encodeInput(input, limits.maxInputBytes);
+  const temporaryRoot = await mkdtemp(join5(tmpdir(), "graphics-vectorize-"));
+  let result;
+  try {
+    result = await executeVectorizeWorker(workerInput, options, limits, startedAt, temporaryRoot);
+  } finally {
+    await removeTemporaryRoot(temporaryRoot);
+  }
+  if (performance.now() - startedAt >= limits.maxDurationMs) {
+    throw new VectorizeError("timeout", "Vectorization exceeded the conversion time limit during cleanup.");
+  }
+  return result;
+}
+async function executeVectorizeWorker(workerInput, options, limits, startedAt, temporaryRoot) {
+  const preparationRemainingMs = limits.maxDurationMs - (performance.now() - startedAt);
+  if (preparationRemainingMs <= WORKER_SHUTDOWN_RESERVE_MS + WORKER_RESPONSE_RESERVE_MS) {
+    throw new VectorizeError("timeout", "Vectorization has no remaining budget for isolated worker execution.");
+  }
+  const workerDurationMs = Math.floor(preparationRemainingMs - WORKER_SHUTDOWN_RESERVE_MS - WORKER_RESPONSE_RESERVE_MS);
+  const request = {
+    input: workerInput,
+    options: cloneOptions(options, workerDurationMs),
+    protocol: VECTORIZE_WORKER_PROTOCOL,
+    temporaryRoot
+  };
+  const requestBytes = Buffer.from(JSON.stringify(request));
+  if (requestBytes.byteLength > MAX_VECTORIZE_REQUEST_BYTES) {
+    throw new VectorizeError("input_limit", "The vectorization worker request exceeds its IPC limit.", {
+      bytes: requestBytes.byteLength,
+      maximumBytes: MAX_VECTORIZE_REQUEST_BYTES
+    });
+  }
+  const remainingMs = limits.maxDurationMs - (performance.now() - startedAt);
+  if (remainingMs <= WORKER_SHUTDOWN_RESERVE_MS) {
+    throw new VectorizeError("timeout", "Vectorization has no remaining budget for isolated worker startup and cleanup.");
+  }
+  const { stdout } = await runBoundedCommand([process.execPath, workerEntryPath()], Math.floor(remainingMs - WORKER_SHUTDOWN_RESERVE_MS), "trace_failed", {
+    maxStdoutBytes: MAX_VECTORIZE_RESPONSE_BYTES,
+    stdin: requestBytes
+  });
+  if (performance.now() - startedAt >= limits.maxDurationMs) {
+    throw new VectorizeError("timeout", "Vectorization exceeded the conversion time limit.");
+  }
+  const response = parseResponse(stdout);
+  if (!response.ok) {
+    throw new VectorizeError(response.error.code, response.error.message, response.error.details);
+  }
+  assertResult(response.result, limits.maxOutputBytes);
+  if (performance.now() - startedAt >= limits.maxDurationMs) {
+    throw new VectorizeError("timeout", "Vectorization exceeded the conversion time limit.");
+  }
+  return response.result;
+}
+async function removeTemporaryRoot(temporaryRoot) {
+  try {
+    await rm5(temporaryRoot, { force: true, recursive: true });
+  } catch (error) {
+    throw new VectorizeError("trace_failed", "The isolated vectorization directory could not be removed.", { temporaryRoot }, { cause: error });
+  }
+}
+function encodeInput(input, maximumInputBytes) {
+  return typeof input === "string" ? { kind: "path", value: input } : encodeBytes(input, maximumInputBytes);
+}
+function encodeBytes(input, maximumInputBytes) {
+  const view = input instanceof ArrayBuffer ? new Uint8Array(input) : input;
+  if (view.byteLength < 1) {
+    throw new VectorizeError("invalid_input", "Raster input is empty.");
+  }
+  if (view.byteLength > maximumInputBytes) {
+    throw new VectorizeError("input_limit", `Raster input exceeds the ${maximumInputBytes}-byte limit.`, { bytes: view.byteLength, maximumBytes: maximumInputBytes });
+  }
+  return {
+    kind: "bytes",
+    value: Buffer.from(view.buffer, view.byteOffset, view.byteLength).toString("base64")
+  };
+}
+function cloneOptions(options, workerDurationMs) {
+  return {
+    ...options.alphaCutoff === undefined ? {} : { alphaCutoff: options.alphaCutoff },
+    ...options.cacheDirectory === undefined ? {} : { cacheDirectory: options.cacheDirectory },
+    ...options.duotone === undefined ? {} : { duotone: [options.duotone[0], options.duotone[1]] },
+    limits: {
+      ...options.limits,
+      maxDurationMs: workerDurationMs
+    },
+    ...options.outputPath === undefined ? {} : { outputPath: options.outputPath }
+  };
+}
+function workerEntryPath() {
+  const modulePath = fileURLToPath2(import.meta.url);
+  return modulePath.endsWith(".ts") ? join5(dirname7(modulePath), "worker.ts") : join5(dirname7(modulePath), "vectorize-worker.js");
+}
+function parseResponse(stdout) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch (error) {
+    throw new VectorizeError("trace_failed", "The vectorization worker returned malformed output.", {}, { cause: error });
+  }
+  if (!isRecord6(parsed) || parsed.protocol !== VECTORIZE_WORKER_PROTOCOL) {
+    throw new VectorizeError("trace_failed", "The vectorization worker returned an incompatible response.");
+  }
+  if (parsed.ok === true && isVectorizeResult(parsed.result)) {
+    return parsed;
+  }
+  if (parsed.ok === false && isRecord6(parsed.error) && typeof parsed.error.code === "string" && vectorizeErrorCodes.has(parsed.error.code) && typeof parsed.error.message === "string" && isRecord6(parsed.error.details)) {
+    return parsed;
+  }
+  throw new VectorizeError("trace_failed", "The vectorization worker returned an invalid response.");
+}
+function assertResult(result, maximumOutputBytes) {
+  const bytes = Buffer.byteLength(result.svg);
+  if (bytes < 1 || bytes > maximumOutputBytes || result.receipt.bytes !== bytes || result.receipt.svgSha256.length !== 64) {
+    throw new VectorizeError("trace_failed", "The vectorization worker response violates its output contract.", { bytes, maximumOutputBytes });
+  }
+}
+function isVectorizeResult(value) {
+  if (!isRecord6(value) || value.outputPath !== null && typeof value.outputPath !== "string" || typeof value.svg !== "string" || !isRecord6(value.receipt)) {
+    return false;
+  }
+  const profile = value.receipt.profile;
+  return typeof value.receipt.bytes === "number" && typeof value.receipt.svgSha256 === "string" && typeof profile === "string" && vectorizeProfileNames.includes(profile);
+}
+function isRecord6(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// src/vectorize/vectorize.ts
+function vectorizeImage(input, options = {}) {
+  return runVectorizeWorker(input, options);
+}
 // src/index.ts
 var diagramApi = Object.freeze({
   artifactSummary,
@@ -1528,32 +3174,64 @@ var diagramApi = Object.freeze({
   DiagramValidationError,
   findDesktopApplication,
   getLatestDesktopRelease,
+  graphicsMcpProtocolVersion,
+  graphicsMcpServerName,
+  graphicsMcpTools,
+  GraphicsMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
+  mcpMaximumRenderedPixels,
+  mcpMaximumScale,
+  mcpSourceByteLimit,
   openInDesktop,
+  parseDiagramSource,
   parseDiagramSpec,
   readDiagramFile,
   renderDiagramFile,
   renderPng,
   renderSvg,
   resolveEdge,
+  resolveDiagramSource,
+  resolveStackLayout,
+  runMcpServer,
   selectDesktopAsset,
-  serializeTldr
+  serializeTldr,
+  stackLayoutDefaults,
+  StackLayoutError,
+  vectorizeImage,
+  WorkspaceBoundary,
+  WorkspaceBoundaryError
 });
 export {
+  vtracerReleases,
+  vectorizeProfileNames,
+  vectorizeImage,
+  vectorizeHardLimits,
+  vectorizeDefaultLimits,
+  stackLayoutDefaults,
   serializeTldr,
   selectDesktopAsset,
+  runMcpServer,
+  resolveStackLayout,
   resolveEdge,
+  resolveDiagramSource,
   renderSvg,
   renderPng,
   renderDiagramFile,
   readDiagramFile,
   parseDiagramSpec,
+  parseDiagramSource,
   openInDesktop,
+  mcpSourceByteLimit,
+  mcpMaximumScale,
+  mcpMaximumRenderedPixels,
   lintDiagram,
   installSkill,
   installDesktop,
+  graphicsMcpTools,
+  graphicsMcpServerName,
+  graphicsMcpProtocolVersion,
   getLatestDesktopRelease,
   findDesktopApplication,
   diagramApi,
@@ -1563,5 +3241,11 @@ export {
   bundledSkillPath,
   builtInIcons,
   artifactSummary,
+  WorkspaceBoundaryError,
+  WorkspaceBoundary,
+  VectorizeError,
+  VTRACER_VERSION,
+  StackLayoutError,
+  GraphicsMcpToolRuntime,
   DiagramValidationError
 };

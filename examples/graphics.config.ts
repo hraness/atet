@@ -1,4 +1,4 @@
-import type { DiagramConfig } from "../src/index.ts"
+import type { DiagramConfig } from "@cclrte/graphics"
 
 export default {
   icons: {

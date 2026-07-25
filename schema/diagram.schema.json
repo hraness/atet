@@ -1,14 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/hraness/graphics/main/schema/diagram.schema.json",
-  "title": "Diagram specification",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["version", "name", "canvas", "shapes"],
-  "properties": {
-    "$schema": { "type": "string" },
-    "version": { "const": 1 },
-    "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+  "$id": "https://raw.githubusercontent.com/hraness/graphics/v0.3.0/schema/diagram.schema.json",
+  "title": "Diagram source",
+  "description": "A positioned diagram or a coordinate-free stack diagram. Both source forms resolve to the positioned DiagramSpec used by renderers.",
+  "oneOf": [
+    { "$ref": "#/$defs/positionedDiagram" },
+    { "$ref": "#/$defs/stackDiagram" }
+  ],
+  "$defs": {
+    "tone": {
+      "enum": ["neutral", "blue", "orange", "green", "red", "purple", "yellow"]
+    },
     "canvas": {
       "type": "object",
       "additionalProperties": false,
@@ -19,109 +21,106 @@
         "padding": { "type": "number", "minimum": 0 }
       }
     },
-    "shapes": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/shape" }
-    },
-    "edges": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/edge" }
-    }
-  },
-  "$defs": {
-    "tone": {
-      "enum": ["neutral", "blue", "orange", "green", "red", "purple", "yellow"]
-    },
-    "baseShape": {
+    "baseBoxProperties": {
       "type": "object",
-      "required": ["id", "type", "x", "y"],
       "properties": {
         "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$" },
-        "type": { "type": "string" },
+        "type": { "enum": ["rect", "ellipse"] },
+        "tone": { "$ref": "#/$defs/tone" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "radius": { "type": "number", "minimum": 0 },
+        "label": { "type": "string" },
+        "icon": { "type": "string" },
+        "iconSize": { "type": "number", "exclusiveMinimum": 0 },
+        "strokeWidth": { "type": "number", "minimum": 0 },
+        "fill": { "type": "boolean" }
+      }
+    },
+    "positionedBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "x", "y", "width", "height"],
+      "properties": {
+        "id": { "$ref": "#/$defs/baseBoxProperties/properties/id" },
+        "type": { "$ref": "#/$defs/baseBoxProperties/properties/type" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "tone": { "$ref": "#/$defs/baseBoxProperties/properties/tone" },
+        "opacity": { "$ref": "#/$defs/baseBoxProperties/properties/opacity" },
+        "width": { "$ref": "#/$defs/baseBoxProperties/properties/width" },
+        "height": { "$ref": "#/$defs/baseBoxProperties/properties/height" },
+        "radius": { "$ref": "#/$defs/baseBoxProperties/properties/radius" },
+        "label": { "$ref": "#/$defs/baseBoxProperties/properties/label" },
+        "icon": { "$ref": "#/$defs/baseBoxProperties/properties/icon" },
+        "iconSize": { "$ref": "#/$defs/baseBoxProperties/properties/iconSize" },
+        "strokeWidth": { "$ref": "#/$defs/baseBoxProperties/properties/strokeWidth" },
+        "fill": { "$ref": "#/$defs/baseBoxProperties/properties/fill" }
+      }
+    },
+    "stackShape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "width", "height"],
+      "properties": {
+        "id": { "$ref": "#/$defs/baseBoxProperties/properties/id" },
+        "type": { "$ref": "#/$defs/baseBoxProperties/properties/type" },
+        "tone": { "$ref": "#/$defs/baseBoxProperties/properties/tone" },
+        "opacity": { "$ref": "#/$defs/baseBoxProperties/properties/opacity" },
+        "width": { "$ref": "#/$defs/baseBoxProperties/properties/width" },
+        "height": { "$ref": "#/$defs/baseBoxProperties/properties/height" },
+        "radius": { "$ref": "#/$defs/baseBoxProperties/properties/radius" },
+        "label": { "$ref": "#/$defs/baseBoxProperties/properties/label" },
+        "icon": { "$ref": "#/$defs/baseBoxProperties/properties/icon" },
+        "iconSize": { "$ref": "#/$defs/baseBoxProperties/properties/iconSize" },
+        "strokeWidth": { "$ref": "#/$defs/baseBoxProperties/properties/strokeWidth" },
+        "fill": { "$ref": "#/$defs/baseBoxProperties/properties/fill" }
+      }
+    },
+    "textShape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "x", "y", "text"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$" },
+        "type": { "const": "text" },
         "x": { "type": "number" },
         "y": { "type": "number" },
         "tone": { "$ref": "#/$defs/tone" },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "text": { "type": "string" },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "fontSize": { "type": "number", "exclusiveMinimum": 0 },
+        "weight": { "enum": [400, 500, 600, 700] },
+        "align": { "enum": ["start", "middle", "end"] }
       }
     },
-    "shape": {
-      "oneOf": [
-        {
-          "allOf": [
-            { "$ref": "#/$defs/baseShape" },
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["id", "type", "x", "y", "width", "height"],
-              "properties": {
-                "id": true,
-                "type": { "enum": ["rect", "ellipse"] },
-                "x": true,
-                "y": true,
-                "tone": true,
-                "opacity": true,
-                "width": { "type": "number", "exclusiveMinimum": 0 },
-                "height": { "type": "number", "exclusiveMinimum": 0 },
-                "radius": { "type": "number", "minimum": 0 },
-                "label": { "type": "string" },
-                "icon": { "type": "string" },
-                "iconSize": { "type": "number", "exclusiveMinimum": 0 },
-                "strokeWidth": { "type": "number", "minimum": 0 },
-                "fill": { "type": "boolean" }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            { "$ref": "#/$defs/baseShape" },
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["id", "type", "x", "y", "text"],
-              "properties": {
-                "id": true,
-                "type": { "const": "text" },
-                "x": true,
-                "y": true,
-                "tone": true,
-                "opacity": true,
-                "text": { "type": "string" },
-                "width": { "type": "number", "exclusiveMinimum": 0 },
-                "fontSize": { "type": "number", "exclusiveMinimum": 0 },
-                "weight": { "enum": [400, 500, 600, 700] },
-                "align": { "enum": ["start", "middle", "end"] }
-              }
-            }
-          ]
-        },
-        {
-          "allOf": [
-            { "$ref": "#/$defs/baseShape" },
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["id", "type", "x", "y", "x2", "y2"],
-              "properties": {
-                "id": true,
-                "type": { "const": "line" },
-                "x": true,
-                "y": true,
-                "tone": true,
-                "opacity": true,
-                "x2": { "type": "number" },
-                "y2": { "type": "number" },
-                "strokeWidth": { "type": "number", "exclusiveMinimum": 0 }
-              }
-            }
-          ]
-        }
-      ]
-    },
-    "edge": {
+    "lineShape": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "from", "to"],
+      "required": ["id", "type", "x", "y", "x2", "y2"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$" },
+        "type": { "const": "line" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "tone": { "$ref": "#/$defs/tone" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "x2": { "type": "number" },
+        "y2": { "type": "number" },
+        "strokeWidth": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "positionedShape": {
+      "oneOf": [
+        { "$ref": "#/$defs/positionedBox" },
+        { "$ref": "#/$defs/textShape" },
+        { "$ref": "#/$defs/lineShape" }
+      ]
+    },
+    "edgeProperties": {
+      "type": "object",
       "properties": {
         "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$" },
         "from": { "type": "string" },
@@ -132,6 +131,100 @@
         "end": { "enum": ["auto", "top", "right", "bottom", "left"] },
         "bend": { "type": "number" },
         "arrowhead": { "enum": ["arrow", "triangle", "none"] }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to"],
+      "properties": {
+        "id": { "$ref": "#/$defs/edgeProperties/properties/id" },
+        "from": { "$ref": "#/$defs/edgeProperties/properties/from" },
+        "to": { "$ref": "#/$defs/edgeProperties/properties/to" },
+        "label": { "$ref": "#/$defs/edgeProperties/properties/label" },
+        "tone": { "$ref": "#/$defs/edgeProperties/properties/tone" },
+        "start": { "$ref": "#/$defs/edgeProperties/properties/start" },
+        "end": { "$ref": "#/$defs/edgeProperties/properties/end" },
+        "bend": { "$ref": "#/$defs/edgeProperties/properties/bend" },
+        "arrowhead": { "$ref": "#/$defs/edgeProperties/properties/arrowhead" }
+      }
+    },
+    "stackEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to"],
+      "properties": {
+        "id": { "$ref": "#/$defs/edgeProperties/properties/id" },
+        "from": { "$ref": "#/$defs/edgeProperties/properties/from" },
+        "to": { "$ref": "#/$defs/edgeProperties/properties/to" },
+        "label": { "$ref": "#/$defs/edgeProperties/properties/label" },
+        "tone": { "$ref": "#/$defs/edgeProperties/properties/tone" },
+        "start": { "const": "auto" },
+        "end": { "const": "auto" },
+        "bend": { "const": 0 },
+        "arrowhead": { "$ref": "#/$defs/edgeProperties/properties/arrowhead" }
+      }
+    },
+    "stackLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "direction"],
+      "properties": {
+        "type": { "const": "stack" },
+        "direction": { "enum": ["horizontal", "vertical"] },
+        "gap": { "type": "number", "minimum": 0, "default": 160 },
+        "align": { "enum": ["start", "center", "end"], "default": "center" }
+      }
+    },
+    "positionedDiagram": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "name", "canvas", "shapes"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "version": { "const": 1 },
+        "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "canvas": { "$ref": "#/$defs/canvas" },
+        "shapes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/positionedShape" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/edge" }
+        }
+      }
+    },
+    "stackDiagram": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "name", "canvas", "layout", "shapes"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "version": { "const": 1 },
+        "name": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "canvas": {
+          "allOf": [
+            { "$ref": "#/$defs/canvas" },
+            {
+              "type": "object",
+              "properties": {
+                "padding": { "type": "number", "minimum": 0, "default": 64 }
+              }
+            }
+          ]
+        },
+        "layout": { "$ref": "#/$defs/stackLayout" },
+        "shapes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 9,
+          "items": { "$ref": "#/$defs/stackShape" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stackEdge" }
+        }
       }
     }
   }
