@@ -131,20 +131,26 @@ test("vectorizes a raster through a compatible override with a deterministic rec
 
 test("the public conversion boundary enforces one wall-clock budget", async () => {
   if (process.platform === "win32") return
+  const durationMs = 3_000
   const work = await mkdtemp(join(tmpdir(), "graphics-vectorize-deadline-"))
   const previousOverride = process.env.GRAPHICS_VTRACER_PATH
-  let tracerPid: number | undefined
+  const pids: number[] = []
   let conversionRoot: string | undefined
   try {
     const mock = join(work, "vtracer")
     const tracerPidPath = join(work, "tracer-pid")
+    const descendantPidPath = join(work, "descendant-pid")
     const temporaryRootPath = join(work, "temporary-root")
+    const descendantProgram = [
+      `await Bun.write(${JSON.stringify(descendantPidPath)}, String(process.pid))`,
+      "await Bun.sleep(10_000)",
+    ].join(";")
     await writeFile(
       mock,
       [
         "#!/usr/bin/env bun",
         "const args = process.argv.slice(2)",
-        `if (args.includes("--version")) { const { dirname } = await import("node:path"); await Bun.write(${JSON.stringify(tracerPidPath)}, String(process.pid)); await Bun.write(${JSON.stringify(temporaryRootPath)}, dirname(process.argv[1] ?? "")); while (true) {} }`,
+        `if (args.includes("--version")) { const { dirname } = await import("node:path"); Bun.spawn([process.execPath, "-e", ${JSON.stringify(descendantProgram)}], { stderr: "ignore", stdin: "ignore", stdout: "ignore" }); await Bun.write(${JSON.stringify(tracerPidPath)}, String(process.pid)); await Bun.write(${JSON.stringify(temporaryRootPath)}, dirname(process.argv[1] ?? "")); await Bun.sleep(50); while (true) {} }`,
         "process.exit(2)",
         "",
       ].join("\n"),
@@ -164,20 +170,23 @@ test("the public conversion boundary enforces one wall-clock budget", async () =
 
     const started = performance.now()
     await expect(
-      vectorizeImage(input, { limits: { maxDurationMs: 2_000 } }),
+      vectorizeImage(input, { limits: { maxDurationMs: durationMs } }),
     ).rejects.toMatchObject({ code: "timeout" })
-    expect(performance.now() - started).toBeLessThan(2_000)
-    tracerPid = Number.parseInt(await readFile(tracerPidPath, "utf8"), 10)
-    await waitUntilGone(tracerPid)
+    expect(performance.now() - started).toBeLessThan(durationMs)
+    pids.push(
+      Number.parseInt(await readFile(tracerPidPath, "utf8"), 10),
+      Number.parseInt(await readFile(descendantPidPath, "utf8"), 10),
+    )
+    await Promise.all(pids.map(waitUntilGone))
     conversionRoot = await readFile(temporaryRootPath, "utf8")
     expect(conversionRoot).toContain("graphics-vectorize-")
     await expect(lstat(conversionRoot)).rejects.toMatchObject({ code: "ENOENT" })
   } finally {
-    if (tracerPid !== undefined) {
+    for (const pid of pids) {
       try {
-        process.kill(tracerPid, "SIGKILL")
+        process.kill(pid, "SIGKILL")
       } catch {
-        // The expected path: worker process-group cleanup removed the tracer.
+        // The expected path: worker termination removed the tracer tree.
       }
     }
     if (conversionRoot !== undefined) {

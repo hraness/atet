@@ -14,7 +14,7 @@ import {
   type VectorizeInput,
   type VectorizeOptions,
 } from "./types.ts"
-import { inheritVectorizeWorkerProcessGroup } from "./command.ts"
+import { forwardVectorizeWorkerTermination } from "./command.ts"
 import { vectorizeImageInProcess } from "./vectorize.ts"
 
 const errorCodes = new Set<VectorizeErrorCode>([
@@ -31,7 +31,7 @@ const errorCodes = new Set<VectorizeErrorCode>([
   "unsafe_svg",
 ])
 
-inheritVectorizeWorkerProcessGroup()
+forwardVectorizeWorkerTermination()
 await main()
 
 async function main(): Promise<void> {

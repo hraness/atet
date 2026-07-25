@@ -6,10 +6,7 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
-import {
-  createPrivateOutputPipe,
-  runBoundedCommand,
-} from "./command.ts"
+import { runBoundedPathOutputCommand } from "./command.ts"
 import { resolveVectorizeLimits, VectorizeDeadline } from "./limits.ts"
 import {
   alphaPlaneTraceRgba,
@@ -399,7 +396,6 @@ async function attemptCandidate(
       temporaryRoot,
       limits.maxOutputBytes,
       deadline,
-      `${variation.name}-${profile.name}`,
     )
     deadline.assert(`${profile.name} trace`)
     const canonical = canonicalizeVTracerSvg(
@@ -456,7 +452,6 @@ async function attemptAlphaMask(
       temporaryRoot,
       limits.maxOutputBytes,
       deadline,
-      "alpha-mask",
     )
     const mask = canonicalizeVTracerSvg(raw, raster.width, raster.height, limits.maxPaths)
     const pathCount = base.artworkPaths.length + mask.paths.length
@@ -529,32 +524,27 @@ async function traceRawSvg(
   temporaryRoot: string,
   maximumBytes: number,
   deadline: VectorizeDeadline,
-  name: string,
 ): Promise<string> {
-  const outputPipePath = join(
-    temporaryRoot,
-    `${name}-${randomUUID()}.fifo`,
+  const { output } = await runBoundedPathOutputCommand(
+    (outputPath) => [
+      tool.path,
+      "--input",
+      sourcePath,
+      "--output",
+      outputPath,
+      ...args,
+    ],
+    deadline.remainingMs(),
+    "trace_failed",
+    {
+      maxOutputBytes: maximumBytes,
+      temporaryRoot,
+    },
   )
-  await createPrivateOutputPipe(outputPipePath, deadline.remainingMs())
-  try {
-    const { pipeOutput } = await runBoundedCommand(
-      [tool.path, "--input", sourcePath, "--output", outputPipePath, ...args],
-      deadline.remainingMs(),
-      "trace_failed",
-      {
-        outputPipe: {
-          maximumBytes,
-          path: outputPipePath,
-        },
-      },
-    )
-    if (pipeOutput === null || pipeOutput.length === 0) {
-      throw new VectorizeError("trace_failed", "VTracer did not emit an SVG.")
-    }
-    return pipeOutput
-  } finally {
-    await rm(outputPipePath, { force: true })
+  if (output.length === 0) {
+    throw new VectorizeError("trace_failed", "VTracer did not emit an SVG.")
   }
+  return output
 }
 
 function passesFastQuality(quality: VectorizeQualityReceipt): boolean {

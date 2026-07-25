@@ -69,11 +69,9 @@ test("nonregular input is rejected without blocking on a FIFO", async () => {
     const fifo = join(work, "input.png")
     const created = Bun.spawnSync(["mkfifo", fifo])
     expect(created.exitCode).toBe(0)
-    const started = performance.now()
     await expect(
-      vectorizeImage(fifo, { limits: { maxDurationMs: 2_000 } }),
+      vectorizeImage(fifo, { limits: { maxDurationMs: 1_000 } }),
     ).rejects.toMatchObject({ code: "invalid_input" })
-    expect(performance.now() - started).toBeLessThan(1_500)
   } finally {
     await rm(work, { force: true, recursive: true })
   }

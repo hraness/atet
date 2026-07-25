@@ -9,10 +9,7 @@ import {
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import {
-  createPrivateOutputPipe,
-  runBoundedCommand,
-} from "./command.ts"
+import { runBoundedPathOutputCommand } from "./command.ts"
 import { VectorizeDeadline } from "./limits.ts"
 import { sha256 } from "./metrics.ts"
 import { ensureVTracer } from "./tool.ts"
@@ -40,20 +37,22 @@ test("a conversion executes a private verified copy after the override path chan
     expect(tool.sha256).toBe(sha256(original))
 
     await writeFile(source, mockVTracer("replacement"))
-    const outputPipe = join(work, "output.fifo")
-    await createPrivateOutputPipe(outputPipe, 1_000)
-    const result = await runBoundedCommand(
-      [tool.path, "--input", "ignored", "--output", outputPipe],
+    const result = await runBoundedPathOutputCommand(
+      (outputPath) => [
+        tool.path,
+        "--input",
+        "ignored",
+        "--output",
+        outputPath,
+      ],
       1_000,
       "trace_failed",
       {
-        outputPipe: {
-          maximumBytes: 1_024,
-          path: outputPipe,
-        },
+        maxOutputBytes: 64,
+        temporaryRoot: work,
       },
     )
-    expect(result.pipeOutput).toBe("original")
+    expect(result.output).toBe("original")
     expect(sha256(await readFile(tool.path))).toBe(tool.sha256)
   } finally {
     if (previousOverride === undefined) delete process.env.GRAPHICS_VTRACER_PATH

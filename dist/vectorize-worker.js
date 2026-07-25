@@ -70,29 +70,104 @@ var MAX_VECTORIZE_REQUEST_BYTES = Math.ceil(vectorizeHardLimits.maxInputBytes / 
 var MAX_VECTORIZE_RESPONSE_BYTES = vectorizeHardLimits.maxOutputBytes * 2 + 512 * 1024;
 
 // src/vectorize/command.ts
-import { once } from "events";
-import { constants, createReadStream } from "fs";
-import { lstat, open } from "fs/promises";
-import { Readable } from "stream";
+import { constants } from "fs";
+import {
+  lstat,
+  mkdtemp,
+  open,
+  rmdir,
+  unlink
+} from "fs/promises";
+import { join } from "path";
 var MAX_COMMAND_OUTPUT_BYTES = 64 * 1024;
+var PRIMARY_OUTPUT_READ_BYTES = 64 * 1024;
+var PRIMARY_OUTPUT_POLL_MS = 2;
 var TERMINATION_GRACE_MS = 50;
 var HARD_KILL_WAIT_MS = 500;
 var timeoutMarker = Symbol("bounded-command-timeout");
-var isolateSpawnedProcessGroups = true;
-function inheritVectorizeWorkerProcessGroup() {
-  isolateSpawnedProcessGroups = false;
-}
-async function createPrivateOutputPipe(path, timeoutMs) {
-  if (process.platform === "win32") {
-    throw new VectorizeError("tool_platform", "Bounded file-output streaming is unavailable on Windows.");
+var noCommandFailure = Symbol("no-command-failure");
+var activePosixProcessGroups = new Set;
+var workerTerminationForwardingInstalled = false;
+function forwardVectorizeWorkerTermination() {
+  if (process.platform === "win32" || workerTerminationForwardingInstalled) {
+    return;
   }
-  await runBoundedCommand(["/usr/bin/mkfifo", "-m", "600", path], timeoutMs, "trace_failed");
-  const metadata = await lstat(path);
-  if (metadata.isSymbolicLink() || !metadata.isFIFO()) {
-    throw new VectorizeError("trace_failed", "The bounded file-output pipe could not be created safely.");
+  workerTerminationForwardingInstalled = true;
+  const signals = [
+    ["SIGHUP", 129],
+    ["SIGINT", 130],
+    ["SIGTERM", 143]
+  ];
+  for (const [signal, exitCode] of signals) {
+    process.once(signal, () => {
+      for (const pid of activePosixProcessGroups) {
+        safelyKillPosixProcessGroupByPid(pid, "SIGKILL");
+      }
+      process.exit(exitCode);
+    });
   }
 }
 async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) {
+  return runBoundedCommandInternal(command, timeoutMs, failureCode, options);
+}
+async function runBoundedPathOutputCommand(commandForOutput, timeoutMs, failureCode, options) {
+  if (process.platform === "win32") {
+    throw new VectorizeError("tool_platform", "Bounded pathname output is unavailable on Windows.", { platform: process.platform });
+  }
+  assertPositiveLimit(options.maxOutputBytes, "The command primary-output limit must be positive.");
+  if (timeoutMs < 1) {
+    throw new VectorizeError("timeout", "VTracer exceeded the conversion time limit.");
+  }
+  const startedAt = performance.now();
+  let anchorHandle;
+  let directoryHandle;
+  let outputDirectory;
+  let readerHandle;
+  let result;
+  let failure = noCommandFailure;
+  try {
+    outputDirectory = await mkdtemp(join(options.temporaryRoot, "graphics-command-output-"));
+    directoryHandle = await open(outputDirectory, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+    await assertOpenedPrivateDirectory(outputDirectory, directoryHandle);
+    const outputPath = join(outputDirectory, "output.svg");
+    await createPrivateFifo(outputPath, remainingCommandTime(startedAt, timeoutMs), failureCode);
+    anchorHandle = await open(outputPath, constants.O_RDWR | constants.O_NONBLOCK | constants.O_NOFOLLOW);
+    readerHandle = await open(outputPath, constants.O_RDONLY | constants.O_NONBLOCK | constants.O_NOFOLLOW);
+    await assertOpenedPrivateFifo(outputPath, anchorHandle, readerHandle);
+    await directoryHandle.chmod(320);
+    const commandResult = await runBoundedCommandInternal(commandForOutput(outputPath), remainingCommandTime(startedAt, timeoutMs), failureCode, options, {
+      handle: readerHandle,
+      maximumBytes: options.maxOutputBytes
+    });
+    if (commandResult.primaryOutput === undefined) {
+      throw new VectorizeError(failureCode, "VTracer did not expose its bounded primary output.");
+    }
+    result = {
+      output: commandResult.primaryOutput,
+      stderr: commandResult.stderr,
+      stdout: commandResult.stdout
+    };
+  } catch (error) {
+    failure = error instanceof VectorizeError ? error : executionError(failureCode, error);
+  }
+  const cleanupError = await removePrimaryOutputEndpoint(outputDirectory, outputDirectory === undefined ? undefined : join(outputDirectory, "output.svg"), readerHandle, anchorHandle, directoryHandle);
+  if (failure !== noCommandFailure) {
+    if (cleanupError === undefined)
+      throw failure;
+    throw new VectorizeError(failure instanceof VectorizeError ? failure.code : failureCode, `${failure instanceof Error ? failure.message : String(failure)} The temporary primary-output endpoint also could not be removed.`, {
+      ...failure instanceof VectorizeError ? failure.details : {},
+      cleanup: String(cleanupError)
+    }, { cause: failure instanceof Error ? failure : undefined });
+  }
+  if (cleanupError !== undefined) {
+    throw new VectorizeError(failureCode, "The temporary primary-output endpoint could not be removed.", { cleanup: String(cleanupError) }, { cause: cleanupError instanceof Error ? cleanupError : undefined });
+  }
+  if (result === undefined) {
+    throw new VectorizeError(failureCode, "The bounded command completed without a result.");
+  }
+  return result;
+}
+async function runBoundedCommandInternal(command, timeoutMs, failureCode, options, primaryOutput) {
   if (command.length === 0) {
     throw new VectorizeError("invalid_input", "A bounded command requires a command.");
   }
@@ -100,15 +175,9 @@ async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) 
     throw new VectorizeError("timeout", "VTracer exceeded the conversion time limit.");
   }
   const maxStdoutBytes = options.maxStdoutBytes ?? MAX_COMMAND_OUTPUT_BYTES;
-  if (!Number.isSafeInteger(maxStdoutBytes) || maxStdoutBytes < 1) {
-    throw new VectorizeError("invalid_input", "The command stdout limit must be positive.");
-  }
-  if (options.outputPipe !== undefined && (!Number.isSafeInteger(options.outputPipe.maximumBytes) || options.outputPipe.maximumBytes < 1)) {
-    throw new VectorizeError("invalid_input", "The command pipe-output limit must be positive.");
-  }
-  const outputPipe = options.outputPipe === undefined ? undefined : await openOutputPipe(options.outputPipe);
+  assertPositiveLimit(maxStdoutBytes, "The command stdout limit must be positive.");
   let child;
-  const ownsProcessGroup = isolateSpawnedProcessGroups;
+  const ownsProcessGroup = process.platform !== "win32";
   try {
     child = Bun.spawn([...command], {
       detached: ownsProcessGroup,
@@ -119,22 +188,29 @@ async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) 
       windowsHide: true
     });
   } catch (error) {
-    await discardOutputPipe(outputPipe);
     throw executionError(failureCode, error);
   }
+  if (process.platform !== "win32") {
+    activePosixProcessGroups.add(child.pid);
+  }
   const streamAbort = new AbortController;
-  const exitTask = child.exited.finally(async () => {
-    await closeOutputPipeSentinel(outputPipe);
+  let childHasExited = false;
+  const childExitTask = child.exited.then((exitCode) => {
+    childHasExited = true;
+    if (ownsProcessGroup && process.platform !== "win32") {
+      safelyKillPosixProcessGroup(child, "SIGKILL");
+    }
+    return exitCode;
   });
   const stdoutTask = readBoundedText(child.stdout, maxStdoutBytes, streamAbort.signal, "VTracer emitted too much primary output.");
   const stderrTask = readBoundedText(child.stderr, MAX_COMMAND_OUTPUT_BYTES, streamAbort.signal, "VTracer emitted too much diagnostic output.");
-  const pipeOutputTask = outputPipe === undefined || options.outputPipe === undefined ? Promise.resolve(null) : readBoundedText(outputPipe.stream, options.outputPipe.maximumBytes, streamAbort.signal, "VTracer emitted too much primary output.");
+  const primaryOutputTask = primaryOutput === undefined ? Promise.resolve(undefined) : readBoundedFifo(primaryOutput.handle, primaryOutput.maximumBytes, streamAbort.signal, () => childHasExited);
   const executionTask = Promise.all([
-    exitTask,
+    childExitTask,
     stdoutTask,
     stderrTask,
-    pipeOutputTask
-  ]).then(([exitCode, stdout, stderr, pipeOutput]) => {
+    primaryOutputTask
+  ]).then(([exitCode, stdout, stderr, boundedPrimaryOutput]) => {
     if (exitCode !== 0) {
       throw new VectorizeError(failureCode, [
         `Command failed (${exitCode}): ${command[0] ?? "unknown"}`,
@@ -142,7 +218,7 @@ async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) 
       ].filter(Boolean).join(`
 `), { exitCode });
     }
-    return { pipeOutput, stderr, stdout };
+    return boundedPrimaryOutput === undefined ? { stderr, stdout } : { primaryOutput: boundedPrimaryOutput, stderr, stdout };
   });
   let timer;
   const timeoutTask = new Promise((_resolve, reject) => {
@@ -158,10 +234,7 @@ async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) 
       cleanupError = caught;
     } finally {
       streamAbort.abort();
-      await closeOutputPipeSentinel(outputPipe).catch(() => {
-        return;
-      });
-      await settlesWithin(Promise.allSettled([stdoutTask, stderrTask, pipeOutputTask]), HARD_KILL_WAIT_MS);
+      await settlesWithin(Promise.allSettled([stdoutTask, stderrTask, primaryOutputTask]), HARD_KILL_WAIT_MS);
     }
     if (error === timeoutMarker) {
       throw new VectorizeError("timeout", cleanupError === undefined ? "VTracer exceeded the conversion time limit." : "VTracer exceeded the conversion time limit and did not terminate cleanly.", cleanupError === undefined ? {} : { cleanup: String(cleanupError) });
@@ -174,49 +247,90 @@ async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) 
   } finally {
     if (timer !== undefined)
       clearTimeout(timer);
-    await closeOutputPipeSentinel(outputPipe).catch(() => {
-      return;
+    activePosixProcessGroups.delete(child.pid);
+  }
+}
+function assertPositiveLimit(value, message) {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new VectorizeError("invalid_input", message);
+  }
+}
+function remainingCommandTime(startedAt, timeoutMs) {
+  return Math.floor(timeoutMs - (performance.now() - startedAt));
+}
+async function createPrivateFifo(path, timeoutMs, failureCode) {
+  await runBoundedCommandInternal(["mkfifo", "-m", "600", path], timeoutMs, failureCode, {});
+}
+async function assertOpenedPrivateDirectory(path, directory) {
+  const [pathMetadata, openedMetadata] = await Promise.all([
+    lstat(path),
+    directory.stat()
+  ]);
+  if (!pathMetadata.isDirectory() || !openedMetadata.isDirectory() || pathMetadata.dev !== openedMetadata.dev || pathMetadata.ino !== openedMetadata.ino) {
+    throw new VectorizeError("trace_failed", "The bounded primary-output directory changed during setup.");
+  }
+}
+async function assertOpenedPrivateFifo(path, anchor, reader) {
+  const [pathMetadata, anchorMetadata, readerMetadata] = await Promise.all([
+    lstat(path),
+    anchor.stat(),
+    reader.stat()
+  ]);
+  if (!pathMetadata.isFIFO() || !anchorMetadata.isFIFO() || !readerMetadata.isFIFO() || pathMetadata.dev !== anchorMetadata.dev || pathMetadata.ino !== anchorMetadata.ino || anchorMetadata.dev !== readerMetadata.dev || anchorMetadata.ino !== readerMetadata.ino) {
+    throw new VectorizeError("trace_failed", "The bounded primary-output endpoint changed during setup.");
+  }
+}
+async function removePrimaryOutputEndpoint(directoryPath, path, reader, anchor, directoryHandle) {
+  let cleanupError;
+  if (directoryPath !== undefined && directoryHandle === undefined) {
+    try {
+      await rmdir(directoryPath);
+    } catch (error) {
+      cleanupError ??= error;
+    }
+  }
+  if (directoryPath !== undefined && directoryHandle !== undefined) {
+    await directoryHandle.chmod(448).catch((error) => {
+      cleanupError ??= error;
     });
+    try {
+      const [pathDirectoryMetadata, openedDirectoryMetadata] = await Promise.all([
+        lstat(directoryPath),
+        directoryHandle.stat()
+      ]);
+      if (!pathDirectoryMetadata.isDirectory() || !openedDirectoryMetadata.isDirectory() || pathDirectoryMetadata.dev !== openedDirectoryMetadata.dev || pathDirectoryMetadata.ino !== openedDirectoryMetadata.ino) {
+        throw new VectorizeError("trace_failed", "The bounded primary-output directory changed before cleanup.");
+      }
+      if (path !== undefined && cleanupError === undefined) {
+        const pathMetadata = await lstat(path).catch((error) => {
+          if (isFileSystemError(error, "ENOENT"))
+            return;
+          throw error;
+        });
+        const openedMetadata = await (reader ?? anchor)?.stat();
+        if (pathMetadata === undefined && openedMetadata !== undefined) {
+          throw new VectorizeError("trace_failed", "The bounded primary-output endpoint disappeared before cleanup.");
+        }
+        if (pathMetadata !== undefined) {
+          if (!pathMetadata.isFIFO() || openedMetadata !== undefined && (pathMetadata.dev !== openedMetadata.dev || pathMetadata.ino !== openedMetadata.ino)) {
+            throw new VectorizeError("trace_failed", "The bounded primary-output endpoint changed before cleanup.");
+          }
+          await unlink(path);
+        }
+      }
+      if (cleanupError === undefined)
+        await rmdir(directoryPath);
+    } catch (error) {
+      cleanupError ??= error;
+    }
   }
-}
-async function openOutputPipe(outputPipe) {
-  const metadata = await lstat(outputPipe.path);
-  if (metadata.isSymbolicLink() || !metadata.isFIFO()) {
-    throw new VectorizeError("invalid_input", "The command output path must be a named pipe.");
-  }
-  let sentinel;
-  let nodeStream;
-  try {
-    sentinel = await open(outputPipe.path, constants.O_RDWR | constants.O_NONBLOCK);
-    nodeStream = createReadStream(outputPipe.path);
-    await once(nodeStream, "open");
-    return {
-      nodeStream,
-      sentinel,
-      stream: Readable.toWeb(nodeStream)
-    };
-  } catch (error) {
-    nodeStream?.destroy();
-    await sentinel?.close().catch(() => {
-      return;
-    });
-    if (error instanceof VectorizeError)
-      throw error;
-    throw executionError("trace_failed", error);
-  }
-}
-async function closeOutputPipeSentinel(outputPipe) {
-  const sentinel = outputPipe?.sentinel;
-  if (outputPipe === undefined || sentinel === undefined)
-    return;
-  outputPipe.sentinel = undefined;
-  await sentinel.close();
-}
-async function discardOutputPipe(outputPipe) {
-  outputPipe?.nodeStream.destroy();
-  await closeOutputPipeSentinel(outputPipe).catch(() => {
-    return;
-  });
+  const closes = await Promise.allSettled([
+    reader?.close(),
+    anchor?.close(),
+    directoryHandle?.close()
+  ]);
+  cleanupError ??= closes.find((result) => result.status === "rejected")?.reason;
+  return cleanupError;
 }
 async function terminateAndWait(child, ownsProcessGroup) {
   if (process.platform === "win32") {
@@ -240,12 +354,18 @@ function safelyKillChild(child, signal) {
   } catch {}
 }
 function safelyKillPosixProcessGroup(child, signal) {
-  try {
-    process.kill(-child.pid, signal);
-  } catch {
+  if (!safelyKillPosixProcessGroupByPid(child.pid, signal)) {
     try {
       child.kill(signal);
     } catch {}
+  }
+}
+function safelyKillPosixProcessGroupByPid(pid, signal) {
+  try {
+    process.kill(-pid, signal);
+    return true;
+  } catch {
+    return false;
   }
 }
 async function killWindowsProcessTree(pid) {
@@ -316,6 +436,38 @@ async function readBoundedText(stream, maximumBytes, signal, limitMessage) {
     reader.releaseLock();
   }
 }
+async function readBoundedFifo(handle, maximumBytes, signal, childHasExited) {
+  const buffer = Buffer.allocUnsafe(Math.min(PRIMARY_OUTPUT_READ_BYTES, maximumBytes + 1));
+  const chunks = [];
+  let bytes = 0;
+  while (!signal.aborted) {
+    const maximumRead = Math.min(buffer.byteLength, maximumBytes - bytes + 1);
+    try {
+      const { bytesRead } = await handle.read(buffer, 0, maximumRead, null);
+      if (bytesRead > 0) {
+        bytes += bytesRead;
+        if (bytes > maximumBytes) {
+          throw new VectorizeError("output_limit", "VTracer emitted too much primary output.", { bytes, maximumBytes });
+        }
+        chunks.push(Uint8Array.from(buffer.subarray(0, bytesRead)));
+        continue;
+      }
+    } catch (error) {
+      if (!isWouldBlockError(error))
+        throw error;
+    }
+    if (childHasExited())
+      break;
+    await delay(PRIMARY_OUTPUT_POLL_MS);
+  }
+  return Buffer.concat(chunks, bytes).toString("utf8");
+}
+function isWouldBlockError(error) {
+  return isFileSystemError(error) && ["EAGAIN", "EINTR", "EWOULDBLOCK"].includes(String(error.code));
+}
+function isFileSystemError(error, code) {
+  return error instanceof Error && "code" in error && (code === undefined || error.code === code);
+}
 function delay(durationMs) {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs);
@@ -333,7 +485,7 @@ import {
   rm as rm2,
   writeFile as writeFile2
 } from "fs/promises";
-import { dirname as dirname2, join as join2, resolve as resolve3 } from "path";
+import { dirname as dirname2, join as join3, resolve as resolve3 } from "path";
 
 // src/vectorize/metrics.ts
 import { createHash } from "crypto";
@@ -911,7 +1063,7 @@ import {
   writeFile
 } from "fs/promises";
 import { homedir } from "os";
-import { dirname, join, resolve as resolve2 } from "path";
+import { dirname, join as join2, resolve as resolve2 } from "path";
 
 // src/vectorize/archive.ts
 import { gunzipSync, inflateRawSync } from "zlib";
@@ -1043,7 +1195,7 @@ async function ensureVTracer(deadline, privateDirectory, cacheDirectory) {
   }
   const cacheRoot = resolve2(cacheDirectory ?? defaultCacheDirectory());
   const suffix = process.platform === "win32" ? ".exe" : "";
-  const toolPath = join(cacheRoot, "tools", `vtracer-${VTRACER_VERSION}-${process.platform}-${process.arch}${suffix}`);
+  const toolPath = join2(cacheRoot, "tools", `vtracer-${VTRACER_VERSION}-${process.platform}-${process.arch}${suffix}`);
   const cachedHash = await hashCachedTool(toolPath, deadline);
   if (cachedHash !== release.binarySha256) {
     await removeInvalidCachedTool(toolPath);
@@ -1056,11 +1208,11 @@ function defaultCacheDirectory() {
   if (explicit !== undefined && explicit.trim() !== "")
     return explicit;
   if (process.platform === "win32") {
-    return join(process.env.LOCALAPPDATA ?? homedir(), "graphics");
+    return join2(process.env.LOCALAPPDATA ?? homedir(), "graphics");
   }
   if (process.platform === "darwin")
-    return join(homedir(), "Library", "Caches", "graphics");
-  return join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "graphics");
+    return join2(homedir(), "Library", "Caches", "graphics");
+  return join2(process.env.XDG_CACHE_HOME ?? join2(homedir(), ".cache"), "graphics");
 }
 async function installOfficialVTracer(toolPath, release, deadline) {
   deadline.assert("VTracer download");
@@ -1110,7 +1262,7 @@ async function copyAndInspectVTracer(sourcePath, privateDirectory, source, deadl
   deadline.assert("VTracer private copy");
   await mkdir(privateDirectory, { mode: 448, recursive: true });
   const suffix = process.platform === "win32" ? ".exe" : "";
-  const privatePath = join(privateDirectory, `vtracer-${randomUUID()}${suffix}`);
+  const privatePath = join2(privateDirectory, `vtracer-${randomUUID()}${suffix}`);
   const failureCode = source === "official-release" ? "tool_integrity" : "tool_version";
   let sourceHandle;
   let targetHandle;
@@ -1178,7 +1330,7 @@ async function hashCachedTool(path, deadline) {
   } catch (error) {
     if (error instanceof VectorizeError && error.code === "timeout")
       throw error;
-    if (isFileSystemError(error, "ENOENT"))
+    if (isFileSystemError2(error, "ENOENT"))
       return;
     return;
   }
@@ -1302,7 +1454,7 @@ async function downloadBounded(url, deadline, maximumBytes) {
     clearTimeout(timer);
   }
 }
-function isFileSystemError(error, code) {
+function isFileSystemError2(error, code) {
   return error instanceof Error && "code" in error && error.code === code;
 }
 function boundedReadFlags2() {
@@ -1412,7 +1564,7 @@ async function vectorizeImageInProcess(input, options = {}, temporaryRoot) {
   const variations = traceVariations(raster.pixels, alphaCutoff);
   for (const variation of variations) {
     deadline.assert(`${variation.name} trace`);
-    const sourcePath = join2(temporaryRoot, `${variation.name}.png`);
+    const sourcePath = join3(temporaryRoot, `${variation.name}.png`);
     await writeFile2(sourcePath, await encodeTracePng(variation.pixels, raster.width, raster.height));
     const balanced = await attemptCandidate(raster, variation, profiles[0], sourcePath, tool, temporaryRoot, limits, deadline, errors);
     if (balanced !== undefined)
@@ -1516,7 +1668,7 @@ function containsVisiblePixel2(pixels) {
 }
 async function attemptCandidate(raster, variation, profile, sourcePath, tool, temporaryRoot, limits, deadline, errors) {
   try {
-    const raw = await traceRawSvg(tool, sourcePath, profile.args, temporaryRoot, limits.maxOutputBytes, deadline, `${variation.name}-${profile.name}`);
+    const raw = await traceRawSvg(tool, sourcePath, profile.args, temporaryRoot, limits.maxOutputBytes, deadline);
     deadline.assert(`${profile.name} trace`);
     const canonical = canonicalizeVTracerSvg(raw, raster.width, raster.height, limits.maxPaths);
     const bytes = Buffer.byteLength(canonical.svg);
@@ -1545,9 +1697,9 @@ async function attemptCandidate(raster, variation, profile, sourcePath, tool, te
 async function attemptAlphaMask(raster, base, tool, temporaryRoot, limits, deadline, errors) {
   try {
     const alphaPixels = alphaPlaneTraceRgba(raster.pixels);
-    const sourcePath = join2(temporaryRoot, "alpha-plane.png");
+    const sourcePath = join3(temporaryRoot, "alpha-plane.png");
     await writeFile2(sourcePath, await encodeTracePng(alphaPixels, raster.width, raster.height));
-    const raw = await traceRawSvg(tool, sourcePath, alphaMaskArgs, temporaryRoot, limits.maxOutputBytes, deadline, "alpha-mask");
+    const raw = await traceRawSvg(tool, sourcePath, alphaMaskArgs, temporaryRoot, limits.maxOutputBytes, deadline);
     const mask = canonicalizeVTracerSvg(raw, raster.width, raster.height, limits.maxPaths);
     const pathCount = base.artworkPaths.length + mask.paths.length;
     if (pathCount > limits.maxPaths) {
@@ -1590,23 +1742,22 @@ async function scoreSvg(svg, raster, maxDecodedPixels, deadline) {
     supportRecall: support.supportRecall
   };
 }
-async function traceRawSvg(tool, sourcePath, args, temporaryRoot, maximumBytes, deadline, name) {
-  const outputPipePath = join2(temporaryRoot, `${name}-${randomUUID2()}.fifo`);
-  await createPrivateOutputPipe(outputPipePath, deadline.remainingMs());
-  try {
-    const { pipeOutput } = await runBoundedCommand([tool.path, "--input", sourcePath, "--output", outputPipePath, ...args], deadline.remainingMs(), "trace_failed", {
-      outputPipe: {
-        maximumBytes,
-        path: outputPipePath
-      }
-    });
-    if (pipeOutput === null || pipeOutput.length === 0) {
-      throw new VectorizeError("trace_failed", "VTracer did not emit an SVG.");
-    }
-    return pipeOutput;
-  } finally {
-    await rm2(outputPipePath, { force: true });
+async function traceRawSvg(tool, sourcePath, args, temporaryRoot, maximumBytes, deadline) {
+  const { output } = await runBoundedPathOutputCommand((outputPath) => [
+    tool.path,
+    "--input",
+    sourcePath,
+    "--output",
+    outputPath,
+    ...args
+  ], deadline.remainingMs(), "trace_failed", {
+    maxOutputBytes: maximumBytes,
+    temporaryRoot
+  });
+  if (output.length === 0) {
+    throw new VectorizeError("trace_failed", "VTracer did not emit an SVG.");
   }
+  return output;
 }
 function passesFastQuality(quality) {
   return passesQuality(quality) && quality.colorRmse <= 0.12 && quality.alphaRmse <= 0.18 && quality.outsideAlphaRatio <= 0.02 && quality.supportRecall >= 0.97;
@@ -1671,7 +1822,7 @@ var errorCodes = new Set([
   "trace_failed",
   "unsafe_svg"
 ]);
-inheritVectorizeWorkerProcessGroup();
+forwardVectorizeWorkerTermination();
 await main();
 async function main() {
   let response;
