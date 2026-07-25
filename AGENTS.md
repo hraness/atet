@@ -6,6 +6,7 @@
 - `skills/graphics/` – the reusable Agent Skill shipped with the package.
 - `examples/` – small literal specifications and optional adapter examples.
 - `scripts/` – package-boundary verification.
+- `.github/workflows/` – read-only branch validation and checks-gated immutable GitHub Release automation.
 
 # Guidelines
 
@@ -15,3 +16,4 @@
 - Keep default fonts and icons small and redistributable. Custom commercial fonts and third-party icon packs belong in user configuration, not this repository.
 - Parse foreign data from `unknown`, preserve deterministic output, and test every compatibility boundary.
 - Run `bun run check` before release and commit the resulting `dist/` files with their matching source.
+- Treat a `v*` tag as a release request, not a completed release. Before tagging, confirm repository-level immutable releases are enabled; use a strictly increasing stable package version, keep the tag equal to `v<package.json version>` on `main`, and let the read-only verification job complete before its write-scoped publisher creates the Release. Do not create the next tag until that workflow and Release are verified because GitHub concurrency is not a durable queue. After tagging, verify the matching non-draft immutable Release is Latest.
