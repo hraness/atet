@@ -6,7 +6,10 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
-import { runBoundedCommand } from "./command.ts"
+import {
+  createPrivateOutputPipe,
+  runBoundedCommand,
+} from "./command.ts"
 import { resolveVectorizeLimits, VectorizeDeadline } from "./limits.ts"
 import {
   alphaPlaneTraceRgba,
@@ -528,16 +531,30 @@ async function traceRawSvg(
   deadline: VectorizeDeadline,
   name: string,
 ): Promise<string> {
-  const { stdout } = await runBoundedCommand(
-    [tool.path, "--input", sourcePath, "--output", "/dev/stdout", ...args],
-    deadline.remainingMs(),
-    "trace_failed",
-    { maxStdoutBytes: maximumBytes },
+  const outputPipePath = join(
+    temporaryRoot,
+    `${name}-${randomUUID()}.fifo`,
   )
-  if (stdout.length === 0) {
-    throw new VectorizeError("trace_failed", "VTracer did not emit an SVG.")
+  await createPrivateOutputPipe(outputPipePath, deadline.remainingMs())
+  try {
+    const { pipeOutput } = await runBoundedCommand(
+      [tool.path, "--input", sourcePath, "--output", outputPipePath, ...args],
+      deadline.remainingMs(),
+      "trace_failed",
+      {
+        outputPipe: {
+          maximumBytes,
+          path: outputPipePath,
+        },
+      },
+    )
+    if (pipeOutput === null || pipeOutput.length === 0) {
+      throw new VectorizeError("trace_failed", "VTracer did not emit an SVG.")
+    }
+    return pipeOutput
+  } finally {
+    await rm(outputPipePath, { force: true })
   }
-  return stdout
 }
 
 function passesFastQuality(quality: VectorizeQualityReceipt): boolean {

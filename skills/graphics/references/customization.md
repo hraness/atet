@@ -7,7 +7,7 @@
 Create `graphics.config.ts` beside the source:
 
 ```ts
-import type { DiagramConfig } from "@cclrte/graphics"
+import type { DiagramConfig } from "@hraness/graphics"
 
 export default {
   font: {
@@ -42,7 +42,7 @@ the export adapter owns custom typography.
 An icon definition has a view box and SVG body:
 
 ```ts
-import type { DiagramConfig } from "@cclrte/graphics"
+import type { DiagramConfig } from "@hraness/graphics"
 
 export default {
   icons: {

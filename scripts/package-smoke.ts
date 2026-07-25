@@ -46,7 +46,7 @@ try {
   const packageRoot = join(
     consumer,
     "node_modules",
-    "@cclrte",
+    "@hraness",
     "graphics",
   )
   const packedManifest = await Bun.file(join(packageRoot, "package.json")).json()
@@ -105,11 +105,11 @@ try {
       "node",
       "--input-type=module",
       "-e",
-      'const api = await import("@cclrte/graphics"); if (typeof api.renderSvg !== "function" || typeof api.vectorizeImage !== "function" || typeof api.parseDiagramSource !== "function" || typeof api.resolveDiagramSource !== "function" || typeof api.runMcpServer !== "function") process.exit(1)',
+      'const api = await import("@hraness/graphics"); if (typeof api.renderSvg !== "function" || typeof api.vectorizeImage !== "function" || typeof api.parseDiagramSource !== "function" || typeof api.resolveDiagramSource !== "function" || typeof api.runMcpServer !== "function") process.exit(1)',
     ],
     consumer,
   )
-  const skill = join(consumer, "node_modules", "@cclrte", "graphics", "skills", "graphics", "SKILL.md")
+  const skill = join(consumer, "node_modules", "@hraness", "graphics", "skills", "graphics", "SKILL.md")
   if (!(await Bun.file(skill).exists())) throw new Error("Packed package omitted skills/graphics")
   const installedSkill = join(consumer, ".agents", "skills", "graphics", "SKILL.md")
   if (!(await Bun.file(installedSkill).exists())) {
@@ -122,7 +122,7 @@ try {
   await writeFile(
     join(consumer, "index.ts"),
     [
-      'import { parseDiagramSource, parseDiagramSpec, resolveDiagramSource, runMcpServer, vectorizeImage, type DiagramConfig, type VectorizeReceipt } from "@cclrte/graphics"',
+      'import { parseDiagramSource, parseDiagramSpec, resolveDiagramSource, runMcpServer, vectorizeImage, type DiagramConfig, type VectorizeReceipt } from "@hraness/graphics"',
       "const config = {} satisfies DiagramConfig",
       "const receipt = {} as VectorizeReceipt",
       "void config",

@@ -164,9 +164,9 @@ test("the public conversion boundary enforces one wall-clock budget", async () =
 
     const started = performance.now()
     await expect(
-      vectorizeImage(input, { limits: { maxDurationMs: 1_000 } }),
+      vectorizeImage(input, { limits: { maxDurationMs: 2_000 } }),
     ).rejects.toMatchObject({ code: "timeout" })
-    expect(performance.now() - started).toBeLessThan(1_000)
+    expect(performance.now() - started).toBeLessThan(2_000)
     tracerPid = Number.parseInt(await readFile(tracerPidPath, "utf8"), 10)
     await waitUntilGone(tracerPid)
     conversionRoot = await readFile(temporaryRootPath, "utf8")

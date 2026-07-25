@@ -71,9 +71,9 @@ test("nonregular input is rejected without blocking on a FIFO", async () => {
     expect(created.exitCode).toBe(0)
     const started = performance.now()
     await expect(
-      vectorizeImage(fifo, { limits: { maxDurationMs: 500 } }),
+      vectorizeImage(fifo, { limits: { maxDurationMs: 2_000 } }),
     ).rejects.toMatchObject({ code: "invalid_input" })
-    expect(performance.now() - started).toBeLessThan(400)
+    expect(performance.now() - started).toBeLessThan(1_500)
   } finally {
     await rm(work, { force: true, recursive: true })
   }

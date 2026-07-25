@@ -1,4 +1,4 @@
-import type { DiagramConfig } from "@cclrte/graphics"
+import type { DiagramConfig } from "@hraness/graphics"
 
 export default {
   icons: {

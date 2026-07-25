@@ -110,12 +110,11 @@ graphics doctor
 
 ### Migrate from v0.1
 
-v0.2 replaced the `@cclrte/diagram` package, `diagram` executable, and
-`diagram` skill. Remove the old global package and the user-level Codex skill
+v0.2 replaced the former Diagram package, `diagram` executable, and `diagram`
+skill. Remove any old global Diagram package and the user-level Codex skill
 before installing the current release:
 
 ```sh
-bun remove --global @cclrte/diagram
 rm -rf -- "$HOME/.codex/skills/diagram"
 bun add --global github:hraness/graphics#v0.3.0
 graphics skill install --target codex --scope user
@@ -278,7 +277,7 @@ bun add github:hraness/graphics#v0.3.0
 ```
 
 ```ts
-import { vectorizeImage, type VectorizeResult } from "@cclrte/graphics"
+import { vectorizeImage, type VectorizeResult } from "@hraness/graphics"
 
 const result: VectorizeResult = await vectorizeImage("./input.png", {
   outputPath: "./input.svg",
@@ -395,7 +394,7 @@ is the local system sans-serif stack.
 Place a `graphics.config.ts` beside a source to use your own local font:
 
 ```ts
-import type { DiagramConfig } from "@cclrte/graphics"
+import type { DiagramConfig } from "@hraness/graphics"
 
 export default {
   font: {
@@ -426,7 +425,7 @@ The package carries only a tiny built-in set. A local config may add or replace
 icons with ordinary SVG geometry:
 
 ```ts
-import type { DiagramConfig } from "@cclrte/graphics"
+import type { DiagramConfig } from "@hraness/graphics"
 
 export default {
   icons: {

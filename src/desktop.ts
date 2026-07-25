@@ -87,7 +87,7 @@ export async function getLatestDesktopRelease(): Promise<Release> {
   const response = await fetch(releaseApi, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "CCLRTE-graphics",
+      "User-Agent": "hraness-graphics",
       "X-GitHub-Api-Version": "2022-11-28",
     },
   })
@@ -103,7 +103,7 @@ async function sha256(filePath: string): Promise<string> {
 
 async function download(asset: ReleaseAsset, filePath: string): Promise<void> {
   const response = await fetch(asset.browser_download_url, {
-    headers: { "User-Agent": "CCLRTE-graphics" },
+    headers: { "User-Agent": "hraness-graphics" },
     redirect: "follow",
   })
   if (!response.ok || response.body === null) {

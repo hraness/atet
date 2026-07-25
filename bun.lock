@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@cclrte/graphics",
+      "name": "@hraness/graphics",
       "dependencies": {
         "@resvg/resvg-js": "2.6.2",
         "sharp": "0.35.3",

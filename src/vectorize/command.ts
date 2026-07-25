@@ -1,3 +1,7 @@
+import { once } from "node:events"
+import { constants, createReadStream, type ReadStream } from "node:fs"
+import { lstat, open, type FileHandle } from "node:fs/promises"
+import { Readable } from "node:stream"
 import { VectorizeError, type VectorizeErrorCode } from "./types.ts"
 
 const MAX_COMMAND_OUTPUT_BYTES = 64 * 1_024
@@ -8,8 +12,14 @@ const timeoutMarker = Symbol("bounded-command-timeout")
 let isolateSpawnedProcessGroups = true
 
 export interface CommandResult {
+  readonly pipeOutput: string | null
   readonly stderr: string
   readonly stdout: string
+}
+
+export interface BoundedOutputPipe {
+  readonly maximumBytes: number
+  readonly path: string
 }
 
 export interface BoundedCommandOptions {
@@ -17,6 +27,8 @@ export interface BoundedCommandOptions {
   readonly stdin?: Uint8Array
   /** Raise the stdout quota only for a caller that consumes bounded data there. */
   readonly maxStdoutBytes?: number
+  /** Drain an already-created POSIX FIFO while the child writes its file output. */
+  readonly outputPipe?: BoundedOutputPipe
 }
 
 interface ManagedSubprocess {
@@ -28,12 +40,42 @@ interface ManagedSubprocess {
   readonly stdout: ReadableStream<Uint8Array>
 }
 
+interface OpenOutputPipe {
+  readonly nodeStream: ReadStream
+  readonly stream: ReadableStream<Uint8Array>
+  sentinel: FileHandle | undefined
+}
+
 /**
  * Keep conversion descendants in the already-isolated worker process group.
  * This is process-local and called only by the worker entrypoint.
  */
 export function inheritVectorizeWorkerProcessGroup(): void {
   isolateSpawnedProcessGroups = false
+}
+
+export async function createPrivateOutputPipe(
+  path: string,
+  timeoutMs: number,
+): Promise<void> {
+  if (process.platform === "win32") {
+    throw new VectorizeError(
+      "tool_platform",
+      "Bounded file-output streaming is unavailable on Windows.",
+    )
+  }
+  await runBoundedCommand(
+    ["/usr/bin/mkfifo", "-m", "600", path],
+    timeoutMs,
+    "trace_failed",
+  )
+  const metadata = await lstat(path)
+  if (metadata.isSymbolicLink() || !metadata.isFIFO()) {
+    throw new VectorizeError(
+      "trace_failed",
+      "The bounded file-output pipe could not be created safely.",
+    )
+  }
 }
 
 export async function runBoundedCommand(
@@ -52,6 +94,18 @@ export async function runBoundedCommand(
   if (!Number.isSafeInteger(maxStdoutBytes) || maxStdoutBytes < 1) {
     throw new VectorizeError("invalid_input", "The command stdout limit must be positive.")
   }
+  if (
+    options.outputPipe !== undefined &&
+    (!Number.isSafeInteger(options.outputPipe.maximumBytes) ||
+      options.outputPipe.maximumBytes < 1)
+  ) {
+    throw new VectorizeError("invalid_input", "The command pipe-output limit must be positive.")
+  }
+
+  const outputPipe =
+    options.outputPipe === undefined
+      ? undefined
+      : await openOutputPipe(options.outputPipe)
 
   let child: ManagedSubprocess
   const ownsProcessGroup = isolateSpawnedProcessGroups
@@ -65,10 +119,14 @@ export async function runBoundedCommand(
       windowsHide: true,
     })
   } catch (error) {
+    await discardOutputPipe(outputPipe)
     throw executionError(failureCode, error)
   }
 
   const streamAbort = new AbortController()
+  const exitTask = child.exited.finally(async () => {
+    await closeOutputPipeSentinel(outputPipe)
+  })
   const stdoutTask = readBoundedText(
     child.stdout,
     maxStdoutBytes,
@@ -81,11 +139,21 @@ export async function runBoundedCommand(
     streamAbort.signal,
     "VTracer emitted too much diagnostic output.",
   )
+  const pipeOutputTask =
+    outputPipe === undefined || options.outputPipe === undefined
+      ? Promise.resolve(null)
+      : readBoundedText(
+          outputPipe.stream,
+          options.outputPipe.maximumBytes,
+          streamAbort.signal,
+          "VTracer emitted too much primary output.",
+        )
   const executionTask = Promise.all([
-    child.exited,
+    exitTask,
     stdoutTask,
     stderrTask,
-  ]).then(([exitCode, stdout, stderr]) => {
+    pipeOutputTask,
+  ]).then(([exitCode, stdout, stderr, pipeOutput]) => {
     if (exitCode !== 0) {
       throw new VectorizeError(
         failureCode,
@@ -98,7 +166,7 @@ export async function runBoundedCommand(
         { exitCode },
       )
     }
-    return { stderr, stdout }
+    return { pipeOutput, stderr, stdout }
   })
 
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -116,8 +184,9 @@ export async function runBoundedCommand(
       cleanupError = caught
     } finally {
       streamAbort.abort()
+      await closeOutputPipeSentinel(outputPipe).catch(() => undefined)
       await settlesWithin(
-        Promise.allSettled([stdoutTask, stderrTask]),
+        Promise.allSettled([stdoutTask, stderrTask, pipeOutputTask]),
         HARD_KILL_WAIT_MS,
       )
     }
@@ -136,7 +205,57 @@ export async function runBoundedCommand(
     throw executionError(failureCode, error)
   } finally {
     if (timer !== undefined) clearTimeout(timer)
+    await closeOutputPipeSentinel(outputPipe).catch(() => undefined)
   }
+}
+
+async function openOutputPipe(
+  outputPipe: BoundedOutputPipe,
+): Promise<OpenOutputPipe> {
+  const metadata = await lstat(outputPipe.path)
+  if (metadata.isSymbolicLink() || !metadata.isFIFO()) {
+    throw new VectorizeError(
+      "invalid_input",
+      "The command output path must be a named pipe.",
+    )
+  }
+
+  let sentinel: FileHandle | undefined
+  let nodeStream: ReadStream | undefined
+  try {
+    sentinel = await open(
+      outputPipe.path,
+      constants.O_RDWR | constants.O_NONBLOCK,
+    )
+    nodeStream = createReadStream(outputPipe.path)
+    await once(nodeStream, "open")
+    return {
+      nodeStream,
+      sentinel,
+      stream: Readable.toWeb(nodeStream) as unknown as ReadableStream<Uint8Array>,
+    }
+  } catch (error) {
+    nodeStream?.destroy()
+    await sentinel?.close().catch(() => undefined)
+    if (error instanceof VectorizeError) throw error
+    throw executionError("trace_failed", error)
+  }
+}
+
+async function closeOutputPipeSentinel(
+  outputPipe: OpenOutputPipe | undefined,
+): Promise<void> {
+  const sentinel = outputPipe?.sentinel
+  if (outputPipe === undefined || sentinel === undefined) return
+  outputPipe.sentinel = undefined
+  await sentinel.close()
+}
+
+async function discardOutputPipe(
+  outputPipe: OpenOutputPipe | undefined,
+): Promise<void> {
+  outputPipe?.nodeStream.destroy()
+  await closeOutputPipeSentinel(outputPipe).catch(() => undefined)
 }
 
 async function terminateAndWait(

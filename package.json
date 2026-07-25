@@ -1,5 +1,5 @@
 {
-  "name": "@cclrte/graphics",
+  "name": "@hraness/graphics",
   "version": "0.3.0",
   "description": "Graphics is a headless CLI and Agent Skill for deterministic diagrams, local agent tools, tldraw interchange, and measured raster-to-SVG vectorization.",
   "license": "MIT",

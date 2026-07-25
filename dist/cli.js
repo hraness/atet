@@ -1810,7 +1810,7 @@ async function getLatestDesktopRelease() {
   const response = await fetch(releaseApi, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "CCLRTE-graphics",
+      "User-Agent": "hraness-graphics",
       "X-GitHub-Api-Version": "2022-11-28"
     }
   });
@@ -1826,7 +1826,7 @@ async function sha256(filePath) {
 }
 async function download(asset, filePath) {
   const response = await fetch(asset.browser_download_url, {
-    headers: { "User-Agent": "CCLRTE-graphics" },
+    headers: { "User-Agent": "hraness-graphics" },
     redirect: "follow"
   });
   if (!response.ok || response.body === null) {
@@ -2750,6 +2750,12 @@ async function runMcpServer(options = {}) {
 // src/index.ts
 init_skill_install();
 
+// src/vectorize/command.ts
+import { once } from "events";
+import { constants, createReadStream as createReadStream2 } from "fs";
+import { lstat, open as open2 } from "fs/promises";
+import { Readable as Readable2 } from "stream";
+
 // src/vectorize/types.ts
 var vectorizeProfileNames = ["balanced", "detailed", "photo"];
 
@@ -2781,6 +2787,10 @@ async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) 
   if (!Number.isSafeInteger(maxStdoutBytes) || maxStdoutBytes < 1) {
     throw new VectorizeError("invalid_input", "The command stdout limit must be positive.");
   }
+  if (options.outputPipe !== undefined && (!Number.isSafeInteger(options.outputPipe.maximumBytes) || options.outputPipe.maximumBytes < 1)) {
+    throw new VectorizeError("invalid_input", "The command pipe-output limit must be positive.");
+  }
+  const outputPipe = options.outputPipe === undefined ? undefined : await openOutputPipe(options.outputPipe);
   let child;
   const ownsProcessGroup = isolateSpawnedProcessGroups;
   try {
@@ -2793,16 +2803,22 @@ async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) 
       windowsHide: true
     });
   } catch (error) {
+    await discardOutputPipe(outputPipe);
     throw executionError(failureCode, error);
   }
   const streamAbort = new AbortController;
+  const exitTask = child.exited.finally(async () => {
+    await closeOutputPipeSentinel(outputPipe);
+  });
   const stdoutTask = readBoundedText(child.stdout, maxStdoutBytes, streamAbort.signal, "VTracer emitted too much primary output.");
   const stderrTask = readBoundedText(child.stderr, MAX_COMMAND_OUTPUT_BYTES, streamAbort.signal, "VTracer emitted too much diagnostic output.");
+  const pipeOutputTask = outputPipe === undefined || options.outputPipe === undefined ? Promise.resolve(null) : readBoundedText(outputPipe.stream, options.outputPipe.maximumBytes, streamAbort.signal, "VTracer emitted too much primary output.");
   const executionTask = Promise.all([
-    child.exited,
+    exitTask,
     stdoutTask,
-    stderrTask
-  ]).then(([exitCode, stdout, stderr]) => {
+    stderrTask,
+    pipeOutputTask
+  ]).then(([exitCode, stdout, stderr, pipeOutput]) => {
     if (exitCode !== 0) {
       throw new VectorizeError(failureCode, [
         `Command failed (${exitCode}): ${command[0] ?? "unknown"}`,
@@ -2810,7 +2826,7 @@ async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) 
       ].filter(Boolean).join(`
 `), { exitCode });
     }
-    return { stderr, stdout };
+    return { pipeOutput, stderr, stdout };
   });
   let timer;
   const timeoutTask = new Promise((_resolve, reject) => {
@@ -2826,7 +2842,10 @@ async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) 
       cleanupError = caught;
     } finally {
       streamAbort.abort();
-      await settlesWithin(Promise.allSettled([stdoutTask, stderrTask]), HARD_KILL_WAIT_MS);
+      await closeOutputPipeSentinel(outputPipe).catch(() => {
+        return;
+      });
+      await settlesWithin(Promise.allSettled([stdoutTask, stderrTask, pipeOutputTask]), HARD_KILL_WAIT_MS);
     }
     if (error === timeoutMarker) {
       throw new VectorizeError("timeout", cleanupError === undefined ? "VTracer exceeded the conversion time limit." : "VTracer exceeded the conversion time limit and did not terminate cleanly.", cleanupError === undefined ? {} : { cleanup: String(cleanupError) });
@@ -2839,7 +2858,49 @@ async function runBoundedCommand(command, timeoutMs, failureCode, options = {}) 
   } finally {
     if (timer !== undefined)
       clearTimeout(timer);
+    await closeOutputPipeSentinel(outputPipe).catch(() => {
+      return;
+    });
   }
+}
+async function openOutputPipe(outputPipe) {
+  const metadata = await lstat(outputPipe.path);
+  if (metadata.isSymbolicLink() || !metadata.isFIFO()) {
+    throw new VectorizeError("invalid_input", "The command output path must be a named pipe.");
+  }
+  let sentinel;
+  let nodeStream;
+  try {
+    sentinel = await open2(outputPipe.path, constants.O_RDWR | constants.O_NONBLOCK);
+    nodeStream = createReadStream2(outputPipe.path);
+    await once(nodeStream, "open");
+    return {
+      nodeStream,
+      sentinel,
+      stream: Readable2.toWeb(nodeStream)
+    };
+  } catch (error) {
+    nodeStream?.destroy();
+    await sentinel?.close().catch(() => {
+      return;
+    });
+    if (error instanceof VectorizeError)
+      throw error;
+    throw executionError("trace_failed", error);
+  }
+}
+async function closeOutputPipeSentinel(outputPipe) {
+  const sentinel = outputPipe?.sentinel;
+  if (outputPipe === undefined || sentinel === undefined)
+    return;
+  outputPipe.sentinel = undefined;
+  await sentinel.close();
+}
+async function discardOutputPipe(outputPipe) {
+  outputPipe?.nodeStream.destroy();
+  await closeOutputPipeSentinel(outputPipe).catch(() => {
+    return;
+  });
 }
 async function terminateAndWait(child, ownsProcessGroup) {
   if (process.platform === "win32") {
