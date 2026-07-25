@@ -18,7 +18,7 @@ import {
 import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.ts"
 import { pathExists } from "./fs.ts"
 
-const version = "0.3.0"
+const version = "0.3.1"
 
 const help = `graphics ${version}
 
@@ -135,7 +135,7 @@ function printFindings(findings: Awaited<ReturnType<typeof checkDiagramFile>>["f
 }
 
 const starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/graphics/v0.3.0/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/graphics/v0.3.1/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },

@@ -78,7 +78,7 @@ describe("Graphics MCP stdio server", () => {
       expect(responses[0]?.result).toMatchObject({
         protocolVersion: "2025-11-25",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "hraness-graphics", version: "0.3.0" },
+        serverInfo: { name: "hraness-graphics", version: "0.3.1" },
       })
       const listed = responses[2]?.result as {
         readonly tools: readonly Readonly<Record<string, unknown>>[]

@@ -85,7 +85,7 @@ Copy this prompt into Codex, Claude Code, or another coding agent:
 
 ```text
 Install the Graphics CLI and bundled Agent Skill from
-https://github.com/hraness/graphics at the immutable v0.3.0 tag. Follow the
+https://github.com/hraness/graphics at the immutable v0.3.1 tag. Follow the
 repository README, install the skill in this agent runner's configured skills
 directory, run `graphics doctor`, and verify the installation by rendering the
 included example. Do not install tldraw Offline unless I ask to edit the canvas
@@ -103,7 +103,7 @@ Install the immutable release and then place the bundled skill where your agent
 runner discovers skills:
 
 ```sh
-bun add --global github:hraness/graphics#v0.3.0
+bun add --global github:hraness/graphics#v0.3.1
 graphics skill install --target codex --scope user
 graphics doctor
 ```
@@ -116,7 +116,7 @@ before installing the current release:
 
 ```sh
 rm -rf -- "$HOME/.codex/skills/diagram"
-bun add --global github:hraness/graphics#v0.3.0
+bun add --global github:hraness/graphics#v0.3.1
 graphics skill install --target codex --scope user
 ```
 
@@ -184,7 +184,7 @@ The source stays readable and reviewable:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/hraness/graphics/v0.3.0/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/graphics/v0.3.1/schema/diagram.schema.json",
   "version": 1,
   "name": "example-flow",
   "canvas": { "width": 960, "height": 540, "padding": 64 },
@@ -273,7 +273,7 @@ operation unbounded.
 Install the tagged package locally before importing its API:
 
 ```sh
-bun add github:hraness/graphics#v0.3.0
+bun add github:hraness/graphics#v0.3.1
 ```
 
 ```ts

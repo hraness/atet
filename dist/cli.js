@@ -1810,7 +1810,7 @@ async function getLatestDesktopRelease() {
   const response = await fetch(releaseApi, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "CCLRTE-graphics",
+      "User-Agent": "hraness-graphics",
       "X-GitHub-Api-Version": "2022-11-28"
     }
   });
@@ -1826,7 +1826,7 @@ async function sha256(filePath) {
 }
 async function download(asset, filePath) {
   const response = await fetch(asset.browser_download_url, {
-    headers: { "User-Agent": "CCLRTE-graphics" },
+    headers: { "User-Agent": "hraness-graphics" },
     redirect: "follow"
   });
   if (!response.ok || response.body === null) {
@@ -2713,7 +2713,7 @@ async function processLine(line, session, writeLine) {
 }
 async function runMcpServer(options = {}) {
   const runtime = await GraphicsMcpToolRuntime.create(options.rootDirectory ?? process.cwd());
-  const session = new GraphicsMcpSession(runtime, options.serverVersion ?? "0.3.0");
+  const session = new GraphicsMcpSession(runtime, options.serverVersion ?? "0.3.1");
   const writeLine = options.writeLine ?? defaultWriteLine;
   let buffered = Buffer.alloc(0);
   for await (const chunk of options.input ?? defaultInput()) {
@@ -3266,7 +3266,7 @@ var diagramApi = Object.freeze({
 // src/cli.ts
 init_skill_install();
 init_fs();
-var version = "0.3.0";
+var version = "0.3.1";
 var help = `graphics ${version}
 
 Create concise diagrams from a checked JSON source.
@@ -3371,7 +3371,7 @@ function printFindings(findings) {
   }
 }
 var starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/graphics/v0.3.0/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/graphics/v0.3.1/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },

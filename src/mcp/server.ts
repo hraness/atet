@@ -230,7 +230,7 @@ export async function runMcpServer(
   )
   const session = new GraphicsMcpSession(
     runtime,
-    options.serverVersion ?? "0.3.0",
+    options.serverVersion ?? "0.3.1",
   )
   const writeLine = options.writeLine ?? defaultWriteLine
   let buffered = Buffer.alloc(0)
