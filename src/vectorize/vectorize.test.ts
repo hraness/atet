@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import sharp from "sharp"
+import { main as runGraphicsCli } from "../cli.ts"
 import { vectorizeImage } from "./vectorize.ts"
 
 test("Windows fails closed before raster or VTracer work", async () => {
@@ -91,11 +92,10 @@ test("vectorizes a raster through a compatible override with a deterministic rec
     expect(await readFile(output, "utf8")).toBe(result.svg)
 
     const cliOutput = join(work, "cli.svg")
-    const cli = Bun.spawn(
+    const cliLines: string[] = []
+    let authenticated = false
+    await runGraphicsCli(
       [
-        process.execPath,
-        "run",
-        "./src/cli.ts",
         "vectorize",
         input,
         "--output",
@@ -103,20 +103,17 @@ test("vectorizes a raster through a compatible override with a deterministic rec
         "--json",
       ],
       {
-        cwd: process.cwd(),
-        env: { ...process.env, GRAPHICS_VTRACER_PATH: mock },
-        stderr: "pipe",
-        stdout: "pipe",
+        requireAuthentication: async () => {
+          authenticated = true
+        },
+        vectorize: async (...argumentsValue) => {
+          expect(authenticated).toBe(true)
+          return vectorizeImage(...argumentsValue)
+        },
+        log: (line) => cliLines.push(line),
       },
     )
-    const [exitCode, stdout, stderr] = await Promise.all([
-      cli.exited,
-      new Response(cli.stdout).text(),
-      new Response(cli.stderr).text(),
-    ])
-    expect(stderr).toBe("")
-    expect(exitCode).toBe(0)
-    expect(JSON.parse(stdout)).toMatchObject({
+    expect(JSON.parse(cliLines.join("\n"))).toMatchObject({
       outputPath: cliOutput,
       receiptVersion: 1,
       width: 2,

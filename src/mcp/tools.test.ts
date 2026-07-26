@@ -10,6 +10,11 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
+  graphicsImageModels,
+  graphicsProductionContract,
+  graphicsRedirectUri,
+} from "../discovery.ts"
+import {
   GraphicsMcpToolRuntime,
   mcpMaximumEdges,
   mcpMaximumReturnedFindings,
@@ -57,6 +62,48 @@ function source(options: { readonly width?: number; readonly height?: number } =
     ],
     edges: [{ id: "source-result", from: "source", to: "result" }],
   })
+}
+
+function remoteDiscovery(): Record<string, unknown> {
+  return {
+    schemaVersion: 1,
+    product: "graphics",
+    environment: "production",
+    apiBaseUrl: graphicsProductionContract.apiBaseUrl,
+    operationsUrl: graphicsProductionContract.operationsUrl,
+    authorization: {
+      type: "oauth2-authorization-code",
+      issuer: graphicsProductionContract.issuer,
+      authorizationEndpoint: graphicsProductionContract.authorizationEndpoint,
+      tokenEndpoint: graphicsProductionContract.tokenEndpoint,
+      revocationEndpoint: graphicsProductionContract.revocationEndpoint,
+      clientId: graphicsProductionContract.clientId,
+      redirectUri: graphicsRedirectUri,
+      scopes: ["openid", "offline_access"],
+      resource: graphicsProductionContract.resource,
+      pkce: "S256",
+    },
+    endpoints: { generateImage: graphicsProductionContract.generateImage },
+    imageGeneration: {
+      models: graphicsImageModels,
+      maximumPromptBytes: 8_192,
+      maximumRawImageBytes: 3_145_728,
+      imagesPerRequest: 1,
+      responseMediaTypes: ["image/webp"],
+      idempotency: {
+        header: "Idempotency-Key",
+        durable: false,
+        scope: "process-local-mvp",
+      },
+    },
+    features: {
+      vectorize: {
+        access: "authenticated",
+        billing: "free",
+        execution: "local",
+      },
+    },
+  }
 }
 
 describe("Graphics MCP tools", () => {
@@ -347,6 +394,115 @@ describe("Graphics MCP tools", () => {
       expect(result.content[0]?.text).toContain("truncated")
       expect(result.content[0]?.text).not.toContain("outside-canvas")
       expect(JSON.stringify(result).length).toBeLessThan(20_000)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test("searches the fixed registry and rejects source text in semantic execution", async () => {
+    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-semantic-"))
+    const marker = join(root, "executed")
+    try {
+      await writeFile(join(root, "flow.diagram.json"), source())
+      const runtime = await GraphicsMcpToolRuntime.create(root)
+      const search = await runtime.call("search_graphics", {
+        query: "diagram",
+      })
+      expect(search.structuredContent).toMatchObject({
+        ok: true,
+        operations: [
+          { code: "graphics.diagram.check" },
+          { code: "graphics.diagram.render" },
+        ],
+      })
+      const execute = await runtime.call("execute_graphics", {
+        operation: "graphics.diagram.check",
+        input: {
+          path: "flow.diagram.json",
+          source: `await Bun.write(${JSON.stringify(marker)}, "executed")`,
+        },
+      })
+      expectToolError(execute, "INVALID_OPERATION_INPUT")
+      expect(await Bun.file(marker).exists()).toBe(false)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test("executes authenticated hosted generation to a confined file with metadata-only output", async () => {
+    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-generate-"))
+    const webp = Uint8Array.from([
+      0x52, 0x49, 0x46, 0x46, 0x08, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+      0x56, 0x50, 0x38, 0x58,
+    ])
+    let calls = 0
+    try {
+      const runtime = await GraphicsMcpToolRuntime.create(root, {
+        secrets: {
+          get: async () =>
+            JSON.stringify({
+              schemaVersion: 1,
+              issuer: graphicsProductionContract.issuer,
+              clientId: graphicsProductionContract.clientId,
+              resource: graphicsProductionContract.resource,
+              accessToken: "mcp-access-token",
+              refreshToken: "mcp-refresh-token",
+              expiresAt: Date.now() + 60 * 60_000,
+            }),
+          set: async () => undefined,
+          delete: async () => false,
+        },
+        fetch: async (input, init) => {
+          calls += 1
+          if (
+            String(input) ===
+            "https://hraness.graphics/.well-known/graphics-cli.json"
+          ) {
+            return Response.json(remoteDiscovery())
+          }
+          expect(String(input)).toBe(
+            graphicsProductionContract.generateImage,
+          )
+          expect(init?.redirect).toBe("error")
+          return Response.json({
+            apiVersion: "v1",
+            image: {
+              base64: Buffer.from(webp).toString("base64"),
+              mediaType: "image/webp",
+            },
+            model: graphicsImageModels[0],
+            requestId: "mcp_request",
+          })
+        },
+      })
+      const result = await runtime.call("execute_graphics", {
+        operation: "graphics.image.generate",
+        input: {
+          model: graphicsImageModels[0],
+          prompt: "one bounded image",
+          outputPath: "generated/image.webp",
+          idempotencyKey: "mcp-request-key-01",
+        },
+      })
+      expect(calls).toBe(2)
+      expect(result.isError).toBeUndefined()
+      expect(result.content).toHaveLength(1)
+      expect(result.structuredContent).toMatchObject({
+        ok: true,
+        operation: "graphics.image.generate",
+        result: {
+          mediaType: "image/webp",
+          model: graphicsImageModels[0],
+          outputPath: "generated/image.webp",
+          requestId: "mcp_request",
+        },
+      })
+      expect(JSON.stringify(result.structuredContent)).not.toContain(
+        Buffer.from(webp).toString("base64"),
+      )
+      expect(await readFile(join(root, "generated", "image.webp"))).toEqual(
+        Buffer.from(webp),
+      )
     } finally {
       await rm(root, { recursive: true, force: true })
     }

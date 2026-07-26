@@ -34,34 +34,34 @@ __export(exports_skill_install, {
   installSkill: () => installSkill,
   bundledSkillPath: () => bundledSkillPath
 });
-import { cp, mkdir as mkdir4, rm as rm4 } from "fs/promises";
+import { cp, mkdir as mkdir5, rm as rm7 } from "fs/promises";
 import { homedir as homedir2 } from "os";
-import { dirname as dirname6, join as join4, resolve as resolve5 } from "path";
-import { fileURLToPath } from "url";
+import { dirname as dirname9, join as join7, resolve as resolve7 } from "path";
+import { fileURLToPath as fileURLToPath2 } from "url";
 function bundledSkillPath() {
-  return resolve5(dirname6(fileURLToPath(import.meta.url)), "../skills/graphics");
+  return resolve7(dirname9(fileURLToPath2(import.meta.url)), "../skills/graphics");
 }
 function targetRoot(target, scope, projectDirectory) {
   const directory = target === "codex" ? ".codex" : target === "claude" ? ".claude" : ".agents";
-  return scope === "user" ? join4(homedir2(), directory, "skills") : join4(projectDirectory, directory, "skills");
+  return scope === "user" ? join7(homedir2(), directory, "skills") : join7(projectDirectory, directory, "skills");
 }
 async function installSkill(options) {
   const source = bundledSkillPath();
   if (!await pathExists(source))
     throw new Error(`Bundled skill is missing: ${source}`);
-  const root = targetRoot(options.target, options.scope, resolve5(options.projectDirectory ?? process.cwd()));
-  const legacy = join4(root, "diagram");
+  const root = targetRoot(options.target, options.scope, resolve7(options.projectDirectory ?? process.cwd()));
+  const legacy = join7(root, "diagram");
   if (await pathExists(legacy)) {
     throw new Error(`Legacy diagram skill found at ${legacy}. Remove or move that directory, then rerun "graphics skill install --target ${options.target} --scope ${options.scope}". Graphics will not install both skills side by side.`);
   }
-  const destination = join4(root, "graphics");
+  const destination = join7(root, "graphics");
   if (await pathExists(destination)) {
     if (!options.force) {
       throw new Error(`Skill already exists at ${destination}; pass --force to replace it`);
     }
-    await rm4(destination, { recursive: true, force: true });
+    await rm7(destination, { recursive: true, force: true });
   }
-  await mkdir4(dirname6(destination), { recursive: true });
+  await mkdir5(dirname9(destination), { recursive: true });
   await cp(source, destination, { recursive: true, errorOnExist: true });
   return destination;
 }
@@ -70,8 +70,8 @@ var init_skill_install = __esm(() => {
 });
 
 // src/cli.ts
-import { writeFile as writeFile3 } from "fs/promises";
-import { resolve as resolve6 } from "path";
+import { writeFile as writeFile5 } from "fs/promises";
+import { resolve as resolve8 } from "path";
 import { createInterface } from "readline/promises";
 
 // src/artifacts.ts
@@ -1949,806 +1949,928 @@ async function openInDesktop(filePath) {
   }
 }
 
-// src/mcp/tools.ts
-import { rename as rename3, rm as rm3, writeFile as writeFile2 } from "fs/promises";
-import { dirname as dirname5, join as join3 } from "path";
+// src/auth.ts
+import { createHash as createHash2, randomBytes, timingSafeEqual } from "crypto";
+import { createServer } from "http";
 
-// src/mcp/boundary.ts
-import { open, mkdir as mkdir3, realpath, stat } from "fs/promises";
-import {
-  dirname as dirname4,
-  isAbsolute as isAbsolute2,
-  relative,
-  resolve as resolve4,
-  win32
-} from "path";
-var mcpSourceByteLimit = 1024 * 1024;
-
-class WorkspaceBoundaryError extends Error {
+// src/cloud-errors.ts
+class GraphicsCloudError extends Error {
   code;
-  constructor(code, message) {
-    super(message);
-    this.name = "WorkspaceBoundaryError";
+  constructor(code, message, options) {
+    super(`[${code}] ${message}`, options);
+    this.name = "GraphicsCloudError";
     this.code = code;
   }
 }
-function filesystemCode(error) {
-  if (typeof error === "object" && error !== null && "code" in error && typeof error.code === "string") {
-    return error.code;
-  }
-  return;
-}
-function normalizeRelativePath(value, options) {
-  if (value.length === 0 || value.includes("\x00")) {
-    throw new WorkspaceBoundaryError("INVALID_PATH", "Path must be a non-empty root-relative path.");
-  }
-  if (isAbsolute2(value) || win32.isAbsolute(value) || /^[A-Za-z]:/.test(value)) {
-    throw new WorkspaceBoundaryError("INVALID_PATH", "Absolute paths are not allowed.");
-  }
-  const segments = value.split(/[\\/]/).filter((segment) => segment !== "" && segment !== ".");
-  if (segments.includes("..")) {
-    throw new WorkspaceBoundaryError("INVALID_PATH", "Parent-directory traversal is not allowed.");
-  }
-  if (segments.length === 0) {
-    if (!options.allowRoot) {
-      throw new WorkspaceBoundaryError("INVALID_PATH", "Path must identify a file below the root.");
-    }
-    return { native: ".", portable: "." };
-  }
-  return {
-    native: segments.join("/"),
-    portable: segments.join("/")
-  };
-}
-function isConfined(rootDirectory, target) {
-  const fromRoot = relative(rootDirectory, target);
-  return fromRoot === "" || !fromRoot.startsWith("..") && !isAbsolute2(fromRoot);
-}
-async function readUtf8WithCap(filePath) {
-  let handle;
-  try {
-    handle = await open(filePath, "r");
-    const metadata = await handle.stat();
-    if (!metadata.isFile()) {
-      throw new WorkspaceBoundaryError("SOURCE_NOT_FILE", "Diagram source must be a regular file.");
-    }
-    if (metadata.size > mcpSourceByteLimit) {
-      throw new WorkspaceBoundaryError("SOURCE_TOO_LARGE", `Diagram source exceeds the ${mcpSourceByteLimit}-byte limit.`);
-    }
-    const buffer = Buffer.allocUnsafe(mcpSourceByteLimit + 1);
-    let bytesRead = 0;
-    while (bytesRead <= mcpSourceByteLimit) {
-      const next = await handle.read(buffer, bytesRead, mcpSourceByteLimit + 1 - bytesRead, null);
-      if (next.bytesRead === 0)
-        break;
-      bytesRead += next.bytesRead;
-    }
-    if (bytesRead > mcpSourceByteLimit) {
-      throw new WorkspaceBoundaryError("SOURCE_TOO_LARGE", `Diagram source exceeds the ${mcpSourceByteLimit}-byte limit.`);
-    }
-    try {
-      return new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, bytesRead));
-    } catch {
-      throw new WorkspaceBoundaryError("SOURCE_ENCODING", "Diagram source must contain valid UTF-8.");
-    }
-  } catch (error) {
-    if (error instanceof WorkspaceBoundaryError)
-      throw error;
-    const code = filesystemCode(error);
-    if (code === "ENOENT") {
-      throw new WorkspaceBoundaryError("SOURCE_NOT_FOUND", "Diagram source does not exist.");
-    }
-    throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Diagram source could not be read.");
-  } finally {
-    await handle?.close();
-  }
-}
 
-class WorkspaceBoundary {
-  rootDirectory;
-  constructor(rootDirectory) {
-    this.rootDirectory = rootDirectory;
-  }
-  static async create(rootDirectory) {
-    let resolvedRoot;
-    try {
-      resolvedRoot = await realpath(resolve4(rootDirectory));
-      if (!(await stat(resolvedRoot)).isDirectory()) {
-        throw new WorkspaceBoundaryError("OUTPUT_NOT_DIRECTORY", "MCP root must be a directory.");
-      }
-    } catch (error) {
-      if (error instanceof WorkspaceBoundaryError)
-        throw error;
-      throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "MCP root could not be opened.");
-    }
-    return new WorkspaceBoundary(resolvedRoot);
-  }
-  assertConfined(target) {
-    if (!isConfined(this.rootDirectory, target)) {
-      throw new WorkspaceBoundaryError("PATH_OUTSIDE_ROOT", "Path resolves outside the MCP root.");
-    }
-  }
-  toRelativePath(absolutePath) {
-    this.assertConfined(absolutePath);
-    const fromRoot = relative(this.rootDirectory, absolutePath);
-    return fromRoot === "" ? "." : fromRoot.split("\\").join("/");
-  }
-  async readSource(value) {
-    const normalized = normalizeRelativePath(value, { allowRoot: false });
-    const lexicalPath = resolve4(this.rootDirectory, normalized.native);
-    this.assertConfined(lexicalPath);
-    let canonicalPath;
-    try {
-      canonicalPath = await realpath(lexicalPath);
-    } catch (error) {
-      if (filesystemCode(error) === "ENOENT") {
-        throw new WorkspaceBoundaryError("SOURCE_NOT_FOUND", "Diagram source does not exist.");
-      }
-      throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Diagram source could not be resolved.");
-    }
-    this.assertConfined(canonicalPath);
-    return {
-      absolutePath: canonicalPath,
-      relativePath: this.toRelativePath(canonicalPath),
-      text: await readUtf8WithCap(canonicalPath)
-    };
-  }
-  async prepareOutputDirectory(value) {
-    const normalized = normalizeRelativePath(value, { allowRoot: true });
-    const lexicalPath = resolve4(this.rootDirectory, normalized.native);
-    this.assertConfined(lexicalPath);
-    let ancestor = lexicalPath;
-    for (;; ) {
-      try {
-        const canonicalAncestor = await realpath(ancestor);
-        this.assertConfined(canonicalAncestor);
-        break;
-      } catch (error) {
-        if (error instanceof WorkspaceBoundaryError)
-          throw error;
-        if (filesystemCode(error) !== "ENOENT") {
-          throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Output directory could not be resolved.");
-        }
-        const parent = dirname4(ancestor);
-        if (parent === ancestor) {
-          throw new WorkspaceBoundaryError("PATH_OUTSIDE_ROOT", "Output directory resolves outside the MCP root.");
-        }
-        ancestor = parent;
-      }
-    }
-    try {
-      await mkdir3(lexicalPath, { recursive: true });
-      const canonicalPath = await realpath(lexicalPath);
-      this.assertConfined(canonicalPath);
-      if (!(await stat(canonicalPath)).isDirectory()) {
-        throw new WorkspaceBoundaryError("OUTPUT_NOT_DIRECTORY", "Output path must be a directory.");
-      }
-      return {
-        absolutePath: canonicalPath,
-        relativePath: this.toRelativePath(canonicalPath)
-      };
-    } catch (error) {
-      if (error instanceof WorkspaceBoundaryError)
-        throw error;
-      throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Output directory could not be created.");
-    }
-  }
-}
-
-// src/mcp/tools.ts
-var mcpMaximumScale = 4;
-var mcpMaximumRenderedPixels = 16777216;
-var mcpMaximumShapes = 64;
-var mcpMaximumEdges = 128;
-var mcpMaximumReturnedFindings = 40;
-var defaultScale = 2;
-var maximumShapeIdsPerFinding = 12;
-var builtInConfig = Object.freeze({ icons: builtInIcons });
-var findingSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["code", "message", "shapeIds"],
-  properties: {
-    code: { type: "string" },
-    message: { type: "string" },
-    shapeIds: { type: "array", items: { type: "string" } }
-  }
-};
-var graphicsMcpTools = Object.freeze([
-  {
-    name: "check_diagram",
-    title: "Check diagram",
-    description: "Parse and lint one root-relative Graphics diagram source without changing files. Uses only built-in icons and themes.",
-    inputSchema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["path"],
-      properties: {
-        path: {
-          type: "string",
-          description: "Root-relative path to a diagram JSON source (1 MiB maximum)."
-        }
-      }
-    },
-    outputSchema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["ok", "source", "findings", "summary"],
-      properties: {
-        ok: { const: true },
-        source: { type: "string" },
-        findings: { type: "array", items: findingSchema },
-        summary: {
-          type: "object",
-          additionalProperties: false,
-          required: [
-            "shapeCount",
-            "edgeCount",
-            "findingCount",
-            "returnedFindingCount",
-            "findingsTruncated"
-          ],
-          properties: {
-            shapeCount: { type: "integer", minimum: 0 },
-            edgeCount: { type: "integer", minimum: 0 },
-            findingCount: { type: "integer", minimum: 0 },
-            returnedFindingCount: { type: "integer", minimum: 0 },
-            findingsTruncated: { type: "boolean" }
-          }
-        }
-      }
-    },
-    annotations: {
-      title: "Check diagram",
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false
-    }
-  },
-  {
-    name: "render_diagram",
-    title: "Render diagram",
-    description: "Render one root-relative Graphics diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
-    inputSchema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["path"],
-      properties: {
-        path: {
-          type: "string",
-          description: "Root-relative path to a diagram JSON source (1 MiB maximum)."
-        },
-        out_dir: {
-          type: "string",
-          description: "Optional root-relative output directory. Defaults to the source directory."
-        },
-        scale: {
-          type: "number",
-          exclusiveMinimum: 0,
-          maximum: mcpMaximumScale,
-          default: defaultScale,
-          description: "PNG scale. The scaled canvas may contain at most 16,777,216 pixels."
-        }
-      }
-    },
-    outputSchema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["ok", "source", "scale", "findings", "artifacts", "summary"],
-      properties: {
-        ok: { const: true },
-        source: { type: "string" },
-        scale: { type: "number" },
-        findings: { type: "array", items: findingSchema },
-        artifacts: {
-          type: "object",
-          additionalProperties: false,
-          required: ["tldr", "lightSvg", "darkSvg", "lightPng", "darkPng"],
-          properties: {
-            tldr: { type: "string" },
-            lightSvg: { type: "string" },
-            darkSvg: { type: "string" },
-            lightPng: { type: "string" },
-            darkPng: { type: "string" }
-          }
-        },
-        summary: {
-          type: "object",
-          additionalProperties: false,
-          required: [
-            "shapeCount",
-            "edgeCount",
-            "findingCount",
-            "returnedFindingCount",
-            "findingsTruncated"
-          ],
-          properties: {
-            shapeCount: { type: "integer", minimum: 0 },
-            edgeCount: { type: "integer", minimum: 0 },
-            findingCount: { type: "integer", minimum: 0 },
-            returnedFindingCount: { type: "integer", minimum: 0 },
-            findingsTruncated: { type: "boolean" }
-          }
-        }
-      }
-    },
-    annotations: {
-      title: "Render diagram",
-      readOnlyHint: false,
-      destructiveHint: true,
-      idempotentHint: true,
-      openWorldHint: false
-    }
-  }
+// src/discovery.ts
+var graphicsDiscoveryUrl = "https://hraness.graphics/.well-known/graphics-cli.json";
+var graphicsRedirectUri = "http://127.0.0.1:49671/oauth/callback";
+var graphicsProductionContract = Object.freeze({
+  environment: "production",
+  apiBaseUrl: "https://hraness.graphics/api/v1",
+  operationsUrl: "https://hraness.graphics/api/v1/operations",
+  issuer: "https://account.hraness.com",
+  authorizationEndpoint: "https://account.hraness.com/api/auth/oauth2/authorize",
+  tokenEndpoint: "https://account.hraness.com/api/auth/oauth2/token",
+  revocationEndpoint: "https://account.hraness.com/api/auth/oauth2/revoke",
+  clientId: "hraness:graphics:production:v1",
+  resource: "https://hraness.com/suite",
+  generateImage: "https://hraness.graphics/api/v1/images/generate",
+  maximumPromptBytes: 8192,
+  maximumRawImageBytes: 3145728
+});
+var graphicsImageModels = Object.freeze([
+  "openai/gpt-image-1.5",
+  "recraft/recraft-v4.1-utility"
 ]);
-
-class ToolFailure extends Error {
-  code;
-  issues;
-  constructor(code, message, issues) {
-    super(message);
-    this.name = "ToolFailure";
-    this.code = code;
-    if (issues !== undefined)
-      this.issues = issues;
-  }
+var graphicsResponseMediaTypes = Object.freeze([
+  "image/webp"
+]);
+var graphicsDiscoveryMaximumBytes = 32 * 1024;
+var graphicsMaximumPromptBytes = graphicsProductionContract.maximumPromptBytes;
+var graphicsMaximumRawImageBytes = graphicsProductionContract.maximumRawImageBytes;
+function invalidDiscovery() {
+  throw new GraphicsCloudError("DISCOVERY_INVALID", "Graphics service discovery returned an invalid contract.");
 }
 function isRecord4(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function safeFragment(value, maximumLength = 160) {
-  return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, maximumLength);
-}
-function safeIssues(issues) {
-  return issues.slice(0, 24).map((issue) => safeFragment(issue, 240));
-}
-function rejectUnknownKeys(value, allowed) {
-  const unknown = Object.keys(value).filter((key) => !allowed.has(key));
-  if (unknown.length > 0) {
-    throw new ToolFailure("INVALID_ARGUMENTS", `Unsupported argument: ${safeFragment(unknown[0] ?? "unknown")}.`);
+function exactKeys(value, expected) {
+  const actual = Object.keys(value).sort();
+  const canonical = [...expected].sort();
+  if (actual.length !== canonical.length || actual.some((key, index) => key !== canonical[index])) {
+    invalidDiscovery();
   }
 }
-function parsePath(value) {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new ToolFailure("INVALID_ARGUMENTS", "path must be a non-empty root-relative string.");
-  }
-  if (!value.toLowerCase().endsWith(".diagram.json")) {
-    throw new ToolFailure("INVALID_ARGUMENTS", "path must end in .diagram.json.");
+function positiveInteger(value, maximum) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > maximum) {
+    invalidDiscovery();
   }
   return value;
 }
-function parseCheckArguments(value) {
-  if (!isRecord4(value)) {
-    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
-  }
-  rejectUnknownKeys(value, new Set(["path"]));
-  return { path: parsePath(value.path) };
-}
-function parseRenderArguments(value) {
-  if (!isRecord4(value)) {
-    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
-  }
-  rejectUnknownKeys(value, new Set(["path", "out_dir", "scale"]));
-  const outDirectory = value.out_dir;
-  if (outDirectory !== undefined && (typeof outDirectory !== "string" || outDirectory.length === 0)) {
-    throw new ToolFailure("INVALID_ARGUMENTS", "out_dir must be a non-empty root-relative string when present.");
-  }
-  const scale = value.scale ?? defaultScale;
-  if (typeof scale !== "number" || !Number.isFinite(scale) || scale <= 0 || scale > mcpMaximumScale) {
-    throw new ToolFailure("RENDER_LIMIT", `scale must be greater than zero and no more than ${mcpMaximumScale}.`);
-  }
-  return {
-    path: parsePath(value.path),
-    ...outDirectory === undefined ? {} : { outDirectory },
-    scale
-  };
-}
-function assertBuiltInIcons(spec) {
-  for (const shape of spec.shapes) {
-    if ((shape.type === "rect" || shape.type === "ellipse") && shape.icon !== undefined && !Object.hasOwn(builtInIcons, shape.icon)) {
-      throw new ToolFailure("UNKNOWN_ICON", `Shape ${safeFragment(shape.id)} requests unavailable built-in icon ${safeFragment(shape.icon)}.`);
-    }
+function exactStringTuple(value, expected) {
+  if (!Array.isArray(value) || value.length !== expected.length || value.some((entry, index) => entry !== expected[index])) {
+    invalidDiscovery();
   }
 }
-function assertComplexityLimits(spec) {
-  const edgeCount = spec.edges?.length ?? 0;
-  if (spec.shapes.length > mcpMaximumShapes || edgeCount > mcpMaximumEdges) {
-    throw new ToolFailure("COMPLEXITY_LIMIT", `Diagram may contain at most ${mcpMaximumShapes} shapes and ${mcpMaximumEdges} edges in MCP mode.`);
-  }
-}
-function assertRawComplexityLimits(value) {
+function parseAuthorization(value) {
   if (!isRecord4(value))
-    return;
-  const shapeCount = Array.isArray(value.shapes) ? value.shapes.length : 0;
-  const edgeCount = Array.isArray(value.edges) ? value.edges.length : 0;
-  if (shapeCount > mcpMaximumShapes || edgeCount > mcpMaximumEdges) {
-    throw new ToolFailure("COMPLEXITY_LIMIT", `Diagram may contain at most ${mcpMaximumShapes} shapes and ${mcpMaximumEdges} edges in MCP mode.`);
+    invalidDiscovery();
+  exactKeys(value, [
+    "type",
+    "issuer",
+    "authorizationEndpoint",
+    "tokenEndpoint",
+    "revocationEndpoint",
+    "clientId",
+    "redirectUri",
+    "scopes",
+    "resource",
+    "pkce"
+  ]);
+  if (value.type !== "oauth2-authorization-code" || value.issuer !== graphicsProductionContract.issuer || value.authorizationEndpoint !== graphicsProductionContract.authorizationEndpoint || value.tokenEndpoint !== graphicsProductionContract.tokenEndpoint || value.revocationEndpoint !== graphicsProductionContract.revocationEndpoint || value.clientId !== graphicsProductionContract.clientId || value.redirectUri !== graphicsRedirectUri || value.resource !== graphicsProductionContract.resource || value.pkce !== "S256") {
+    invalidDiscovery();
   }
+  exactStringTuple(value.scopes, ["openid", "offline_access"]);
+  return {
+    type: "oauth2-authorization-code",
+    issuer: graphicsProductionContract.issuer,
+    authorizationEndpoint: graphicsProductionContract.authorizationEndpoint,
+    tokenEndpoint: graphicsProductionContract.tokenEndpoint,
+    revocationEndpoint: graphicsProductionContract.revocationEndpoint,
+    clientId: graphicsProductionContract.clientId,
+    redirectUri: graphicsRedirectUri,
+    scopes: ["openid", "offline_access"],
+    resource: graphicsProductionContract.resource,
+    pkce: "S256"
+  };
 }
-function assertRenderLimits(spec, scale) {
-  const scaledWidth = spec.canvas.width * scale;
-  const scaledHeight = spec.canvas.height * scale;
-  const pixels = Math.ceil(scaledWidth) * Math.ceil(scaledHeight);
-  if (!Number.isFinite(pixels) || scaledWidth < 1 || scaledHeight < 1 || pixels > mcpMaximumRenderedPixels) {
-    throw new ToolFailure("RENDER_LIMIT", `Scaled canvas must be at least 1 pixel on each axis and no more than ${mcpMaximumRenderedPixels.toLocaleString("en-US")} pixels total.`);
+function parseImageGeneration(value) {
+  if (!isRecord4(value))
+    invalidDiscovery();
+  exactKeys(value, [
+    "models",
+    "maximumPromptBytes",
+    "maximumRawImageBytes",
+    "imagesPerRequest",
+    "responseMediaTypes",
+    "idempotency"
+  ]);
+  exactStringTuple(value.models, graphicsImageModels);
+  if (value.imagesPerRequest !== 1)
+    invalidDiscovery();
+  exactStringTuple(value.responseMediaTypes, ["image/webp"]);
+  if (!isRecord4(value.idempotency))
+    invalidDiscovery();
+  exactKeys(value.idempotency, ["header", "durable", "scope"]);
+  if (value.idempotency.header !== "Idempotency-Key" || value.idempotency.durable !== false || value.idempotency.scope !== "process-local-mvp") {
+    invalidDiscovery();
   }
-}
-function publicFinding(finding) {
   return {
-    code: safeFragment(finding.code, 64),
-    message: safeFragment(finding.message, 240),
-    shapeIds: finding.shapeIds.slice(0, maximumShapeIdsPerFinding).map((shapeId2) => safeFragment(shapeId2, 120))
+    models: graphicsImageModels,
+    maximumPromptBytes: positiveInteger(value.maximumPromptBytes, graphicsMaximumPromptBytes) === graphicsProductionContract.maximumPromptBytes ? graphicsProductionContract.maximumPromptBytes : invalidDiscovery(),
+    maximumRawImageBytes: positiveInteger(value.maximumRawImageBytes, graphicsMaximumRawImageBytes) === graphicsProductionContract.maximumRawImageBytes ? graphicsProductionContract.maximumRawImageBytes : invalidDiscovery(),
+    imagesPerRequest: 1,
+    responseMediaTypes: ["image/webp"],
+    idempotency: {
+      header: "Idempotency-Key",
+      durable: false,
+      scope: "process-local-mvp"
+    }
   };
 }
-function publicFindings(findings) {
-  return findings.slice(0, mcpMaximumReturnedFindings).map(publicFinding);
-}
-function diagramSummary(spec, findingCount, returnedFindingCount) {
-  return {
-    shapeCount: spec.shapes.length,
-    edgeCount: spec.edges?.length ?? 0,
-    findingCount,
-    returnedFindingCount,
-    findingsTruncated: returnedFindingCount < findingCount
-  };
-}
-function successResult(text, structuredContent) {
-  return {
-    content: [{ type: "text", text }],
-    structuredContent
-  };
-}
-function failureResult(error) {
-  let code = "INTERNAL_ERROR";
-  let message = "The tool failed safely.";
-  let issues;
-  if (error instanceof ToolFailure) {
-    code = error.code;
-    message = safeFragment(error.message, 320);
-    issues = error.issues;
-  } else if (error instanceof WorkspaceBoundaryError) {
-    code = error.code;
-    message = safeFragment(error.message, 320);
-  } else if (error instanceof DiagramValidationError) {
-    code = "INVALID_DIAGRAM";
-    message = "Diagram source did not pass validation.";
-    issues = safeIssues(error.issues);
-  } else if (typeof error === "object" && error !== null && "issues" in error && Array.isArray(error.issues) && error.issues.every((issue) => typeof issue === "string")) {
-    code = "INVALID_LAYOUT";
-    message = "Diagram layout could not be resolved.";
-    issues = safeIssues(error.issues);
+function parseFeatures(value) {
+  if (!isRecord4(value))
+    invalidDiscovery();
+  exactKeys(value, ["vectorize"]);
+  if (!isRecord4(value.vectorize))
+    invalidDiscovery();
+  exactKeys(value.vectorize, ["access", "billing", "execution"]);
+  if (value.vectorize.access !== "authenticated" || value.vectorize.billing !== "free" || value.vectorize.execution !== "local") {
+    invalidDiscovery();
   }
-  const issueText = issues === undefined || issues.length === 0 ? "" : `
-${issues.map((issue) => `- ${issue}`).join(`
-`)}`;
   return {
-    content: [{ type: "text", text: `[${code}] ${message}${issueText}` }],
-    isError: true
+    vectorize: {
+      access: "authenticated",
+      billing: "free",
+      execution: "local"
+    }
   };
 }
-function portableDirectory(filePath) {
-  const separator = filePath.lastIndexOf("/");
-  return separator === -1 ? "." : filePath.slice(0, separator);
+function deepFreeze(value) {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
+    return value;
+  }
+  for (const nested of Object.values(value))
+    deepFreeze(nested);
+  return Object.freeze(value);
 }
-async function atomicOverwrite(filePath, data) {
-  const temporaryPath = join3(dirname5(filePath), `.${crypto.randomUUID()}.graphics-mcp.tmp`);
+function parseGraphicsDiscovery(value) {
+  if (!isRecord4(value))
+    invalidDiscovery();
+  exactKeys(value, [
+    "schemaVersion",
+    "product",
+    "environment",
+    "apiBaseUrl",
+    "operationsUrl",
+    "authorization",
+    "endpoints",
+    "imageGeneration",
+    "features"
+  ]);
+  if (value.schemaVersion !== 1 || value.product !== "graphics") {
+    invalidDiscovery();
+  }
+  if (!isRecord4(value.endpoints))
+    invalidDiscovery();
+  exactKeys(value.endpoints, ["generateImage"]);
+  return deepFreeze({
+    schemaVersion: 1,
+    product: "graphics",
+    environment: value.environment === graphicsProductionContract.environment ? graphicsProductionContract.environment : invalidDiscovery(),
+    apiBaseUrl: value.apiBaseUrl === graphicsProductionContract.apiBaseUrl ? graphicsProductionContract.apiBaseUrl : invalidDiscovery(),
+    operationsUrl: value.operationsUrl === graphicsProductionContract.operationsUrl ? graphicsProductionContract.operationsUrl : invalidDiscovery(),
+    authorization: parseAuthorization(value.authorization),
+    endpoints: {
+      generateImage: value.endpoints.generateImage === graphicsProductionContract.generateImage ? graphicsProductionContract.generateImage : invalidDiscovery()
+    },
+    imageGeneration: parseImageGeneration(value.imageGeneration),
+    features: parseFeatures(value.features)
+  });
+}
+async function readBoundedResponseBytes(response, maximumBytes, error) {
+  const contentLength = response.headers.get("content-length");
+  if (contentLength !== null && (!/^(?:0|[1-9][0-9]*)$/u.test(contentLength) || Number(contentLength) > maximumBytes)) {
+    await response.body?.cancel().catch(() => {
+      return;
+    });
+    throw error;
+  }
+  if (response.body === null)
+    return new Uint8Array;
+  const reader = response.body.getReader();
+  const chunks = [];
+  let length = 0;
   try {
-    await writeFile2(temporaryPath, data, { flag: "wx" });
-    try {
-      await rename3(temporaryPath, filePath);
-    } catch (error) {
-      const code = typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
-      if (code !== "EEXIST" && code !== "EPERM")
+    for (;; ) {
+      const next = await reader.read();
+      if (next.done)
+        break;
+      length += next.value.byteLength;
+      if (length > maximumBytes) {
+        await reader.cancel();
         throw error;
-      await rm3(filePath, { force: true });
-      await rename3(temporaryPath, filePath);
+      }
+      chunks.push(next.value);
     }
+  } catch (caught) {
+    if (caught === error)
+      throw caught;
+    throw error;
   } finally {
-    await rm3(temporaryPath, { force: true });
+    reader.releaseLock();
   }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }
-async function loadDiagram(boundary, path) {
-  const source = await boundary.readSource(path);
-  let parsed;
+async function readBoundedJson(response, maximumBytes, error) {
+  const bytes = await readBoundedResponseBytes(response, maximumBytes, error);
   try {
-    parsed = JSON.parse(source.text);
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return JSON.parse(text);
   } catch {
-    throw new ToolFailure("INVALID_JSON", "Diagram source is not valid JSON.");
-  }
-  assertRawComplexityLimits(parsed);
-  const spec = parseDiagramSpec(parsed);
-  assertComplexityLimits(spec);
-  assertBuiltInIcons(spec);
-  return { source, spec };
-}
-
-class GraphicsMcpToolRuntime {
-  boundary;
-  renderQueue = Promise.resolve();
-  constructor(boundary) {
-    this.boundary = boundary;
-  }
-  static async create(rootDirectory) {
-    return new GraphicsMcpToolRuntime(await WorkspaceBoundary.create(rootDirectory));
-  }
-  enqueueRender(operation) {
-    const result = this.renderQueue.then(operation, operation);
-    this.renderQueue = result.then(() => {
-      return;
-    }, () => {
-      return;
-    });
-    return result;
-  }
-  async call(name, argumentsValue) {
-    try {
-      if (name === "check_diagram") {
-        const options = parseCheckArguments(argumentsValue);
-        return await this.check(options);
-      }
-      if (name === "render_diagram") {
-        const options = parseRenderArguments(argumentsValue);
-        return await this.enqueueRender(() => this.render(options));
-      }
-      throw new ToolFailure("UNKNOWN_TOOL", "Requested tool is not available.");
-    } catch (error) {
-      return failureResult(error);
-    }
-  }
-  async check(options) {
-    const { source, spec } = await loadDiagram(this.boundary, options.path);
-    const allFindings = lintDiagram(spec);
-    const findings = publicFindings(allFindings);
-    const summary = diagramSummary(spec, allFindings.length, findings.length);
-    const text = allFindings.length === 0 ? `Checked ${source.relativePath}: no findings.` : `Checked ${source.relativePath}: ${allFindings.length} finding${allFindings.length === 1 ? "" : "s"}; ${findings.length} returned in structured content${findings.length < allFindings.length ? " (truncated)" : ""}.`;
-    return successResult(text, {
-      ok: true,
-      source: source.relativePath,
-      findings,
-      summary
-    });
-  }
-  async render(options) {
-    const { source, spec } = await loadDiagram(this.boundary, options.path);
-    assertRenderLimits(spec, options.scale);
-    const outputDirectory = await this.boundary.prepareOutputDirectory(options.outDirectory ?? portableDirectory(source.relativePath));
-    const tldr = serializeTldr(spec, builtInConfig);
-    const [light, dark] = await Promise.all([
-      renderSvg(spec, "light", builtInConfig),
-      renderSvg(spec, "dark", builtInConfig)
-    ]);
-    const lightPng = renderPng(light, builtInConfig, options.scale);
-    const darkPng = renderPng(dark, builtInConfig, options.scale);
-    const absoluteArtifacts = {
-      spec: source.absolutePath,
-      tldr: join3(outputDirectory.absolutePath, `${spec.name}.tldr`),
-      lightSvg: join3(outputDirectory.absolutePath, `${spec.name}.light.svg`),
-      darkSvg: join3(outputDirectory.absolutePath, `${spec.name}.dark.svg`),
-      lightPng: join3(outputDirectory.absolutePath, `${spec.name}.light.png`),
-      darkPng: join3(outputDirectory.absolutePath, `${spec.name}.dark.png`)
-    };
-    await Promise.all([
-      atomicOverwrite(absoluteArtifacts.tldr, tldr),
-      atomicOverwrite(absoluteArtifacts.lightSvg, light.svg),
-      atomicOverwrite(absoluteArtifacts.darkSvg, dark.svg),
-      atomicOverwrite(absoluteArtifacts.lightPng, lightPng),
-      atomicOverwrite(absoluteArtifacts.darkPng, darkPng)
-    ]);
-    const artifacts = {
-      tldr: this.boundary.toRelativePath(absoluteArtifacts.tldr),
-      lightSvg: this.boundary.toRelativePath(absoluteArtifacts.lightSvg),
-      darkSvg: this.boundary.toRelativePath(absoluteArtifacts.darkSvg),
-      lightPng: this.boundary.toRelativePath(absoluteArtifacts.lightPng),
-      darkPng: this.boundary.toRelativePath(absoluteArtifacts.darkPng)
-    };
-    const allFindings = lintDiagram(spec);
-    const findings = publicFindings(allFindings);
-    const summary = diagramSummary(spec, allFindings.length, findings.length);
-    const text = [
-      `Rendered ${source.relativePath} with built-in assets:`,
-      ...Object.values(artifacts).map((artifact) => `- ${artifact}`)
-    ].join(`
-`);
-    return successResult(text, {
-      ok: true,
-      source: source.relativePath,
-      scale: options.scale,
-      findings,
-      artifacts,
-      summary
-    });
+    throw error;
   }
 }
+async function fetchGraphicsDiscovery(fetchImplementation = fetch) {
+  const unavailable = new GraphicsCloudError("DISCOVERY_UNAVAILABLE", "Graphics service discovery is unavailable.");
+  let response;
+  try {
+    response = await fetchImplementation(graphicsDiscoveryUrl, {
+      headers: {
+        accept: "application/json",
+        "user-agent": "hraness-graphics-cli/0.4.0"
+      },
+      redirect: "error",
+      signal: AbortSignal.timeout(1e4)
+    });
+  } catch (cause) {
+    throw new GraphicsCloudError("DISCOVERY_UNAVAILABLE", "Graphics service discovery is unavailable.", { cause });
+  }
+  if (response.status !== 200) {
+    await response.body?.cancel().catch(() => {
+      return;
+    });
+    throw unavailable;
+  }
+  const contentType = response.headers.get("content-type");
+  if (contentType === null || !/^application\/json(?:\s*;\s*charset=(?:utf-8|"utf-8"))?$/iu.test(contentType)) {
+    await response.body?.cancel().catch(() => {
+      return;
+    });
+    throw new GraphicsCloudError("DISCOVERY_INVALID", "Graphics service discovery returned an invalid content type.");
+  }
+  const value = await readBoundedJson(response, graphicsDiscoveryMaximumBytes, new GraphicsCloudError("DISCOVERY_INVALID", "Graphics service discovery returned an invalid contract."));
+  return parseGraphicsDiscovery(value);
+}
 
-// src/mcp/server.ts
-var graphicsMcpProtocolVersion = "2025-11-25";
-var graphicsMcpServerName = "hraness-graphics";
-var maximumMessageBytes = 1024 * 1024;
+// src/auth.ts
+var graphicsSecretsService = "com.hraness.graphics.cli";
+var graphicsSecretsName = "oauth2-tokens";
+var tokenResponseMaximumBytes = 64 * 1024;
+var storedCredentialMaximumBytes = 64 * 1024;
+var maximumTokenLength = 16 * 1024;
+var callbackPort = 49671;
+var callbackPath = "/oauth/callback";
+var callbackMaximumRequests = 32;
+var expirySkewMilliseconds = 60000;
+var maximumExpiresInSeconds = 365 * 24 * 60 * 60;
+function secretStore(dependencies) {
+  return dependencies.secrets ?? Bun.secrets;
+}
+function boundedToken(value) {
+  if (typeof value !== "string" || value.length < 1 || value.length > maximumTokenLength || /[\u0000-\u0020\u007f]/u.test(value)) {
+    throw new GraphicsCloudError("TOKEN_EXCHANGE_FAILED", "Graphics rejected the authorization token response.");
+  }
+  return value;
+}
 function isRecord5(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-function isJsonRpcId(value) {
-  return typeof value === "string" || typeof value === "number" && Number.isSafeInteger(value);
-}
-function isInitializeParams(value) {
-  return isRecord5(value) && typeof value.protocolVersion === "string" && isRecord5(value.capabilities) && isRecord5(value.clientInfo) && typeof value.clientInfo.name === "string" && typeof value.clientInfo.version === "string";
-}
-function parseRequest(value) {
-  if (!isRecord5(value) || value.jsonrpc !== "2.0" || typeof value.method !== "string" || value.method.length === 0 || "id" in value && !isJsonRpcId(value.id)) {
-    throw new Error("invalid request");
+function parseStoredCredentials(value) {
+  if (Buffer.byteLength(value, "utf8") > storedCredentialMaximumBytes) {
+    throw new GraphicsCloudError("TOKEN_STORAGE_FAILED", "Stored Graphics credentials are invalid.");
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new GraphicsCloudError("TOKEN_STORAGE_FAILED", "Stored Graphics credentials are invalid.");
+  }
+  if (!isRecord5(parsed) || parsed.schemaVersion !== 1 || typeof parsed.issuer !== "string" || parsed.issuer.length > 2048 || typeof parsed.clientId !== "string" || parsed.clientId.length > 256 || typeof parsed.resource !== "string" || parsed.resource.length > 2048 || !Number.isSafeInteger(parsed.expiresAt) || parsed.expiresAt < 0 || parsed.expiresAt > 8640000000000000) {
+    throw new GraphicsCloudError("TOKEN_STORAGE_FAILED", "Stored Graphics credentials are invalid.");
+  }
+  let accessToken;
+  let refreshToken;
+  try {
+    accessToken = boundedToken(parsed.accessToken);
+    refreshToken = parsed.refreshToken === undefined ? undefined : boundedToken(parsed.refreshToken);
+  } catch (cause) {
+    throw new GraphicsCloudError("TOKEN_STORAGE_FAILED", "Stored Graphics credentials are invalid.", { cause });
+  }
+  const keys = Object.keys(parsed);
+  if (keys.some((key) => ![
+    "schemaVersion",
+    "issuer",
+    "clientId",
+    "resource",
+    "accessToken",
+    "refreshToken",
+    "expiresAt"
+  ].includes(key))) {
+    throw new GraphicsCloudError("TOKEN_STORAGE_FAILED", "Stored Graphics credentials are invalid.");
   }
   return {
-    jsonrpc: "2.0",
-    ..."id" in value ? { id: value.id } : {},
-    method: value.method,
-    ..."params" in value ? { params: value.params } : {}
+    schemaVersion: 1,
+    issuer: parsed.issuer,
+    clientId: parsed.clientId,
+    resource: parsed.resource,
+    accessToken,
+    ...refreshToken === undefined ? {} : { refreshToken },
+    expiresAt: parsed.expiresAt
   };
 }
-function success(id, result) {
-  return { jsonrpc: "2.0", id, result };
-}
-function failure(id, code, message) {
-  return { jsonrpc: "2.0", id, error: { code, message } };
-}
-function parseToolCall(params) {
-  if (!isRecord5(params) || typeof params.name !== "string" || params.arguments !== undefined && !isRecord5(params.arguments)) {
-    throw new Error("invalid params");
+async function loadCredentials(dependencies) {
+  let stored;
+  try {
+    stored = await secretStore(dependencies).get({
+      service: graphicsSecretsService,
+      name: graphicsSecretsName
+    });
+  } catch (cause) {
+    throw new GraphicsCloudError("TOKEN_STORAGE_FAILED", "Graphics could not read credentials from the operating-system credential store.", { cause });
   }
-  const unknownKeys = Object.keys(params).filter((key) => key !== "name" && key !== "arguments");
-  if (unknownKeys.length > 0)
-    throw new Error("invalid params");
+  return stored === null ? null : parseStoredCredentials(stored);
+}
+async function storeCredentials(credentials, dependencies) {
+  const value = JSON.stringify(credentials);
+  if (Buffer.byteLength(value, "utf8") > storedCredentialMaximumBytes) {
+    throw new GraphicsCloudError("TOKEN_STORAGE_FAILED", "Graphics credentials exceed the credential-store limit.");
+  }
+  try {
+    await secretStore(dependencies).set({
+      service: graphicsSecretsService,
+      name: graphicsSecretsName,
+      value
+    });
+  } catch (cause) {
+    throw new GraphicsCloudError("TOKEN_STORAGE_FAILED", "Graphics could not write credentials to the operating-system credential store.", { cause });
+  }
+}
+async function deleteCredentials(dependencies) {
+  try {
+    return await secretStore(dependencies).delete({
+      service: graphicsSecretsService,
+      name: graphicsSecretsName
+    });
+  } catch (cause) {
+    throw new GraphicsCloudError("TOKEN_STORAGE_FAILED", "Graphics could not remove credentials from the operating-system credential store.", { cause });
+  }
+}
+function base64Url(bytes) {
+  return Buffer.from(bytes).toString("base64url");
+}
+function createPkcePair() {
+  const verifier = base64Url(randomBytes(32));
+  const challenge = createHash2("sha256").update(verifier, "ascii").digest("base64url");
+  return { verifier, challenge };
+}
+function buildGraphicsAuthorizationUrl(discovery, state, challenge) {
+  const trustedDiscovery = parseGraphicsDiscovery(discovery);
+  if (state.length < 32 || state.length > 256 || challenge.length !== 43 || !/^[A-Za-z0-9_-]+$/u.test(state) || !/^[A-Za-z0-9_-]+$/u.test(challenge)) {
+    throw new GraphicsCloudError("INVALID_ARGUMENT", "Invalid OAuth state or PKCE challenge.");
+  }
+  const url = new URL(trustedDiscovery.authorization.authorizationEndpoint);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", trustedDiscovery.authorization.clientId);
+  url.searchParams.set("redirect_uri", graphicsRedirectUri);
+  url.searchParams.set("scope", trustedDiscovery.authorization.scopes.join(" "));
+  url.searchParams.set("resource", trustedDiscovery.authorization.resource);
+  url.searchParams.set("state", state);
+  url.searchParams.set("code_challenge", challenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  return url.href;
+}
+function safeEqual(left, right) {
+  const leftBytes = Buffer.from(left, "utf8");
+  const rightBytes = Buffer.from(right, "utf8");
+  return leftBytes.byteLength === rightBytes.byteLength && timingSafeEqual(leftBytes, rightBytes);
+}
+function callbackPage(success) {
+  return [
+    "<!doctype html>",
+    '<meta charset="utf-8">',
+    `<title>Graphics ${success ? "login complete" : "login failed"}</title>`,
+    `<p>Graphics login ${success ? "is complete. You can close this window." : "could not be completed. Return to the terminal."}</p>`
+  ].join("");
+}
+async function closeServer(server) {
+  if (!server.listening)
+    return;
+  await new Promise((resolve4) => {
+    server.close(() => resolve4());
+  });
+}
+async function startAuthorizationCallback(expectedState, timeoutMilliseconds) {
+  let resolveCode;
+  let rejectCode;
+  let settled = false;
+  let requestCount = 0;
+  const codePromise = new Promise((resolve4, reject) => {
+    resolveCode = resolve4;
+    rejectCode = reject;
+  });
+  const server = createServer((request, response) => {
+    requestCount += 1;
+    response.setHeader("connection", "close");
+    response.setHeader("cache-control", "no-store");
+    response.setHeader("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'");
+    response.setHeader("content-type", "text/html; charset=utf-8");
+    if (requestCount > callbackMaximumRequests) {
+      response.statusCode = 429;
+      response.end(callbackPage(false));
+      if (!settled) {
+        settled = true;
+        rejectCode(new GraphicsCloudError("AUTHORIZATION_FAILED", "Graphics login received too many invalid callback requests."));
+      }
+      return;
+    }
+    if (request.method !== "GET" || request.headers.host !== `127.0.0.1:${callbackPort}`) {
+      response.statusCode = 404;
+      response.end(callbackPage(false));
+      return;
+    }
+    let url;
+    try {
+      if ((request.url?.length ?? 0) > 8192)
+        throw new Error("oversized callback");
+      url = new URL(request.url ?? "", graphicsRedirectUri);
+    } catch {
+      response.statusCode = 400;
+      response.end(callbackPage(false));
+      return;
+    }
+    if (url.pathname !== callbackPath) {
+      response.statusCode = 404;
+      response.end(callbackPage(false));
+      return;
+    }
+    const states = url.searchParams.getAll("state");
+    if (states.length !== 1 || states[0] === undefined || states[0].length > 256 || !safeEqual(states[0], expectedState)) {
+      response.statusCode = 400;
+      response.end(callbackPage(false));
+      return;
+    }
+    const oauthErrors = url.searchParams.getAll("error");
+    if (oauthErrors.length > 0) {
+      response.statusCode = 400;
+      response.end(callbackPage(false));
+      if (!settled) {
+        settled = true;
+        rejectCode(new GraphicsCloudError("AUTHORIZATION_FAILED", "Graphics authorization was denied or failed."));
+      }
+      return;
+    }
+    const codes = url.searchParams.getAll("code");
+    const code = codes[0];
+    if (codes.length !== 1 || code === undefined || code.length < 1 || code.length > 4096 || /[\u0000-\u0020\u007f]/u.test(code)) {
+      response.statusCode = 400;
+      response.end(callbackPage(false));
+      return;
+    }
+    response.statusCode = 200;
+    response.end(callbackPage(true));
+    if (!settled) {
+      settled = true;
+      resolveCode(code);
+    }
+  });
+  await new Promise((resolve4, reject) => {
+    server.once("error", reject);
+    server.listen(callbackPort, "127.0.0.1", () => resolve4());
+  }).catch((cause) => {
+    throw new GraphicsCloudError("AUTH_CALLBACK_UNAVAILABLE", `Graphics login requires ${graphicsRedirectUri}, but the loopback callback could not start.`, { cause });
+  });
+  const timeout = setTimeout(() => {
+    if (settled)
+      return;
+    settled = true;
+    rejectCode(new GraphicsCloudError("AUTH_TIMEOUT", "Graphics login timed out before authorization completed."));
+  }, timeoutMilliseconds);
+  let closed = false;
+  const close = async () => {
+    if (closed)
+      return;
+    closed = true;
+    clearTimeout(timeout);
+    if (!settled) {
+      settled = true;
+      rejectCode(new GraphicsCloudError("AUTHORIZATION_FAILED", "Graphics login was cancelled before authorization completed."));
+    }
+    server.closeIdleConnections();
+    server.closeAllConnections();
+    await closeServer(server);
+  };
+  return { code: codePromise, close };
+}
+async function defaultOpenUrl(url) {
+  const command = process.platform === "darwin" ? ["open", url] : process.platform === "win32" ? ["rundll32", "url.dll,FileProtocolHandler", url] : ["xdg-open", url];
+  let subprocess;
+  try {
+    subprocess = Bun.spawn(command, {
+      stdin: "ignore",
+      stdout: "ignore",
+      stderr: "ignore"
+    });
+  } catch (cause) {
+    throw new GraphicsCloudError("AUTHORIZATION_FAILED", "Graphics could not open the authorization page.", { cause });
+  }
+  const exitCode = await Promise.race([
+    subprocess.exited,
+    Bun.sleep(1e4).then(() => null)
+  ]);
+  if (exitCode === null) {
+    subprocess.kill();
+    await subprocess.exited.catch(() => {
+      return;
+    });
+  }
+  if (exitCode !== 0) {
+    throw new GraphicsCloudError("AUTHORIZATION_FAILED", "Graphics could not open the authorization page.");
+  }
+}
+async function tokenRequest(discovery, body, failureCode, dependencies) {
+  const failure = new GraphicsCloudError(failureCode, failureCode === "TOKEN_EXCHANGE_FAILED" ? "Graphics could not exchange the authorization code." : "Graphics could not refresh the login.");
+  let response;
+  try {
+    response = await (dependencies.fetch ?? fetch)(discovery.authorization.tokenEndpoint, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/x-www-form-urlencoded",
+        "user-agent": "hraness-graphics-cli/0.4.0"
+      },
+      body,
+      redirect: "error",
+      signal: AbortSignal.timeout(15000)
+    });
+  } catch (cause) {
+    throw new GraphicsCloudError(failureCode, failure.message.slice(failure.message.indexOf("]") + 2), {
+      cause
+    });
+  }
+  const contentType = response.headers.get("content-type");
+  if (contentType === null || !/^application\/json(?:\s*;\s*charset=(?:utf-8|"utf-8"))?$/iu.test(contentType)) {
+    await response.body?.cancel().catch(() => {
+      return;
+    });
+    throw failure;
+  }
+  const bytes = await readBoundedResponseBytes(response, tokenResponseMaximumBytes, failure);
+  if (!response.ok)
+    throw failure;
+  let value;
+  try {
+    value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw failure;
+  }
+  if (!isRecord5(value) || typeof value.token_type !== "string" || value.token_type.toLowerCase() !== "bearer" || !Number.isSafeInteger(value.expires_in) || value.expires_in < 1 || value.expires_in > maximumExpiresInSeconds) {
+    throw failure;
+  }
+  let accessToken;
+  let refreshToken;
+  try {
+    accessToken = boundedToken(value.access_token);
+    refreshToken = value.refresh_token === undefined ? undefined : boundedToken(value.refresh_token);
+  } catch {
+    throw failure;
+  }
   return {
-    name: params.name,
-    argumentsValue: params.arguments ?? {}
+    accessToken,
+    ...refreshToken === undefined ? {} : { refreshToken },
+    expiresIn: value.expires_in
+  };
+}
+function credentialsFromToken(discovery, token, now, retainedRefreshToken) {
+  const refreshToken = token.refreshToken ?? retainedRefreshToken;
+  return {
+    schemaVersion: 1,
+    issuer: discovery.authorization.issuer,
+    clientId: discovery.authorization.clientId,
+    resource: discovery.authorization.resource,
+    accessToken: token.accessToken,
+    ...refreshToken === undefined ? {} : { refreshToken },
+    expiresAt: now + token.expiresIn * 1000
+  };
+}
+async function loginGraphics(dependencies = {}) {
+  const discovery = await fetchGraphicsDiscovery(dependencies.fetch);
+  const { verifier, challenge } = createPkcePair();
+  const state = base64Url(randomBytes(32));
+  const callback = await startAuthorizationCallback(state, 5 * 60000);
+  callback.code.catch(() => {
+    return;
+  });
+  const authorizationUrl = buildGraphicsAuthorizationUrl(discovery, state, challenge);
+  try {
+    const launch = (async () => {
+      try {
+        await (dependencies.openUrl ?? defaultOpenUrl)(authorizationUrl);
+      } catch (cause) {
+        if (cause instanceof GraphicsCloudError)
+          throw cause;
+        throw new GraphicsCloudError("AUTHORIZATION_FAILED", "Graphics could not open the authorization page.", { cause });
+      }
+    })();
+    launch.catch(() => {
+      return;
+    });
+    const code = await Promise.race([
+      callback.code,
+      launch.then(() => callback.code)
+    ]);
+    await callback.close();
+    const form = new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: graphicsRedirectUri,
+      client_id: discovery.authorization.clientId,
+      resource: discovery.authorization.resource,
+      code_verifier: verifier
+    });
+    const token = await tokenRequest(discovery, form, "TOKEN_EXCHANGE_FAILED", dependencies);
+    const now = (dependencies.now ?? Date.now)();
+    const credentials = credentialsFromToken(discovery, token, now);
+    await storeCredentials(credentials, dependencies);
+    return {
+      authenticated: true,
+      expiresAt: new Date(credentials.expiresAt).toISOString(),
+      refreshable: credentials.refreshToken !== undefined
+    };
+  } finally {
+    await callback.close();
+  }
+}
+var refreshes = new WeakMap;
+async function refreshAccessToken(discovery, credentials, dependencies) {
+  const refreshToken = credentials.refreshToken;
+  if (refreshToken === undefined) {
+    throw new GraphicsCloudError("AUTH_REQUIRED", "Graphics login is missing or expired. Run `graphics login`.");
+  }
+  const store = secretStore(dependencies);
+  const active = refreshes.get(store);
+  if (active !== undefined)
+    return active;
+  const operation = (async () => {
+    const form = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: discovery.authorization.clientId,
+      resource: discovery.authorization.resource
+    });
+    const token = await tokenRequest(discovery, form, "TOKEN_REFRESH_FAILED", dependencies);
+    const next = credentialsFromToken(discovery, token, (dependencies.now ?? Date.now)(), refreshToken);
+    await storeCredentials(next, dependencies);
+    return next.accessToken;
+  })();
+  refreshes.set(store, operation);
+  try {
+    return await operation;
+  } finally {
+    if (refreshes.get(store) === operation)
+      refreshes.delete(store);
+  }
+}
+async function getGraphicsAccessToken(discovery, dependencies = {}) {
+  const trustedDiscovery = parseGraphicsDiscovery(discovery);
+  const credentials = await loadCredentials(dependencies);
+  if (credentials === null || credentials.issuer !== trustedDiscovery.authorization.issuer || credentials.clientId !== trustedDiscovery.authorization.clientId || credentials.resource !== trustedDiscovery.authorization.resource) {
+    throw new GraphicsCloudError("AUTH_REQUIRED", "Graphics login is missing or expired. Run `graphics login`.");
+  }
+  const now = (dependencies.now ?? Date.now)();
+  if (credentials.expiresAt > now + expirySkewMilliseconds) {
+    return credentials.accessToken;
+  }
+  return refreshAccessToken(trustedDiscovery, credentials, dependencies);
+}
+async function requireGraphicsAuthentication(dependencies = {}) {
+  const discovery = await fetchGraphicsDiscovery(dependencies.fetch);
+  await getGraphicsAccessToken(discovery, dependencies);
+  return discovery;
+}
+async function graphicsAuthStatus(dependencies = {}) {
+  const credentials = await loadCredentials(dependencies);
+  if (credentials === null) {
+    return { authenticated: false, expiresAt: null, refreshable: false };
+  }
+  if (credentials.issuer !== graphicsProductionContract.issuer || credentials.clientId !== graphicsProductionContract.clientId || credentials.resource !== graphicsProductionContract.resource) {
+    return { authenticated: false, expiresAt: null, refreshable: false };
+  }
+  return {
+    authenticated: credentials.expiresAt > (dependencies.now ?? Date.now)() || credentials.refreshToken !== undefined,
+    expiresAt: new Date(credentials.expiresAt).toISOString(),
+    refreshable: credentials.refreshToken !== undefined
+  };
+}
+async function logoutGraphics(dependencies = {}) {
+  const credentials = await loadCredentials(dependencies);
+  if (credentials === null)
+    return { removed: false, revoked: false };
+  let revocationError;
+  let revoked = false;
+  try {
+    const discovery = await fetchGraphicsDiscovery(dependencies.fetch);
+    if (credentials.issuer !== discovery.authorization.issuer || credentials.clientId !== discovery.authorization.clientId || credentials.resource !== discovery.authorization.resource) {
+      throw new GraphicsCloudError("REVOCATION_FAILED", "Graphics could not verify the stored login before revocation.");
+    }
+    const token = credentials.refreshToken ?? credentials.accessToken;
+    const tokenTypeHint = credentials.refreshToken === undefined ? "access_token" : "refresh_token";
+    let response;
+    try {
+      response = await (dependencies.fetch ?? fetch)(discovery.authorization.revocationEndpoint, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/x-www-form-urlencoded",
+          "user-agent": "hraness-graphics-cli/0.4.0"
+        },
+        body: new URLSearchParams({
+          token,
+          token_type_hint: tokenTypeHint,
+          client_id: discovery.authorization.clientId
+        }),
+        redirect: "error",
+        signal: AbortSignal.timeout(15000)
+      });
+    } catch (cause) {
+      throw new GraphicsCloudError("REVOCATION_FAILED", "Graphics could not revoke the remote login.", { cause });
+    }
+    await readBoundedResponseBytes(response, 16 * 1024, new GraphicsCloudError("REVOCATION_FAILED", "Graphics received an invalid revocation response."));
+    if (!response.ok) {
+      throw new GraphicsCloudError("REVOCATION_FAILED", "Graphics could not revoke the remote login.");
+    }
+    revoked = true;
+  } catch (error) {
+    revocationError = error instanceof GraphicsCloudError ? error : new GraphicsCloudError("REVOCATION_FAILED", "Graphics could not revoke the remote login.", { cause: error });
+  }
+  const removed = await deleteCredentials(dependencies);
+  if (revocationError !== undefined)
+    throw revocationError;
+  return { removed, revoked };
+}
+
+// src/generate.ts
+import { randomUUID } from "crypto";
+import { rename as rename3, rm as rm3, writeFile as writeFile2 } from "fs/promises";
+import { dirname as dirname4, resolve as resolve4 } from "path";
+var maximumIdempotencyKeyLength = 128;
+var minimumIdempotencyKeyLength = 16;
+var responseEnvelopeAllowanceBytes = 8 * 1024;
+function invalidArgument(message) {
+  throw new GraphicsCloudError("INVALID_ARGUMENT", message);
+}
+function validateGraphicsIdempotencyKey(value) {
+  if (value.length < minimumIdempotencyKeyLength || value.length > maximumIdempotencyKeyLength || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u.test(value)) {
+    invalidArgument("Idempotency key must be 16\u2013128 characters using letters, digits, `.`, `_`, `:`, or `-`.");
+  }
+  return value;
+}
+function validateInput(input, discovery) {
+  if (!graphicsImageModels.includes(input.model)) {
+    invalidArgument(`Model must be ${graphicsImageModels[0]} or ${graphicsImageModels[1]}.`);
+  }
+  if (typeof input.prompt !== "string" || input.prompt.trim().length === 0 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(input.prompt) || Buffer.byteLength(input.prompt, "utf8") > discovery.imageGeneration.maximumPromptBytes) {
+    invalidArgument(`Prompt must be non-empty and no more than ${discovery.imageGeneration.maximumPromptBytes} UTF-8 bytes.`);
+  }
+  const idempotencyKey = validateGraphicsIdempotencyKey(input.idempotencyKey ?? randomUUID());
+  return {
+    idempotencyKey,
+    requestBody: JSON.stringify({
+      model: input.model,
+      prompt: input.prompt
+    })
+  };
+}
+function isRecord6(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function exactKeys2(value, expected) {
+  const actual = Object.keys(value).sort();
+  const canonical = [...expected].sort();
+  return actual.length === canonical.length && actual.every((entry, index) => entry === canonical[index]);
+}
+function isCanonicalBase64(value) {
+  return value.length > 0 && value.length % 4 === 0 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value);
+}
+function hasExpectedMagic(bytes, _mediaType) {
+  return bytes.byteLength >= 16 && Buffer.from(bytes.subarray(0, 4)).toString("ascii") === "RIFF" && Buffer.from(bytes).readUInt32LE(4) === bytes.byteLength - 8 && Buffer.from(bytes.subarray(8, 12)).toString("ascii") === "WEBP" && ["VP8 ", "VP8L", "VP8X"].includes(Buffer.from(bytes.subarray(12, 16)).toString("ascii"));
+}
+function parseGeneratedGraphicsImage(value, discovery, requestedModel) {
+  const trustedDiscovery = parseGraphicsDiscovery(discovery);
+  const invalid = new GraphicsCloudError("GENERATION_INVALID_RESPONSE", "Graphics image generation returned an invalid bounded image.");
+  if (!isRecord6(value) || !exactKeys2(value, ["apiVersion", "image", "model", "requestId"]) || value.apiVersion !== "v1" || value.model !== requestedModel || typeof value.requestId !== "string" || value.requestId.length < 1 || value.requestId.length > 256 || /[\u0000-\u001f\u007f]/u.test(value.requestId) || !isRecord6(value.image) || !exactKeys2(value.image, ["base64", "mediaType"]) || typeof value.image.base64 !== "string" || !isCanonicalBase64(value.image.base64) || typeof value.image.mediaType !== "string" || !graphicsResponseMediaTypes.includes(value.image.mediaType) || value.image.mediaType !== trustedDiscovery.imageGeneration.responseMediaTypes[0]) {
+    throw invalid;
+  }
+  const bytes = Buffer.from(value.image.base64, "base64");
+  if (bytes.byteLength < 1 || bytes.byteLength > trustedDiscovery.imageGeneration.maximumRawImageBytes || bytes.toString("base64") !== value.image.base64 || !hasExpectedMagic(bytes, value.image.mediaType)) {
+    throw invalid;
+  }
+  return {
+    response: {
+      apiVersion: "v1",
+      image: {
+        base64: value.image.base64,
+        mediaType: value.image.mediaType
+      },
+      model: requestedModel,
+      requestId: value.requestId
+    },
+    bytes
+  };
+}
+async function performGeneration(input, dependencies) {
+  const discovery = dependencies.discovery === undefined ? await fetchGraphicsDiscovery(dependencies.fetch) : parseGraphicsDiscovery(dependencies.discovery);
+  const { idempotencyKey, requestBody } = validateInput(input, discovery);
+  const accessToken = await getGraphicsAccessToken(discovery, dependencies);
+  const maximumResponseBytes = Math.ceil(discovery.imageGeneration.maximumRawImageBytes / 3) * 4 + responseEnvelopeAllowanceBytes;
+  const failed = new GraphicsCloudError("GENERATION_FAILED", "Graphics image generation failed; the request was not retried.");
+  let response;
+  try {
+    response = await (dependencies.fetch ?? fetch)(discovery.endpoints.generateImage, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+        [discovery.imageGeneration.idempotency.header]: idempotencyKey,
+        "user-agent": "hraness-graphics-cli/0.4.0"
+      },
+      body: requestBody,
+      redirect: "error",
+      signal: AbortSignal.timeout(120000)
+    });
+  } catch (cause) {
+    throw new GraphicsCloudError("GENERATION_FAILED", "Graphics image generation failed; the request was not retried.", { cause });
+  }
+  const contentType = response.headers.get("content-type");
+  if (contentType === null || !/^application\/json(?:\s*;\s*charset=(?:utf-8|"utf-8"))?$/iu.test(contentType)) {
+    await response.body?.cancel().catch(() => {
+      return;
+    });
+    throw failed;
+  }
+  const responseBytes = await readBoundedResponseBytes(response, maximumResponseBytes, failed);
+  if (!response.ok)
+    throw failed;
+  let value;
+  try {
+    value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(responseBytes));
+  } catch {
+    throw new GraphicsCloudError("GENERATION_INVALID_RESPONSE", "Graphics image generation returned invalid JSON.");
+  }
+  const parsed = parseGeneratedGraphicsImage(value, discovery, input.model);
+  return { ...parsed, idempotencyKey };
+}
+async function generateGraphicsImage(input, dependencies = {}) {
+  const generated = await performGeneration(input, dependencies);
+  return { ...generated.response, idempotencyKey: generated.idempotencyKey };
+}
+async function atomicImageWrite(outputPath, bytes) {
+  const absolutePath = resolve4(outputPath);
+  const temporaryPath = resolve4(dirname4(absolutePath), `.${randomUUID()}.graphics-generate.tmp`);
+  try {
+    await writeFile2(temporaryPath, bytes, { flag: "wx" });
+    await rename3(temporaryPath, absolutePath);
+    return absolutePath;
+  } catch (cause) {
+    throw new GraphicsCloudError("OUTPUT_WRITE_FAILED", "Graphics could not atomically write the generated image.", { cause });
+  } finally {
+    await rm3(temporaryPath, { force: true }).catch(() => {
+      return;
+    });
+  }
+}
+async function generateGraphicsImageFile(input, dependencies = {}) {
+  if (typeof input.outputPath !== "string" || input.outputPath.length < 1 || input.outputPath.length > 4096 || input.outputPath.includes("\x00")) {
+    invalidArgument("Output path must be a non-empty local path.");
+  }
+  if (!input.outputPath.toLowerCase().endsWith(".webp")) {
+    invalidArgument("Output path must end in .webp.");
+  }
+  const generated = await performGeneration(input, dependencies);
+  const outputPath = await atomicImageWrite(input.outputPath, generated.bytes);
+  return {
+    bytes: generated.bytes.byteLength,
+    idempotencyKey: generated.idempotencyKey,
+    mediaType: generated.response.image.mediaType,
+    model: generated.response.model,
+    outputPath,
+    requestId: generated.response.requestId
   };
 }
 
-class GraphicsMcpSession {
-  runtime;
-  serverVersion;
-  state = "new";
-  constructor(runtime, serverVersion) {
-    this.runtime = runtime;
-    this.serverVersion = serverVersion;
-  }
-  async handle(value) {
-    let request;
-    try {
-      request = parseRequest(value);
-    } catch {
-      return failure(null, -32600, "Invalid Request");
-    }
-    const notification = request.id === undefined;
-    if (request.method === "notifications/initialized") {
-      if (!notification) {
-        return failure(request.id, -32600, "Invalid Request");
-      }
-      if (this.state === "initializing")
-        this.state = "ready";
-      return null;
-    }
-    if (notification)
-      return null;
-    const id = request.id;
-    if (request.method === "initialize") {
-      if (this.state !== "new" || !isInitializeParams(request.params)) {
-        return failure(id, -32602, "Invalid initialize parameters");
-      }
-      this.state = "initializing";
-      return success(id, {
-        protocolVersion: graphicsMcpProtocolVersion,
-        capabilities: {
-          tools: { listChanged: false }
-        },
-        serverInfo: {
-          name: graphicsMcpServerName,
-          version: this.serverVersion
-        },
-        instructions: "Use check_diagram and render_diagram only with root-relative .diagram.json paths. The server uses built-in assets and never executes workspace configuration."
-      });
-    }
-    if (this.state !== "ready") {
-      return failure(id, -32002, "Server is not initialized");
-    }
-    if (request.method === "ping")
-      return success(id, {});
-    if (request.method === "tools/list") {
-      if (request.params !== undefined && (!isRecord5(request.params) || Object.keys(request.params).length > 0)) {
-        return failure(id, -32602, "Invalid tools/list parameters");
-      }
-      return success(id, { tools: graphicsMcpTools });
-    }
-    if (request.method === "tools/call") {
-      try {
-        const toolCall = parseToolCall(request.params);
-        if (!graphicsMcpTools.some((tool) => tool.name === toolCall.name)) {
-          return failure(id, -32602, "Unknown tool");
-        }
-        return success(id, await this.runtime.call(toolCall.name, toolCall.argumentsValue));
-      } catch {
-        return failure(id, -32602, "Invalid tools/call parameters");
-      }
-    }
-    return failure(id, -32601, "Method not found");
-  }
-}
-async function defaultWriteLine(line) {
-  await new Promise((resolve5, reject) => {
-    process.stdout.write(`${line}
-`, (error) => {
-      if (error === null || error === undefined)
-        resolve5();
-      else
-        reject(error);
-    });
-  });
-}
-function defaultInput() {
-  return process.stdin;
-}
-async function emitResponse(writeLine, response) {
-  await writeLine(JSON.stringify(response));
-}
-async function processLine(line, session, writeLine) {
-  if (line.byteLength === 0)
-    return;
-  let value;
-  try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(line);
-    if (text.trim() === "")
-      return;
-    value = JSON.parse(text);
-  } catch {
-    await emitResponse(writeLine, failure(null, -32700, "Parse error"));
-    return;
-  }
-  if (Array.isArray(value)) {
-    await emitResponse(writeLine, failure(null, -32600, "Invalid Request"));
-    return;
-  }
-  const response = await session.handle(value);
-  if (response !== null)
-    await emitResponse(writeLine, response);
-}
-async function runMcpServer(options = {}) {
-  const runtime = await GraphicsMcpToolRuntime.create(options.rootDirectory ?? process.cwd());
-  const session = new GraphicsMcpSession(runtime, options.serverVersion ?? "0.3.1");
-  const writeLine = options.writeLine ?? defaultWriteLine;
-  let buffered = Buffer.alloc(0);
-  for await (const chunk of options.input ?? defaultInput()) {
-    const bytes = typeof chunk === "string" ? Buffer.from(chunk, "utf8") : Buffer.from(chunk);
-    buffered = Buffer.concat([buffered, bytes]);
-    if (buffered.byteLength > maximumMessageBytes && !buffered.includes(10)) {
-      buffered = Buffer.alloc(0);
-      await emitResponse(writeLine, failure(null, -32700, "Parse error"));
-      continue;
-    }
-    for (;; ) {
-      const newline = buffered.indexOf(10);
-      if (newline === -1)
-        break;
-      let line = buffered.subarray(0, newline);
-      buffered = buffered.subarray(newline + 1);
-      if (line.at(-1) === 13)
-        line = line.subarray(0, -1);
-      if (line.byteLength > maximumMessageBytes) {
-        await emitResponse(writeLine, failure(null, -32700, "Parse error"));
-      } else {
-        await processLine(line, session, writeLine);
-      }
-    }
-  }
-  if (buffered.byteLength > 0) {
-    if (buffered.byteLength > maximumMessageBytes) {
-      await emitResponse(writeLine, failure(null, -32700, "Parse error"));
-    } else {
-      await processLine(buffered, session, writeLine);
-    }
-  }
-}
-// src/index.ts
-init_skill_install();
+// src/operations.ts
+import { randomUUID as randomUUID2 } from "crypto";
+import { mkdir as mkdir3, readFile as readFile5, rename as rename4, rm as rm5, writeFile as writeFile3 } from "fs/promises";
+import { dirname as dirname6, join as join4, resolve as resolve5 } from "path";
 
 // src/vectorize/types.ts
 var vectorizeProfileNames = ["balanced", "detailed", "photo"];
@@ -2764,6 +2886,53 @@ class VectorizeError extends Error {
   }
 }
 
+// src/vectorize/limits.ts
+var vectorizeHardLimits = Object.freeze({
+  maxDecodedPixels: 16777216,
+  maxDimension: 4096,
+  maxDurationMs: 120000,
+  maxInputBytes: 16 * 1024 * 1024,
+  maxOutputBytes: 2000000,
+  maxPaths: 12000
+});
+var vectorizeDefaultLimits = Object.freeze({
+  ...vectorizeHardLimits,
+  maxDurationMs: 30000
+});
+var limitNames = Object.keys(vectorizeHardLimits);
+function resolveVectorizeLimits(input) {
+  const resolved = {
+    maxDecodedPixels: input?.maxDecodedPixels ?? vectorizeDefaultLimits.maxDecodedPixels,
+    maxDimension: input?.maxDimension ?? vectorizeDefaultLimits.maxDimension,
+    maxDurationMs: input?.maxDurationMs ?? vectorizeDefaultLimits.maxDurationMs,
+    maxInputBytes: input?.maxInputBytes ?? vectorizeDefaultLimits.maxInputBytes,
+    maxOutputBytes: input?.maxOutputBytes ?? vectorizeDefaultLimits.maxOutputBytes,
+    maxPaths: input?.maxPaths ?? vectorizeDefaultLimits.maxPaths
+  };
+  for (const name of limitNames) {
+    const value = resolved[name];
+    const hardLimit = vectorizeHardLimits[name];
+    if (!Number.isInteger(value) || value < 1 || value > hardLimit) {
+      throw new VectorizeError("invalid_input", `${name} must be a positive integer no greater than ${hardLimit}.`, { hardLimit, name, value });
+    }
+  }
+  return Object.freeze(resolved);
+}
+
+class VectorizeDeadline {
+  #deadline;
+  constructor(durationMs) {
+    this.#deadline = performance.now() + durationMs;
+  }
+  assert(stage) {
+    if (this.remainingMs() <= 0) {
+      throw new VectorizeError("timeout", `Vectorization timed out during ${stage}.`, { stage });
+    }
+  }
+  remainingMs() {
+    return Math.max(0, Math.ceil(this.#deadline - performance.now()));
+  }
+}
 // src/vectorize/command.ts
 var MAX_COMMAND_OUTPUT_BYTES = 64 * 1024;
 var PRIMARY_OUTPUT_READ_BYTES = 64 * 1024;
@@ -2924,7 +3093,7 @@ async function killWindowsProcessTree(pid) {
   }
 }
 async function settlesWithin(promise, durationMs) {
-  return new Promise((resolve6) => {
+  return new Promise((resolve5) => {
     let finished = false;
     const timer = setTimeout(() => finish(false), durationMs);
     promise.then(() => finish(true), () => finish(true));
@@ -2933,7 +3102,7 @@ async function settlesWithin(promise, durationMs) {
         return;
       finished = true;
       clearTimeout(timer);
-      resolve6(settled);
+      resolve5(settled);
     }
   });
 }
@@ -3001,67 +3170,19 @@ function isFileSystemError(error, code) {
   return error instanceof Error && "code" in error && (code === undefined || error.code === code);
 }
 function delay(durationMs) {
-  return new Promise((resolve6) => {
-    setTimeout(resolve6, durationMs);
+  return new Promise((resolve5) => {
+    setTimeout(resolve5, durationMs);
   });
 }
 function executionError(failureCode, cause) {
   return new VectorizeError(failureCode, "VTracer could not be executed.", {}, { cause: cause instanceof Error ? cause : new Error(String(cause)) });
 }
 
-// src/vectorize/limits.ts
-var vectorizeHardLimits = Object.freeze({
-  maxDecodedPixels: 16777216,
-  maxDimension: 4096,
-  maxDurationMs: 120000,
-  maxInputBytes: 16 * 1024 * 1024,
-  maxOutputBytes: 2000000,
-  maxPaths: 12000
-});
-var vectorizeDefaultLimits = Object.freeze({
-  ...vectorizeHardLimits,
-  maxDurationMs: 30000
-});
-var limitNames = Object.keys(vectorizeHardLimits);
-function resolveVectorizeLimits(input) {
-  const resolved = {
-    maxDecodedPixels: input?.maxDecodedPixels ?? vectorizeDefaultLimits.maxDecodedPixels,
-    maxDimension: input?.maxDimension ?? vectorizeDefaultLimits.maxDimension,
-    maxDurationMs: input?.maxDurationMs ?? vectorizeDefaultLimits.maxDurationMs,
-    maxInputBytes: input?.maxInputBytes ?? vectorizeDefaultLimits.maxInputBytes,
-    maxOutputBytes: input?.maxOutputBytes ?? vectorizeDefaultLimits.maxOutputBytes,
-    maxPaths: input?.maxPaths ?? vectorizeDefaultLimits.maxPaths
-  };
-  for (const name of limitNames) {
-    const value = resolved[name];
-    const hardLimit = vectorizeHardLimits[name];
-    if (!Number.isInteger(value) || value < 1 || value > hardLimit) {
-      throw new VectorizeError("invalid_input", `${name} must be a positive integer no greater than ${hardLimit}.`, { hardLimit, name, value });
-    }
-  }
-  return Object.freeze(resolved);
-}
-
-class VectorizeDeadline {
-  #deadline;
-  constructor(durationMs) {
-    this.#deadline = performance.now() + durationMs;
-  }
-  assert(stage) {
-    if (this.remainingMs() <= 0) {
-      throw new VectorizeError("timeout", `Vectorization timed out during ${stage}.`, { stage });
-    }
-  }
-  remainingMs() {
-    return Math.max(0, Math.ceil(this.#deadline - performance.now()));
-  }
-}
-
 // src/vectorize/supervisor.ts
-import { fileURLToPath as fileURLToPath2 } from "url";
-import { mkdtemp, rm as rm5 } from "fs/promises";
+import { fileURLToPath } from "url";
+import { mkdtemp, rm as rm4 } from "fs/promises";
 import { tmpdir } from "os";
-import { dirname as dirname7, join as join5 } from "path";
+import { dirname as dirname5, join as join3 } from "path";
 
 // src/vectorize/worker-protocol.ts
 var VECTORIZE_WORKER_PROTOCOL = 1;
@@ -3091,7 +3212,7 @@ async function runVectorizeWorker(input, options) {
     throw new VectorizeError("tool_platform", "Bounded VTracer streaming is unavailable on Windows.", { platform: process.platform });
   }
   const workerInput = encodeInput(input, limits.maxInputBytes);
-  const temporaryRoot = await mkdtemp(join5(tmpdir(), "graphics-vectorize-"));
+  const temporaryRoot = await mkdtemp(join3(tmpdir(), "graphics-vectorize-"));
   let result;
   try {
     result = await executeVectorizeWorker(workerInput, options, limits, startedAt, temporaryRoot);
@@ -3145,7 +3266,7 @@ async function executeVectorizeWorker(workerInput, options, limits, startedAt, t
 }
 async function removeTemporaryRoot(temporaryRoot) {
   try {
-    await rm5(temporaryRoot, { force: true, recursive: true });
+    await rm4(temporaryRoot, { force: true, recursive: true });
   } catch (error) {
     throw new VectorizeError("trace_failed", "The isolated vectorization directory could not be removed.", { temporaryRoot }, { cause: error });
   }
@@ -3179,8 +3300,8 @@ function cloneOptions(options, workerDurationMs) {
   };
 }
 function workerEntryPath() {
-  const modulePath = fileURLToPath2(import.meta.url);
-  return modulePath.endsWith(".ts") ? join5(dirname7(modulePath), "worker.ts") : join5(dirname7(modulePath), "vectorize-worker.js");
+  const modulePath = fileURLToPath(import.meta.url);
+  return modulePath.endsWith(".ts") ? join3(dirname5(modulePath), "worker.ts") : join3(dirname5(modulePath), "vectorize-worker.js");
 }
 function parseResponse(stdout) {
   let parsed;
@@ -3189,13 +3310,13 @@ function parseResponse(stdout) {
   } catch (error) {
     throw new VectorizeError("trace_failed", "The vectorization worker returned malformed output.", {}, { cause: error });
   }
-  if (!isRecord6(parsed) || parsed.protocol !== VECTORIZE_WORKER_PROTOCOL) {
+  if (!isRecord7(parsed) || parsed.protocol !== VECTORIZE_WORKER_PROTOCOL) {
     throw new VectorizeError("trace_failed", "The vectorization worker returned an incompatible response.");
   }
   if (parsed.ok === true && isVectorizeResult(parsed.result)) {
     return parsed;
   }
-  if (parsed.ok === false && isRecord6(parsed.error) && typeof parsed.error.code === "string" && vectorizeErrorCodes.has(parsed.error.code) && typeof parsed.error.message === "string" && isRecord6(parsed.error.details)) {
+  if (parsed.ok === false && isRecord7(parsed.error) && typeof parsed.error.code === "string" && vectorizeErrorCodes.has(parsed.error.code) && typeof parsed.error.message === "string" && isRecord7(parsed.error.details)) {
     return parsed;
   }
   throw new VectorizeError("trace_failed", "The vectorization worker returned an invalid response.");
@@ -3207,13 +3328,13 @@ function assertResult(result, maximumOutputBytes) {
   }
 }
 function isVectorizeResult(value) {
-  if (!isRecord6(value) || value.outputPath !== null && typeof value.outputPath !== "string" || typeof value.svg !== "string" || !isRecord6(value.receipt)) {
+  if (!isRecord7(value) || value.outputPath !== null && typeof value.outputPath !== "string" || typeof value.svg !== "string" || !isRecord7(value.receipt)) {
     return false;
   }
   const profile = value.receipt.profile;
   return typeof value.receipt.bytes === "number" && typeof value.receipt.svgSha256 === "string" && typeof profile === "string" && vectorizeProfileNames.includes(profile);
 }
-function isRecord6(value) {
+function isRecord7(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -3221,8 +3342,1431 @@ function isRecord6(value) {
 function vectorizeImage(input, options = {}) {
   return runVectorizeWorker(input, options);
 }
+// src/operations.ts
+var graphicsOperationCodes = [
+  "graphics.diagram.check",
+  "graphics.diagram.render",
+  "graphics.image.vectorize",
+  "graphics.image.generate"
+];
 
+class GraphicsOperationError extends Error {
+  code;
+  constructor(code, message) {
+    super(`[${code}] ${message}`);
+    this.name = "GraphicsOperationError";
+    this.code = code;
+  }
+}
+var modelSchema = {
+  type: "string",
+  enum: graphicsImageModels
+};
+var pathSchema = {
+  type: "string",
+  minLength: 1,
+  maxLength: 4096
+};
+function deepFreeze2(value) {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
+    return value;
+  }
+  for (const nested of Object.values(value))
+    deepFreeze2(nested);
+  return Object.freeze(value);
+}
+var graphicsOperationRegistry = deepFreeze2([
+  {
+    code: "graphics.diagram.check",
+    title: "Check diagram",
+    description: "Parse and lint a checked Graphics diagram source without changing its files.",
+    execution: "local",
+    authentication: "none",
+    destructive: false,
+    idempotent: true,
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["path"],
+      properties: { path: pathSchema }
+    }
+  },
+  {
+    code: "graphics.diagram.render",
+    title: "Render diagram",
+    description: "Render a checked Graphics diagram source to its replaceable light, dark, PNG, SVG, and tldraw artifacts.",
+    execution: "local",
+    authentication: "none",
+    destructive: true,
+    idempotent: true,
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["path"],
+      properties: {
+        path: pathSchema,
+        outDirectory: pathSchema,
+        scale: {
+          type: "number",
+          exclusiveMinimum: 0,
+          maximum: 4
+        }
+      }
+    }
+  },
+  {
+    code: "graphics.image.vectorize",
+    title: "Vectorize image",
+    description: "Convert a local caller-owned raster into a bounded inert SVG after proving a free Graphics login; source bytes remain local.",
+    execution: "local",
+    authentication: "required",
+    destructive: true,
+    idempotent: false,
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["inputPath", "outputPath"],
+      properties: {
+        inputPath: pathSchema,
+        outputPath: pathSchema,
+        duotone: {
+          type: "array",
+          minItems: 2,
+          maxItems: 2,
+          items: {
+            type: "string",
+            pattern: "^#[a-fA-F0-9]{3}(?:[a-fA-F0-9]{3})?$"
+          }
+        },
+        alphaCutoff: { type: "integer", minimum: 1, maximum: 64 },
+        timeoutMs: { type: "integer", minimum: 1, maximum: 300000 }
+      }
+    }
+  },
+  {
+    code: "graphics.image.generate",
+    title: "Generate image",
+    description: "Generate one bounded WebP with an explicitly supported hosted model, process-local duplicate mitigation, and no ambiguous retry.",
+    execution: "hosted",
+    authentication: "required",
+    destructive: true,
+    idempotent: false,
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["model", "prompt", "outputPath"],
+      properties: {
+        model: modelSchema,
+        prompt: {
+          type: "string",
+          minLength: 1,
+          maxLength: graphicsMaximumPromptBytes
+        },
+        outputPath: pathSchema,
+        idempotencyKey: {
+          type: "string",
+          minLength: 16,
+          maxLength: 128,
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        }
+      }
+    },
+    transport: {
+      method: "POST",
+      endpointFromDiscovery: "endpoints.generateImage",
+      authorization: "bearer",
+      idempotencyHeader: "Idempotency-Key",
+      retry: "never"
+    }
+  }
+]);
+function operationFailure(message) {
+  throw new GraphicsOperationError("INVALID_OPERATION_INPUT", message);
+}
+function isRecord8(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function record(value, allowedKeys) {
+  if (!isRecord8(value))
+    operationFailure("Operation input must be an object.");
+  const unknown = Object.keys(value).filter((key) => !allowedKeys.includes(key));
+  if (unknown.length > 0) {
+    operationFailure(`Unsupported operation input field: ${unknown[0]}.`);
+  }
+  return value;
+}
+function pathValue(value, name) {
+  if (typeof value !== "string" || value.length < 1 || value.length > 4096 || value.includes("\x00")) {
+    operationFailure(`${name} must be a non-empty bounded local path.`);
+  }
+  return value;
+}
+function parseCheck(value) {
+  const input = record(value, ["path"]);
+  return { path: pathValue(input.path, "path") };
+}
+function parseRender(value) {
+  const input = record(value, ["path", "outDirectory", "scale"]);
+  const scale = input.scale;
+  if (scale !== undefined && (typeof scale !== "number" || !Number.isFinite(scale) || scale <= 0 || scale > 4)) {
+    operationFailure("scale must be greater than zero and no more than 4.");
+  }
+  return {
+    path: pathValue(input.path, "path"),
+    ...input.outDirectory === undefined ? {} : { outDirectory: pathValue(input.outDirectory, "outDirectory") },
+    ...scale === undefined ? {} : { scale }
+  };
+}
+function parseVectorize(value) {
+  const input = record(value, [
+    "inputPath",
+    "outputPath",
+    "duotone",
+    "alphaCutoff",
+    "timeoutMs"
+  ]);
+  const inputPath = pathValue(input.inputPath, "inputPath");
+  const outputPath = pathValue(input.outputPath, "outputPath");
+  if (!outputPath.toLowerCase().endsWith(".svg")) {
+    operationFailure("outputPath must end in .svg.");
+  }
+  const duotone = input.duotone;
+  if (duotone !== undefined && (!Array.isArray(duotone) || duotone.length !== 2 || duotone.some((color) => typeof color !== "string" || !/^#[a-f0-9]{3}(?:[a-f0-9]{3})?$/iu.test(color)))) {
+    operationFailure("duotone must contain exactly two #rgb or #rrggbb colors.");
+  }
+  const alphaCutoff = input.alphaCutoff;
+  if (alphaCutoff !== undefined && (!Number.isInteger(alphaCutoff) || alphaCutoff < 1 || alphaCutoff > 64)) {
+    operationFailure("alphaCutoff must be an integer from 1 through 64.");
+  }
+  const timeoutMs = input.timeoutMs;
+  if (timeoutMs !== undefined && (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 300000)) {
+    operationFailure("timeoutMs must be an integer from 1 through 300000.");
+  }
+  return {
+    inputPath,
+    outputPath,
+    ...duotone === undefined ? {} : { duotone },
+    ...alphaCutoff === undefined ? {} : { alphaCutoff },
+    ...timeoutMs === undefined ? {} : { timeoutMs }
+  };
+}
+function parseGenerate(value) {
+  const input = record(value, [
+    "model",
+    "prompt",
+    "outputPath",
+    "idempotencyKey"
+  ]);
+  if (typeof input.model !== "string" || !graphicsImageModels.includes(input.model)) {
+    operationFailure(`model must be ${graphicsImageModels[0]} or ${graphicsImageModels[1]}.`);
+  }
+  if (typeof input.prompt !== "string" || input.prompt.trim().length < 1 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(input.prompt) || Buffer.byteLength(input.prompt, "utf8") > graphicsMaximumPromptBytes) {
+    operationFailure(`prompt must be non-empty and no more than ${graphicsMaximumPromptBytes} UTF-8 bytes.`);
+  }
+  if (input.idempotencyKey !== undefined) {
+    try {
+      validateGraphicsIdempotencyKey(typeof input.idempotencyKey === "string" ? input.idempotencyKey : "");
+    } catch {
+      operationFailure("idempotencyKey is invalid.");
+    }
+  }
+  const outputPath = pathValue(input.outputPath, "outputPath");
+  if (!outputPath.toLowerCase().endsWith(".webp")) {
+    operationFailure("outputPath must end in .webp.");
+  }
+  return {
+    model: input.model,
+    prompt: input.prompt,
+    outputPath,
+    ...input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }
+  };
+}
+function parseGraphicsOperationInput(code, input) {
+  switch (code) {
+    case "graphics.diagram.check":
+      return parseCheck(input);
+    case "graphics.diagram.render":
+      return parseRender(input);
+    case "graphics.image.vectorize":
+      return parseVectorize(input);
+    case "graphics.image.generate":
+      return parseGenerate(input);
+    default:
+      throw new GraphicsOperationError("INVALID_OPERATION", "Unknown Graphics operation code.");
+  }
+}
+function isGraphicsOperationCode(value) {
+  return graphicsOperationCodes.includes(value);
+}
+function searchGraphicsOperations(query = "", limit = graphicsOperationRegistry.length) {
+  if (typeof query !== "string" || query.length > 200 || /[\u0000-\u001f\u007f]/u.test(query) || !Number.isInteger(limit) || limit < 1 || limit > 20) {
+    throw new GraphicsOperationError("INVALID_SEARCH", "Search requires a bounded query and a limit from 1 through 20.");
+  }
+  const terms = query.toLowerCase().split(/\s+/u).filter((term) => term.length > 0);
+  return graphicsOperationRegistry.filter((operation) => {
+    const haystack = `${operation.code} ${operation.title} ${operation.description}`.toLowerCase();
+    return terms.every((term) => haystack.includes(term));
+  }).slice(0, limit);
+}
+var operationBuiltInConfig = Object.freeze({
+  icons: builtInIcons
+});
+async function readOperationDiagram(path) {
+  const absolutePath = resolve5(path);
+  let value;
+  try {
+    value = JSON.parse(await readFile5(absolutePath, "utf8"));
+  } catch (cause) {
+    throw new GraphicsOperationError("INVALID_OPERATION_INPUT", "Diagram source could not be read as JSON.");
+  }
+  const spec = parseDiagramSpec(value);
+  for (const shape of spec.shapes) {
+    if ((shape.type === "rect" || shape.type === "ellipse") && shape.icon !== undefined && !Object.hasOwn(builtInIcons, shape.icon)) {
+      throw new GraphicsOperationError("INVALID_OPERATION_INPUT", "Diagram requests an unavailable built-in icon.");
+    }
+  }
+  return { absolutePath, spec };
+}
+async function atomicOperationWrite(path, value) {
+  const temporaryPath = join4(dirname6(path), `.${randomUUID2()}.graphics-operation.tmp`);
+  try {
+    await writeFile3(temporaryPath, value, { flag: "wx" });
+    await rename4(temporaryPath, path);
+  } finally {
+    await rm5(temporaryPath, { force: true }).catch(() => {
+      return;
+    });
+  }
+}
+async function checkOperationDiagram(path) {
+  const { spec } = await readOperationDiagram(path);
+  return {
+    findings: lintDiagram(spec),
+    configPath: null
+  };
+}
+async function renderOperationDiagram(input) {
+  const { absolutePath, spec } = await readOperationDiagram(input.path);
+  const outputDirectory = resolve5(input.outDirectory ?? dirname6(absolutePath));
+  const scale = input.scale ?? 2;
+  const [light, dark] = await Promise.all([
+    renderSvg(spec, "light", operationBuiltInConfig),
+    renderSvg(spec, "dark", operationBuiltInConfig)
+  ]);
+  const [lightPng, darkPng] = [
+    renderPng(light, operationBuiltInConfig, scale),
+    renderPng(dark, operationBuiltInConfig, scale)
+  ];
+  const artifacts = {
+    spec: absolutePath,
+    tldr: join4(outputDirectory, `${spec.name}.tldr`),
+    lightSvg: join4(outputDirectory, `${spec.name}.light.svg`),
+    darkSvg: join4(outputDirectory, `${spec.name}.dark.svg`),
+    lightPng: join4(outputDirectory, `${spec.name}.light.png`),
+    darkPng: join4(outputDirectory, `${spec.name}.dark.png`)
+  };
+  await mkdir3(outputDirectory, { recursive: true });
+  await Promise.all([
+    atomicOperationWrite(artifacts.tldr, serializeTldr(spec, operationBuiltInConfig)),
+    atomicOperationWrite(artifacts.lightSvg, light.svg),
+    atomicOperationWrite(artifacts.darkSvg, dark.svg),
+    atomicOperationWrite(artifacts.lightPng, lightPng),
+    atomicOperationWrite(artifacts.darkPng, darkPng)
+  ]);
+  return {
+    artifacts,
+    findings: lintDiagram(spec),
+    configPath: null
+  };
+}
+async function executeGraphicsOperation(code, value, dependencies = {}) {
+  const input = parseGraphicsOperationInput(code, value);
+  switch (code) {
+    case "graphics.diagram.check": {
+      const options = input;
+      return await checkOperationDiagram(options.path);
+    }
+    case "graphics.diagram.render": {
+      const options = input;
+      return await renderOperationDiagram(options);
+    }
+    case "graphics.image.vectorize": {
+      const options = input;
+      await requireGraphicsAuthentication(dependencies);
+      const result = await vectorizeImage(options.inputPath, {
+        outputPath: options.outputPath,
+        ...options.duotone === undefined ? {} : { duotone: options.duotone },
+        ...options.alphaCutoff === undefined ? {} : { alphaCutoff: options.alphaCutoff },
+        ...options.timeoutMs === undefined ? {} : { limits: { maxDurationMs: options.timeoutMs } }
+      });
+      if (result.outputPath === null) {
+        throw new GraphicsOperationError("INVALID_OPERATION_INPUT", "Vectorization did not publish its required output.");
+      }
+      return {
+        outputPath: result.outputPath,
+        receipt: result.receipt
+      };
+    }
+    case "graphics.image.generate": {
+      const options = input;
+      return await generateGraphicsImageFile(options, dependencies);
+    }
+    default:
+      throw new GraphicsOperationError("INVALID_OPERATION", "Unknown Graphics operation code.");
+  }
+}
+
+// src/mcp/tools.ts
+import { rename as rename5, rm as rm6, writeFile as writeFile4 } from "fs/promises";
+import { dirname as dirname8, join as join6 } from "path";
+
+// src/mcp/boundary.ts
+import { open, mkdir as mkdir4, realpath, stat } from "fs/promises";
+import {
+  basename as basename3,
+  dirname as dirname7,
+  isAbsolute as isAbsolute2,
+  join as join5,
+  relative,
+  resolve as resolve6,
+  win32
+} from "path";
+var mcpSourceByteLimit = 1024 * 1024;
+
+class WorkspaceBoundaryError extends Error {
+  code;
+  constructor(code, message) {
+    super(message);
+    this.name = "WorkspaceBoundaryError";
+    this.code = code;
+  }
+}
+function filesystemCode(error) {
+  if (typeof error === "object" && error !== null && "code" in error && typeof error.code === "string") {
+    return error.code;
+  }
+  return;
+}
+function normalizeRelativePath(value, options) {
+  if (value.length === 0 || value.includes("\x00")) {
+    throw new WorkspaceBoundaryError("INVALID_PATH", "Path must be a non-empty root-relative path.");
+  }
+  if (isAbsolute2(value) || win32.isAbsolute(value) || /^[A-Za-z]:/.test(value)) {
+    throw new WorkspaceBoundaryError("INVALID_PATH", "Absolute paths are not allowed.");
+  }
+  const segments = value.split(/[\\/]/).filter((segment) => segment !== "" && segment !== ".");
+  if (segments.includes("..")) {
+    throw new WorkspaceBoundaryError("INVALID_PATH", "Parent-directory traversal is not allowed.");
+  }
+  if (segments.length === 0) {
+    if (!options.allowRoot) {
+      throw new WorkspaceBoundaryError("INVALID_PATH", "Path must identify a file below the root.");
+    }
+    return { native: ".", portable: "." };
+  }
+  return {
+    native: segments.join("/"),
+    portable: segments.join("/")
+  };
+}
+function isConfined(rootDirectory, target) {
+  const fromRoot = relative(rootDirectory, target);
+  return fromRoot === "" || !fromRoot.startsWith("..") && !isAbsolute2(fromRoot);
+}
+async function readUtf8WithCap(filePath) {
+  let handle;
+  try {
+    handle = await open(filePath, "r");
+    const metadata = await handle.stat();
+    if (!metadata.isFile()) {
+      throw new WorkspaceBoundaryError("SOURCE_NOT_FILE", "Diagram source must be a regular file.");
+    }
+    if (metadata.size > mcpSourceByteLimit) {
+      throw new WorkspaceBoundaryError("SOURCE_TOO_LARGE", `Diagram source exceeds the ${mcpSourceByteLimit}-byte limit.`);
+    }
+    const buffer = Buffer.allocUnsafe(mcpSourceByteLimit + 1);
+    let bytesRead = 0;
+    while (bytesRead <= mcpSourceByteLimit) {
+      const next = await handle.read(buffer, bytesRead, mcpSourceByteLimit + 1 - bytesRead, null);
+      if (next.bytesRead === 0)
+        break;
+      bytesRead += next.bytesRead;
+    }
+    if (bytesRead > mcpSourceByteLimit) {
+      throw new WorkspaceBoundaryError("SOURCE_TOO_LARGE", `Diagram source exceeds the ${mcpSourceByteLimit}-byte limit.`);
+    }
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(buffer.subarray(0, bytesRead));
+    } catch {
+      throw new WorkspaceBoundaryError("SOURCE_ENCODING", "Diagram source must contain valid UTF-8.");
+    }
+  } catch (error) {
+    if (error instanceof WorkspaceBoundaryError)
+      throw error;
+    const code = filesystemCode(error);
+    if (code === "ENOENT") {
+      throw new WorkspaceBoundaryError("SOURCE_NOT_FOUND", "Diagram source does not exist.");
+    }
+    throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Diagram source could not be read.");
+  } finally {
+    await handle?.close();
+  }
+}
+
+class WorkspaceBoundary {
+  rootDirectory;
+  constructor(rootDirectory) {
+    this.rootDirectory = rootDirectory;
+  }
+  static async create(rootDirectory) {
+    let resolvedRoot;
+    try {
+      resolvedRoot = await realpath(resolve6(rootDirectory));
+      if (!(await stat(resolvedRoot)).isDirectory()) {
+        throw new WorkspaceBoundaryError("OUTPUT_NOT_DIRECTORY", "MCP root must be a directory.");
+      }
+    } catch (error) {
+      if (error instanceof WorkspaceBoundaryError)
+        throw error;
+      throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "MCP root could not be opened.");
+    }
+    return new WorkspaceBoundary(resolvedRoot);
+  }
+  assertConfined(target) {
+    if (!isConfined(this.rootDirectory, target)) {
+      throw new WorkspaceBoundaryError("PATH_OUTSIDE_ROOT", "Path resolves outside the MCP root.");
+    }
+  }
+  toRelativePath(absolutePath) {
+    this.assertConfined(absolutePath);
+    const fromRoot = relative(this.rootDirectory, absolutePath);
+    return fromRoot === "" ? "." : fromRoot.split("\\").join("/");
+  }
+  async readSource(value) {
+    const normalized = normalizeRelativePath(value, { allowRoot: false });
+    const lexicalPath = resolve6(this.rootDirectory, normalized.native);
+    this.assertConfined(lexicalPath);
+    let canonicalPath;
+    try {
+      canonicalPath = await realpath(lexicalPath);
+    } catch (error) {
+      if (filesystemCode(error) === "ENOENT") {
+        throw new WorkspaceBoundaryError("SOURCE_NOT_FOUND", "Diagram source does not exist.");
+      }
+      throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Diagram source could not be resolved.");
+    }
+    this.assertConfined(canonicalPath);
+    return {
+      absolutePath: canonicalPath,
+      relativePath: this.toRelativePath(canonicalPath),
+      text: await readUtf8WithCap(canonicalPath)
+    };
+  }
+  async resolveInputFile(value, maximumBytes) {
+    const normalized = normalizeRelativePath(value, { allowRoot: false });
+    const lexicalPath = resolve6(this.rootDirectory, normalized.native);
+    this.assertConfined(lexicalPath);
+    let canonicalPath;
+    try {
+      canonicalPath = await realpath(lexicalPath);
+      this.assertConfined(canonicalPath);
+      const metadata = await stat(canonicalPath);
+      if (!metadata.isFile()) {
+        throw new WorkspaceBoundaryError("SOURCE_NOT_FILE", "Input must be a regular file.");
+      }
+      if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1 || metadata.size > maximumBytes) {
+        throw new WorkspaceBoundaryError("SOURCE_TOO_LARGE", `Input exceeds the ${maximumBytes}-byte limit.`);
+      }
+    } catch (error) {
+      if (error instanceof WorkspaceBoundaryError)
+        throw error;
+      if (filesystemCode(error) === "ENOENT") {
+        throw new WorkspaceBoundaryError("SOURCE_NOT_FOUND", "Input does not exist.");
+      }
+      throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Input could not be resolved.");
+    }
+    return {
+      absolutePath: canonicalPath,
+      relativePath: this.toRelativePath(canonicalPath)
+    };
+  }
+  async prepareOutputFile(value) {
+    const normalized = normalizeRelativePath(value, { allowRoot: false });
+    const fileName = basename3(normalized.native);
+    if (fileName === "." || fileName === ".." || fileName.length === 0) {
+      throw new WorkspaceBoundaryError("INVALID_PATH", "Output path must identify a file below the root.");
+    }
+    const directory = await this.prepareOutputDirectory(dirname7(normalized.native));
+    const absolutePath = join5(directory.absolutePath, fileName);
+    this.assertConfined(absolutePath);
+    return {
+      absolutePath,
+      relativePath: this.toRelativePath(absolutePath)
+    };
+  }
+  async prepareOutputDirectory(value) {
+    const normalized = normalizeRelativePath(value, { allowRoot: true });
+    const lexicalPath = resolve6(this.rootDirectory, normalized.native);
+    this.assertConfined(lexicalPath);
+    let ancestor = lexicalPath;
+    for (;; ) {
+      try {
+        const canonicalAncestor = await realpath(ancestor);
+        this.assertConfined(canonicalAncestor);
+        break;
+      } catch (error) {
+        if (error instanceof WorkspaceBoundaryError)
+          throw error;
+        if (filesystemCode(error) !== "ENOENT") {
+          throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Output directory could not be resolved.");
+        }
+        const parent = dirname7(ancestor);
+        if (parent === ancestor) {
+          throw new WorkspaceBoundaryError("PATH_OUTSIDE_ROOT", "Output directory resolves outside the MCP root.");
+        }
+        ancestor = parent;
+      }
+    }
+    try {
+      await mkdir4(lexicalPath, { recursive: true });
+      const canonicalPath = await realpath(lexicalPath);
+      this.assertConfined(canonicalPath);
+      if (!(await stat(canonicalPath)).isDirectory()) {
+        throw new WorkspaceBoundaryError("OUTPUT_NOT_DIRECTORY", "Output path must be a directory.");
+      }
+      return {
+        absolutePath: canonicalPath,
+        relativePath: this.toRelativePath(canonicalPath)
+      };
+    } catch (error) {
+      if (error instanceof WorkspaceBoundaryError)
+        throw error;
+      throw new WorkspaceBoundaryError("FILESYSTEM_ERROR", "Output directory could not be created.");
+    }
+  }
+}
+
+// src/mcp/tools.ts
+var mcpMaximumScale = 4;
+var mcpMaximumRenderedPixels = 16777216;
+var mcpMaximumShapes = 64;
+var mcpMaximumEdges = 128;
+var mcpMaximumReturnedFindings = 40;
+var defaultScale = 2;
+var maximumShapeIdsPerFinding = 12;
+var builtInConfig = Object.freeze({ icons: builtInIcons });
+var findingSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["code", "message", "shapeIds"],
+  properties: {
+    code: { type: "string" },
+    message: { type: "string" },
+    shapeIds: { type: "array", items: { type: "string" } }
+  }
+};
+function deepFreeze3(value) {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
+    return value;
+  }
+  for (const nested of Object.values(value))
+    deepFreeze3(nested);
+  return Object.freeze(value);
+}
+var graphicsMcpTools = deepFreeze3([
+  {
+    name: "check_diagram",
+    title: "Check diagram",
+    description: "Parse and lint one root-relative Graphics diagram source without changing files. Uses only built-in icons and themes.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["path"],
+      properties: {
+        path: {
+          type: "string",
+          description: "Root-relative path to a diagram JSON source (1 MiB maximum)."
+        }
+      }
+    },
+    outputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["ok", "source", "findings", "summary"],
+      properties: {
+        ok: { const: true },
+        source: { type: "string" },
+        findings: { type: "array", items: findingSchema },
+        summary: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "shapeCount",
+            "edgeCount",
+            "findingCount",
+            "returnedFindingCount",
+            "findingsTruncated"
+          ],
+          properties: {
+            shapeCount: { type: "integer", minimum: 0 },
+            edgeCount: { type: "integer", minimum: 0 },
+            findingCount: { type: "integer", minimum: 0 },
+            returnedFindingCount: { type: "integer", minimum: 0 },
+            findingsTruncated: { type: "boolean" }
+          }
+        }
+      }
+    },
+    annotations: {
+      title: "Check diagram",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    }
+  },
+  {
+    name: "render_diagram",
+    title: "Render diagram",
+    description: "Render one root-relative Graphics diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["path"],
+      properties: {
+        path: {
+          type: "string",
+          description: "Root-relative path to a diagram JSON source (1 MiB maximum)."
+        },
+        out_dir: {
+          type: "string",
+          description: "Optional root-relative output directory. Defaults to the source directory."
+        },
+        scale: {
+          type: "number",
+          exclusiveMinimum: 0,
+          maximum: mcpMaximumScale,
+          default: defaultScale,
+          description: "PNG scale. The scaled canvas may contain at most 16,777,216 pixels."
+        }
+      }
+    },
+    outputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["ok", "source", "scale", "findings", "artifacts", "summary"],
+      properties: {
+        ok: { const: true },
+        source: { type: "string" },
+        scale: { type: "number" },
+        findings: { type: "array", items: findingSchema },
+        artifacts: {
+          type: "object",
+          additionalProperties: false,
+          required: ["tldr", "lightSvg", "darkSvg", "lightPng", "darkPng"],
+          properties: {
+            tldr: { type: "string" },
+            lightSvg: { type: "string" },
+            darkSvg: { type: "string" },
+            lightPng: { type: "string" },
+            darkPng: { type: "string" }
+          }
+        },
+        summary: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "shapeCount",
+            "edgeCount",
+            "findingCount",
+            "returnedFindingCount",
+            "findingsTruncated"
+          ],
+          properties: {
+            shapeCount: { type: "integer", minimum: 0 },
+            edgeCount: { type: "integer", minimum: 0 },
+            findingCount: { type: "integer", minimum: 0 },
+            returnedFindingCount: { type: "integer", minimum: 0 },
+            findingsTruncated: { type: "boolean" }
+          }
+        }
+      }
+    },
+    annotations: {
+      title: "Render diagram",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false
+    }
+  },
+  {
+    name: "search_graphics",
+    title: "Search Graphics operations",
+    description: "Search the fixed semantic Graphics operation registry by bounded text. This never executes code or changes files.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        query: {
+          type: "string",
+          maxLength: 200,
+          description: "Optional terms matched against operation codes and descriptions."
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 20,
+          default: 4
+        }
+      }
+    },
+    outputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["ok", "operations"],
+      properties: {
+        ok: { const: true },
+        operations: {
+          type: "array",
+          maxItems: 20,
+          items: {
+            type: "object",
+            required: [
+              "code",
+              "title",
+              "description",
+              "execution",
+              "authentication",
+              "inputSchema"
+            ]
+          }
+        }
+      }
+    },
+    annotations: {
+      title: "Search Graphics operations",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    }
+  },
+  {
+    name: "execute_graphics",
+    title: "Execute Graphics operation",
+    description: "Execute one exact operation code with typed JSON input. Never accepts or evaluates source code. Local paths remain confined to the configured workspace root.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["operation", "input"],
+      properties: {
+        operation: {
+          type: "string",
+          enum: graphicsOperationCodes
+        },
+        input: {
+          type: "object",
+          description: "Typed input matching the selected operation's registry schema."
+        }
+      }
+    },
+    outputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["ok", "operation", "result"],
+      properties: {
+        ok: { const: true },
+        operation: { type: "string", enum: graphicsOperationCodes },
+        result: { type: "object" }
+      }
+    },
+    annotations: {
+      title: "Execute Graphics operation",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false
+    }
+  }
+]);
+
+class ToolFailure extends Error {
+  code;
+  issues;
+  constructor(code, message, issues) {
+    super(message);
+    this.name = "ToolFailure";
+    this.code = code;
+    if (issues !== undefined)
+      this.issues = issues;
+  }
+}
+function isRecord9(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function safeFragment(value, maximumLength = 160) {
+  return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, maximumLength);
+}
+function safeIssues(issues) {
+  return issues.slice(0, 24).map((issue) => safeFragment(issue, 240));
+}
+function rejectUnknownKeys(value, allowed) {
+  const unknown = Object.keys(value).filter((key) => !allowed.has(key));
+  if (unknown.length > 0) {
+    throw new ToolFailure("INVALID_ARGUMENTS", `Unsupported argument: ${safeFragment(unknown[0] ?? "unknown")}.`);
+  }
+}
+function parsePath(value) {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "path must be a non-empty root-relative string.");
+  }
+  if (!value.toLowerCase().endsWith(".diagram.json")) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "path must end in .diagram.json.");
+  }
+  return value;
+}
+function parseCheckArguments(value) {
+  if (!isRecord9(value)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
+  }
+  rejectUnknownKeys(value, new Set(["path"]));
+  return { path: parsePath(value.path) };
+}
+function parseRenderArguments(value) {
+  if (!isRecord9(value)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
+  }
+  rejectUnknownKeys(value, new Set(["path", "out_dir", "scale"]));
+  const outDirectory = value.out_dir;
+  if (outDirectory !== undefined && (typeof outDirectory !== "string" || outDirectory.length === 0)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "out_dir must be a non-empty root-relative string when present.");
+  }
+  const scale = value.scale ?? defaultScale;
+  if (typeof scale !== "number" || !Number.isFinite(scale) || scale <= 0 || scale > mcpMaximumScale) {
+    throw new ToolFailure("RENDER_LIMIT", `scale must be greater than zero and no more than ${mcpMaximumScale}.`);
+  }
+  return {
+    path: parsePath(value.path),
+    ...outDirectory === undefined ? {} : { outDirectory },
+    scale
+  };
+}
+function parseSearchArguments(value) {
+  if (!isRecord9(value)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
+  }
+  rejectUnknownKeys(value, new Set(["query", "limit"]));
+  const query = value.query ?? "";
+  const limit = value.limit ?? graphicsOperationCodes.length;
+  if (typeof query !== "string" || query.length > 200 || /[\u0000-\u001f\u007f]/u.test(query) || !Number.isInteger(limit) || limit < 1 || limit > 20) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "query must be a bounded string and limit must be an integer from 1 through 20.");
+  }
+  return { query, limit };
+}
+function parseExecuteArguments(value) {
+  if (!isRecord9(value)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
+  }
+  rejectUnknownKeys(value, new Set(["operation", "input"]));
+  if (typeof value.operation !== "string" || !graphicsOperationCodes.includes(value.operation) || !isRecord9(value.input)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "operation must be an exact Graphics operation code and input must be an object.");
+  }
+  return {
+    operation: value.operation,
+    input: value.input
+  };
+}
+function assertBuiltInIcons(spec) {
+  for (const shape of spec.shapes) {
+    if ((shape.type === "rect" || shape.type === "ellipse") && shape.icon !== undefined && !Object.hasOwn(builtInIcons, shape.icon)) {
+      throw new ToolFailure("UNKNOWN_ICON", `Shape ${safeFragment(shape.id)} requests unavailable built-in icon ${safeFragment(shape.icon)}.`);
+    }
+  }
+}
+function assertComplexityLimits(spec) {
+  const edgeCount = spec.edges?.length ?? 0;
+  if (spec.shapes.length > mcpMaximumShapes || edgeCount > mcpMaximumEdges) {
+    throw new ToolFailure("COMPLEXITY_LIMIT", `Diagram may contain at most ${mcpMaximumShapes} shapes and ${mcpMaximumEdges} edges in MCP mode.`);
+  }
+}
+function assertRawComplexityLimits(value) {
+  if (!isRecord9(value))
+    return;
+  const shapeCount = Array.isArray(value.shapes) ? value.shapes.length : 0;
+  const edgeCount = Array.isArray(value.edges) ? value.edges.length : 0;
+  if (shapeCount > mcpMaximumShapes || edgeCount > mcpMaximumEdges) {
+    throw new ToolFailure("COMPLEXITY_LIMIT", `Diagram may contain at most ${mcpMaximumShapes} shapes and ${mcpMaximumEdges} edges in MCP mode.`);
+  }
+}
+function assertRenderLimits(spec, scale) {
+  const scaledWidth = spec.canvas.width * scale;
+  const scaledHeight = spec.canvas.height * scale;
+  const pixels = Math.ceil(scaledWidth) * Math.ceil(scaledHeight);
+  if (!Number.isFinite(pixels) || scaledWidth < 1 || scaledHeight < 1 || pixels > mcpMaximumRenderedPixels) {
+    throw new ToolFailure("RENDER_LIMIT", `Scaled canvas must be at least 1 pixel on each axis and no more than ${mcpMaximumRenderedPixels.toLocaleString("en-US")} pixels total.`);
+  }
+}
+function publicFinding(finding) {
+  return {
+    code: safeFragment(finding.code, 64),
+    message: safeFragment(finding.message, 240),
+    shapeIds: finding.shapeIds.slice(0, maximumShapeIdsPerFinding).map((shapeId2) => safeFragment(shapeId2, 120))
+  };
+}
+function publicFindings(findings) {
+  return findings.slice(0, mcpMaximumReturnedFindings).map(publicFinding);
+}
+function diagramSummary(spec, findingCount, returnedFindingCount) {
+  return {
+    shapeCount: spec.shapes.length,
+    edgeCount: spec.edges?.length ?? 0,
+    findingCount,
+    returnedFindingCount,
+    findingsTruncated: returnedFindingCount < findingCount
+  };
+}
+function successResult(text, structuredContent) {
+  return {
+    content: [{ type: "text", text }],
+    structuredContent
+  };
+}
+function failureResult(error) {
+  let code = "INTERNAL_ERROR";
+  let message = "The tool failed safely.";
+  let issues;
+  if (error instanceof ToolFailure) {
+    code = error.code;
+    message = safeFragment(error.message, 320);
+    issues = error.issues;
+  } else if (error instanceof WorkspaceBoundaryError) {
+    code = error.code;
+    message = safeFragment(error.message, 320);
+  } else if (error instanceof GraphicsCloudError) {
+    code = error.code;
+    message = safeFragment(error.message.replace(/^\[[A-Z_]+\]\s*/u, ""), 320);
+  } else if (error instanceof GraphicsOperationError) {
+    code = error.code;
+    message = safeFragment(error.message.replace(/^\[[A-Z_]+\]\s*/u, ""), 320);
+  } else if (error instanceof VectorizeError) {
+    code = `VECTORIZE_${error.code.toUpperCase()}`;
+    message = "Local vectorization failed safely.";
+  } else if (error instanceof DiagramValidationError) {
+    code = "INVALID_DIAGRAM";
+    message = "Diagram source did not pass validation.";
+    issues = safeIssues(error.issues);
+  } else if (typeof error === "object" && error !== null && "issues" in error && Array.isArray(error.issues) && error.issues.every((issue) => typeof issue === "string")) {
+    code = "INVALID_LAYOUT";
+    message = "Diagram layout could not be resolved.";
+    issues = safeIssues(error.issues);
+  }
+  const issueText = issues === undefined || issues.length === 0 ? "" : `
+${issues.map((issue) => `- ${issue}`).join(`
+`)}`;
+  return {
+    content: [{ type: "text", text: `[${code}] ${message}${issueText}` }],
+    isError: true
+  };
+}
+function portableDirectory(filePath) {
+  const separator = filePath.lastIndexOf("/");
+  return separator === -1 ? "." : filePath.slice(0, separator);
+}
+async function atomicOverwrite(filePath, data) {
+  const temporaryPath = join6(dirname8(filePath), `.${crypto.randomUUID()}.graphics-mcp.tmp`);
+  try {
+    await writeFile4(temporaryPath, data, { flag: "wx" });
+    try {
+      await rename5(temporaryPath, filePath);
+    } catch (error) {
+      const code = typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
+      if (code !== "EEXIST" && code !== "EPERM")
+        throw error;
+      await rm6(filePath, { force: true });
+      await rename5(temporaryPath, filePath);
+    }
+  } finally {
+    await rm6(temporaryPath, { force: true });
+  }
+}
+async function loadDiagram(boundary, path) {
+  const source = await boundary.readSource(path);
+  let parsed;
+  try {
+    parsed = JSON.parse(source.text);
+  } catch {
+    throw new ToolFailure("INVALID_JSON", "Diagram source is not valid JSON.");
+  }
+  assertRawComplexityLimits(parsed);
+  const spec = parseDiagramSpec(parsed);
+  assertComplexityLimits(spec);
+  assertBuiltInIcons(spec);
+  return { source, spec };
+}
+
+class GraphicsMcpToolRuntime {
+  boundary;
+  authDependencies;
+  renderQueue = Promise.resolve();
+  constructor(boundary, authDependencies) {
+    this.boundary = boundary;
+    this.authDependencies = authDependencies;
+  }
+  static async create(rootDirectory, authDependencies = {}) {
+    return new GraphicsMcpToolRuntime(await WorkspaceBoundary.create(rootDirectory), authDependencies);
+  }
+  enqueueRender(operation) {
+    const result = this.renderQueue.then(operation, operation);
+    this.renderQueue = result.then(() => {
+      return;
+    }, () => {
+      return;
+    });
+    return result;
+  }
+  async call(name, argumentsValue) {
+    try {
+      if (name === "check_diagram") {
+        const options = parseCheckArguments(argumentsValue);
+        return await this.check(options);
+      }
+      if (name === "render_diagram") {
+        const options = parseRenderArguments(argumentsValue);
+        return await this.enqueueRender(() => this.render(options));
+      }
+      if (name === "search_graphics") {
+        const options = parseSearchArguments(argumentsValue);
+        const operations = searchGraphicsOperations(options.query, options.limit);
+        return successResult(`Found ${operations.length} Graphics operation${operations.length === 1 ? "" : "s"}.`, { ok: true, operations });
+      }
+      if (name === "execute_graphics") {
+        const options = parseExecuteArguments(argumentsValue);
+        return await this.execute(options);
+      }
+      throw new ToolFailure("UNKNOWN_TOOL", "Requested tool is not available.");
+    } catch (error) {
+      return failureResult(error);
+    }
+  }
+  wrapSemanticResult(operation, result) {
+    if (result.isError === true)
+      return result;
+    return {
+      content: result.content,
+      structuredContent: {
+        ok: true,
+        operation,
+        result: result.structuredContent ?? {}
+      }
+    };
+  }
+  async execute(options) {
+    if (options.operation === "graphics.diagram.check") {
+      const input2 = parseGraphicsOperationInput(options.operation, options.input);
+      return this.wrapSemanticResult(options.operation, await this.check({ path: input2.path }));
+    }
+    if (options.operation === "graphics.diagram.render") {
+      const input2 = parseGraphicsOperationInput(options.operation, options.input);
+      return this.enqueueRender(async () => this.wrapSemanticResult(options.operation, await this.render({
+        path: input2.path,
+        ...input2.outDirectory === undefined ? {} : { outDirectory: input2.outDirectory },
+        scale: input2.scale ?? defaultScale
+      })));
+    }
+    if (options.operation === "graphics.image.vectorize") {
+      const input2 = parseGraphicsOperationInput(options.operation, options.input);
+      return this.enqueueRender(async () => {
+        const source = await this.boundary.resolveInputFile(input2.inputPath, vectorizeHardLimits.maxInputBytes);
+        await requireGraphicsAuthentication(this.authDependencies);
+        const output2 = await this.boundary.prepareOutputFile(input2.outputPath);
+        const result = await vectorizeImage(source.absolutePath, {
+          outputPath: output2.absolutePath,
+          ...input2.duotone === undefined ? {} : { duotone: input2.duotone },
+          ...input2.alphaCutoff === undefined ? {} : { alphaCutoff: input2.alphaCutoff },
+          ...input2.timeoutMs === undefined ? {} : { limits: { maxDurationMs: input2.timeoutMs } }
+        });
+        return successResult(`Executed ${options.operation}: ${output2.relativePath}`, {
+          ok: true,
+          operation: options.operation,
+          result: {
+            inputPath: source.relativePath,
+            outputPath: output2.relativePath,
+            receipt: result.receipt
+          }
+        });
+      });
+    }
+    const input = parseGraphicsOperationInput(options.operation, options.input);
+    const discovery = await requireGraphicsAuthentication(this.authDependencies);
+    const output = await this.boundary.prepareOutputFile(input.outputPath);
+    const generated = await generateGraphicsImageFile({ ...input, outputPath: output.absolutePath }, { ...this.authDependencies, discovery });
+    return successResult(`Executed ${options.operation}: ${output.relativePath} (request ${safeFragment(generated.requestId, 256)}).`, {
+      ok: true,
+      operation: options.operation,
+      result: {
+        bytes: generated.bytes,
+        idempotencyKey: generated.idempotencyKey,
+        mediaType: generated.mediaType,
+        model: generated.model,
+        outputPath: output.relativePath,
+        requestId: generated.requestId
+      }
+    });
+  }
+  async check(options) {
+    const { source, spec } = await loadDiagram(this.boundary, options.path);
+    const allFindings = lintDiagram(spec);
+    const findings = publicFindings(allFindings);
+    const summary = diagramSummary(spec, allFindings.length, findings.length);
+    const text = allFindings.length === 0 ? `Checked ${source.relativePath}: no findings.` : `Checked ${source.relativePath}: ${allFindings.length} finding${allFindings.length === 1 ? "" : "s"}; ${findings.length} returned in structured content${findings.length < allFindings.length ? " (truncated)" : ""}.`;
+    return successResult(text, {
+      ok: true,
+      source: source.relativePath,
+      findings,
+      summary
+    });
+  }
+  async render(options) {
+    const { source, spec } = await loadDiagram(this.boundary, options.path);
+    assertRenderLimits(spec, options.scale);
+    const outputDirectory = await this.boundary.prepareOutputDirectory(options.outDirectory ?? portableDirectory(source.relativePath));
+    const tldr = serializeTldr(spec, builtInConfig);
+    const [light, dark] = await Promise.all([
+      renderSvg(spec, "light", builtInConfig),
+      renderSvg(spec, "dark", builtInConfig)
+    ]);
+    const lightPng = renderPng(light, builtInConfig, options.scale);
+    const darkPng = renderPng(dark, builtInConfig, options.scale);
+    const absoluteArtifacts = {
+      spec: source.absolutePath,
+      tldr: join6(outputDirectory.absolutePath, `${spec.name}.tldr`),
+      lightSvg: join6(outputDirectory.absolutePath, `${spec.name}.light.svg`),
+      darkSvg: join6(outputDirectory.absolutePath, `${spec.name}.dark.svg`),
+      lightPng: join6(outputDirectory.absolutePath, `${spec.name}.light.png`),
+      darkPng: join6(outputDirectory.absolutePath, `${spec.name}.dark.png`)
+    };
+    await Promise.all([
+      atomicOverwrite(absoluteArtifacts.tldr, tldr),
+      atomicOverwrite(absoluteArtifacts.lightSvg, light.svg),
+      atomicOverwrite(absoluteArtifacts.darkSvg, dark.svg),
+      atomicOverwrite(absoluteArtifacts.lightPng, lightPng),
+      atomicOverwrite(absoluteArtifacts.darkPng, darkPng)
+    ]);
+    const artifacts = {
+      tldr: this.boundary.toRelativePath(absoluteArtifacts.tldr),
+      lightSvg: this.boundary.toRelativePath(absoluteArtifacts.lightSvg),
+      darkSvg: this.boundary.toRelativePath(absoluteArtifacts.darkSvg),
+      lightPng: this.boundary.toRelativePath(absoluteArtifacts.lightPng),
+      darkPng: this.boundary.toRelativePath(absoluteArtifacts.darkPng)
+    };
+    const allFindings = lintDiagram(spec);
+    const findings = publicFindings(allFindings);
+    const summary = diagramSummary(spec, allFindings.length, findings.length);
+    const text = [
+      `Rendered ${source.relativePath} with built-in assets:`,
+      ...Object.values(artifacts).map((artifact) => `- ${artifact}`)
+    ].join(`
+`);
+    return successResult(text, {
+      ok: true,
+      source: source.relativePath,
+      scale: options.scale,
+      findings,
+      artifacts,
+      summary
+    });
+  }
+}
+
+// src/mcp/server.ts
+var graphicsMcpProtocolVersion = "2025-11-25";
+var graphicsMcpServerName = "hraness-graphics";
+var maximumMessageBytes = 1024 * 1024;
+function isRecord10(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isJsonRpcId(value) {
+  return typeof value === "string" || typeof value === "number" && Number.isSafeInteger(value);
+}
+function isInitializeParams(value) {
+  return isRecord10(value) && typeof value.protocolVersion === "string" && isRecord10(value.capabilities) && isRecord10(value.clientInfo) && typeof value.clientInfo.name === "string" && typeof value.clientInfo.version === "string";
+}
+function parseRequest(value) {
+  if (!isRecord10(value) || value.jsonrpc !== "2.0" || typeof value.method !== "string" || value.method.length === 0 || "id" in value && !isJsonRpcId(value.id)) {
+    throw new Error("invalid request");
+  }
+  return {
+    jsonrpc: "2.0",
+    ..."id" in value ? { id: value.id } : {},
+    method: value.method,
+    ..."params" in value ? { params: value.params } : {}
+  };
+}
+function success(id, result) {
+  return { jsonrpc: "2.0", id, result };
+}
+function failure(id, code, message) {
+  return { jsonrpc: "2.0", id, error: { code, message } };
+}
+function parseToolCall(params) {
+  if (!isRecord10(params) || typeof params.name !== "string" || params.arguments !== undefined && !isRecord10(params.arguments)) {
+    throw new Error("invalid params");
+  }
+  const unknownKeys = Object.keys(params).filter((key) => key !== "name" && key !== "arguments");
+  if (unknownKeys.length > 0)
+    throw new Error("invalid params");
+  return {
+    name: params.name,
+    argumentsValue: params.arguments ?? {}
+  };
+}
+
+class GraphicsMcpSession {
+  runtime;
+  serverVersion;
+  state = "new";
+  constructor(runtime, serverVersion) {
+    this.runtime = runtime;
+    this.serverVersion = serverVersion;
+  }
+  async handle(value) {
+    let request;
+    try {
+      request = parseRequest(value);
+    } catch {
+      return failure(null, -32600, "Invalid Request");
+    }
+    const notification = request.id === undefined;
+    if (request.method === "notifications/initialized") {
+      if (!notification) {
+        return failure(request.id, -32600, "Invalid Request");
+      }
+      if (this.state === "initializing")
+        this.state = "ready";
+      return null;
+    }
+    if (notification)
+      return null;
+    const id = request.id;
+    if (request.method === "initialize") {
+      if (this.state !== "new" || !isInitializeParams(request.params)) {
+        return failure(id, -32602, "Invalid initialize parameters");
+      }
+      this.state = "initializing";
+      return success(id, {
+        protocolVersion: graphicsMcpProtocolVersion,
+        capabilities: {
+          tools: { listChanged: false }
+        },
+        serverInfo: {
+          name: graphicsMcpServerName,
+          version: this.serverVersion
+        },
+        instructions: "Use the compatibility check_diagram/render_diagram tools or search_graphics followed by execute_graphics with an exact registry code and typed JSON. Local paths are root-relative; source code is never accepted or evaluated."
+      });
+    }
+    if (this.state !== "ready") {
+      return failure(id, -32002, "Server is not initialized");
+    }
+    if (request.method === "ping")
+      return success(id, {});
+    if (request.method === "tools/list") {
+      if (request.params !== undefined && (!isRecord10(request.params) || Object.keys(request.params).length > 0)) {
+        return failure(id, -32602, "Invalid tools/list parameters");
+      }
+      return success(id, { tools: graphicsMcpTools });
+    }
+    if (request.method === "tools/call") {
+      try {
+        const toolCall = parseToolCall(request.params);
+        if (!graphicsMcpTools.some((tool) => tool.name === toolCall.name)) {
+          return failure(id, -32602, "Unknown tool");
+        }
+        return success(id, await this.runtime.call(toolCall.name, toolCall.argumentsValue));
+      } catch {
+        return failure(id, -32602, "Invalid tools/call parameters");
+      }
+    }
+    return failure(id, -32601, "Method not found");
+  }
+}
+async function defaultWriteLine(line) {
+  await new Promise((resolve7, reject) => {
+    process.stdout.write(`${line}
+`, (error) => {
+      if (error === null || error === undefined)
+        resolve7();
+      else
+        reject(error);
+    });
+  });
+}
+function defaultInput() {
+  return process.stdin;
+}
+async function emitResponse(writeLine, response) {
+  await writeLine(JSON.stringify(response));
+}
+async function processLine(line, session, writeLine) {
+  if (line.byteLength === 0)
+    return;
+  let value;
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(line);
+    if (text.trim() === "")
+      return;
+    value = JSON.parse(text);
+  } catch {
+    await emitResponse(writeLine, failure(null, -32700, "Parse error"));
+    return;
+  }
+  if (Array.isArray(value)) {
+    await emitResponse(writeLine, failure(null, -32600, "Invalid Request"));
+    return;
+  }
+  const response = await session.handle(value);
+  if (response !== null)
+    await emitResponse(writeLine, response);
+}
+async function runMcpServer(options = {}) {
+  const runtime = await GraphicsMcpToolRuntime.create(options.rootDirectory ?? process.cwd(), options.authDependencies);
+  const session = new GraphicsMcpSession(runtime, options.serverVersion ?? "0.4.0");
+  const writeLine = options.writeLine ?? defaultWriteLine;
+  let buffered = Buffer.alloc(0);
+  for await (const chunk of options.input ?? defaultInput()) {
+    const bytes = typeof chunk === "string" ? Buffer.from(chunk, "utf8") : Buffer.from(chunk);
+    buffered = Buffer.concat([buffered, bytes]);
+    if (buffered.byteLength > maximumMessageBytes && !buffered.includes(10)) {
+      buffered = Buffer.alloc(0);
+      await emitResponse(writeLine, failure(null, -32700, "Parse error"));
+      continue;
+    }
+    for (;; ) {
+      const newline = buffered.indexOf(10);
+      if (newline === -1)
+        break;
+      let line = buffered.subarray(0, newline);
+      buffered = buffered.subarray(newline + 1);
+      if (line.at(-1) === 13)
+        line = line.subarray(0, -1);
+      if (line.byteLength > maximumMessageBytes) {
+        await emitResponse(writeLine, failure(null, -32700, "Parse error"));
+      } else {
+        await processLine(line, session, writeLine);
+      }
+    }
+  }
+  if (buffered.byteLength > 0) {
+    if (buffered.byteLength > maximumMessageBytes) {
+      await emitResponse(writeLine, failure(null, -32700, "Parse error"));
+    } else {
+      await processLine(buffered, session, writeLine);
+    }
+  }
+}
 // src/index.ts
+init_skill_install();
 var diagramApi = Object.freeze({
   artifactSummary,
   builtInIcons,
@@ -3232,20 +4776,28 @@ var diagramApi = Object.freeze({
   desktopStatus,
   DiagramValidationError,
   findDesktopApplication,
+  fetchGraphicsDiscovery,
+  generateGraphicsImage,
+  generateGraphicsImageFile,
   getLatestDesktopRelease,
+  graphicsAuthStatus,
   graphicsMcpProtocolVersion,
   graphicsMcpServerName,
   graphicsMcpTools,
+  graphicsOperationRegistry,
   GraphicsMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
+  loginGraphics,
+  logoutGraphics,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
   openInDesktop,
   parseDiagramSource,
   parseDiagramSpec,
+  parseGraphicsDiscovery,
   readDiagramFile,
   renderDiagramFile,
   renderPng,
@@ -3253,20 +4805,23 @@ var diagramApi = Object.freeze({
   resolveEdge,
   resolveDiagramSource,
   resolveStackLayout,
+  requireGraphicsAuthentication,
   runMcpServer,
+  searchGraphicsOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
   StackLayoutError,
   vectorizeImage,
   WorkspaceBoundary,
-  WorkspaceBoundaryError
+  WorkspaceBoundaryError,
+  executeGraphicsOperation
 });
 
 // src/cli.ts
 init_skill_install();
 init_fs();
-var version = "0.3.1";
+var version = "0.4.0";
 var help = `graphics ${version}
 
 Create concise diagrams from a checked JSON source.
@@ -3276,6 +4831,12 @@ Usage:
   graphics check <file> [--config <file>] [--strict]
   graphics render <file> [--out-dir <directory>] [--config <file>] [--scale <number>]
   graphics vectorize <image> --output <file.svg> [--json] [--duotone <#rgb,#rgb>]
+  graphics generate <prompt> --output <file.webp> [--model <model>] [--idempotency-key <key>] [--json]
+  graphics login
+  graphics logout
+  graphics auth status
+  graphics code search [query] [--limit <number>]
+  graphics code execute <operation> --input <JSON>
   graphics mcp --root <workspace>
   graphics open <file.tldr|file.tldraw>
   graphics doctor
@@ -3299,10 +4860,20 @@ tldraw Offline or the tldraw SDK.
 Vectorize adaptively traces a raster with a checksum-pinned VTracer binary.
 It enforces bounded input, decode, time, path, and output budgets and emits a
 safe path-only SVG (plus an internal vector alpha mask when fidelity requires).
+It requires a valid free Graphics login but runs locally and uploads no source.
 
-MCP exposes only root-relative check_diagram and render_diagram tools for a
-trusted local workspace. It uses built-in assets, never executes workspace
-config, and writes protocol messages only to stdout.
+Generate sends one authenticated, non-retried request with process-local
+duplicate mitigation using exactly openai/gpt-image-1.5 or
+recraft/recraft-v4.1-utility. Responses are bounded, validated WebP images and
+are published with an atomic local rename.
+
+Code mode searches and executes a fixed semantic registry. Execute accepts
+typed JSON for one exact owned operation code; it never evaluates source text.
+
+MCP preserves root-relative check_diagram/render_diagram and adds closed
+search_graphics/execute_graphics registry tools. It uses built-in assets, never
+executes workspace config or caller code, and writes protocol messages only to
+stdout.
 `;
 function parseArguments(args, valueOptions) {
   const positionals = [];
@@ -3371,7 +4942,7 @@ function printFindings(findings) {
   }
 }
 var starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/graphics/v0.3.1/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/graphics/v0.4.0/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },
@@ -3410,7 +4981,7 @@ async function confirmInstall() {
     prompt.close();
   }
 }
-async function main(args) {
+async function main(args, dependencies = {}) {
   const [command, ...rest] = args;
   if (command === undefined || command === "help" || command === "--help" || command === "-h") {
     console.log(help);
@@ -3422,10 +4993,10 @@ async function main(args) {
   }
   if (command === "init") {
     const parsed = parseArguments(rest, new Set);
-    const filePath = resolve6(parsed.positionals[0] ?? "diagram.diagram.json");
+    const filePath = resolve8(parsed.positionals[0] ?? "diagram.diagram.json");
     if (await pathExists(filePath))
       throw new Error(`Refusing to overwrite existing file: ${filePath}`);
-    await writeFile3(filePath, `${JSON.stringify(starter, null, 2)}
+    await writeFile5(filePath, `${JSON.stringify(starter, null, 2)}
 `);
     console.log(`Created ${filePath}`);
     return;
@@ -3471,18 +5042,109 @@ async function main(args) {
     const alphaCutoff = parsePositiveInteger(parsed.options["alpha-cutoff"], "alpha-cutoff");
     const timeoutMs = parsePositiveInteger(parsed.options["timeout-ms"], "timeout-ms");
     const duotone = parseDuotone(parsed.options.duotone);
-    const result = await vectorizeImage(requiredPositional(parsed, 0, "raster image"), {
+    await (dependencies.requireAuthentication ?? requireGraphicsAuthentication)();
+    const result = await (dependencies.vectorize ?? vectorizeImage)(requiredPositional(parsed, 0, "raster image"), {
       ...alphaCutoff === undefined ? {} : { alphaCutoff },
       ...duotone === undefined ? {} : { duotone },
       ...timeoutMs === undefined ? {} : { limits: { maxDurationMs: timeoutMs } },
       outputPath: output
     });
     if (parsed.flags.has("json")) {
-      console.log(JSON.stringify({ ...result.receipt, outputPath: result.outputPath }, null, 2));
+      (dependencies.log ?? console.log)(JSON.stringify({ ...result.receipt, outputPath: result.outputPath }, null, 2));
     } else {
-      console.log(`Vectorized ${result.receipt.width}\xD7${result.receipt.height} with ` + `${result.receipt.profile}/${result.receipt.representation}: ${result.outputPath}`);
+      (dependencies.log ?? console.log)(`Vectorized ${result.receipt.width}\xD7${result.receipt.height} with ` + `${result.receipt.profile}/${result.receipt.representation}: ${result.outputPath}`);
     }
     return;
+  }
+  if (command === "generate") {
+    const parsed = parseArguments(rest, new Set(["model", "output", "idempotency-key"]));
+    const unknownFlags = [...parsed.flags].filter((flag) => flag !== "json");
+    if (unknownFlags.length > 0) {
+      throw new Error(`Unknown generate option: --${unknownFlags[0]}`);
+    }
+    if (parsed.positionals.length !== 1) {
+      throw new Error("graphics generate accepts exactly one prompt");
+    }
+    const model = parsed.options.model ?? graphicsImageModels[1];
+    if (!graphicsImageModels.includes(model)) {
+      throw new Error(`--model must be ${graphicsImageModels[0]} or ${graphicsImageModels[1]}`);
+    }
+    const result = await (dependencies.generate ?? generateGraphicsImageFile)({
+      model,
+      prompt: requiredPositional(parsed, 0, "prompt"),
+      outputPath: requiredOption(parsed, "output"),
+      ...parsed.options["idempotency-key"] === undefined ? {} : { idempotencyKey: parsed.options["idempotency-key"] }
+    });
+    if (parsed.flags.has("json")) {
+      (dependencies.log ?? console.log)(JSON.stringify(result, null, 2));
+    } else {
+      (dependencies.log ?? console.log)(`Generated ${result.mediaType} with ${result.model}: ${result.outputPath} (${result.bytes} bytes, request ${result.requestId})`);
+    }
+    return;
+  }
+  if (command === "login") {
+    const parsed = parseArguments(rest, new Set);
+    if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
+      throw new Error("graphics login accepts no arguments");
+    }
+    const status = await loginGraphics();
+    console.log(`Logged in to Graphics${status.expiresAt === null ? "" : ` until ${status.expiresAt}`}.`);
+    return;
+  }
+  if (command === "logout") {
+    const parsed = parseArguments(rest, new Set);
+    if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
+      throw new Error("graphics logout accepts no arguments");
+    }
+    const result = await logoutGraphics();
+    console.log(result.removed ? "Logged out of Graphics." : "Graphics was already logged out.");
+    return;
+  }
+  if (command === "auth") {
+    const [subcommand, ...subcommandArgs] = rest;
+    if (subcommand !== "status" || subcommandArgs.length > 0) {
+      throw new Error("Use graphics auth status");
+    }
+    const status = await graphicsAuthStatus();
+    console.log(JSON.stringify(status, null, 2));
+    return;
+  }
+  if (command === "code") {
+    const [subcommand, ...subcommandArgs] = rest;
+    if (subcommand === "search") {
+      const parsed = parseArguments(subcommandArgs, new Set(["limit"]));
+      if (parsed.flags.size > 0 || parsed.positionals.length > 1) {
+        throw new Error("Use graphics code search [query] [--limit <number>]");
+      }
+      const limit = parsePositiveInteger(parsed.options.limit, "limit") ?? graphicsOperationCodes.length;
+      const operations2 = searchGraphicsOperations(parsed.positionals[0] ?? "", limit);
+      console.log(JSON.stringify({ operations: operations2 }, null, 2));
+      return;
+    }
+    if (subcommand === "execute") {
+      const parsed = parseArguments(subcommandArgs, new Set(["input"]));
+      if (parsed.flags.size > 0 || parsed.positionals.length !== 1) {
+        throw new Error("Use graphics code execute <operation> --input <JSON>");
+      }
+      const operation = parsed.positionals[0];
+      if (!isGraphicsOperationCode(operation)) {
+        throw new Error(`Unknown Graphics operation code: ${operation}`);
+      }
+      const inputText = requiredOption(parsed, "input");
+      if (Buffer.byteLength(inputText, "utf8") > 64 * 1024) {
+        throw new Error("--input JSON must be no more than 65536 UTF-8 bytes");
+      }
+      let input;
+      try {
+        input = JSON.parse(inputText);
+      } catch {
+        throw new Error("--input must be valid JSON");
+      }
+      const result = await executeGraphicsOperation(operation, input);
+      console.log(JSON.stringify({ operation, result }, null, 2));
+      return;
+    }
+    throw new Error("Use graphics code search [query] or graphics code execute <operation> --input <JSON>");
   }
   if (command === "mcp") {
     const parsed = parseArguments(rest, new Set(["root"]));
@@ -3508,6 +5170,12 @@ async function main(args) {
     console.log("Headless SVG/PNG renderer ready");
     console.log(process.platform === "win32" ? "Adaptive raster-to-SVG vectorizer unavailable on Windows (fails closed with tool_platform)" : "Adaptive raster-to-SVG vectorizer ready (VTracer downloads on first use)");
     console.log("Root-relative MCP check/render server ready (trusted local workspace)");
+    try {
+      const auth2 = await graphicsAuthStatus();
+      console.log(auth2.authenticated ? "Graphics authenticated features ready" : "Graphics authenticated features require `graphics login`");
+    } catch {
+      console.log("Graphics credential store unavailable (authenticated features disabled)");
+    }
     console.log(status.installedPath === null ? "tldraw Offline not installed (optional)" : `tldraw Offline: ${status.installedPath}`);
     console.log(status.server === null ? "tldraw Offline agent server not running (optional)" : `tldraw Offline agent server: localhost:${status.server.port}`);
     return;
@@ -3576,9 +5244,14 @@ async function main(args) {
 
 ${help}`);
 }
-try {
-  await main(process.argv.slice(2));
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
+if (import.meta.main) {
+  try {
+    await main(process.argv.slice(2));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
 }
+export {
+  main
+};

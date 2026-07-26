@@ -1,7 +1,9 @@
 import { open, mkdir, realpath, stat } from "node:fs/promises"
 import {
+  basename,
   dirname,
   isAbsolute,
+  join,
   relative,
   resolve,
   win32,
@@ -42,6 +44,11 @@ export interface WorkspaceSource {
 }
 
 export interface WorkspaceDirectory {
+  readonly absolutePath: string
+  readonly relativePath: string
+}
+
+export interface WorkspaceFile {
   readonly absolutePath: string
   readonly relativePath: string
 }
@@ -220,6 +227,73 @@ export class WorkspaceBoundary {
       absolutePath: canonicalPath,
       relativePath: this.toRelativePath(canonicalPath),
       text: await readUtf8WithCap(canonicalPath),
+    }
+  }
+
+  async resolveInputFile(
+    value: string,
+    maximumBytes: number,
+  ): Promise<WorkspaceFile> {
+    const normalized = normalizeRelativePath(value, { allowRoot: false })
+    const lexicalPath = resolve(this.rootDirectory, normalized.native)
+    this.assertConfined(lexicalPath)
+    let canonicalPath: string
+    try {
+      canonicalPath = await realpath(lexicalPath)
+      this.assertConfined(canonicalPath)
+      const metadata = await stat(canonicalPath)
+      if (!metadata.isFile()) {
+        throw new WorkspaceBoundaryError(
+          "SOURCE_NOT_FILE",
+          "Input must be a regular file.",
+        )
+      }
+      if (
+        !Number.isSafeInteger(maximumBytes) ||
+        maximumBytes < 1 ||
+        metadata.size > maximumBytes
+      ) {
+        throw new WorkspaceBoundaryError(
+          "SOURCE_TOO_LARGE",
+          `Input exceeds the ${maximumBytes}-byte limit.`,
+        )
+      }
+    } catch (error) {
+      if (error instanceof WorkspaceBoundaryError) throw error
+      if (filesystemCode(error) === "ENOENT") {
+        throw new WorkspaceBoundaryError(
+          "SOURCE_NOT_FOUND",
+          "Input does not exist.",
+        )
+      }
+      throw new WorkspaceBoundaryError(
+        "FILESYSTEM_ERROR",
+        "Input could not be resolved.",
+      )
+    }
+    return {
+      absolutePath: canonicalPath,
+      relativePath: this.toRelativePath(canonicalPath),
+    }
+  }
+
+  async prepareOutputFile(value: string): Promise<WorkspaceFile> {
+    const normalized = normalizeRelativePath(value, { allowRoot: false })
+    const fileName = basename(normalized.native)
+    if (fileName === "." || fileName === ".." || fileName.length === 0) {
+      throw new WorkspaceBoundaryError(
+        "INVALID_PATH",
+        "Output path must identify a file below the root.",
+      )
+    }
+    const directory = await this.prepareOutputDirectory(
+      dirname(normalized.native),
+    )
+    const absolutePath = join(directory.absolutePath, fileName)
+    this.assertConfined(absolutePath)
+    return {
+      absolutePath,
+      relativePath: this.toRelativePath(absolutePath),
     }
   }
 

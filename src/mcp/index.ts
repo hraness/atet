@@ -16,6 +16,9 @@ export {
   mcpSourceByteLimit,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
+  type WorkspaceDirectory,
+  type WorkspaceFile,
+  type WorkspaceSource,
 } from "./boundary.ts"
 export type {
   JsonRpcFailure,

@@ -41,7 +41,7 @@ const initialized = {
 } as const
 
 describe("Graphics MCP stdio server", () => {
-  test("handshakes, lists the bounded tools, pings, and calls check", async () => {
+  test("handshakes, preserves compatibility tools, and searches/executes semantic operations", async () => {
     const root = await mkdtemp(join(tmpdir(), "graphics-mcp-server-"))
     try {
       await writeFile(
@@ -72,13 +72,34 @@ describe("Graphics MCP stdio server", () => {
             arguments: { path: "flow.diagram.json" },
           },
         },
+        {
+          jsonrpc: "2.0",
+          id: 5,
+          method: "tools/call",
+          params: {
+            name: "search_graphics",
+            arguments: { query: "diagram" },
+          },
+        },
+        {
+          jsonrpc: "2.0",
+          id: 6,
+          method: "tools/call",
+          params: {
+            name: "execute_graphics",
+            arguments: {
+              operation: "graphics.diagram.check",
+              input: { path: "flow.diagram.json" },
+            },
+          },
+        },
       ])
 
-      expect(responses).toHaveLength(4)
+      expect(responses).toHaveLength(6)
       expect(responses[0]?.result).toMatchObject({
         protocolVersion: "2025-11-25",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "hraness-graphics", version: "0.3.1" },
+        serverInfo: { name: "hraness-graphics", version: "0.4.0" },
       })
       const listed = responses[2]?.result as {
         readonly tools: readonly Readonly<Record<string, unknown>>[]
@@ -86,6 +107,8 @@ describe("Graphics MCP stdio server", () => {
       expect(listed.tools.map(({ name }) => name)).toEqual([
         "check_diagram",
         "render_diagram",
+        "search_graphics",
+        "execute_graphics",
       ])
       expect(listed.tools[0]?.annotations).toMatchObject({
         readOnlyHint: true,
@@ -100,6 +123,25 @@ describe("Graphics MCP stdio server", () => {
         },
       })
       expect(responses[3]?.result).not.toHaveProperty("isError")
+      expect(responses[4]?.result).toMatchObject({
+        structuredContent: {
+          ok: true,
+          operations: [
+            { code: "graphics.diagram.check" },
+            { code: "graphics.diagram.render" },
+          ],
+        },
+      })
+      expect(responses[5]?.result).toMatchObject({
+        structuredContent: {
+          ok: true,
+          operation: "graphics.diagram.check",
+          result: {
+            ok: true,
+            source: "flow.diagram.json",
+          },
+        },
+      })
     } finally {
       await rm(root, { recursive: true, force: true })
     }

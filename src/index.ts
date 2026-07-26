@@ -13,6 +13,17 @@ import {
   openInDesktop,
   selectDesktopAsset,
 } from "./desktop.ts"
+import {
+  graphicsAuthStatus,
+  loginGraphics,
+  logoutGraphics,
+  requireGraphicsAuthentication,
+} from "./auth.ts"
+import { fetchGraphicsDiscovery, parseGraphicsDiscovery } from "./discovery.ts"
+import {
+  generateGraphicsImage,
+  generateGraphicsImageFile,
+} from "./generate.ts"
 import { builtInIcons } from "./icons.ts"
 import {
   resolveDiagramSource,
@@ -21,6 +32,11 @@ import {
   StackLayoutError,
 } from "./layout.ts"
 import { lintDiagram } from "./lint.ts"
+import {
+  executeGraphicsOperation,
+  graphicsOperationRegistry,
+  searchGraphicsOperations,
+} from "./operations.ts"
 import {
   graphicsMcpProtocolVersion,
   graphicsMcpServerName,
@@ -52,20 +68,28 @@ export const diagramApi = Object.freeze({
   desktopStatus,
   DiagramValidationError,
   findDesktopApplication,
+  fetchGraphicsDiscovery,
+  generateGraphicsImage,
+  generateGraphicsImageFile,
   getLatestDesktopRelease,
+  graphicsAuthStatus,
   graphicsMcpProtocolVersion,
   graphicsMcpServerName,
   graphicsMcpTools,
+  graphicsOperationRegistry,
   GraphicsMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
+  loginGraphics,
+  logoutGraphics,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
   openInDesktop,
   parseDiagramSource,
   parseDiagramSpec,
+  parseGraphicsDiscovery,
   readDiagramFile,
   renderDiagramFile,
   renderPng,
@@ -73,7 +97,9 @@ export const diagramApi = Object.freeze({
   resolveEdge,
   resolveDiagramSource,
   resolveStackLayout,
+  requireGraphicsAuthentication,
   runMcpServer,
+  searchGraphicsOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
@@ -81,6 +107,7 @@ export const diagramApi = Object.freeze({
   vectorizeImage,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
+  executeGraphicsOperation,
 })
 
 export {
@@ -92,20 +119,28 @@ export {
   desktopStatus,
   DiagramValidationError,
   findDesktopApplication,
+  fetchGraphicsDiscovery,
+  generateGraphicsImage,
+  generateGraphicsImageFile,
   getLatestDesktopRelease,
+  graphicsAuthStatus,
   graphicsMcpProtocolVersion,
   graphicsMcpServerName,
   graphicsMcpTools,
+  graphicsOperationRegistry,
   GraphicsMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
+  loginGraphics,
+  logoutGraphics,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
   openInDesktop,
   parseDiagramSource,
   parseDiagramSpec,
+  parseGraphicsDiscovery,
   readDiagramFile,
   renderDiagramFile,
   renderPng,
@@ -113,7 +148,9 @@ export {
   resolveDiagramSource,
   resolveEdge,
   resolveStackLayout,
+  requireGraphicsAuthentication,
   runMcpServer,
+  searchGraphicsOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
@@ -121,7 +158,13 @@ export {
   vectorizeImage,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
+  executeGraphicsOperation,
 }
+export * from "./auth.ts"
+export * from "./cloud-errors.ts"
+export * from "./discovery.ts"
+export * from "./generate.ts"
+export * from "./operations.ts"
 export type * from "./types.ts"
 export type {
   JsonRpcFailure,

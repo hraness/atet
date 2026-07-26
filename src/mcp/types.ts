@@ -1,3 +1,5 @@
+import type { GraphicsAuthDependencies } from "../auth.ts"
+
 export type JsonRpcId = string | number
 export type JsonRpcResponseId = JsonRpcId | null
 
@@ -30,7 +32,11 @@ export interface McpToolResult {
 }
 
 export interface McpToolDefinition {
-  readonly name: "check_diagram" | "render_diagram"
+  readonly name:
+    | "check_diagram"
+    | "render_diagram"
+    | "search_graphics"
+    | "execute_graphics"
   readonly title: string
   readonly description: string
   readonly inputSchema: Readonly<Record<string, unknown>>
@@ -40,7 +46,7 @@ export interface McpToolDefinition {
     readonly readOnlyHint: boolean
     readonly destructiveHint: boolean
     readonly idempotentHint: boolean
-    readonly openWorldHint: false
+    readonly openWorldHint: boolean
   }
 }
 
@@ -60,4 +66,9 @@ export interface McpServerOptions {
    */
   readonly writeLine?: (line: string) => void | Promise<void>
   readonly serverVersion?: string
+  /**
+   * Injectable network and credential-store dependencies. Normal CLI usage
+   * uses global fetch and Bun.secrets.
+   */
+  readonly authDependencies?: GraphicsAuthDependencies
 }

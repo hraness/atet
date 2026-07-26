@@ -1,6 +1,6 @@
 # Contents
 
-- `src/` – typed source parsing, deterministic layout, SVG/PNG rendering, bounded raster-to-SVG conversion, `.tldr` interoperability, desktop discovery, and the CLI.
+- `src/` – typed source parsing, deterministic layout, SVG/PNG rendering, bounded raster-to-SVG conversion, strict service discovery, OAuth credential handling, hosted image generation, semantic operation dispatch, `.tldr` interoperability, desktop discovery, MCP, and the CLI.
 - `dist/` – committed Bun-targeted CLI and programmatic entrypoints used by immutable GitHub installs.
 - `schema/` – the public JSON Schema for authored diagram specifications.
 - `skills/graphics/` – the reusable Agent Skill shipped with the package.
@@ -31,11 +31,33 @@
   model, or bundled font.
 - Keep agent tools root-relative and capability-small. MCP mode must not
   execute workspace configuration, reveal absolute paths, accept traversal or
-  remote URLs, or write anything except the documented replaceable
-  derivatives. It is a trusted-local-workspace tool boundary, not an operating
+  caller-supplied remote URLs, or write anything except the documented
+  replaceable derivatives. Its only hosted call is the pinned
+  `graphics.image.generate` operation discovered from the exact production
+  contract. It is a trusted-local-workspace tool boundary, not an operating
   system sandbox against concurrent same-user filesystem mutation.
 - Enforce MCP source and raw-array complexity limits before semantic parsing,
   bound returned findings, and keep failure results compatible with declared
   success schemas by omitting structured content on errors.
+- Keep the semantic operation registry fixed to owned codes and typed JSON
+  schemas. Search returns descriptors; execute dispatches only exact registered
+  codes. Never accept source text, eval, dynamic imports, workspace config, or
+  user-supplied executable adapters through the CLI or MCP boundary.
+- Pin discovery to the exact production environment, authorities, client,
+  resource, endpoints, limits, models, media types, and feature policy. Fetch
+  only the fixed well-known URL, reject redirects and unexpected content
+  types, and bound every response before parsing.
+- Use OAuth authorization-code with S256 PKCE and only the fixed
+  `127.0.0.1:49671` loopback callback. Store token material only in
+  `Bun.secrets`; never put it in files, stdout, error messages, receipts, or
+  structured tool content. Serialize refreshes and preserve rotated refresh
+  tokens safely.
+- A Graphics login gates vectorization, but vectorization remains free and
+  local: never send its path or bytes to discovery, OAuth, generation, or any
+  other network endpoint.
+- Hosted generation supports only the two checked model IDs and WebP output.
+  Send one required `Idempotency-Key`, never retry an ambiguous generation
+  request, bound and validate base64 plus media magic, and atomically publish
+  the caller-selected `.webp` output.
 - Run `bun run check` before release and commit the resulting `dist/` files with their matching source.
 - Treat a `v*` tag as a release request, not a completed release. Before tagging, confirm repository-level immutable releases are enabled; use a strictly increasing stable package version, keep the tag equal to `v<package.json version>` on `main`, and let the read-only verification job complete before its write-scoped publisher creates the Release. Do not create the next tag until that workflow and Release are verified because GitHub concurrency is not a durable queue. After tagging, verify the matching non-draft immutable Release is Latest.

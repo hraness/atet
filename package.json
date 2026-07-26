@@ -1,7 +1,7 @@
 {
   "name": "@hraness/graphics",
-  "version": "0.3.1",
-  "description": "Graphics is a headless CLI and Agent Skill for deterministic diagrams, local agent tools, tldraw interchange, and measured raster-to-SVG vectorization.",
+  "version": "0.4.0",
+  "description": "Graphics is a headless CLI and Agent Skill for deterministic diagrams, semantic graphics operations, authenticated image generation, tldraw interchange, and measured raster-to-SVG vectorization.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -31,6 +31,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "import": "./dist/auth.js"
+    },
+    "./discovery": {
+      "types": "./dist/discovery.d.ts",
+      "import": "./dist/discovery.js"
+    },
+    "./generate": {
+      "types": "./dist/generate.d.ts",
+      "import": "./dist/generate.js"
+    },
+    "./operations": {
+      "types": "./dist/operations.d.ts",
+      "import": "./dist/operations.js"
     }
   },
   "main": "./dist/index.js",
@@ -47,7 +63,7 @@
     "NOTICE.md"
   ],
   "scripts": {
-    "build": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/cli.ts --outfile ./dist/cli.js --target bun --format esm --packages external && bun build ./src/index.ts --outfile ./dist/index.js --target bun --format esm --packages external && bun build ./src/vectorize/worker.ts --outfile ./dist/vectorize-worker.js --target bun --format esm --packages external && tsc --project ./tsconfig.build.json && bun run ./scripts/build-types.ts",
+    "build": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/cli.ts --outfile ./dist/cli.js --target bun --format esm --packages external && bun build ./src/index.ts --outfile ./dist/index.js --target bun --format esm --packages external && bun build ./src/auth.ts --outfile ./dist/auth.js --target bun --format esm --packages external && bun build ./src/discovery.ts --outfile ./dist/discovery.js --target bun --format esm --packages external && bun build ./src/generate.ts --outfile ./dist/generate.js --target bun --format esm --packages external && bun build ./src/operations.ts --outfile ./dist/operations.js --target bun --format esm --packages external && bun build ./src/vectorize/worker.ts --outfile ./dist/vectorize-worker.js --target bun --format esm --packages external && tsc --project ./tsconfig.build.json && bun run ./scripts/build-types.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test ./src ./scripts",
     "test:package": "bun run ./scripts/package-smoke.ts",

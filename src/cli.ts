@@ -15,10 +15,24 @@ import {
   selectDesktopAsset,
   vectorizeImage,
 } from "./index.ts"
+import {
+  graphicsAuthStatus,
+  loginGraphics,
+  logoutGraphics,
+  requireGraphicsAuthentication,
+} from "./auth.ts"
+import { graphicsImageModels, type GraphicsImageModel } from "./discovery.ts"
+import { generateGraphicsImageFile } from "./generate.ts"
+import {
+  executeGraphicsOperation,
+  graphicsOperationCodes,
+  isGraphicsOperationCode,
+  searchGraphicsOperations,
+} from "./operations.ts"
 import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.ts"
 import { pathExists } from "./fs.ts"
 
-const version = "0.3.1"
+const version = "0.4.0"
 
 const help = `graphics ${version}
 
@@ -29,6 +43,12 @@ Usage:
   graphics check <file> [--config <file>] [--strict]
   graphics render <file> [--out-dir <directory>] [--config <file>] [--scale <number>]
   graphics vectorize <image> --output <file.svg> [--json] [--duotone <#rgb,#rgb>]
+  graphics generate <prompt> --output <file.webp> [--model <model>] [--idempotency-key <key>] [--json]
+  graphics login
+  graphics logout
+  graphics auth status
+  graphics code search [query] [--limit <number>]
+  graphics code execute <operation> --input <JSON>
   graphics mcp --root <workspace>
   graphics open <file.tldr|file.tldraw>
   graphics doctor
@@ -52,10 +72,20 @@ tldraw Offline or the tldraw SDK.
 Vectorize adaptively traces a raster with a checksum-pinned VTracer binary.
 It enforces bounded input, decode, time, path, and output budgets and emits a
 safe path-only SVG (plus an internal vector alpha mask when fidelity requires).
+It requires a valid free Graphics login but runs locally and uploads no source.
 
-MCP exposes only root-relative check_diagram and render_diagram tools for a
-trusted local workspace. It uses built-in assets, never executes workspace
-config, and writes protocol messages only to stdout.
+Generate sends one authenticated, non-retried request with process-local
+duplicate mitigation using exactly openai/gpt-image-1.5 or
+recraft/recraft-v4.1-utility. Responses are bounded, validated WebP images and
+are published with an atomic local rename.
+
+Code mode searches and executes a fixed semantic registry. Execute accepts
+typed JSON for one exact owned operation code; it never evaluates source text.
+
+MCP preserves root-relative check_diagram/render_diagram and adds closed
+search_graphics/execute_graphics registry tools. It uses built-in assets, never
+executes workspace config or caller code, and writes protocol messages only to
+stdout.
 `
 
 interface ParsedArguments {
@@ -135,7 +165,7 @@ function printFindings(findings: Awaited<ReturnType<typeof checkDiagramFile>>["f
 }
 
 const starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/graphics/v0.3.1/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/graphics/v0.4.0/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },
@@ -178,7 +208,17 @@ async function confirmInstall(): Promise<boolean> {
   }
 }
 
-async function main(args: readonly string[]): Promise<void> {
+export interface GraphicsCliDependencies {
+  readonly generate?: typeof generateGraphicsImageFile
+  readonly log?: (value: string) => void
+  readonly requireAuthentication?: () => Promise<unknown>
+  readonly vectorize?: typeof vectorizeImage
+}
+
+export async function main(
+  args: readonly string[],
+  dependencies: GraphicsCliDependencies = {},
+): Promise<void> {
   const [command, ...rest] = args
   if (command === undefined || command === "help" || command === "--help" || command === "-h") {
     console.log(help)
@@ -246,7 +286,10 @@ async function main(args: readonly string[]): Promise<void> {
     const alphaCutoff = parsePositiveInteger(parsed.options["alpha-cutoff"], "alpha-cutoff")
     const timeoutMs = parsePositiveInteger(parsed.options["timeout-ms"], "timeout-ms")
     const duotone = parseDuotone(parsed.options.duotone)
-    const result = await vectorizeImage(
+    // Authentication is only a local feature gate. The image path and bytes
+    // are never included in discovery or OAuth traffic.
+    await (dependencies.requireAuthentication ?? requireGraphicsAuthentication)()
+    const result = await (dependencies.vectorize ?? vectorizeImage)(
       requiredPositional(parsed, 0, "raster image"),
       {
         ...(alphaCutoff === undefined ? {} : { alphaCutoff }),
@@ -256,14 +299,140 @@ async function main(args: readonly string[]): Promise<void> {
       },
     )
     if (parsed.flags.has("json")) {
-      console.log(JSON.stringify({ ...result.receipt, outputPath: result.outputPath }, null, 2))
+      ;(dependencies.log ?? console.log)(
+        JSON.stringify({ ...result.receipt, outputPath: result.outputPath }, null, 2),
+      )
     } else {
-      console.log(
+      ;(dependencies.log ?? console.log)(
         `Vectorized ${result.receipt.width}×${result.receipt.height} with `
           + `${result.receipt.profile}/${result.receipt.representation}: ${result.outputPath}`,
       )
     }
     return
+  }
+
+  if (command === "generate") {
+    const parsed = parseArguments(
+      rest,
+      new Set(["model", "output", "idempotency-key"]),
+    )
+    const unknownFlags = [...parsed.flags].filter((flag) => flag !== "json")
+    if (unknownFlags.length > 0) {
+      throw new Error(`Unknown generate option: --${unknownFlags[0]}`)
+    }
+    if (parsed.positionals.length !== 1) {
+      throw new Error("graphics generate accepts exactly one prompt")
+    }
+    const model = parsed.options.model ?? graphicsImageModels[1]
+    if (!graphicsImageModels.includes(model as GraphicsImageModel)) {
+      throw new Error(
+        `--model must be ${graphicsImageModels[0]} or ${graphicsImageModels[1]}`,
+      )
+    }
+    const result = await (dependencies.generate ?? generateGraphicsImageFile)({
+      model: model as GraphicsImageModel,
+      prompt: requiredPositional(parsed, 0, "prompt"),
+      outputPath: requiredOption(parsed, "output"),
+      ...(parsed.options["idempotency-key"] === undefined
+        ? {}
+        : { idempotencyKey: parsed.options["idempotency-key"] }),
+    })
+    if (parsed.flags.has("json")) {
+      ;(dependencies.log ?? console.log)(JSON.stringify(result, null, 2))
+    } else {
+      ;(dependencies.log ?? console.log)(
+        `Generated ${result.mediaType} with ${result.model}: ${result.outputPath} (${result.bytes} bytes, request ${result.requestId})`,
+      )
+    }
+    return
+  }
+
+  if (command === "login") {
+    const parsed = parseArguments(rest, new Set())
+    if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
+      throw new Error("graphics login accepts no arguments")
+    }
+    const status = await loginGraphics()
+    console.log(
+      `Logged in to Graphics${status.expiresAt === null ? "" : ` until ${status.expiresAt}`}.`,
+    )
+    return
+  }
+
+  if (command === "logout") {
+    const parsed = parseArguments(rest, new Set())
+    if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
+      throw new Error("graphics logout accepts no arguments")
+    }
+    const result = await logoutGraphics()
+    console.log(
+      result.removed
+        ? "Logged out of Graphics."
+        : "Graphics was already logged out.",
+    )
+    return
+  }
+
+  if (command === "auth") {
+    const [subcommand, ...subcommandArgs] = rest
+    if (subcommand !== "status" || subcommandArgs.length > 0) {
+      throw new Error("Use graphics auth status")
+    }
+    const status = await graphicsAuthStatus()
+    console.log(JSON.stringify(status, null, 2))
+    return
+  }
+
+  if (command === "code") {
+    const [subcommand, ...subcommandArgs] = rest
+    if (subcommand === "search") {
+      const parsed = parseArguments(subcommandArgs, new Set(["limit"]))
+      if (parsed.flags.size > 0 || parsed.positionals.length > 1) {
+        throw new Error(
+          "Use graphics code search [query] [--limit <number>]",
+        )
+      }
+      const limit =
+        parsePositiveInteger(parsed.options.limit, "limit") ??
+        graphicsOperationCodes.length
+      const operations = searchGraphicsOperations(
+        parsed.positionals[0] ?? "",
+        limit,
+      )
+      console.log(JSON.stringify({ operations }, null, 2))
+      return
+    }
+    if (subcommand === "execute") {
+      const parsed = parseArguments(subcommandArgs, new Set(["input"]))
+      if (
+        parsed.flags.size > 0 ||
+        parsed.positionals.length !== 1
+      ) {
+        throw new Error(
+          "Use graphics code execute <operation> --input <JSON>",
+        )
+      }
+      const operation = parsed.positionals[0]!
+      if (!isGraphicsOperationCode(operation)) {
+        throw new Error(`Unknown Graphics operation code: ${operation}`)
+      }
+      const inputText = requiredOption(parsed, "input")
+      if (Buffer.byteLength(inputText, "utf8") > 64 * 1024) {
+        throw new Error("--input JSON must be no more than 65536 UTF-8 bytes")
+      }
+      let input: unknown
+      try {
+        input = JSON.parse(inputText)
+      } catch {
+        throw new Error("--input must be valid JSON")
+      }
+      const result = await executeGraphicsOperation(operation, input)
+      console.log(JSON.stringify({ operation, result }, null, 2))
+      return
+    }
+    throw new Error(
+      "Use graphics code search [query] or graphics code execute <operation> --input <JSON>",
+    )
   }
 
   if (command === "mcp") {
@@ -296,6 +465,18 @@ async function main(args: readonly string[]): Promise<void> {
         : "Adaptive raster-to-SVG vectorizer ready (VTracer downloads on first use)",
     )
     console.log("Root-relative MCP check/render server ready (trusted local workspace)")
+    try {
+      const auth = await graphicsAuthStatus()
+      console.log(
+        auth.authenticated
+          ? "Graphics authenticated features ready"
+          : "Graphics authenticated features require `graphics login`",
+      )
+    } catch {
+      console.log(
+        "Graphics credential store unavailable (authenticated features disabled)",
+      )
+    }
     console.log(
       status.installedPath === null
         ? "tldraw Offline not installed (optional)"
@@ -384,9 +565,11 @@ async function main(args: readonly string[]): Promise<void> {
   throw new Error(`Unknown command: ${command}\n\n${help}`)
 }
 
-try {
-  await main(process.argv.slice(2))
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
+if (import.meta.main) {
+  try {
+    await main(process.argv.slice(2))
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  }
 }

@@ -1,12 +1,16 @@
 # Graphics
 
 Graphics is an open-source, Bun-first CLI and Agent Skill for small, clear
-diagrams and measured raster-to-SVG conversion. Its executable is `graphics`.
+diagrams, measured raster-to-SVG conversion, and bounded hosted image
+generation. Its executable is `graphics`.
 A checked `.diagram.json` file is the source of truth for a diagram. One render
 produces consistent light and dark SVG/PNG images plus editable `.tldr`
 interchange—without a browser, tldraw Desktop, or the tldraw SDK at runtime.
 `graphics vectorize` turns caller-owned raster artwork into bounded, inert SVG
-paths with an inspectable quality receipt.
+paths with an inspectable quality receipt. `graphics generate` uses one of two
+explicit hosted models to write a validated WebP. A fixed semantic operation
+registry exposes the same capabilities to code and MCP without accepting
+arbitrary source text.
 
 The project site is [hraness.graphics](https://hraness.graphics).
 
@@ -85,7 +89,7 @@ Copy this prompt into Codex, Claude Code, or another coding agent:
 
 ```text
 Install the Graphics CLI and bundled Agent Skill from
-https://github.com/hraness/graphics at the immutable v0.3.1 tag. Follow the
+https://github.com/hraness/graphics at the immutable v0.4.0 tag. Follow the
 repository README, install the skill in this agent runner's configured skills
 directory, run `graphics doctor`, and verify the installation by rendering the
 included example. Do not install tldraw Offline unless I ask to edit the canvas
@@ -103,7 +107,7 @@ Install the immutable release and then place the bundled skill where your agent
 runner discovers skills:
 
 ```sh
-bun add --global github:hraness/graphics#v0.3.1
+bun add --global github:hraness/graphics#v0.4.0
 graphics skill install --target codex --scope user
 graphics doctor
 ```
@@ -116,7 +120,7 @@ before installing the current release:
 
 ```sh
 rm -rf -- "$HOME/.codex/skills/diagram"
-bun add --global github:hraness/graphics#v0.3.1
+bun add --global github:hraness/graphics#v0.4.0
 graphics skill install --target codex --scope user
 ```
 
@@ -184,7 +188,7 @@ The source stays readable and reviewable:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/hraness/graphics/v0.3.1/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/graphics/v0.4.0/schema/diagram.schema.json",
   "version": 1,
   "name": "example-flow",
   "canvas": { "width": 960, "height": 540, "padding": 64 },
@@ -240,6 +244,40 @@ on the vertical axis:
 graphics render examples/capex-opex.diagram.json --out-dir /tmp/graphics-example
 ```
 
+## Log in and generate a hosted image
+
+Authenticated features use OAuth 2.1 authorization-code flow with S256 PKCE:
+
+```sh
+graphics login
+graphics auth status
+graphics generate \
+  'A restrained monochrome paper texture' \
+  --output texture.webp
+graphics logout
+```
+
+The browser returns to the fixed
+`http://127.0.0.1:49671/oauth/callback` loopback address. Graphics stores access
+and refresh tokens only in the operating system credential store through
+`Bun.secrets`; it does not create a plaintext credential file or print token
+material. Logout attempts standards-based revocation and removes the local
+credential.
+
+`graphics generate` defaults to `recraft/recraft-v4.1-utility`; `--model` may
+select exactly that model or `openai/gpt-image-1.5`. It discovers one pinned production endpoint,
+sends one authenticated POST with a required `Idempotency-Key`, and never
+retries an ambiguous request. The CLI accepts an optional caller key of 16–128
+safe characters; otherwise it creates a UUID. A successful response is bounded
+to 3 MiB raw, must contain canonical base64 and valid RIFF/WebP magic, and is
+atomically renamed to the required `.webp` output path.
+
+Discovery is not a general remote configuration mechanism. The CLI fetches
+only `https://hraness.graphics/.well-known/graphics-cli.json`, forbids
+redirects, bounds the body, and requires the exact production authorities,
+client, resource, endpoints, models, limits, and free-local vectorization
+policy before using a token.
+
 ## Vectorize caller-owned raster artwork
 
 `graphics vectorize` accepts PNG, JPEG, WebP, AVIF/HEIF, GIF, or TIFF input and
@@ -249,6 +287,10 @@ normalizes one still image to a safe SVG:
 graphics vectorize input.png --output input.svg --json
 graphics vectorize input.png --output input.duotone.svg --duotone '#171717,#7c3aed'
 ```
+
+Vectorization requires a valid Graphics login but remains free and runs
+locally. The discovery and token requests contain neither the source path nor
+its bytes; only the checksum-pinned local VTracer process receives the raster.
 
 The adaptive policy tries a balanced trace first, measures a rasterized result,
 and spends more work on detailed or photo profiles only when the first result
@@ -273,7 +315,7 @@ operation unbounded.
 Install the tagged package locally before importing its API:
 
 ```sh
-bun add github:hraness/graphics#v0.3.1
+bun add github:hraness/graphics#v0.4.0
 ```
 
 ```ts
@@ -288,7 +330,7 @@ console.log(result.receipt)
 ```
 
 Bounded conversion is supported on macOS arm64/x64 and Linux arm64/x64.
-Graphics also pins the Windows x64 release metadata, but v0.3 fails closed with
+Graphics also pins the Windows x64 release metadata, but v0.4 fails closed with
 `tool_platform` on Windows before download or tracing: VTracer 0.6.4 writes
 only to a file path there, so Graphics cannot enforce its output-byte limit
 without a safe streaming boundary. The roughly 0.7–1.1 MiB archive downloads
@@ -308,11 +350,22 @@ explicit workspace root:
 graphics mcp --root /absolute/path/to/workspace
 ```
 
-The server exposes two operations:
+The server preserves the two original compatibility tools:
 
 - `check_diagram` parses and lints one root-relative `.diagram.json` source.
 - `render_diagram` overwrites its `.tldr` and paired light/dark SVG and PNG
   derivatives, optionally in a root-relative output directory.
+
+It also exposes:
+
+- `search_graphics` searches a fixed four-operation semantic registry.
+- `execute_graphics` accepts one exact operation code and typed JSON input.
+
+The canonical codes are `graphics.diagram.check`, `graphics.diagram.render`,
+`graphics.image.vectorize`, and `graphics.image.generate`. Search returns
+descriptors and input schemas; execute dispatches only those owned adapters. It
+does not accept JavaScript, shell text, dynamic imports, executable workspace
+configuration, arbitrary model IDs, or caller-selected remote URLs.
 
 Successful calls return structured findings and root-relative paths.
 `check_diagram` is read-only; `render_diagram` is explicitly marked destructive
@@ -329,11 +382,14 @@ validated directory concurrently is outside the threat model. Do not point the
 server at a workspace controlled by a hostile local process.
 
 MCP mode intentionally ignores `graphics.config.*`, including executable
-configuration, and uses only built-in themes and icons. It does not expose
-shell execution, desktop installation, remote URLs, source writing, or
-vectorization. The CLI remains the deliberate vectorization surface because
-its checksum-pinned VTracer download and longer work need a different
-cancellation and network contract.
+configuration, and uses only built-in themes and icons. Semantic vectorization
+requires a login, accepts only confined root-relative input/output paths, and
+runs locally without uploading the source. Semantic generation uses the same
+pinned discovery, token, model, body, media, and non-retry contract as the CLI;
+it requires a root-relative `.webp` output path, atomically writes the bounded
+image there, and returns only compact request/file metadata. MCP does not
+expose shell execution, desktop installation, source writing, arbitrary code,
+or arbitrary remote URLs.
 
 A client configuration can point directly at the installed executable:
 
@@ -346,6 +402,38 @@ A client configuration can point directly at the installed executable:
     }
   }
 }
+```
+
+## Search and execute semantic operations from code
+
+The CLI provides the same registry without an MCP client:
+
+```sh
+graphics code search diagram --limit 4
+graphics code execute graphics.diagram.check \
+  --input '{"path":"diagrams/example-flow.diagram.json"}'
+```
+
+`graphics code search` returns bounded JSON descriptors. `graphics code
+execute` parses at most 64 KiB of JSON and passes it through the registry's
+strict parser; it never treats the value as JavaScript or shell text. Diagram
+operations use built-in assets and do not discover executable workspace
+configuration. Vectorization and generation enforce the same login policy as
+their direct CLI commands.
+
+Programmatic consumers can import the registry from the package root or the
+explicit `@hraness/graphics/operations` export:
+
+```ts
+import {
+  executeGraphicsOperation,
+  searchGraphicsOperations,
+} from "@hraness/graphics/operations"
+
+const matches = searchGraphicsOperations("diagram")
+const checked = await executeGraphicsOperation("graphics.diagram.check", {
+  path: "diagrams/example-flow.diagram.json",
+})
 ```
 
 ## tldraw without a desktop dependency
@@ -486,8 +574,14 @@ caption when one is needed.
 | `graphics init [file]` | Create a starter source without overwriting an existing file. |
 | `graphics check <file>` | Parse the source and report visual-communication lint findings. |
 | `graphics render <file>` | Write light/dark SVG and PNG plus `.tldr` interchange. |
-| `graphics vectorize <image>` | Adaptively trace one raster to a bounded safe SVG and optional JSON receipt. |
-| `graphics mcp --root <workspace>` | Serve root-relative `check_diagram` and `render_diagram` tools over stdio for a trusted local workspace. |
+| `graphics login` | Authorize with S256 PKCE and store tokens in the operating-system credential store. |
+| `graphics logout` | Revoke the current login when possible and remove its local credential. |
+| `graphics auth status` | Report bounded login status without displaying token material. |
+| `graphics generate <prompt>` | Generate one validated WebP with a supported hosted model and no ambiguous retry. |
+| `graphics vectorize <image>` | After login, adaptively trace one local raster to a bounded safe SVG and optional JSON receipt. |
+| `graphics code search [query]` | Search the fixed semantic operation registry and print bounded JSON descriptors. |
+| `graphics code execute <operation>` | Execute one exact owned operation with strict JSON input; never evaluate source text. |
+| `graphics mcp --root <workspace>` | Serve compatibility tools plus closed semantic search/execute over stdio for a trusted local workspace. |
 | `graphics open <file>` | Open `.tldr` or `.tldraw` in an installed tldraw Offline app. |
 | `graphics doctor` | Report the headless runtime and optional desktop integration. |
 | `graphics desktop status` | Report app discovery and its optional local agent server without exposing its token. |

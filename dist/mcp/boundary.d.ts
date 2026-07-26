@@ -12,6 +12,10 @@ export interface WorkspaceDirectory {
     readonly absolutePath: string;
     readonly relativePath: string;
 }
+export interface WorkspaceFile {
+    readonly absolutePath: string;
+    readonly relativePath: string;
+}
 export declare class WorkspaceBoundary {
     readonly rootDirectory: string;
     private constructor();
@@ -19,5 +23,7 @@ export declare class WorkspaceBoundary {
     private assertConfined;
     toRelativePath(absolutePath: string): string;
     readSource(value: string): Promise<WorkspaceSource>;
+    resolveInputFile(value: string, maximumBytes: number): Promise<WorkspaceFile>;
+    prepareOutputFile(value: string): Promise<WorkspaceFile>;
     prepareOutputDirectory(value: string): Promise<WorkspaceDirectory>;
 }

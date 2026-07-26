@@ -140,7 +140,7 @@ class GraphicsMcpSession {
           version: this.serverVersion,
         },
         instructions:
-          "Use check_diagram and render_diagram only with root-relative .diagram.json paths. The server uses built-in assets and never executes workspace configuration.",
+          "Use the compatibility check_diagram/render_diagram tools or search_graphics followed by execute_graphics with an exact registry code and typed JSON. Local paths are root-relative; source code is never accepted or evaluated.",
       })
     }
 
@@ -227,10 +227,11 @@ export async function runMcpServer(
 ): Promise<void> {
   const runtime = await GraphicsMcpToolRuntime.create(
     options.rootDirectory ?? process.cwd(),
+    options.authDependencies,
   )
   const session = new GraphicsMcpSession(
     runtime,
-    options.serverVersion ?? "0.3.1",
+    options.serverVersion ?? "0.4.0",
   )
   const writeLine = options.writeLine ?? defaultWriteLine
   let buffered = Buffer.alloc(0)

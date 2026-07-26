@@ -52,9 +52,13 @@ try {
   const packedManifest = await Bun.file(join(packageRoot, "package.json")).json()
   if (
     packedManifest.types !== "./dist/index.d.ts" ||
-    packedManifest.exports?.["."]?.types !== "./dist/index.d.ts"
+    packedManifest.exports?.["."]?.types !== "./dist/index.d.ts" ||
+    packedManifest.exports?.["./auth"]?.import !== "./dist/auth.js" ||
+    packedManifest.exports?.["./discovery"]?.import !== "./dist/discovery.js" ||
+    packedManifest.exports?.["./generate"]?.import !== "./dist/generate.js" ||
+    packedManifest.exports?.["./operations"]?.import !== "./dist/operations.js"
   ) {
-    throw new Error("Packed package does not expose declarations from dist.")
+    throw new Error("Packed package does not expose the checked v0.4 entrypoints from dist.")
   }
   const declarations = new Bun.Glob("dist/**/*.d.ts")
   let declarationCount = 0
@@ -85,7 +89,19 @@ try {
   }
   const binary = join(consumer, "node_modules", ".bin", "graphics")
   await run([binary, "--help"], consumer)
+  await run([binary, "code", "search", "diagram", "--limit", "2"], consumer)
   await run([binary, "init", "smoke.diagram.json"], consumer)
+  await run(
+    [
+      binary,
+      "code",
+      "execute",
+      "graphics.diagram.check",
+      "--input",
+      '{"path":"smoke.diagram.json"}',
+    ],
+    consumer,
+  )
   const packedConfig = join(
     packageRoot,
     "examples",
@@ -105,7 +121,7 @@ try {
       "node",
       "--input-type=module",
       "-e",
-      'const api = await import("@hraness/graphics"); if (typeof api.renderSvg !== "function" || typeof api.vectorizeImage !== "function" || typeof api.parseDiagramSource !== "function" || typeof api.resolveDiagramSource !== "function" || typeof api.runMcpServer !== "function") process.exit(1)',
+      'const api = await import("@hraness/graphics"); const operations = await import("@hraness/graphics/operations"); const auth = await import("@hraness/graphics/auth"); const discovery = await import("@hraness/graphics/discovery"); const generate = await import("@hraness/graphics/generate"); if (typeof api.renderSvg !== "function" || typeof api.vectorizeImage !== "function" || typeof api.runMcpServer !== "function" || typeof operations.searchGraphicsOperations !== "function" || typeof operations.executeGraphicsOperation !== "function" || typeof auth.loginGraphics !== "function" || typeof discovery.parseGraphicsDiscovery !== "function" || typeof generate.generateGraphicsImageFile !== "function") process.exit(1)',
     ],
     consumer,
   )
@@ -123,12 +139,23 @@ try {
     join(consumer, "index.ts"),
     [
       'import { parseDiagramSource, parseDiagramSpec, resolveDiagramSource, runMcpServer, vectorizeImage, type DiagramConfig, type VectorizeReceipt } from "@hraness/graphics"',
+      'import { executeGraphicsOperation, searchGraphicsOperations, type GraphicsOperationCode } from "@hraness/graphics/operations"',
+      'import { type GraphicsAuthStatus } from "@hraness/graphics/auth"',
+      'import { graphicsImageModels, type GraphicsDiscoveryDocument } from "@hraness/graphics/discovery"',
+      'import { type GenerateGraphicsImageInput } from "@hraness/graphics/generate"',
       "const config = {} satisfies DiagramConfig",
       "const receipt = {} as VectorizeReceipt",
       "void config",
       "void receipt",
       "void runMcpServer",
       "void vectorizeImage",
+      "void executeGraphicsOperation",
+      "void searchGraphicsOperations",
+      "void (null as unknown as GraphicsOperationCode)",
+      "void (null as unknown as GraphicsAuthStatus)",
+      "void (null as unknown as GraphicsDiscoveryDocument)",
+      "void (null as unknown as GenerateGraphicsImageInput)",
+      "void graphicsImageModels",
       "void resolveDiagramSource(parseDiagramSource({ version: 1, name: \"stacked\", canvas: { width: 500, height: 200 }, layout: { type: \"stack\", direction: \"horizontal\" }, shapes: [{ id: \"one\", type: \"rect\", width: 100, height: 80 }] }))",
       "void parseDiagramSpec({ version: 1, name: \"typed\", canvas: { width: 1, height: 1 }, shapes: [] })",
       "",

@@ -1,7 +1,24 @@
 import { rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
+import {
+  requireGraphicsAuthentication,
+  type GraphicsAuthDependencies,
+} from "../auth.ts"
+import { GraphicsCloudError } from "../cloud-errors.ts"
+import { generateGraphicsImageFile } from "../generate.ts"
 import { builtInIcons } from "../icons.ts"
 import { lintDiagram } from "../lint.ts"
+import {
+  GraphicsOperationError,
+  graphicsOperationCodes,
+  parseGraphicsOperationInput,
+  searchGraphicsOperations,
+  type CheckGraphicsOperationInput,
+  type GenerateGraphicsOperationInput,
+  type GraphicsOperationCode,
+  type RenderGraphicsOperationInput,
+  type VectorizeGraphicsOperationInput,
+} from "../operations.ts"
 import { DiagramValidationError, parseDiagramSpec } from "../parse.ts"
 import { renderPng, renderSvg } from "../render.ts"
 import { serializeTldr } from "../tldr.ts"
@@ -11,6 +28,11 @@ import type {
   LintFinding,
   RenderArtifacts,
 } from "../types.ts"
+import {
+  vectorizeHardLimits,
+  vectorizeImage,
+  VectorizeError,
+} from "../vectorize/index.ts"
 import {
   WorkspaceBoundary,
   WorkspaceBoundaryError,
@@ -42,7 +64,15 @@ const findingSchema = {
   },
 } as const
 
-export const graphicsMcpTools: readonly McpToolDefinition[] = Object.freeze([
+function deepFreeze<T>(value: T): T {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
+    return value
+  }
+  for (const nested of Object.values(value)) deepFreeze(nested)
+  return Object.freeze(value)
+}
+
+export const graphicsMcpTools: readonly McpToolDefinition[] = deepFreeze([
   {
     name: "check_diagram",
     title: "Check diagram",
@@ -172,6 +202,98 @@ export const graphicsMcpTools: readonly McpToolDefinition[] = Object.freeze([
       openWorldHint: false,
     },
   },
+  {
+    name: "search_graphics",
+    title: "Search Graphics operations",
+    description:
+      "Search the fixed semantic Graphics operation registry by bounded text. This never executes code or changes files.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        query: {
+          type: "string",
+          maxLength: 200,
+          description: "Optional terms matched against operation codes and descriptions.",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 20,
+          default: 4,
+        },
+      },
+    },
+    outputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["ok", "operations"],
+      properties: {
+        ok: { const: true },
+        operations: {
+          type: "array",
+          maxItems: 20,
+          items: {
+            type: "object",
+            required: [
+              "code",
+              "title",
+              "description",
+              "execution",
+              "authentication",
+              "inputSchema",
+            ],
+          },
+        },
+      },
+    },
+    annotations: {
+      title: "Search Graphics operations",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "execute_graphics",
+    title: "Execute Graphics operation",
+    description:
+      "Execute one exact operation code with typed JSON input. Never accepts or evaluates source code. Local paths remain confined to the configured workspace root.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["operation", "input"],
+      properties: {
+        operation: {
+          type: "string",
+          enum: graphicsOperationCodes,
+        },
+        input: {
+          type: "object",
+          description:
+            "Typed input matching the selected operation's registry schema.",
+        },
+      },
+    },
+    outputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["ok", "operation", "result"],
+      properties: {
+        ok: { const: true },
+        operation: { type: "string", enum: graphicsOperationCodes },
+        result: { type: "object" },
+      },
+    },
+    annotations: {
+      title: "Execute Graphics operation",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
 ])
 
 class ToolFailure extends Error {
@@ -193,6 +315,16 @@ interface ParsedCheckArguments {
 interface ParsedRenderArguments extends ParsedCheckArguments {
   readonly outDirectory?: string
   readonly scale: number
+}
+
+interface ParsedSearchArguments {
+  readonly query: string
+  readonly limit: number
+}
+
+interface ParsedExecuteArguments {
+  readonly operation: GraphicsOperationCode
+  readonly input: unknown
 }
 
 interface LoadedDiagram {
@@ -292,6 +424,50 @@ function parseRenderArguments(value: unknown): ParsedRenderArguments {
     path: parsePath(value.path),
     ...(outDirectory === undefined ? {} : { outDirectory }),
     scale,
+  }
+}
+
+function parseSearchArguments(value: unknown): ParsedSearchArguments {
+  if (!isRecord(value)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.")
+  }
+  rejectUnknownKeys(value, new Set(["query", "limit"]))
+  const query = value.query ?? ""
+  const limit = value.limit ?? graphicsOperationCodes.length
+  if (
+    typeof query !== "string" ||
+    query.length > 200 ||
+    /[\u0000-\u001f\u007f]/u.test(query) ||
+    !Number.isInteger(limit) ||
+    (limit as number) < 1 ||
+    (limit as number) > 20
+  ) {
+    throw new ToolFailure(
+      "INVALID_ARGUMENTS",
+      "query must be a bounded string and limit must be an integer from 1 through 20.",
+    )
+  }
+  return { query, limit: limit as number }
+}
+
+function parseExecuteArguments(value: unknown): ParsedExecuteArguments {
+  if (!isRecord(value)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.")
+  }
+  rejectUnknownKeys(value, new Set(["operation", "input"]))
+  if (
+    typeof value.operation !== "string" ||
+    !graphicsOperationCodes.includes(value.operation as GraphicsOperationCode) ||
+    !isRecord(value.input)
+  ) {
+    throw new ToolFailure(
+      "INVALID_ARGUMENTS",
+      "operation must be an exact Graphics operation code and input must be an object.",
+    )
+  }
+  return {
+    operation: value.operation as GraphicsOperationCode,
+    input: value.input,
   }
 }
 
@@ -403,6 +579,21 @@ function failureResult(error: unknown): McpToolResult {
   } else if (error instanceof WorkspaceBoundaryError) {
     code = error.code
     message = safeFragment(error.message, 320)
+  } else if (error instanceof GraphicsCloudError) {
+    code = error.code
+    message = safeFragment(
+      error.message.replace(/^\[[A-Z_]+\]\s*/u, ""),
+      320,
+    )
+  } else if (error instanceof GraphicsOperationError) {
+    code = error.code
+    message = safeFragment(
+      error.message.replace(/^\[[A-Z_]+\]\s*/u, ""),
+      320,
+    )
+  } else if (error instanceof VectorizeError) {
+    code = `VECTORIZE_${error.code.toUpperCase()}`
+    message = "Local vectorization failed safely."
   } else if (error instanceof DiagramValidationError) {
     code = "INVALID_DIAGRAM"
     message = "Diagram source did not pass validation."
@@ -486,15 +677,24 @@ async function loadDiagram(
 
 export class GraphicsMcpToolRuntime {
   readonly boundary: WorkspaceBoundary
+  readonly authDependencies: GraphicsAuthDependencies
   private renderQueue: Promise<void> = Promise.resolve()
 
-  private constructor(boundary: WorkspaceBoundary) {
+  private constructor(
+    boundary: WorkspaceBoundary,
+    authDependencies: GraphicsAuthDependencies,
+  ) {
     this.boundary = boundary
+    this.authDependencies = authDependencies
   }
 
-  static async create(rootDirectory: string): Promise<GraphicsMcpToolRuntime> {
+  static async create(
+    rootDirectory: string,
+    authDependencies: GraphicsAuthDependencies = {},
+  ): Promise<GraphicsMcpToolRuntime> {
     return new GraphicsMcpToolRuntime(
       await WorkspaceBoundary.create(rootDirectory),
+      authDependencies,
     )
   }
 
@@ -517,10 +717,138 @@ export class GraphicsMcpToolRuntime {
         const options = parseRenderArguments(argumentsValue)
         return await this.enqueueRender(() => this.render(options))
       }
+      if (name === "search_graphics") {
+        const options = parseSearchArguments(argumentsValue)
+        const operations = searchGraphicsOperations(
+          options.query,
+          options.limit,
+        )
+        return successResult(
+          `Found ${operations.length} Graphics operation${operations.length === 1 ? "" : "s"}.`,
+          { ok: true, operations },
+        )
+      }
+      if (name === "execute_graphics") {
+        const options = parseExecuteArguments(argumentsValue)
+        return await this.execute(options)
+      }
       throw new ToolFailure("UNKNOWN_TOOL", "Requested tool is not available.")
     } catch (error) {
       return failureResult(error)
     }
+  }
+
+  private wrapSemanticResult(
+    operation: GraphicsOperationCode,
+    result: McpToolResult,
+  ): McpToolResult {
+    if (result.isError === true) return result
+    return {
+      content: result.content,
+      structuredContent: {
+        ok: true,
+        operation,
+        result: result.structuredContent ?? {},
+      },
+    }
+  }
+
+  private async execute(
+    options: ParsedExecuteArguments,
+  ): Promise<McpToolResult> {
+    if (options.operation === "graphics.diagram.check") {
+      const input = parseGraphicsOperationInput(
+        options.operation,
+        options.input,
+      ) as CheckGraphicsOperationInput
+      return this.wrapSemanticResult(
+        options.operation,
+        await this.check({ path: input.path }),
+      )
+    }
+    if (options.operation === "graphics.diagram.render") {
+      const input = parseGraphicsOperationInput(
+        options.operation,
+        options.input,
+      ) as RenderGraphicsOperationInput
+      return this.enqueueRender(async () =>
+        this.wrapSemanticResult(
+          options.operation,
+          await this.render({
+            path: input.path,
+            ...(input.outDirectory === undefined
+              ? {}
+              : { outDirectory: input.outDirectory }),
+            scale: input.scale ?? defaultScale,
+          }),
+        ),
+      )
+    }
+    if (options.operation === "graphics.image.vectorize") {
+      const input = parseGraphicsOperationInput(
+        options.operation,
+        options.input,
+      ) as VectorizeGraphicsOperationInput
+      return this.enqueueRender(async () => {
+        const source = await this.boundary.resolveInputFile(
+          input.inputPath,
+          vectorizeHardLimits.maxInputBytes,
+        )
+        // This request only validates the login. Source paths and bytes remain
+        // local and are never included in discovery or token traffic.
+        await requireGraphicsAuthentication(this.authDependencies)
+        const output = await this.boundary.prepareOutputFile(input.outputPath)
+        const result = await vectorizeImage(source.absolutePath, {
+          outputPath: output.absolutePath,
+          ...(input.duotone === undefined ? {} : { duotone: input.duotone }),
+          ...(input.alphaCutoff === undefined
+            ? {}
+            : { alphaCutoff: input.alphaCutoff }),
+          ...(input.timeoutMs === undefined
+            ? {}
+            : { limits: { maxDurationMs: input.timeoutMs } }),
+        })
+        return successResult(
+          `Executed ${options.operation}: ${output.relativePath}`,
+          {
+            ok: true,
+            operation: options.operation,
+            result: {
+              inputPath: source.relativePath,
+              outputPath: output.relativePath,
+              receipt: result.receipt,
+            },
+          },
+        )
+      })
+    }
+    const input = parseGraphicsOperationInput(
+      options.operation,
+      options.input,
+    ) as GenerateGraphicsOperationInput
+    const discovery = await requireGraphicsAuthentication(
+      this.authDependencies,
+    )
+    const output = await this.boundary.prepareOutputFile(input.outputPath)
+    const generated = await generateGraphicsImageFile(
+      { ...input, outputPath: output.absolutePath },
+      { ...this.authDependencies, discovery },
+    )
+    return successResult(
+      `Executed ${options.operation}: ${output.relativePath} (request ${safeFragment(generated.requestId, 256)}).`,
+      {
+        ok: true,
+        operation: options.operation,
+        result: {
+          bytes: generated.bytes,
+          idempotencyKey: generated.idempotencyKey,
+          mediaType: generated.mediaType,
+          model: generated.model,
+          outputPath: output.relativePath,
+          requestId: generated.requestId,
+        },
+      },
+    )
   }
 
   private async check(options: ParsedCheckArguments): Promise<McpToolResult> {

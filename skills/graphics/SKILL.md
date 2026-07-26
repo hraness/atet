@@ -1,6 +1,6 @@
 ---
 name: graphics
-description: Create or update concise diagrams from a literal user prompt, keep a checked `.diagram.json` source, generate light/dark image exports, provide editable tldraw interchange, or convert caller-owned raster artwork to bounded SVG. Use for diagrams, flowcharts, maps, visual explanations, architecture overviews, bar charts, `.tldr` files, paired knowledge-base visuals, or image-to-SVG conversion.
+description: Create or update concise diagrams from a literal user prompt, keep a checked `.diagram.json` source, generate light/dark exports, provide editable tldraw interchange, convert caller-owned raster artwork to bounded SVG, or generate one authenticated hosted WebP with an explicit supported model. Use for diagrams, flowcharts, maps, visual explanations, architecture overviews, bar charts, `.tldr` files, paired knowledge-base visuals, image-to-SVG conversion, semantic Graphics operation search/execute, or hosted image generation.
 ---
 
 # Create clear diagrams
@@ -105,6 +105,43 @@ If the repository uses its own font or icon package, read
 licensed font to the repository. Default rendering uses the system sans-serif
 stack.
 
+## Authenticate before gated image operations
+
+Use the OAuth browser flow when vectorization or hosted generation reports
+`AUTH_REQUIRED`:
+
+```sh
+graphics login
+graphics auth status
+```
+
+The callback is fixed at `http://127.0.0.1:49671/oauth/callback`. Tokens belong
+only in the operating-system credential store through `Bun.secrets`. Never ask
+the user to paste a token, copy one into a file, print one in task output, or
+bypass discovery. `graphics logout` revokes the remote credential when
+possible and always removes the local credential.
+
+## Generate one hosted WebP literally
+
+When the user explicitly asks for hosted raster generation, preserve their
+prompt rather than enriching it:
+
+```sh
+graphics generate '<literal prompt>' --output path/to/image.webp
+```
+
+The default model is `recraft/recraft-v4.1-utility`. Use
+`--model openai/gpt-image-1.5` only when the user asks for it or its behavior is
+material to the requested result. Those are the only supported IDs.
+
+- Keep the required `.webp` output path inside the user's requested workspace.
+- Let the CLI create an idempotency UUID. Supply `--idempotency-key` only when
+  a caller already owns a stable 16–128 character key.
+- Never retry a failed generation call: an error can be ambiguous even with
+  the process-local duplicate-mitigation key.
+- Do not decode, write, or trust the image yourself. The CLI bounds canonical
+  base64, validates RIFF/WebP media magic, and atomically publishes it.
+
 ## Vectorize a raster without changing its meaning
 
 When the user asks to convert caller-owned raster artwork to SVG, keep the
@@ -114,6 +151,9 @@ raster as the source and treat the SVG as a replaceable derivative:
 graphics vectorize path/to/input.png --output path/to/input.svg --json
 ```
 
+- Run `graphics login` first when needed. Authentication is a free feature
+  gate; the conversion remains local and does not upload the raster path or
+  bytes.
 - Do not redraw, relabel, crop, recolor, or simplify the subject beyond the
   trace mechanics the command measures.
 - Use `--duotone '#primary,#secondary'` only when the user explicitly asks for
@@ -135,9 +175,11 @@ unbounded temporary output file.
 
 ## Use a connected tool server narrowly
 
-When `check_diagram` and `render_diagram` are available through Graphics MCP,
-prefer them for validation and repeatable export. Continue to edit the checked
-source directly; the initial tool surface does not create or rewrite source.
+When Graphics MCP is connected, preserve the dedicated `check_diagram` and
+`render_diagram` tools for simple compatibility calls. Use `search_graphics`
+to discover the fixed semantic registry and `execute_graphics` with one exact
+returned code and typed JSON. Continue to edit checked diagram source directly;
+no tool creates or rewrites source.
 
 - Pass only root-relative `.diagram.json` paths.
 - Treat `check_diagram` as read-only.
@@ -148,8 +190,20 @@ source directly; the initial tool surface does not create or rewrite source.
 - MCP mode deliberately uses built-in themes and icons and never executes
   workspace config. Use the CLI outside MCP when a trusted local config is
   required.
-- Do not expect `vectorize` through the initial MCP surface. Use the explicit
-  CLI command so its possible first-use download remains visible.
+- `graphics.image.vectorize` accepts root-relative input/output paths, requires
+  login, and still keeps raster bytes local.
+- `graphics.image.generate` requires a root-relative `.webp` output path,
+  atomically writes the bounded image, and returns only redacted file/request
+  metadata. Use only the two registry model IDs and do not retry it.
+- Never pass source code, shell text, dynamic-import text, remote URLs, or
+  unregistered operation names to semantic execution.
+
+Without MCP, the equivalent machine-readable CLI surface is:
+
+```sh
+graphics code search '<terms>' --limit 4
+graphics code execute <exact-operation-code> --input '<strict JSON object>'
+```
 
 ## Use tldraw deliberately
 
