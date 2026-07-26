@@ -931,6 +931,8 @@ async function acquireGraphicsCredentialMutationLease(dependencies, purpose) {
 var graphicsSecretsService = "com.hraness.graphics.cli";
 var graphicsSecretsName = "oauth2-tokens";
 var tokenResponseMaximumBytes = 64 * 1024;
+var authorizationResponseMaximumBytes = 32 * 1024;
+var authorizationLaunchUrlMaximumBytes = 16 * 1024;
 var storedCredentialMaximumBytes = 64 * 1024;
 var maximumTokenLength = 16 * 1024;
 var expirySkewMilliseconds = 60000;

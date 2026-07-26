@@ -169,6 +169,23 @@ function discoveryResponse(): Response {
   return Response.json(discoveryValue())
 }
 
+function isAuthorizationRequest(input: string | URL | Request): boolean {
+  const url = new URL(String(input))
+  return url.origin + url.pathname ===
+    graphicsProductionContract.authorizationEndpoint
+}
+
+function authorizationBootstrapResponse(
+  input: string | URL | Request,
+): Response {
+  const state = new URL(String(input)).searchParams.get("state")
+  expect(state).not.toBeNull()
+  return Response.json({
+    redirect: true,
+    url: `/login?state=${encodeURIComponent(state!)}`,
+  })
+}
+
 function deferred(): {
   readonly promise: Promise<void>
   readonly resolve: () => void
@@ -907,12 +924,29 @@ describe("Graphics OAuth login", () => {
 
   test("completes the fixed loopback callback before exchanging and stores only in secrets", async () => {
     const secrets = new MemorySecrets()
+    let authorizationCalls = 0
     let exchangeCalls = 0
     const status = await loginGraphics({
       secrets,
       now: () => 10_000,
       fetch: async (input, init) => {
         if (String(input) === graphicsDiscoveryUrl) return discoveryResponse()
+        if (isAuthorizationRequest(input)) {
+          authorizationCalls += 1
+          expect(init?.method).toBe("GET")
+          expect(init?.redirect).toBe("manual")
+          expect(init?.headers).toMatchObject({ accept: "application/json" })
+          const url = new URL(String(input))
+          expect(url.searchParams.get("response_type")).toBe("code")
+          expect(url.searchParams.get("redirect_uri")).toBe(
+            graphicsRedirectUri,
+          )
+          expect(url.searchParams.get("code_challenge_method")).toBe("S256")
+          expect(url.searchParams.get("code_challenge")).toMatch(
+            /^[A-Za-z0-9_-]{43}$/u,
+          )
+          return authorizationBootstrapResponse(input)
+        }
         exchangeCalls += 1
         expect(String(input)).toBe(graphicsProductionContract.tokenEndpoint)
         expect(init?.redirect).toBe("error")
@@ -927,8 +961,13 @@ describe("Graphics OAuth login", () => {
           expires_in: 3_600,
         })
       },
-      openUrl: async (authorizationUrl) => {
-        const state = new URL(authorizationUrl).searchParams.get("state")
+      openUrl: async (launchUrl) => {
+        const parsedLaunchUrl = new URL(launchUrl)
+        expect(parsedLaunchUrl.origin).toBe(
+          graphicsProductionContract.issuer,
+        )
+        expect(parsedLaunchUrl.pathname).toBe("/login")
+        const state = parsedLaunchUrl.searchParams.get("state")
         expect(state).not.toBeNull()
         const callback = new URL(graphicsRedirectUri)
         callback.searchParams.set("state", state!)
@@ -941,12 +980,190 @@ describe("Graphics OAuth login", () => {
         await new Promise<void>(() => undefined)
       },
     })
+    expect(authorizationCalls).toBe(1)
     expect(exchangeCalls).toBe(1)
     expect(status).toMatchObject({ authenticated: true, refreshable: true })
     expect(JSON.parse(secrets.value ?? "{}")).toMatchObject({
       accessToken: "login-access-token",
       refreshToken: "login-refresh-token",
     })
+  })
+
+  test("accepts a future manual 3xx authorization redirect on the trusted issuer", async () => {
+    const secrets = new MemorySecrets()
+    let openedUrl: string | undefined
+    const status = await loginGraphics({
+      secrets,
+      now: () => 20_000,
+      fetch: async (input, init) => {
+        if (String(input) === graphicsDiscoveryUrl) return discoveryResponse()
+        if (isAuthorizationRequest(input)) {
+          expect(init?.redirect).toBe("manual")
+          const state = new URL(String(input)).searchParams.get("state")
+          expect(state).not.toBeNull()
+          return new Response(null, {
+            status: 302,
+            headers: {
+              location:
+                `${graphicsProductionContract.issuer}/login?state=${encodeURIComponent(state!)}`,
+            },
+          })
+        }
+        expect(String(input)).toBe(graphicsProductionContract.tokenEndpoint)
+        return Response.json({
+          access_token: "redirect-access-token",
+          refresh_token: "redirect-refresh-token",
+          token_type: "Bearer",
+          expires_in: 3_600,
+        })
+      },
+      openUrl: async (launchUrl) => {
+        openedUrl = launchUrl
+        await completeLoginCallback(launchUrl, "redirect-login-code")
+      },
+    })
+
+    expect(openedUrl).toStartWith(
+      `${graphicsProductionContract.issuer}/login?state=`,
+    )
+    expect(status).toMatchObject({ authenticated: true, refreshable: true })
+  })
+
+  test("fails closed on malformed, oversized, non-JSON, and implicitly followed authorization responses", async () => {
+    const implicitlyFollowed = Response.json({
+      redirect: true,
+      url: "/login",
+    })
+    Object.defineProperty(implicitlyFollowed, "redirected", { value: true })
+    const cases: ReadonlyArray<{
+      readonly name: string
+      readonly response: () => Response
+    }> = [
+      {
+        name: "non-success status",
+        response: () => Response.json({ redirect: true, url: "/login" }, { status: 500 }),
+      },
+      {
+        name: "missing redirect location",
+        response: () => new Response(null, { status: 302 }),
+      },
+      {
+        name: "foreign redirect location",
+        response: () =>
+          new Response(null, {
+            status: 302,
+            headers: { location: "https://foreign.example/login" },
+          }),
+      },
+      {
+        name: "non-JSON content type",
+        response: () =>
+          new Response('{"redirect":true,"url":"/login"}', {
+            headers: { "content-type": "text/html" },
+          }),
+      },
+      {
+        name: "malformed JSON",
+        response: () =>
+          new Response("not-json", {
+            headers: { "content-type": "application/json" },
+          }),
+      },
+      {
+        name: "malformed UTF-8",
+        response: () =>
+          new Response(Uint8Array.of(0xff), {
+            headers: { "content-type": "application/json" },
+          }),
+      },
+      {
+        name: "oversized body",
+        response: () =>
+          new Response("{}", {
+            headers: {
+              "content-type": "application/json",
+              "content-length": String(32 * 1024 + 1),
+            },
+          }),
+      },
+      {
+        name: "false redirect marker",
+        response: () => Response.json({ redirect: false, url: "/login" }),
+      },
+      {
+        name: "extra response field",
+        response: () =>
+          Response.json({ redirect: true, url: "/login", extra: true }),
+      },
+      {
+        name: "implicitly followed redirect",
+        response: () => implicitlyFollowed,
+      },
+    ]
+
+    for (const current of cases) {
+      let openCalls = 0
+      await expect(
+        loginGraphics({
+          secrets: new MemorySecrets(),
+          fetch: async (input) => {
+            if (String(input) === graphicsDiscoveryUrl) {
+              return discoveryResponse()
+            }
+            if (isAuthorizationRequest(input)) return current.response()
+            throw new Error(`unexpected request in ${current.name}`)
+          },
+          openUrl: async () => {
+            openCalls += 1
+          },
+        }),
+      ).rejects.toThrow(
+        "[AUTHORIZATION_FAILED] Graphics could not start the authorization flow.",
+      )
+      expect(openCalls).toBe(0)
+    }
+  })
+
+  test("opens only bounded HTTPS URLs on the exact trusted issuer origin", async () => {
+    const unsafeUrls = [
+      "https://foreign.example/login",
+      "https://account.hraness.com.evil.example/login",
+      "https://user:password@account.hraness.com/login",
+      "https://account.hraness.com:444/login",
+      "http://account.hraness.com/login",
+      "javascript:alert(1)",
+      "//account.hraness.com/login",
+      "login",
+      "../login",
+      "/\\\\foreign.example/login",
+      "/login#fragment",
+      " https://account.hraness.com/login",
+      `/${"a".repeat(16 * 1024)}`,
+    ] as const
+
+    for (const unsafeUrl of unsafeUrls) {
+      let openCalls = 0
+      await expect(
+        loginGraphics({
+          secrets: new MemorySecrets(),
+          fetch: async (input) => {
+            if (String(input) === graphicsDiscoveryUrl) {
+              return discoveryResponse()
+            }
+            if (isAuthorizationRequest(input)) {
+              return Response.json({ redirect: true, url: unsafeUrl })
+            }
+            throw new Error("an unsafe launch URL reached token exchange")
+          },
+          openUrl: async () => {
+            openCalls += 1
+          },
+        }),
+      ).rejects.toThrow(
+        "[AUTHORIZATION_FAILED] Graphics could not start the authorization flow.",
+      )
+      expect(openCalls).toBe(0)
+    }
   })
 
   test("shares the mutation lease so an explicit login wins over an older in-flight refresh", async () => {
@@ -992,6 +1209,9 @@ describe("Graphics OAuth login", () => {
         credentialLease: lease,
         fetch: async (input, init) => {
           if (String(input) === graphicsDiscoveryUrl) return discoveryResponse()
+          if (isAuthorizationRequest(input)) {
+            return authorizationBootstrapResponse(input)
+          }
           const form = new URLSearchParams(String(init?.body))
           expect(form.get("grant_type")).toBe("authorization_code")
           loginExchanged.resolve()
@@ -1111,7 +1331,15 @@ describe("Graphics OAuth login", () => {
       await expect(
         loginGraphics({
           secrets,
-          fetch: async () => discoveryResponse(),
+          fetch: async (input) => {
+            if (String(input) === graphicsDiscoveryUrl) {
+              return discoveryResponse()
+            }
+            if (isAuthorizationRequest(input)) {
+              return authorizationBootstrapResponse(input)
+            }
+            throw new Error("unexpected token exchange")
+          },
           openUrl: async () => {
             throw new Error("browser unavailable with private detail")
           },

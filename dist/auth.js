@@ -930,6 +930,8 @@ async function acquireGraphicsCredentialMutationLease(dependencies, purpose) {
 var graphicsSecretsService = "com.hraness.graphics.cli";
 var graphicsSecretsName = "oauth2-tokens";
 var tokenResponseMaximumBytes = 64 * 1024;
+var authorizationResponseMaximumBytes = 32 * 1024;
+var authorizationLaunchUrlMaximumBytes = 16 * 1024;
 var storedCredentialMaximumBytes = 64 * 1024;
 var maximumTokenLength = 16 * 1024;
 var callbackPort = 49671;
@@ -1201,6 +1203,88 @@ async function defaultOpenUrl(url) {
     throw new GraphicsCloudError("AUTHORIZATION_FAILED", "Graphics could not open the authorization page.");
   }
 }
+function authorizationLaunchFailure(options) {
+  return new GraphicsCloudError("AUTHORIZATION_FAILED", "Graphics could not start the authorization flow.", options);
+}
+function validateAuthorizationLaunchUrl(discovery, value) {
+  if (typeof value !== "string" || value.length < 1 || Buffer.byteLength(value, "utf8") > authorizationLaunchUrlMaximumBytes || /[\u0000-\u0020\u007f]/u.test(value) || value.includes("\\") || value.includes("#")) {
+    throw authorizationLaunchFailure();
+  }
+  const isRootRelative = value.startsWith("/") && !value.startsWith("//");
+  const isHttpsAbsolute = /^https:\/\//iu.test(value);
+  if (!isRootRelative && !isHttpsAbsolute) {
+    throw authorizationLaunchFailure();
+  }
+  if (/^https:\/\/[^/?#]*@/iu.test(value)) {
+    throw authorizationLaunchFailure();
+  }
+  let url;
+  let issuer;
+  try {
+    issuer = new URL(discovery.authorization.issuer);
+    url = new URL(value, issuer);
+  } catch {
+    throw authorizationLaunchFailure();
+  }
+  if (url.protocol !== "https:" || url.origin !== issuer.origin || url.username !== "" || url.password !== "" || url.hash !== "") {
+    throw authorizationLaunchFailure();
+  }
+  return url.href;
+}
+async function fetchAuthorizationLaunchUrl(discovery, authorizationUrl, dependencies) {
+  let response;
+  try {
+    response = await (dependencies.fetch ?? fetch)(authorizationUrl, {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        "user-agent": "hraness-graphics-cli/0.4.0"
+      },
+      redirect: "manual",
+      signal: AbortSignal.timeout(15000)
+    });
+  } catch (cause) {
+    throw authorizationLaunchFailure({ cause });
+  }
+  if (response.redirected) {
+    await response.body?.cancel().catch(() => {
+      return;
+    });
+    throw authorizationLaunchFailure();
+  }
+  if (response.status >= 300 && response.status <= 399) {
+    const location = response.headers.get("location");
+    await response.body?.cancel().catch(() => {
+      return;
+    });
+    return validateAuthorizationLaunchUrl(discovery, location);
+  }
+  if (response.status !== 200) {
+    await response.body?.cancel().catch(() => {
+      return;
+    });
+    throw authorizationLaunchFailure();
+  }
+  const contentType = response.headers.get("content-type");
+  if (contentType === null || !/^application\/json(?:\s*;\s*charset=(?:utf-8|"utf-8"))?$/iu.test(contentType)) {
+    await response.body?.cancel().catch(() => {
+      return;
+    });
+    throw authorizationLaunchFailure();
+  }
+  const failure = authorizationLaunchFailure();
+  const bytes = await readBoundedResponseBytes(response, authorizationResponseMaximumBytes, failure);
+  let value;
+  try {
+    value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw failure;
+  }
+  if (!isRecord2(value) || value.redirect !== true || Object.keys(value).length !== 2 || !("url" in value)) {
+    throw failure;
+  }
+  return validateAuthorizationLaunchUrl(discovery, value.url);
+}
 async function tokenRequest(discovery, body, failureCode, dependencies) {
   const failure = new GraphicsCloudError(failureCode, failureCode === "TOKEN_EXCHANGE_FAILED" ? "Graphics could not exchange the authorization code." : "Graphics could not refresh the login.");
   let response;
@@ -1279,7 +1363,8 @@ async function loginGraphics(dependencies = {}) {
   try {
     const launch = (async () => {
       try {
-        await (dependencies.openUrl ?? defaultOpenUrl)(authorizationUrl);
+        const launchUrl = await fetchAuthorizationLaunchUrl(discovery, authorizationUrl, dependencies);
+        await (dependencies.openUrl ?? defaultOpenUrl)(launchUrl);
       } catch (cause) {
         if (cause instanceof GraphicsCloudError)
           throw cause;
