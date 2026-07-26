@@ -282,7 +282,8 @@ test("bounded commands reap background descendants after a successful leader exi
     const parentProgram = [
       `const child = Bun.spawn([process.execPath, "-e", ${JSON.stringify(childProgram)}], { stderr: "inherit", stdin: "ignore", stdout: "inherit" })`,
       "child.unref()",
-      "await Bun.sleep(50)",
+      `for (let attempt = 0; attempt < 200 && !(await Bun.file(${JSON.stringify(childPidPath)}).exists()); attempt += 1) await Bun.sleep(10)`,
+      `if (!(await Bun.file(${JSON.stringify(childPidPath)}).exists())) process.exit(4)`,
     ].join(";")
     await runBoundedCommand(
       [process.execPath, "-e", parentProgram],

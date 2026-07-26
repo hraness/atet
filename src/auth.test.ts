@@ -11,6 +11,7 @@ import {
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { performance } from "node:perf_hooks"
 import {
   buildGraphicsAuthorizationUrl,
   createPkcePair,
@@ -183,12 +184,14 @@ async function waitForLeaseMarkers(
   directory: string,
   minimum: number,
 ): Promise<readonly string[]> {
-  for (let attempt = 0; attempt < 500; attempt += 1) {
+  const deadline = performance.now() + 5_000
+  for (;;) {
     const markers = (await readdir(directory)).filter((entry) =>
       entry.startsWith("lease-v4-"),
     )
     if (markers.length >= minimum) return markers
-    await Bun.sleep(0)
+    if (performance.now() >= deadline) break
+    await Bun.sleep(2)
   }
   throw new Error("credential lease contenders were not published")
 }
