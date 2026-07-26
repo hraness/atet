@@ -26,6 +26,12 @@ export const graphicsImageModels = Object.freeze([
 export const graphicsResponseMediaTypes = Object.freeze([
   "image/webp",
 ] as const)
+export const graphicsImageGenerationQuota = Object.freeze({
+  accountDailyLimit: 10,
+  globalDailySafetyLimit: 100,
+  paymentEnforced: false,
+  period: "utc-day",
+} as const)
 
 export type GraphicsImageModel = (typeof graphicsImageModels)[number]
 export type GraphicsResponseMediaType =
@@ -55,6 +61,8 @@ export interface GraphicsDiscoveryDocument {
     readonly generateImage: typeof graphicsProductionContract.generateImage
   }
   readonly imageGeneration: {
+    readonly access: "authenticated"
+    readonly billing: "free-preview"
     readonly models: typeof graphicsImageModels
     readonly maximumPromptBytes:
       typeof graphicsProductionContract.maximumPromptBytes
@@ -62,10 +70,11 @@ export interface GraphicsDiscoveryDocument {
       typeof graphicsProductionContract.maximumRawImageBytes
     readonly imagesPerRequest: 1
     readonly responseMediaTypes: readonly ["image/webp"]
+    readonly quota: typeof graphicsImageGenerationQuota
     readonly idempotency: {
       readonly header: "Idempotency-Key"
-      readonly durable: false
-      readonly scope: "process-local-mvp"
+      readonly durable: true
+      readonly scope: "suite-account"
     }
   }
   readonly features: {
@@ -187,26 +196,55 @@ function parseImageGeneration(
 ): GraphicsDiscoveryDocument["imageGeneration"] {
   if (!isRecord(value)) invalidDiscovery()
   exactKeys(value, [
+    "access",
+    "billing",
     "models",
     "maximumPromptBytes",
     "maximumRawImageBytes",
     "imagesPerRequest",
     "responseMediaTypes",
+    "quota",
     "idempotency",
   ])
+  if (
+    value.access !== "authenticated" ||
+    value.billing !== "free-preview"
+  ) {
+    invalidDiscovery()
+  }
   exactStringTuple(value.models, graphicsImageModels)
   if (value.imagesPerRequest !== 1) invalidDiscovery()
   exactStringTuple(value.responseMediaTypes, ["image/webp"])
+  if (!isRecord(value.quota)) invalidDiscovery()
+  exactKeys(value.quota, [
+    "accountDailyLimit",
+    "globalDailySafetyLimit",
+    "paymentEnforced",
+    "period",
+  ])
+  if (
+    value.quota.accountDailyLimit !==
+      graphicsImageGenerationQuota.accountDailyLimit ||
+    value.quota.globalDailySafetyLimit !==
+      graphicsImageGenerationQuota.globalDailySafetyLimit ||
+    value.quota.paymentEnforced !==
+      graphicsImageGenerationQuota.paymentEnforced ||
+    value.quota.period !== graphicsImageGenerationQuota.period
+  ) {
+    invalidDiscovery()
+  }
   if (!isRecord(value.idempotency)) invalidDiscovery()
   exactKeys(value.idempotency, ["header", "durable", "scope"])
   if (
     value.idempotency.header !== "Idempotency-Key" ||
-    value.idempotency.durable !== false ||
-    value.idempotency.scope !== "process-local-mvp"
+    value.idempotency.durable !== true ||
+    value.idempotency.scope !== "suite-account"
   ) {
     invalidDiscovery()
   }
   return {
+    access: "authenticated",
+    billing: "free-preview",
     models: graphicsImageModels,
     maximumPromptBytes:
       positiveInteger(value.maximumPromptBytes, graphicsMaximumPromptBytes) ===
@@ -222,10 +260,11 @@ function parseImageGeneration(
         : invalidDiscovery(),
     imagesPerRequest: 1,
     responseMediaTypes: ["image/webp"],
+    quota: graphicsImageGenerationQuota,
     idempotency: {
       header: "Idempotency-Key",
-      durable: false,
-      scope: "process-local-mvp",
+      durable: true,
+      scope: "suite-account",
     },
   }
 }

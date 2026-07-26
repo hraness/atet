@@ -118,8 +118,12 @@ graphics auth status
 The callback is fixed at `http://127.0.0.1:49671/oauth/callback`. Tokens belong
 only in the operating-system credential store through `Bun.secrets`. Never ask
 the user to paste a token, copy one into a file, print one in task output, or
-bypass discovery. `graphics logout` revokes the remote credential when
-possible and always removes the local credential.
+bypass discovery. On supported macOS and Linux hosts, `graphics logout` revokes
+the remote credential when possible and removes the local credential. Login,
+refresh, and logout use process-scope-bound coordination; sharing its lease
+directory across Linux PID namespaces fails closed without deleting another
+scope's marker. Credential mutations fail closed on Windows until Graphics has
+an equivalent private native coordination primitive.
 
 ## Generate one hosted WebP literally
 
@@ -134,11 +138,17 @@ The default model is `recraft/recraft-v4.1-utility`. Use
 `--model openai/gpt-image-1.5` only when the user asks for it or its behavior is
 material to the requested result. Those are the only supported IDs.
 
+Hosted generation is an authenticated, bounded free preview. Its UTC-day
+account limit is 10 and its global daily safety limit is 100. Payment is not
+yet enforced. Vectorization is governed separately and remains authenticated,
+local, and free.
+
 - Keep the required `.webp` output path inside the user's requested workspace.
 - Let the CLI create an idempotency UUID. Supply `--idempotency-key` only when
-  a caller already owns a stable 16–128 character key.
+  a caller already owns a stable 16–128 character key. The service stores the
+  key durably within the suite-account scope.
 - Never retry a failed generation call: an error can be ambiguous even with
-  the process-local duplicate-mitigation key.
+  durable account-scoped idempotency.
 - Do not decode, write, or trust the image yourself. The CLI bounds canonical
   base64, validates RIFF/WebP media magic, and atomically publishes it.
 

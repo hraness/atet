@@ -10,6 +10,14 @@ import {
   type GraphicsFetch,
 } from "./discovery.ts"
 import { GraphicsCloudError } from "./cloud-errors.ts"
+import {
+  acquireGraphicsCredentialMutationLease,
+  assertGraphicsCredentialMutationPlatformSupported,
+  throwIfGraphicsCredentialMutationCancelled,
+  type GraphicsCredentialMutationLeaseOptions,
+} from "./credential-lease.ts"
+
+export type { GraphicsCredentialMutationLeaseOptions } from "./credential-lease.ts"
 
 export const graphicsSecretsService = "com.hraness.graphics.cli"
 export const graphicsSecretsName = "oauth2-tokens"
@@ -54,6 +62,7 @@ export interface GraphicsAuthDependencies {
   readonly now?: () => number
   readonly openUrl?: (url: string) => Promise<void>
   readonly secrets?: GraphicsSecretStore
+  readonly credentialLease?: GraphicsCredentialMutationLeaseOptions
 }
 
 function secretStore(
@@ -589,6 +598,7 @@ function credentialsFromToken(
 export async function loginGraphics(
   dependencies: GraphicsAuthDependencies = {},
 ): Promise<GraphicsAuthStatus> {
+  assertGraphicsCredentialMutationPlatformSupported("login")
   const discovery = await fetchGraphicsDiscovery(dependencies.fetch)
   const { verifier, challenge } = createPkcePair()
   const state = base64Url(randomBytes(32))
@@ -638,7 +648,21 @@ export async function loginGraphics(
     )
     const now = (dependencies.now ?? Date.now)()
     const credentials = credentialsFromToken(discovery, token, now)
-    await storeCredentials(credentials, dependencies)
+    const lease = await acquireGraphicsCredentialMutationLease(
+      dependencies,
+      "login",
+    )
+    try {
+      throwIfGraphicsCredentialMutationCancelled(dependencies, "login")
+      // Reread after acquiring the shared mutation lease. A login deliberately
+      // replaces whichever credential state won the preceding mutation.
+      await loadCredentials(dependencies)
+      await lease.assertOwned()
+      throwIfGraphicsCredentialMutationCancelled(dependencies, "login")
+      await storeCredentials(credentials, dependencies)
+    } finally {
+      await lease.release()
+    }
     return {
       authenticated: true,
       expiresAt: new Date(credentials.expiresAt).toISOString(),
@@ -649,31 +673,59 @@ export async function loginGraphics(
   }
 }
 
-const refreshes = new WeakMap<GraphicsSecretStore, Promise<string>>()
+function credentialsMatchDiscovery(
+  credentials: StoredGraphicsCredentials,
+  discovery: GraphicsDiscoveryDocument,
+): boolean {
+  return (
+    credentials.issuer === discovery.authorization.issuer &&
+    credentials.clientId === discovery.authorization.clientId &&
+    credentials.resource === discovery.authorization.resource
+  )
+}
 
 async function refreshAccessToken(
   discovery: GraphicsDiscoveryDocument,
-  credentials: StoredGraphicsCredentials,
   dependencies: GraphicsAuthDependencies,
 ): Promise<string> {
-  const refreshToken = credentials.refreshToken
-  if (refreshToken === undefined) {
-    throw new GraphicsCloudError(
-      "AUTH_REQUIRED",
-      "Graphics login is missing or expired. Run `graphics login`.",
-    )
-  }
-  const store = secretStore(dependencies)
-  const active = refreshes.get(store)
-  if (active !== undefined) return active
-
-  const operation = (async () => {
+  const lease = await acquireGraphicsCredentialMutationLease(
+    dependencies,
+    "refresh",
+  )
+  try {
+    const credentials = await loadCredentials(dependencies)
+    if (
+      credentials === null ||
+      !credentialsMatchDiscovery(credentials, discovery)
+    ) {
+      throw new GraphicsCloudError(
+        "AUTH_REQUIRED",
+        "Graphics login is missing or expired. Run `graphics login`.",
+      )
+    }
+    const now = (dependencies.now ?? Date.now)()
+    if (credentials.expiresAt > now + expirySkewMilliseconds) {
+      return credentials.accessToken
+    }
+    const refreshToken = credentials.refreshToken
+    if (refreshToken === undefined) {
+      throw new GraphicsCloudError(
+        "AUTH_REQUIRED",
+        "Graphics login is missing or expired. Run `graphics login`.",
+      )
+    }
     const form = new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
       client_id: discovery.authorization.clientId,
       resource: discovery.authorization.resource,
     })
+    await lease.assertOwned()
+    // Cancellation has a precise dispatch boundary: it is honored after the
+    // asynchronous credential reread and ownership check, immediately before
+    // the refresh POST. Once dispatched, the bounded exchange and credential
+    // write complete so a rotated response is never discarded locally.
+    throwIfGraphicsCredentialMutationCancelled(dependencies, "refresh")
     const token = await tokenRequest(
       discovery,
       form,
@@ -686,14 +738,11 @@ async function refreshAccessToken(
       (dependencies.now ?? Date.now)(),
       refreshToken,
     )
+    await lease.assertOwned()
     await storeCredentials(next, dependencies)
     return next.accessToken
-  })()
-  refreshes.set(store, operation)
-  try {
-    return await operation
   } finally {
-    if (refreshes.get(store) === operation) refreshes.delete(store)
+    await lease.release()
   }
 }
 
@@ -718,7 +767,7 @@ export async function getGraphicsAccessToken(
   if (credentials.expiresAt > now + expirySkewMilliseconds) {
     return credentials.accessToken
   }
-  return refreshAccessToken(trustedDiscovery, credentials, dependencies)
+  return refreshAccessToken(trustedDiscovery, dependencies)
 }
 
 /**
@@ -760,80 +809,89 @@ export async function graphicsAuthStatus(
 export async function logoutGraphics(
   dependencies: GraphicsAuthDependencies = {},
 ): Promise<{ readonly removed: boolean; readonly revoked: boolean }> {
-  const credentials = await loadCredentials(dependencies)
-  if (credentials === null) return { removed: false, revoked: false }
-
-  let revocationError: GraphicsCloudError | undefined
-  let revoked = false
+  assertGraphicsCredentialMutationPlatformSupported("logout")
+  const lease = await acquireGraphicsCredentialMutationLease(
+    dependencies,
+    "logout",
+  )
   try {
-    const discovery = await fetchGraphicsDiscovery(dependencies.fetch)
-    if (
-      credentials.issuer !== discovery.authorization.issuer ||
-      credentials.clientId !== discovery.authorization.clientId ||
-      credentials.resource !== discovery.authorization.resource
-    ) {
-      throw new GraphicsCloudError(
-        "REVOCATION_FAILED",
-        "Graphics could not verify the stored login before revocation.",
-      )
-    }
-    const token = credentials.refreshToken ?? credentials.accessToken
-    const tokenTypeHint =
-      credentials.refreshToken === undefined ? "access_token" : "refresh_token"
-    let response: Response
-    try {
-      response = await (dependencies.fetch ?? fetch)(
-        discovery.authorization.revocationEndpoint,
-        {
-          method: "POST",
-          headers: {
-            accept: "application/json",
-            "content-type": "application/x-www-form-urlencoded",
-            "user-agent": "hraness-graphics-cli/0.4.0",
-          },
-          body: new URLSearchParams({
-            token,
-            token_type_hint: tokenTypeHint,
-            client_id: discovery.authorization.clientId,
-          }),
-          redirect: "error",
-          signal: AbortSignal.timeout(15_000),
-        },
-      )
-    } catch (cause) {
-      throw new GraphicsCloudError(
-        "REVOCATION_FAILED",
-        "Graphics could not revoke the remote login.",
-        { cause },
-      )
-    }
-    await readBoundedResponseBytes(
-      response,
-      16 * 1024,
-      new GraphicsCloudError(
-        "REVOCATION_FAILED",
-        "Graphics received an invalid revocation response.",
-      ),
-    )
-    if (!response.ok) {
-      throw new GraphicsCloudError(
-        "REVOCATION_FAILED",
-        "Graphics could not revoke the remote login.",
-      )
-    }
-    revoked = true
-  } catch (error) {
-    revocationError =
-      error instanceof GraphicsCloudError
-        ? error
-        : new GraphicsCloudError(
-            "REVOCATION_FAILED",
-            "Graphics could not revoke the remote login.",
-            { cause: error },
-          )
-  }
+    const credentials = await loadCredentials(dependencies)
+    if (credentials === null) return { removed: false, revoked: false }
 
-  const removed = await deleteCredentials(dependencies)
-  if (revocationError !== undefined) throw revocationError
-  return { removed, revoked }
+    let revocationError: GraphicsCloudError | undefined
+    let revoked = false
+    try {
+      const discovery = await fetchGraphicsDiscovery(dependencies.fetch)
+      if (!credentialsMatchDiscovery(credentials, discovery)) {
+        throw new GraphicsCloudError(
+          "REVOCATION_FAILED",
+          "Graphics could not verify the stored login before revocation.",
+        )
+      }
+      const token = credentials.refreshToken ?? credentials.accessToken
+      const tokenTypeHint =
+        credentials.refreshToken === undefined
+          ? "access_token"
+          : "refresh_token"
+      let response: Response
+      try {
+        await lease.assertOwned()
+        response = await (dependencies.fetch ?? fetch)(
+          discovery.authorization.revocationEndpoint,
+          {
+            method: "POST",
+            headers: {
+              accept: "application/json",
+              "content-type": "application/x-www-form-urlencoded",
+              "user-agent": "hraness-graphics-cli/0.4.0",
+            },
+            body: new URLSearchParams({
+              token,
+              token_type_hint: tokenTypeHint,
+              client_id: discovery.authorization.clientId,
+            }),
+            redirect: "error",
+            signal: AbortSignal.timeout(15_000),
+          },
+        )
+      } catch (cause) {
+        throw new GraphicsCloudError(
+          "REVOCATION_FAILED",
+          "Graphics could not revoke the remote login.",
+          { cause },
+        )
+      }
+      await readBoundedResponseBytes(
+        response,
+        16 * 1024,
+        new GraphicsCloudError(
+          "REVOCATION_FAILED",
+          "Graphics received an invalid revocation response.",
+        ),
+      )
+      if (!response.ok) {
+        throw new GraphicsCloudError(
+          "REVOCATION_FAILED",
+          "Graphics could not revoke the remote login.",
+        )
+      }
+      revoked = true
+    } catch (error) {
+      revocationError =
+        error instanceof GraphicsCloudError
+          ? error
+          : new GraphicsCloudError(
+              "REVOCATION_FAILED",
+              "Graphics could not revoke the remote login.",
+              { cause: error },
+            )
+    }
+
+    await lease.assertOwned()
+    const removed = await deleteCredentials(dependencies)
+    if (revocationError !== undefined) throw revocationError
+    return { removed, revoked }
+  } finally {
+    await lease.release()
+  }
 }

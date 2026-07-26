@@ -1,4 +1,6 @@
 import { type GraphicsDiscoveryDocument, type GraphicsFetch } from "./discovery.js";
+import { type GraphicsCredentialMutationLeaseOptions } from "./credential-lease.js";
+export type { GraphicsCredentialMutationLeaseOptions } from "./credential-lease.js";
 export declare const graphicsSecretsService = "com.hraness.graphics.cli";
 export declare const graphicsSecretsName = "oauth2-tokens";
 export interface GraphicsSecretStore {
@@ -35,6 +37,7 @@ export interface GraphicsAuthDependencies {
     readonly now?: () => number;
     readonly openUrl?: (url: string) => Promise<void>;
     readonly secrets?: GraphicsSecretStore;
+    readonly credentialLease?: GraphicsCredentialMutationLeaseOptions;
 }
 export declare function createPkcePair(): {
     readonly verifier: string;

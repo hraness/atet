@@ -291,7 +291,7 @@ export const graphicsMcpTools: readonly McpToolDefinition[] = deepFreeze([
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: false,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   },
 ])

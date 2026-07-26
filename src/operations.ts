@@ -164,7 +164,7 @@ export const graphicsOperationRegistry: readonly GraphicsOperationDescriptor[] =
       code: "graphics.image.generate",
       title: "Generate image",
       description:
-        "Generate one bounded WebP with an explicitly supported hosted model, process-local duplicate mitigation, and no ambiguous retry.",
+        "Generate one bounded free-preview WebP with an explicitly supported hosted model, durable suite-account idempotency, and no ambiguous retry.",
       execution: "hosted",
       authentication: "required",
       destructive: true,

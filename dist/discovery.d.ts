@@ -17,6 +17,12 @@ export declare const graphicsProductionContract: Readonly<{
 }>;
 export declare const graphicsImageModels: readonly ["openai/gpt-image-1.5", "recraft/recraft-v4.1-utility"];
 export declare const graphicsResponseMediaTypes: readonly ["image/webp"];
+export declare const graphicsImageGenerationQuota: Readonly<{
+    readonly accountDailyLimit: 10;
+    readonly globalDailySafetyLimit: 100;
+    readonly paymentEnforced: false;
+    readonly period: "utc-day";
+}>;
 export type GraphicsImageModel = (typeof graphicsImageModels)[number];
 export type GraphicsResponseMediaType = (typeof graphicsResponseMediaTypes)[number];
 export interface GraphicsDiscoveryDocument {
@@ -41,15 +47,18 @@ export interface GraphicsDiscoveryDocument {
         readonly generateImage: typeof graphicsProductionContract.generateImage;
     };
     readonly imageGeneration: {
+        readonly access: "authenticated";
+        readonly billing: "free-preview";
         readonly models: typeof graphicsImageModels;
         readonly maximumPromptBytes: typeof graphicsProductionContract.maximumPromptBytes;
         readonly maximumRawImageBytes: typeof graphicsProductionContract.maximumRawImageBytes;
         readonly imagesPerRequest: 1;
         readonly responseMediaTypes: readonly ["image/webp"];
+        readonly quota: typeof graphicsImageGenerationQuota;
         readonly idempotency: {
             readonly header: "Idempotency-Key";
-            readonly durable: false;
-            readonly scope: "process-local-mvp";
+            readonly durable: true;
+            readonly scope: "suite-account";
         };
     };
     readonly features: {

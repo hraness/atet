@@ -50,14 +50,23 @@
 - Use OAuth authorization-code with S256 PKCE and only the fixed
   `127.0.0.1:49671` loopback callback. Store token material only in
   `Bun.secrets`; never put it in files, stdout, error messages, receipts, or
-  structured tool content. Serialize refreshes and preserve rotated refresh
-  tokens safely.
+  structured tool content. Serialize login, refresh, and logout through one
+  private per-user mutation lease whose empty markers bind process-inspection
+  scope, PID, and OS start identity. Treat a marker from another scope, including
+  another Linux PID namespace, as uninspectable and fail closed without removing
+  it. Reread credentials inside the lease and preserve rotated refresh tokens.
+  Check cancellation immediately before refresh dispatch; after dispatch,
+  finish the bounded exchange and persist its response. Fail credential
+  mutations closed on platforms without a verified private cross-process
+  primitive; a caller path override is not proof of one.
 - A Graphics login gates vectorization, but vectorization remains free and
   local: never send its path or bytes to discovery, OAuth, generation, or any
   other network endpoint.
 - Hosted generation supports only the two checked model IDs and WebP output.
-  Send one required `Idempotency-Key`, never retry an ambiguous generation
-  request, bound and validate base64 plus media magic, and atomically publish
-  the caller-selected `.webp` output.
+  It is an authenticated bounded free preview with a UTC-day account limit of
+  10 and global daily safety limit of 100; payment is not yet
+  enforced. Send one required durable suite-account `Idempotency-Key`, never
+  retry an ambiguous generation request, bound and validate base64 plus media
+  magic, and atomically publish the caller-selected `.webp` output.
 - Run `bun run check` before release and commit the resulting `dist/` files with their matching source.
 - Treat a `v*` tag as a release request, not a completed release. Before tagging, confirm repository-level immutable releases are enabled; use a strictly increasing stable package version, keep the tag equal to `v<package.json version>` on `main`, and let the read-only verification job complete before its write-scoped publisher creates the Release. Do not create the next tag until that workflow and Release are verified because GitHub concurrency is not a durable queue. After tagging, verify the matching non-draft immutable Release is Latest.

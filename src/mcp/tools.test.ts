@@ -85,15 +85,23 @@ function remoteDiscovery(): Record<string, unknown> {
     },
     endpoints: { generateImage: graphicsProductionContract.generateImage },
     imageGeneration: {
+      access: "authenticated",
+      billing: "free-preview",
       models: graphicsImageModels,
       maximumPromptBytes: 8_192,
       maximumRawImageBytes: 3_145_728,
       imagesPerRequest: 1,
       responseMediaTypes: ["image/webp"],
+      quota: {
+        accountDailyLimit: 10,
+        globalDailySafetyLimit: 100,
+        paymentEnforced: false,
+        period: "utc-day",
+      },
       idempotency: {
         header: "Idempotency-Key",
-        durable: false,
-        scope: "process-local-mvp",
+        durable: true,
+        scope: "suite-account",
       },
     },
     features: {

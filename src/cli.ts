@@ -74,10 +74,11 @@ It enforces bounded input, decode, time, path, and output budgets and emits a
 safe path-only SVG (plus an internal vector alpha mask when fidelity requires).
 It requires a valid free Graphics login but runs locally and uploads no source.
 
-Generate sends one authenticated, non-retried request with process-local
-duplicate mitigation using exactly openai/gpt-image-1.5 or
-recraft/recraft-v4.1-utility. Responses are bounded, validated WebP images and
-are published with an atomic local rename.
+Generate sends one authenticated, non-retried free-preview request with durable
+suite-account idempotency using exactly openai/gpt-image-1.5 or
+recraft/recraft-v4.1-utility. The UTC-day limits are 10 per account and a 100
+global safety cap; payment is not yet enforced. Responses are bounded,
+validated WebP images and are published with an atomic local rename.
 
 Code mode searches and executes a fixed semantic registry. Execute accepts
 typed JSON for one exact owned operation code; it never evaluates source text.

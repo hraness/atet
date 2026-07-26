@@ -32,15 +32,23 @@ function validDiscovery(): Record<string, unknown> {
       generateImage: graphicsProductionContract.generateImage,
     },
     imageGeneration: {
+      access: "authenticated",
+      billing: "free-preview",
       models: graphicsImageModels,
       maximumPromptBytes: graphicsProductionContract.maximumPromptBytes,
       maximumRawImageBytes: graphicsProductionContract.maximumRawImageBytes,
       imagesPerRequest: 1,
       responseMediaTypes: ["image/webp"],
+      quota: {
+        accountDailyLimit: 10,
+        globalDailySafetyLimit: 100,
+        paymentEnforced: false,
+        period: "utc-day",
+      },
       idempotency: {
         header: "Idempotency-Key",
-        durable: false,
-        scope: "process-local-mvp",
+        durable: true,
+        scope: "suite-account",
       },
     },
     features: {
@@ -62,6 +70,8 @@ describe("Graphics service discovery", () => {
     expect(Object.isFrozen(parsed)).toBe(true)
     expect(Object.isFrozen(parsed.authorization)).toBe(true)
     expect(Object.isFrozen(parsed.imageGeneration.models)).toBe(true)
+    expect(Object.isFrozen(parsed.imageGeneration.quota)).toBe(true)
+    expect(Object.isFrozen(parsed.imageGeneration.idempotency)).toBe(true)
 
     for (const mutation of [
       { environment: "staging" },
@@ -97,15 +107,72 @@ describe("Graphics service discovery", () => {
     }
   })
 
-  test("requires the authenticated local vectorize feature and exact WebP limits", () => {
+  test("requires the exact free-preview generation policy and authenticated local-free vectorization", () => {
     const document = validDiscovery()
     const generation = document.imageGeneration as Record<string, unknown>
+    const quota = generation.quota as Record<string, unknown>
+    const idempotency = generation.idempotency as Record<string, unknown>
     expect(() =>
       parseGraphicsDiscovery({
         ...document,
         features: undefined,
       }),
     ).toThrow("[DISCOVERY_INVALID]")
+    expect(() =>
+      parseGraphicsDiscovery({
+        ...document,
+        features: {
+          vectorize: {
+            access: "authenticated",
+            billing: "free-preview",
+            execution: "local",
+          },
+        },
+      }),
+    ).toThrow("[DISCOVERY_INVALID]")
+
+    for (const [key, value] of [
+      ["access", "anonymous"],
+      ["billing", "paid"],
+    ] as const) {
+      expect(() =>
+        parseGraphicsDiscovery({
+          ...document,
+          imageGeneration: { ...generation, [key]: value },
+        }),
+      ).toThrow("[DISCOVERY_INVALID]")
+    }
+    for (const [key, value] of [
+      ["accountDailyLimit", 11],
+      ["globalDailySafetyLimit", 101],
+      ["paymentEnforced", true],
+      ["period", "rolling-day"],
+    ] as const) {
+      expect(() =>
+        parseGraphicsDiscovery({
+          ...document,
+          imageGeneration: {
+            ...generation,
+            quota: { ...quota, [key]: value },
+          },
+        }),
+      ).toThrow("[DISCOVERY_INVALID]")
+    }
+    for (const [key, value] of [
+      ["header", "X-Idempotency-Key"],
+      ["durable", false],
+      ["scope", "process-local-mvp"],
+    ] as const) {
+      expect(() =>
+        parseGraphicsDiscovery({
+          ...document,
+          imageGeneration: {
+            ...generation,
+            idempotency: { ...idempotency, [key]: value },
+          },
+        }),
+      ).toThrow("[DISCOVERY_INVALID]")
+    }
     expect(() =>
       parseGraphicsDiscovery({
         ...document,

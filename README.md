@@ -261,22 +261,43 @@ The browser returns to the fixed
 `http://127.0.0.1:49671/oauth/callback` loopback address. Graphics stores access
 and refresh tokens only in the operating system credential store through
 `Bun.secrets`; it does not create a plaintext credential file or print token
-material. Logout attempts standards-based revocation and removes the local
-credential.
+material. On macOS and Linux, concurrent CLI processes serialize login,
+refresh, and logout mutations through a bounded per-user lease containing only
+empty, token-independent, unique ticket markers bound to the process-inspection
+scope, PID, and operating-system start identity, so PID reuse cannot inherit an
+abandoned lease. The scope includes the Linux PID namespace; a lease directory
+shared across distinct scopes fails closed without deleting the foreign marker.
+Every winner rereads the credential store inside that lease, so refresh cannot
+overwrite a newer login or restore a credential deleted by logout. Windows
+credential mutations fail closed until Graphics can provide an equivalently
+private native primitive; passing a shared directory does not bypass that policy.
+
+A programmatic cancellation signal stops lease waiting and is checked again
+after the credential reread, immediately before the refresh POST. Once that
+rotating-token request is dispatched, Graphics ignores cancellation long
+enough to complete the bounded exchange and persist the response safely.
+On supported macOS and Linux hosts, logout attempts standards-based revocation
+and removes the local credential. Windows fails before mutating it.
 
 `graphics generate` defaults to `recraft/recraft-v4.1-utility`; `--model` may
-select exactly that model or `openai/gpt-image-1.5`. It discovers one pinned production endpoint,
-sends one authenticated POST with a required `Idempotency-Key`, and never
-retries an ambiguous request. The CLI accepts an optional caller key of 16–128
-safe characters; otherwise it creates a UUID. A successful response is bounded
-to 3 MiB raw, must contain canonical base64 and valid RIFF/WebP magic, and is
-atomically renamed to the required `.webp` output path.
+select exactly that model or `openai/gpt-image-1.5`. Hosted generation is a
+bounded free preview: the UTC-day account limit is 10 and the global daily
+safety limit is 100. Payment is not yet enforced.
+
+The CLI discovers one pinned production endpoint, sends one authenticated POST
+with a required `Idempotency-Key`, and never retries an ambiguous request. The
+service keeps that key durably within the suite-account scope. The CLI accepts
+an optional caller key of 16–128 safe characters; otherwise it creates a UUID.
+A successful response is bounded to 3 MiB raw, must contain canonical base64
+and valid RIFF/WebP magic, and is atomically renamed to the required `.webp`
+output path.
 
 Discovery is not a general remote configuration mechanism. The CLI fetches
 only `https://hraness.graphics/.well-known/graphics-cli.json`, forbids
 redirects, bounds the body, and requires the exact production authorities,
-client, resource, endpoints, models, limits, and free-local vectorization
-policy before using a token.
+client, resource, endpoints, models, limits, free-preview quota, durable
+suite-account idempotency, and free-local vectorization policy before using a
+token.
 
 ## Vectorize caller-owned raster artwork
 
@@ -385,11 +406,12 @@ MCP mode intentionally ignores `graphics.config.*`, including executable
 configuration, and uses only built-in themes and icons. Semantic vectorization
 requires a login, accepts only confined root-relative input/output paths, and
 runs locally without uploading the source. Semantic generation uses the same
-pinned discovery, token, model, body, media, and non-retry contract as the CLI;
-it requires a root-relative `.webp` output path, atomically writes the bounded
-image there, and returns only compact request/file metadata. MCP does not
-expose shell execution, desktop installation, source writing, arbitrary code,
-or arbitrary remote URLs.
+pinned discovery, token, bounded free-preview quota, durable account-scoped
+idempotency, model, body, media, and non-retry contract as the CLI; payment is
+not yet enforced. It requires a root-relative `.webp` output path, atomically
+writes the bounded image there, and returns only compact request/file metadata.
+MCP does not expose shell execution, desktop installation, source writing,
+arbitrary code, or arbitrary remote URLs.
 
 A client configuration can point directly at the installed executable:
 
@@ -575,9 +597,9 @@ caption when one is needed.
 | `graphics check <file>` | Parse the source and report visual-communication lint findings. |
 | `graphics render <file>` | Write light/dark SVG and PNG plus `.tldr` interchange. |
 | `graphics login` | Authorize with S256 PKCE and store tokens in the operating-system credential store. |
-| `graphics logout` | Revoke the current login when possible and remove its local credential. |
+| `graphics logout` | On supported hosts, revoke the current login when possible and remove its local credential. |
 | `graphics auth status` | Report bounded login status without displaying token material. |
-| `graphics generate <prompt>` | Generate one validated WebP with a supported hosted model and no ambiguous retry. |
+| `graphics generate <prompt>` | Generate one validated WebP through the authenticated bounded free preview, with durable account-scoped idempotency and no ambiguous retry. |
 | `graphics vectorize <image>` | After login, adaptively trace one local raster to a bounded safe SVG and optional JSON receipt. |
 | `graphics code search [query]` | Search the fixed semantic operation registry and print bounded JSON descriptors. |
 | `graphics code execute <operation>` | Execute one exact owned operation with strict JSON input; never evaluate source text. |

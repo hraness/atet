@@ -33,6 +33,12 @@ var graphicsImageModels = Object.freeze([
 var graphicsResponseMediaTypes = Object.freeze([
   "image/webp"
 ]);
+var graphicsImageGenerationQuota = Object.freeze({
+  accountDailyLimit: 10,
+  globalDailySafetyLimit: 100,
+  paymentEnforced: false,
+  period: "utc-day"
+});
 var graphicsDiscoveryMaximumBytes = 32 * 1024;
 var graphicsMaximumPromptBytes = graphicsProductionContract.maximumPromptBytes;
 var graphicsMaximumRawImageBytes = graphicsProductionContract.maximumRawImageBytes;
@@ -96,33 +102,53 @@ function parseImageGeneration(value) {
   if (!isRecord(value))
     invalidDiscovery();
   exactKeys(value, [
+    "access",
+    "billing",
     "models",
     "maximumPromptBytes",
     "maximumRawImageBytes",
     "imagesPerRequest",
     "responseMediaTypes",
+    "quota",
     "idempotency"
   ]);
+  if (value.access !== "authenticated" || value.billing !== "free-preview") {
+    invalidDiscovery();
+  }
   exactStringTuple(value.models, graphicsImageModels);
   if (value.imagesPerRequest !== 1)
     invalidDiscovery();
   exactStringTuple(value.responseMediaTypes, ["image/webp"]);
+  if (!isRecord(value.quota))
+    invalidDiscovery();
+  exactKeys(value.quota, [
+    "accountDailyLimit",
+    "globalDailySafetyLimit",
+    "paymentEnforced",
+    "period"
+  ]);
+  if (value.quota.accountDailyLimit !== graphicsImageGenerationQuota.accountDailyLimit || value.quota.globalDailySafetyLimit !== graphicsImageGenerationQuota.globalDailySafetyLimit || value.quota.paymentEnforced !== graphicsImageGenerationQuota.paymentEnforced || value.quota.period !== graphicsImageGenerationQuota.period) {
+    invalidDiscovery();
+  }
   if (!isRecord(value.idempotency))
     invalidDiscovery();
   exactKeys(value.idempotency, ["header", "durable", "scope"]);
-  if (value.idempotency.header !== "Idempotency-Key" || value.idempotency.durable !== false || value.idempotency.scope !== "process-local-mvp") {
+  if (value.idempotency.header !== "Idempotency-Key" || value.idempotency.durable !== true || value.idempotency.scope !== "suite-account") {
     invalidDiscovery();
   }
   return {
+    access: "authenticated",
+    billing: "free-preview",
     models: graphicsImageModels,
     maximumPromptBytes: positiveInteger(value.maximumPromptBytes, graphicsMaximumPromptBytes) === graphicsProductionContract.maximumPromptBytes ? graphicsProductionContract.maximumPromptBytes : invalidDiscovery(),
     maximumRawImageBytes: positiveInteger(value.maximumRawImageBytes, graphicsMaximumRawImageBytes) === graphicsProductionContract.maximumRawImageBytes ? graphicsProductionContract.maximumRawImageBytes : invalidDiscovery(),
     imagesPerRequest: 1,
     responseMediaTypes: ["image/webp"],
+    quota: graphicsImageGenerationQuota,
     idempotency: {
       header: "Idempotency-Key",
-      durable: false,
-      scope: "process-local-mvp"
+      durable: true,
+      scope: "suite-account"
     }
   };
 }
@@ -276,6 +302,7 @@ export {
   graphicsMaximumRawImageBytes,
   graphicsMaximumPromptBytes,
   graphicsImageModels,
+  graphicsImageGenerationQuota,
   graphicsDiscoveryUrl,
   graphicsDiscoveryMaximumBytes,
   fetchGraphicsDiscovery

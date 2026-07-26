@@ -116,6 +116,12 @@ describe("Graphics MCP stdio server", () => {
         idempotentHint: true,
         openWorldHint: false,
       })
+      expect(listed.tools[3]?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      })
       expect(responses[3]?.result).toMatchObject({
         structuredContent: {
           ok: true,
