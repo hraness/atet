@@ -1,9 +1,9 @@
-import { vectorizeHardLimits } from "./limits.ts"
+import { vectorizeHardLimits } from "./limits.js"
 import {
   type VectorizeErrorCode,
   type VectorizeOptions,
   type VectorizeResult,
-} from "./types.ts"
+} from "./types.js"
 
 export const VECTORIZE_WORKER_PROTOCOL = 1
 export const MAX_VECTORIZE_REQUEST_BYTES =

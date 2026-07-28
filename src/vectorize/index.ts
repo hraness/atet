@@ -1,4 +1,4 @@
-export { vectorizeDefaultLimits, vectorizeHardLimits } from "./limits.ts"
+export { vectorizeDefaultLimits, vectorizeHardLimits } from "./limits.js"
 export {
   alphaPlaneTraceRgba,
   dominantOklabDuotoneModel,
@@ -6,10 +6,10 @@ export {
   normalizedAlphaRmse,
   normalizedPremultipliedRmse,
   sanitizedTraceRgba,
-} from "./metrics.ts"
-export { assertSafeCanonicalSvg, countSvgPaths } from "./svg.ts"
-export { VTRACER_VERSION, vtracerReleases } from "./tool.ts"
-export { vectorizeImage } from "./vectorize.ts"
+} from "./metrics.js"
+export { assertSafeCanonicalSvg, countSvgPaths } from "./svg.js"
+export { VTRACER_VERSION, vtracerReleases } from "./tool.js"
+export { vectorizeImage } from "./vectorize.js"
 export {
   VectorizeError,
   vectorizeProfileNames,
@@ -24,4 +24,4 @@ export {
   type VectorizeReceipt,
   type VectorizeRepresentation,
   type VectorizeResult,
-} from "./types.ts"
+} from "./types.js"

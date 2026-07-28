@@ -1,4 +1,5 @@
 node_modules/
-examples/output/
-*.tgz
+.next/
+next-env.d.ts
+*.tsbuildinfo
 .DS_Store

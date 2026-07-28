@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/hraness/graphics/v0.4.0/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/transmute/v0.5.0/schema/diagram.schema.json",
   "version": 1,
   "name": "semantic-flow",
   "canvas": {
@@ -20,12 +20,12 @@
       "tone": "purple"
     },
     {
-      "id": "graphics",
+      "id": "transmute",
       "type": "rect",
       "width": 220,
       "height": 168,
       "radius": 28,
-      "label": "Graphics",
+      "label": "Transmute",
       "tone": "blue"
     },
     {
@@ -39,13 +39,13 @@
   ],
   "edges": [
     {
-      "id": "prompt-graphics",
+      "id": "prompt-transmute",
       "from": "prompt",
-      "to": "graphics"
+      "to": "transmute"
     },
     {
-      "id": "graphics-artifact",
-      "from": "graphics",
+      "id": "transmute-artifact",
+      "from": "transmute",
       "to": "artifact"
     }
   ]

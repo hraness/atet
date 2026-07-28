@@ -2,9 +2,9 @@ import { constants } from "node:fs"
 import { open, realpath, type FileHandle } from "node:fs/promises"
 import { resolve } from "node:path"
 import sharp from "sharp"
-import { type VectorizeDeadline } from "./limits.ts"
-import { sha256 } from "./metrics.ts"
-import { VectorizeError, type VectorizeInput, type VectorizeLimits } from "./types.ts"
+import { type VectorizeDeadline } from "./limits.js"
+import { sha256 } from "./metrics.js"
+import { VectorizeError, type VectorizeInput, type VectorizeLimits } from "./types.js"
 
 const allowedFormats = new Set(["avif", "gif", "heif", "jpeg", "png", "tiff", "webp"])
 const METRIC_MAX_EDGE = 512

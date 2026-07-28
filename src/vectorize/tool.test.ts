@@ -16,8 +16,8 @@ import { ensureVTracer } from "./tool.ts"
 
 test("a conversion executes a private verified copy after the override path changes", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-tool-private-"))
-  const previousOverride = process.env.GRAPHICS_VTRACER_PATH
+  const work = await mkdtemp(join(tmpdir(), "transmute-tool-private-"))
+  const previousOverride = process.env.TRANSMUTE_VTRACER_PATH
   try {
     const source = join(work, "vtracer")
     const original = mockVTracer("original")
@@ -25,7 +25,7 @@ test("a conversion executes a private verified copy after the override path chan
     await chmod(source, 0o700)
     const sourceLink = join(work, "vtracer-link")
     await symlink(source, sourceLink)
-    process.env.GRAPHICS_VTRACER_PATH = sourceLink
+    process.env.TRANSMUTE_VTRACER_PATH = sourceLink
 
     const privateDirectory = join(work, "private")
     const tool = await ensureVTracer(
@@ -55,28 +55,28 @@ test("a conversion executes a private verified copy after the override path chan
     expect(result.output).toBe("original")
     expect(sha256(await readFile(tool.path))).toBe(tool.sha256)
   } finally {
-    if (previousOverride === undefined) delete process.env.GRAPHICS_VTRACER_PATH
-    else process.env.GRAPHICS_VTRACER_PATH = previousOverride
+    if (previousOverride === undefined) delete process.env.TRANSMUTE_VTRACER_PATH
+    else process.env.TRANSMUTE_VTRACER_PATH = previousOverride
     await rm(work, { force: true, recursive: true })
   }
 })
 
 test("a FIFO tool override is rejected without blocking", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-tool-fifo-"))
-  const previousOverride = process.env.GRAPHICS_VTRACER_PATH
+  const work = await mkdtemp(join(tmpdir(), "transmute-tool-fifo-"))
+  const previousOverride = process.env.TRANSMUTE_VTRACER_PATH
   try {
     const source = join(work, "vtracer")
     expect(Bun.spawnSync(["mkfifo", source]).exitCode).toBe(0)
-    process.env.GRAPHICS_VTRACER_PATH = source
+    process.env.TRANSMUTE_VTRACER_PATH = source
     const started = performance.now()
     await expect(
       ensureVTracer(new VectorizeDeadline(500), join(work, "private")),
     ).rejects.toMatchObject({ code: "tool_version" })
     expect(performance.now() - started).toBeLessThan(400)
   } finally {
-    if (previousOverride === undefined) delete process.env.GRAPHICS_VTRACER_PATH
-    else process.env.GRAPHICS_VTRACER_PATH = previousOverride
+    if (previousOverride === undefined) delete process.env.TRANSMUTE_VTRACER_PATH
+    else process.env.TRANSMUTE_VTRACER_PATH = previousOverride
     await rm(work, { force: true, recursive: true })
   }
 })

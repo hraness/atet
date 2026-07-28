@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { VectorizeError } from "./types.ts"
+import { VectorizeError } from "./types.js"
 
 export function sha256(input: string | Uint8Array): string {
   return createHash("sha256").update(input).digest("hex")

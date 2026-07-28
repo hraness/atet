@@ -1,17 +1,17 @@
 export {
-  graphicsMcpProtocolVersion,
-  graphicsMcpServerName,
+  transmuteMcpProtocolVersion,
+  transmuteMcpServerName,
   runMcpServer,
-} from "./server.ts"
+} from "./server.js"
 export {
-  graphicsMcpTools,
-  GraphicsMcpToolRuntime,
+  transmuteMcpTools,
+  TransmuteMcpToolRuntime,
   mcpMaximumEdges,
   mcpMaximumRenderedPixels,
   mcpMaximumReturnedFindings,
   mcpMaximumScale,
   mcpMaximumShapes,
-} from "./tools.ts"
+} from "./tools.js"
 export {
   mcpSourceByteLimit,
   WorkspaceBoundary,
@@ -19,7 +19,7 @@ export {
   type WorkspaceDirectory,
   type WorkspaceFile,
   type WorkspaceSource,
-} from "./boundary.ts"
+} from "./boundary.js"
 export type {
   JsonRpcFailure,
   JsonRpcId,
@@ -30,4 +30,4 @@ export type {
   McpTextContent,
   McpToolDefinition,
   McpToolResult,
-} from "./types.ts"
+} from "./types.js"

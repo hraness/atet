@@ -1,197 +1,56 @@
-# Graphics
+# Transmute
 
-Graphics is an open-source, Bun-first CLI and Agent Skill for small, clear
-diagrams, measured raster-to-SVG conversion, and bounded hosted image
-generation. Its executable is `graphics`.
-A checked `.diagram.json` file is the source of truth for a diagram. One render
-produces consistent light and dark SVG/PNG images plus editable `.tldr`
-interchange—without a browser, tldraw Desktop, or the tldraw SDK at runtime.
-`graphics vectorize` turns caller-owned raster artwork into bounded, inert SVG
-paths with an inspectable quality receipt. `graphics generate` uses one of two
-explicit hosted models to write a validated WebP. A fixed semantic operation
-registry exposes the same capabilities to code and MCP without accepting
-arbitrary source text.
+Transmute is a headless TypeScript toolkit and Bun CLI for turning checked source into visual assets. It currently provides deterministic diagrams, light and dark raster/vector exports, editable tldraw interchange, bounded raster-to-SVG conversion, authenticated hosted image generation, semantic operation dispatch, and a local MCP server.
 
-The project site is [hraness.graphics](https://hraness.graphics).
+The package is designed to compose with editors and video renderers. A diagram, generated image, traced SVG, or `.tldr` canvas remains an ordinary media input rather than a format trapped inside the tool.
 
-The defaults favor rounded peer shapes, short labels, long connectors, bare
-icons, a system sans-serif font, and visual differences that correspond to real
-semantic differences. A coordinate-free stack layout owns ordinary placement
-when a diagram is a single horizontal or vertical sequence.
-
-<!-- article:a-visual-grammar-for-ai-generated-diagrams:start -->
-## [A visual grammar for AI-generated diagrams](<https://hraness.pub/articles/a-visual-grammar-for-ai-generated-diagrams>)
-
-> An agent can place shapes quickly, but it can also invent hierarchy, grouping, and emphasis. A small set of rules keeps the picture faithful and readable.
-
-A diagram made by an agent often looks finished before it is clear. The boxes align, the icons match, and the arrows connect. Yet the model may have added a hierarchy that the prompt never described, made two peers different sizes, or wrapped one concept in several borders because the empty space seemed unfinished.
-
-Those choices are not neutral decoration. A reader assumes that size, position, color, shape, and enclosure mean something. A useful visual grammar gives the agent restrained defaults for decisions the prompt leaves open. The open-source [Graphics CLI and Agent Skill](<https://github.com/hraness/graphics>) turns those defaults into a checked workflow: an authored `.diagram.json` file produces light and dark SVG and PNG images plus editable `.tldr` interchange. The rules remain useful without the tool; the tool makes them repeatable.
-
-![Two columns compare accidental and deliberate diagram choices: unequal and equal peer boxes, a double-bordered and bare icon, and cramped and long arrows.](<https://hraness.pub/article-diagrams/a-visual-grammar-for-ai-generated-diagrams.light.webp>)
-
-*Equal peers, one border, and enough connector space keep a small diagram from implying more than it means.*
-
-### Treat the prompt as the content boundary
-
-The prompt should define the diagram’s content. An agent can arrange supplied concepts and choose neutral mechanics, but it should not add a sequence, category, legend, callout, or conclusion unless the request calls for one. This constraint matters because a plausible invented relationship is difficult to distinguish from an authored claim once it becomes a clean arrow.
-
-Give semantic peers the same container size, corner treatment, icon scale, stroke, fill, and alignment. A larger box looks more important. A different color looks like a category. A thicker border looks selected. When the ideas are equal, their visual treatment should be equal. When one idea is more important, use one deliberate cue instead of changing every available property.
-
-### Give relationships enough room to read
-
-Choose one primary reading direction, then place each next step where the eye already expects to continue. Long arrows make the relationship visible as a relationship; cramped arrows look like gap markers or stray arrowheads. In Hraness PUB’s 1200 by 720 article frame, 120 canvas units of clear space between connected cards is a useful target. Gaps below 96 units usually look crowded. These are house measurements for this format, not universal perceptual constants.
-
-[Larkin and Simon’s work on diagrammatic representations](<https://doi.org/10.1111/j.1551-6708.1987.tb00863.x>) explains how spatial arrangement can reduce search and keep the next inference nearby. [Purchase’s graph-layout experiment](<https://doi.org/10.1007/3-540-63938-1_67>) found edge crossings to have the strongest effect among the tested aesthetics, with bends and symmetry carrying smaller effects. The practical order follows: remove crossings first, reduce bends second, and keep the remaining path easy to trace.
-
-### Use one border for one group
-
-An outlined icon badge inside an outlined card creates two enclosed regions. If the diagram contains only one concept, the second boundary suggests a grouping that does not exist. Use a bare icon inside the card by default. When the glyph needs contrast, a fill-only plate preserves one outline for one semantic region.
-
-[Stephen Palmer’s research on common regions](<https://doi.org/10.1016/0010-0285(92)90014-S>) found enclosure to be a strong perceptual grouping cue. That makes whitespace and alignment the first tools for organizing a small diagram. Add another box only when the content contains another group.
-
-### Let icons help the label, not replace it
-
-A familiar icon helps a new reader scan, but the short label carries the exact meaning. The paperclip can suggest a source, the book can suggest memory, and the chain can suggest links. None of those glyphs can state the article’s claim by itself. [Research on icon identification by Isherwood, McDougall, and Curry](<https://doi.org/10.1518/001872007X200102>) found familiarity and semantic distance to be strong factors in recognition.
-
-Use one semantically close icon at a consistent scale and keep the label to a word or short phrase. A shared set such as Hugeicons gives the drawing a coherent stroke language. It does not justify adding icon badges, decorative color families, or different icon sizes to fill the canvas.
-
-### Separate evidence from house style
-
-[Daniel Moody’s Physics of Notations](<https://doi.org/10.1109/TSE.2009.67>) argues for semiotic clarity, perceptual discriminability, graphic economy, and visual expressiveness. In practical terms, different meanings need distinguishable representations, while repeated meanings should reuse a small visual vocabulary. A diagram spends clarity whenever it introduces a visual exception.
-
-Rounded rectangles are Hraness PUB’s default for bounded concepts because they fit the publication’s visual language and are easy to recognize as peers. [Bar and Neta found that people preferred curved contours](<https://doi.org/10.1111/j.1467-9280.2006.01759.x>), but aesthetic preference is not proof of better comprehension. A conventional flowchart symbol or an explicitly requested hard corner should override the house style.
-
-### Turn the grammar into a repeatable workflow
-
-`graphics` keeps authored content in a checked `.diagram.json` source. `graphics check --strict` reports objective layout findings; `graphics render` replaces five same-stem outputs: editable `.tldr` interchange plus light and dark SVG and PNG images. Each file is published through a same-directory temporary file, but the five-file family is not a transaction. Headless rendering needs neither tldraw Offline nor the tldraw SDK at runtime. The desktop app remains an optional editor for direct canvas work.
-
-The project does not bundle MonoLisa or a large icon library. It defaults to the system sans-serif stack and a small built-in icon set. A local export config can point at font files you have licensed and adapt project-owned SVG geometry from Hugeicons or another set. Font bytes stay out of SVG unless embedding is explicit, so a custom visual language does not have to make the package large.
-
-`graphics check` can test rules with objective local evidence: equal peer geometry, rounded default containers, sufficient connector runway, and no outlined badge inside an outlined card. The bundled skill carries the judgment a geometry check cannot: follow the prompt without enrichment, use icons as cues rather than claims, and review both themes at reading size. Meaning still needs human review. When a prompt intentionally breaks a default, record a rule-specific reason instead of weakening the check for every future diagram. This is the same scoping discipline described in [Hraness PUB’s guide to agent documentation hygiene](<https://hraness.pub/articles/the-ai-codebase-agent-docs-hygiene>).
-
-### Review the published image at reading size
-
-A canvas can look orderly at full zoom and fail inside an article column. Check the exported image at the size and theme a reader will use. The review can stay short:
-
-- Does the picture say only what the prompt supplied?
-- Do equal ideas look equal?
-- Is the first relationship easy to find and follow?
-- Does every border create a real group?
-- Do the labels and icons remain legible in light and dark?
-
-When these decisions should survive the current task, keep the visual grammar in the Agent Skill, preserve the `.diagram.json` source beside its replaceable exports, and pair a knowledge-base diagram with a note. [A durable knowledge base for coding agents](<https://hraness.pub/articles/a-durable-knowledge-base-is-a-write-path>) gives those rules a place to be reviewed, linked, and improved instead of rediscovered in the next prompt.
-<!-- article:a-visual-grammar-for-ai-generated-diagrams:end -->
-
-## Tell your coding agent to install it
-
-Copy this prompt into Codex, Claude Code, or another coding agent:
-
-```text
-Install the Graphics CLI and bundled Agent Skill from
-https://github.com/hraness/graphics at the immutable v0.4.0 tag. Follow the
-repository README, install the skill in this agent runner's configured skills
-directory, run `graphics doctor`, and verify the installation by rendering the
-included example. Do not install tldraw Offline unless I ask to edit the canvas
-in the desktop app.
-```
-
-The repository URL is enough for an agent to inspect the current instructions;
-the tag keeps the installed CLI and skill on the same contract.
+Project site: [transmute.rocks](https://transmute.rocks)
 
 ## Install
 
-[Bun 1.3.14](https://bun.sh/docs/installation) is the supported runtime.
-
-Install the immutable release and then place the bundled skill where your agent
-runner discovers skills:
+Pin the public repository to the immutable `v0.5.0` tag:
 
 ```sh
-bun add --global github:hraness/graphics#v0.4.0
-graphics skill install --target codex --scope user
-graphics doctor
+bun add --global github:hraness/transmute#v0.5.0
+transmute doctor
 ```
 
-### Migrate from v0.1
-
-v0.2 replaced the former Diagram package, `diagram` executable, and `diagram`
-skill. Remove any old global Diagram package and the user-level Codex skill
-before installing the current release:
+For programmatic use:
 
 ```sh
-rm -rf -- "$HOME/.codex/skills/diagram"
-bun add --global github:hraness/graphics#v0.4.0
-graphics skill install --target codex --scope user
+bun add github:hraness/transmute#v0.5.0
 ```
 
-If v0.1 was installed for another runner or at project scope, run only the
-matching cleanup command before installing the new skill:
+Transmute requires Bun 1.3.14. Diagram rendering works on macOS, Linux, and Windows. Bounded VTracer execution works on macOS and Linux; Windows fails closed with `tool_platform` until its output can cross the same bounded capture path.
+
+## Create a diagram
 
 ```sh
-rm -rf -- "$HOME/.claude/skills/diagram"
-rm -rf -- "$HOME/.agents/skills/diagram"
-rm -rf -- ".codex/skills/diagram"
-rm -rf -- ".claude/skills/diagram"
-rm -rf -- ".agents/skills/diagram"
+transmute diagram init diagrams/system.diagram.json
+transmute diagram check diagrams/system.diagram.json --strict
+transmute diagram render diagrams/system.diagram.json
 ```
 
-Rename any local `diagram.config.*` to the matching `graphics.config.*`.
-Graphics rejects a legacy-only config instead of silently rendering with
-defaults.
-
-Other supported discovery targets are `claude` and the runner-neutral
-`.agents/skills` convention:
-
-```sh
-graphics skill install --target claude --scope user
-graphics skill install --target agents --scope project
-```
-
-An existing skill is never replaced unless `--force` is explicit. To let a
-runner handle installation itself, `graphics skill path` prints the directory
-shipped inside the installed package.
-
-Contributors can install from a checkout:
-
-```sh
-git clone https://github.com/hraness/graphics.git
-cd graphics
-bun install --frozen-lockfile
-bun run check
-bun link
-```
-
-## Render a diagram
-
-Create a starter or author the JSON directly:
-
-```sh
-graphics init diagrams/example-flow.diagram.json
-graphics check diagrams/example-flow.diagram.json --strict
-graphics render diagrams/example-flow.diagram.json
-```
-
-Every successful render replaces the same five derivatives. Each individual
-file uses a same-directory temporary file; consumers that require a
-generation-level transaction should render into a new directory and switch
-their own pointer only after all five files exist.
+The checked source uses `.diagram.json` version one. Each render replaces the same five derivatives:
 
 ```text
-example-flow.tldr
-example-flow.light.svg
-example-flow.dark.svg
-example-flow.light.png
-example-flow.dark.png
+system.tldr
+system.light.svg
+system.dark.svg
+system.light.png
+system.dark.png
 ```
 
-The source stays readable and reviewable:
+The source remains authoritative. The five outputs are replaceable and each file is published through an atomic rename. The five-file family is not a filesystem transaction.
+
+Use this schema URL in authored files:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/hraness/graphics/v0.4.0/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/transmute/v0.5.0/schema/diagram.schema.json",
   "version": 1,
-  "name": "example-flow",
-  "canvas": { "width": 960, "height": 540, "padding": 64 },
+  "name": "source-result",
+  "canvas": { "width": 960, "height": 540 },
   "layout": {
     "type": "stack",
     "direction": "horizontal",
@@ -199,447 +58,149 @@ The source stays readable and reviewable:
     "align": "center"
   },
   "shapes": [
-    {
-      "id": "source",
-      "type": "rect",
-      "width": 240,
-      "height": 160,
-      "label": "Source",
-      "icon": "document",
-      "tone": "blue"
-    },
-    {
-      "id": "result",
-      "type": "rect",
-      "width": 240,
-      "height": 160,
-      "label": "Result",
-      "icon": "check",
-      "tone": "green"
-    }
+    { "id": "source", "type": "rect", "width": 220, "height": 140, "label": "Source" },
+    { "id": "result", "type": "rect", "width": 220, "height": 140, "label": "Result" }
   ],
   "edges": [{ "id": "source-result", "from": "source", "to": "result" }]
 }
 ```
 
-In stack mode, array order controls placement but does not invent a
-relationship. Edges remain explicit. Graphics centers one to nine
-coordinate-free rectangles or ellipses, preserves the requested gap, stamps
-straight axis-aware anchors between adjacent items, and fails when the
-sequence cannot fit. It never shrinks shapes or silently shortens an arrow
-runway.
+Array order may place shapes, but it never creates relationships. Edges stay explicit. Impossible stack constraints fail instead of silently shrinking shapes, gaps, or the canvas.
 
-Positioned sources remain available for charts and compositions that need
-`rect`, `ellipse`, `text`, or `line` primitives at explicit `x` and `y`
-coordinates. The public [JSON Schema](schema/diagram.schema.json) checks both
-source forms. See the
-[semantic stack example](examples/semantic-flow.diagram.json) for the smallest
-coordinate-free flow.
+Place `transmute.config.ts`, `.mjs`, `.js`, or `.json` beside a diagram to supply local fonts, sanitized SVG icons, or theme colors. Pass `--config <path>` when configuration belongs elsewhere. MCP and semantic operations deliberately ignore executable workspace configuration.
 
-The included [CAPEX/OPEX example](examples/capex-opex.diagram.json) shows a
-literal stacked comparison with one-stroke axes, no visible title, and only `$`
-on the vertical axis:
+## Vectorize a local image
 
 ```sh
-graphics render examples/capex-opex.diagram.json --out-dir /tmp/graphics-example
+transmute image vectorize input.png --output input.svg --json
+transmute image vectorize input.png \
+  --output input.duotone.svg \
+  --duotone '#171717,#7c3aed'
 ```
 
-## Log in and generate a hosted image
+Canonical vectorization requires no account or login and makes no discovery, OAuth, or generation request. It bounds encoded input, decoded dimensions and pixels, subprocess time, paths, emitted bytes, and measured fidelity. The output is rebuilt as inert SVG geometry; foreign tracer SVG is not passed through.
 
-Authenticated features use OAuth 2.1 authorization-code flow with S256 PKCE:
+VTracer 0.6.4 downloads from a checksum-pinned official release on first use. `TRANSMUTE_VTRACER_PATH` may point to a compatible local binary, whose hash is recorded in the receipt. `TRANSMUTE_CACHE_DIR` overrides the default tool cache.
 
-```sh
-graphics login
-graphics auth status
-graphics generate \
-  'A restrained monochrome paper texture' \
-  --output texture.webp
-graphics logout
-```
-
-The browser returns to the fixed
-`http://127.0.0.1:49671/oauth/callback` loopback address. Graphics stores access
-and refresh tokens only in the operating system credential store through
-`Bun.secrets`; it does not create a plaintext credential file or print token
-material. On macOS and Linux, concurrent CLI processes serialize login,
-refresh, and logout mutations through a bounded per-user lease containing only
-empty, token-independent, unique ticket markers bound to the process-inspection
-scope, PID, and operating-system start identity, so PID reuse cannot inherit an
-abandoned lease. The scope includes the Linux PID namespace; a lease directory
-shared across distinct scopes fails closed without deleting the foreign marker.
-Every winner rereads the credential store inside that lease, so refresh cannot
-overwrite a newer login or restore a credential deleted by logout. Windows
-credential mutations fail closed until Graphics can provide an equivalently
-private native primitive; passing a shared directory does not bypass that policy.
-
-A programmatic cancellation signal stops lease waiting and is checked again
-after the credential reread, immediately before the refresh POST. Once that
-rotating-token request is dispatched, Graphics ignores cancellation long
-enough to complete the bounded exchange and persist the response safely.
-On supported macOS and Linux hosts, logout attempts standards-based revocation
-and removes the local credential. Windows fails before mutating it.
-
-`graphics generate` defaults to `recraft/recraft-v4.1-utility`; `--model` may
-select exactly that model or `openai/gpt-image-1.5`. Hosted generation is a
-bounded free preview: the UTC-day account limit is 10 and the global daily
-safety limit is 100. Payment is not yet enforced.
-
-The CLI discovers one pinned production endpoint, sends one authenticated POST
-with a required `Idempotency-Key`, and never retries an ambiguous request. The
-service keeps that key durably within the suite-account scope. The CLI accepts
-an optional caller key of 16–128 safe characters; otherwise it creates a UUID.
-A successful response is bounded to 3 MiB raw, must contain canonical base64
-and valid RIFF/WebP magic, and is atomically renamed to the required `.webp`
-output path.
-
-Discovery is not a general remote configuration mechanism. The CLI fetches
-only `https://hraness.graphics/.well-known/graphics-cli.json`, forbids
-redirects, bounds the body, and requires the exact production authorities,
-client, resource, endpoints, models, limits, free-preview quota, durable
-suite-account idempotency, and free-local vectorization policy before using a
-token.
-
-## Vectorize caller-owned raster artwork
-
-`graphics vectorize` accepts PNG, JPEG, WebP, AVIF/HEIF, GIF, or TIFF input and
-normalizes one still image to a safe SVG:
-
-```sh
-graphics vectorize input.png --output input.svg --json
-graphics vectorize input.png --output input.duotone.svg --duotone '#171717,#7c3aed'
-```
-
-Vectorization requires a valid Graphics login but remains free and runs
-locally. The discovery and token requests contain neither the source path nor
-its bytes; only the checksum-pinned local VTracer process receives the raster.
-
-The adaptive policy tries a balanced trace first, measures a rasterized result,
-and spends more work on detailed or photo profiles only when the first result
-misses its gates. Material low-alpha pixels cause an alpha-preserving candidate
-to be compared. Continuous transparency can add a vector-only internal mask.
-The result contains no script, event handler, external URL, embedded image,
-font, or model payload.
-
-`--json` prints a deterministic receipt with input and SVG hashes, original
-dimensions, selected profile and representation, byte and path counts,
-premultiplied-color and alpha RMSE, support metrics, the full sorted component
-version map reported by Sharp/libvips, and the exact VTracer binary hash.
-Duotone receipts measure the selected full-color trace before the requested
-recoloring.
-
-The default contract rejects inputs larger than 16 MiB, a dimension above
-4096px, more than 16,777,216 decoded pixels, a conversion longer than 30
-seconds, or output above 2,000,000 bytes or 12,000 paths. Programmatic callers
-may set lower bounds; package hard limits prevent them from making the
-operation unbounded.
-
-Install the tagged package locally before importing its API:
-
-```sh
-bun add github:hraness/graphics#v0.4.0
-```
+Programmatic use returns the SVG, published path, and provenance receipt:
 
 ```ts
-import { vectorizeImage, type VectorizeResult } from "@hraness/graphics"
+import { vectorizeImage } from "@hraness/transmute"
 
-const result: VectorizeResult = await vectorizeImage("./input.png", {
-  outputPath: "./input.svg",
-  limits: { maxDurationMs: 10_000, maxOutputBytes: 500_000 },
+const result = await vectorizeImage("input.png", {
+  outputPath: "input.svg",
 })
 
-console.log(result.receipt)
+console.log(result.receipt.sourceSha256, result.receipt.svgSha256)
 ```
 
-Bounded conversion is supported on macOS arm64/x64 and Linux arm64/x64.
-Graphics also pins the Windows x64 release metadata, but v0.4 fails closed with
-`tool_platform` on Windows before download or tracing: VTracer 0.6.4 writes
-only to a file path there, so Graphics cannot enforce its output-byte limit
-without a safe streaming boundary. The roughly 0.7–1.1 MiB archive downloads
-from the
-[official VTracer release](https://github.com/visioncortex/vtracer/releases/tag/0.6.4)
-on first use and is cached outside the package. Set
-`GRAPHICS_VTRACER_PATH=/absolute/path/to/vtracer` to use an already installed
-compatible 0.6.4 binary; its version and hash still appear in the receipt.
-There is no Real-ESRGAN model, bundled font, or raster fallback.
+## Generate a hosted image
 
-## Give agents a narrow local tool surface
-
-Run the stdio MCP server, implemented without an MCP SDK dependency, with an
-explicit workspace root:
+Hosted generation is separate from local vectorization and requires a Transmute login:
 
 ```sh
-graphics mcp --root /absolute/path/to/workspace
+transmute auth login
+transmute image generate 'one cobalt circle on white' \
+  --output circle.webp
+transmute auth logout
 ```
 
-The server preserves the two original compatibility tools:
+The CLI accepts `recraft/recraft-v4.1-utility` and `openai/gpt-image-1.5`, requests one WebP, validates its bounded base64 and media magic, and atomically publishes the selected output. Requests carry a durable suite-account `Idempotency-Key`; the client never retries an ambiguous generation request.
 
-- `check_diagram` parses and lints one root-relative `.diagram.json` source.
-- `render_diagram` overwrites its `.tldr` and paired light/dark SVG and PNG
-  derivatives, optionally in a root-relative output directory.
+Discovery is pinned to `https://transmute.rocks/.well-known/transmute-cli.json`. OAuth uses authorization code with S256 PKCE and the fixed `http://127.0.0.1:49671/oauth/callback` loopback. Tokens are stored through `Bun.secrets`, never in project files or command output.
 
-It also exposes:
+## Use semantic operations
 
-- `search_graphics` searches a fixed four-operation semantic registry.
-- `execute_graphics` accepts one exact operation code and typed JSON input.
+The registry has four canonical codes:
 
-The canonical codes are `graphics.diagram.check`, `graphics.diagram.render`,
-`graphics.image.vectorize`, and `graphics.image.generate`. Search returns
-descriptors and input schemas; execute dispatches only those owned adapters. It
-does not accept JavaScript, shell text, dynamic imports, executable workspace
-configuration, arbitrary model IDs, or caller-selected remote URLs.
-
-Successful calls return structured findings and root-relative paths.
-`check_diagram` is read-only; `render_diagram` is explicitly marked destructive
-and idempotent because replacing generated assets is its purpose. The server
-rejects absolute paths, traversal, symlink escapes, sources above 1 MiB,
-diagrams above 64 shapes or 128 edges, scales above 4, and renders above
-16,777,216 pixels. It returns at most 40 bounded findings with total and
-truncation counts; tool failures use bounded text with a stable error code.
-Render calls are serialized.
-
-This is a trusted local-workspace boundary, not an operating-system sandbox.
-Paths are checked before use, but a separate same-user process that replaces a
-validated directory concurrently is outside the threat model. Do not point the
-server at a workspace controlled by a hostile local process.
-
-MCP mode intentionally ignores `graphics.config.*`, including executable
-configuration, and uses only built-in themes and icons. Semantic vectorization
-requires a login, accepts only confined root-relative input/output paths, and
-runs locally without uploading the source. Semantic generation uses the same
-pinned discovery, token, bounded free-preview quota, durable account-scoped
-idempotency, model, body, media, and non-retry contract as the CLI; payment is
-not yet enforced. It requires a root-relative `.webp` output path, atomically
-writes the bounded image there, and returns only compact request/file metadata.
-MCP does not expose shell execution, desktop installation, source writing,
-arbitrary code, or arbitrary remote URLs.
-
-A client configuration can point directly at the installed executable:
-
-```json
-{
-  "mcpServers": {
-    "graphics": {
-      "command": "graphics",
-      "args": ["mcp", "--root", "/absolute/path/to/workspace"]
-    }
-  }
-}
-```
-
-## Search and execute semantic operations from code
-
-The CLI provides the same registry without an MCP client:
+- `transmute.diagram.check`
+- `transmute.diagram.render`
+- `transmute.image.vectorize`
+- `transmute.image.generate`
 
 ```sh
-graphics code search diagram --limit 4
-graphics code execute graphics.diagram.check \
-  --input '{"path":"diagrams/example-flow.diagram.json"}'
+transmute code search diagram --limit 4
+transmute code execute transmute.diagram.check \
+  --input '{"path":"diagrams/system.diagram.json"}'
 ```
 
-`graphics code search` returns bounded JSON descriptors. `graphics code
-execute` parses at most 64 KiB of JSON and passes it through the registry's
-strict parser; it never treats the value as JavaScript or shell text. Diagram
-operations use built-in assets and do not discover executable workspace
-configuration. Vectorization and generation enforce the same login policy as
-their direct CLI commands.
+Search returns bounded descriptors. Execute accepts strict JSON for an exact registered code. It does not accept source text, shell commands, dynamic imports, executable configuration, or caller-selected remote URLs.
 
-Programmatic consumers can import the registry from the package root or the
-explicit `@hraness/graphics/operations` export:
+The same surface is available from `@hraness/transmute/operations`:
 
 ```ts
 import {
-  executeGraphicsOperation,
-  searchGraphicsOperations,
-} from "@hraness/graphics/operations"
+  executeTransmuteOperation,
+  searchTransmuteOperations,
+} from "@hraness/transmute/operations"
 
-const matches = searchGraphicsOperations("diagram")
-const checked = await executeGraphicsOperation("graphics.diagram.check", {
-  path: "diagrams/example-flow.diagram.json",
+const matches = searchTransmuteOperations("diagram")
+const result = await executeTransmuteOperation("transmute.diagram.check", {
+  path: "diagrams/system.diagram.json",
 })
 ```
 
-## tldraw without a desktop dependency
-
-`graphics` does not redistribute or import the tldraw SDK at runtime. It writes
-the official JSON `.tldr` interchange shape—document records, native shapes,
-image assets, arrows, and real arrow bindings. The development test suite uses
-the upstream parser only to prove compatibility.
-
-The new tldraw Offline application uses a different native `.tldraw` bundle:
-the canvas, SQLite-backed state, assets, and optional scripts are packaged
-together. That app-owned format is not a stable headless interchange contract,
-so `graphics` does not rewrite it. Instead:
-
-1. Render headlessly to `.tldr`.
-2. Open the file in tldraw Offline.
-3. Save the imported document as native `.tldraw` when needed.
+## Connect MCP
 
 ```sh
-graphics open diagrams/example-flow.tldr
+transmute mcp --root /absolute/path/to/workspace
 ```
 
-tldraw Offline is optional and not open source. If it is absent,
-`graphics desktop url` resolves the current platform asset from the
-[official latest release](https://github.com/tldraw/tldraw-offline/releases/latest).
-`graphics desktop install` asks before downloading, checks the SHA-256 digest
-published by GitHub, and launches the installer. It uses the official
-[download page](https://offline.tldraw.com) and release API rather than an
-undocumented URL scheme:
+The stdio server exposes `check_diagram`, `render_diagram`, `search_transmute`, and `execute_transmute`. File arguments are root-relative and confined to the selected workspace. Diagram source, shape count, edge count, PNG pixels, returned findings, paths, and outputs are bounded before execution. The server is a trusted local workspace boundary, not an operating-system sandbox against concurrent same-user mutation.
+
+## Work with canvases
+
+Diagram rendering does not require the tldraw SDK or desktop app. The generated `.tldr` file is editable interchange:
 
 ```sh
-graphics desktop url
-graphics desktop install
+transmute canvas open diagrams/system.tldr
+transmute canvas status
+transmute canvas url
+transmute canvas install
 ```
 
-On macOS the verified DMG is opened; on Windows the verified installer is
-launched; on Linux the verified AppImage is installed at
-`~/.local/bin/tldraw-offline`. Use `--download-only` to avoid launching it and
-`--yes` for an intentional non-interactive install.
+The optional installer flow resolves an official tldraw Offline release, verifies its published SHA-256 digest, and prepares the platform installer. A native `.tldraw` file is an app-owned ZIP/SQLite bundle; Transmute opens it but does not rewrite it directly.
 
-## Custom fonts without bundling them
-
-No MonoLisa files—or any other commercial font files—are included. The default
-is the local system sans-serif stack.
-
-Place a `graphics.config.ts` beside a source to use your own local font:
-
-```ts
-import type { DiagramConfig } from "@hraness/graphics"
-
-export default {
-  font: {
-    family: "Your Font",
-    files: [
-      { path: "./fonts/YourFont-Regular.ttf", weight: 400, embed: false },
-      { path: "./fonts/YourFont-Semibold.ttf", weight: 600, embed: false },
-    ],
-  },
-} satisfies DiagramConfig
-```
-
-PNG rendering reads those files locally. `embed: false` keeps font bytes out of
-the output; serve the font through the consuming website if SVG must use it.
-`embed: true` makes an SVG self-contained but increases every file and is
-appropriate only when the font license permits redistribution. Typography is
-an export concern: editable `.tldr` remains on tldraw's normal sans font.
-
-Pass an explicit config when it does not live beside the source:
+## Install the Agent Skill
 
 ```sh
-graphics render diagram.json --config ./brand/graphics.config.ts
+transmute skill install --target codex --scope user
+transmute skill install --target agents --scope project
 ```
 
-## Custom icon sets without bundling them
+The skill keeps literal prompts, checked diagram source, rendering, vectorization, semantic operations, and review steps together. `transmute skill path` prints its packaged location.
 
-The package carries only a tiny built-in set. A local config may add or replace
-icons with ordinary SVG geometry:
+## Graphics v0.4 compatibility
 
-```ts
-import type { DiagramConfig } from "@hraness/graphics"
+Version 0.5 folds the former `hraness/graphics` command into Transmute. The package retains a `graphics` executable for existing automation. It preserves the v0.4 flat command grammar, `graphics.*` operation codes, JSON stdout, `graphics.config.*` discovery, `GRAPHICS_VTRACER_PATH`, `GRAPHICS_CACHE_DIR`, the `com.hraness.graphics.cli` credential entry, `hraness.graphics` cloud contract, and `search_graphics`/`execute_graphics` MCP tools.
 
-export default {
-  icons: {
-    inbox: {
-      viewBox: "0 0 24 24",
-      body:
-        '<path d="M4 5h16v14H4zM4 14h4l2 2h4l2-2h4" ' +
-        'fill="none" stroke="currentColor" stroke-width="1.5" ' +
-        'stroke-linecap="round" stroke-linejoin="round"/>',
-    },
-  },
-} satisfies DiagramConfig
-```
+New scripts should use the namespaced Transmute grammar. The compatibility executable intentionally continues to report `0.4.0` because it is the frozen v0.4 contract.
 
-For Hugeicons, Lucide, or another design-system package, keep that dependency
-in the consuming repository and write a small adapter from its icon data to
-`{ viewBox, body }`. `currentColor` lets one icon follow both themes. The
-renderer places icons bare inside their semantic shape—there is no redundant
-bordered icon tile—and the tldraw adapter stores each icon as an editable image
-asset beside the card and label.
+## Command reference
 
-Executable SVG content, event handlers, `foreignObject`, iframes, and
-`javascript:` URLs are rejected. The complete pattern is in the bundled
-[customization reference](skills/graphics/references/customization.md).
-
-## Publish images accessibly
-
-Keep the explanatory alt text in the page or note, where it can describe the
-meaning in context. Use explicit dimensions to prevent layout shift and choose
-the dark source from the active color scheme:
-
-```html
-<picture>
-  <source
-    media="(prefers-color-scheme: dark)"
-    srcset="/diagrams/example-flow.dark.png"
-  />
-  <img
-    src="/diagrams/example-flow.light.png"
-    alt="A source flows to a result."
-    width="960"
-    height="540"
-    loading="lazy"
-    decoding="async"
-  />
-</picture>
-```
-
-The generated SVG includes a non-visible accessible title based on the source
-name, but it does not invent a visible title or explanatory copy. The consuming
-page remains responsible for a literal, useful alt description and nearby
-caption when one is needed.
-
-## CLI reference
-
-| Command | Purpose |
+| Command | Result |
 | --- | --- |
-| `graphics init [file]` | Create a starter source without overwriting an existing file. |
-| `graphics check <file>` | Parse the source and report visual-communication lint findings. |
-| `graphics render <file>` | Write light/dark SVG and PNG plus `.tldr` interchange. |
-| `graphics login` | Authorize with S256 PKCE and store tokens in the operating-system credential store. |
-| `graphics logout` | On supported hosts, revoke the current login when possible and remove its local credential. |
-| `graphics auth status` | Report bounded login status without displaying token material. |
-| `graphics generate <prompt>` | Generate one validated WebP through the authenticated bounded free preview, with durable account-scoped idempotency and no ambiguous retry. |
-| `graphics vectorize <image>` | After login, adaptively trace one local raster to a bounded safe SVG and optional JSON receipt. |
-| `graphics code search [query]` | Search the fixed semantic operation registry and print bounded JSON descriptors. |
-| `graphics code execute <operation>` | Execute one exact owned operation with strict JSON input; never evaluate source text. |
-| `graphics mcp --root <workspace>` | Serve compatibility tools plus closed semantic search/execute over stdio for a trusted local workspace. |
-| `graphics open <file>` | Open `.tldr` or `.tldraw` in an installed tldraw Offline app. |
-| `graphics doctor` | Report the headless runtime and optional desktop integration. |
-| `graphics desktop status` | Report app discovery and its optional local agent server without exposing its token. |
-| `graphics desktop url` | Print the current official platform asset, size, URL, and digest. |
-| `graphics desktop install` | Download, verify, and prepare the official desktop app. |
-| `graphics skill path` | Print the packaged Agent Skill directory. |
-| `graphics skill install` | Copy the skill into a supported user or project discovery path. |
+| `transmute diagram init [file]` | Create a starter without overwriting an existing file. |
+| `transmute diagram check <file>` | Parse and lint a version-one diagram source. |
+| `transmute diagram render <file>` | Replace `.tldr`, light/dark SVG, and light/dark PNG derivatives. |
+| `transmute image vectorize <image>` | Trace one local raster to bounded inert SVG without authentication. |
+| `transmute image generate <prompt>` | Generate one authenticated, validated WebP. |
+| `transmute auth login|logout|status` | Manage or inspect the hosted-feature credential. |
+| `transmute code search|execute` | Search or execute the fixed semantic registry. |
+| `transmute mcp --root <workspace>` | Serve confined tools over stdio. |
+| `transmute canvas open|status|url|install` | Inspect or use optional canvas integration. |
+| `transmute skill path|install` | Locate or install the packaged Agent Skill. |
+| `transmute doctor` | Report runtime, vectorizer, hosted-feature, MCP, and canvas status. |
 
-## Design contract
-
-The shipped skill encodes the visual rules rather than asking every agent to
-rediscover them:
-
-- Follow the prompt without enrichment.
-- Default to rounded rectangles for concepts.
-- Keep connected shapes at least 96px apart, preferably 120–200px.
-- Give peers the same size and treatment unless a supplied fact differs.
-- Use three to seven high-level elements when the prompt permits.
-- Keep labels short and icons supportive.
-- Use one visible boundary per object and one stroke per axis.
-- Use whitespace and alignment before nested containers.
-- Use color for one semantic distinction at a time.
-
-See [the full visual-communication reference](skills/graphics/references/visual-communication.md)
-for the perceptual rationale and review checklist.
-
-## Develop
+## Development
 
 ```sh
-bun install --frozen-lockfile
+bun install --frozen-lockfile --ignore-scripts
 bun run check
-bun run example
 ```
 
-The published project code and VTracer are MIT. Sharp is Apache-2.0 and its
-prebuilt libvips dependency is LGPL-3.0-or-later. The runtime diagram renderer,
-`@resvg/resvg-js`, is MPL-2.0. The upstream tldraw SDK appears only as a
-development compatibility dependency and remains under its own license. See
-[NOTICE.md](NOTICE.md).
+`bun run check` typechecks, validates the schema and skill, runs deterministic and property tests, builds the public entrypoints, and installs the resulting archive in a clean consumer.
+
+## License
+
+MIT. See [NOTICE.md](NOTICE.md) for optional tldraw Offline and VTracer integration terms.

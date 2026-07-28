@@ -1,96 +1,149 @@
 import { describe, expect, test } from "bun:test"
 import {
-  fetchGraphicsDiscovery,
-  graphicsDiscoveryMaximumBytes,
-  graphicsDiscoveryUrl,
-  graphicsImageModels,
-  graphicsProductionContract,
-  graphicsRedirectUri,
-  parseGraphicsDiscovery,
+  fetchTransmuteDiscovery,
+  parseTransmuteDiscovery,
+  transmuteDesktopClientId,
+  transmuteDesktopEndpoints,
+  transmuteDesktopScopes,
+  transmuteDiscoveryMaximumBytes,
+  transmuteDiscoveryUrl,
+  transmuteImageModels,
+  transmuteProductionContract,
+  transmuteRedirectUri,
 } from "./discovery.ts"
 
-function validDiscovery(): Record<string, unknown> {
+function validDiscovery(
+  desktop: Record<string, unknown> = { availability: "unavailable" },
+): Record<string, unknown> {
   return {
-    schemaVersion: 1,
-    product: "graphics",
-    environment: graphicsProductionContract.environment,
-    apiBaseUrl: graphicsProductionContract.apiBaseUrl,
-    operationsUrl: graphicsProductionContract.operationsUrl,
-    authorization: {
-      type: "oauth2-authorization-code",
-      issuer: graphicsProductionContract.issuer,
-      authorizationEndpoint: graphicsProductionContract.authorizationEndpoint,
-      tokenEndpoint: graphicsProductionContract.tokenEndpoint,
-      revocationEndpoint: graphicsProductionContract.revocationEndpoint,
-      clientId: graphicsProductionContract.clientId,
-      redirectUri: graphicsRedirectUri,
-      scopes: ["openid", "offline_access"],
-      resource: graphicsProductionContract.resource,
-      pkce: "S256",
-    },
-    endpoints: {
-      generateImage: graphicsProductionContract.generateImage,
-    },
-    imageGeneration: {
-      access: "authenticated",
-      billing: "free-preview",
-      models: graphicsImageModels,
-      maximumPromptBytes: graphicsProductionContract.maximumPromptBytes,
-      maximumRawImageBytes: graphicsProductionContract.maximumRawImageBytes,
-      imagesPerRequest: 1,
-      responseMediaTypes: ["image/webp"],
-      quota: {
-        accountDailyLimit: 10,
-        globalDailySafetyLimit: 100,
-        paymentEnforced: false,
-        period: "utc-day",
+    schemaVersion: 2,
+    product: "transmute",
+    environment: transmuteProductionContract.environment,
+    capabilities: {
+      media: {
+        apiBaseUrl: transmuteProductionContract.apiBaseUrl,
+        operationsUrl: transmuteProductionContract.operationsUrl,
+        authorization: {
+          type: "oauth2-authorization-code",
+          issuer: transmuteProductionContract.issuer,
+          authorizationEndpoint: transmuteProductionContract.authorizationEndpoint,
+          tokenEndpoint: transmuteProductionContract.tokenEndpoint,
+          revocationEndpoint: transmuteProductionContract.revocationEndpoint,
+          clientId: transmuteProductionContract.clientId,
+          redirectUri: transmuteRedirectUri,
+          scopes: ["openid", "offline_access"],
+          resource: transmuteProductionContract.resource,
+          pkce: "S256",
+        },
+        endpoints: {
+          generateImage: transmuteProductionContract.generateImage,
+        },
+        imageGeneration: {
+          access: "authenticated",
+          billing: "free-preview",
+          models: transmuteImageModels,
+          maximumPromptBytes: transmuteProductionContract.maximumPromptBytes,
+          maximumRawImageBytes: transmuteProductionContract.maximumRawImageBytes,
+          imagesPerRequest: 1,
+          responseMediaTypes: ["image/webp"],
+          quota: {
+            accountDailyLimit: 10,
+            globalDailySafetyLimit: 100,
+            paymentEnforced: false,
+            period: "utc-day",
+          },
+          idempotency: {
+            header: "Idempotency-Key",
+            durable: true,
+            scope: "suite-account",
+          },
+        },
+        vectorize: {
+          access: "local",
+          billing: "free",
+          execution: "local",
+        },
       },
-      idempotency: {
-        header: "Idempotency-Key",
-        durable: true,
-        scope: "suite-account",
-      },
-    },
-    features: {
-      vectorize: {
-        access: "authenticated",
-        billing: "free",
-        execution: "local",
-      },
+      desktop,
     },
   }
 }
 
-describe("Graphics service discovery", () => {
-  test("accepts only the pinned production contract", () => {
-    const parsed = parseGraphicsDiscovery(validDiscovery())
+function media(document: Record<string, unknown>): Record<string, unknown> {
+  const capabilities = document.capabilities as Record<string, unknown>
+  return capabilities.media as Record<string, unknown>
+}
+
+function withMedia(
+  document: Record<string, unknown>,
+  updates: Record<string, unknown>,
+): Record<string, unknown> {
+  const capabilities = document.capabilities as Record<string, unknown>
+  return {
+    ...document,
+    capabilities: {
+      ...capabilities,
+      media: { ...media(document), ...updates },
+    },
+  }
+}
+
+function availableDesktop(): Record<string, unknown> {
+  return {
+    availability: "available",
+    clientId: transmuteDesktopClientId,
+    scopes: transmuteDesktopScopes,
+    endpoints: {
+      ...transmuteDesktopEndpoints,
+      sceneDescribe: "https://kind-otter-123.convex.site/api/v1/scenes/describe",
+    },
+  }
+}
+
+describe("Transmute service discovery", () => {
+  test("accepts only the grouped v2 production media contract", () => {
+    const document = validDiscovery()
+    const parsed = parseTransmuteDiscovery(document)
     expect(parsed).toEqual(
-      validDiscovery() as unknown as ReturnType<typeof parseGraphicsDiscovery>,
+      document as unknown as ReturnType<typeof parseTransmuteDiscovery>,
     )
     expect(Object.isFrozen(parsed)).toBe(true)
-    expect(Object.isFrozen(parsed.authorization)).toBe(true)
-    expect(Object.isFrozen(parsed.imageGeneration.models)).toBe(true)
-    expect(Object.isFrozen(parsed.imageGeneration.quota)).toBe(true)
-    expect(Object.isFrozen(parsed.imageGeneration.idempotency)).toBe(true)
+    expect(Object.isFrozen(parsed.capabilities)).toBe(true)
+    expect(Object.isFrozen(parsed.capabilities.media.authorization)).toBe(true)
+    expect(
+      Object.isFrozen(parsed.capabilities.media.imageGeneration.models),
+    ).toBe(true)
+    expect(Object.isFrozen(parsed.capabilities.desktop)).toBe(true)
 
-    for (const mutation of [
-      { environment: "staging" },
-      { apiBaseUrl: "https://attacker.example/api/v1" },
-      { operationsUrl: "https://hraness.graphics/api/v2/operations" },
-    ]) {
-      expect(() =>
-        parseGraphicsDiscovery({ ...validDiscovery(), ...mutation }),
-      ).toThrow("[DISCOVERY_INVALID]")
-    }
+    expect(() =>
+      parseTransmuteDiscovery({ ...validDiscovery(), schemaVersion: 1 }),
+    ).toThrow("[DISCOVERY_INVALID]")
+    expect(() =>
+      parseTransmuteDiscovery({ ...validDiscovery(), environment: "staging" }),
+    ).toThrow("[DISCOVERY_INVALID]")
+    expect(() =>
+      parseTransmuteDiscovery(
+        withMedia(validDiscovery(), {
+          apiBaseUrl: "https://attacker.example/api/v1",
+        }),
+      ),
+    ).toThrow("[DISCOVERY_INVALID]")
+    expect(() =>
+      parseTransmuteDiscovery(
+        withMedia(validDiscovery(), {
+          operationsUrl: "https://transmute.rocks/api/v2/operations",
+        }),
+      ),
+    ).toThrow("[DISCOVERY_INVALID]")
   })
 
   test("rejects extra keys and every mutable authorization authority", () => {
     expect(() =>
-      parseGraphicsDiscovery({ ...validDiscovery(), surprise: true }),
+      parseTransmuteDiscovery({ ...validDiscovery(), surprise: true }),
     ).toThrow("[DISCOVERY_INVALID]")
 
     const document = validDiscovery()
-    const authorization = document.authorization as Record<string, unknown>
+    const authorization = media(document).authorization as Record<string, unknown>
     for (const [key, value] of [
       ["issuer", "https://account.hraness.com.example"],
       ["tokenEndpoint", "https://attacker.example/token"],
@@ -99,36 +152,33 @@ describe("Graphics service discovery", () => {
       ["redirectUri", "http://127.0.0.1:49672/oauth/callback"],
     ] as const) {
       expect(() =>
-        parseGraphicsDiscovery({
-          ...document,
-          authorization: { ...authorization, [key]: value },
-        }),
+        parseTransmuteDiscovery(
+          withMedia(document, {
+            authorization: { ...authorization, [key]: value },
+          }),
+        ),
       ).toThrow("[DISCOVERY_INVALID]")
     }
   })
 
-  test("requires the exact free-preview generation policy and authenticated local-free vectorization", () => {
+  test("requires the exact generation policy and local vectorization contract", () => {
     const document = validDiscovery()
-    const generation = document.imageGeneration as Record<string, unknown>
+    const generation = media(document).imageGeneration as Record<string, unknown>
     const quota = generation.quota as Record<string, unknown>
     const idempotency = generation.idempotency as Record<string, unknown>
     expect(() =>
-      parseGraphicsDiscovery({
-        ...document,
-        features: undefined,
-      }),
+      parseTransmuteDiscovery(withMedia(document, { vectorize: undefined })),
     ).toThrow("[DISCOVERY_INVALID]")
     expect(() =>
-      parseGraphicsDiscovery({
-        ...document,
-        features: {
+      parseTransmuteDiscovery(
+        withMedia(document, {
           vectorize: {
-            access: "authenticated",
+            access: "local",
             billing: "free-preview",
             execution: "local",
           },
-        },
-      }),
+        }),
+      ),
     ).toThrow("[DISCOVERY_INVALID]")
 
     for (const [key, value] of [
@@ -136,10 +186,11 @@ describe("Graphics service discovery", () => {
       ["billing", "paid"],
     ] as const) {
       expect(() =>
-        parseGraphicsDiscovery({
-          ...document,
-          imageGeneration: { ...generation, [key]: value },
-        }),
+        parseTransmuteDiscovery(
+          withMedia(document, {
+            imageGeneration: { ...generation, [key]: value },
+          }),
+        ),
       ).toThrow("[DISCOVERY_INVALID]")
     }
     for (const [key, value] of [
@@ -149,13 +200,14 @@ describe("Graphics service discovery", () => {
       ["period", "rolling-day"],
     ] as const) {
       expect(() =>
-        parseGraphicsDiscovery({
-          ...document,
-          imageGeneration: {
-            ...generation,
-            quota: { ...quota, [key]: value },
-          },
-        }),
+        parseTransmuteDiscovery(
+          withMedia(document, {
+            imageGeneration: {
+              ...generation,
+              quota: { ...quota, [key]: value },
+            },
+          }),
+        ),
       ).toThrow("[DISCOVERY_INVALID]")
     }
     for (const [key, value] of [
@@ -164,53 +216,78 @@ describe("Graphics service discovery", () => {
       ["scope", "process-local-mvp"],
     ] as const) {
       expect(() =>
-        parseGraphicsDiscovery({
-          ...document,
-          imageGeneration: {
-            ...generation,
-            idempotency: { ...idempotency, [key]: value },
-          },
-        }),
+        parseTransmuteDiscovery(
+          withMedia(document, {
+            imageGeneration: {
+              ...generation,
+              idempotency: { ...idempotency, [key]: value },
+            },
+          }),
+        ),
       ).toThrow("[DISCOVERY_INVALID]")
     }
+  })
+
+  test("exposes desktop only through its checked availability discriminant", () => {
+    const unavailable = parseTransmuteDiscovery(validDiscovery())
+    expect(unavailable.capabilities.desktop).toEqual({
+      availability: "unavailable",
+    })
+
+    const available = parseTransmuteDiscovery(validDiscovery(availableDesktop()))
+    expect(available.capabilities.desktop.availability).toBe("available")
+    if (available.capabilities.desktop.availability !== "available") {
+      throw new Error("Expected available desktop discovery.")
+    }
+    expect(available.capabilities.desktop.endpoints.sceneDescribe).toBe(
+      "https://kind-otter-123.convex.site/api/v1/scenes/describe",
+    )
+
     expect(() =>
-      parseGraphicsDiscovery({
-        ...document,
-        imageGeneration: {
-          ...generation,
-          responseMediaTypes: ["image/webp", "image/png"],
-        },
-      }),
+      parseTransmuteDiscovery(
+        validDiscovery({ availability: "unavailable", endpoints: {} }),
+      ),
     ).toThrow("[DISCOVERY_INVALID]")
-    expect(() =>
-      parseGraphicsDiscovery({
-        ...document,
-        imageGeneration: {
-          ...generation,
-          maximumRawImageBytes:
-            graphicsProductionContract.maximumRawImageBytes + 1,
+    for (const desktop of [
+      { ...availableDesktop(), clientId: "other-client" },
+      {
+        ...availableDesktop(),
+        endpoints: {
+          ...(availableDesktop().endpoints as Record<string, unknown>),
+          deviceToken: "https://evil.example/api/auth/device/token",
         },
-      }),
-    ).toThrow("[DISCOVERY_INVALID]")
+      },
+      {
+        ...availableDesktop(),
+        endpoints: {
+          ...(availableDesktop().endpoints as Record<string, unknown>),
+          sceneDescribe: "https://evil.example/api/v1/scenes/describe",
+        },
+      },
+    ]) {
+      expect(() => parseTransmuteDiscovery(validDiscovery(desktop))).toThrow(
+        "[DISCOVERY_INVALID]",
+      )
+    }
   })
 
   test("fetches the fixed URL without redirects and bounds JSON/content type", async () => {
     let calls = 0
-    const discovery = await fetchGraphicsDiscovery(async (input, init) => {
+    const discovery = await fetchTransmuteDiscovery(async (input, init) => {
       calls += 1
-      expect(String(input)).toBe(graphicsDiscoveryUrl)
+      expect(String(input)).toBe(transmuteDiscoveryUrl)
       expect(init?.redirect).toBe("error")
       return new Response(JSON.stringify(validDiscovery()), {
         headers: { "content-type": "application/json; charset=utf-8" },
       })
     })
     expect(calls).toBe(1)
-    expect(discovery.authorization.clientId).toBe(
-      graphicsProductionContract.clientId,
+    expect(discovery.capabilities.media.authorization.clientId).toBe(
+      transmuteProductionContract.clientId,
     )
 
     await expect(
-      fetchGraphicsDiscovery(async () =>
+      fetchTransmuteDiscovery(async () =>
         new Response(JSON.stringify(validDiscovery()), {
           status: 201,
           headers: { "content-type": "application/json" },
@@ -219,7 +296,7 @@ describe("Graphics service discovery", () => {
     ).rejects.toThrow("[DISCOVERY_UNAVAILABLE]")
 
     await expect(
-      fetchGraphicsDiscovery(async () =>
+      fetchTransmuteDiscovery(async () =>
         new Response(JSON.stringify(validDiscovery()), {
           headers: { "content-type": "text/plain" },
         }),
@@ -227,11 +304,11 @@ describe("Graphics service discovery", () => {
     ).rejects.toThrow("[DISCOVERY_INVALID]")
 
     await expect(
-      fetchGraphicsDiscovery(async () =>
+      fetchTransmuteDiscovery(async () =>
         new Response("{}", {
           headers: {
             "content-type": "application/json",
-            "content-length": String(graphicsDiscoveryMaximumBytes + 1),
+            "content-length": String(transmuteDiscoveryMaximumBytes + 1),
           },
         }),
       ),

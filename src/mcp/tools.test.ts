@@ -10,12 +10,12 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
-  graphicsImageModels,
-  graphicsProductionContract,
-  graphicsRedirectUri,
+  transmuteImageModels,
+  transmuteProductionContract,
+  transmuteRedirectUri,
 } from "../discovery.ts"
 import {
-  GraphicsMcpToolRuntime,
+  TransmuteMcpToolRuntime,
   mcpMaximumEdges,
   mcpMaximumReturnedFindings,
   mcpMaximumShapes,
@@ -66,65 +66,68 @@ function source(options: { readonly width?: number; readonly height?: number } =
 
 function remoteDiscovery(): Record<string, unknown> {
   return {
-    schemaVersion: 1,
-    product: "graphics",
+    schemaVersion: 2,
+    product: "transmute",
     environment: "production",
-    apiBaseUrl: graphicsProductionContract.apiBaseUrl,
-    operationsUrl: graphicsProductionContract.operationsUrl,
-    authorization: {
-      type: "oauth2-authorization-code",
-      issuer: graphicsProductionContract.issuer,
-      authorizationEndpoint: graphicsProductionContract.authorizationEndpoint,
-      tokenEndpoint: graphicsProductionContract.tokenEndpoint,
-      revocationEndpoint: graphicsProductionContract.revocationEndpoint,
-      clientId: graphicsProductionContract.clientId,
-      redirectUri: graphicsRedirectUri,
-      scopes: ["openid", "offline_access"],
-      resource: graphicsProductionContract.resource,
-      pkce: "S256",
-    },
-    endpoints: { generateImage: graphicsProductionContract.generateImage },
-    imageGeneration: {
-      access: "authenticated",
-      billing: "free-preview",
-      models: graphicsImageModels,
-      maximumPromptBytes: 8_192,
-      maximumRawImageBytes: 3_145_728,
-      imagesPerRequest: 1,
-      responseMediaTypes: ["image/webp"],
-      quota: {
-        accountDailyLimit: 10,
-        globalDailySafetyLimit: 100,
-        paymentEnforced: false,
-        period: "utc-day",
+    capabilities: {
+      media: {
+        apiBaseUrl: transmuteProductionContract.apiBaseUrl,
+        operationsUrl: transmuteProductionContract.operationsUrl,
+        authorization: {
+          type: "oauth2-authorization-code",
+          issuer: transmuteProductionContract.issuer,
+          authorizationEndpoint: transmuteProductionContract.authorizationEndpoint,
+          tokenEndpoint: transmuteProductionContract.tokenEndpoint,
+          revocationEndpoint: transmuteProductionContract.revocationEndpoint,
+          clientId: transmuteProductionContract.clientId,
+          redirectUri: transmuteRedirectUri,
+          scopes: ["openid", "offline_access"],
+          resource: transmuteProductionContract.resource,
+          pkce: "S256",
+        },
+        endpoints: { generateImage: transmuteProductionContract.generateImage },
+        imageGeneration: {
+          access: "authenticated",
+          billing: "free-preview",
+          models: transmuteImageModels,
+          maximumPromptBytes: 8_192,
+          maximumRawImageBytes: 3_145_728,
+          imagesPerRequest: 1,
+          responseMediaTypes: ["image/webp"],
+          quota: {
+            accountDailyLimit: 10,
+            globalDailySafetyLimit: 100,
+            paymentEnforced: false,
+            period: "utc-day",
+          },
+          idempotency: {
+            header: "Idempotency-Key",
+            durable: true,
+            scope: "suite-account",
+          },
+        },
+        vectorize: {
+          access: "local",
+          billing: "free",
+          execution: "local",
+        },
       },
-      idempotency: {
-        header: "Idempotency-Key",
-        durable: true,
-        scope: "suite-account",
-      },
-    },
-    features: {
-      vectorize: {
-        access: "authenticated",
-        billing: "free",
-        execution: "local",
-      },
+      desktop: { availability: "unavailable" },
     },
   }
 }
 
-describe("Graphics MCP tools", () => {
+describe("Transmute MCP tools", () => {
   test("uses built-ins without discovering or executing workspace config", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-config-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-config-"))
     const marker = join(root, "config-executed")
     try {
       await writeFile(join(root, "agent-flow.diagram.json"), source())
       await writeFile(
-        join(root, "graphics.config.ts"),
+        join(root, "transmute.config.ts"),
         `await Bun.write(${JSON.stringify(marker)}, "executed"); export default {}\n`,
       )
-      const runtime = await GraphicsMcpToolRuntime.create(root)
+      const runtime = await TransmuteMcpToolRuntime.create(root)
       const result = await runtime.call("check_diagram", {
         path: "agent-flow.diagram.json",
       })
@@ -140,10 +143,10 @@ describe("Graphics MCP tools", () => {
   })
 
   test("renders and safely replaces all five root-relative artifacts", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-render-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-render-"))
     try {
       await writeFile(join(root, "agent-flow.diagram.json"), source())
-      const runtime = await GraphicsMcpToolRuntime.create(root)
+      const runtime = await TransmuteMcpToolRuntime.create(root)
       const first = await runtime.call("render_diagram", {
         path: "agent-flow.diagram.json",
         out_dir: "out",
@@ -186,8 +189,8 @@ describe("Graphics MCP tools", () => {
   })
 
   test("rejects traversal, symlink escapes, unsupported suffixes, and render limits", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-boundary-"))
-    const outside = await mkdtemp(join(tmpdir(), "graphics-mcp-outside-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-boundary-"))
+    const outside = await mkdtemp(join(tmpdir(), "transmute-mcp-outside-"))
     try {
       await writeFile(join(root, "large.diagram.json"), source({
         width: 5_000,
@@ -200,7 +203,7 @@ describe("Graphics MCP tools", () => {
       )
       await mkdir(join(outside, "writes"))
       await symlink(join(outside, "writes"), join(root, "outside-output"))
-      const runtime = await GraphicsMcpToolRuntime.create(root)
+      const runtime = await TransmuteMcpToolRuntime.create(root)
 
       const traversal = await runtime.call("check_diagram", {
         path: "../escape.diagram.json",
@@ -232,13 +235,13 @@ describe("Graphics MCP tools", () => {
   })
 
   test("rejects sources above one MiB before parsing", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-source-cap-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-source-cap-"))
     try {
       await writeFile(
         join(root, "oversized.diagram.json"),
         `{"padding":"${"x".repeat(1024 * 1024)}"}`,
       )
-      const runtime = await GraphicsMcpToolRuntime.create(root)
+      const runtime = await TransmuteMcpToolRuntime.create(root)
       const result = await runtime.call("check_diagram", {
         path: "oversized.diagram.json",
       })
@@ -249,7 +252,7 @@ describe("Graphics MCP tools", () => {
   })
 
   test("rejects diagrams above the MCP shape and edge complexity caps", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-complexity-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-complexity-"))
     try {
       await writeFile(
         join(root, "too-many-shapes.diagram.json"),
@@ -304,7 +307,7 @@ describe("Graphics MCP tools", () => {
           ),
         }),
       )
-      const runtime = await GraphicsMcpToolRuntime.create(root)
+      const runtime = await TransmuteMcpToolRuntime.create(root)
       const [tooManyShapes, tooManyEdges] = await Promise.all([
         runtime.call("check_diagram", {
           path: "too-many-shapes.diagram.json",
@@ -321,7 +324,7 @@ describe("Graphics MCP tools", () => {
   })
 
   test("rejects oversized raw arrays before semantic parsing", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-raw-complexity-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-raw-complexity-"))
     try {
       await writeFile(
         join(root, "malformed-dense.diagram.json"),
@@ -330,7 +333,7 @@ describe("Graphics MCP tools", () => {
           edges: Array.from({ length: 20_000 }, () => ({})),
         }),
       )
-      const runtime = await GraphicsMcpToolRuntime.create(root)
+      const runtime = await TransmuteMcpToolRuntime.create(root)
       const result = await runtime.call("check_diagram", {
         path: "malformed-dense.diagram.json",
       })
@@ -341,7 +344,7 @@ describe("Graphics MCP tools", () => {
   })
 
   test("bounds returned findings without duplicating them into prose", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-findings-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-findings-"))
     try {
       await writeFile(
         join(root, "dense.diagram.json"),
@@ -363,7 +366,7 @@ describe("Graphics MCP tools", () => {
           ),
         }),
       )
-      const runtime = await GraphicsMcpToolRuntime.create(root)
+      const runtime = await TransmuteMcpToolRuntime.create(root)
       const result = await runtime.call("check_diagram", {
         path: "dense.diagram.json",
       })
@@ -408,23 +411,23 @@ describe("Graphics MCP tools", () => {
   })
 
   test("searches the fixed registry and rejects source text in semantic execution", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-semantic-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-semantic-"))
     const marker = join(root, "executed")
     try {
       await writeFile(join(root, "flow.diagram.json"), source())
-      const runtime = await GraphicsMcpToolRuntime.create(root)
-      const search = await runtime.call("search_graphics", {
+      const runtime = await TransmuteMcpToolRuntime.create(root)
+      const search = await runtime.call("search_transmute", {
         query: "diagram",
       })
       expect(search.structuredContent).toMatchObject({
         ok: true,
         operations: [
-          { code: "graphics.diagram.check" },
-          { code: "graphics.diagram.render" },
+          { code: "transmute.diagram.check" },
+          { code: "transmute.diagram.render" },
         ],
       })
-      const execute = await runtime.call("execute_graphics", {
-        operation: "graphics.diagram.check",
+      const execute = await runtime.call("execute_transmute", {
+        operation: "transmute.diagram.check",
         input: {
           path: "flow.diagram.json",
           source: `await Bun.write(${JSON.stringify(marker)}, "executed")`,
@@ -438,21 +441,21 @@ describe("Graphics MCP tools", () => {
   })
 
   test("executes authenticated hosted generation to a confined file with metadata-only output", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-generate-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-generate-"))
     const webp = Uint8Array.from([
       0x52, 0x49, 0x46, 0x46, 0x08, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
       0x56, 0x50, 0x38, 0x58,
     ])
     let calls = 0
     try {
-      const runtime = await GraphicsMcpToolRuntime.create(root, {
+      const runtime = await TransmuteMcpToolRuntime.create(root, {
         secrets: {
           get: async () =>
             JSON.stringify({
               schemaVersion: 1,
-              issuer: graphicsProductionContract.issuer,
-              clientId: graphicsProductionContract.clientId,
-              resource: graphicsProductionContract.resource,
+              issuer: transmuteProductionContract.issuer,
+              clientId: transmuteProductionContract.clientId,
+              resource: transmuteProductionContract.resource,
               accessToken: "mcp-access-token",
               refreshToken: "mcp-refresh-token",
               expiresAt: Date.now() + 60 * 60_000,
@@ -464,12 +467,12 @@ describe("Graphics MCP tools", () => {
           calls += 1
           if (
             String(input) ===
-            "https://hraness.graphics/.well-known/graphics-cli.json"
+            "https://transmute.rocks/.well-known/transmute-cli.json"
           ) {
             return Response.json(remoteDiscovery())
           }
           expect(String(input)).toBe(
-            graphicsProductionContract.generateImage,
+            transmuteProductionContract.generateImage,
           )
           expect(init?.redirect).toBe("error")
           return Response.json({
@@ -478,15 +481,15 @@ describe("Graphics MCP tools", () => {
               base64: Buffer.from(webp).toString("base64"),
               mediaType: "image/webp",
             },
-            model: graphicsImageModels[0],
+            model: transmuteImageModels[0],
             requestId: "mcp_request",
           })
         },
       })
-      const result = await runtime.call("execute_graphics", {
-        operation: "graphics.image.generate",
+      const result = await runtime.call("execute_transmute", {
+        operation: "transmute.image.generate",
         input: {
-          model: graphicsImageModels[0],
+          model: transmuteImageModels[0],
           prompt: "one bounded image",
           outputPath: "generated/image.webp",
           idempotencyKey: "mcp-request-key-01",
@@ -497,10 +500,10 @@ describe("Graphics MCP tools", () => {
       expect(result.content).toHaveLength(1)
       expect(result.structuredContent).toMatchObject({
         ok: true,
-        operation: "graphics.image.generate",
+        operation: "transmute.image.generate",
         result: {
           mediaType: "image/webp",
-          model: graphicsImageModels[0],
+          model: transmuteImageModels[0],
           outputPath: "generated/image.webp",
           requestId: "mcp_request",
         },

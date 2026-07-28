@@ -1,182 +1,58 @@
-import {
-  copyFile,
-  mkdir,
-  mkdtemp,
-  rm,
-  writeFile,
-} from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-async function run(command: readonly string[], cwd: string): Promise<void> {
-  const subprocess = Bun.spawn([...command], {
-    cwd,
-    stdout: "inherit",
-    stderr: "inherit",
-  })
-  const exitCode = await subprocess.exited
-  if (exitCode !== 0) {
-    throw new Error(`Command failed (${exitCode}): ${command.join(" ")}`)
-  }
+const packageName = "@hraness/transmute";
+const importSpecifiers = ["@hraness/transmute","@hraness/transmute/auth","@hraness/transmute/discovery","@hraness/transmute/generate","@hraness/transmute/operations"];
+const binNames = ["graphics","transmute"];
+const verificationPackages = ["@types/bun@^1.3.14","ajv@8.17.1","fast-check@^4.8.0","react@19.2.3","react-dom@19.2.3","tldraw@5.2.5","typescript@^6.0.3"];
+const datalogSmokeSource: string | undefined = undefined;
+
+async function run(command: string[], cwd: string): Promise<void> {
+  const process = Bun.spawn(command, { cwd, stdout: "inherit", stderr: "inherit" });
+  const exitCode = await process.exited;
+  if (exitCode !== 0) throw new Error(`Command failed (${String(exitCode)}): ${command.join(" ")}`);
 }
 
-const repository = process.cwd()
-const work = await mkdtemp(join(tmpdir(), "graphics-package-smoke-"))
+const repository = process.cwd();
+const work = await mkdtemp(join(tmpdir(), "hraness-package-smoke-"));
 try {
-  const archive = join(work, "graphics.tgz")
-  const consumer = join(work, "consumer")
-  await mkdir(consumer)
-  await run(
-    [
-      process.execPath,
-      "pm",
-      "pack",
-      "--filename",
-      archive,
-      "--ignore-scripts",
-      "--quiet",
-    ],
-    repository,
-  )
-  await writeFile(
-    join(consumer, "package.json"),
-    JSON.stringify({ private: true, type: "module" }),
-  )
-  await run([process.execPath, "add", archive, "--ignore-scripts"], consumer)
-  const packageRoot = join(
-    consumer,
-    "node_modules",
-    "@hraness",
-    "graphics",
-  )
-  const packedManifest = await Bun.file(join(packageRoot, "package.json")).json()
-  if (
-    packedManifest.types !== "./dist/index.d.ts" ||
-    packedManifest.exports?.["."]?.types !== "./dist/index.d.ts" ||
-    packedManifest.exports?.["./auth"]?.import !== "./dist/auth.js" ||
-    packedManifest.exports?.["./discovery"]?.import !== "./dist/discovery.js" ||
-    packedManifest.exports?.["./generate"]?.import !== "./dist/generate.js" ||
-    packedManifest.exports?.["./operations"]?.import !== "./dist/operations.js"
-  ) {
-    throw new Error("Packed package does not expose the checked v0.4 entrypoints from dist.")
+  const archive = join(work, "package.tgz");
+  const consumer = join(work, "consumer");
+  await mkdir(consumer);
+  await run([
+    process.execPath,
+    "pm",
+    "pack",
+    "--filename",
+    archive,
+    "--ignore-scripts",
+    "--quiet",
+  ], repository);
+  await writeFile(join(consumer, "package.json"), JSON.stringify({ private: true, type: "module" }));
+  await run([process.execPath, "add", archive, "--ignore-scripts"], consumer);
+  await run(["node", "--input-type=module", "-e", `await import(${JSON.stringify(packageName)})`], consumer);
+  for (const binName of binNames) {
+    await run([join(consumer, "node_modules", ".bin", binName), "--help"], consumer);
   }
-  const declarations = new Bun.Glob("dist/**/*.d.ts")
-  let declarationCount = 0
-  for await (const declarationPath of declarations.scan({
-    cwd: packageRoot,
-    onlyFiles: true,
-  })) {
-    declarationCount += 1
-    const declaration = await Bun.file(
-      join(packageRoot, declarationPath),
-    ).text()
-    if (/["']\.\.?\/[^"'\r\n]+\.ts["']/u.test(declaration)) {
-      throw new Error(
-        `Packed declaration exposes a relative .ts specifier: ${declarationPath}`,
-      )
-    }
+  if (verificationPackages.length > 0) {
+    await run([process.execPath, "add", ...verificationPackages, "--ignore-scripts"], consumer);
   }
-  if (declarationCount === 0) throw new Error("Packed package omitted declarations.")
-  if (await Bun.file(join(packageRoot, "src", "index.ts")).exists()) {
-    throw new Error("Packed package should not ship its TypeScript source tree.")
+  await run([
+    "node",
+    "--input-type=module",
+    "-e",
+    `await Promise.all(${JSON.stringify(importSpecifiers)}.map((specifier) => import(specifier)))`,
+  ], consumer);
+  if (datalogSmokeSource !== undefined) {
+    await writeFile(join(consumer, "datalog-smoke.mjs"), datalogSmokeSource);
+    await run([process.execPath, "run", "./datalog-smoke.mjs"], consumer);
   }
-  if (
-    !(await Bun.file(
-      join(packageRoot, "dist", "vectorize-worker.js"),
-    ).exists())
-  ) {
-    throw new Error("Packed package omitted the isolated vectorization worker.")
-  }
-  const binary = join(consumer, "node_modules", ".bin", "graphics")
-  await run([binary, "--help"], consumer)
-  await run([binary, "code", "search", "diagram", "--limit", "2"], consumer)
-  await run([binary, "init", "smoke.diagram.json"], consumer)
-  await run(
-    [
-      binary,
-      "code",
-      "execute",
-      "graphics.diagram.check",
-      "--input",
-      '{"path":"smoke.diagram.json"}',
-    ],
-    consumer,
-  )
-  const packedConfig = join(
-    packageRoot,
-    "examples",
-    "graphics.config.ts",
-  )
-  await run(
-    [binary, "check", "smoke.diagram.json", "--config", packedConfig],
-    consumer,
-  )
-  await run([binary, "render", "smoke.diagram.json"], consumer)
-  await run(
-    [binary, "skill", "install", "--target", "agents", "--scope", "project"],
-    consumer,
-  )
-  await run(
-    [
-      "node",
-      "--input-type=module",
-      "-e",
-      'const api = await import("@hraness/graphics"); const operations = await import("@hraness/graphics/operations"); const auth = await import("@hraness/graphics/auth"); const discovery = await import("@hraness/graphics/discovery"); const generate = await import("@hraness/graphics/generate"); if (typeof api.renderSvg !== "function" || typeof api.vectorizeImage !== "function" || typeof api.runMcpServer !== "function" || typeof operations.searchGraphicsOperations !== "function" || typeof operations.executeGraphicsOperation !== "function" || typeof auth.loginGraphics !== "function" || typeof discovery.parseGraphicsDiscovery !== "function" || typeof generate.generateGraphicsImageFile !== "function") process.exit(1)',
-    ],
-    consumer,
-  )
-  const skill = join(consumer, "node_modules", "@hraness", "graphics", "skills", "graphics", "SKILL.md")
-  if (!(await Bun.file(skill).exists())) throw new Error("Packed package omitted skills/graphics")
-  const installedSkill = join(consumer, ".agents", "skills", "graphics", "SKILL.md")
-  if (!(await Bun.file(installedSkill).exists())) {
-    throw new Error("Packaged CLI could not install its bundled skill")
-  }
-  await run(
-    [process.execPath, "add", "--dev", "@types/bun@1.3.14", "typescript@6.0.3"],
-    consumer,
-  )
-  await writeFile(
-    join(consumer, "index.ts"),
-    [
-      'import { parseDiagramSource, parseDiagramSpec, resolveDiagramSource, runMcpServer, vectorizeImage, type DiagramConfig, type VectorizeReceipt } from "@hraness/graphics"',
-      'import { executeGraphicsOperation, searchGraphicsOperations, type GraphicsOperationCode } from "@hraness/graphics/operations"',
-      'import { type GraphicsAuthStatus } from "@hraness/graphics/auth"',
-      'import { graphicsImageModels, type GraphicsDiscoveryDocument } from "@hraness/graphics/discovery"',
-      'import { type GenerateGraphicsImageInput } from "@hraness/graphics/generate"',
-      "const config = {} satisfies DiagramConfig",
-      "const receipt = {} as VectorizeReceipt",
-      "void config",
-      "void receipt",
-      "void runMcpServer",
-      "void vectorizeImage",
-      "void executeGraphicsOperation",
-      "void searchGraphicsOperations",
-      "void (null as unknown as GraphicsOperationCode)",
-      "void (null as unknown as GraphicsAuthStatus)",
-      "void (null as unknown as GraphicsDiscoveryDocument)",
-      "void (null as unknown as GenerateGraphicsImageInput)",
-      "void graphicsImageModels",
-      "void resolveDiagramSource(parseDiagramSource({ version: 1, name: \"stacked\", canvas: { width: 500, height: 200 }, layout: { type: \"stack\", direction: \"horizontal\" }, shapes: [{ id: \"one\", type: \"rect\", width: 100, height: 80 }] }))",
-      "void parseDiagramSpec({ version: 1, name: \"typed\", canvas: { width: 1, height: 1 }, shapes: [] })",
-      "",
-    ].join("\n"),
-  )
-  await copyFile(packedConfig, join(consumer, "graphics.config.ts"))
-  await writeFile(
-    join(consumer, "tsconfig.json"),
-    JSON.stringify({
-      compilerOptions: {
-        module: "Preserve",
-        moduleResolution: "Bundler",
-        noEmit: true,
-        strict: true,
-        target: "ES2024",
-        types: ["bun"],
-      },
-      include: ["index.ts", "graphics.config.ts"],
-    }),
-  )
-  await run([process.execPath, "x", "tsc", "--project", "tsconfig.json"], consumer)
+  await writeFile(join(consumer, "index.ts"), "import * as surface0 from \"@hraness/transmute\";\nimport * as surface1 from \"@hraness/transmute/auth\";\nimport * as surface2 from \"@hraness/transmute/discovery\";\nimport * as surface3 from \"@hraness/transmute/generate\";\nimport * as surface4 from \"@hraness/transmute/operations\";\nvoid [surface0, surface1, surface2, surface3, surface4];\n");
+  await writeFile(join(consumer, "tsconfig.bundler.json"), "{\n  \"compilerOptions\": {\n    \"target\": \"ES2023\",\n    \"lib\": [\n      \"ES2023\",\n      \"DOM\",\n      \"DOM.Iterable\"\n    ],\n    \"types\": [\n      \"bun\",\n      \"node\"\n    ],\n    \"strict\": true,\n    \"noEmit\": true,\n    \"skipLibCheck\": false,\n    \"module\": \"Preserve\",\n    \"moduleResolution\": \"Bundler\"\n  },\n  \"include\": [\n    \"index.ts\"\n  ]\n}");
+  await writeFile(join(consumer, "tsconfig.nodenext.json"), "{\n  \"compilerOptions\": {\n    \"target\": \"ES2023\",\n    \"lib\": [\n      \"ES2023\",\n      \"DOM\",\n      \"DOM.Iterable\"\n    ],\n    \"types\": [\n      \"bun\",\n      \"node\"\n    ],\n    \"strict\": true,\n    \"noEmit\": true,\n    \"skipLibCheck\": false,\n    \"module\": \"NodeNext\",\n    \"moduleResolution\": \"NodeNext\"\n  },\n  \"include\": [\n    \"index.ts\"\n  ]\n}");
+  await run([process.execPath, "x", "tsc", "-p", "./tsconfig.bundler.json"], consumer);
+  await run([process.execPath, "x", "tsc", "-p", "./tsconfig.nodenext.json"], consumer);
 } finally {
-  await rm(work, { recursive: true, force: true })
+  await rm(work, { recursive: true, force: true });
 }

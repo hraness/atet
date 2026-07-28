@@ -8,28 +8,28 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
-  graphicsSecretsName,
-  graphicsSecretsService,
-  type GraphicsSecretStore,
+  transmuteSecretsName,
+  transmuteSecretsService,
+  type TransmuteSecretStore,
 } from "./auth.ts"
 import {
-  graphicsImageModels,
-  graphicsProductionContract,
-  graphicsRedirectUri,
-  parseGraphicsDiscovery,
+  transmuteImageModels,
+  transmuteProductionContract,
+  transmuteRedirectUri,
+  parseTransmuteDiscovery,
 } from "./discovery.ts"
 import {
-  generateGraphicsImage,
-  generateGraphicsImageFile,
-  validateGraphicsIdempotencyKey,
+  generateTransmuteImage,
+  generateTransmuteImageFile,
+  validateTransmuteIdempotencyKey,
 } from "./generate.ts"
 
-class FixedSecrets implements GraphicsSecretStore {
+class FixedSecrets implements TransmuteSecretStore {
   value = JSON.stringify({
     schemaVersion: 1,
-    issuer: graphicsProductionContract.issuer,
-    clientId: graphicsProductionContract.clientId,
-    resource: graphicsProductionContract.resource,
+    issuer: transmuteProductionContract.issuer,
+    clientId: transmuteProductionContract.clientId,
+    resource: transmuteProductionContract.resource,
     accessToken: "bounded-access-token",
     refreshToken: "bounded-refresh-token",
     expiresAt: Date.now() + 60 * 60_000,
@@ -44,8 +44,8 @@ class FixedSecrets implements GraphicsSecretStore {
     readonly name: string
     readonly value: string
   }) {
-    expect(options.service).toBe(graphicsSecretsService)
-    expect(options.name).toBe(graphicsSecretsName)
+    expect(options.service).toBe(transmuteSecretsService)
+    expect(options.name).toBe(transmuteSecretsName)
     this.value = options.value
   }
 
@@ -55,51 +55,54 @@ class FixedSecrets implements GraphicsSecretStore {
   }
 }
 
-const discovery = parseGraphicsDiscovery({
-  schemaVersion: 1,
-  product: "graphics",
+const discovery = parseTransmuteDiscovery({
+  schemaVersion: 2,
+  product: "transmute",
   environment: "production",
-  apiBaseUrl: graphicsProductionContract.apiBaseUrl,
-  operationsUrl: graphicsProductionContract.operationsUrl,
-  authorization: {
-    type: "oauth2-authorization-code",
-    issuer: graphicsProductionContract.issuer,
-    authorizationEndpoint: graphicsProductionContract.authorizationEndpoint,
-    tokenEndpoint: graphicsProductionContract.tokenEndpoint,
-    revocationEndpoint: graphicsProductionContract.revocationEndpoint,
-    clientId: graphicsProductionContract.clientId,
-    redirectUri: graphicsRedirectUri,
-    scopes: ["openid", "offline_access"],
-    resource: graphicsProductionContract.resource,
-    pkce: "S256",
-  },
-  endpoints: { generateImage: graphicsProductionContract.generateImage },
-  imageGeneration: {
-    access: "authenticated",
-    billing: "free-preview",
-    models: graphicsImageModels,
-    maximumPromptBytes: 8_192,
-    maximumRawImageBytes: 3_145_728,
-    imagesPerRequest: 1,
-    responseMediaTypes: ["image/webp"],
-    quota: {
-      accountDailyLimit: 10,
-      globalDailySafetyLimit: 100,
-      paymentEnforced: false,
-      period: "utc-day",
+  capabilities: {
+    media: {
+      apiBaseUrl: transmuteProductionContract.apiBaseUrl,
+      operationsUrl: transmuteProductionContract.operationsUrl,
+      authorization: {
+        type: "oauth2-authorization-code",
+        issuer: transmuteProductionContract.issuer,
+        authorizationEndpoint: transmuteProductionContract.authorizationEndpoint,
+        tokenEndpoint: transmuteProductionContract.tokenEndpoint,
+        revocationEndpoint: transmuteProductionContract.revocationEndpoint,
+        clientId: transmuteProductionContract.clientId,
+        redirectUri: transmuteRedirectUri,
+        scopes: ["openid", "offline_access"],
+        resource: transmuteProductionContract.resource,
+        pkce: "S256",
+      },
+      endpoints: { generateImage: transmuteProductionContract.generateImage },
+      imageGeneration: {
+        access: "authenticated",
+        billing: "free-preview",
+        models: transmuteImageModels,
+        maximumPromptBytes: 8_192,
+        maximumRawImageBytes: 3_145_728,
+        imagesPerRequest: 1,
+        responseMediaTypes: ["image/webp"],
+        quota: {
+          accountDailyLimit: 10,
+          globalDailySafetyLimit: 100,
+          paymentEnforced: false,
+          period: "utc-day",
+        },
+        idempotency: {
+          header: "Idempotency-Key",
+          durable: true,
+          scope: "suite-account",
+        },
+      },
+      vectorize: {
+        access: "local",
+        billing: "free",
+        execution: "local",
+      },
     },
-    idempotency: {
-      header: "Idempotency-Key",
-      durable: true,
-      scope: "suite-account",
-    },
-  },
-  features: {
-    vectorize: {
-      access: "authenticated",
-      billing: "free",
-      execution: "local",
-    },
+    desktop: { availability: "unavailable" },
   },
 })
 
@@ -112,21 +115,21 @@ function success(base64 = Buffer.from(webp).toString("base64")) {
   return {
     apiVersion: "v1",
     image: { base64, mediaType: "image/webp" },
-    model: graphicsImageModels[0],
+    model: transmuteImageModels[0],
     requestId: "request_123",
   }
 }
 
-describe("Graphics hosted image generation", () => {
+describe("Transmute hosted image generation", () => {
   test("sends one authenticated duplicate-mitigated request and atomically writes WebP", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-generate-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-generate-"))
     const outputPath = join(root, "generated.webp")
     const secrets = new FixedSecrets()
     let calls = 0
     try {
-      const result = await generateGraphicsImageFile(
+      const result = await generateTransmuteImageFile(
         {
-          model: graphicsImageModels[0],
+          model: transmuteImageModels[0],
           prompt: "A restrained geometric texture",
           outputPath,
           idempotencyKey: "request-key-0001",
@@ -137,7 +140,7 @@ describe("Graphics hosted image generation", () => {
           fetch: async (input, init) => {
             calls += 1
             expect(String(input)).toBe(
-              graphicsProductionContract.generateImage,
+              transmuteProductionContract.generateImage,
             )
             expect(init?.method).toBe("POST")
             expect(init?.redirect).toBe("error")
@@ -147,7 +150,7 @@ describe("Graphics hosted image generation", () => {
             )
             expect(headers.get("idempotency-key")).toBe("request-key-0001")
             expect(JSON.parse(String(init?.body))).toEqual({
-              model: graphicsImageModels[0],
+              model: transmuteImageModels[0],
               prompt: "A restrained geometric texture",
             })
             return Response.json(success())
@@ -158,7 +161,7 @@ describe("Graphics hosted image generation", () => {
       expect(result).toMatchObject({
         bytes: webp.byteLength,
         mediaType: "image/webp",
-        model: graphicsImageModels[0],
+        model: transmuteImageModels[0],
         outputPath,
         requestId: "request_123",
       })
@@ -170,9 +173,9 @@ describe("Graphics hosted image generation", () => {
   })
 
   test("generates a process-local UUID when the caller omits idempotency", async () => {
-    const result = await generateGraphicsImage(
+    const result = await generateTransmuteImage(
       {
-        model: graphicsImageModels[0],
+        model: transmuteImageModels[0],
         prompt: "one shape",
       },
       {
@@ -191,13 +194,13 @@ describe("Graphics hosted image generation", () => {
   })
 
   test("rejects invalid magic and never publishes a partial output", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-generate-invalid-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-generate-invalid-"))
     const outputPath = join(root, "invalid.webp")
     try {
       await expect(
-        generateGraphicsImageFile(
+        generateTransmuteImageFile(
           {
-            model: graphicsImageModels[0],
+            model: transmuteImageModels[0],
             prompt: "invalid response",
             outputPath,
           },
@@ -221,9 +224,9 @@ describe("Graphics hosted image generation", () => {
     let calls = 0
     let caught: unknown
     try {
-      await generateGraphicsImage(
+      await generateTransmuteImage(
         {
-          model: graphicsImageModels[0],
+          model: transmuteImageModels[0],
           prompt: "do not retry",
           idempotencyKey: "request-key-0002",
         },
@@ -254,9 +257,9 @@ describe("Graphics hosted image generation", () => {
   test("revalidates injected discovery before reading or sending a bearer token", async () => {
     let calls = 0
     await expect(
-      generateGraphicsImage(
+      generateTransmuteImage(
         {
-          model: graphicsImageModels[0],
+          model: transmuteImageModels[0],
           prompt: "do not exfiltrate",
         },
         {
@@ -278,13 +281,13 @@ describe("Graphics hosted image generation", () => {
   })
 
   test("requires exact response fields, a 16-character key, and a WebP suffix", async () => {
-    expect(() => validateGraphicsIdempotencyKey("short")).toThrow(
+    expect(() => validateTransmuteIdempotencyKey("short")).toThrow(
       "[INVALID_ARGUMENT]",
     )
     await expect(
-      generateGraphicsImage(
+      generateTransmuteImage(
         {
-          model: graphicsImageModels[0],
+          model: transmuteImageModels[0],
           prompt: "strict response",
         },
         {
@@ -296,9 +299,9 @@ describe("Graphics hosted image generation", () => {
     ).rejects.toThrow("[GENERATION_INVALID_RESPONSE]")
 
     await expect(
-      generateGraphicsImageFile(
+      generateTransmuteImageFile(
         {
-          model: graphicsImageModels[0],
+          model: transmuteImageModels[0],
           prompt: "wrong suffix",
           outputPath: "image.png",
         },
@@ -308,9 +311,9 @@ describe("Graphics hosted image generation", () => {
 
     for (const prompt of ["   \n\t", "valid\u0000invalid", "bad\u0007bell"]) {
       await expect(
-        generateGraphicsImage(
+        generateTransmuteImage(
           {
-            model: graphicsImageModels[0],
+            model: transmuteImageModels[0],
             prompt,
           },
           { discovery, secrets: new FixedSecrets() },

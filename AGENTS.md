@@ -1,72 +1,25 @@
 # Contents
 
-- `src/` – typed source parsing, deterministic layout, SVG/PNG rendering, bounded raster-to-SVG conversion, strict service discovery, OAuth credential handling, hosted image generation, semantic operation dispatch, `.tldr` interoperability, desktop discovery, MCP, and the CLI.
-- `dist/` – committed Bun-targeted CLI and programmatic entrypoints used by immutable GitHub installs.
-- `schema/` – the public JSON Schema for authored diagram specifications.
-- `skills/graphics/` – the reusable Agent Skill shipped with the package.
-- `examples/` – small literal specifications and optional adapter examples.
-- `scripts/` – package-boundary verification.
-- `.github/workflows/` – read-only branch validation and checks-gated immutable GitHub Release automation.
+- `src/` – diagram parsing and layout, rendering, local vectorization, hosted generation, semantic operations, OAuth, MCP, canvas integration, the canonical CLI, and the v0.4 graphics compatibility boundary.
+- `schema/` – version-one diagram JSON Schema.
+- `skills/transmute/` – the canonical Transmute Agent Skill.
+- `examples/` – checked diagram and configuration examples.
+- `scripts/` – schema, skill, package, release, and official-vectorizer verification.
+- `dist/` – committed Bun-targeted JavaScript and declarations consumed by immutable GitHub installs.
+- `.github/workflows/` – read-only branch checks, official VTracer matrix verification, and checks-gated immutable releases.
+- `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`, and `NOTICE.md` – public documentation, policy, and terms.
+- `package.json`, `tsconfig.json`, and `bun.lock` – standalone package and verification configuration.
 
 # Guidelines
 
-- Keep the default runtime open source and headless. Do not add the tldraw SDK or tldraw Offline as runtime dependencies.
-- Treat authored specifications as the source of truth; generated `.svg`, `.png`, and `.tldr` files are replaceable derivatives.
-- Follow prompts literally. Defaults may resolve mechanics but must not add claims, labels, legends, or decorative meaning.
-- Keep default fonts and icons small and redistributable. Custom commercial fonts and third-party icon packs belong in user configuration, not this repository.
-- Parse foreign data from `unknown`, preserve deterministic output, and test every compatibility boundary.
-- Keep semantic layout additive and narrow. Source order may place shapes but
-  must not create edges; fail impossible constraints rather than silently
-  shrinking shapes, shortening gaps, or changing supplied relationships.
-- Keep raster conversion fail-closed: bound encoded input, decoded dimensions
-  and pixels, duration, emitted bytes, and paths; rebuild tracer output from
-  inert geometry rather than passing through foreign SVG.
-- Support bounded vectorization on macOS and Linux. Keep Windows fail-closed
-  with `tool_platform` until VTracer output can cross a bounded streaming
-  boundary; a pinned Windows binary is not evidence that conversion is safe.
-- Verify downloaded tool archives and extracted binaries by pinned SHA-256.
-  Record the VTracer binary hash and the full version map reported by the
-  loaded Sharp/libvips stack in conversion receipts; do not describe component
-  versions as binary hashes or add an embedded-raster fallback, upscaling
-  model, or bundled font.
-- Keep agent tools root-relative and capability-small. MCP mode must not
-  execute workspace configuration, reveal absolute paths, accept traversal or
-  caller-supplied remote URLs, or write anything except the documented
-  replaceable derivatives. Its only hosted call is the pinned
-  `graphics.image.generate` operation discovered from the exact production
-  contract. It is a trusted-local-workspace tool boundary, not an operating
-  system sandbox against concurrent same-user filesystem mutation.
-- Enforce MCP source and raw-array complexity limits before semantic parsing,
-  bound returned findings, and keep failure results compatible with declared
-  success schemas by omitting structured content on errors.
-- Keep the semantic operation registry fixed to owned codes and typed JSON
-  schemas. Search returns descriptors; execute dispatches only exact registered
-  codes. Never accept source text, eval, dynamic imports, workspace config, or
-  user-supplied executable adapters through the CLI or MCP boundary.
-- Pin discovery to the exact production environment, authorities, client,
-  resource, endpoints, limits, models, media types, and feature policy. Fetch
-  only the fixed well-known URL, reject redirects and unexpected content
-  types, and bound every response before parsing.
-- Use OAuth authorization-code with S256 PKCE and only the fixed
-  `127.0.0.1:49671` loopback callback. Store token material only in
-  `Bun.secrets`; never put it in files, stdout, error messages, receipts, or
-  structured tool content. Serialize login, refresh, and logout through one
-  private per-user mutation lease whose empty markers bind process-inspection
-  scope, PID, and OS start identity. Treat a marker from another scope, including
-  another Linux PID namespace, as uninspectable and fail closed without removing
-  it. Reread credentials inside the lease and preserve rotated refresh tokens.
-  Check cancellation immediately before refresh dispatch; after dispatch,
-  finish the bounded exchange and persist its response. Fail credential
-  mutations closed on platforms without a verified private cross-process
-  primitive; a caller path override is not proof of one.
-- A Graphics login gates vectorization, but vectorization remains free and
-  local: never send its path or bytes to discovery, OAuth, generation, or any
-  other network endpoint.
-- Hosted generation supports only the two checked model IDs and WebP output.
-  It is an authenticated bounded free preview with a UTC-day account limit of
-  10 and global daily safety limit of 100; payment is not yet
-  enforced. Send one required durable suite-account `Idempotency-Key`, never
-  retry an ambiguous generation request, bound and validate base64 plus media
-  magic, and atomically publish the caller-selected `.webp` output.
-- Run `bun run check` before release and commit the resulting `dist/` files with their matching source.
-- Treat a `v*` tag as a release request, not a completed release. Before tagging, confirm repository-level immutable releases are enabled; use a strictly increasing stable package version, keep the tag equal to `v<package.json version>` on `main`, and let the read-only verification job complete before its write-scoped publisher creates the Release. Do not create the next tag until that workflow and Release are verified because GitHub concurrency is not a durable queue. After tagging, verify the matching non-draft immutable Release is Latest.
+- Use Bun 1.3.14 and run `bun run check` before handing off a change.
+- Keep canonical commands namespaced as `transmute diagram init|check|render`, `transmute image generate|vectorize`, `transmute auth login|logout|status`, and the `code`, `mcp`, `canvas`, `skill`, and `doctor` surfaces.
+- Keep canonical local vectorization authentication-free and network-silent. Hosted generation remains authenticated, bounded, idempotency-keyed, and non-retried after an ambiguous dispatch.
+- Preserve `.diagram.json` version one and the five same-stem render outputs: `.tldr`, light and dark SVG, and light and dark PNG.
+- Preserve the `graphics` v0.4 flat grammar, JSON stdout, `graphics.*` codes, graphics configuration and environment names, old credential service and cloud contract, and graphics MCP tools inside the explicit compatibility boundary. The legacy `skill` command installs the one canonical Transmute skill.
+- Treat diagram source as authoritative and generated media as replaceable. Defaults may resolve mechanics but must not invent claims, labels, legends, relationships, or decorative meaning.
+- Parse foreign values from `unknown`, keep output deterministic, and test every parser, protocol, operation, path, credential, and compatibility boundary.
+- Keep semantic registries fixed and typed. Never accept source text, evaluation, dynamic imports, executable workspace configuration, shell commands, or caller-selected remote URLs.
+- Keep MCP paths root-relative and capability-small. Bound source bytes, arrays, shapes, edges, scale, pixels, findings, subprocess duration, and output bytes before execution.
+- Keep vectorization fail-closed with checksum-pinned VTracer archives, inert rebuilt SVG, measured fidelity, and full provenance receipts. Do not add an embedded-raster fallback, upscaling model, or bundled commercial font.
+- Treat a `v*` tag as a release request. Keep the tag equal to `v<package.json version>` on `main`, wait for read-only verification and the official VTracer matrix, and let only the dependent publisher create the immutable Release. Verify that it is non-draft and Latest before creating another tag.

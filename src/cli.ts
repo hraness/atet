@@ -14,49 +14,48 @@ import {
   runMcpServer,
   selectDesktopAsset,
   vectorizeImage,
-} from "./index.ts"
+} from "./index.js"
 import {
-  graphicsAuthStatus,
-  loginGraphics,
-  logoutGraphics,
-  requireGraphicsAuthentication,
-} from "./auth.ts"
-import { graphicsImageModels, type GraphicsImageModel } from "./discovery.ts"
-import { generateGraphicsImageFile } from "./generate.ts"
+  transmuteAuthStatus,
+  loginTransmute,
+  logoutTransmute,
+} from "./auth.js"
+import { transmuteImageModels, type TransmuteImageModel } from "./discovery.js"
+import { generateTransmuteImageFile } from "./generate.js"
 import {
-  executeGraphicsOperation,
-  graphicsOperationCodes,
-  isGraphicsOperationCode,
-  searchGraphicsOperations,
-} from "./operations.ts"
-import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.ts"
-import { pathExists } from "./fs.ts"
+  executeTransmuteOperation,
+  transmuteOperationCodes,
+  isTransmuteOperationCode,
+  searchTransmuteOperations,
+} from "./operations.js"
+import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.js"
+import { pathExists } from "./fs.js"
 
-const version = "0.4.0"
+export const transmuteCliVersion = "0.5.0"
 
-const help = `graphics ${version}
+const help = `transmute ${transmuteCliVersion}
 
-Create concise diagrams from a checked JSON source.
+Turn source material into deterministic diagrams, images, and canvas assets.
 
 Usage:
-  graphics init [file]
-  graphics check <file> [--config <file>] [--strict]
-  graphics render <file> [--out-dir <directory>] [--config <file>] [--scale <number>]
-  graphics vectorize <image> --output <file.svg> [--json] [--duotone <#rgb,#rgb>]
-  graphics generate <prompt> --output <file.webp> [--model <model>] [--idempotency-key <key>] [--json]
-  graphics login
-  graphics logout
-  graphics auth status
-  graphics code search [query] [--limit <number>]
-  graphics code execute <operation> --input <JSON>
-  graphics mcp --root <workspace>
-  graphics open <file.tldr|file.tldraw>
-  graphics doctor
-  graphics desktop status
-  graphics desktop url
-  graphics desktop install [--yes] [--download-only]
-  graphics skill path
-  graphics skill install [--target codex|claude|agents] [--scope user|project] [--force]
+  transmute diagram init [file]
+  transmute diagram check <file> [--config <file>] [--strict]
+  transmute diagram render <file> [--out-dir <directory>] [--config <file>] [--scale <number>]
+  transmute image vectorize <image> --output <file.svg> [--json] [--duotone <#rgb,#rgb>]
+  transmute image generate <prompt> --output <file.webp> [--model <model>] [--idempotency-key <key>] [--json]
+  transmute auth login
+  transmute auth logout
+  transmute auth status
+  transmute code search [query] [--limit <number>]
+  transmute code execute <operation> --input <JSON>
+  transmute mcp --root <workspace>
+  transmute canvas open <file.tldr|file.tldraw>
+  transmute canvas status
+  transmute canvas url
+  transmute canvas install [--yes] [--download-only]
+  transmute doctor
+  transmute skill path
+  transmute skill install [--target codex|claude|agents] [--scope user|project] [--force]
 
 Render writes the same five replaceable artifacts on every run:
   <name>.tldr
@@ -72,7 +71,8 @@ tldraw Offline or the tldraw SDK.
 Vectorize adaptively traces a raster with a checksum-pinned VTracer binary.
 It enforces bounded input, decode, time, path, and output budgets and emits a
 safe path-only SVG (plus an internal vector alpha mask when fidelity requires).
-It requires a valid free Graphics login but runs locally and uploads no source.
+It is fully local and requires no Transmute login. No source path or bytes are
+sent to discovery, OAuth, generation, or another network endpoint.
 
 Generate sends one authenticated, non-retried free-preview request with durable
 suite-account idempotency using exactly openai/gpt-image-1.5 or
@@ -84,7 +84,7 @@ Code mode searches and executes a fixed semantic registry. Execute accepts
 typed JSON for one exact owned operation code; it never evaluates source text.
 
 MCP preserves root-relative check_diagram/render_diagram and adds closed
-search_graphics/execute_graphics registry tools. It uses built-in assets, never
+search_transmute/execute_transmute registry tools. It uses built-in assets, never
 executes workspace config or caller code, and writes protocol messages only to
 stdout.
 `
@@ -166,7 +166,7 @@ function printFindings(findings: Awaited<ReturnType<typeof checkDiagramFile>>["f
 }
 
 const starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/graphics/v0.4.0/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/transmute/v0.5.0/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },
@@ -209,24 +209,66 @@ async function confirmInstall(): Promise<boolean> {
   }
 }
 
-export interface GraphicsCliDependencies {
-  readonly generate?: typeof generateGraphicsImageFile
+export interface TransmuteCliDependencies {
+  readonly generate?: typeof generateTransmuteImageFile
   readonly log?: (value: string) => void
-  readonly requireAuthentication?: () => Promise<unknown>
   readonly vectorize?: typeof vectorizeImage
+}
+
+function canonicalArguments(args: readonly string[]): readonly string[] {
+  const [surface, subcommand, ...rest] = args
+  if (surface === "diagram") {
+    if (subcommand === "init" || subcommand === "check" || subcommand === "render") {
+      return [subcommand, ...rest]
+    }
+    throw new Error("Use transmute diagram init, check, or render")
+  }
+  if (surface === "image") {
+    if (subcommand === "vectorize" || subcommand === "generate") {
+      return [subcommand, ...rest]
+    }
+    throw new Error("Use transmute image vectorize or generate")
+  }
+  if (surface === "auth") {
+    if (subcommand === "login" || subcommand === "logout") {
+      return [subcommand, ...rest]
+    }
+    return args
+  }
+  if (surface === "canvas") {
+    if (subcommand === "open") return ["open", ...rest]
+    if (subcommand === "status" || subcommand === "url" || subcommand === "install") {
+      return ["desktop", subcommand, ...rest]
+    }
+    throw new Error("Use transmute canvas open, status, url, or install")
+  }
+  if (
+    surface === "init" ||
+    surface === "check" ||
+    surface === "render" ||
+    surface === "vectorize" ||
+    surface === "generate" ||
+    surface === "login" ||
+    surface === "logout" ||
+    surface === "open" ||
+    surface === "desktop"
+  ) {
+    throw new Error(`The flat \`${surface}\` command moved to a namespaced Transmute surface.\n\n${help}`)
+  }
+  return args
 }
 
 export async function main(
   args: readonly string[],
-  dependencies: GraphicsCliDependencies = {},
+  dependencies: TransmuteCliDependencies = {},
 ): Promise<void> {
-  const [command, ...rest] = args
+  const [command, ...rest] = canonicalArguments(args)
   if (command === undefined || command === "help" || command === "--help" || command === "-h") {
     console.log(help)
     return
   }
   if (command === "version" || command === "--version" || command === "-v") {
-    console.log(version)
+    console.log(transmuteCliVersion)
     return
   }
 
@@ -278,7 +320,7 @@ export async function main(
       throw new Error(`Unknown vectorize option: --${unknownFlags[0]}`)
     }
     if (parsed.positionals.length > 1) {
-      throw new Error("graphics vectorize accepts exactly one raster input")
+      throw new Error("transmute image vectorize accepts exactly one raster input")
     }
     const output = requiredOption(parsed, "output")
     if (!output.toLowerCase().endsWith(".svg")) {
@@ -287,9 +329,6 @@ export async function main(
     const alphaCutoff = parsePositiveInteger(parsed.options["alpha-cutoff"], "alpha-cutoff")
     const timeoutMs = parsePositiveInteger(parsed.options["timeout-ms"], "timeout-ms")
     const duotone = parseDuotone(parsed.options.duotone)
-    // Authentication is only a local feature gate. The image path and bytes
-    // are never included in discovery or OAuth traffic.
-    await (dependencies.requireAuthentication ?? requireGraphicsAuthentication)()
     const result = await (dependencies.vectorize ?? vectorizeImage)(
       requiredPositional(parsed, 0, "raster image"),
       {
@@ -322,16 +361,16 @@ export async function main(
       throw new Error(`Unknown generate option: --${unknownFlags[0]}`)
     }
     if (parsed.positionals.length !== 1) {
-      throw new Error("graphics generate accepts exactly one prompt")
+      throw new Error("transmute image generate accepts exactly one prompt")
     }
-    const model = parsed.options.model ?? graphicsImageModels[1]
-    if (!graphicsImageModels.includes(model as GraphicsImageModel)) {
+    const model = parsed.options.model ?? transmuteImageModels[1]
+    if (!transmuteImageModels.includes(model as TransmuteImageModel)) {
       throw new Error(
-        `--model must be ${graphicsImageModels[0]} or ${graphicsImageModels[1]}`,
+        `--model must be ${transmuteImageModels[0]} or ${transmuteImageModels[1]}`,
       )
     }
-    const result = await (dependencies.generate ?? generateGraphicsImageFile)({
-      model: model as GraphicsImageModel,
+    const result = await (dependencies.generate ?? generateTransmuteImageFile)({
+      model: model as TransmuteImageModel,
       prompt: requiredPositional(parsed, 0, "prompt"),
       outputPath: requiredOption(parsed, "output"),
       ...(parsed.options["idempotency-key"] === undefined
@@ -351,11 +390,11 @@ export async function main(
   if (command === "login") {
     const parsed = parseArguments(rest, new Set())
     if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
-      throw new Error("graphics login accepts no arguments")
+      throw new Error("transmute auth login accepts no arguments")
     }
-    const status = await loginGraphics()
+    const status = await loginTransmute()
     console.log(
-      `Logged in to Graphics${status.expiresAt === null ? "" : ` until ${status.expiresAt}`}.`,
+      `Logged in to Transmute${status.expiresAt === null ? "" : ` until ${status.expiresAt}`}.`,
     )
     return
   }
@@ -363,13 +402,13 @@ export async function main(
   if (command === "logout") {
     const parsed = parseArguments(rest, new Set())
     if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
-      throw new Error("graphics logout accepts no arguments")
+      throw new Error("transmute auth logout accepts no arguments")
     }
-    const result = await logoutGraphics()
+    const result = await logoutTransmute()
     console.log(
       result.removed
-        ? "Logged out of Graphics."
-        : "Graphics was already logged out.",
+        ? "Logged out of Transmute."
+        : "Transmute was already logged out.",
     )
     return
   }
@@ -377,9 +416,9 @@ export async function main(
   if (command === "auth") {
     const [subcommand, ...subcommandArgs] = rest
     if (subcommand !== "status" || subcommandArgs.length > 0) {
-      throw new Error("Use graphics auth status")
+      throw new Error("Use transmute auth login, logout, or status")
     }
-    const status = await graphicsAuthStatus()
+    const status = await transmuteAuthStatus()
     console.log(JSON.stringify(status, null, 2))
     return
   }
@@ -390,13 +429,13 @@ export async function main(
       const parsed = parseArguments(subcommandArgs, new Set(["limit"]))
       if (parsed.flags.size > 0 || parsed.positionals.length > 1) {
         throw new Error(
-          "Use graphics code search [query] [--limit <number>]",
+          "Use transmute code search [query] [--limit <number>]",
         )
       }
       const limit =
         parsePositiveInteger(parsed.options.limit, "limit") ??
-        graphicsOperationCodes.length
-      const operations = searchGraphicsOperations(
+        transmuteOperationCodes.length
+      const operations = searchTransmuteOperations(
         parsed.positionals[0] ?? "",
         limit,
       )
@@ -410,12 +449,12 @@ export async function main(
         parsed.positionals.length !== 1
       ) {
         throw new Error(
-          "Use graphics code execute <operation> --input <JSON>",
+          "Use transmute code execute <operation> --input <JSON>",
         )
       }
       const operation = parsed.positionals[0]!
-      if (!isGraphicsOperationCode(operation)) {
-        throw new Error(`Unknown Graphics operation code: ${operation}`)
+      if (!isTransmuteOperationCode(operation)) {
+        throw new Error(`Unknown Transmute operation code: ${operation}`)
       }
       const inputText = requiredOption(parsed, "input")
       if (Buffer.byteLength(inputText, "utf8") > 64 * 1024) {
@@ -427,23 +466,23 @@ export async function main(
       } catch {
         throw new Error("--input must be valid JSON")
       }
-      const result = await executeGraphicsOperation(operation, input)
+      const result = await executeTransmuteOperation(operation, input)
       console.log(JSON.stringify({ operation, result }, null, 2))
       return
     }
     throw new Error(
-      "Use graphics code search [query] or graphics code execute <operation> --input <JSON>",
+      "Use transmute code search [query] or transmute code execute <operation> --input <JSON>",
     )
   }
 
   if (command === "mcp") {
     const parsed = parseArguments(rest, new Set(["root"]))
     if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
-      throw new Error("graphics mcp accepts only --root <workspace>")
+      throw new Error("transmute mcp accepts only --root <workspace>")
     }
     await runMcpServer({
       rootDirectory: requiredOption(parsed, "root"),
-      serverVersion: version,
+      serverVersion: transmuteCliVersion,
     })
     return
   }
@@ -457,25 +496,25 @@ export async function main(
 
   if (command === "doctor") {
     const status = await desktopStatus()
-    console.log(`graphics ${version}`)
+    console.log(`transmute ${transmuteCliVersion}`)
     console.log(`Bun ${process.versions.bun ?? "not detected"}`)
-    console.log("Headless SVG/PNG renderer ready")
+    console.log("Headless diagram SVG/PNG/tldraw renderer ready")
     console.log(
       process.platform === "win32"
-        ? "Adaptive raster-to-SVG vectorizer unavailable on Windows (fails closed with tool_platform)"
-        : "Adaptive raster-to-SVG vectorizer ready (VTracer downloads on first use)",
+        ? "Local raster-to-SVG vectorizer unavailable on Windows (fails closed with tool_platform)"
+        : "Local raster-to-SVG vectorizer ready without authentication (VTracer downloads on first use)",
     )
     console.log("Root-relative MCP check/render server ready (trusted local workspace)")
     try {
-      const auth = await graphicsAuthStatus()
+      const auth = await transmuteAuthStatus()
       console.log(
         auth.authenticated
-          ? "Graphics authenticated features ready"
-          : "Graphics authenticated features require `graphics login`",
+          ? "Transmute authenticated features ready"
+          : "Transmute hosted features require `transmute auth login`",
       )
     } catch {
       console.log(
-        "Graphics credential store unavailable (authenticated features disabled)",
+        "Transmute credential store unavailable (authenticated features disabled)",
       )
     }
     console.log(
@@ -529,13 +568,13 @@ export async function main(
       )
       return
     }
-    throw new Error("Use graphics desktop status, url, or install")
+    throw new Error("Use transmute canvas status, url, or install")
   }
 
   if (command === "skill") {
     const [subcommand, ...subcommandArgs] = rest
     if (subcommand === "path") {
-      const { bundledSkillPath } = await import("./skill-install.ts")
+      const { bundledSkillPath } = await import("./skill-install.js")
       console.log(bundledSkillPath())
       return
     }
@@ -557,10 +596,10 @@ export async function main(
           : { projectDirectory: parsed.options.project }),
         force: parsed.flags.has("force"),
       })
-      console.log(`Installed graphics skill at ${destination}`)
+      console.log(`Installed transmute skill at ${destination}`)
       return
     }
-    throw new Error("Use graphics skill path or install")
+    throw new Error("Use transmute skill path or install")
   }
 
   throw new Error(`Unknown command: ${command}\n\n${help}`)

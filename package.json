@@ -1,77 +1,131 @@
 {
-  "name": "@hraness/graphics",
-  "version": "0.4.0",
-  "description": "Graphics is a headless CLI and Agent Skill for deterministic diagrams, semantic graphics operations, authenticated image generation, tldraw interchange, and measured raster-to-SVG vectorization.",
+  "name": "@hraness/transmute",
+  "version": "0.5.0",
+  "description": "A headless visual-media CLI and Agent Skill for deterministic diagrams, bounded image generation, safe raster vectorization, canvas interchange, semantic operations, and MCP.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
   "packageManager": "bun@1.3.14",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hraness/graphics.git"
+    "url": "git+https://github.com/hraness/transmute.git"
   },
-  "homepage": "https://hraness.graphics",
+  "homepage": "https://transmute.rocks/",
   "bugs": {
-    "url": "https://github.com/hraness/graphics/issues"
+    "url": "https://github.com/hraness/transmute/issues"
   },
   "keywords": [
-    "graphics",
+    "visual-media",
     "diagram",
     "tldraw",
     "agent-skill",
+    "image-generation",
     "image-vectorization",
     "svg",
     "vtracer",
-    "visualization"
+    "mcp"
   ],
-  "bin": {
-    "graphics": "./dist/cli.js"
-  },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "import": "./dist/index.js"
     },
     "./auth": {
-      "types": "./dist/auth.d.ts",
+      "types": "./src/auth.ts",
       "import": "./dist/auth.js"
     },
     "./discovery": {
-      "types": "./dist/discovery.d.ts",
+      "types": "./src/discovery.ts",
       "import": "./dist/discovery.js"
     },
     "./generate": {
-      "types": "./dist/generate.d.ts",
+      "types": "./src/generate.ts",
       "import": "./dist/generate.js"
     },
     "./operations": {
-      "types": "./dist/operations.d.ts",
+      "types": "./src/operations.ts",
       "import": "./dist/operations.js"
     }
   },
+  "bin": {
+    "graphics": "./dist/graphics-compat-cli.js",
+    "transmute": "./dist/cli.js"
+  },
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "files": [
     "dist",
-    "examples/capex-opex.diagram.json",
-    "examples/graphics.config.ts",
-    "examples/semantic-flow.diagram.json",
+    "NOTICE.md",
+    "src/artifacts.ts",
+    "src/auth.ts",
+    "src/cli.ts",
+    "src/cloud-errors.ts",
+    "src/config.ts",
+    "src/credential-lease.ts",
+    "src/desktop.ts",
+    "src/discovery.ts",
+    "src/fs.ts",
+    "src/generate.ts",
+    "src/graphics-compat-cli.ts",
+    "src/graphics-compat/artifacts.ts",
+    "src/graphics-compat/auth.ts",
+    "src/graphics-compat/cloud-errors.ts",
+    "src/graphics-compat/config.ts",
+    "src/graphics-compat/credential-lease.ts",
+    "src/graphics-compat/discovery.ts",
+    "src/graphics-compat/generate.ts",
+    "src/graphics-compat/index.ts",
+    "src/graphics-compat/mcp/boundary.ts",
+    "src/graphics-compat/mcp/index.ts",
+    "src/graphics-compat/mcp/server.ts",
+    "src/graphics-compat/mcp/tools.ts",
+    "src/graphics-compat/mcp/types.ts",
+    "src/graphics-compat/operations.ts",
+    "src/icons.ts",
+    "src/index.ts",
+    "src/layout.ts",
+    "src/lint.ts",
+    "src/mcp/boundary.ts",
+    "src/mcp/index.ts",
+    "src/mcp/server.ts",
+    "src/mcp/tools.ts",
+    "src/mcp/types.ts",
+    "src/operations.ts",
+    "src/parse.ts",
+    "src/render.ts",
+    "src/skill-install.ts",
+    "src/theme.ts",
+    "src/tldr.ts",
+    "src/types.ts",
+    "src/vectorize/archive.ts",
+    "src/vectorize/command.ts",
+    "src/vectorize/index.ts",
+    "src/vectorize/limits.ts",
+    "src/vectorize/metrics.ts",
+    "src/vectorize/pixels.ts",
+    "src/vectorize/supervisor.ts",
+    "src/vectorize/svg.ts",
+    "src/vectorize/tool.ts",
+    "src/vectorize/types.ts",
+    "src/vectorize/vectorize.ts",
+    "src/vectorize/worker-protocol.ts",
+    "src/vectorize/worker.ts",
+    "examples",
     "schema",
     "skills",
     "README.md",
-    "LICENSE",
-    "NOTICE.md"
+    "LICENSE"
   ],
   "scripts": {
-    "build": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/cli.ts --outfile ./dist/cli.js --target bun --format esm --packages external && bun build ./src/index.ts --outfile ./dist/index.js --target bun --format esm --packages external && bun build ./src/auth.ts --outfile ./dist/auth.js --target bun --format esm --packages external && bun build ./src/discovery.ts --outfile ./dist/discovery.js --target bun --format esm --packages external && bun build ./src/generate.ts --outfile ./dist/generate.js --target bun --format esm --packages external && bun build ./src/operations.ts --outfile ./dist/operations.js --target bun --format esm --packages external && bun build ./src/vectorize/worker.ts --outfile ./dist/vectorize-worker.js --target bun --format esm --packages external && tsc --project ./tsconfig.build.json && bun run ./scripts/build-types.ts",
+    "build": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/index.ts ./src/auth.ts ./src/discovery.ts ./src/generate.ts ./src/operations.ts ./src/graphics-compat-cli.ts ./src/cli.ts ./src/vectorize/worker.ts --outdir ./dist --root ./src --target bun --format esm --splitting --packages external",
     "typecheck": "tsc --noEmit",
-    "test": "bun test ./src ./scripts",
-    "test:package": "bun run ./scripts/package-smoke.ts",
-    "test:vectorize:official": "bun run ./scripts/official-vectorizer-smoke.ts",
-    "example": "bun run ./src/cli.ts render ./examples/capex-opex.diagram.json --out-dir ./examples/output",
+    "test": "bun test ./src",
+    "check:release-workflows": "bun test ./scripts/release-workflow.test.ts",
     "check:schema": "bun run ./scripts/validate-schema.ts",
     "check:skill": "bun run ./scripts/validate-skill.ts",
-    "check": "bun run typecheck && bun run check:schema && bun run test && bun run build && bun run check:skill && bun run test:package",
+    "test:vectorize:official": "bun run ./scripts/official-vectorizer-smoke.ts",
+    "test:package": "bun run ./scripts/package-smoke.ts",
+    "check": "bun run typecheck && bun run test && bun run build && bun run check:release-workflows && bun run check:schema && bun run check:skill && bun run test:package",
     "prepack": "bun run check"
   },
   "dependencies": {
@@ -79,13 +133,13 @@
     "sharp": "0.35.3"
   },
   "devDependencies": {
-    "@types/bun": "1.3.14",
+    "@types/bun": "^1.3.14",
     "ajv": "8.17.1",
-    "fast-check": "4.8.0",
+    "fast-check": "^4.8.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "tldraw": "5.2.5",
-    "typescript": "6.0.3"
+    "typescript": "^6.0.3"
   },
   "publishConfig": {
     "access": "public"

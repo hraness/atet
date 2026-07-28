@@ -1,11 +1,11 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { basename, dirname, join, resolve } from "node:path"
-import { loadDiagramConfig } from "./config.ts"
-import { lintDiagram } from "./lint.ts"
-import { parseDiagramSpec } from "./parse.ts"
-import { renderPng, renderSvg } from "./render.ts"
-import { serializeTldr } from "./tldr.ts"
-import type { LintFinding, RenderArtifacts } from "./types.ts"
+import { loadDiagramConfig } from "./config.js"
+import { lintDiagram } from "./lint.js"
+import { parseDiagramSpec } from "./parse.js"
+import { renderPng, renderSvg } from "./render.js"
+import { serializeTldr } from "./tldr.js"
+import type { LintFinding, RenderArtifacts } from "./types.js"
 
 async function atomicWrite(filePath: string, data: string | Uint8Array): Promise<void> {
   const temporary = `${filePath}.tmp-${process.pid}-${crypto.randomUUID()}`

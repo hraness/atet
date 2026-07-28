@@ -6,9 +6,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
-  rename,
   rm,
-  symlink,
   writeFile,
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -30,7 +28,7 @@ test("bounded commands terminate after the declared time limit", async () => {
 })
 
 test("bounded commands escalate to SIGKILL and await process cleanup", async () => {
-  const work = await mkdtemp(join(tmpdir(), "graphics-command-kill-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-kill-"))
   const pidPath = join(work, "pid")
   let pid: number | undefined
   try {
@@ -80,7 +78,7 @@ test("bounded commands stop a growing primary-output stream", async () => {
 
 test("bounded pathname output streams through a portable private endpoint", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-command-output-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-output-"))
   let outputPath: string | undefined
   try {
     const program = [
@@ -115,7 +113,7 @@ test("bounded pathname output streams through a portable private endpoint", asyn
 
 test("bounded pathname output stops at its streaming quota and cleans each endpoint", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-command-output-limit-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-output-limit-"))
   let outputPath: string | undefined
   try {
     const program = [
@@ -153,7 +151,7 @@ test("bounded pathname output stops at its streaming quota and cleans each endpo
 
 test("bounded pathname cleanup refuses a replaced output inode", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-command-output-race-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-output-race-"))
   let outputPath: string | undefined
   try {
     const program = [
@@ -187,7 +185,7 @@ test("bounded pathname cleanup refuses a replaced output inode", async () => {
 
 test("bounded pathname cleanup never follows a replaced output directory", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-command-directory-race-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-directory-race-"))
   const target = join(work, "unrelated-target")
   const targetOutput = join(target, "output.svg")
   let outputPath: string | undefined
@@ -228,7 +226,7 @@ test("bounded pathname cleanup never follows a replaced output directory", async
 })
 
 test("bounded commands terminate descendants in the isolated process tree", async () => {
-  const work = await mkdtemp(join(tmpdir(), "graphics-command-tree-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-tree-"))
   const parentPidPath = join(work, "parent-pid")
   const childPidPath = join(work, "child-pid")
   const pids: number[] = []
@@ -270,7 +268,7 @@ test("bounded commands terminate descendants in the isolated process tree", asyn
 
 test("bounded commands reap background descendants after a successful leader exit", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-command-success-tree-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-success-tree-"))
   const childPidPath = join(work, "child-pid")
   let childPid: number | undefined
   try {
@@ -306,7 +304,7 @@ test("bounded commands reap background descendants after a successful leader exi
 
 test("worker-local command cleanup kills the tracer's private process tree", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-command-worker-tree-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-worker-tree-"))
   const tracerPidPath = join(work, "tracer-pid")
   const descendantPidPath = join(work, "descendant-pid")
   const pids: number[] = []
@@ -365,7 +363,7 @@ test("worker-local command cleanup kills the tracer's private process tree", asy
 
 test("worker termination forwards a supervisor signal to active command groups", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-command-forward-signal-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-forward-signal-"))
   const tracerPidPath = join(work, "tracer-pid")
   const descendantPidPath = join(work, "descendant-pid")
   const readyPath = join(work, "ready")
@@ -429,7 +427,7 @@ test("worker termination forwards a supervisor signal to active command groups",
 
 test("spawn permission failures are normalized as VectorizeError", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-command-eacces-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-eacces-"))
   try {
     const command = join(work, "not-executable")
     await writeFile(command, "#!/bin/sh\nexit 0\n")

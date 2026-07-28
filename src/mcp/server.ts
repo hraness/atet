@@ -1,13 +1,13 @@
-import { graphicsMcpTools, GraphicsMcpToolRuntime } from "./tools.ts"
+import { transmuteMcpTools, TransmuteMcpToolRuntime } from "./tools.js"
 import type {
   JsonRpcId,
   JsonRpcResponse,
   JsonRpcResponseId,
   McpServerOptions,
-} from "./types.ts"
+} from "./types.js"
 
-export const graphicsMcpProtocolVersion = "2025-11-25"
-export const graphicsMcpServerName = "hraness-graphics"
+export const transmuteMcpProtocolVersion = "2025-11-25"
+export const transmuteMcpServerName = "hraness-transmute"
 
 const maximumMessageBytes = 1024 * 1024
 
@@ -96,12 +96,12 @@ function parseToolCall(
   }
 }
 
-class GraphicsMcpSession {
-  readonly runtime: GraphicsMcpToolRuntime
+class TransmuteMcpSession {
+  readonly runtime: TransmuteMcpToolRuntime
   readonly serverVersion: string
   state: LifecycleState = "new"
 
-  constructor(runtime: GraphicsMcpToolRuntime, serverVersion: string) {
+  constructor(runtime: TransmuteMcpToolRuntime, serverVersion: string) {
     this.runtime = runtime
     this.serverVersion = serverVersion
   }
@@ -131,16 +131,16 @@ class GraphicsMcpSession {
       }
       this.state = "initializing"
       return success(id, {
-        protocolVersion: graphicsMcpProtocolVersion,
+        protocolVersion: transmuteMcpProtocolVersion,
         capabilities: {
           tools: { listChanged: false },
         },
         serverInfo: {
-          name: graphicsMcpServerName,
+          name: transmuteMcpServerName,
           version: this.serverVersion,
         },
         instructions:
-          "Use the compatibility check_diagram/render_diagram tools or search_graphics followed by execute_graphics with an exact registry code and typed JSON. Local paths are root-relative; source code is never accepted or evaluated.",
+          "Use the compatibility check_diagram/render_diagram tools or search_transmute followed by execute_transmute with an exact registry code and typed JSON. Local paths are root-relative; source code is never accepted or evaluated.",
       })
     }
 
@@ -155,12 +155,12 @@ class GraphicsMcpSession {
       ) {
         return failure(id, -32602, "Invalid tools/list parameters")
       }
-      return success(id, { tools: graphicsMcpTools })
+      return success(id, { tools: transmuteMcpTools })
     }
     if (request.method === "tools/call") {
       try {
         const toolCall = parseToolCall(request.params)
-        if (!graphicsMcpTools.some((tool) => tool.name === toolCall.name)) {
+        if (!transmuteMcpTools.some((tool) => tool.name === toolCall.name)) {
           return failure(id, -32602, "Unknown tool")
         }
         return success(
@@ -197,7 +197,7 @@ async function emitResponse(
 
 async function processLine(
   line: Uint8Array,
-  session: GraphicsMcpSession,
+  session: TransmuteMcpSession,
   writeLine: (line: string) => void | Promise<void>,
 ): Promise<void> {
   if (line.byteLength === 0) return
@@ -225,13 +225,13 @@ async function processLine(
 export async function runMcpServer(
   options: McpServerOptions = {},
 ): Promise<void> {
-  const runtime = await GraphicsMcpToolRuntime.create(
+  const runtime = await TransmuteMcpToolRuntime.create(
     options.rootDirectory ?? process.cwd(),
     options.authDependencies,
   )
-  const session = new GraphicsMcpSession(
+  const session = new TransmuteMcpSession(
     runtime,
-    options.serverVersion ?? "0.4.0",
+    options.serverVersion ?? "0.5.0",
   )
   const writeLine = options.writeLine ?? defaultWriteLine
   let buffered = Buffer.alloc(0)

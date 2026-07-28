@@ -1,4 +1,4 @@
-import type { IconDefinition } from "./types.ts"
+import type { IconDefinition } from "./types.js"
 
 const shared = 'fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"'
 

@@ -2,15 +2,15 @@ import { fileURLToPath } from "node:url"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { runBoundedCommand } from "./command.ts"
-import { resolveVectorizeLimits } from "./limits.ts"
+import { runBoundedCommand } from "./command.js"
+import { resolveVectorizeLimits } from "./limits.js"
 import {
   MAX_VECTORIZE_REQUEST_BYTES,
   MAX_VECTORIZE_RESPONSE_BYTES,
   VECTORIZE_WORKER_PROTOCOL,
   type VectorizeWorkerRequest,
   type VectorizeWorkerResponse,
-} from "./worker-protocol.ts"
+} from "./worker-protocol.js"
 import {
   VectorizeError,
   vectorizeProfileNames,
@@ -18,7 +18,7 @@ import {
   type VectorizeInput,
   type VectorizeOptions,
   type VectorizeResult,
-} from "./types.ts"
+} from "./types.js"
 
 const vectorizeErrorCodes = new Set<VectorizeErrorCode>([
   "input_limit",
@@ -50,7 +50,7 @@ export async function runVectorizeWorker(
     )
   }
   const workerInput = encodeInput(input, limits.maxInputBytes)
-  const temporaryRoot = await mkdtemp(join(tmpdir(), "graphics-vectorize-"))
+  const temporaryRoot = await mkdtemp(join(tmpdir(), "transmute-vectorize-"))
   let result: VectorizeResult
   try {
     result = await executeVectorizeWorker(
@@ -220,7 +220,7 @@ function workerEntryPath(): string {
   const modulePath = fileURLToPath(import.meta.url)
   return modulePath.endsWith(".ts")
     ? join(dirname(modulePath), "worker.ts")
-    : join(dirname(modulePath), "vectorize-worker.js")
+    : join(dirname(modulePath), "vectorize", "worker.js")
 }
 
 function parseResponse(stdout: string): VectorizeWorkerResponse {

@@ -1,19 +1,52 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "exactOptionalPropertyTypes": true,
-    "forceConsistentCasingInFileNames": true,
-    "lib": ["ES2024", "DOM"],
+    "target": "ES2023",
+    "lib": [
+      "ES2023"
+    ],
     "module": "Preserve",
+    "moduleResolution": "Bundler",
     "moduleDetection": "force",
-    "noEmit": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "noUncheckedIndexedAccess": true,
-    "skipLibCheck": true,
+    "paths": {
+      "@hraness/transmute": [
+        "./src/index.ts"
+      ],
+      "@hraness/transmute/auth": [
+        "./src/auth.ts"
+      ],
+      "@hraness/transmute/discovery": [
+        "./src/discovery.ts"
+      ],
+      "@hraness/transmute/generate": [
+        "./src/generate.ts"
+      ],
+      "@hraness/transmute/operations": [
+        "./src/operations.ts"
+      ]
+    },
+    "verbatimModuleSyntax": true,
     "strict": true,
-    "target": "ES2024",
-    "types": ["bun"]
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "useUnknownInCatchVariables": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": [
+      "bun"
+    ]
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "examples/**/*.ts",
+    "examples/**/*.tsx"
+  ]
 }

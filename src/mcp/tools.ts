@@ -1,47 +1,47 @@
 import { rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import {
-  requireGraphicsAuthentication,
-  type GraphicsAuthDependencies,
-} from "../auth.ts"
-import { GraphicsCloudError } from "../cloud-errors.ts"
-import { generateGraphicsImageFile } from "../generate.ts"
-import { builtInIcons } from "../icons.ts"
-import { lintDiagram } from "../lint.ts"
+  requireTransmuteAuthentication,
+  type TransmuteAuthDependencies,
+} from "../auth.js"
+import { TransmuteCloudError } from "../cloud-errors.js"
+import { generateTransmuteImageFile } from "../generate.js"
+import { builtInIcons } from "../icons.js"
+import { lintDiagram } from "../lint.js"
 import {
-  GraphicsOperationError,
-  graphicsOperationCodes,
-  parseGraphicsOperationInput,
-  searchGraphicsOperations,
-  type CheckGraphicsOperationInput,
-  type GenerateGraphicsOperationInput,
-  type GraphicsOperationCode,
-  type RenderGraphicsOperationInput,
-  type VectorizeGraphicsOperationInput,
-} from "../operations.ts"
-import { DiagramValidationError, parseDiagramSpec } from "../parse.ts"
-import { renderPng, renderSvg } from "../render.ts"
-import { serializeTldr } from "../tldr.ts"
+  TransmuteOperationError,
+  transmuteOperationCodes,
+  parseTransmuteOperationInput,
+  searchTransmuteOperations,
+  type CheckTransmuteOperationInput,
+  type GenerateTransmuteOperationInput,
+  type TransmuteOperationCode,
+  type RenderTransmuteOperationInput,
+  type VectorizeTransmuteOperationInput,
+} from "../operations.js"
+import { DiagramValidationError, parseDiagramSpec } from "../parse.js"
+import { renderPng, renderSvg } from "../render.js"
+import { serializeTldr } from "../tldr.js"
 import type {
   DiagramConfig,
   DiagramSpec,
   LintFinding,
   RenderArtifacts,
-} from "../types.ts"
+} from "../types.js"
 import {
   vectorizeHardLimits,
   vectorizeImage,
   VectorizeError,
-} from "../vectorize/index.ts"
+} from "../vectorize/index.js"
 import {
   WorkspaceBoundary,
   WorkspaceBoundaryError,
   type WorkspaceSource,
-} from "./boundary.ts"
+} from "./boundary.js"
 import type {
   McpToolDefinition,
   McpToolResult,
-} from "./types.ts"
+} from "./types.js"
 
 export const mcpMaximumScale = 4
 export const mcpMaximumRenderedPixels = 16_777_216
@@ -72,12 +72,12 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value)
 }
 
-export const graphicsMcpTools: readonly McpToolDefinition[] = deepFreeze([
+export const transmuteMcpTools: readonly McpToolDefinition[] = deepFreeze([
   {
     name: "check_diagram",
     title: "Check diagram",
     description:
-      "Parse and lint one root-relative Graphics diagram source without changing files. Uses only built-in icons and themes.",
+      "Parse and lint one root-relative Transmute diagram source without changing files. Uses only built-in icons and themes.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -129,7 +129,7 @@ export const graphicsMcpTools: readonly McpToolDefinition[] = deepFreeze([
     name: "render_diagram",
     title: "Render diagram",
     description:
-      "Render one root-relative Graphics diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
+      "Render one root-relative Transmute diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -203,10 +203,10 @@ export const graphicsMcpTools: readonly McpToolDefinition[] = deepFreeze([
     },
   },
   {
-    name: "search_graphics",
-    title: "Search Graphics operations",
+    name: "search_transmute",
+    title: "Search Transmute operations",
     description:
-      "Search the fixed semantic Graphics operation registry by bounded text. This never executes code or changes files.",
+      "Search the fixed semantic Transmute operation registry by bounded text. This never executes code or changes files.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -248,7 +248,7 @@ export const graphicsMcpTools: readonly McpToolDefinition[] = deepFreeze([
       },
     },
     annotations: {
-      title: "Search Graphics operations",
+      title: "Search Transmute operations",
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
@@ -256,8 +256,8 @@ export const graphicsMcpTools: readonly McpToolDefinition[] = deepFreeze([
     },
   },
   {
-    name: "execute_graphics",
-    title: "Execute Graphics operation",
+    name: "execute_transmute",
+    title: "Execute Transmute operation",
     description:
       "Execute one exact operation code with typed JSON input. Never accepts or evaluates source code. Local paths remain confined to the configured workspace root.",
     inputSchema: {
@@ -267,7 +267,7 @@ export const graphicsMcpTools: readonly McpToolDefinition[] = deepFreeze([
       properties: {
         operation: {
           type: "string",
-          enum: graphicsOperationCodes,
+          enum: transmuteOperationCodes,
         },
         input: {
           type: "object",
@@ -282,12 +282,12 @@ export const graphicsMcpTools: readonly McpToolDefinition[] = deepFreeze([
       required: ["ok", "operation", "result"],
       properties: {
         ok: { const: true },
-        operation: { type: "string", enum: graphicsOperationCodes },
+        operation: { type: "string", enum: transmuteOperationCodes },
         result: { type: "object" },
       },
     },
     annotations: {
-      title: "Execute Graphics operation",
+      title: "Execute Transmute operation",
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: false,
@@ -323,7 +323,7 @@ interface ParsedSearchArguments {
 }
 
 interface ParsedExecuteArguments {
-  readonly operation: GraphicsOperationCode
+  readonly operation: TransmuteOperationCode
   readonly input: unknown
 }
 
@@ -433,7 +433,7 @@ function parseSearchArguments(value: unknown): ParsedSearchArguments {
   }
   rejectUnknownKeys(value, new Set(["query", "limit"]))
   const query = value.query ?? ""
-  const limit = value.limit ?? graphicsOperationCodes.length
+  const limit = value.limit ?? transmuteOperationCodes.length
   if (
     typeof query !== "string" ||
     query.length > 200 ||
@@ -457,16 +457,16 @@ function parseExecuteArguments(value: unknown): ParsedExecuteArguments {
   rejectUnknownKeys(value, new Set(["operation", "input"]))
   if (
     typeof value.operation !== "string" ||
-    !graphicsOperationCodes.includes(value.operation as GraphicsOperationCode) ||
+    !transmuteOperationCodes.includes(value.operation as TransmuteOperationCode) ||
     !isRecord(value.input)
   ) {
     throw new ToolFailure(
       "INVALID_ARGUMENTS",
-      "operation must be an exact Graphics operation code and input must be an object.",
+      "operation must be an exact Transmute operation code and input must be an object.",
     )
   }
   return {
-    operation: value.operation as GraphicsOperationCode,
+    operation: value.operation as TransmuteOperationCode,
     input: value.input,
   }
 }
@@ -579,13 +579,13 @@ function failureResult(error: unknown): McpToolResult {
   } else if (error instanceof WorkspaceBoundaryError) {
     code = error.code
     message = safeFragment(error.message, 320)
-  } else if (error instanceof GraphicsCloudError) {
+  } else if (error instanceof TransmuteCloudError) {
     code = error.code
     message = safeFragment(
       error.message.replace(/^\[[A-Z_]+\]\s*/u, ""),
       320,
     )
-  } else if (error instanceof GraphicsOperationError) {
+  } else if (error instanceof TransmuteOperationError) {
     code = error.code
     message = safeFragment(
       error.message.replace(/^\[[A-Z_]+\]\s*/u, ""),
@@ -631,7 +631,7 @@ async function atomicOverwrite(
 ): Promise<void> {
   const temporaryPath = join(
     dirname(filePath),
-    `.${crypto.randomUUID()}.graphics-mcp.tmp`,
+    `.${crypto.randomUUID()}.transmute-mcp.tmp`,
   )
   try {
     await writeFile(temporaryPath, data, { flag: "wx" })
@@ -675,14 +675,14 @@ async function loadDiagram(
   return { source, spec }
 }
 
-export class GraphicsMcpToolRuntime {
+export class TransmuteMcpToolRuntime {
   readonly boundary: WorkspaceBoundary
-  readonly authDependencies: GraphicsAuthDependencies
+  readonly authDependencies: TransmuteAuthDependencies
   private renderQueue: Promise<void> = Promise.resolve()
 
   private constructor(
     boundary: WorkspaceBoundary,
-    authDependencies: GraphicsAuthDependencies,
+    authDependencies: TransmuteAuthDependencies,
   ) {
     this.boundary = boundary
     this.authDependencies = authDependencies
@@ -690,9 +690,9 @@ export class GraphicsMcpToolRuntime {
 
   static async create(
     rootDirectory: string,
-    authDependencies: GraphicsAuthDependencies = {},
-  ): Promise<GraphicsMcpToolRuntime> {
-    return new GraphicsMcpToolRuntime(
+    authDependencies: TransmuteAuthDependencies = {},
+  ): Promise<TransmuteMcpToolRuntime> {
+    return new TransmuteMcpToolRuntime(
       await WorkspaceBoundary.create(rootDirectory),
       authDependencies,
     )
@@ -717,18 +717,18 @@ export class GraphicsMcpToolRuntime {
         const options = parseRenderArguments(argumentsValue)
         return await this.enqueueRender(() => this.render(options))
       }
-      if (name === "search_graphics") {
+      if (name === "search_transmute") {
         const options = parseSearchArguments(argumentsValue)
-        const operations = searchGraphicsOperations(
+        const operations = searchTransmuteOperations(
           options.query,
           options.limit,
         )
         return successResult(
-          `Found ${operations.length} Graphics operation${operations.length === 1 ? "" : "s"}.`,
+          `Found ${operations.length} Transmute operation${operations.length === 1 ? "" : "s"}.`,
           { ok: true, operations },
         )
       }
-      if (name === "execute_graphics") {
+      if (name === "execute_transmute") {
         const options = parseExecuteArguments(argumentsValue)
         return await this.execute(options)
       }
@@ -739,7 +739,7 @@ export class GraphicsMcpToolRuntime {
   }
 
   private wrapSemanticResult(
-    operation: GraphicsOperationCode,
+    operation: TransmuteOperationCode,
     result: McpToolResult,
   ): McpToolResult {
     if (result.isError === true) return result
@@ -756,21 +756,21 @@ export class GraphicsMcpToolRuntime {
   private async execute(
     options: ParsedExecuteArguments,
   ): Promise<McpToolResult> {
-    if (options.operation === "graphics.diagram.check") {
-      const input = parseGraphicsOperationInput(
+    if (options.operation === "transmute.diagram.check") {
+      const input = parseTransmuteOperationInput(
         options.operation,
         options.input,
-      ) as CheckGraphicsOperationInput
+      ) as CheckTransmuteOperationInput
       return this.wrapSemanticResult(
         options.operation,
         await this.check({ path: input.path }),
       )
     }
-    if (options.operation === "graphics.diagram.render") {
-      const input = parseGraphicsOperationInput(
+    if (options.operation === "transmute.diagram.render") {
+      const input = parseTransmuteOperationInput(
         options.operation,
         options.input,
-      ) as RenderGraphicsOperationInput
+      ) as RenderTransmuteOperationInput
       return this.enqueueRender(async () =>
         this.wrapSemanticResult(
           options.operation,
@@ -784,19 +784,16 @@ export class GraphicsMcpToolRuntime {
         ),
       )
     }
-    if (options.operation === "graphics.image.vectorize") {
-      const input = parseGraphicsOperationInput(
+    if (options.operation === "transmute.image.vectorize") {
+      const input = parseTransmuteOperationInput(
         options.operation,
         options.input,
-      ) as VectorizeGraphicsOperationInput
+      ) as VectorizeTransmuteOperationInput
       return this.enqueueRender(async () => {
         const source = await this.boundary.resolveInputFile(
           input.inputPath,
           vectorizeHardLimits.maxInputBytes,
         )
-        // This request only validates the login. Source paths and bytes remain
-        // local and are never included in discovery or token traffic.
-        await requireGraphicsAuthentication(this.authDependencies)
         const output = await this.boundary.prepareOutputFile(input.outputPath)
         const result = await vectorizeImage(source.absolutePath, {
           outputPath: output.absolutePath,
@@ -822,15 +819,15 @@ export class GraphicsMcpToolRuntime {
         )
       })
     }
-    const input = parseGraphicsOperationInput(
+    const input = parseTransmuteOperationInput(
       options.operation,
       options.input,
-    ) as GenerateGraphicsOperationInput
-    const discovery = await requireGraphicsAuthentication(
+    ) as GenerateTransmuteOperationInput
+    const discovery = await requireTransmuteAuthentication(
       this.authDependencies,
     )
     const output = await this.boundary.prepareOutputFile(input.outputPath)
-    const generated = await generateGraphicsImageFile(
+    const generated = await generateTransmuteImageFile(
       { ...input, outputPath: output.absolutePath },
       { ...this.authDependencies, discovery },
     )

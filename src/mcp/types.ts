@@ -1,4 +1,4 @@
-import type { GraphicsAuthDependencies } from "../auth.ts"
+import type { TransmuteAuthDependencies } from "../auth.js"
 
 export type JsonRpcId = string | number
 export type JsonRpcResponseId = JsonRpcId | null
@@ -35,8 +35,8 @@ export interface McpToolDefinition {
   readonly name:
     | "check_diagram"
     | "render_diagram"
-    | "search_graphics"
-    | "execute_graphics"
+    | "search_transmute"
+    | "execute_transmute"
   readonly title: string
   readonly description: string
   readonly inputSchema: Readonly<Record<string, unknown>>
@@ -70,5 +70,5 @@ export interface McpServerOptions {
    * Injectable network and credential-store dependencies. Normal CLI usage
    * uses global fetch and Bun.secrets.
    */
-  readonly authDependencies?: GraphicsAuthDependencies
+  readonly authDependencies?: TransmuteAuthDependencies
 }

@@ -1,106 +1,147 @@
-import { GraphicsCloudError } from "./cloud-errors.ts"
+import { TransmuteCloudError } from "./cloud-errors.js"
 
-export const graphicsDiscoveryUrl =
-  "https://hraness.graphics/.well-known/graphics-cli.json"
-export const graphicsRedirectUri =
+export const transmuteDiscoveryUrl =
+  "https://transmute.rocks/.well-known/transmute-cli.json"
+export const transmuteRedirectUri =
   "http://127.0.0.1:49671/oauth/callback"
-export const graphicsProductionContract = Object.freeze({
+export const transmuteProductionContract = Object.freeze({
   environment: "production",
-  apiBaseUrl: "https://hraness.graphics/api/v1",
-  operationsUrl: "https://hraness.graphics/api/v1/operations",
+  apiBaseUrl: "https://transmute.rocks/api/v1",
+  operationsUrl: "https://transmute.rocks/api/v1/operations",
   issuer: "https://account.hraness.com",
   authorizationEndpoint:
     "https://account.hraness.com/api/auth/oauth2/authorize",
   tokenEndpoint: "https://account.hraness.com/api/auth/oauth2/token",
   revocationEndpoint: "https://account.hraness.com/api/auth/oauth2/revoke",
-  clientId: "hraness:graphics:production:v1",
+  clientId: "hraness:transmute-cli:production:v1",
   resource: "https://hraness.com/suite",
-  generateImage: "https://hraness.graphics/api/v1/images/generate",
+  generateImage: "https://transmute.rocks/api/v1/images/generate",
   maximumPromptBytes: 8_192,
   maximumRawImageBytes: 3_145_728,
 } as const)
-export const graphicsImageModels = Object.freeze([
+export const transmuteImageModels = Object.freeze([
   "openai/gpt-image-1.5",
   "recraft/recraft-v4.1-utility",
 ] as const)
-export const graphicsResponseMediaTypes = Object.freeze([
+export const transmuteResponseMediaTypes = Object.freeze([
   "image/webp",
 ] as const)
-export const graphicsImageGenerationQuota = Object.freeze({
+export const transmuteImageGenerationQuota = Object.freeze({
   accountDailyLimit: 10,
   globalDailySafetyLimit: 100,
   paymentEnforced: false,
   period: "utc-day",
 } as const)
+export const transmuteDesktopClientId = "transmute-cli" as const
+export const transmuteDesktopScopes = Object.freeze([
+  "openid",
+  "profile",
+  "email",
+] as const)
+export const transmuteDesktopEndpoints = Object.freeze({
+  deviceAuthorization: "https://transmute.rocks/api/auth/device/code",
+  deviceToken: "https://transmute.rocks/api/auth/device/token",
+  session: "https://transmute.rocks/api/auth/get-session",
+  signOut: "https://transmute.rocks/api/auth/revoke-session",
+  convexToken: "https://transmute.rocks/api/auth/convex/token",
+} as const)
 
-export type GraphicsImageModel = (typeof graphicsImageModels)[number]
-export type GraphicsResponseMediaType =
-  (typeof graphicsResponseMediaTypes)[number]
+export type TransmuteImageModel = (typeof transmuteImageModels)[number]
+export type TransmuteResponseMediaType =
+  (typeof transmuteResponseMediaTypes)[number]
 
-export interface GraphicsDiscoveryDocument {
-  readonly schemaVersion: 1
-  readonly product: "graphics"
-  readonly environment: typeof graphicsProductionContract.environment
-  readonly apiBaseUrl: typeof graphicsProductionContract.apiBaseUrl
-  readonly operationsUrl: typeof graphicsProductionContract.operationsUrl
+export interface TransmuteMediaCapability {
+  readonly apiBaseUrl: typeof transmuteProductionContract.apiBaseUrl
+  readonly operationsUrl: typeof transmuteProductionContract.operationsUrl
   readonly authorization: {
     readonly type: "oauth2-authorization-code"
-    readonly issuer: typeof graphicsProductionContract.issuer
+    readonly issuer: typeof transmuteProductionContract.issuer
     readonly authorizationEndpoint:
-      typeof graphicsProductionContract.authorizationEndpoint
-    readonly tokenEndpoint: typeof graphicsProductionContract.tokenEndpoint
+      typeof transmuteProductionContract.authorizationEndpoint
+    readonly tokenEndpoint: typeof transmuteProductionContract.tokenEndpoint
     readonly revocationEndpoint:
-      typeof graphicsProductionContract.revocationEndpoint
-    readonly clientId: typeof graphicsProductionContract.clientId
-    readonly redirectUri: typeof graphicsRedirectUri
+      typeof transmuteProductionContract.revocationEndpoint
+    readonly clientId: typeof transmuteProductionContract.clientId
+    readonly redirectUri: typeof transmuteRedirectUri
     readonly scopes: readonly ["openid", "offline_access"]
-    readonly resource: typeof graphicsProductionContract.resource
+    readonly resource: typeof transmuteProductionContract.resource
     readonly pkce: "S256"
   }
   readonly endpoints: {
-    readonly generateImage: typeof graphicsProductionContract.generateImage
+    readonly generateImage: typeof transmuteProductionContract.generateImage
   }
   readonly imageGeneration: {
     readonly access: "authenticated"
     readonly billing: "free-preview"
-    readonly models: typeof graphicsImageModels
+    readonly models: typeof transmuteImageModels
     readonly maximumPromptBytes:
-      typeof graphicsProductionContract.maximumPromptBytes
+      typeof transmuteProductionContract.maximumPromptBytes
     readonly maximumRawImageBytes:
-      typeof graphicsProductionContract.maximumRawImageBytes
+      typeof transmuteProductionContract.maximumRawImageBytes
     readonly imagesPerRequest: 1
     readonly responseMediaTypes: readonly ["image/webp"]
-    readonly quota: typeof graphicsImageGenerationQuota
+    readonly quota: typeof transmuteImageGenerationQuota
     readonly idempotency: {
       readonly header: "Idempotency-Key"
       readonly durable: true
       readonly scope: "suite-account"
     }
   }
-  readonly features: {
-    readonly vectorize: {
-      readonly access: "authenticated"
-      readonly billing: "free"
-      readonly execution: "local"
-    }
+  readonly vectorize: {
+    readonly access: "local"
+    readonly billing: "free"
+    readonly execution: "local"
   }
 }
 
-export type GraphicsFetch = (
+export interface TransmuteDesktopUnavailableCapability {
+  readonly availability: "unavailable"
+}
+
+export interface TransmuteDesktopAvailableCapability {
+  readonly availability: "available"
+  readonly clientId: typeof transmuteDesktopClientId
+  readonly scopes: typeof transmuteDesktopScopes
+  readonly endpoints: {
+    readonly deviceAuthorization:
+      typeof transmuteDesktopEndpoints.deviceAuthorization
+    readonly deviceToken: typeof transmuteDesktopEndpoints.deviceToken
+    readonly session: typeof transmuteDesktopEndpoints.session
+    readonly signOut: typeof transmuteDesktopEndpoints.signOut
+    readonly convexToken: typeof transmuteDesktopEndpoints.convexToken
+    readonly sceneDescribe: string
+  }
+}
+
+export type TransmuteDesktopCapability =
+  | TransmuteDesktopUnavailableCapability
+  | TransmuteDesktopAvailableCapability
+
+export interface TransmuteDiscoveryDocument {
+  readonly schemaVersion: 2
+  readonly product: "transmute"
+  readonly environment: typeof transmuteProductionContract.environment
+  readonly capabilities: {
+    readonly media: TransmuteMediaCapability
+    readonly desktop: TransmuteDesktopCapability
+  }
+}
+
+export type TransmuteFetch = (
   input: string | URL | Request,
   init?: RequestInit,
 ) => Promise<Response>
 
-export const graphicsDiscoveryMaximumBytes = 32 * 1024
-export const graphicsMaximumPromptBytes =
-  graphicsProductionContract.maximumPromptBytes
-export const graphicsMaximumRawImageBytes =
-  graphicsProductionContract.maximumRawImageBytes
+export const transmuteDiscoveryMaximumBytes = 32 * 1024
+export const transmuteMaximumPromptBytes =
+  transmuteProductionContract.maximumPromptBytes
+export const transmuteMaximumRawImageBytes =
+  transmuteProductionContract.maximumRawImageBytes
 
 function invalidDiscovery(): never {
-  throw new GraphicsCloudError(
+  throw new TransmuteCloudError(
     "DISCOVERY_INVALID",
-    "Graphics service discovery returned an invalid contract.",
+    "Transmute service discovery returned an invalid contract.",
   )
 }
 
@@ -147,7 +188,7 @@ function exactStringTuple(
 
 function parseAuthorization(
   value: unknown,
-): GraphicsDiscoveryDocument["authorization"] {
+): TransmuteMediaCapability["authorization"] {
   if (!isRecord(value)) invalidDiscovery()
   exactKeys(value, [
     "type",
@@ -163,15 +204,15 @@ function parseAuthorization(
   ])
   if (
     value.type !== "oauth2-authorization-code" ||
-    value.issuer !== graphicsProductionContract.issuer ||
+    value.issuer !== transmuteProductionContract.issuer ||
     value.authorizationEndpoint !==
-      graphicsProductionContract.authorizationEndpoint ||
-    value.tokenEndpoint !== graphicsProductionContract.tokenEndpoint ||
+      transmuteProductionContract.authorizationEndpoint ||
+    value.tokenEndpoint !== transmuteProductionContract.tokenEndpoint ||
     value.revocationEndpoint !==
-      graphicsProductionContract.revocationEndpoint ||
-    value.clientId !== graphicsProductionContract.clientId ||
-    value.redirectUri !== graphicsRedirectUri ||
-    value.resource !== graphicsProductionContract.resource ||
+      transmuteProductionContract.revocationEndpoint ||
+    value.clientId !== transmuteProductionContract.clientId ||
+    value.redirectUri !== transmuteRedirectUri ||
+    value.resource !== transmuteProductionContract.resource ||
     value.pkce !== "S256"
   ) {
     invalidDiscovery()
@@ -179,21 +220,21 @@ function parseAuthorization(
   exactStringTuple(value.scopes, ["openid", "offline_access"])
   return {
     type: "oauth2-authorization-code",
-    issuer: graphicsProductionContract.issuer,
-    authorizationEndpoint: graphicsProductionContract.authorizationEndpoint,
-    tokenEndpoint: graphicsProductionContract.tokenEndpoint,
-    revocationEndpoint: graphicsProductionContract.revocationEndpoint,
-    clientId: graphicsProductionContract.clientId,
-    redirectUri: graphicsRedirectUri,
+    issuer: transmuteProductionContract.issuer,
+    authorizationEndpoint: transmuteProductionContract.authorizationEndpoint,
+    tokenEndpoint: transmuteProductionContract.tokenEndpoint,
+    revocationEndpoint: transmuteProductionContract.revocationEndpoint,
+    clientId: transmuteProductionContract.clientId,
+    redirectUri: transmuteRedirectUri,
     scopes: ["openid", "offline_access"],
-    resource: graphicsProductionContract.resource,
+    resource: transmuteProductionContract.resource,
     pkce: "S256",
   }
 }
 
 function parseImageGeneration(
   value: unknown,
-): GraphicsDiscoveryDocument["imageGeneration"] {
+): TransmuteMediaCapability["imageGeneration"] {
   if (!isRecord(value)) invalidDiscovery()
   exactKeys(value, [
     "access",
@@ -212,7 +253,7 @@ function parseImageGeneration(
   ) {
     invalidDiscovery()
   }
-  exactStringTuple(value.models, graphicsImageModels)
+  exactStringTuple(value.models, transmuteImageModels)
   if (value.imagesPerRequest !== 1) invalidDiscovery()
   exactStringTuple(value.responseMediaTypes, ["image/webp"])
   if (!isRecord(value.quota)) invalidDiscovery()
@@ -224,12 +265,12 @@ function parseImageGeneration(
   ])
   if (
     value.quota.accountDailyLimit !==
-      graphicsImageGenerationQuota.accountDailyLimit ||
+      transmuteImageGenerationQuota.accountDailyLimit ||
     value.quota.globalDailySafetyLimit !==
-      graphicsImageGenerationQuota.globalDailySafetyLimit ||
+      transmuteImageGenerationQuota.globalDailySafetyLimit ||
     value.quota.paymentEnforced !==
-      graphicsImageGenerationQuota.paymentEnforced ||
-    value.quota.period !== graphicsImageGenerationQuota.period
+      transmuteImageGenerationQuota.paymentEnforced ||
+    value.quota.period !== transmuteImageGenerationQuota.period
   ) {
     invalidDiscovery()
   }
@@ -245,22 +286,22 @@ function parseImageGeneration(
   return {
     access: "authenticated",
     billing: "free-preview",
-    models: graphicsImageModels,
+    models: transmuteImageModels,
     maximumPromptBytes:
-      positiveInteger(value.maximumPromptBytes, graphicsMaximumPromptBytes) ===
-      graphicsProductionContract.maximumPromptBytes
-        ? graphicsProductionContract.maximumPromptBytes
+      positiveInteger(value.maximumPromptBytes, transmuteMaximumPromptBytes) ===
+      transmuteProductionContract.maximumPromptBytes
+        ? transmuteProductionContract.maximumPromptBytes
         : invalidDiscovery(),
     maximumRawImageBytes:
       positiveInteger(
         value.maximumRawImageBytes,
-        graphicsMaximumRawImageBytes,
-      ) === graphicsProductionContract.maximumRawImageBytes
-        ? graphicsProductionContract.maximumRawImageBytes
+        transmuteMaximumRawImageBytes,
+      ) === transmuteProductionContract.maximumRawImageBytes
+        ? transmuteProductionContract.maximumRawImageBytes
         : invalidDiscovery(),
     imagesPerRequest: 1,
     responseMediaTypes: ["image/webp"],
-    quota: graphicsImageGenerationQuota,
+    quota: transmuteImageGenerationQuota,
     idempotency: {
       header: "Idempotency-Key",
       durable: true,
@@ -269,26 +310,124 @@ function parseImageGeneration(
   }
 }
 
-function parseFeatures(
+function parseVectorize(
   value: unknown,
-): GraphicsDiscoveryDocument["features"] {
+): TransmuteMediaCapability["vectorize"] {
   if (!isRecord(value)) invalidDiscovery()
-  exactKeys(value, ["vectorize"])
-  if (!isRecord(value.vectorize)) invalidDiscovery()
-  exactKeys(value.vectorize, ["access", "billing", "execution"])
+  exactKeys(value, ["access", "billing", "execution"])
   if (
-    value.vectorize.access !== "authenticated" ||
-    value.vectorize.billing !== "free" ||
-    value.vectorize.execution !== "local"
+    value.access !== "local" ||
+    value.billing !== "free" ||
+    value.execution !== "local"
   ) {
     invalidDiscovery()
   }
   return {
-    vectorize: {
-      access: "authenticated",
-      billing: "free",
-      execution: "local",
+    access: "local",
+    billing: "free",
+    execution: "local",
+  }
+}
+
+function parseSceneDescribeEndpoint(value: unknown): string {
+  if (typeof value !== "string" || value.length > 2_048) invalidDiscovery()
+  let endpoint: URL
+  try {
+    endpoint = new URL(value)
+  } catch {
+    return invalidDiscovery()
+  }
+  if (
+    endpoint.protocol !== "https:" ||
+    endpoint.username !== "" ||
+    endpoint.password !== "" ||
+    endpoint.port !== "" ||
+    endpoint.search !== "" ||
+    endpoint.hash !== "" ||
+    endpoint.pathname !== "/api/v1/scenes/describe" ||
+    !endpoint.hostname.endsWith(".convex.site")
+  ) {
+    invalidDiscovery()
+  }
+  return endpoint.href
+}
+
+function parseDesktop(
+  value: unknown,
+): TransmuteDesktopCapability {
+  if (!isRecord(value)) invalidDiscovery()
+  if (value.availability === "unavailable") {
+    exactKeys(value, ["availability"])
+    return { availability: "unavailable" }
+  }
+  if (value.availability !== "available") invalidDiscovery()
+  exactKeys(value, ["availability", "clientId", "scopes", "endpoints"])
+  if (value.clientId !== transmuteDesktopClientId) invalidDiscovery()
+  exactStringTuple(value.scopes, transmuteDesktopScopes)
+  if (!isRecord(value.endpoints)) invalidDiscovery()
+  exactKeys(value.endpoints, [
+    "deviceAuthorization",
+    "deviceToken",
+    "session",
+    "signOut",
+    "convexToken",
+    "sceneDescribe",
+  ])
+  if (
+    value.endpoints.deviceAuthorization !==
+      transmuteDesktopEndpoints.deviceAuthorization ||
+    value.endpoints.deviceToken !== transmuteDesktopEndpoints.deviceToken ||
+    value.endpoints.session !== transmuteDesktopEndpoints.session ||
+    value.endpoints.signOut !== transmuteDesktopEndpoints.signOut ||
+    value.endpoints.convexToken !== transmuteDesktopEndpoints.convexToken
+  ) {
+    invalidDiscovery()
+  }
+  return {
+    availability: "available",
+    clientId: transmuteDesktopClientId,
+    scopes: transmuteDesktopScopes,
+    endpoints: {
+      deviceAuthorization: transmuteDesktopEndpoints.deviceAuthorization,
+      deviceToken: transmuteDesktopEndpoints.deviceToken,
+      session: transmuteDesktopEndpoints.session,
+      signOut: transmuteDesktopEndpoints.signOut,
+      convexToken: transmuteDesktopEndpoints.convexToken,
+      sceneDescribe: parseSceneDescribeEndpoint(value.endpoints.sceneDescribe),
     },
+  }
+}
+
+function parseMedia(value: unknown): TransmuteMediaCapability {
+  if (!isRecord(value)) invalidDiscovery()
+  exactKeys(value, [
+    "apiBaseUrl",
+    "operationsUrl",
+    "authorization",
+    "endpoints",
+    "imageGeneration",
+    "vectorize",
+  ])
+  if (!isRecord(value.endpoints)) invalidDiscovery()
+  exactKeys(value.endpoints, ["generateImage"])
+  return {
+    apiBaseUrl:
+      value.apiBaseUrl === transmuteProductionContract.apiBaseUrl
+        ? transmuteProductionContract.apiBaseUrl
+        : invalidDiscovery(),
+    operationsUrl:
+      value.operationsUrl === transmuteProductionContract.operationsUrl
+        ? transmuteProductionContract.operationsUrl
+        : invalidDiscovery(),
+    authorization: parseAuthorization(value.authorization),
+    endpoints: {
+      generateImage:
+        value.endpoints.generateImage === transmuteProductionContract.generateImage
+          ? transmuteProductionContract.generateImage
+          : invalidDiscovery(),
+    },
+    imageGeneration: parseImageGeneration(value.imageGeneration),
+    vectorize: parseVectorize(value.vectorize),
   }
 }
 
@@ -300,58 +439,40 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value)
 }
 
-export function parseGraphicsDiscovery(
+export function parseTransmuteDiscovery(
   value: unknown,
-): GraphicsDiscoveryDocument {
+): TransmuteDiscoveryDocument {
   if (!isRecord(value)) invalidDiscovery()
   exactKeys(value, [
     "schemaVersion",
     "product",
     "environment",
-    "apiBaseUrl",
-    "operationsUrl",
-    "authorization",
-    "endpoints",
-    "imageGeneration",
-    "features",
+    "capabilities",
   ])
-  if (value.schemaVersion !== 1 || value.product !== "graphics") {
+  if (value.schemaVersion !== 2 || value.product !== "transmute") {
     invalidDiscovery()
   }
-  if (!isRecord(value.endpoints)) invalidDiscovery()
-  exactKeys(value.endpoints, ["generateImage"])
+  if (!isRecord(value.capabilities)) invalidDiscovery()
+  exactKeys(value.capabilities, ["media", "desktop"])
 
   return deepFreeze({
-    schemaVersion: 1,
-    product: "graphics",
+    schemaVersion: 2,
+    product: "transmute",
     environment:
-      value.environment === graphicsProductionContract.environment
-        ? graphicsProductionContract.environment
+      value.environment === transmuteProductionContract.environment
+        ? transmuteProductionContract.environment
         : invalidDiscovery(),
-    apiBaseUrl:
-      value.apiBaseUrl === graphicsProductionContract.apiBaseUrl
-        ? graphicsProductionContract.apiBaseUrl
-        : invalidDiscovery(),
-    operationsUrl:
-      value.operationsUrl === graphicsProductionContract.operationsUrl
-        ? graphicsProductionContract.operationsUrl
-        : invalidDiscovery(),
-    authorization: parseAuthorization(value.authorization),
-    endpoints: {
-      generateImage:
-        value.endpoints.generateImage === graphicsProductionContract.generateImage
-          ? graphicsProductionContract.generateImage
-          : invalidDiscovery(),
+    capabilities: {
+      media: parseMedia(value.capabilities.media),
+      desktop: parseDesktop(value.capabilities.desktop),
     },
-    imageGeneration: parseImageGeneration(value.imageGeneration),
-    features: parseFeatures(value.features),
   })
 }
 
 export async function readBoundedResponseBytes(
   response: Response,
   maximumBytes: number,
-  error: GraphicsCloudError,
+  error: TransmuteCloudError,
 ): Promise<Uint8Array> {
   const contentLength = response.headers.get("content-length")
   if (
@@ -396,7 +517,7 @@ export async function readBoundedResponseBytes(
 export async function readBoundedJson(
   response: Response,
   maximumBytes: number,
-  error: GraphicsCloudError,
+  error: TransmuteCloudError,
 ): Promise<unknown> {
   const bytes = await readBoundedResponseBytes(response, maximumBytes, error)
   try {
@@ -407,27 +528,27 @@ export async function readBoundedJson(
   }
 }
 
-export async function fetchGraphicsDiscovery(
-  fetchImplementation: GraphicsFetch = fetch,
-): Promise<GraphicsDiscoveryDocument> {
-  const unavailable = new GraphicsCloudError(
+export async function fetchTransmuteDiscovery(
+  fetchImplementation: TransmuteFetch = fetch,
+): Promise<TransmuteDiscoveryDocument> {
+  const unavailable = new TransmuteCloudError(
     "DISCOVERY_UNAVAILABLE",
-    "Graphics service discovery is unavailable.",
+    "Transmute service discovery is unavailable.",
   )
   let response: Response
   try {
-    response = await fetchImplementation(graphicsDiscoveryUrl, {
+    response = await fetchImplementation(transmuteDiscoveryUrl, {
       headers: {
         accept: "application/json",
-        "user-agent": "hraness-graphics-cli/0.4.0",
+        "user-agent": "hraness-transmute-cli/0.5.0",
       },
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     })
   } catch (cause) {
-    throw new GraphicsCloudError(
+    throw new TransmuteCloudError(
       "DISCOVERY_UNAVAILABLE",
-      "Graphics service discovery is unavailable.",
+      "Transmute service discovery is unavailable.",
       { cause },
     )
   }
@@ -443,18 +564,18 @@ export async function fetchGraphicsDiscovery(
     )
   ) {
     await response.body?.cancel().catch(() => undefined)
-    throw new GraphicsCloudError(
+    throw new TransmuteCloudError(
       "DISCOVERY_INVALID",
-      "Graphics service discovery returned an invalid content type.",
+      "Transmute service discovery returned an invalid content type.",
     )
   }
   const value = await readBoundedJson(
     response,
-    graphicsDiscoveryMaximumBytes,
-    new GraphicsCloudError(
+    transmuteDiscoveryMaximumBytes,
+    new TransmuteCloudError(
       "DISCOVERY_INVALID",
-      "Graphics service discovery returned an invalid contract.",
+      "Transmute service discovery returned an invalid contract.",
     ),
   )
-  return parseGraphicsDiscovery(value)
+  return parseTransmuteDiscovery(value)
 }

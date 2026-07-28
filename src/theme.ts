@@ -1,4 +1,4 @@
-import type { ColorMode, DiagramConfig, PartialTheme, ThemeColors, Tone } from "./types.ts"
+import type { ColorMode, DiagramConfig, PartialTheme, ThemeColors, Tone } from "./types.js"
 
 const tones: readonly Tone[] = [
   "neutral",

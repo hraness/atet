@@ -8,7 +8,7 @@ import {
   type FileHandle,
 } from "node:fs/promises"
 import { join } from "node:path"
-import { VectorizeError, type VectorizeErrorCode } from "./types.ts"
+import { VectorizeError, type VectorizeErrorCode } from "./types.js"
 
 const MAX_COMMAND_OUTPUT_BYTES = 64 * 1_024
 const PRIMARY_OUTPUT_READ_BYTES = 64 * 1_024
@@ -126,7 +126,7 @@ export async function runBoundedPathOutputCommand(
   let failure: unknown | typeof noCommandFailure = noCommandFailure
   try {
     outputDirectory = await mkdtemp(
-      join(options.temporaryRoot, "graphics-command-output-"),
+      join(options.temporaryRoot, "transmute-command-output-"),
     )
     directoryHandle = await open(
       outputDirectory,

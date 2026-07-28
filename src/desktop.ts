@@ -2,10 +2,10 @@ import { createHash } from "node:crypto"
 import { createReadStream, createWriteStream } from "node:fs"
 import { chmod, mkdir, readFile, rename, rm } from "node:fs/promises"
 import { homedir, platform as hostPlatform, arch as hostArch } from "node:os"
-import { basename, dirname, join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
-import { pathExists } from "./fs.ts"
+import { pathExists } from "./fs.js"
 
 const releaseApi = "https://api.github.com/repos/tldraw/tldraw-offline/releases/latest"
 export const desktopDownloadPage = "https://offline.tldraw.com"
@@ -87,7 +87,7 @@ export async function getLatestDesktopRelease(): Promise<Release> {
   const response = await fetch(releaseApi, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "hraness-graphics",
+      "User-Agent": "hraness-transmute",
       "X-GitHub-Api-Version": "2022-11-28",
     },
   })
@@ -103,7 +103,7 @@ async function sha256(filePath: string): Promise<string> {
 
 async function download(asset: ReleaseAsset, filePath: string): Promise<void> {
   const response = await fetch(asset.browser_download_url, {
-    headers: { "User-Agent": "hraness-graphics" },
+    headers: { "User-Agent": "hraness-transmute" },
     redirect: "follow",
   })
   if (!response.ok || response.body === null) {
@@ -147,7 +147,7 @@ export async function installDesktop(options: {
 }): Promise<{ readonly filePath: string; readonly release: string }> {
   const release = await getLatestDesktopRelease()
   const asset = selectDesktopAsset(release)
-  const cacheDirectory = join(homedir(), ".cache", "graphics", "installers", release.tag_name)
+  const cacheDirectory = join(homedir(), ".cache", "transmute", "installers", release.tag_name)
   const installerPath = join(cacheDirectory, asset.name)
   let reusable = false
   if (await pathExists(installerPath)) {
@@ -238,7 +238,7 @@ export async function openInDesktop(filePath: string): Promise<void> {
   const application = await findDesktopApplication()
   if (application === null) {
     throw new Error(
-      `tldraw Offline is not installed. Run "graphics desktop install" or visit ${desktopDownloadPage}`,
+      `tldraw Offline is not installed. Run "transmute canvas install" or visit ${desktopDownloadPage}`,
     )
   }
   if (hostPlatform() === "darwin") {

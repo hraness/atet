@@ -1,4 +1,4 @@
-export type GraphicsCloudErrorCode =
+export type TransmuteCloudErrorCode =
   | "AUTHORIZATION_FAILED"
   | "AUTH_CALLBACK_UNAVAILABLE"
   | "AUTH_REQUIRED"
@@ -15,21 +15,21 @@ export type GraphicsCloudErrorCode =
   | "TOKEN_STORAGE_FAILED"
 
 /**
- * A stable, redacted failure from the Graphics network boundary.
+ * A stable, redacted failure from the Transmute network boundary.
  *
  * `cause` is retained for local diagnostics but is deliberately not included
  * in the public message or CLI output.
  */
-export class GraphicsCloudError extends Error {
-  readonly code: GraphicsCloudErrorCode
+export class TransmuteCloudError extends Error {
+  readonly code: TransmuteCloudErrorCode
 
   constructor(
-    code: GraphicsCloudErrorCode,
+    code: TransmuteCloudErrorCode,
     message: string,
     options?: ErrorOptions,
   ) {
     super(`[${code}] ${message}`, options)
-    this.name = "GraphicsCloudError"
+    this.name = "TransmuteCloudError"
     this.code = code
   }
 }

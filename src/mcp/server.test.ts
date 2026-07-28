@@ -31,7 +31,7 @@ const initialize = {
   params: {
     protocolVersion: "2025-11-25",
     capabilities: {},
-    clientInfo: { name: "graphics-test", version: "1" },
+    clientInfo: { name: "transmute-test", version: "1" },
   },
 } as const
 
@@ -40,9 +40,9 @@ const initialized = {
   method: "notifications/initialized",
 } as const
 
-describe("Graphics MCP stdio server", () => {
+describe("Transmute MCP stdio server", () => {
   test("handshakes, preserves compatibility tools, and searches/executes semantic operations", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-server-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-server-"))
     try {
       await writeFile(
         join(root, "flow.diagram.json"),
@@ -77,7 +77,7 @@ describe("Graphics MCP stdio server", () => {
           id: 5,
           method: "tools/call",
           params: {
-            name: "search_graphics",
+            name: "search_transmute",
             arguments: { query: "diagram" },
           },
         },
@@ -86,9 +86,9 @@ describe("Graphics MCP stdio server", () => {
           id: 6,
           method: "tools/call",
           params: {
-            name: "execute_graphics",
+            name: "execute_transmute",
             arguments: {
-              operation: "graphics.diagram.check",
+              operation: "transmute.diagram.check",
               input: { path: "flow.diagram.json" },
             },
           },
@@ -99,7 +99,7 @@ describe("Graphics MCP stdio server", () => {
       expect(responses[0]?.result).toMatchObject({
         protocolVersion: "2025-11-25",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "hraness-graphics", version: "0.4.0" },
+        serverInfo: { name: "hraness-transmute", version: "0.5.0" },
       })
       const listed = responses[2]?.result as {
         readonly tools: readonly Readonly<Record<string, unknown>>[]
@@ -107,8 +107,8 @@ describe("Graphics MCP stdio server", () => {
       expect(listed.tools.map(({ name }) => name)).toEqual([
         "check_diagram",
         "render_diagram",
-        "search_graphics",
-        "execute_graphics",
+        "search_transmute",
+        "execute_transmute",
       ])
       expect(listed.tools[0]?.annotations).toMatchObject({
         readOnlyHint: true,
@@ -133,15 +133,15 @@ describe("Graphics MCP stdio server", () => {
         structuredContent: {
           ok: true,
           operations: [
-            { code: "graphics.diagram.check" },
-            { code: "graphics.diagram.render" },
+            { code: "transmute.diagram.check" },
+            { code: "transmute.diagram.render" },
           ],
         },
       })
       expect(responses[5]?.result).toMatchObject({
         structuredContent: {
           ok: true,
-          operation: "graphics.diagram.check",
+          operation: "transmute.diagram.check",
           result: {
             ok: true,
             source: "flow.diagram.json",
@@ -154,7 +154,7 @@ describe("Graphics MCP stdio server", () => {
   })
 
   test("rejects normal operations before initialization and frames errors as JSON-RPC", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-lifecycle-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-lifecycle-"))
     try {
       const responses = await runSession(root, [
         { jsonrpc: "2.0", id: "early", method: "tools/list" },
@@ -184,7 +184,7 @@ describe("Graphics MCP stdio server", () => {
   })
 
   test("rejects invalid request ids and incomplete initialize parameters", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-invalid-init-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-invalid-init-"))
     try {
       const responses = await runSession(root, [
         { jsonrpc: "2.0", id: null, method: "initialize", params: initialize.params },
@@ -197,7 +197,7 @@ describe("Graphics MCP stdio server", () => {
           params: {
             protocolVersion: "2025-11-25",
             capabilities: {},
-            clientInfo: { name: "graphics-test" },
+            clientInfo: { name: "transmute-test" },
           },
         },
       ])
@@ -229,7 +229,7 @@ describe("Graphics MCP stdio server", () => {
   })
 
   test("rejects an initialized request with an id and caps an unterminated message", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-framing-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-framing-"))
     try {
       const output: string[] = []
       async function* input() {
@@ -267,7 +267,7 @@ describe("Graphics MCP stdio server", () => {
   })
 
   test("returns tool failures as successful JSON-RPC envelopes with isError", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-tool-error-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-tool-error-"))
     try {
       const responses = await runSession(root, [
         initialize,
@@ -302,7 +302,7 @@ describe("Graphics MCP stdio server", () => {
   })
 
   test("rejects unknown tool names as invalid JSON-RPC parameters", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-mcp-unknown-tool-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-unknown-tool-"))
     try {
       const responses = await runSession(root, [
         initialize,

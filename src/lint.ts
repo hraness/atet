@@ -1,5 +1,5 @@
-import { resolveEdge } from "./render.ts"
-import type { BoxShape, DiagramSpec, LintFinding } from "./types.ts"
+import { resolveEdge } from "./render.js"
+import type { BoxShape, DiagramSpec, LintFinding } from "./types.js"
 
 function boxOutsideCanvas(shape: BoxShape, spec: DiagramSpec): boolean {
   return (

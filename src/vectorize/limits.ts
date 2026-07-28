@@ -1,4 +1,4 @@
-import { VectorizeError, type VectorizeLimits } from "./types.ts"
+import { VectorizeError, type VectorizeLimits } from "./types.js"
 
 export const vectorizeHardLimits = Object.freeze({
   maxDecodedPixels: 16_777_216,

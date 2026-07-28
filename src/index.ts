@@ -3,7 +3,7 @@ import {
   checkDiagramFile,
   readDiagramFile,
   renderDiagramFile,
-} from "./artifacts.ts"
+} from "./artifacts.js"
 import {
   desktopDownloadPage,
   desktopStatus,
@@ -12,52 +12,52 @@ import {
   installDesktop,
   openInDesktop,
   selectDesktopAsset,
-} from "./desktop.ts"
+} from "./desktop.js"
 import {
-  graphicsAuthStatus,
-  loginGraphics,
-  logoutGraphics,
-  requireGraphicsAuthentication,
-} from "./auth.ts"
-import { fetchGraphicsDiscovery, parseGraphicsDiscovery } from "./discovery.ts"
+  transmuteAuthStatus,
+  loginTransmute,
+  logoutTransmute,
+  requireTransmuteAuthentication,
+} from "./auth.js"
+import { fetchTransmuteDiscovery, parseTransmuteDiscovery } from "./discovery.js"
 import {
-  generateGraphicsImage,
-  generateGraphicsImageFile,
-} from "./generate.ts"
-import { builtInIcons } from "./icons.ts"
+  generateTransmuteImage,
+  generateTransmuteImageFile,
+} from "./generate.js"
+import { builtInIcons } from "./icons.js"
 import {
   resolveDiagramSource,
   resolveStackLayout,
   stackLayoutDefaults,
   StackLayoutError,
-} from "./layout.ts"
-import { lintDiagram } from "./lint.ts"
+} from "./layout.js"
+import { lintDiagram } from "./lint.js"
 import {
-  executeGraphicsOperation,
-  graphicsOperationRegistry,
-  searchGraphicsOperations,
-} from "./operations.ts"
+  executeTransmuteOperation,
+  transmuteOperationRegistry,
+  searchTransmuteOperations,
+} from "./operations.js"
 import {
-  graphicsMcpProtocolVersion,
-  graphicsMcpServerName,
-  graphicsMcpTools,
-  GraphicsMcpToolRuntime,
+  transmuteMcpProtocolVersion,
+  transmuteMcpServerName,
+  transmuteMcpTools,
+  TransmuteMcpToolRuntime,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
   runMcpServer,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
-} from "./mcp/index.ts"
+} from "./mcp/index.js"
 import {
   DiagramValidationError,
   parseDiagramSource,
   parseDiagramSpec,
-} from "./parse.ts"
-import { renderPng, renderSvg, resolveEdge } from "./render.ts"
-import { bundledSkillPath, installSkill } from "./skill-install.ts"
-import { serializeTldr } from "./tldr.ts"
-import { vectorizeImage } from "./vectorize/vectorize.ts"
+} from "./parse.js"
+import { renderPng, renderSvg, resolveEdge } from "./render.js"
+import { bundledSkillPath, installSkill } from "./skill-install.js"
+import { serializeTldr } from "./tldr.js"
+import { vectorizeImage } from "./vectorize/vectorize.js"
 
 export const diagramApi = Object.freeze({
   artifactSummary,
@@ -68,28 +68,28 @@ export const diagramApi = Object.freeze({
   desktopStatus,
   DiagramValidationError,
   findDesktopApplication,
-  fetchGraphicsDiscovery,
-  generateGraphicsImage,
-  generateGraphicsImageFile,
+  fetchTransmuteDiscovery,
+  generateTransmuteImage,
+  generateTransmuteImageFile,
   getLatestDesktopRelease,
-  graphicsAuthStatus,
-  graphicsMcpProtocolVersion,
-  graphicsMcpServerName,
-  graphicsMcpTools,
-  graphicsOperationRegistry,
-  GraphicsMcpToolRuntime,
+  transmuteAuthStatus,
+  transmuteMcpProtocolVersion,
+  transmuteMcpServerName,
+  transmuteMcpTools,
+  transmuteOperationRegistry,
+  TransmuteMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
-  loginGraphics,
-  logoutGraphics,
+  loginTransmute,
+  logoutTransmute,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
   openInDesktop,
   parseDiagramSource,
   parseDiagramSpec,
-  parseGraphicsDiscovery,
+  parseTransmuteDiscovery,
   readDiagramFile,
   renderDiagramFile,
   renderPng,
@@ -97,9 +97,9 @@ export const diagramApi = Object.freeze({
   resolveEdge,
   resolveDiagramSource,
   resolveStackLayout,
-  requireGraphicsAuthentication,
+  requireTransmuteAuthentication,
   runMcpServer,
-  searchGraphicsOperations,
+  searchTransmuteOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
@@ -107,7 +107,7 @@ export const diagramApi = Object.freeze({
   vectorizeImage,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
-  executeGraphicsOperation,
+  executeTransmuteOperation,
 })
 
 export {
@@ -119,28 +119,28 @@ export {
   desktopStatus,
   DiagramValidationError,
   findDesktopApplication,
-  fetchGraphicsDiscovery,
-  generateGraphicsImage,
-  generateGraphicsImageFile,
+  fetchTransmuteDiscovery,
+  generateTransmuteImage,
+  generateTransmuteImageFile,
   getLatestDesktopRelease,
-  graphicsAuthStatus,
-  graphicsMcpProtocolVersion,
-  graphicsMcpServerName,
-  graphicsMcpTools,
-  graphicsOperationRegistry,
-  GraphicsMcpToolRuntime,
+  transmuteAuthStatus,
+  transmuteMcpProtocolVersion,
+  transmuteMcpServerName,
+  transmuteMcpTools,
+  transmuteOperationRegistry,
+  TransmuteMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
-  loginGraphics,
-  logoutGraphics,
+  loginTransmute,
+  logoutTransmute,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
   openInDesktop,
   parseDiagramSource,
   parseDiagramSpec,
-  parseGraphicsDiscovery,
+  parseTransmuteDiscovery,
   readDiagramFile,
   renderDiagramFile,
   renderPng,
@@ -148,9 +148,9 @@ export {
   resolveDiagramSource,
   resolveEdge,
   resolveStackLayout,
-  requireGraphicsAuthentication,
+  requireTransmuteAuthentication,
   runMcpServer,
-  searchGraphicsOperations,
+  searchTransmuteOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
@@ -158,14 +158,14 @@ export {
   vectorizeImage,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
-  executeGraphicsOperation,
+  executeTransmuteOperation,
 }
-export * from "./auth.ts"
-export * from "./cloud-errors.ts"
-export * from "./discovery.ts"
-export * from "./generate.ts"
-export * from "./operations.ts"
-export type * from "./types.ts"
+export * from "./auth.js"
+export * from "./cloud-errors.js"
+export * from "./discovery.js"
+export * from "./generate.js"
+export * from "./operations.js"
+export type * from "./types.js"
 export type {
   JsonRpcFailure,
   JsonRpcId,
@@ -176,7 +176,7 @@ export type {
   McpTextContent,
   McpToolDefinition,
   McpToolResult,
-} from "./mcp/index.ts"
+} from "./mcp/index.js"
 export {
   VectorizeError,
   vectorizeDefaultLimits,
@@ -184,7 +184,7 @@ export {
   vectorizeProfileNames,
   VTRACER_VERSION,
   vtracerReleases,
-} from "./vectorize/index.ts"
+} from "./vectorize/index.js"
 export type {
   VectorizeErrorCode,
   VectorizeInput,
@@ -197,4 +197,4 @@ export type {
   VectorizeReceipt,
   VectorizeRepresentation,
   VectorizeResult,
-} from "./vectorize/index.ts"
+} from "./vectorize/index.js"

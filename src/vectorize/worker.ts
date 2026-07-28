@@ -7,15 +7,14 @@ import {
   VECTORIZE_WORKER_PROTOCOL,
   type VectorizeWorkerRequest,
   type VectorizeWorkerResponse,
-} from "./worker-protocol.ts"
+} from "./worker-protocol.js"
 import {
   VectorizeError,
   type VectorizeErrorCode,
   type VectorizeInput,
-  type VectorizeOptions,
-} from "./types.ts"
-import { forwardVectorizeWorkerTermination } from "./command.ts"
-import { vectorizeImageInProcess } from "./vectorize.ts"
+} from "./types.js"
+import { forwardVectorizeWorkerTermination } from "./command.js"
+import { vectorizeImageInProcess } from "./vectorize.js"
 
 const errorCodes = new Set<VectorizeErrorCode>([
   "input_limit",
@@ -159,7 +158,7 @@ async function validateTemporaryRoot(path: string): Promise<string> {
       !metadata.isDirectory() ||
       metadata.isSymbolicLink() ||
       dirname(realRoot) !== realTemporaryDirectory ||
-      !/^graphics-vectorize-[A-Za-z0-9_-]{6,}$/u.test(basename(realRoot))
+      !/^transmute-vectorize-[A-Za-z0-9_-]{6,}$/u.test(basename(realRoot))
     ) {
       throw new VectorizeError(
         "invalid_input",

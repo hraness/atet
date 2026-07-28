@@ -1,6 +1,6 @@
-import { sanitizeIcon } from "./icons.ts"
-import { resolveEdge } from "./render.ts"
-import { resolveTheme } from "./theme.ts"
+import { sanitizeIcon } from "./icons.js"
+import { resolveEdge } from "./render.js"
+import { resolveTheme } from "./theme.js"
 import type {
   BoxShape,
   DiagramConfig,
@@ -10,7 +10,7 @@ import type {
   LineShape,
   TextShape,
   Tone,
-} from "./types.ts"
+} from "./types.js"
 
 type TldrawRecord = Readonly<Record<string, unknown>>
 

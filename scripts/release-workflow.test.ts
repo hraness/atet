@@ -1,12 +1,36 @@
 import { expect, test } from "bun:test"
-import { readFile } from "node:fs/promises"
+import { access, readFile } from "node:fs/promises"
 import { join } from "node:path"
 
-test("version tags pass the complete immutable release gate", async () => {
-  const workflow = await readFile(
-    join(import.meta.dir, "..", ".github", "workflows", "release.yml"),
-    "utf8",
+async function readWorkflow(
+  sourceName: string,
+  publicName: string,
+): Promise<string> {
+  const packageRoot = join(import.meta.dir, "..")
+  const reviewedSource = join(packageRoot, sourceName)
+  try {
+    await access(reviewedSource)
+    return await readFile(reviewedSource, "utf8")
+  } catch (error) {
+    if (!isMissingFile(error)) throw error
+    return await readFile(
+      join(packageRoot, ".github", "workflows", publicName),
+      "utf8",
+    )
+  }
+}
+
+function isMissingFile(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
   )
+}
+
+test("version tags pass the complete immutable release gate", async () => {
+  const workflow = await readWorkflow("public-release.yml", "release.yml")
 
   expect(workflow).toContain('tags:\n      - "v*"')
   expect(workflow).toContain("permissions:\n  contents: read")
@@ -48,4 +72,23 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).not.toContain("--clobber")
   expect(workflow).not.toContain("/immutable-releases")
   expect(workflow).not.toContain("administration:")
+})
+
+test("public vectorizer workflow verifies every reviewed platform without write permissions", async () => {
+  const workflow = await readWorkflow("public-vectorizer.yml", "vectorizer.yml")
+
+  expect(workflow).toContain("permissions:\n  contents: read")
+  expect(workflow).toContain("pull_request:")
+  expect(workflow).toContain("branches: [main]")
+  for (const target of [
+    "linux-x64",
+    "linux-arm64",
+    "darwin-x64",
+    "darwin-arm64",
+    "win32-x64",
+  ]) {
+    expect(workflow).toContain(`target: ${target}`)
+  }
+  expect(workflow).toContain("bun run test:vectorize:official")
+  expect(workflow).not.toContain("contents: write")
 })

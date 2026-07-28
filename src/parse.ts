@@ -15,8 +15,8 @@ import {
   type StackShape,
   type TextShape,
   type Tone,
-} from "./types.ts"
-import { resolveDiagramSource } from "./layout.ts"
+} from "./types.js"
+import { resolveDiagramSource } from "./layout.js"
 
 const tones = new Set<Tone>([
   "neutral",

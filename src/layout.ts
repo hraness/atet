@@ -7,7 +7,7 @@ import type {
   StackDiagramEdge,
   StackDiagramSource,
   StackShape,
-} from "./types.ts"
+} from "./types.js"
 
 export const stackLayoutDefaults = {
   gap: 160,

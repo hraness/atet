@@ -13,26 +13,25 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { performance } from "node:perf_hooks"
 import {
-  buildGraphicsAuthorizationUrl,
+  buildTransmuteAuthorizationUrl,
   createPkcePair,
-  getGraphicsAccessToken,
-  graphicsAuthStatus,
-  graphicsSecretsName,
-  graphicsSecretsService,
-  loginGraphics,
-  logoutGraphics,
-  type GraphicsSecretStore,
-  type StoredGraphicsCredentials,
+  getTransmuteAccessToken,
+  transmuteAuthStatus,
+  transmuteSecretsName,
+  transmuteSecretsService,
+  loginTransmute,
+  logoutTransmute,
+  type TransmuteSecretStore,
+  type StoredTransmuteCredentials,
 } from "./auth.ts"
 import {
-  graphicsDiscoveryUrl,
-  graphicsImageModels,
-  graphicsProductionContract,
-  graphicsRedirectUri,
-  parseGraphicsDiscovery,
-  type GraphicsDiscoveryDocument,
+  transmuteDiscoveryUrl,
+  transmuteImageModels,
+  transmuteProductionContract,
+  transmuteRedirectUri,
+  parseTransmuteDiscovery,
 } from "./discovery.ts"
-import { acquireGraphicsCredentialMutationLease } from "./credential-lease.ts"
+import { acquireTransmuteCredentialMutationLease } from "./credential-lease.ts"
 
 interface MemorySecretsHooks {
   readonly beforeGet?: (call: number) => Promise<void> | void
@@ -40,7 +39,7 @@ interface MemorySecretsHooks {
   readonly beforeDelete?: (call: number) => Promise<void> | void
 }
 
-class MemorySecrets implements GraphicsSecretStore {
+class MemorySecrets implements TransmuteSecretStore {
   readonly state: { value: string | null }
   readonly hooks: MemorySecretsHooks
   getCalls = 0
@@ -65,8 +64,8 @@ class MemorySecrets implements GraphicsSecretStore {
 
   async get(options: { readonly service: string; readonly name: string }) {
     expect(options).toEqual({
-      service: graphicsSecretsService,
-      name: graphicsSecretsName,
+      service: transmuteSecretsService,
+      name: transmuteSecretsName,
     })
     this.getCalls += 1
     await this.hooks.beforeGet?.(this.getCalls)
@@ -78,8 +77,8 @@ class MemorySecrets implements GraphicsSecretStore {
     readonly name: string
     readonly value: string
   }) {
-    expect(options.service).toBe(graphicsSecretsService)
-    expect(options.name).toBe(graphicsSecretsName)
+    expect(options.service).toBe(transmuteSecretsService)
+    expect(options.name).toBe(transmuteSecretsName)
     this.setCalls += 1
     await this.hooks.beforeSet?.(this.setCalls, options.value)
     this.value = options.value
@@ -87,8 +86,8 @@ class MemorySecrets implements GraphicsSecretStore {
 
   async delete(options: { readonly service: string; readonly name: string }) {
     expect(options).toEqual({
-      service: graphicsSecretsService,
-      name: graphicsSecretsName,
+      service: transmuteSecretsService,
+      name: transmuteSecretsName,
     })
     this.deleteCalls += 1
     await this.hooks.beforeDelete?.(this.deleteCalls)
@@ -100,64 +99,67 @@ class MemorySecrets implements GraphicsSecretStore {
 
 function discoveryValue(): Record<string, unknown> {
   return {
-    schemaVersion: 1,
-    product: "graphics",
+    schemaVersion: 2,
+    product: "transmute",
     environment: "production",
-    apiBaseUrl: graphicsProductionContract.apiBaseUrl,
-    operationsUrl: graphicsProductionContract.operationsUrl,
-    authorization: {
-      type: "oauth2-authorization-code",
-      issuer: graphicsProductionContract.issuer,
-      authorizationEndpoint: graphicsProductionContract.authorizationEndpoint,
-      tokenEndpoint: graphicsProductionContract.tokenEndpoint,
-      revocationEndpoint: graphicsProductionContract.revocationEndpoint,
-      clientId: graphicsProductionContract.clientId,
-      redirectUri: graphicsRedirectUri,
-      scopes: ["openid", "offline_access"],
-      resource: graphicsProductionContract.resource,
-      pkce: "S256",
-    },
-    endpoints: { generateImage: graphicsProductionContract.generateImage },
-    imageGeneration: {
-      access: "authenticated",
-      billing: "free-preview",
-      models: graphicsImageModels,
-      maximumPromptBytes: 8_192,
-      maximumRawImageBytes: 3_145_728,
-      imagesPerRequest: 1,
-      responseMediaTypes: ["image/webp"],
-      quota: {
-        accountDailyLimit: 10,
-        globalDailySafetyLimit: 100,
-        paymentEnforced: false,
-        period: "utc-day",
+    capabilities: {
+      media: {
+        apiBaseUrl: transmuteProductionContract.apiBaseUrl,
+        operationsUrl: transmuteProductionContract.operationsUrl,
+        authorization: {
+          type: "oauth2-authorization-code",
+          issuer: transmuteProductionContract.issuer,
+          authorizationEndpoint: transmuteProductionContract.authorizationEndpoint,
+          tokenEndpoint: transmuteProductionContract.tokenEndpoint,
+          revocationEndpoint: transmuteProductionContract.revocationEndpoint,
+          clientId: transmuteProductionContract.clientId,
+          redirectUri: transmuteRedirectUri,
+          scopes: ["openid", "offline_access"],
+          resource: transmuteProductionContract.resource,
+          pkce: "S256",
+        },
+        endpoints: { generateImage: transmuteProductionContract.generateImage },
+        imageGeneration: {
+          access: "authenticated",
+          billing: "free-preview",
+          models: transmuteImageModels,
+          maximumPromptBytes: 8_192,
+          maximumRawImageBytes: 3_145_728,
+          imagesPerRequest: 1,
+          responseMediaTypes: ["image/webp"],
+          quota: {
+            accountDailyLimit: 10,
+            globalDailySafetyLimit: 100,
+            paymentEnforced: false,
+            period: "utc-day",
+          },
+          idempotency: {
+            header: "Idempotency-Key",
+            durable: true,
+            scope: "suite-account",
+          },
+        },
+        vectorize: {
+          access: "local",
+          billing: "free",
+          execution: "local",
+        },
       },
-      idempotency: {
-        header: "Idempotency-Key",
-        durable: true,
-        scope: "suite-account",
-      },
-    },
-    features: {
-      vectorize: {
-        access: "authenticated",
-        billing: "free",
-        execution: "local",
-      },
+      desktop: { availability: "unavailable" },
     },
   }
 }
 
-const discovery = parseGraphicsDiscovery(discoveryValue())
+const discovery = parseTransmuteDiscovery(discoveryValue())
 
 function credentials(
-  overrides: Partial<StoredGraphicsCredentials> = {},
-): StoredGraphicsCredentials {
+  overrides: Partial<StoredTransmuteCredentials> = {},
+): StoredTransmuteCredentials {
   return {
     schemaVersion: 1,
-    issuer: discovery.authorization.issuer,
-    clientId: discovery.authorization.clientId,
-    resource: discovery.authorization.resource,
+    issuer: discovery.capabilities.media.authorization.issuer,
+    clientId: discovery.capabilities.media.authorization.clientId,
+    resource: discovery.capabilities.media.authorization.resource,
     accessToken: "current-access-token",
     refreshToken: "current-refresh-token",
     expiresAt: 2_000_000,
@@ -172,7 +174,7 @@ function discoveryResponse(): Response {
 function isAuthorizationRequest(input: string | URL | Request): boolean {
   const url = new URL(String(input))
   return url.origin + url.pathname ===
-    graphicsProductionContract.authorizationEndpoint
+    transmuteProductionContract.authorizationEndpoint
 }
 
 function authorizationBootstrapResponse(
@@ -216,7 +218,7 @@ async function waitForLeaseMarkers(
 async function currentProcessLeaseIdentity(directory: string): Promise<
   Readonly<{ processScopeIdentity: string; processIdentity: string }>
 > {
-  const lease = await acquireGraphicsCredentialMutationLease(
+  const lease = await acquireTransmuteCredentialMutationLease(
     {
       credentialLease: {
         directory,
@@ -250,7 +252,7 @@ async function completeLoginCallback(
 ): Promise<void> {
   const state = new URL(authorizationUrl).searchParams.get("state")
   expect(state).not.toBeNull()
-  const callback = new URL(graphicsRedirectUri)
+  const callback = new URL(transmuteRedirectUri)
   callback.searchParams.set("state", state!)
   callback.searchParams.set("code", code)
   const response = await fetch(callback)
@@ -258,24 +260,24 @@ async function completeLoginCallback(
   expect(response.headers.get("connection")).toBe("close")
 }
 
-describe("Graphics OAuth login", () => {
+describe("Transmute OAuth login", () => {
   test("builds a bounded S256 authorization request", () => {
     const pkce = createPkcePair()
     expect(pkce.verifier).toHaveLength(43)
     expect(pkce.challenge).toHaveLength(43)
     const state = "s".repeat(43)
     const url = new URL(
-      buildGraphicsAuthorizationUrl(discovery, state, pkce.challenge),
+      buildTransmuteAuthorizationUrl(discovery, state, pkce.challenge),
     )
     expect(url.origin + url.pathname).toBe(
-      graphicsProductionContract.authorizationEndpoint,
+      transmuteProductionContract.authorizationEndpoint,
     )
     expect(Object.fromEntries(url.searchParams)).toMatchObject({
       response_type: "code",
-      client_id: graphicsProductionContract.clientId,
-      redirect_uri: graphicsRedirectUri,
+      client_id: transmuteProductionContract.clientId,
+      redirect_uri: transmuteRedirectUri,
       scope: "openid offline_access",
-      resource: graphicsProductionContract.resource,
+      resource: transmuteProductionContract.resource,
       state,
       code_challenge: pkce.challenge,
       code_challenge_method: "S256",
@@ -286,12 +288,12 @@ describe("Graphics OAuth login", () => {
     const secrets = new MemorySecrets()
     secrets.value = JSON.stringify(credentials({ expiresAt: 1 }))
     let calls = 0
-    const accessToken = await getGraphicsAccessToken(discovery, {
+    const accessToken = await getTransmuteAccessToken(discovery, {
       secrets,
       now: () => 1_000,
       fetch: async (input, init) => {
         calls += 1
-        expect(String(input)).toBe(graphicsProductionContract.tokenEndpoint)
+        expect(String(input)).toBe(transmuteProductionContract.tokenEndpoint)
         expect(init?.redirect).toBe("error")
         expect(String(init?.body)).toContain("grant_type=refresh_token")
         expect(String(init?.body)).toContain(
@@ -316,7 +318,7 @@ describe("Graphics OAuth login", () => {
 
   test("serializes process-like contenders, rereads secrets inside the lease, and writes no tokens to files", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-lease-test-"),
+      join(tmpdir(), "transmute-refresh-lease-test-"),
     )
     const sharedState = {
       value: JSON.stringify(credentials({ expiresAt: 1 })),
@@ -337,7 +339,7 @@ describe("Graphics OAuth login", () => {
 
     try {
       const refreshFetch = async (input: string | URL | Request) => {
-        expect(String(input)).toBe(graphicsProductionContract.tokenEndpoint)
+        expect(String(input)).toBe(transmuteProductionContract.tokenEndpoint)
         refreshCalls += 1
         markRequestStarted()
         if (refreshCalls > 1) {
@@ -357,7 +359,7 @@ describe("Graphics OAuth login", () => {
         staleAfterMilliseconds: 500,
         pollIntervalMilliseconds: 5,
       } as const
-      firstRequest = getGraphicsAccessToken(discovery, {
+      firstRequest = getTransmuteAccessToken(discovery, {
         secrets: firstSecrets,
         now: () => 1_000,
         fetch: refreshFetch,
@@ -378,7 +380,7 @@ describe("Graphics OAuth login", () => {
       expect(diskMetadata).not.toContain("current-access-token")
       expect(diskMetadata).not.toContain("rotated-access-token")
 
-      secondRequest = getGraphicsAccessToken(discovery, {
+      secondRequest = getTransmuteAccessToken(discovery, {
         secrets: secondSecrets,
         now: () => 1_000,
         fetch: refreshFetch,
@@ -420,7 +422,7 @@ describe("Graphics OAuth login", () => {
 
   test("recovers an abandoned stale lease before refreshing", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-stale-test-"),
+      join(tmpdir(), "transmute-refresh-stale-test-"),
     )
     const secrets = new MemorySecrets()
     secrets.value = JSON.stringify(credentials({ expiresAt: 1 }))
@@ -431,7 +433,7 @@ describe("Graphics OAuth login", () => {
         [
           process.execPath,
           "-e",
-          `const { acquireGraphicsCredentialMutationLease } = await import(${JSON.stringify(leaseModuleUrl.href)}); await acquireGraphicsCredentialMutationLease({ credentialLease: { directory: ${JSON.stringify(directory)}, pollIntervalMilliseconds: 1, staleAfterMilliseconds: 100, waitTimeoutMilliseconds: 1000 } }, "refresh"); await Bun.sleep(60000);`,
+          `const { acquireTransmuteCredentialMutationLease } = await import(${JSON.stringify(leaseModuleUrl.href)}); await acquireTransmuteCredentialMutationLease({ credentialLease: { directory: ${JSON.stringify(directory)}, pollIntervalMilliseconds: 1, staleAfterMilliseconds: 100, waitTimeoutMilliseconds: 1000 } }, "refresh"); await Bun.sleep(60000);`,
         ],
         { stdin: "ignore", stdout: "ignore", stderr: "ignore" },
       )
@@ -457,7 +459,7 @@ describe("Graphics OAuth login", () => {
       await utimes(staleChooser, staleTime, staleTime)
 
       let refreshCalls = 0
-      const accessToken = await getGraphicsAccessToken(discovery, {
+      const accessToken = await getTransmuteAccessToken(discovery, {
         secrets,
         now: () => 1_000,
         credentialLease: {
@@ -487,7 +489,7 @@ describe("Graphics OAuth login", () => {
 
   test("recovers a stale marker after its PID has been reused", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-reused-pid-test-"),
+      join(tmpdir(), "transmute-refresh-reused-pid-test-"),
     )
     const secrets = new MemorySecrets()
     secrets.value = JSON.stringify(credentials({ expiresAt: 1 }))
@@ -505,7 +507,7 @@ describe("Graphics OAuth login", () => {
       const staleTime = new Date(Date.now() - 60_000)
       await utimes(staleOwner, staleTime, staleTime)
       let refreshCalls = 0
-      const accessToken = await getGraphicsAccessToken(discovery, {
+      const accessToken = await getTransmuteAccessToken(discovery, {
         secrets,
         now: () => 1_000,
         credentialLease: {
@@ -535,7 +537,7 @@ describe("Graphics OAuth login", () => {
 
   test("fails closed without deleting a stale marker from another process scope", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-foreign-scope-test-"),
+      join(tmpdir(), "transmute-refresh-foreign-scope-test-"),
     )
     const secrets = new MemorySecrets()
     secrets.value = JSON.stringify(credentials({ expiresAt: 1 }))
@@ -553,7 +555,7 @@ describe("Graphics OAuth login", () => {
       let refreshCalls = 0
 
       await expect(
-        getGraphicsAccessToken(discovery, {
+        getTransmuteAccessToken(discovery, {
           secrets,
           now: () => 1_000,
           credentialLease: {
@@ -568,7 +570,7 @@ describe("Graphics OAuth login", () => {
           },
         }),
       ).rejects.toThrow(
-        "[TOKEN_REFRESH_FAILED] Graphics cannot safely coordinate credentials across process scopes.",
+        "[TOKEN_REFRESH_FAILED] Transmute cannot safely coordinate credentials across process scopes.",
       )
       expect(refreshCalls).toBe(0)
       expect(await readdir(directory)).toEqual([foreignOwnerName])
@@ -580,7 +582,7 @@ describe("Graphics OAuth login", () => {
 
   test("never steals a stale-looking lease from a live process and times out within the configured bound", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-live-test-"),
+      join(tmpdir(), "transmute-refresh-live-test-"),
     )
     const processIdentity = await currentProcessLeaseIdentity(directory)
     const ownerName =
@@ -595,7 +597,7 @@ describe("Graphics OAuth login", () => {
       const staleTime = new Date(Date.now() - 60_000)
       await utimes(ownerPath, staleTime, staleTime)
       await expect(
-        getGraphicsAccessToken(discovery, {
+        getTransmuteAccessToken(discovery, {
           secrets,
           now: () => 1_000,
           credentialLease: {
@@ -610,7 +612,7 @@ describe("Graphics OAuth login", () => {
           },
         }),
       ).rejects.toThrow(
-        "[TOKEN_REFRESH_FAILED] Graphics timed out waiting for another login refresh.",
+        "[TOKEN_REFRESH_FAILED] Transmute timed out waiting for another login refresh.",
       )
       expect(refreshCalls).toBe(0)
       expect(await readFile(ownerPath)).toHaveLength(0)
@@ -621,7 +623,7 @@ describe("Graphics OAuth login", () => {
 
   test("never bypasses an atomically published live choosing doorway", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-choosing-test-"),
+      join(tmpdir(), "transmute-refresh-choosing-test-"),
     )
     const processIdentity = await currentProcessLeaseIdentity(directory)
     const choosingName =
@@ -636,7 +638,7 @@ describe("Graphics OAuth login", () => {
       const staleTime = new Date(Date.now() - 60_000)
       await utimes(choosingPath, staleTime, staleTime)
       await expect(
-        getGraphicsAccessToken(discovery, {
+        getTransmuteAccessToken(discovery, {
           secrets,
           now: () => 1_000,
           credentialLease: {
@@ -651,7 +653,7 @@ describe("Graphics OAuth login", () => {
           },
         }),
       ).rejects.toThrow(
-        "[TOKEN_REFRESH_FAILED] Graphics timed out waiting for another login refresh.",
+        "[TOKEN_REFRESH_FAILED] Transmute timed out waiting for another login refresh.",
       )
       expect(refreshCalls).toBe(0)
       expect(await readFile(choosingPath)).toHaveLength(0)
@@ -662,7 +664,7 @@ describe("Graphics OAuth login", () => {
 
   test("cancels a bounded lease wait without exposing credentials", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-cancel-test-"),
+      join(tmpdir(), "transmute-refresh-cancel-test-"),
     )
     const processIdentity = await currentProcessLeaseIdentity(directory)
     const ownerName =
@@ -673,7 +675,7 @@ describe("Graphics OAuth login", () => {
 
     try {
       await writeFile(join(directory, ownerName), "", { mode: 0o600 })
-      const pending = getGraphicsAccessToken(discovery, {
+      const pending = getTransmuteAccessToken(discovery, {
         secrets,
         now: () => 1_000,
         credentialLease: {
@@ -696,7 +698,7 @@ describe("Graphics OAuth login", () => {
         failure = cause
       }
       expect(String(failure)).toBe(
-        "GraphicsCloudError: [TOKEN_REFRESH_FAILED] Graphics login refresh was cancelled.",
+        "TransmuteCloudError: [TOKEN_REFRESH_FAILED] Transmute login refresh was cancelled.",
       )
       expect(String(failure)).not.toContain("current-access-token")
       expect(String(failure)).not.toContain("current-refresh-token")
@@ -709,7 +711,7 @@ describe("Graphics OAuth login", () => {
 
   test("honors cancellation after the credential reread and immediately before refresh dispatch", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-predispatch-cancel-test-"),
+      join(tmpdir(), "transmute-refresh-predispatch-cancel-test-"),
     )
     const rereadStarted = deferred()
     const releaseReread = deferred()
@@ -725,7 +727,7 @@ describe("Graphics OAuth login", () => {
     let refreshCalls = 0
 
     try {
-      const pending = getGraphicsAccessToken(discovery, {
+      const pending = getTransmuteAccessToken(discovery, {
         secrets,
         now: () => 1_000,
         credentialLease: {
@@ -744,7 +746,7 @@ describe("Graphics OAuth login", () => {
       controller.abort("private post-reread reason")
       releaseReread.resolve()
       await expect(pending).rejects.toThrow(
-        "[TOKEN_REFRESH_FAILED] Graphics login refresh was cancelled.",
+        "[TOKEN_REFRESH_FAILED] Transmute login refresh was cancelled.",
       )
       expect(refreshCalls).toBe(0)
       expect(JSON.parse(state.value)).toMatchObject({
@@ -761,7 +763,7 @@ describe("Graphics OAuth login", () => {
 
   test("persists a rotated response after a transient heartbeat failure and releases the lease", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-heartbeat-test-"),
+      join(tmpdir(), "transmute-refresh-heartbeat-test-"),
     )
     const secrets = new MemorySecrets()
     secrets.value = JSON.stringify(credentials({ expiresAt: 1 }))
@@ -769,7 +771,7 @@ describe("Graphics OAuth login", () => {
     let heartbeatCalls = 0
 
     try {
-      const accessToken = await getGraphicsAccessToken(discovery, {
+      const accessToken = await getTransmuteAccessToken(discovery, {
         secrets,
         now: () => 1_000,
         credentialLease: {
@@ -812,7 +814,7 @@ describe("Graphics OAuth login", () => {
 
   test("does not let a stuck advisory heartbeat strand lease release", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-stuck-heartbeat-test-"),
+      join(tmpdir(), "transmute-refresh-stuck-heartbeat-test-"),
     )
     const secrets = new MemorySecrets()
     secrets.value = JSON.stringify(credentials({ expiresAt: 1 }))
@@ -820,7 +822,7 @@ describe("Graphics OAuth login", () => {
     const neverSettles = new Promise<void>(() => undefined)
 
     try {
-      const pending = getGraphicsAccessToken(discovery, {
+      const pending = getTransmuteAccessToken(discovery, {
         secrets,
         now: () => 1_000,
         credentialLease: {
@@ -861,7 +863,7 @@ describe("Graphics OAuth login", () => {
 
   test("inode-fences final ownership and never deletes a replacement marker", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-refresh-inode-test-"),
+      join(tmpdir(), "transmute-refresh-inode-test-"),
     )
     const secrets = new MemorySecrets()
     secrets.value = JSON.stringify(credentials({ expiresAt: 1 }))
@@ -870,7 +872,7 @@ describe("Graphics OAuth login", () => {
 
     try {
       await expect(
-        getGraphicsAccessToken(discovery, {
+        getTransmuteAccessToken(discovery, {
           secrets,
           now: () => 1_000,
           credentialLease: {
@@ -909,7 +911,7 @@ describe("Graphics OAuth login", () => {
     secrets.value = JSON.stringify(credentials({ expiresAt: 1 }))
     const before = secrets.value
     await expect(
-      getGraphicsAccessToken(discovery, {
+      getTransmuteAccessToken(discovery, {
         secrets,
         now: () => 1_000,
         fetch: async () =>
@@ -926,11 +928,11 @@ describe("Graphics OAuth login", () => {
     const secrets = new MemorySecrets()
     let authorizationCalls = 0
     let exchangeCalls = 0
-    const status = await loginGraphics({
+    const status = await loginTransmute({
       secrets,
       now: () => 10_000,
       fetch: async (input, init) => {
-        if (String(input) === graphicsDiscoveryUrl) return discoveryResponse()
+        if (String(input) === transmuteDiscoveryUrl) return discoveryResponse()
         if (isAuthorizationRequest(input)) {
           authorizationCalls += 1
           expect(init?.method).toBe("GET")
@@ -939,7 +941,7 @@ describe("Graphics OAuth login", () => {
           const url = new URL(String(input))
           expect(url.searchParams.get("response_type")).toBe("code")
           expect(url.searchParams.get("redirect_uri")).toBe(
-            graphicsRedirectUri,
+            transmuteRedirectUri,
           )
           expect(url.searchParams.get("code_challenge_method")).toBe("S256")
           expect(url.searchParams.get("code_challenge")).toMatch(
@@ -948,7 +950,7 @@ describe("Graphics OAuth login", () => {
           return authorizationBootstrapResponse(input)
         }
         exchangeCalls += 1
-        expect(String(input)).toBe(graphicsProductionContract.tokenEndpoint)
+        expect(String(input)).toBe(transmuteProductionContract.tokenEndpoint)
         expect(init?.redirect).toBe("error")
         const form = new URLSearchParams(String(init?.body))
         expect(form.get("grant_type")).toBe("authorization_code")
@@ -964,12 +966,12 @@ describe("Graphics OAuth login", () => {
       openUrl: async (launchUrl) => {
         const parsedLaunchUrl = new URL(launchUrl)
         expect(parsedLaunchUrl.origin).toBe(
-          graphicsProductionContract.issuer,
+          transmuteProductionContract.issuer,
         )
         expect(parsedLaunchUrl.pathname).toBe("/login")
         const state = parsedLaunchUrl.searchParams.get("state")
         expect(state).not.toBeNull()
-        const callback = new URL(graphicsRedirectUri)
+        const callback = new URL(transmuteRedirectUri)
         callback.searchParams.set("state", state!)
         callback.searchParams.set("code", "bounded-code")
         const response = await fetch(callback)
@@ -992,11 +994,11 @@ describe("Graphics OAuth login", () => {
   test("accepts a future manual 3xx authorization redirect on the trusted issuer", async () => {
     const secrets = new MemorySecrets()
     let openedUrl: string | undefined
-    const status = await loginGraphics({
+    const status = await loginTransmute({
       secrets,
       now: () => 20_000,
       fetch: async (input, init) => {
-        if (String(input) === graphicsDiscoveryUrl) return discoveryResponse()
+        if (String(input) === transmuteDiscoveryUrl) return discoveryResponse()
         if (isAuthorizationRequest(input)) {
           expect(init?.redirect).toBe("manual")
           const state = new URL(String(input)).searchParams.get("state")
@@ -1005,11 +1007,11 @@ describe("Graphics OAuth login", () => {
             status: 302,
             headers: {
               location:
-                `${graphicsProductionContract.issuer}/login?state=${encodeURIComponent(state!)}`,
+                `${transmuteProductionContract.issuer}/login?state=${encodeURIComponent(state!)}`,
             },
           })
         }
-        expect(String(input)).toBe(graphicsProductionContract.tokenEndpoint)
+        expect(String(input)).toBe(transmuteProductionContract.tokenEndpoint)
         return Response.json({
           access_token: "redirect-access-token",
           refresh_token: "redirect-refresh-token",
@@ -1024,7 +1026,7 @@ describe("Graphics OAuth login", () => {
     })
 
     expect(openedUrl).toStartWith(
-      `${graphicsProductionContract.issuer}/login?state=`,
+      `${transmuteProductionContract.issuer}/login?state=`,
     )
     expect(status).toMatchObject({ authenticated: true, refreshable: true })
   })
@@ -1104,10 +1106,10 @@ describe("Graphics OAuth login", () => {
     for (const current of cases) {
       let openCalls = 0
       await expect(
-        loginGraphics({
+        loginTransmute({
           secrets: new MemorySecrets(),
           fetch: async (input) => {
-            if (String(input) === graphicsDiscoveryUrl) {
+            if (String(input) === transmuteDiscoveryUrl) {
               return discoveryResponse()
             }
             if (isAuthorizationRequest(input)) return current.response()
@@ -1118,7 +1120,7 @@ describe("Graphics OAuth login", () => {
           },
         }),
       ).rejects.toThrow(
-        "[AUTHORIZATION_FAILED] Graphics could not start the authorization flow.",
+        "[AUTHORIZATION_FAILED] Transmute could not start the authorization flow.",
       )
       expect(openCalls).toBe(0)
     }
@@ -1144,10 +1146,10 @@ describe("Graphics OAuth login", () => {
     for (const unsafeUrl of unsafeUrls) {
       let openCalls = 0
       await expect(
-        loginGraphics({
+        loginTransmute({
           secrets: new MemorySecrets(),
           fetch: async (input) => {
-            if (String(input) === graphicsDiscoveryUrl) {
+            if (String(input) === transmuteDiscoveryUrl) {
               return discoveryResponse()
             }
             if (isAuthorizationRequest(input)) {
@@ -1160,7 +1162,7 @@ describe("Graphics OAuth login", () => {
           },
         }),
       ).rejects.toThrow(
-        "[AUTHORIZATION_FAILED] Graphics could not start the authorization flow.",
+        "[AUTHORIZATION_FAILED] Transmute could not start the authorization flow.",
       )
       expect(openCalls).toBe(0)
     }
@@ -1168,7 +1170,7 @@ describe("Graphics OAuth login", () => {
 
   test("shares the mutation lease so an explicit login wins over an older in-flight refresh", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-login-refresh-race-test-"),
+      join(tmpdir(), "transmute-login-refresh-race-test-"),
     )
     const state = { value: JSON.stringify(credentials({ expiresAt: 1 })) }
     const refreshSecrets = new MemorySecrets(state)
@@ -1183,10 +1185,10 @@ describe("Graphics OAuth login", () => {
       pollIntervalMilliseconds: 2,
     } as const
     let refreshRequest: Promise<string> | undefined
-    let loginRequest: ReturnType<typeof loginGraphics> | undefined
+    let loginRequest: ReturnType<typeof loginTransmute> | undefined
 
     try {
-      refreshRequest = getGraphicsAccessToken(discovery, {
+      refreshRequest = getTransmuteAccessToken(discovery, {
         secrets: refreshSecrets,
         now: () => 1_000,
         credentialLease: lease,
@@ -1203,12 +1205,12 @@ describe("Graphics OAuth login", () => {
       })
       await refreshDispatched.promise
 
-      loginRequest = loginGraphics({
+      loginRequest = loginTransmute({
         secrets: loginSecrets,
         now: () => 2_000,
         credentialLease: lease,
         fetch: async (input, init) => {
-          if (String(input) === graphicsDiscoveryUrl) return discoveryResponse()
+          if (String(input) === transmuteDiscoveryUrl) return discoveryResponse()
           if (isAuthorizationRequest(input)) {
             return authorizationBootstrapResponse(input)
           }
@@ -1253,7 +1255,7 @@ describe("Graphics OAuth login", () => {
 
   test("shares the mutation lease so logout deletes a concurrently rotated credential", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-logout-refresh-race-test-"),
+      join(tmpdir(), "transmute-logout-refresh-race-test-"),
     )
     const state: { value: string | null } = {
       value: JSON.stringify(credentials({ expiresAt: 1 })),
@@ -1269,11 +1271,11 @@ describe("Graphics OAuth login", () => {
       pollIntervalMilliseconds: 2,
     } as const
     let refreshRequest: Promise<string> | undefined
-    let logoutRequest: ReturnType<typeof logoutGraphics> | undefined
+    let logoutRequest: ReturnType<typeof logoutTransmute> | undefined
     const revokedTokens: string[] = []
 
     try {
-      refreshRequest = getGraphicsAccessToken(discovery, {
+      refreshRequest = getTransmuteAccessToken(discovery, {
         secrets: refreshSecrets,
         now: () => 1_000,
         credentialLease: lease,
@@ -1290,11 +1292,11 @@ describe("Graphics OAuth login", () => {
       })
       await refreshDispatched.promise
 
-      logoutRequest = logoutGraphics({
+      logoutRequest = logoutTransmute({
         secrets: logoutSecrets,
         credentialLease: lease,
         fetch: async (input, init) => {
-          if (String(input) === graphicsDiscoveryUrl) return discoveryResponse()
+          if (String(input) === transmuteDiscoveryUrl) return discoveryResponse()
           const form = new URLSearchParams(String(init?.body))
           const token = form.get("token")
           if (token !== null) revokedTokens.push(token)
@@ -1329,10 +1331,10 @@ describe("Graphics OAuth login", () => {
     process.on("unhandledRejection", observeUnhandled)
     try {
       await expect(
-        loginGraphics({
+        loginTransmute({
           secrets,
           fetch: async (input) => {
-            if (String(input) === graphicsDiscoveryUrl) {
+            if (String(input) === transmuteDiscoveryUrl) {
               return discoveryResponse()
             }
             if (isAuthorizationRequest(input)) {
@@ -1362,7 +1364,7 @@ describe("Graphics OAuth login", () => {
   test("reports status without tokens and revokes before removing local credentials", async () => {
     const secrets = new MemorySecrets()
     secrets.value = JSON.stringify(credentials())
-    const status = await graphicsAuthStatus({ secrets, now: () => 1_000 })
+    const status = await transmuteAuthStatus({ secrets, now: () => 1_000 })
     expect(status).toEqual({
       authenticated: true,
       expiresAt: new Date(2_000_000).toISOString(),
@@ -1375,7 +1377,7 @@ describe("Graphics OAuth login", () => {
       credentials({ issuer: "https://foreign.example" }),
     )
     expect(
-      await graphicsAuthStatus({ secrets: foreignSecrets, now: () => 1_000 }),
+      await transmuteAuthStatus({ secrets: foreignSecrets, now: () => 1_000 }),
     ).toEqual({
       authenticated: false,
       expiresAt: null,
@@ -1383,11 +1385,11 @@ describe("Graphics OAuth login", () => {
     })
 
     const requests: string[] = []
-    const result = await logoutGraphics({
+    const result = await logoutTransmute({
       secrets,
       fetch: async (input, init) => {
         requests.push(String(input))
-        if (String(input) === graphicsDiscoveryUrl) return discoveryResponse()
+        if (String(input) === transmuteDiscoveryUrl) return discoveryResponse()
         expect(init?.redirect).toBe("error")
         expect(String(init?.body)).toContain(
           "token=current-refresh-token",
@@ -1396,8 +1398,8 @@ describe("Graphics OAuth login", () => {
       },
     })
     expect(requests).toEqual([
-      graphicsDiscoveryUrl,
-      graphicsProductionContract.revocationEndpoint,
+      transmuteDiscoveryUrl,
+      transmuteProductionContract.revocationEndpoint,
     ])
     expect(result).toEqual({ removed: true, revoked: true })
     expect(secrets.value).toBeNull()
@@ -1405,7 +1407,7 @@ describe("Graphics OAuth login", () => {
 
   test("fails credential mutations closed on Windows even with a caller-supplied shared directory", async () => {
     const directory = await mkdtemp(
-      join(tmpdir(), "graphics-windows-credential-lease-test-"),
+      join(tmpdir(), "transmute-windows-credential-lease-test-"),
     )
     const originalPlatform = Object.getOwnPropertyDescriptor(
       process,
@@ -1429,18 +1431,18 @@ describe("Graphics OAuth login", () => {
         },
       } as const
       await expect(
-        getGraphicsAccessToken(discovery, {
+        getTransmuteAccessToken(discovery, {
           ...dependencies,
           now: () => 1_000,
         }),
       ).rejects.toThrow(
-        "[TOKEN_REFRESH_FAILED] Graphics cannot safely mutate shared credentials on this platform.",
+        "[TOKEN_REFRESH_FAILED] Transmute cannot safely mutate shared credentials on this platform.",
       )
-      await expect(loginGraphics(dependencies)).rejects.toThrow(
-        "[TOKEN_STORAGE_FAILED] Graphics cannot safely mutate shared credentials on this platform.",
+      await expect(loginTransmute(dependencies)).rejects.toThrow(
+        "[TOKEN_STORAGE_FAILED] Transmute cannot safely mutate shared credentials on this platform.",
       )
-      await expect(logoutGraphics(dependencies)).rejects.toThrow(
-        "[TOKEN_STORAGE_FAILED] Graphics cannot safely mutate shared credentials on this platform.",
+      await expect(logoutTransmute(dependencies)).rejects.toThrow(
+        "[TOKEN_STORAGE_FAILED] Transmute cannot safely mutate shared credentials on this platform.",
       )
       expect(fetchCalls).toBe(0)
       expect(JSON.parse(state.value)).toMatchObject({

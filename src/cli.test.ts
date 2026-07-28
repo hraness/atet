@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { main as runGraphicsCliInProcess } from "./cli.ts"
-import { graphicsImageModels } from "./discovery.ts"
+import { main as runTransmuteCliInProcess } from "./cli.ts"
+import { transmuteImageModels } from "./discovery.ts"
 
 async function runCli(
   args: readonly string[],
@@ -22,24 +22,29 @@ async function runCli(
   return { exitCode, stdout, stderr }
 }
 
-describe("Graphics CLI semantic code mode", () => {
-  test("reports v0.4.0 and documents authenticated/semantic commands", async () => {
+describe("Transmute CLI", () => {
+  test("reports v0.5.0 and documents namespaced media surfaces", async () => {
     const version = await runCli(["--version"], process.cwd())
     expect(version).toEqual({
       exitCode: 0,
-      stdout: "0.4.0\n",
+      stdout: "0.5.0\n",
       stderr: "",
     })
     const help = await runCli(["--help"], process.cwd())
     expect(help.exitCode).toBe(0)
     for (const command of [
-      "graphics login",
-      "graphics logout",
-      "graphics auth status",
-      "graphics generate",
-      "graphics code search",
-      "graphics code execute",
-      "search_graphics/execute_graphics",
+      "transmute diagram init",
+      "transmute diagram check",
+      "transmute diagram render",
+      "transmute image vectorize",
+      "transmute image generate",
+      "transmute auth login",
+      "transmute auth logout",
+      "transmute auth status",
+      "transmute canvas open",
+      "transmute code search",
+      "transmute code execute",
+      "search_transmute/execute_transmute",
     ]) {
       expect(help.stdout).toContain(command)
     }
@@ -54,15 +59,16 @@ describe("Graphics CLI semantic code mode", () => {
     expect(result.stderr).toBe("")
     const parsed = JSON.parse(result.stdout)
     expect(parsed.operations.map(({ code }: { code: string }) => code)).toEqual([
-      "graphics.diagram.check",
-      "graphics.diagram.render",
+      "transmute.diagram.check",
+      "transmute.diagram.render",
     ])
   })
 
   test("defaults direct generation to the Recraft utility model", async () => {
     const output: string[] = []
-    await runGraphicsCliInProcess(
+    await runTransmuteCliInProcess(
       [
+        "image",
         "generate",
         "one literal illustration",
         "--output",
@@ -72,7 +78,7 @@ describe("Graphics CLI semantic code mode", () => {
       {
         generate: async (input) => {
           expect(input).toEqual({
-            model: graphicsImageModels[1],
+            model: transmuteImageModels[1],
             prompt: "one literal illustration",
             outputPath: "illustration.webp",
           })
@@ -80,7 +86,7 @@ describe("Graphics CLI semantic code mode", () => {
             bytes: 128,
             idempotencyKey: "generated-key-0001",
             mediaType: "image/webp",
-            model: graphicsImageModels[1],
+            model: transmuteImageModels[1],
             outputPath: "/workspace/illustration.webp",
             requestId: "request_default_model",
           }
@@ -89,13 +95,75 @@ describe("Graphics CLI semantic code mode", () => {
       },
     )
     expect(JSON.parse(output.join("\n"))).toMatchObject({
-      model: graphicsImageModels[1],
+      model: transmuteImageModels[1],
       mediaType: "image/webp",
     })
   })
 
+  test("keeps canonical vectorization local and rejects the old flat grammar", async () => {
+    const output: string[] = []
+    let calls = 0
+    await runTransmuteCliInProcess(
+      ["image", "vectorize", "source.png", "--output", "source.svg", "--json"],
+      {
+        log: (line) => output.push(line),
+        vectorize: async (input, options) => {
+          calls += 1
+          expect(input).toBe("source.png")
+          expect(options?.outputPath).toBe("source.svg")
+          return {
+            outputPath: "/workspace/source.svg",
+            svg: "<svg/>",
+            receipt: {
+              alphaCutoff: 8,
+              bytes: 6,
+              candidatesEvaluated: 1,
+              format: "png",
+              height: 16,
+              inputBytes: 32,
+              outputMode: "color",
+              pathCount: 1,
+              profile: "balanced",
+              provenance: {
+                arch: process.arch,
+                platform: process.platform,
+                sharp: "test",
+                sharpVersions: {},
+                vips: "test",
+                vtracerSha256: "0".repeat(64),
+                vtracerSource: "override",
+                vtracerVersion: "test",
+              },
+              quality: {
+                alphaRmse: 0,
+                colorRmse: 0,
+                outsideAlphaRatio: 0,
+                sampleHeight: 16,
+                sampleWidth: 16,
+                supportRecall: 1,
+              },
+              receiptVersion: 1,
+              representation: "color-paths",
+              sourceSha256: "1".repeat(64),
+              svgSha256: "2".repeat(64),
+              width: 16,
+            },
+          }
+        },
+      },
+    )
+    expect(calls).toBe(1)
+    expect(JSON.parse(output.join("\n"))).toMatchObject({
+      outputPath: "/workspace/source.svg",
+      width: 16,
+    })
+    await expect(
+      runTransmuteCliInProcess(["vectorize", "source.png", "--output", "source.svg"]),
+    ).rejects.toThrow("flat `vectorize` command moved")
+  })
+
   test("executes exact typed JSON without loading workspace code", async () => {
-    const root = await mkdtemp(join(tmpdir(), "graphics-cli-code-"))
+    const root = await mkdtemp(join(tmpdir(), "transmute-cli-code-"))
     const marker = join(root, "config-executed")
     try {
       await writeFile(
@@ -117,14 +185,14 @@ describe("Graphics CLI semantic code mode", () => {
         }),
       )
       await writeFile(
-        join(root, "graphics.config.ts"),
+        join(root, "transmute.config.ts"),
         `await Bun.write(${JSON.stringify(marker)}, "executed"); export default {}\n`,
       )
       const result = await runCli(
         [
           "code",
           "execute",
-          "graphics.diagram.check",
+          "transmute.diagram.check",
           "--input",
           JSON.stringify({ path: "flow.diagram.json" }),
         ],
@@ -132,7 +200,7 @@ describe("Graphics CLI semantic code mode", () => {
       )
       expect(result.exitCode).toBe(0)
       expect(JSON.parse(result.stdout)).toMatchObject({
-        operation: "graphics.diagram.check",
+        operation: "transmute.diagram.check",
         result: { configPath: null },
       })
       expect(await Bun.file(marker).exists()).toBe(false)
@@ -141,7 +209,7 @@ describe("Graphics CLI semantic code mode", () => {
         [
           "code",
           "execute",
-          "graphics.diagram.check",
+          "transmute.diagram.check",
           "--input",
           JSON.stringify({
             path: "flow.diagram.json",

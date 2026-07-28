@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transmute"
+  short_description: "Create clear diagrams, vectors, and bounded images"
+  default_prompt: "Create or update a concise visual that follows my prompt literally, using the fixed Transmute operations and authenticated image tools only when needed."

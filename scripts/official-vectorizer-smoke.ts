@@ -7,7 +7,7 @@ import {
   VTRACER_VERSION,
   vectorizeImage,
   vtracerReleases,
-} from "../dist/index.js"
+} from "../src/index.ts"
 
 function invariant(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -47,8 +47,8 @@ invariant(
   `Runner is ${process.platform}/${process.arch}, expected ${expectedPlatform}/${expectedArch}.`,
 )
 invariant(
-  process.env.GRAPHICS_VTRACER_PATH === undefined,
-  "Official VTracer smoke must not use GRAPHICS_VTRACER_PATH.",
+  process.env.TRANSMUTE_VTRACER_PATH === undefined,
+  "Official VTracer smoke must not use TRANSMUTE_VTRACER_PATH.",
 )
 
 const releaseKey = `${process.platform}-${process.arch}`
@@ -67,7 +67,7 @@ invariant(
   `VTracer release metadata changed for ${releaseKey}.`,
 )
 
-const work = await mkdtemp(join(tmpdir(), "graphics-official-vtracer-"))
+const work = await mkdtemp(join(tmpdir(), "transmute-official-vtracer-"))
 try {
   // Generated in memory, so this smoke fixture carries no third-party rights.
   const raster = await sharp({

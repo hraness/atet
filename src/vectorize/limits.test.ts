@@ -64,7 +64,7 @@ test("pixel-toolchain provenance is complete, sorted, and fail-closed", () => {
 
 test("nonregular input is rejected without blocking on a FIFO", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "graphics-input-fifo-"))
+  const work = await mkdtemp(join(tmpdir(), "transmute-input-fifo-"))
   try {
     const fifo = join(work, "input.png")
     const created = Bun.spawnSync(["mkfifo", fifo])

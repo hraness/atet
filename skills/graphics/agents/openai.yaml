@@ -1,4 +1,0 @@
-interface:
-  display_name: "Graphics"
-  short_description: "Create clear diagrams, vectors, and bounded images"
-  default_prompt: "Create or update a concise visual that follows my prompt literally, using the fixed Graphics operations and authenticated image tools only when needed."

@@ -6,8 +6,8 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
-import { runBoundedPathOutputCommand } from "./command.ts"
-import { resolveVectorizeLimits, VectorizeDeadline } from "./limits.ts"
+import { runBoundedPathOutputCommand } from "./command.js"
+import { resolveVectorizeLimits, VectorizeDeadline } from "./limits.js"
 import {
   alphaPlaneTraceRgba,
   dominantOklabDuotoneModel,
@@ -19,14 +19,14 @@ import {
   normalizedPremultipliedRmse,
   sanitizedTraceRgba,
   sha256,
-} from "./metrics.ts"
+} from "./metrics.js"
 import {
   encodeTracePng,
   loadRaster,
   renderSvgRgba,
   sharpProvenance,
   type LoadedRaster,
-} from "./pixels.ts"
+} from "./pixels.js"
 import {
   assertSafeCanonicalSvg,
   buildAlphaMaskedSvg,
@@ -34,9 +34,9 @@ import {
   canonicalizeVTracerSvg,
   countSvgPaths,
   type CanonicalVectorPath,
-} from "./svg.ts"
-import { ensureVTracer, type VTracerTool } from "./tool.ts"
-import { runVectorizeWorker } from "./supervisor.ts"
+} from "./svg.js"
+import { ensureVTracer, type VTracerTool } from "./tool.js"
+import { runVectorizeWorker } from "./supervisor.js"
 import {
   VectorizeError,
   type VectorizeInput,
@@ -45,7 +45,7 @@ import {
   type VectorizeQualityReceipt,
   type VectorizeRepresentation,
   type VectorizeResult,
-} from "./types.ts"
+} from "./types.js"
 
 const DEFAULT_ALPHA_CUTOFF = 8
 const COMPARE_LOW_ALPHA_MASS_RATIO = 0.002

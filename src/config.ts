@@ -1,21 +1,21 @@
 import { readFile } from "node:fs/promises"
 import { dirname, extname, isAbsolute, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
-import { pathExists } from "./fs.ts"
-import { builtInIcons, sanitizeIcon } from "./icons.ts"
+import { pathExists } from "./fs.js"
+import { builtInIcons, sanitizeIcon } from "./icons.js"
 import type {
   DiagramConfig,
   FontConfig,
   IconDefinition,
   LoadedConfig,
   PartialTheme,
-} from "./types.ts"
+} from "./types.js"
 
 const configNames = [
-  { current: "graphics.config.ts", legacy: "diagram.config.ts" },
-  { current: "graphics.config.mjs", legacy: "diagram.config.mjs" },
-  { current: "graphics.config.js", legacy: "diagram.config.js" },
-  { current: "graphics.config.json", legacy: "diagram.config.json" },
+  { current: "transmute.config.ts", legacy: "diagram.config.ts" },
+  { current: "transmute.config.mjs", legacy: "diagram.config.mjs" },
+  { current: "transmute.config.js", legacy: "diagram.config.js" },
+  { current: "transmute.config.json", legacy: "diagram.config.json" },
 ] as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -80,7 +80,7 @@ function parseTheme(value: unknown, at: string): PartialTheme {
 }
 
 function parseConfig(value: unknown): DiagramConfig {
-  if (!isRecord(value)) throw new Error("Graphics config must export an object")
+  if (!isRecord(value)) throw new Error("Transmute config must export an object")
   const font = value.font === undefined ? undefined : parseFont(value.font, "font")
   const icons = value.icons === undefined ? undefined : parseIcons(value.icons, "icons")
   let theme: DiagramConfig["theme"]
@@ -108,7 +108,7 @@ async function discoverConfig(directory: string): Promise<string | null> {
     if (await pathExists(candidate)) {
       const replacement = resolve(directory, names.current)
       throw new Error(
-        `Legacy Graphics config found at ${candidate}. Rename it to ${replacement}; Graphics does not auto-load diagram.config.*.`,
+        `Legacy Transmute config found at ${candidate}. Rename it to ${replacement}; Transmute does not auto-load diagram.config.*.`,
       )
     }
   }

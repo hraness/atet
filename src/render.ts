@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises"
 import { extname } from "node:path"
 import { Resvg } from "@resvg/resvg-js"
-import { sanitizeIcon } from "./icons.ts"
-import { resolveTheme } from "./theme.ts"
+import { sanitizeIcon } from "./icons.js"
+import { resolveTheme } from "./theme.js"
 import type {
   Anchor,
   BoxShape,
@@ -15,7 +15,7 @@ import type {
   RenderedDiagram,
   TextShape,
   ThemeColors,
-} from "./types.ts"
+} from "./types.js"
 
 const escapeXml = (value: string): string =>
   value

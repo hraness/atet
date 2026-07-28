@@ -12,11 +12,11 @@ import {
 } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join, resolve } from "node:path"
-import { extractVTracerArchive } from "./archive.ts"
-import { runBoundedCommand } from "./command.ts"
-import { type VectorizeDeadline } from "./limits.ts"
-import { sha256 } from "./metrics.ts"
-import { VectorizeError } from "./types.ts"
+import { extractVTracerArchive } from "./archive.js"
+import { runBoundedCommand } from "./command.js"
+import { type VectorizeDeadline } from "./limits.js"
+import { sha256 } from "./metrics.js"
+import { VectorizeError } from "./types.js"
 
 export const VTRACER_VERSION = "0.6.4"
 
@@ -87,7 +87,7 @@ export async function ensureVTracer(
   privateDirectory: string,
   cacheDirectory?: string,
 ): Promise<VTracerTool> {
-  const override = process.env.GRAPHICS_VTRACER_PATH
+  const override = process.env.TRANSMUTE_VTRACER_PATH
   if (override !== undefined) {
     return copyAndInspectVTracer(
       resolve(override),
@@ -130,13 +130,13 @@ export async function ensureVTracer(
 }
 
 function defaultCacheDirectory(): string {
-  const explicit = process.env.GRAPHICS_CACHE_DIR
+  const explicit = process.env.TRANSMUTE_CACHE_DIR
   if (explicit !== undefined && explicit.trim() !== "") return explicit
   if (process.platform === "win32") {
-    return join(process.env.LOCALAPPDATA ?? homedir(), "graphics")
+    return join(process.env.LOCALAPPDATA ?? homedir(), "transmute")
   }
-  if (process.platform === "darwin") return join(homedir(), "Library", "Caches", "graphics")
-  return join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "graphics")
+  if (process.platform === "darwin") return join(homedir(), "Library", "Caches", "transmute")
+  return join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "transmute")
 }
 
 async function installOfficialVTracer(
@@ -484,7 +484,7 @@ async function downloadBounded(
   const timer = setTimeout(() => controller.abort(), deadline.remainingMs())
   try {
     const response = await fetch(url, {
-      headers: { "user-agent": "hraness-graphics-vectorizer" },
+      headers: { "user-agent": "hraness-transmute-vectorizer" },
       redirect: "follow",
       signal: controller.signal,
     })

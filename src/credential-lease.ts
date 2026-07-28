@@ -13,9 +13,9 @@ import { homedir } from "node:os"
 import { isAbsolute, join } from "node:path"
 import { performance } from "node:perf_hooks"
 import {
-  GraphicsCloudError,
-  type GraphicsCloudErrorCode,
-} from "./cloud-errors.ts"
+  TransmuteCloudError,
+  type TransmuteCloudErrorCode,
+} from "./cloud-errors.js"
 
 const choosingMarkerPattern =
   /^choosing-v4-([0-9a-f]{32})-(\d{1,10})-([0-9a-f]{32})-([0-9a-f]{32})$/u
@@ -29,7 +29,7 @@ const maximumDurationMilliseconds = 5 * 60_000
 const maximumPathBytes = 4_096
 const maximumTicket = 0xffff_ffff_ffff_ffffn
 
-export const graphicsCredentialMutationPlatforms = Object.freeze([
+export const transmuteCredentialMutationPlatforms = Object.freeze([
   "darwin",
   "linux",
 ] as const)
@@ -39,7 +39,7 @@ export const graphicsCredentialMutationPlatforms = Object.freeze([
  * Processes sharing credentials must share `directory`. It contains only
  * empty ticket/owner markers; OAuth material remains exclusively in secrets.
  */
-export interface GraphicsCredentialMutationLeaseOptions {
+export interface TransmuteCredentialMutationLeaseOptions {
   readonly directory?: string
   readonly waitTimeoutMilliseconds?: number
   readonly staleAfterMilliseconds?: number
@@ -53,16 +53,16 @@ export interface GraphicsCredentialMutationLeaseOptions {
   readonly heartbeat?: (touch: () => Promise<void>) => Promise<void>
 }
 
-export interface GraphicsCredentialMutationLeaseDependencies {
-  readonly credentialLease?: GraphicsCredentialMutationLeaseOptions
+export interface TransmuteCredentialMutationLeaseDependencies {
+  readonly credentialLease?: TransmuteCredentialMutationLeaseOptions
 }
 
-export type GraphicsCredentialMutationPurpose =
+export type TransmuteCredentialMutationPurpose =
   | "login"
   | "refresh"
   | "logout"
 
-export interface GraphicsCredentialMutationLease {
+export interface TransmuteCredentialMutationLease {
   readonly assertOwned: () => Promise<void>
   readonly release: () => Promise<void>
 }
@@ -109,25 +109,25 @@ interface ScannedMarker {
 }
 
 function errorCode(
-  purpose: GraphicsCredentialMutationPurpose,
-): GraphicsCloudErrorCode {
+  purpose: TransmuteCredentialMutationPurpose,
+): TransmuteCloudErrorCode {
   return purpose === "refresh" ? "TOKEN_REFRESH_FAILED" : "TOKEN_STORAGE_FAILED"
 }
 
 function defaultFailureMessage(
-  purpose: GraphicsCredentialMutationPurpose,
+  purpose: TransmuteCredentialMutationPurpose,
 ): string {
   return purpose === "refresh"
-    ? "Graphics could not safely coordinate a login refresh."
-    : "Graphics could not safely coordinate credential storage."
+    ? "Transmute could not safely coordinate a login refresh."
+    : "Transmute could not safely coordinate credential storage."
 }
 
 function leaseFailure(
-  purpose: GraphicsCredentialMutationPurpose,
+  purpose: TransmuteCredentialMutationPurpose,
   message = defaultFailureMessage(purpose),
   cause?: unknown,
-): GraphicsCloudError {
-  return new GraphicsCloudError(
+): TransmuteCloudError {
+  return new TransmuteCloudError(
     errorCode(purpose),
     message,
     cause === undefined ? undefined : { cause },
@@ -143,22 +143,22 @@ function isErrorCode(error: unknown, code: string): boolean {
   )
 }
 
-export function isGraphicsCredentialMutationPlatformSupported(
+export function isTransmuteCredentialMutationPlatformSupported(
   platform: NodeJS.Platform,
-): platform is (typeof graphicsCredentialMutationPlatforms)[number] {
-  return graphicsCredentialMutationPlatforms.some(
+): platform is (typeof transmuteCredentialMutationPlatforms)[number] {
+  return transmuteCredentialMutationPlatforms.some(
     (supported) => supported === platform,
   )
 }
 
-export function assertGraphicsCredentialMutationPlatformSupported(
-  purpose: GraphicsCredentialMutationPurpose,
+export function assertTransmuteCredentialMutationPlatformSupported(
+  purpose: TransmuteCredentialMutationPurpose,
   platform: NodeJS.Platform = process.platform,
 ): void {
-  if (isGraphicsCredentialMutationPlatformSupported(platform)) return
+  if (isTransmuteCredentialMutationPlatformSupported(platform)) return
   throw leaseFailure(
     purpose,
-    "Graphics cannot safely mutate shared credentials on this platform.",
+    "Transmute cannot safely mutate shared credentials on this platform.",
   )
 }
 
@@ -169,29 +169,29 @@ function duration(value: number | undefined, fallback: number): number {
     value < 1 ||
     value > maximumDurationMilliseconds
   ) {
-    throw new GraphicsCloudError(
+    throw new TransmuteCloudError(
       "INVALID_ARGUMENT",
-      "Invalid Graphics credential lease configuration.",
+      "Invalid Transmute credential lease configuration.",
     )
   }
   return value
 }
 
 function resolveOptions(
-  dependencies: GraphicsCredentialMutationLeaseDependencies,
+  dependencies: TransmuteCredentialMutationLeaseDependencies,
 ): ResolvedOptions {
   const configured = dependencies.credentialLease
   const directory =
     configured?.directory ??
-    join(homedir(), ".cache", "hraness-graphics-cli", "credential-lease-v4")
+    join(homedir(), ".cache", "hraness-transmute-cli", "credential-lease-v4")
   if (
     !isAbsolute(directory) ||
     directory.includes("\0") ||
     Buffer.byteLength(directory, "utf8") > maximumPathBytes
   ) {
-    throw new GraphicsCloudError(
+    throw new TransmuteCloudError(
       "INVALID_ARGUMENT",
-      "Invalid Graphics credential lease configuration.",
+      "Invalid Transmute credential lease configuration.",
     )
   }
   return {
@@ -215,20 +215,20 @@ function resolveOptions(
 
 function throwIfCancelled(
   signal: AbortSignal | undefined,
-  purpose: GraphicsCredentialMutationPurpose,
+  purpose: TransmuteCredentialMutationPurpose,
 ): void {
   if (signal?.aborted !== true) return
   throw leaseFailure(
     purpose,
     purpose === "refresh"
-      ? "Graphics login refresh was cancelled."
-      : "Graphics credential mutation was cancelled.",
+      ? "Transmute login refresh was cancelled."
+      : "Transmute credential mutation was cancelled.",
   )
 }
 
-export function throwIfGraphicsCredentialMutationCancelled(
-  dependencies: GraphicsCredentialMutationLeaseDependencies,
-  purpose: GraphicsCredentialMutationPurpose,
+export function throwIfTransmuteCredentialMutationCancelled(
+  dependencies: TransmuteCredentialMutationLeaseDependencies,
+  purpose: TransmuteCredentialMutationPurpose,
 ): void {
   throwIfCancelled(dependencies.credentialLease?.signal, purpose)
 }
@@ -236,7 +236,7 @@ export function throwIfGraphicsCredentialMutationCancelled(
 async function waitForLease(
   milliseconds: number,
   signal: AbortSignal | undefined,
-  purpose: GraphicsCredentialMutationPurpose,
+  purpose: TransmuteCredentialMutationPurpose,
 ): Promise<void> {
   throwIfCancelled(signal, purpose)
   await new Promise<void>((resolve, reject) => {
@@ -260,8 +260,8 @@ async function waitForLease(
         leaseFailure(
           purpose,
           purpose === "refresh"
-            ? "Graphics login refresh was cancelled."
-            : "Graphics credential mutation was cancelled.",
+            ? "Transmute login refresh was cancelled."
+            : "Transmute credential mutation was cancelled.",
         ),
       )
     }
@@ -273,7 +273,7 @@ async function waitForLease(
 
 async function prepareDirectory(
   directory: string,
-  purpose: GraphicsCredentialMutationPurpose,
+  purpose: TransmuteCredentialMutationPurpose,
 ): Promise<void> {
   try {
     await mkdir(directory, { recursive: true, mode: 0o700 })
@@ -288,7 +288,7 @@ async function prepareDirectory(
       throw leaseFailure(purpose)
     }
   } catch (cause) {
-    if (cause instanceof GraphicsCloudError) throw cause
+    if (cause instanceof TransmuteCloudError) throw cause
     throw leaseFailure(purpose, undefined, cause)
   }
 }
@@ -613,7 +613,7 @@ async function removeStaleUniqueMarker(
 
 async function scanActiveMarkers(
   options: ResolvedOptions,
-  purpose: GraphicsCredentialMutationPurpose,
+  purpose: TransmuteCredentialMutationPurpose,
   processScopeIdentity: string,
 ): Promise<readonly ScannedMarker[]> {
   let entries
@@ -633,7 +633,7 @@ async function scanActiveMarkers(
     if (parsed.processScopeIdentity !== processScopeIdentity) {
       throw leaseFailure(
         purpose,
-        "Graphics cannot safely coordinate credentials across process scopes.",
+        "Transmute cannot safely coordinate credentials across process scopes.",
       )
     }
     const path = join(options.directory, entry.name)
@@ -673,7 +673,7 @@ async function publishMarker(
   pid: number,
   processIdentity: string,
   ownerId: string,
-  purpose: GraphicsCredentialMutationPurpose,
+  purpose: TransmuteCredentialMutationPurpose,
   ticket?: bigint,
 ): Promise<PublishedMarker> {
   const path = join(directory, name)
@@ -695,7 +695,7 @@ async function publishMarker(
     }
   } catch (cause) {
     await handle?.close().catch(() => undefined)
-    if (cause instanceof GraphicsCloudError) throw cause
+    if (cause instanceof TransmuteCloudError) throw cause
     throw leaseFailure(purpose, undefined, cause)
   }
 }
@@ -796,8 +796,8 @@ function compareLeases(left: ScannedMarker, right: ScannedMarker): number {
 function managedLease(
   marker: PublishedMarker,
   options: ResolvedOptions,
-  purpose: GraphicsCredentialMutationPurpose,
-): GraphicsCredentialMutationLease {
+  purpose: TransmuteCredentialMutationPurpose,
+): TransmuteCredentialMutationLease {
   let releaseRequested = false
   let released = false
   let heartbeat = Promise.resolve()
@@ -868,7 +868,7 @@ function managedLease(
           }
         }
       }
-      if (lastFailure instanceof GraphicsCloudError) throw lastFailure
+      if (lastFailure instanceof TransmuteCloudError) throw lastFailure
       throw leaseFailure(purpose, undefined, lastFailure)
     },
     release: async () => {
@@ -908,11 +908,11 @@ async function cleanupUnacquiredMarker(
   closeAfterBackgroundCleanup(marker, pollMilliseconds)
 }
 
-export async function acquireGraphicsCredentialMutationLease(
-  dependencies: GraphicsCredentialMutationLeaseDependencies,
-  purpose: GraphicsCredentialMutationPurpose,
-): Promise<GraphicsCredentialMutationLease> {
-  assertGraphicsCredentialMutationPlatformSupported(purpose)
+export async function acquireTransmuteCredentialMutationLease(
+  dependencies: TransmuteCredentialMutationLeaseDependencies,
+  purpose: TransmuteCredentialMutationPurpose,
+): Promise<TransmuteCredentialMutationLease> {
+  assertTransmuteCredentialMutationPlatformSupported(purpose)
   const options = resolveOptions(dependencies)
   await prepareDirectory(options.directory, purpose)
   const deadline = performance.now() + options.waitTimeoutMilliseconds
@@ -923,7 +923,7 @@ export async function acquireGraphicsCredentialMutationLease(
     `choosing-v4-${processIdentity.processScopeIdentity}-${process.pid}-${processIdentity.value}-${ownerId}`
   let choosing: PublishedMarker | undefined
   let owner: PublishedMarker | undefined
-  let lease: GraphicsCredentialMutationLease | undefined
+  let lease: TransmuteCredentialMutationLease | undefined
 
   try {
     throwIfCancelled(options.signal, purpose)
@@ -1008,8 +1008,8 @@ export async function acquireGraphicsCredentialMutationLease(
         throw leaseFailure(
           purpose,
           purpose === "refresh"
-            ? "Graphics timed out waiting for another login refresh."
-            : "Graphics timed out waiting for another credential mutation.",
+            ? "Transmute timed out waiting for another login refresh."
+            : "Transmute timed out waiting for another credential mutation.",
         )
       }
       await waitForLease(

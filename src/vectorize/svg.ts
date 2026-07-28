@@ -4,8 +4,8 @@ import {
   normalizedHexColor,
   parseHexColor,
   sha256,
-} from "./metrics.ts"
-import { VectorizeError } from "./types.ts"
+} from "./metrics.js"
+import { VectorizeError } from "./types.js"
 
 export interface CanonicalVectorPath {
   readonly d: string

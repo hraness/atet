@@ -1,5 +1,5 @@
 import { gunzipSync, inflateRawSync } from "node:zlib"
-import { VectorizeError } from "./types.ts"
+import { VectorizeError } from "./types.js"
 
 const MAX_BINARY_BYTES = 8 * 1_024 * 1_024
 
