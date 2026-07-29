@@ -25,7 +25,7 @@ import {
   VectorizeError,
   vectorizeHardLimits,
   vectorizeImage
-} from "./index-qa7cngbb.js";
+} from "./index-gmbahcdg.js";
 import {
   __require
 } from "./index-z1w83f81.js";

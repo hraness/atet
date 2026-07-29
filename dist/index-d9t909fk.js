@@ -6,7 +6,7 @@ import {
   searchTransmuteOperations,
   transmuteOperationCodes,
   transmuteOperationRegistry
-} from "./index-zt3t95aw.js";
+} from "./index-1vx74baj.js";
 import {
   generateTransmuteImage,
   generateTransmuteImageFile
@@ -56,7 +56,7 @@ import {
   VectorizeError,
   vectorizeHardLimits,
   vectorizeImage
-} from "./index-qa7cngbb.js";
+} from "./index-gmbahcdg.js";
 
 // src/artifacts.ts
 import { mkdir, readFile as readFile2, rename, rm, writeFile } from "fs/promises";

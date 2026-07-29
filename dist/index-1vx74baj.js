@@ -17,7 +17,7 @@ import {
 } from "./index-15w61te4.js";
 import {
   vectorizeImage
-} from "./index-qa7cngbb.js";
+} from "./index-gmbahcdg.js";
 
 // src/operations.ts
 import { randomUUID } from "crypto";

@@ -74,6 +74,7 @@ import { join } from "path";
 var MAX_COMMAND_OUTPUT_BYTES = 64 * 1024;
 var PRIMARY_OUTPUT_READ_BYTES = 64 * 1024;
 var PRIMARY_OUTPUT_POLL_MS = 2;
+var PRIMARY_OUTPUT_EXIT_EMPTY_POLLS = 2;
 var TERMINATION_GRACE_MS = 50;
 var HARD_KILL_WAIT_MS = 500;
 var timeoutMarker = Symbol("bounded-command-timeout");
@@ -432,11 +433,13 @@ async function readBoundedFifo(handle, maximumBytes, signal, childHasExited) {
   const buffer = Buffer.allocUnsafe(Math.min(PRIMARY_OUTPUT_READ_BYTES, maximumBytes + 1));
   const chunks = [];
   let bytes = 0;
+  let emptyPollsAfterExit = 0;
   while (!signal.aborted) {
     const maximumRead = Math.min(buffer.byteLength, maximumBytes - bytes + 1);
     try {
       const { bytesRead } = await handle.read(buffer, 0, maximumRead, null);
       if (bytesRead > 0) {
+        emptyPollsAfterExit = 0;
         bytes += bytesRead;
         if (bytes > maximumBytes) {
           throw new VectorizeError("output_limit", "VTracer emitted too much primary output.", { bytes, maximumBytes });
@@ -448,8 +451,13 @@ async function readBoundedFifo(handle, maximumBytes, signal, childHasExited) {
       if (!isWouldBlockError(error))
         throw error;
     }
-    if (childHasExited())
-      break;
+    if (childHasExited()) {
+      emptyPollsAfterExit += 1;
+      if (emptyPollsAfterExit >= PRIMARY_OUTPUT_EXIT_EMPTY_POLLS)
+        break;
+    } else {
+      emptyPollsAfterExit = 0;
+    }
     await delay(PRIMARY_OUTPUT_POLL_MS);
   }
   return Buffer.concat(chunks, bytes).toString("utf8");

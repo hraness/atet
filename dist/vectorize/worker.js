@@ -6,7 +6,7 @@ import {
   VectorizeError,
   forwardVectorizeWorkerTermination,
   vectorizeImageInProcess
-} from "../index-qa7cngbb.js";
+} from "../index-gmbahcdg.js";
 import"../index-z1w83f81.js";
 
 // src/vectorize/worker.ts

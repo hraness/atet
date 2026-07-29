@@ -111,6 +111,34 @@ test("bounded pathname output streams through a portable private endpoint", asyn
   }
 })
 
+test("bounded pathname output drains fast writers after process exit", async () => {
+  if (process.platform === "win32") return
+  const work = await mkdtemp(join(tmpdir(), "transmute-command-output-exit-"))
+  try {
+    const program = [
+      "const output = process.argv[1]",
+      "const value = process.argv[2]",
+      "await Bun.write(output, value)",
+    ].join(";")
+    for (let index = 0; index < 4; index += 1) {
+      const expected = `<svg>${index}</svg>`
+      const result = await runBoundedPathOutputCommand(
+        (path) => [process.execPath, "-e", program, path, expected],
+        1_000,
+        "trace_failed",
+        {
+          maxOutputBytes: 1_024,
+          temporaryRoot: work,
+        },
+      )
+      expect(result.output).toBe(expected)
+    }
+    expect(await readdir(work)).toEqual([])
+  } finally {
+    await rm(work, { force: true, recursive: true })
+  }
+})
+
 test("bounded pathname output stops at its streaming quota and cleans each endpoint", async () => {
   if (process.platform === "win32") return
   const work = await mkdtemp(join(tmpdir(), "transmute-command-output-limit-"))

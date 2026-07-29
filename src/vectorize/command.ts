@@ -13,6 +13,7 @@ import { VectorizeError, type VectorizeErrorCode } from "./types.js"
 const MAX_COMMAND_OUTPUT_BYTES = 64 * 1_024
 const PRIMARY_OUTPUT_READ_BYTES = 64 * 1_024
 const PRIMARY_OUTPUT_POLL_MS = 2
+const PRIMARY_OUTPUT_EXIT_EMPTY_POLLS = 2
 const TERMINATION_GRACE_MS = 50
 const HARD_KILL_WAIT_MS = 500
 
@@ -668,6 +669,7 @@ async function readBoundedFifo(
   )
   const chunks: Uint8Array[] = []
   let bytes = 0
+  let emptyPollsAfterExit = 0
   while (!signal.aborted) {
     const maximumRead = Math.min(
       buffer.byteLength,
@@ -681,6 +683,7 @@ async function readBoundedFifo(
         null,
       )
       if (bytesRead > 0) {
+        emptyPollsAfterExit = 0
         bytes += bytesRead
         if (bytes > maximumBytes) {
           throw new VectorizeError(
@@ -695,7 +698,15 @@ async function readBoundedFifo(
     } catch (error) {
       if (!isWouldBlockError(error)) throw error
     }
-    if (childHasExited()) break
+    if (childHasExited()) {
+      emptyPollsAfterExit += 1
+      // A fast child can write and exit after this nonblocking read reports
+      // empty but before its exit promise updates our state. Require another
+      // empty read after observing the exit so queued FIFO bytes are drained.
+      if (emptyPollsAfterExit >= PRIMARY_OUTPUT_EXIT_EMPTY_POLLS) break
+    } else {
+      emptyPollsAfterExit = 0
+    }
     await delay(PRIMARY_OUTPUT_POLL_MS)
   }
   return Buffer.concat(chunks, bytes).toString("utf8")

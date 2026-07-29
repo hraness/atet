@@ -15,7 +15,7 @@ import {
   transmuteMcpProtocolVersion,
   transmuteMcpServerName,
   transmuteMcpTools
-} from "./index-q4b7xj6y.js";
+} from "./index-d9t909fk.js";
 import {
   TransmuteOperationError,
   executeTransmuteOperation,
@@ -24,7 +24,7 @@ import {
   searchTransmuteOperations,
   transmuteOperationCodes,
   transmuteOperationRegistry
-} from "./index-zt3t95aw.js";
+} from "./index-1vx74baj.js";
 import {
   generateTransmuteImage,
   generateTransmuteImageFile,
@@ -96,7 +96,7 @@ import {
   vectorizeImage,
   vectorizeProfileNames,
   vtracerReleases
-} from "./index-qa7cngbb.js";
+} from "./index-gmbahcdg.js";
 import"./index-z1w83f81.js";
 export {
   vtracerReleases,
