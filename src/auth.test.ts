@@ -32,6 +32,21 @@ import {
   parseTransmuteDiscovery,
 } from "./discovery.ts"
 import { acquireTransmuteCredentialMutationLease } from "./credential-lease.ts"
+import {
+  oauthCallbackTestTimeoutMilliseconds,
+  withOAuthCallbackTestLease,
+} from "./oauth-callback.test-support.ts"
+
+function oauthCallbackTest(
+  name: string,
+  run: () => Promise<void>,
+): void {
+  test(
+    name,
+    () => withOAuthCallbackTestLease(run),
+    oauthCallbackTestTimeoutMilliseconds,
+  )
+}
 
 interface MemorySecretsHooks {
   readonly beforeGet?: (call: number) => Promise<void> | void
@@ -924,7 +939,7 @@ describe("Transmute OAuth login", () => {
     expect(secrets.value).toBe(before)
   })
 
-  test("completes the fixed loopback callback before exchanging and stores only in secrets", async () => {
+  oauthCallbackTest("completes the fixed loopback callback before exchanging and stores only in secrets", async () => {
     const secrets = new MemorySecrets()
     let authorizationCalls = 0
     let exchangeCalls = 0
@@ -991,7 +1006,7 @@ describe("Transmute OAuth login", () => {
     })
   })
 
-  test("accepts a future manual 3xx authorization redirect on the trusted issuer", async () => {
+  oauthCallbackTest("accepts a future manual 3xx authorization redirect on the trusted issuer", async () => {
     const secrets = new MemorySecrets()
     let openedUrl: string | undefined
     const status = await loginTransmute({
@@ -1031,7 +1046,7 @@ describe("Transmute OAuth login", () => {
     expect(status).toMatchObject({ authenticated: true, refreshable: true })
   })
 
-  test("fails closed on malformed, oversized, non-JSON, and implicitly followed authorization responses", async () => {
+  oauthCallbackTest("fails closed on malformed, oversized, non-JSON, and implicitly followed authorization responses", async () => {
     const implicitlyFollowed = Response.json({
       redirect: true,
       url: "/login",
@@ -1126,7 +1141,7 @@ describe("Transmute OAuth login", () => {
     }
   })
 
-  test("opens only bounded HTTPS URLs on the exact trusted issuer origin", async () => {
+  oauthCallbackTest("opens only bounded HTTPS URLs on the exact trusted issuer origin", async () => {
     const unsafeUrls = [
       "https://foreign.example/login",
       "https://account.hraness.com.evil.example/login",
@@ -1168,7 +1183,7 @@ describe("Transmute OAuth login", () => {
     }
   })
 
-  test("shares the mutation lease so an explicit login wins over an older in-flight refresh", async () => {
+  oauthCallbackTest("shares the mutation lease so an explicit login wins over an older in-flight refresh", async () => {
     const directory = await mkdtemp(
       join(tmpdir(), "transmute-login-refresh-race-test-"),
     )
@@ -1322,7 +1337,7 @@ describe("Transmute OAuth login", () => {
     }
   })
 
-  test("closes the loopback listener when opening the browser fails", async () => {
+  oauthCallbackTest("closes the loopback listener when opening the browser fails", async () => {
     const secrets = new MemorySecrets()
     const unhandled: unknown[] = []
     const observeUnhandled = (reason: unknown) => {
