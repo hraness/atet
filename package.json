@@ -125,7 +125,7 @@
     "check:skill": "bun run ./scripts/validate-skill.ts",
     "test:vectorize:official": "bun run ./scripts/official-vectorizer-smoke.ts",
     "test:package": "bun run ./scripts/package-smoke.ts",
-    "check": "bun run typecheck && bun run test && bun run build && bun run check:release-workflows && bun run check:schema && bun run check:skill && bun run test:package",
+    "check": "bun run typecheck && bun run build && bun run test:package && bun run test && bun run check:release-workflows && bun run check:schema && bun run check:skill",
     "prepack": "bun run check"
   },
   "dependencies": {

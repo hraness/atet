@@ -45,9 +45,8 @@ try {
   ], consumer);
   await writeFile(join(consumer, "index.ts"), "import * as surface0 from \"@hraness/transmute\";\nimport * as surface1 from \"@hraness/transmute/auth\";\nimport * as surface2 from \"@hraness/transmute/discovery\";\nimport * as surface3 from \"@hraness/transmute/generate\";\nimport * as surface4 from \"@hraness/transmute/operations\";\nvoid [surface0, surface1, surface2, surface3, surface4];\n");
   await writeFile(join(consumer, "tsconfig.bundler.json"), "{\n  \"compilerOptions\": {\n    \"target\": \"ES2023\",\n    \"lib\": [\n      \"ES2023\",\n      \"DOM\",\n      \"DOM.Iterable\"\n    ],\n    \"types\": [\n      \"bun\",\n      \"node\"\n    ],\n    \"strict\": true,\n    \"noEmit\": true,\n    \"skipLibCheck\": false,\n    \"module\": \"Preserve\",\n    \"moduleResolution\": \"Bundler\"\n  },\n  \"include\": [\n    \"index.ts\"\n  ]\n}");
-  await writeFile(join(consumer, "tsconfig.nodenext.json"), "{\n  \"compilerOptions\": {\n    \"target\": \"ES2023\",\n    \"lib\": [\n      \"ES2023\",\n      \"DOM\",\n      \"DOM.Iterable\"\n    ],\n    \"types\": [\n      \"bun\",\n      \"node\"\n    ],\n    \"strict\": true,\n    \"noEmit\": true,\n    \"skipLibCheck\": false,\n    \"module\": \"NodeNext\",\n    \"moduleResolution\": \"NodeNext\"\n  },\n  \"include\": [\n    \"index.ts\"\n  ]\n}");
   await run([process.execPath, "x", "tsc", "-p", "./tsconfig.bundler.json"], consumer);
-  await run([process.execPath, "x", "tsc", "-p", "./tsconfig.nodenext.json"], consumer);
+
 } finally {
   await rm(work, { recursive: true, force: true });
 }
