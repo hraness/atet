@@ -4,7 +4,16 @@
   "description": "A headless visual-media CLI and Agent Skill for deterministic diagrams, bounded image generation, safe raster vectorization, canvas interchange, semantic operations, and MCP.",
   "license": "MIT",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/auth.ts",
+    "./src/cli.ts",
+    "./src/discovery.ts",
+    "./src/generate.ts",
+    "./src/graphics-compat-cli.ts",
+    "./src/index.ts",
+    "./src/operations.ts",
+    "./src/vectorize/worker.ts"
+  ],
   "packageManager": "bun@1.3.14",
   "repository": {
     "type": "git",
