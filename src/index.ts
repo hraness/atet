@@ -58,6 +58,11 @@ import { renderPng, renderSvg, resolveEdge } from "./render.js"
 import { bundledSkillPath, installSkill } from "./skill-install.js"
 import { serializeTldr } from "./tldr.js"
 import { vectorizeImage } from "./vectorize/vectorize.js"
+import {
+  defineTransmuteWorkflow,
+  runTransmuteWorkflow,
+  TransmuteWorkflowError,
+} from "./workflow.js"
 
 export const diagramApi = Object.freeze({
   artifactSummary,
@@ -156,6 +161,9 @@ export {
   stackLayoutDefaults,
   StackLayoutError,
   vectorizeImage,
+  defineTransmuteWorkflow,
+  runTransmuteWorkflow,
+  TransmuteWorkflowError,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
   executeTransmuteOperation,
@@ -165,6 +173,7 @@ export * from "./cloud-errors.js"
 export * from "./discovery.js"
 export * from "./generate.js"
 export * from "./operations.js"
+export * from "./workflow.js"
 export type * from "./types.js"
 export type {
   JsonRpcFailure,

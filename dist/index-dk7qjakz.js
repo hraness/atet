@@ -6,22 +6,22 @@ import {
   searchTransmuteOperations,
   transmuteOperationCodes,
   transmuteOperationRegistry
-} from "./index-1vx74baj.js";
+} from "./index-3881gnsc.js";
 import {
   generateTransmuteImage,
   generateTransmuteImageFile
-} from "./index-7yzj6023.js";
+} from "./index-bx6frv9p.js";
 import {
   loginTransmute,
   logoutTransmute,
   requireTransmuteAuthentication,
   transmuteAuthStatus
-} from "./index-rmax8zcr.js";
+} from "./index-92tsktza.js";
 import {
   TransmuteCloudError,
   fetchTransmuteDiscovery,
   parseTransmuteDiscovery
-} from "./index-qn66cvha.js";
+} from "./index-89aws2ys.js";
 import {
   desktopDownloadPage,
   desktopStatus,
@@ -1292,7 +1292,7 @@ async function processLine(line, session, writeLine) {
 }
 async function runMcpServer(options = {}) {
   const runtime = await TransmuteMcpToolRuntime.create(options.rootDirectory ?? process.cwd(), options.authDependencies);
-  const session = new TransmuteMcpSession(runtime, options.serverVersion ?? "0.5.0");
+  const session = new TransmuteMcpSession(runtime, options.serverVersion ?? "0.6.0");
   const writeLine = options.writeLine ?? defaultWriteLine;
   let buffered = Buffer.alloc(0);
   for await (const chunk of options.input ?? defaultInput()) {

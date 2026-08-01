@@ -15,7 +15,12 @@ import {
   transmuteMcpProtocolVersion,
   transmuteMcpServerName,
   transmuteMcpTools
-} from "./index-d9t909fk.js";
+} from "./index-dk7qjakz.js";
+import {
+  TransmuteWorkflowError,
+  defineTransmuteWorkflow,
+  runTransmuteWorkflow
+} from "./index-ea2cfcf4.js";
 import {
   TransmuteOperationError,
   executeTransmuteOperation,
@@ -24,12 +29,12 @@ import {
   searchTransmuteOperations,
   transmuteOperationCodes,
   transmuteOperationRegistry
-} from "./index-1vx74baj.js";
+} from "./index-3881gnsc.js";
 import {
   generateTransmuteImage,
   generateTransmuteImageFile,
   validateTransmuteIdempotencyKey
-} from "./index-7yzj6023.js";
+} from "./index-bx6frv9p.js";
 import {
   buildTransmuteAuthorizationUrl,
   createPkcePair,
@@ -40,7 +45,7 @@ import {
   transmuteAuthStatus,
   transmuteSecretsName,
   transmuteSecretsService
-} from "./index-rmax8zcr.js";
+} from "./index-92tsktza.js";
 import {
   TransmuteCloudError,
   fetchTransmuteDiscovery,
@@ -59,7 +64,7 @@ import {
   transmuteProductionContract,
   transmuteRedirectUri,
   transmuteResponseMediaTypes
-} from "./index-qn66cvha.js";
+} from "./index-89aws2ys.js";
 import {
   desktopDownloadPage,
   desktopStatus,
@@ -129,6 +134,7 @@ export {
   serializeTldr,
   selectDesktopAsset,
   searchTransmuteOperations,
+  runTransmuteWorkflow,
   runMcpServer,
   resolveStackLayout,
   resolveEdge,
@@ -164,6 +170,7 @@ export {
   diagramApi,
   desktopStatus,
   desktopDownloadPage,
+  defineTransmuteWorkflow,
   createPkcePair,
   checkDiagramFile,
   bundledSkillPath,
@@ -174,6 +181,7 @@ export {
   WorkspaceBoundary,
   VectorizeError,
   VTRACER_VERSION,
+  TransmuteWorkflowError,
   TransmuteOperationError,
   TransmuteMcpToolRuntime,
   TransmuteCloudError,

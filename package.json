@@ -1,7 +1,7 @@
 {
   "name": "@hraness/transmute",
-  "version": "0.5.0",
-  "description": "A headless visual-media CLI and Agent Skill for deterministic diagrams, bounded image generation, safe raster vectorization, canvas interchange, semantic operations, and MCP.",
+  "version": "0.6.0",
+  "description": "A headless visual-media SDK, Bun CLI, and Agent Skill for typed workflows, deterministic diagrams, bounded image generation, safe raster vectorization, canvas interchange, semantic operations, and MCP.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
@@ -12,7 +12,8 @@
     "./src/graphics-compat-cli.ts",
     "./src/index.ts",
     "./src/operations.ts",
-    "./src/vectorize/worker.ts"
+    "./src/vectorize/worker.ts",
+    "./src/workflow.ts"
   ],
   "packageManager": "bun@1.3.14",
   "repository": {
@@ -32,7 +33,8 @@
     "image-vectorization",
     "svg",
     "vtracer",
-    "mcp"
+    "mcp",
+    "workflow"
   ],
   "exports": {
     ".": {
@@ -54,6 +56,10 @@
     "./operations": {
       "types": "./src/operations.ts",
       "import": "./dist/operations.js"
+    },
+    "./workflow": {
+      "types": "./src/workflow.ts",
+      "import": "./dist/workflow.js"
     }
   },
   "bin": {
@@ -119,6 +125,7 @@
     "src/vectorize/vectorize.ts",
     "src/vectorize/worker-protocol.ts",
     "src/vectorize/worker.ts",
+    "src/workflow.ts",
     "examples",
     "schema",
     "skills",
@@ -126,7 +133,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/index.ts ./src/auth.ts ./src/discovery.ts ./src/generate.ts ./src/operations.ts ./src/graphics-compat-cli.ts ./src/cli.ts ./src/vectorize/worker.ts --outdir ./dist --root ./src --target bun --format esm --splitting --packages external",
+    "build": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/index.ts ./src/auth.ts ./src/discovery.ts ./src/generate.ts ./src/operations.ts ./src/workflow.ts ./src/graphics-compat-cli.ts ./src/cli.ts ./src/vectorize/worker.ts --outdir ./dist --root ./src --target bun --format esm --splitting --packages external",
     "typecheck": "tsc --noEmit",
     "test": "bun test ./src",
     "check:release-workflows": "bun test ./scripts/release-workflow.test.ts",

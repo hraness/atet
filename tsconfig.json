@@ -23,6 +23,9 @@
       ],
       "@hraness/transmute/operations": [
         "./src/operations.ts"
+      ],
+      "@hraness/transmute/workflow": [
+        "./src/workflow.ts"
       ]
     },
     "verbatimModuleSyntax": true,

@@ -6,7 +6,7 @@ import {
   readBoundedResponseBytes,
   transmuteProductionContract,
   transmuteRedirectUri
-} from "./index-qn66cvha.js";
+} from "./index-89aws2ys.js";
 import {
   __require
 } from "./index-z1w83f81.js";
@@ -954,7 +954,7 @@ async function fetchAuthorizationLaunchUrl(discovery, authorizationUrl, dependen
       method: "GET",
       headers: {
         accept: "application/json",
-        "user-agent": "hraness-transmute-cli/0.5.0"
+        "user-agent": "hraness-transmute-cli/0.6.0"
       },
       redirect: "manual",
       signal: AbortSignal.timeout(15000)
@@ -1010,7 +1010,7 @@ async function tokenRequest(discovery, body, failureCode, dependencies) {
       headers: {
         accept: "application/json",
         "content-type": "application/x-www-form-urlencoded",
-        "user-agent": "hraness-transmute-cli/0.5.0"
+        "user-agent": "hraness-transmute-cli/0.6.0"
       },
       body,
       redirect: "error",
@@ -1215,7 +1215,7 @@ async function logoutTransmute(dependencies = {}) {
           headers: {
             accept: "application/json",
             "content-type": "application/x-www-form-urlencoded",
-            "user-agent": "hraness-transmute-cli/0.5.0"
+            "user-agent": "hraness-transmute-cli/0.6.0"
           },
           body: new URLSearchParams({
             token,

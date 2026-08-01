@@ -32,4 +32,4 @@ jobs:
             exit 1
           fi
       - run: bun pm pack --dry-run --ignore-scripts
-      - run: node --input-type=module -e 'await Promise.all(["./dist/index.js","./dist/auth.js","./dist/discovery.js","./dist/generate.js","./dist/operations.js"].map((path) => import(path)))'
+      - run: node --input-type=module -e 'await Promise.all(["./dist/index.js","./dist/auth.js","./dist/discovery.js","./dist/generate.js","./dist/operations.js","./dist/workflow.js"].map((path) => import(path)))'

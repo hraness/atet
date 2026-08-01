@@ -1,6 +1,6 @@
 # Transmute
 
-Transmute is a headless TypeScript toolkit and Bun CLI for turning checked source into visual assets. It currently provides deterministic diagrams, light and dark raster/vector exports, editable tldraw interchange, bounded raster-to-SVG conversion, authenticated hosted image generation, semantic operation dispatch, and a local MCP server.
+Transmute is a headless TypeScript toolkit and Bun CLI for turning checked source into visual assets. It currently provides deterministic diagrams, light and dark raster/vector exports, editable tldraw interchange, bounded raster-to-SVG conversion, authenticated hosted image generation, typed Bun-script workflows, semantic operation dispatch, and a local MCP server.
 
 The package is designed to compose with editors and video renderers. A diagram, generated image, traced SVG, or `.tldr` canvas remains an ordinary media input rather than a format trapped inside the tool.
 
@@ -8,17 +8,17 @@ Project site: [transmute.rocks](https://transmute.rocks)
 
 ## Install
 
-Pin the public repository to the immutable `v0.5.0` tag:
+Pin the public repository to the immutable `v0.6.0` tag:
 
 ```sh
-bun add --global github:hraness/transmute#v0.5.0
+bun add --global github:hraness/transmute#v0.6.0
 transmute doctor
 ```
 
 For programmatic use:
 
 ```sh
-bun add github:hraness/transmute#v0.5.0
+bun add github:hraness/transmute#v0.6.0
 ```
 
 Transmute requires Bun 1.3.14. Diagram rendering works on macOS, Linux, and Windows. Bounded VTracer execution works on macOS and Linux; Windows fails closed with `tool_platform` until its output can cross the same bounded capture path.
@@ -47,7 +47,7 @@ Use this schema URL in authored files:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/hraness/transmute/v0.5.0/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/transmute/v0.6.0/schema/diagram.schema.json",
   "version": 1,
   "name": "source-result",
   "canvas": { "width": 960, "height": 540 },
@@ -140,6 +140,56 @@ const result = await executeTransmuteOperation("transmute.diagram.check", {
 })
 ```
 
+## Author a Bun workflow
+
+`@hraness/transmute/workflow` composes the same fixed, typed operation registry in an ordinary Bun script. A definition parses its runtime input before work begins. Step ids are unique, execution is bounded to 64 steps by default, and the run result records completed steps in invocation order even when branches settle in a different order.
+
+```ts
+import {
+  defineTransmuteWorkflow,
+  runTransmuteWorkflow,
+} from "@hraness/transmute/workflow"
+
+const checkedRender = defineTransmuteWorkflow({
+  id: "checked-render",
+  version: 1,
+  parseInput(value: unknown) {
+    if (typeof value !== "object" || value === null) throw new Error("input")
+    const path = Reflect.get(value, "path")
+    if (typeof path !== "string") throw new Error("path")
+    return { path }
+  },
+  async run(workflow, input) {
+    const checked = await workflow.operation(
+      "check",
+      "transmute.diagram.check",
+      input,
+    )
+    const rendered = await workflow.operation(
+      "render",
+      "transmute.diagram.render",
+      input,
+    )
+    return { checked, artifacts: rendered.artifacts }
+  },
+})
+
+const result = await runTransmuteWorkflow(checkedRender, {
+  path: "diagrams/system.diagram.json",
+})
+console.log(result.steps, result.output.artifacts)
+```
+
+See [`examples/render-workflow.ts`](examples/render-workflow.ts) for an executable script. Run it in a checkout with:
+
+```sh
+bun run examples/render-workflow.ts examples/capex-opex.diagram.json
+```
+
+Parallel branches are ordinary `Promise.all` calls around `workflow.operation(...)`. Every step code and input is validated against the fixed public operation registry before dispatch, including when a custom executor is injected. The runner drains every dispatched operation before it returns, including a branch that authored code did not await, so destructive work cannot escape a successful run. `AbortSignal` is checked before dispatch and after each built-in operation completes. Custom injected executors also receive the signal for cooperative in-flight cancellation. A failed parallel step snapshots the steps completed at that moment; already-started siblings are not implicitly cancelled and may still settle afterward. Errors thrown by authored workflow code use `WORKFLOW_FAILED` and retain the completed-step receipt.
+
+Workflow modules are trusted Bun code that you explicitly import and run. The SDK does not load arbitrary paths, evaluate source strings, add operation codes, or expose the private desktop recording and editing runtime.
+
 ## Connect MCP
 
 ```sh
@@ -172,7 +222,7 @@ The skill keeps literal prompts, checked diagram source, rendering, vectorizatio
 
 ## Graphics v0.4 compatibility
 
-Version 0.5 folds the former `hraness/graphics` command into Transmute. The package retains a `graphics` executable for existing automation. It preserves the v0.4 flat command grammar, `graphics.*` operation codes, JSON stdout, `graphics.config.*` discovery, `GRAPHICS_VTRACER_PATH`, `GRAPHICS_CACHE_DIR`, the `com.hraness.graphics.cli` credential entry, `hraness.graphics` cloud contract, and `search_graphics`/`execute_graphics` MCP tools.
+Version 0.5 folded the former `hraness/graphics` command into Transmute, and version 0.6 preserves that contract unchanged. The package retains a `graphics` executable for existing automation. It preserves the v0.4 flat command grammar, `graphics.*` operation codes, JSON stdout, `graphics.config.*` discovery, `GRAPHICS_VTRACER_PATH`, `GRAPHICS_CACHE_DIR`, the `com.hraness.graphics.cli` credential entry, `hraness.graphics` cloud contract, and `search_graphics`/`execute_graphics` MCP tools.
 
 New scripts should use the namespaced Transmute grammar. The compatibility executable intentionally continues to report `0.4.0` because it is the frozen v0.4 contract.
 
