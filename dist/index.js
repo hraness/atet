@@ -15,26 +15,29 @@ import {
   transmuteMcpProtocolVersion,
   transmuteMcpServerName,
   transmuteMcpTools
-} from "./index-dk7qjakz.js";
+} from "./index-hf8stwfc.js";
 import {
   TransmuteWorkflowError,
   defineTransmuteWorkflow,
   runTransmuteWorkflow
-} from "./index-ea2cfcf4.js";
+} from "./index-24rrmyhb.js";
 import {
   TransmuteOperationError,
   executeTransmuteOperation,
+  executeTransmuteOperationWithLease,
   isTransmuteOperationCode,
   parseTransmuteOperationInput,
   searchTransmuteOperations,
   transmuteOperationCodes,
-  transmuteOperationRegistry
-} from "./index-3881gnsc.js";
+  transmuteOperationHostResourceClaims,
+  transmuteOperationRegistry,
+  withTransmuteOperationHostAdmission
+} from "./index-q9jx29hh.js";
 import {
   generateTransmuteImage,
   generateTransmuteImageFile,
   validateTransmuteIdempotencyKey
-} from "./index-bx6frv9p.js";
+} from "./index-b6x4jg9v.js";
 import {
   buildTransmuteAuthorizationUrl,
   createPkcePair,
@@ -45,7 +48,7 @@ import {
   transmuteAuthStatus,
   transmuteSecretsName,
   transmuteSecretsService
-} from "./index-92tsktza.js";
+} from "./index-8chnv65r.js";
 import {
   TransmuteCloudError,
   fetchTransmuteDiscovery,
@@ -64,7 +67,19 @@ import {
   transmuteProductionContract,
   transmuteRedirectUri,
   transmuteResponseMediaTypes
-} from "./index-89aws2ys.js";
+} from "./index-eakbnph9.js";
+import {
+  HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
+  HostResourceError,
+  createDefaultHostResourceCoordinator,
+  createHostResourceCoordinator,
+  createProcessLocalHostResourceCoordinator,
+  defaultTransmuteHostResourceProfile,
+  defaultTransmuteHostResourceStateRoot,
+  normalizeHostResourceClaims,
+  normalizeHostResourceProfile,
+  transmuteHostResourceNames
+} from "./index-dxtrd5pg.js";
 import {
   desktopDownloadPage,
   desktopStatus,
@@ -101,9 +116,10 @@ import {
   vectorizeImage,
   vectorizeProfileNames,
   vtracerReleases
-} from "./index-gmbahcdg.js";
+} from "./index-y5zkj6v2.js";
 import"./index-z1w83f81.js";
 export {
+  withTransmuteOperationHostAdmission,
   vtracerReleases,
   vectorizeProfileNames,
   vectorizeImage,
@@ -116,6 +132,7 @@ export {
   transmuteRedirectUri,
   transmuteProductionContract,
   transmuteOperationRegistry,
+  transmuteOperationHostResourceClaims,
   transmuteOperationCodes,
   transmuteMcpTools,
   transmuteMcpServerName,
@@ -124,6 +141,7 @@ export {
   transmuteMaximumPromptBytes,
   transmuteImageModels,
   transmuteImageGenerationQuota,
+  transmuteHostResourceNames,
   transmuteDiscoveryUrl,
   transmuteDiscoveryMaximumBytes,
   transmuteDesktopScopes,
@@ -151,6 +169,8 @@ export {
   parseDiagramSpec,
   parseDiagramSource,
   openInDesktop,
+  normalizeHostResourceProfile,
+  normalizeHostResourceClaims,
   mcpSourceByteLimit,
   mcpMaximumScale,
   mcpMaximumRenderedPixels,
@@ -166,12 +186,18 @@ export {
   generateTransmuteImage,
   findDesktopApplication,
   fetchTransmuteDiscovery,
+  executeTransmuteOperationWithLease,
   executeTransmuteOperation,
   diagramApi,
   desktopStatus,
   desktopDownloadPage,
   defineTransmuteWorkflow,
+  defaultTransmuteHostResourceStateRoot,
+  defaultTransmuteHostResourceProfile,
+  createProcessLocalHostResourceCoordinator,
   createPkcePair,
+  createHostResourceCoordinator,
+  createDefaultHostResourceCoordinator,
   checkDiagramFile,
   bundledSkillPath,
   builtInIcons,
@@ -186,5 +212,7 @@ export {
   TransmuteMcpToolRuntime,
   TransmuteCloudError,
   StackLayoutError,
+  HostResourceError,
+  HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
   DiagramValidationError
 };

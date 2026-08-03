@@ -8,6 +8,19 @@ import { VectorizeError, type VectorizeInput, type VectorizeLimits } from "./typ
 
 const allowedFormats = new Set(["avif", "gif", "heif", "jpeg", "png", "tiff", "webp"])
 const METRIC_MAX_EDGE = 512
+export const VECTORIZE_SHARP_CONCURRENCY = 1
+
+export function configureVectorizeSharpConcurrency(): void {
+  // Each isolated vectorizer declares one host CPU unit. Bind libvips to the
+  // same budget inside that worker without mutating an SDK caller's Sharp pool.
+  const actual = sharp.concurrency(VECTORIZE_SHARP_CONCURRENCY)
+  if (actual !== VECTORIZE_SHARP_CONCURRENCY) {
+    throw new VectorizeError(
+      "trace_failed",
+      "The vectorization worker could not bind its Sharp CPU budget.",
+    )
+  }
+}
 
 export interface LoadedRaster {
   readonly bytes: Uint8Array

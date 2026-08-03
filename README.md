@@ -8,20 +8,20 @@ Project site: [transmute.rocks](https://transmute.rocks)
 
 ## Install
 
-Pin the public repository to the immutable `v0.6.0` tag:
+Pin the public repository to the immutable `v0.7.0` tag:
 
 ```sh
-bun add --global github:hraness/transmute#v0.6.0
+bun add --global github:hraness/transmute#v0.7.0
 transmute doctor
 ```
 
 For programmatic use:
 
 ```sh
-bun add github:hraness/transmute#v0.6.0
+bun add github:hraness/transmute#v0.7.0
 ```
 
-Transmute requires Bun 1.3.14. Diagram rendering works on macOS, Linux, and Windows. Bounded VTracer execution works on macOS and Linux; Windows fails closed with `tool_platform` until its output can cross the same bounded capture path.
+Transmute requires Bun 1.3.14. Diagram rendering works on macOS, Linux, and Windows. Bounded VTracer execution works on macOS and Linux; Windows fails closed with `tool_platform` until its output can cross the same bounded capture path. Semantic operation and workflow resource admission is machine-global on macOS and Linux and process-local on other supported Bun platforms.
 
 ## Create a diagram
 
@@ -47,7 +47,7 @@ Use this schema URL in authored files:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/hraness/transmute/v0.6.0/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/transmute/v0.7.0/schema/diagram.schema.json",
   "version": 1,
   "name": "source-result",
   "canvas": { "width": 960, "height": 540 },
@@ -124,7 +124,7 @@ transmute code execute transmute.diagram.check \
   --input '{"path":"diagrams/system.diagram.json"}'
 ```
 
-Search returns bounded descriptors. Execute accepts strict JSON for an exact registered code. It does not accept source text, shell commands, dynamic imports, executable configuration, or caller-selected remote URLs.
+Search returns bounded descriptors. Execute accepts strict JSON for an exact registered code. It does not accept source text, shell commands, dynamic imports, executable configuration, or caller-selected remote URLs. Direct SDK, CLI, and MCP execution acquires the operation's declared host-resource claims before work begins.
 
 The same surface is available from `@hraness/transmute/operations`:
 
@@ -188,6 +188,42 @@ bun run examples/render-workflow.ts examples/capex-opex.diagram.json
 
 Parallel branches are ordinary `Promise.all` calls around `workflow.operation(...)`. Every step code and input is validated against the fixed public operation registry before dispatch, including when a custom executor is injected. The runner drains every dispatched operation before it returns, including a branch that authored code did not await, so destructive work cannot escape a successful run. `AbortSignal` is checked before dispatch and after each built-in operation completes. Custom injected executors also receive the signal for cooperative in-flight cancellation. A failed parallel step snapshots the steps completed at that moment; already-started siblings are not implicitly cancelled and may still settle afterward. Errors thrown by authored workflow code use `WORKFLOW_FAILED` and retain the completed-step receipt.
 
+Every semantic operation declares physical resource claims. The default
+profile reserves CPU headroom and bounds local I/O, FFmpeg, video encoding,
+Vision, Whisper, browser, network, paid-call, and capture work. On macOS and
+Linux, independent Bun processes and Git worktrees enter the same crash-safe
+FIFO admission boundary. A terminated process releases its kernel-backed
+lease, while an admitted subprocess inherits the lease descriptor so it cannot
+outlive the claimed capacity. Direct SDK, CLI, MCP, and workflow calls share
+this boundary. Windows uses the same profile within one process.
+
+Use `@hraness/transmute/host-resources` to inspect or inject the boundary:
+
+```ts
+import {
+  createDefaultHostResourceCoordinator,
+  defaultTransmuteHostResourceProfile,
+} from "@hraness/transmute/host-resources"
+import { runTransmuteWorkflow } from "@hraness/transmute/workflow"
+
+const hostResourceCoordinator = createDefaultHostResourceCoordinator({
+  profile: defaultTransmuteHostResourceProfile(),
+})
+
+await runTransmuteWorkflow(workflow, input, { hostResourceCoordinator })
+```
+
+`runTransmuteWorkflow` also accepts `signal` and
+`waitTimeoutMilliseconds` beside the coordinator. The same three controls may
+be supplied in `dependencies` when one dependency object is shared with direct
+operation calls; explicit workflow-level values take precedence.
+
+Admission cancellation applies while waiting. Once a callback owns capacity,
+the coordinator retains that capacity until the callback actually settles,
+even if higher-level workflow cancellation has already returned an error.
+Custom executors receive the exact `hostResourceLease`; subprocess launchers
+must inherit its descriptor and call `assertOwned()` before irreversible work.
+
 Workflow modules are trusted Bun code that you explicitly import and run. The SDK does not load arbitrary paths, evaluate source strings, add operation codes, or expose the private desktop recording and editing runtime.
 
 ## Connect MCP
@@ -222,7 +258,7 @@ The skill keeps literal prompts, checked diagram source, rendering, vectorizatio
 
 ## Graphics v0.4 compatibility
 
-Version 0.5 folded the former `hraness/graphics` command into Transmute, and version 0.6 preserves that contract unchanged. The package retains a `graphics` executable for existing automation. It preserves the v0.4 flat command grammar, `graphics.*` operation codes, JSON stdout, `graphics.config.*` discovery, `GRAPHICS_VTRACER_PATH`, `GRAPHICS_CACHE_DIR`, the `com.hraness.graphics.cli` credential entry, `hraness.graphics` cloud contract, and `search_graphics`/`execute_graphics` MCP tools.
+Version 0.5 folded the former `hraness/graphics` command into Transmute, and versions 0.6 and 0.7 preserve that contract unchanged. The package retains a `graphics` executable for existing automation. It preserves the v0.4 flat command grammar, `graphics.*` operation codes, JSON stdout, `graphics.config.*` discovery, `GRAPHICS_VTRACER_PATH`, `GRAPHICS_CACHE_DIR`, the `com.hraness.graphics.cli` credential entry, `hraness.graphics` cloud contract, and `search_graphics`/`execute_graphics` MCP tools.
 
 New scripts should use the namespaced Transmute grammar. The compatibility executable intentionally continues to report `0.4.0` because it is the frozen v0.4 contract.
 

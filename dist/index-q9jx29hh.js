@@ -2,11 +2,14 @@
 import {
   generateTransmuteImageFile,
   validateTransmuteIdempotencyKey
-} from "./index-bx6frv9p.js";
+} from "./index-b6x4jg9v.js";
 import {
   transmuteImageModels,
   transmuteMaximumPromptBytes
-} from "./index-89aws2ys.js";
+} from "./index-eakbnph9.js";
+import {
+  createDefaultHostResourceCoordinator
+} from "./index-dxtrd5pg.js";
 import {
   builtInIcons,
   lintDiagram,
@@ -17,7 +20,7 @@ import {
 } from "./index-15w61te4.js";
 import {
   vectorizeImage
-} from "./index-gmbahcdg.js";
+} from "./index-y5zkj6v2.js";
 
 // src/operations.ts
 import { randomUUID } from "crypto";
@@ -69,7 +72,11 @@ var transmuteOperationRegistry = deepFreeze([
       additionalProperties: false,
       required: ["path"],
       properties: { path: pathSchema }
-    }
+    },
+    resources: [
+      { resource: "cpu", amount: 1 },
+      { resource: "local-io", amount: 1 }
+    ]
   },
   {
     code: "transmute.diagram.render",
@@ -92,7 +99,11 @@ var transmuteOperationRegistry = deepFreeze([
           maximum: 4
         }
       }
-    }
+    },
+    resources: [
+      { resource: "cpu", amount: 1 },
+      { resource: "local-io", amount: 1 }
+    ]
   },
   {
     code: "transmute.image.vectorize",
@@ -121,7 +132,11 @@ var transmuteOperationRegistry = deepFreeze([
         alphaCutoff: { type: "integer", minimum: 1, maximum: 64 },
         timeoutMs: { type: "integer", minimum: 1, maximum: 300000 }
       }
-    }
+    },
+    resources: [
+      { resource: "cpu", amount: 1 },
+      { resource: "local-io", amount: 1 }
+    ]
   },
   {
     code: "transmute.image.generate",
@@ -151,6 +166,11 @@ var transmuteOperationRegistry = deepFreeze([
         }
       }
     },
+    resources: [
+      { resource: "local-io", amount: 1 },
+      { resource: "network", amount: 1 },
+      { resource: "paid-call", amount: 1 }
+    ],
     transport: {
       method: "POST",
       endpointFromDiscovery: "endpoints.generateImage",
@@ -278,6 +298,13 @@ function parseTransmuteOperationInput(code, input) {
 function isTransmuteOperationCode(value) {
   return transmuteOperationCodes.includes(value);
 }
+function transmuteOperationHostResourceClaims(code) {
+  const descriptor = transmuteOperationRegistry.find((candidate) => candidate.code === code);
+  if (descriptor === undefined) {
+    throw new TransmuteOperationError("INVALID_OPERATION", "Unknown Transmute operation code.");
+  }
+  return descriptor.resources;
+}
 function searchTransmuteOperations(query = "", limit = transmuteOperationRegistry.length) {
   if (typeof query !== "string" || query.length > 200 || /[\u0000-\u001f\u007f]/u.test(query) || !Number.isInteger(limit) || limit < 1 || limit > 20) {
     throw new TransmuteOperationError("INVALID_SEARCH", "Search requires a bounded query and a limit from 1 through 20.");
@@ -287,6 +314,35 @@ function searchTransmuteOperations(query = "", limit = transmuteOperationRegistr
     const haystack = `${operation.code} ${operation.title} ${operation.description}`.toLowerCase();
     return terms.every((term) => haystack.includes(term));
   }).slice(0, limit);
+}
+function operationDependenciesWithLease(dependencies, lease) {
+  const inheritedFileDescriptors = [
+    ...dependencies.inheritedFileDescriptors ?? [],
+    lease.inheritedFileDescriptor
+  ].filter((descriptor, index, descriptors) => descriptors.indexOf(descriptor) === index);
+  if (inheritedFileDescriptors.length > 16 || inheritedFileDescriptors.some((descriptor) => !Number.isSafeInteger(descriptor) || descriptor < 0 || descriptor > 2147483647)) {
+    throw new TransmuteOperationError("INVALID_OPERATION_INPUT", "Operation host-resource inheritance exceeds its descriptor bound.");
+  }
+  const {
+    hostResourceCoordinator: _hostResourceCoordinator,
+    signal: _signal,
+    waitTimeoutMilliseconds: _waitTimeoutMilliseconds,
+    ...operationDependencies
+  } = dependencies;
+  return {
+    ...operationDependencies,
+    inheritedFileDescriptors
+  };
+}
+async function withTransmuteOperationHostAdmission(code, callback, options = {}) {
+  const coordinator = options.hostResourceCoordinator ?? createDefaultHostResourceCoordinator();
+  return await coordinator.withLease(transmuteOperationHostResourceClaims(code), async (lease) => {
+    await lease.assertOwned();
+    return await callback(lease);
+  }, {
+    ...options.signal === undefined ? {} : { signal: options.signal },
+    ...options.waitTimeoutMilliseconds === undefined ? {} : { waitTimeoutMilliseconds: options.waitTimeoutMilliseconds }
+  });
 }
 var operationBuiltInConfig = Object.freeze({
   icons: builtInIcons
@@ -359,7 +415,7 @@ async function renderOperationDiagram(input) {
     configPath: null
   };
 }
-async function executeTransmuteOperation(code, value, dependencies = {}) {
+async function executeTransmuteOperationUncoordinated(code, value, dependencies = {}) {
   const input = parseTransmuteOperationInput(code, value);
   switch (code) {
     case "transmute.diagram.check": {
@@ -376,7 +432,10 @@ async function executeTransmuteOperation(code, value, dependencies = {}) {
         outputPath: options.outputPath,
         ...options.duotone === undefined ? {} : { duotone: options.duotone },
         ...options.alphaCutoff === undefined ? {} : { alphaCutoff: options.alphaCutoff },
-        ...options.timeoutMs === undefined ? {} : { limits: { maxDurationMs: options.timeoutMs } }
+        ...options.timeoutMs === undefined ? {} : { limits: { maxDurationMs: options.timeoutMs } },
+        ...dependencies.inheritedFileDescriptors === undefined ? {} : {
+          inheritedFileDescriptors: dependencies.inheritedFileDescriptors
+        }
       });
       if (result.outputPath === null) {
         throw new TransmuteOperationError("INVALID_OPERATION_INPUT", "Vectorization did not publish its required output.");
@@ -394,5 +453,28 @@ async function executeTransmuteOperation(code, value, dependencies = {}) {
       throw new TransmuteOperationError("INVALID_OPERATION", "Unknown Transmute operation code.");
   }
 }
+async function executeTransmuteOperationWithLease(code, value, lease, dependencies = {}) {
+  await lease.assertOwned();
+  const available = new Map;
+  for (const claim of lease.claims) {
+    if (typeof claim.resource !== "string" || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(claim.resource) || !Number.isSafeInteger(claim.amount) || claim.amount < 1) {
+      throw new TransmuteOperationError("INVALID_OPERATION", "The active host-resource lease contains invalid claims.");
+    }
+    const total = (available.get(claim.resource) ?? 0) + claim.amount;
+    if (!Number.isSafeInteger(total)) {
+      throw new TransmuteOperationError("INVALID_OPERATION", "The active host-resource lease contains invalid claims.");
+    }
+    available.set(claim.resource, total);
+  }
+  const missing = transmuteOperationHostResourceClaims(code).filter((claim) => (available.get(claim.resource) ?? 0) < claim.amount);
+  if (missing.length > 0) {
+    throw new TransmuteOperationError("INVALID_OPERATION", `The active host-resource lease does not cover ${missing.map((claim) => `${claim.resource}:${String(claim.amount)}`).join(", ")}.`);
+  }
+  return await executeTransmuteOperationUncoordinated(code, value, operationDependenciesWithLease(dependencies, lease));
+}
+async function executeTransmuteOperation(code, value, dependencies = {}) {
+  const input = parseTransmuteOperationInput(code, value);
+  return await withTransmuteOperationHostAdmission(code, async (lease) => await executeTransmuteOperationUncoordinated(code, input, operationDependenciesWithLease(dependencies, lease)), dependencies);
+}
 
-export { transmuteOperationCodes, TransmuteOperationError, transmuteOperationRegistry, parseTransmuteOperationInput, isTransmuteOperationCode, searchTransmuteOperations, executeTransmuteOperation };
+export { transmuteOperationCodes, TransmuteOperationError, transmuteOperationRegistry, parseTransmuteOperationInput, isTransmuteOperationCode, transmuteOperationHostResourceClaims, searchTransmuteOperations, withTransmuteOperationHostAdmission, executeTransmuteOperationWithLease, executeTransmuteOperation };

@@ -10,9 +10,44 @@ import {
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import sharp from "sharp"
 import { main as runTransmuteCli } from "../cli.ts"
+import {
+  configureVectorizeSharpConcurrency,
+  VECTORIZE_SHARP_CONCURRENCY,
+} from "./pixels.ts"
 import { vectorizeImage } from "./vectorize.ts"
+
+test("binds Sharp only when the isolated vectorizer explicitly starts", async () => {
+  const original = sharp.concurrency()
+  try {
+    configureVectorizeSharpConcurrency()
+    expect(VECTORIZE_SHARP_CONCURRENCY).toBe(1)
+    expect(sharp.concurrency()).toBe(VECTORIZE_SHARP_CONCURRENCY)
+  } finally {
+    sharp.concurrency(original)
+  }
+
+  const rootIndex = pathToFileURL(join(import.meta.dir, "../index.ts")).href
+  const child = Bun.spawn([
+    process.execPath,
+    "-e",
+    `import sharp from "sharp"; const before = sharp.concurrency(); await import(${JSON.stringify(rootIndex)}); if (sharp.concurrency() !== before) process.exit(47)`,
+  ], {
+    cwd: join(import.meta.dir, "../.."),
+    env: { ...process.env },
+    stderr: "pipe",
+    stdin: "ignore",
+    stdout: "ignore",
+  })
+  const [exitCode, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+  ])
+  expect(stderr).toBe("")
+  expect(exitCode).toBe(0)
+})
 
 test("Windows fails closed before raster or VTracer work", async () => {
   if (process.platform !== "win32") return

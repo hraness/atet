@@ -1,6 +1,6 @@
 # Contents
 
-- `src/` – typed workflow authoring, diagram parsing and layout, rendering, local vectorization, hosted generation, semantic operations, OAuth, MCP, canvas integration, the canonical CLI, and the v0.4 graphics compatibility boundary.
+- `src/` – typed workflow authoring, host-resource admission, diagram parsing and layout, rendering, local vectorization, hosted generation, semantic operations, OAuth, MCP, canvas integration, the canonical CLI, and the v0.4 graphics compatibility boundary.
 - `schema/` – version-one diagram JSON Schema.
 - `skills/transmute/` – the canonical Transmute Agent Skill.
 - `examples/` – checked diagram, configuration, and executable Bun workflow examples.
@@ -21,6 +21,7 @@
 - Parse foreign values from `unknown`, keep output deterministic, and test every parser, protocol, operation, path, credential, and compatibility boundary.
 - Keep semantic registries fixed and typed. Never accept source text, evaluation, dynamic imports, executable workspace configuration, shell commands, or caller-selected remote URLs.
 - Keep workflows as explicitly imported trusted Bun modules over the fixed operation registry. Parse runtime input, bound and uniquely identify steps, drain dispatched work before returning, retain completed-step receipts on every failure path, and do not load caller-selected source paths.
+- Keep semantic SDK, CLI, MCP, and workflow resource admission machine-global and crash-safe on macOS and Linux, with a truthful process-local fallback elsewhere. Preserve profile identity, FIFO admission for overlapping claims, callback-settlement ownership, and inherited lease descriptors through spawned vectorizer processes.
 - Keep MCP paths root-relative and capability-small. Bound source bytes, arrays, shapes, edges, scale, pixels, findings, subprocess duration, and output bytes before execution.
 - Keep vectorization fail-closed with checksum-pinned VTracer archives, inert rebuilt SVG, measured fidelity, and full provenance receipts. Do not add an embedded-raster fallback, upscaling model, or bundled commercial font.
 - Treat a `v*` tag as a release request. Keep the tag equal to `v<package.json version>` on `main`, wait for read-only verification and the official VTracer matrix, and let only the dependent publisher create the immutable Release. Verify that it is non-draft and Latest before creating another tag.

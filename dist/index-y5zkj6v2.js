@@ -62,6 +62,7 @@ class VectorizeDeadline {
 }
 
 // src/vectorize/command.ts
+import { AsyncLocalStorage } from "async_hooks";
 import { constants } from "fs";
 import {
   lstat,
@@ -77,10 +78,23 @@ var PRIMARY_OUTPUT_POLL_MS = 2;
 var PRIMARY_OUTPUT_EXIT_EMPTY_POLLS = 2;
 var TERMINATION_GRACE_MS = 50;
 var HARD_KILL_WAIT_MS = 500;
+var MAX_INHERITED_FILE_DESCRIPTORS = 16;
 var timeoutMarker = Symbol("bounded-command-timeout");
 var noCommandFailure = Symbol("no-command-failure");
 var activePosixProcessGroups = new Set;
 var workerTerminationForwardingInstalled = false;
+var inheritedCommandFileDescriptors = new AsyncLocalStorage;
+function normalizedInheritedFileDescriptors(value) {
+  const descriptors = value ?? [];
+  if (descriptors.length > MAX_INHERITED_FILE_DESCRIPTORS || descriptors.some((descriptor, index) => !Number.isSafeInteger(descriptor) || descriptor < 0 || descriptor > 2147483647 || descriptors.indexOf(descriptor) !== index)) {
+    throw new VectorizeError("invalid_input", "Inherited vectorizer descriptors must be unique bounded integers.");
+  }
+  return Object.freeze([...descriptors]);
+}
+async function withInheritedCommandFileDescriptors(descriptors, callback) {
+  const normalized = normalizedInheritedFileDescriptors(descriptors);
+  return await inheritedCommandFileDescriptors.run(normalized, async () => await callback());
+}
 function forwardVectorizeWorkerTermination() {
   if (process.platform === "win32" || workerTerminationForwardingInstalled) {
     return;
@@ -169,15 +183,19 @@ async function runBoundedCommandInternal(command, timeoutMs, failureCode, option
   }
   const maxStdoutBytes = options.maxStdoutBytes ?? MAX_COMMAND_OUTPUT_BYTES;
   assertPositiveLimit(maxStdoutBytes, "The command stdout limit must be positive.");
+  const inheritedDescriptors = normalizedInheritedFileDescriptors(options.inheritedFileDescriptors ?? inheritedCommandFileDescriptors.getStore());
   let child;
   const ownsProcessGroup = process.platform !== "win32";
   try {
     child = Bun.spawn([...command], {
       detached: ownsProcessGroup,
       env: process.env,
-      stderr: "pipe",
-      stdin: options.stdin ?? "ignore",
-      stdout: "pipe",
+      stdio: [
+        options.stdin ?? "ignore",
+        "pipe",
+        "pipe",
+        ...inheritedDescriptors
+      ],
       windowsHide: true
     });
   } catch (error) {
@@ -1158,21 +1176,6 @@ function boundedReadFlags() {
   return constants2.O_RDONLY | constants2.O_NONBLOCK | constants2.O_NOFOLLOW;
 }
 
-// src/vectorize/worker-protocol.ts
-var VECTORIZE_WORKER_PROTOCOL = 1;
-var MAX_VECTORIZE_REQUEST_BYTES = Math.ceil(vectorizeHardLimits.maxInputBytes / 3) * 4 + 512 * 1024;
-var MAX_VECTORIZE_RESPONSE_BYTES = vectorizeHardLimits.maxOutputBytes * 2 + 512 * 1024;
-
-// src/vectorize/vectorize.ts
-import { randomUUID as randomUUID2 } from "crypto";
-import {
-  mkdir as mkdir2,
-  rename as rename2,
-  rm as rm3,
-  writeFile as writeFile2
-} from "fs/promises";
-import { dirname as dirname3, join as join4, resolve as resolve3 } from "path";
-
 // src/vectorize/pixels.ts
 import { constants as constants3 } from "fs";
 import { open as open3, realpath as realpath2 } from "fs/promises";
@@ -1180,6 +1183,13 @@ import { resolve as resolve2 } from "path";
 import sharp from "sharp";
 var allowedFormats = new Set(["avif", "gif", "heif", "jpeg", "png", "tiff", "webp"]);
 var METRIC_MAX_EDGE = 512;
+var VECTORIZE_SHARP_CONCURRENCY = 1;
+function configureVectorizeSharpConcurrency() {
+  const actual = sharp.concurrency(VECTORIZE_SHARP_CONCURRENCY);
+  if (actual !== VECTORIZE_SHARP_CONCURRENCY) {
+    throw new VectorizeError("trace_failed", "The vectorization worker could not bind its Sharp CPU budget.");
+  }
+}
 async function loadRaster(input, limits, deadline) {
   deadline.assert("input read");
   const bytes = await readInputBytes(input, limits.maxInputBytes, deadline);
@@ -1356,6 +1366,21 @@ function normalizedPixelToolchain(versions) {
   return Object.freeze(Object.fromEntries(entries));
 }
 
+// src/vectorize/worker-protocol.ts
+var VECTORIZE_WORKER_PROTOCOL = 1;
+var MAX_VECTORIZE_REQUEST_BYTES = Math.ceil(vectorizeHardLimits.maxInputBytes / 3) * 4 + 512 * 1024;
+var MAX_VECTORIZE_RESPONSE_BYTES = vectorizeHardLimits.maxOutputBytes * 2 + 512 * 1024;
+
+// src/vectorize/vectorize.ts
+import { randomUUID as randomUUID2 } from "crypto";
+import {
+  mkdir as mkdir2,
+  rename as rename2,
+  rm as rm3,
+  writeFile as writeFile2
+} from "fs/promises";
+import { dirname as dirname3, join as join4, resolve as resolve3 } from "path";
+
 // src/vectorize/svg.ts
 var PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAaEe0-9+,.\s-]+$/u;
 var TRANSLATE = /^translate\(\s*[-+0-9.eE]+\s*(?:,\s*|\s+)[-+0-9.eE]+\s*\)$/u;
@@ -1513,9 +1538,11 @@ async function executeVectorizeWorker(workerInput, options, limits, startedAt, t
     throw new VectorizeError("timeout", "Vectorization has no remaining budget for isolated worker execution.");
   }
   const workerDurationMs = Math.floor(preparationRemainingMs - WORKER_SHUTDOWN_RESERVE_MS - WORKER_RESPONSE_RESERVE_MS);
+  const inheritedFileDescriptors = inheritedDescriptors(options.inheritedFileDescriptors);
+  const workerInheritedFileDescriptors = inheritedFileDescriptors.map((_descriptor, index) => index + 3);
   const request = {
     input: workerInput,
-    options: cloneOptions(options, workerDurationMs),
+    options: cloneOptions(options, workerDurationMs, workerInheritedFileDescriptors),
     protocol: VECTORIZE_WORKER_PROTOCOL,
     temporaryRoot
   };
@@ -1531,6 +1558,7 @@ async function executeVectorizeWorker(workerInput, options, limits, startedAt, t
     throw new VectorizeError("timeout", "Vectorization has no remaining budget for isolated worker startup and cleanup.");
   }
   const { stdout } = await runBoundedCommand([process.execPath, workerEntryPath()], Math.floor(remainingMs - WORKER_SHUTDOWN_RESERVE_MS), "trace_failed", {
+    ...inheritedFileDescriptors.length === 0 ? {} : { inheritedFileDescriptors },
     maxStdoutBytes: MAX_VECTORIZE_RESPONSE_BYTES,
     stdin: requestBytes
   });
@@ -1570,17 +1598,25 @@ function encodeBytes(input, maximumInputBytes) {
     value: Buffer.from(view.buffer, view.byteOffset, view.byteLength).toString("base64")
   };
 }
-function cloneOptions(options, workerDurationMs) {
+function cloneOptions(options, workerDurationMs, inheritedFileDescriptors) {
   return {
     ...options.alphaCutoff === undefined ? {} : { alphaCutoff: options.alphaCutoff },
     ...options.cacheDirectory === undefined ? {} : { cacheDirectory: options.cacheDirectory },
     ...options.duotone === undefined ? {} : { duotone: [options.duotone[0], options.duotone[1]] },
+    ...inheritedFileDescriptors.length === 0 ? {} : { inheritedFileDescriptors },
     limits: {
       ...options.limits,
       maxDurationMs: workerDurationMs
     },
     ...options.outputPath === undefined ? {} : { outputPath: options.outputPath }
   };
+}
+function inheritedDescriptors(value) {
+  const descriptors = value ?? [];
+  if (descriptors.length > 16 || descriptors.some((descriptor, index) => !Number.isSafeInteger(descriptor) || descriptor < 0 || descriptor > 2147483647 || descriptors.indexOf(descriptor) !== index)) {
+    throw new VectorizeError("invalid_input", "Inherited vectorizer descriptors must be unique bounded integers.");
+  }
+  return Object.freeze([...descriptors]);
 }
 function workerEntryPath() {
   const modulePath = fileURLToPath(import.meta.url);
@@ -1969,4 +2005,4 @@ async function writeSvgAtomically(path, svg) {
   return outputPath;
 }
 
-export { vectorizeProfileNames, VectorizeError, vectorizeHardLimits, vectorizeDefaultLimits, forwardVectorizeWorkerTermination, VTRACER_VERSION, vtracerReleases, VECTORIZE_WORKER_PROTOCOL, MAX_VECTORIZE_REQUEST_BYTES, MAX_VECTORIZE_RESPONSE_BYTES, vectorizeImage, vectorizeImageInProcess };
+export { vectorizeProfileNames, VectorizeError, vectorizeHardLimits, vectorizeDefaultLimits, withInheritedCommandFileDescriptors, forwardVectorizeWorkerTermination, VTRACER_VERSION, vtracerReleases, configureVectorizeSharpConcurrency, VECTORIZE_WORKER_PROTOCOL, MAX_VECTORIZE_REQUEST_BYTES, MAX_VECTORIZE_RESPONSE_BYTES, vectorizeImage, vectorizeImageInProcess };

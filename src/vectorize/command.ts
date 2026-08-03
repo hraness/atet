@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks"
 import { constants } from "node:fs"
 import {
   lstat,
@@ -16,11 +17,13 @@ const PRIMARY_OUTPUT_POLL_MS = 2
 const PRIMARY_OUTPUT_EXIT_EMPTY_POLLS = 2
 const TERMINATION_GRACE_MS = 50
 const HARD_KILL_WAIT_MS = 500
+const MAX_INHERITED_FILE_DESCRIPTORS = 16
 
 const timeoutMarker = Symbol("bounded-command-timeout")
 const noCommandFailure = Symbol("no-command-failure")
 const activePosixProcessGroups = new Set<number>()
 let workerTerminationForwardingInstalled = false
+const inheritedCommandFileDescriptors = new AsyncLocalStorage<readonly number[]>()
 
 export interface CommandResult {
   readonly stderr: string
@@ -28,10 +31,47 @@ export interface CommandResult {
 }
 
 export interface BoundedCommandOptions {
+  /**
+   * Open descriptors explicitly duplicated into the child from descriptor 3.
+   * Values are local execution authority and never enter receipts or logs.
+   */
+  readonly inheritedFileDescriptors?: readonly number[]
   /** Bounded bytes delivered to the child on standard input. */
   readonly stdin?: Uint8Array
   /** Raise the stdout quota only for a caller that consumes bounded data there. */
   readonly maxStdoutBytes?: number
+}
+
+function normalizedInheritedFileDescriptors(
+  value: readonly number[] | undefined,
+): readonly number[] {
+  const descriptors = value ?? []
+  if (
+    descriptors.length > MAX_INHERITED_FILE_DESCRIPTORS
+    || descriptors.some((descriptor, index) => (
+      !Number.isSafeInteger(descriptor)
+      || descriptor < 0
+      || descriptor > 2_147_483_647
+      || descriptors.indexOf(descriptor) !== index
+    ))
+  ) {
+    throw new VectorizeError(
+      "invalid_input",
+      "Inherited vectorizer descriptors must be unique bounded integers.",
+    )
+  }
+  return Object.freeze([...descriptors])
+}
+
+export async function withInheritedCommandFileDescriptors<T>(
+  descriptors: readonly number[] | undefined,
+  callback: () => T | Promise<T>,
+): Promise<T> {
+  const normalized = normalizedInheritedFileDescriptors(descriptors)
+  return await inheritedCommandFileDescriptors.run(
+    normalized,
+    async () => await callback(),
+  )
 }
 
 export interface BoundedPathOutputOptions extends BoundedCommandOptions {
@@ -244,6 +284,10 @@ async function runBoundedCommandInternal(
   }
   const maxStdoutBytes = options.maxStdoutBytes ?? MAX_COMMAND_OUTPUT_BYTES
   assertPositiveLimit(maxStdoutBytes, "The command stdout limit must be positive.")
+  const inheritedDescriptors = normalizedInheritedFileDescriptors(
+    options.inheritedFileDescriptors
+      ?? inheritedCommandFileDescriptors.getStore(),
+  )
 
   let child: ManagedSubprocess
   const ownsProcessGroup = process.platform !== "win32"
@@ -251,9 +295,12 @@ async function runBoundedCommandInternal(
     child = Bun.spawn([...command], {
       detached: ownsProcessGroup,
       env: process.env,
-      stderr: "pipe",
-      stdin: options.stdin ?? "ignore",
-      stdout: "pipe",
+      stdio: [
+        options.stdin ?? "ignore",
+        "pipe",
+        "pipe",
+        ...inheritedDescriptors,
+      ],
       windowsHide: true,
     })
   } catch (error) {

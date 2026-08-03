@@ -231,7 +231,7 @@ export async function runMcpServer(
   )
   const session = new TransmuteMcpSession(
     runtime,
-    options.serverVersion ?? "0.6.0",
+    options.serverVersion ?? "0.7.0",
   )
   const writeLine = options.writeLine ?? defaultWriteLine
   let buffered = Buffer.alloc(0)

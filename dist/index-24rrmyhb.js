@@ -1,9 +1,13 @@
 // @bun
 import {
-  executeTransmuteOperation,
+  executeTransmuteOperationWithLease,
   isTransmuteOperationCode,
-  parseTransmuteOperationInput
-} from "./index-3881gnsc.js";
+  parseTransmuteOperationInput,
+  transmuteOperationHostResourceClaims
+} from "./index-q9jx29hh.js";
+import {
+  createDefaultHostResourceCoordinator
+} from "./index-dxtrd5pg.js";
 
 // src/workflow.ts
 var workflowIdPattern = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/u;
@@ -69,7 +73,7 @@ function aborted(completedSteps, cause) {
 async function runTransmuteWorkflow(definition, value, options = {}) {
   const normalized = defineTransmuteWorkflow(definition);
   const limit = maximumSteps(options.maximumSteps);
-  const signal = options.signal ?? new AbortController().signal;
+  const signal = options.signal ?? options.dependencies?.signal ?? new AbortController().signal;
   const invoked = new Set;
   const completed = [];
   const dispatched = [];
@@ -83,7 +87,9 @@ async function runTransmuteWorkflow(definition, value, options = {}) {
   } catch (cause) {
     throw new TransmuteWorkflowError("INVALID_WORKFLOW_INPUT", "Workflow input did not satisfy its parser.", { cause });
   }
-  const executor = options.executor ?? ((code, operationInput) => executeTransmuteOperation(code, operationInput, options.dependencies));
+  const executor = options.executor ?? ((code, operationInput, context2) => executeTransmuteOperationWithLease(code, operationInput, context2.hostResourceLease, options.dependencies));
+  const hostResourceCoordinator = options.hostResourceCoordinator ?? options.dependencies?.hostResourceCoordinator ?? createDefaultHostResourceCoordinator();
+  const waitTimeoutMilliseconds = options.waitTimeoutMilliseconds ?? options.dependencies?.waitTimeoutMilliseconds;
   async function dispatchOperation(id, code, operationInput) {
     if (signal.aborted)
       throw aborted(completed);
@@ -107,20 +113,24 @@ async function runTransmuteWorkflow(definition, value, options = {}) {
       throw new TransmuteWorkflowError("INVALID_WORKFLOW_STEP", `Workflow step ${id} has invalid input for ${code}.`, { cause, completedSteps: completed });
     }
     try {
-      const result = await executor(code, normalizedInput, {
+      const result = await hostResourceCoordinator.withLease(transmuteOperationHostResourceClaims(code), async (hostResourceLease) => await executor(code, normalizedInput, {
+        hostResourceLease,
         signal,
         stepId: id
+      }), {
+        signal,
+        ...waitTimeoutMilliseconds === undefined ? {} : { waitTimeoutMilliseconds }
       });
+      completed.push(Object.freeze({ id, index, operation: code }));
       if (signal.aborted)
         throw aborted(completed);
-      completed.push(Object.freeze({ id, index, operation: code }));
       return result;
     } catch (cause) {
-      if (signal.aborted)
-        throw aborted(completed, cause);
       if (cause instanceof TransmuteWorkflowError && cause.code === "WORKFLOW_ABORTED") {
         throw cause;
       }
+      if (signal.aborted)
+        throw aborted(completed, cause);
       throw new TransmuteWorkflowError("WORKFLOW_STEP_FAILED", `Workflow step ${id} (${code}) failed.`, {
         cause,
         completedSteps: completed,

@@ -13,8 +13,12 @@ import {
   type VectorizeErrorCode,
   type VectorizeInput,
 } from "./types.js"
-import { forwardVectorizeWorkerTermination } from "./command.js"
+import {
+  forwardVectorizeWorkerTermination,
+  withInheritedCommandFileDescriptors,
+} from "./command.js"
 import { vectorizeImageInProcess } from "./vectorize.js"
+import { configureVectorizeSharpConcurrency } from "./pixels.js"
 
 const errorCodes = new Set<VectorizeErrorCode>([
   "input_limit",
@@ -36,14 +40,18 @@ await main()
 async function main(): Promise<void> {
   let response: VectorizeWorkerResponse
   try {
+    configureVectorizeSharpConcurrency()
     const requestText = await readBoundedInput()
     const request = parseRequest(requestText)
     const input = decodeInput(request.input)
     const temporaryRoot = await validateTemporaryRoot(request.temporaryRoot)
-    const result = await vectorizeImageInProcess(
-      input,
-      request.options,
-      temporaryRoot,
+    const result = await withInheritedCommandFileDescriptors(
+      request.options.inheritedFileDescriptors,
+      async () => await vectorizeImageInProcess(
+        input,
+        request.options,
+        temporaryRoot,
+      ),
     )
     response = {
       ok: true,

@@ -27,11 +27,13 @@ import {
   transmuteOperationCodes,
   isTransmuteOperationCode,
   searchTransmuteOperations,
+  withTransmuteOperationHostAdmission,
 } from "./operations.js"
+import type { HostResourceCoordinator } from "./host-resources.js"
 import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.js"
 import { pathExists } from "./fs.js"
 
-export const transmuteCliVersion = "0.6.0"
+export const transmuteCliVersion = "0.7.0"
 
 const help = `transmute ${transmuteCliVersion}
 
@@ -166,7 +168,7 @@ function printFindings(findings: Awaited<ReturnType<typeof checkDiagramFile>>["f
 }
 
 const starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/transmute/v0.6.0/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/transmute/v0.7.0/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },
@@ -211,8 +213,17 @@ async function confirmInstall(): Promise<boolean> {
 
 export interface TransmuteCliDependencies {
   readonly generate?: typeof generateTransmuteImageFile
+  readonly hostResourceCoordinator?: HostResourceCoordinator
   readonly log?: (value: string) => void
   readonly vectorize?: typeof vectorizeImage
+}
+
+function hostAdmissionOptions(
+  dependencies: TransmuteCliDependencies,
+): { readonly hostResourceCoordinator?: HostResourceCoordinator } {
+  return dependencies.hostResourceCoordinator === undefined
+    ? {}
+    : { hostResourceCoordinator: dependencies.hostResourceCoordinator }
 }
 
 function canonicalArguments(args: readonly string[]): readonly string[] {
@@ -283,10 +294,16 @@ export async function main(
 
   if (command === "check") {
     const parsed = parseArguments(rest, new Set(["config"]))
-    const result = await checkDiagramFile({
-      filePath: requiredPositional(parsed, 0, "diagram file"),
-      ...(parsed.options.config === undefined ? {} : { configPath: parsed.options.config }),
-    })
+    const result = await withTransmuteOperationHostAdmission(
+      "transmute.diagram.check",
+      async () => await checkDiagramFile({
+        filePath: requiredPositional(parsed, 0, "diagram file"),
+        ...(parsed.options.config === undefined
+          ? {}
+          : { configPath: parsed.options.config }),
+      }),
+      hostAdmissionOptions(dependencies),
+    )
     console.log(`Valid diagram${result.configPath === null ? "" : ` with ${result.configPath}`}.`)
     printFindings(result.findings)
     if (parsed.flags.has("strict") && result.findings.length > 0) process.exitCode = 2
@@ -297,14 +314,20 @@ export async function main(
     const parsed = parseArguments(rest, new Set(["out-dir", "config", "scale"]))
     const scale =
       parsed.options.scale === undefined ? undefined : Number.parseFloat(parsed.options.scale)
-    const result = await renderDiagramFile({
-      filePath: requiredPositional(parsed, 0, "diagram file"),
-      ...(parsed.options["out-dir"] === undefined
-        ? {}
-        : { outDirectory: parsed.options["out-dir"] }),
-      ...(parsed.options.config === undefined ? {} : { configPath: parsed.options.config }),
-      ...(scale === undefined ? {} : { scale }),
-    })
+    const result = await withTransmuteOperationHostAdmission(
+      "transmute.diagram.render",
+      async () => await renderDiagramFile({
+        filePath: requiredPositional(parsed, 0, "diagram file"),
+        ...(parsed.options["out-dir"] === undefined
+          ? {}
+          : { outDirectory: parsed.options["out-dir"] }),
+        ...(parsed.options.config === undefined
+          ? {}
+          : { configPath: parsed.options.config }),
+        ...(scale === undefined ? {} : { scale }),
+      }),
+      hostAdmissionOptions(dependencies),
+    )
     console.log(artifactSummary(result.artifacts))
     printFindings(result.findings)
     return
@@ -329,14 +352,21 @@ export async function main(
     const alphaCutoff = parsePositiveInteger(parsed.options["alpha-cutoff"], "alpha-cutoff")
     const timeoutMs = parsePositiveInteger(parsed.options["timeout-ms"], "timeout-ms")
     const duotone = parseDuotone(parsed.options.duotone)
-    const result = await (dependencies.vectorize ?? vectorizeImage)(
-      requiredPositional(parsed, 0, "raster image"),
-      {
-        ...(alphaCutoff === undefined ? {} : { alphaCutoff }),
-        ...(duotone === undefined ? {} : { duotone }),
-        ...(timeoutMs === undefined ? {} : { limits: { maxDurationMs: timeoutMs } }),
-        outputPath: output,
-      },
+    const result = await withTransmuteOperationHostAdmission(
+      "transmute.image.vectorize",
+      async (lease) => await (dependencies.vectorize ?? vectorizeImage)(
+        requiredPositional(parsed, 0, "raster image"),
+        {
+          ...(alphaCutoff === undefined ? {} : { alphaCutoff }),
+          ...(duotone === undefined ? {} : { duotone }),
+          ...(timeoutMs === undefined
+            ? {}
+            : { limits: { maxDurationMs: timeoutMs } }),
+          inheritedFileDescriptors: [lease.inheritedFileDescriptor],
+          outputPath: output,
+        },
+      ),
+      hostAdmissionOptions(dependencies),
     )
     if (parsed.flags.has("json")) {
       ;(dependencies.log ?? console.log)(
@@ -369,14 +399,18 @@ export async function main(
         `--model must be ${transmuteImageModels[0]} or ${transmuteImageModels[1]}`,
       )
     }
-    const result = await (dependencies.generate ?? generateTransmuteImageFile)({
-      model: model as TransmuteImageModel,
-      prompt: requiredPositional(parsed, 0, "prompt"),
-      outputPath: requiredOption(parsed, "output"),
-      ...(parsed.options["idempotency-key"] === undefined
-        ? {}
-        : { idempotencyKey: parsed.options["idempotency-key"] }),
-    })
+    const result = await withTransmuteOperationHostAdmission(
+      "transmute.image.generate",
+      async () => await (dependencies.generate ?? generateTransmuteImageFile)({
+        model: model as TransmuteImageModel,
+        prompt: requiredPositional(parsed, 0, "prompt"),
+        outputPath: requiredOption(parsed, "output"),
+        ...(parsed.options["idempotency-key"] === undefined
+          ? {}
+          : { idempotencyKey: parsed.options["idempotency-key"] }),
+      }),
+      hostAdmissionOptions(dependencies),
+    )
     if (parsed.flags.has("json")) {
       ;(dependencies.log ?? console.log)(JSON.stringify(result, null, 2))
     } else {
@@ -466,8 +500,12 @@ export async function main(
       } catch {
         throw new Error("--input must be valid JSON")
       }
-      const result = await executeTransmuteOperation(operation, input)
-      console.log(JSON.stringify({ operation, result }, null, 2))
+      const result = await executeTransmuteOperation(operation, input, {
+        ...hostAdmissionOptions(dependencies),
+      })
+      ;(dependencies.log ?? console.log)(
+        JSON.stringify({ operation, result }, null, 2),
+      )
       return
     }
     throw new Error(

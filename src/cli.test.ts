@@ -4,6 +4,37 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { main as runTransmuteCliInProcess } from "./cli.ts"
 import { transmuteImageModels } from "./discovery.ts"
+import type {
+  HostResourceClaim,
+  HostResourceCoordinator,
+} from "./host-resources.ts"
+
+function recordingCoordinator(record: {
+  assertions: number
+  claims: HostResourceClaim[][]
+}, inheritedFileDescriptor = 83): HostResourceCoordinator {
+  const profile = {
+    id: "transmute.cli-test-host/v1",
+    capacities: [],
+  } as const
+  return {
+    profile,
+    scope: "process",
+    async withLease(claims, callback) {
+      record.claims.push([...claims])
+      return await callback({
+        claims,
+        inheritedFileDescriptor,
+        profile,
+        ticket: String(record.claims.length),
+        assertOwned: () => {
+          record.assertions += 1
+          return Promise.resolve()
+        },
+      })
+    },
+  }
+}
 
 async function runCli(
   args: readonly string[],
@@ -23,11 +54,11 @@ async function runCli(
 }
 
 describe("Transmute CLI", () => {
-  test("reports v0.6.0 and documents namespaced media surfaces", async () => {
+  test("reports v0.7.0 and documents namespaced media surfaces", async () => {
     const version = await runCli(["--version"], process.cwd())
     expect(version).toEqual({
       exitCode: 0,
-      stdout: "0.6.0\n",
+      stdout: "0.7.0\n",
       stderr: "",
     })
     const help = await runCli(["--help"], process.cwd())
@@ -66,6 +97,7 @@ describe("Transmute CLI", () => {
 
   test("defaults direct generation to the Recraft utility model", async () => {
     const output: string[] = []
+    const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
     await runTransmuteCliInProcess(
       [
         "image",
@@ -91,6 +123,7 @@ describe("Transmute CLI", () => {
             requestId: "request_default_model",
           }
         },
+        hostResourceCoordinator: recordingCoordinator(admission),
         log: (line) => output.push(line),
       },
     )
@@ -98,19 +131,27 @@ describe("Transmute CLI", () => {
       model: transmuteImageModels[1],
       mediaType: "image/webp",
     })
+    expect(admission.claims).toEqual([[
+      { resource: "local-io", amount: 1 },
+      { resource: "network", amount: 1 },
+      { resource: "paid-call", amount: 1 },
+    ]])
   })
 
   test("keeps canonical vectorization local and rejects the old flat grammar", async () => {
     const output: string[] = []
     let calls = 0
+    const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
     await runTransmuteCliInProcess(
       ["image", "vectorize", "source.png", "--output", "source.svg", "--json"],
       {
+        hostResourceCoordinator: recordingCoordinator(admission, 89),
         log: (line) => output.push(line),
         vectorize: async (input, options) => {
           calls += 1
           expect(input).toBe("source.png")
           expect(options?.outputPath).toBe("source.svg")
+          expect(options?.inheritedFileDescriptors).toEqual([89])
           return {
             outputPath: "/workspace/source.svg",
             svg: "<svg/>",
@@ -153,6 +194,10 @@ describe("Transmute CLI", () => {
       },
     )
     expect(calls).toBe(1)
+    expect(admission.claims).toEqual([[
+      { resource: "cpu", amount: 1 },
+      { resource: "local-io", amount: 1 },
+    ]])
     expect(JSON.parse(output.join("\n"))).toMatchObject({
       outputPath: "/workspace/source.svg",
       width: 16,
@@ -221,6 +266,42 @@ describe("Transmute CLI", () => {
       expect(rejected.exitCode).toBe(1)
       expect(rejected.stderr).toContain("[INVALID_OPERATION_INPUT]")
       expect(await Bun.file(marker).exists()).toBe(false)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test("admits in-process code execution through the operation registry", async () => {
+    const root = await mkdtemp(join(tmpdir(), "transmute-cli-admission-"))
+    try {
+      const path = join(root, "flow.diagram.json")
+      await writeFile(path, JSON.stringify({
+        version: 1,
+        name: "flow",
+        canvas: { width: 400, height: 200 },
+        shapes: [],
+      }))
+      const output: string[] = []
+      const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
+      await runTransmuteCliInProcess([
+        "code",
+        "execute",
+        "transmute.diagram.check",
+        "--input",
+        JSON.stringify({ path }),
+      ], {
+        hostResourceCoordinator: recordingCoordinator(admission),
+        log: line => output.push(line),
+      })
+      expect(JSON.parse(output.join("\n"))).toMatchObject({
+        operation: "transmute.diagram.check",
+        result: { configPath: null },
+      })
+      expect(admission.claims).toEqual([[
+        { resource: "cpu", amount: 1 },
+        { resource: "local-io", amount: 1 },
+      ]])
+      expect(admission.assertions).toBe(1)
     } finally {
       await rm(root, { recursive: true, force: true })
     }

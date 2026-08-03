@@ -5,23 +5,27 @@ import {
   parseTransmuteOperationInput,
   searchTransmuteOperations,
   transmuteOperationCodes,
-  transmuteOperationRegistry
-} from "./index-3881gnsc.js";
+  transmuteOperationRegistry,
+  withTransmuteOperationHostAdmission
+} from "./index-q9jx29hh.js";
 import {
   generateTransmuteImage,
   generateTransmuteImageFile
-} from "./index-bx6frv9p.js";
+} from "./index-b6x4jg9v.js";
 import {
   loginTransmute,
   logoutTransmute,
   requireTransmuteAuthentication,
   transmuteAuthStatus
-} from "./index-92tsktza.js";
+} from "./index-8chnv65r.js";
 import {
   TransmuteCloudError,
   fetchTransmuteDiscovery,
   parseTransmuteDiscovery
-} from "./index-89aws2ys.js";
+} from "./index-eakbnph9.js";
+import {
+  createDefaultHostResourceCoordinator
+} from "./index-dxtrd5pg.js";
 import {
   desktopDownloadPage,
   desktopStatus,
@@ -56,7 +60,7 @@ import {
   VectorizeError,
   vectorizeHardLimits,
   vectorizeImage
-} from "./index-gmbahcdg.js";
+} from "./index-y5zkj6v2.js";
 
 // src/artifacts.ts
 import { mkdir, readFile as readFile2, rename, rm, writeFile } from "fs/promises";
@@ -970,13 +974,20 @@ async function loadDiagram(boundary, path) {
 class TransmuteMcpToolRuntime {
   boundary;
   authDependencies;
+  hostResourceCoordinator;
   renderQueue = Promise.resolve();
-  constructor(boundary, authDependencies) {
+  constructor(boundary, authDependencies, hostResourceCoordinator) {
     this.boundary = boundary;
     this.authDependencies = authDependencies;
+    this.hostResourceCoordinator = hostResourceCoordinator;
   }
-  static async create(rootDirectory, authDependencies = {}) {
-    return new TransmuteMcpToolRuntime(await WorkspaceBoundary.create(rootDirectory), authDependencies);
+  static async create(rootDirectory, authDependencies = {}, hostResourceCoordinator) {
+    return new TransmuteMcpToolRuntime(await WorkspaceBoundary.create(rootDirectory), authDependencies, hostResourceCoordinator ?? createDefaultHostResourceCoordinator());
+  }
+  async withHostAdmission(operation, callback) {
+    return await withTransmuteOperationHostAdmission(operation, callback, {
+      hostResourceCoordinator: this.hostResourceCoordinator
+    });
   }
   enqueueRender(operation) {
     const result = this.renderQueue.then(operation, operation);
@@ -991,11 +1002,11 @@ class TransmuteMcpToolRuntime {
     try {
       if (name === "check_diagram") {
         const options = parseCheckArguments(argumentsValue);
-        return await this.check(options);
+        return await this.withHostAdmission("transmute.diagram.check", async () => await this.check(options));
       }
       if (name === "render_diagram") {
         const options = parseRenderArguments(argumentsValue);
-        return await this.enqueueRender(() => this.render(options));
+        return await this.enqueueRender(async () => await this.withHostAdmission("transmute.diagram.render", async () => await this.render(options)));
       }
       if (name === "search_transmute") {
         const options = parseSearchArguments(argumentsValue);
@@ -1025,54 +1036,57 @@ class TransmuteMcpToolRuntime {
   }
   async execute(options) {
     if (options.operation === "transmute.diagram.check") {
-      const input2 = parseTransmuteOperationInput(options.operation, options.input);
-      return this.wrapSemanticResult(options.operation, await this.check({ path: input2.path }));
+      const input = parseTransmuteOperationInput(options.operation, options.input);
+      return this.wrapSemanticResult(options.operation, await this.withHostAdmission(options.operation, async () => await this.check({ path: input.path })));
     }
     if (options.operation === "transmute.diagram.render") {
-      const input2 = parseTransmuteOperationInput(options.operation, options.input);
-      return this.enqueueRender(async () => this.wrapSemanticResult(options.operation, await this.render({
-        path: input2.path,
-        ...input2.outDirectory === undefined ? {} : { outDirectory: input2.outDirectory },
-        scale: input2.scale ?? defaultScale
-      })));
+      const input = parseTransmuteOperationInput(options.operation, options.input);
+      return this.enqueueRender(async () => await this.withHostAdmission(options.operation, async () => this.wrapSemanticResult(options.operation, await this.render({
+        path: input.path,
+        ...input.outDirectory === undefined ? {} : { outDirectory: input.outDirectory },
+        scale: input.scale ?? defaultScale
+      }))));
     }
     if (options.operation === "transmute.image.vectorize") {
-      const input2 = parseTransmuteOperationInput(options.operation, options.input);
-      return this.enqueueRender(async () => {
-        const source = await this.boundary.resolveInputFile(input2.inputPath, vectorizeHardLimits.maxInputBytes);
-        const output2 = await this.boundary.prepareOutputFile(input2.outputPath);
+      const input = parseTransmuteOperationInput(options.operation, options.input);
+      return this.enqueueRender(async () => await this.withHostAdmission(options.operation, async (lease) => {
+        const source = await this.boundary.resolveInputFile(input.inputPath, vectorizeHardLimits.maxInputBytes);
+        const output = await this.boundary.prepareOutputFile(input.outputPath);
         const result = await vectorizeImage(source.absolutePath, {
-          outputPath: output2.absolutePath,
-          ...input2.duotone === undefined ? {} : { duotone: input2.duotone },
-          ...input2.alphaCutoff === undefined ? {} : { alphaCutoff: input2.alphaCutoff },
-          ...input2.timeoutMs === undefined ? {} : { limits: { maxDurationMs: input2.timeoutMs } }
+          outputPath: output.absolutePath,
+          ...input.duotone === undefined ? {} : { duotone: input.duotone },
+          ...input.alphaCutoff === undefined ? {} : { alphaCutoff: input.alphaCutoff },
+          ...input.timeoutMs === undefined ? {} : { limits: { maxDurationMs: input.timeoutMs } },
+          inheritedFileDescriptors: [lease.inheritedFileDescriptor]
         });
-        return successResult(`Executed ${options.operation}: ${output2.relativePath}`, {
+        return successResult(`Executed ${options.operation}: ${output.relativePath}`, {
           ok: true,
           operation: options.operation,
           result: {
             inputPath: source.relativePath,
-            outputPath: output2.relativePath,
+            outputPath: output.relativePath,
             receipt: result.receipt
           }
         });
-      });
+      }));
     }
-    const input = parseTransmuteOperationInput(options.operation, options.input);
-    const discovery = await requireTransmuteAuthentication(this.authDependencies);
-    const output = await this.boundary.prepareOutputFile(input.outputPath);
-    const generated = await generateTransmuteImageFile({ ...input, outputPath: output.absolutePath }, { ...this.authDependencies, discovery });
-    return successResult(`Executed ${options.operation}: ${output.relativePath} (request ${safeFragment(generated.requestId, 256)}).`, {
-      ok: true,
-      operation: options.operation,
-      result: {
-        bytes: generated.bytes,
-        idempotencyKey: generated.idempotencyKey,
-        mediaType: generated.mediaType,
-        model: generated.model,
-        outputPath: output.relativePath,
-        requestId: generated.requestId
-      }
+    return await this.withHostAdmission(options.operation, async () => {
+      const input = parseTransmuteOperationInput(options.operation, options.input);
+      const discovery = await requireTransmuteAuthentication(this.authDependencies);
+      const output = await this.boundary.prepareOutputFile(input.outputPath);
+      const generated = await generateTransmuteImageFile({ ...input, outputPath: output.absolutePath }, { ...this.authDependencies, discovery });
+      return successResult(`Executed ${options.operation}: ${output.relativePath} (request ${safeFragment(generated.requestId, 256)}).`, {
+        ok: true,
+        operation: options.operation,
+        result: {
+          bytes: generated.bytes,
+          idempotencyKey: generated.idempotencyKey,
+          mediaType: generated.mediaType,
+          model: generated.model,
+          outputPath: output.relativePath,
+          requestId: generated.requestId
+        }
+      });
     });
   }
   async check(options) {
@@ -1292,7 +1306,7 @@ async function processLine(line, session, writeLine) {
 }
 async function runMcpServer(options = {}) {
   const runtime = await TransmuteMcpToolRuntime.create(options.rootDirectory ?? process.cwd(), options.authDependencies);
-  const session = new TransmuteMcpSession(runtime, options.serverVersion ?? "0.6.0");
+  const session = new TransmuteMcpSession(runtime, options.serverVersion ?? "0.7.0");
   const writeLine = options.writeLine ?? defaultWriteLine;
   let buffered = Buffer.alloc(0);
   for await (const chunk of options.input ?? defaultInput()) {

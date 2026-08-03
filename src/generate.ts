@@ -231,7 +231,7 @@ async function performGeneration(
           authorization: `Bearer ${accessToken}`,
           "content-type": "application/json",
           [discovery.capabilities.media.imageGeneration.idempotency.header]: idempotencyKey,
-          "user-agent": "hraness-transmute-cli/0.6.0",
+          "user-agent": "hraness-transmute-cli/0.7.0",
         },
         body: requestBody,
         redirect: "error",

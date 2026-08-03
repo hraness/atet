@@ -13,12 +13,18 @@ import {
   transmuteOperationCodes,
   parseTransmuteOperationInput,
   searchTransmuteOperations,
+  withTransmuteOperationHostAdmission,
   type CheckTransmuteOperationInput,
   type GenerateTransmuteOperationInput,
   type TransmuteOperationCode,
   type RenderTransmuteOperationInput,
   type VectorizeTransmuteOperationInput,
 } from "../operations.js"
+import {
+  createDefaultHostResourceCoordinator,
+  type HostResourceCoordinator,
+  type HostResourceLease,
+} from "../host-resources.js"
 import { DiagramValidationError, parseDiagramSpec } from "../parse.js"
 import { renderPng, renderSvg } from "../render.js"
 import { serializeTldr } from "../tldr.js"
@@ -678,24 +684,38 @@ async function loadDiagram(
 export class TransmuteMcpToolRuntime {
   readonly boundary: WorkspaceBoundary
   readonly authDependencies: TransmuteAuthDependencies
+  readonly hostResourceCoordinator: HostResourceCoordinator
   private renderQueue: Promise<void> = Promise.resolve()
 
   private constructor(
     boundary: WorkspaceBoundary,
     authDependencies: TransmuteAuthDependencies,
+    hostResourceCoordinator: HostResourceCoordinator,
   ) {
     this.boundary = boundary
     this.authDependencies = authDependencies
+    this.hostResourceCoordinator = hostResourceCoordinator
   }
 
   static async create(
     rootDirectory: string,
     authDependencies: TransmuteAuthDependencies = {},
+    hostResourceCoordinator?: HostResourceCoordinator,
   ): Promise<TransmuteMcpToolRuntime> {
     return new TransmuteMcpToolRuntime(
       await WorkspaceBoundary.create(rootDirectory),
       authDependencies,
+      hostResourceCoordinator ?? createDefaultHostResourceCoordinator(),
     )
+  }
+
+  private async withHostAdmission<T>(
+    operation: TransmuteOperationCode,
+    callback: (lease: HostResourceLease) => T | Promise<T>,
+  ): Promise<T> {
+    return await withTransmuteOperationHostAdmission(operation, callback, {
+      hostResourceCoordinator: this.hostResourceCoordinator,
+    })
   }
 
   private enqueueRender<T>(operation: () => Promise<T>): Promise<T> {
@@ -711,11 +731,19 @@ export class TransmuteMcpToolRuntime {
     try {
       if (name === "check_diagram") {
         const options = parseCheckArguments(argumentsValue)
-        return await this.check(options)
+        return await this.withHostAdmission(
+          "transmute.diagram.check",
+          async () => await this.check(options),
+        )
       }
       if (name === "render_diagram") {
         const options = parseRenderArguments(argumentsValue)
-        return await this.enqueueRender(() => this.render(options))
+        return await this.enqueueRender(async () => (
+          await this.withHostAdmission(
+            "transmute.diagram.render",
+            async () => await this.render(options),
+          )
+        ))
       }
       if (name === "search_transmute") {
         const options = parseSearchArguments(argumentsValue)
@@ -763,7 +791,10 @@ export class TransmuteMcpToolRuntime {
       ) as CheckTransmuteOperationInput
       return this.wrapSemanticResult(
         options.operation,
-        await this.check({ path: input.path }),
+        await this.withHostAdmission(
+          options.operation,
+          async () => await this.check({ path: input.path }),
+        ),
       )
     }
     if (options.operation === "transmute.diagram.render") {
@@ -771,8 +802,9 @@ export class TransmuteMcpToolRuntime {
         options.operation,
         options.input,
       ) as RenderTransmuteOperationInput
-      return this.enqueueRender(async () =>
-        this.wrapSemanticResult(
+      return this.enqueueRender(async () => await this.withHostAdmission(
+        options.operation,
+        async () => this.wrapSemanticResult(
           options.operation,
           await this.render({
             path: input.path,
@@ -782,70 +814,76 @@ export class TransmuteMcpToolRuntime {
             scale: input.scale ?? defaultScale,
           }),
         ),
-      )
+      ))
     }
     if (options.operation === "transmute.image.vectorize") {
       const input = parseTransmuteOperationInput(
         options.operation,
         options.input,
       ) as VectorizeTransmuteOperationInput
-      return this.enqueueRender(async () => {
-        const source = await this.boundary.resolveInputFile(
-          input.inputPath,
-          vectorizeHardLimits.maxInputBytes,
-        )
-        const output = await this.boundary.prepareOutputFile(input.outputPath)
-        const result = await vectorizeImage(source.absolutePath, {
-          outputPath: output.absolutePath,
-          ...(input.duotone === undefined ? {} : { duotone: input.duotone }),
-          ...(input.alphaCutoff === undefined
-            ? {}
-            : { alphaCutoff: input.alphaCutoff }),
-          ...(input.timeoutMs === undefined
-            ? {}
-            : { limits: { maxDurationMs: input.timeoutMs } }),
-        })
-        return successResult(
-          `Executed ${options.operation}: ${output.relativePath}`,
-          {
-            ok: true,
-            operation: options.operation,
-            result: {
-              inputPath: source.relativePath,
-              outputPath: output.relativePath,
-              receipt: result.receipt,
+      return this.enqueueRender(async () => await this.withHostAdmission(
+        options.operation,
+        async (lease) => {
+          const source = await this.boundary.resolveInputFile(
+            input.inputPath,
+            vectorizeHardLimits.maxInputBytes,
+          )
+          const output = await this.boundary.prepareOutputFile(input.outputPath)
+          const result = await vectorizeImage(source.absolutePath, {
+            outputPath: output.absolutePath,
+            ...(input.duotone === undefined ? {} : { duotone: input.duotone }),
+            ...(input.alphaCutoff === undefined
+              ? {}
+              : { alphaCutoff: input.alphaCutoff }),
+            ...(input.timeoutMs === undefined
+              ? {}
+              : { limits: { maxDurationMs: input.timeoutMs } }),
+            inheritedFileDescriptors: [lease.inheritedFileDescriptor],
+          })
+          return successResult(
+            `Executed ${options.operation}: ${output.relativePath}`,
+            {
+              ok: true,
+              operation: options.operation,
+              result: {
+                inputPath: source.relativePath,
+                outputPath: output.relativePath,
+                receipt: result.receipt,
+              },
             },
-          },
-        )
-      })
-    }
-    const input = parseTransmuteOperationInput(
-      options.operation,
-      options.input,
-    ) as GenerateTransmuteOperationInput
-    const discovery = await requireTransmuteAuthentication(
-      this.authDependencies,
-    )
-    const output = await this.boundary.prepareOutputFile(input.outputPath)
-    const generated = await generateTransmuteImageFile(
-      { ...input, outputPath: output.absolutePath },
-      { ...this.authDependencies, discovery },
-    )
-    return successResult(
-      `Executed ${options.operation}: ${output.relativePath} (request ${safeFragment(generated.requestId, 256)}).`,
-      {
-        ok: true,
-        operation: options.operation,
-        result: {
-          bytes: generated.bytes,
-          idempotencyKey: generated.idempotencyKey,
-          mediaType: generated.mediaType,
-          model: generated.model,
-          outputPath: output.relativePath,
-          requestId: generated.requestId,
+          )
         },
-      },
-    )
+      ))
+    }
+    return await this.withHostAdmission(options.operation, async () => {
+      const input = parseTransmuteOperationInput(
+        options.operation,
+        options.input,
+      ) as GenerateTransmuteOperationInput
+      const discovery = await requireTransmuteAuthentication(
+        this.authDependencies,
+      )
+      const output = await this.boundary.prepareOutputFile(input.outputPath)
+      const generated = await generateTransmuteImageFile(
+        { ...input, outputPath: output.absolutePath },
+        { ...this.authDependencies, discovery },
+      )
+      return successResult(
+        `Executed ${options.operation}: ${output.relativePath} (request ${safeFragment(generated.requestId, 256)}).`,
+        {
+          ok: true,
+          operation: options.operation,
+          result: {
+            bytes: generated.bytes,
+            idempotencyKey: generated.idempotencyKey,
+            mediaType: generated.mediaType,
+            model: generated.model,
+            outputPath: output.relativePath,
+            requestId: generated.requestId,
+          },
+        },
+      )
+    })
   }
 
   private async check(options: ParsedCheckArguments): Promise<McpToolResult> {

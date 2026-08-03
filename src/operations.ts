@@ -24,6 +24,12 @@ import {
   vectorizeImage,
   type VectorizeReceipt,
 } from "./vectorize/index.js"
+import {
+  createDefaultHostResourceCoordinator,
+  type HostResourceClaim,
+  type HostResourceCoordinator,
+  type HostResourceLease,
+} from "./host-resources.js"
 
 export const transmuteOperationCodes = [
   "transmute.diagram.check",
@@ -43,6 +49,8 @@ export interface TransmuteOperationDescriptor {
   readonly destructive: boolean
   readonly idempotent: boolean
   readonly inputSchema: Readonly<Record<string, unknown>>
+  /** Immutable operation-owned physical host admission claims. */
+  readonly resources: readonly HostResourceClaim[]
   readonly transport?: {
     readonly method: "POST"
     readonly endpointFromDiscovery: "endpoints.generateImage"
@@ -104,6 +112,10 @@ export const transmuteOperationRegistry: readonly TransmuteOperationDescriptor[]
         required: ["path"],
         properties: { path: pathSchema },
       },
+      resources: [
+        { resource: "cpu", amount: 1 },
+        { resource: "local-io", amount: 1 },
+      ],
     },
     {
       code: "transmute.diagram.render",
@@ -128,6 +140,10 @@ export const transmuteOperationRegistry: readonly TransmuteOperationDescriptor[]
           },
         },
       },
+      resources: [
+        { resource: "cpu", amount: 1 },
+        { resource: "local-io", amount: 1 },
+      ],
     },
     {
       code: "transmute.image.vectorize",
@@ -158,6 +174,10 @@ export const transmuteOperationRegistry: readonly TransmuteOperationDescriptor[]
           timeoutMs: { type: "integer", minimum: 1, maximum: 300_000 },
         },
       },
+      resources: [
+        { resource: "cpu", amount: 1 },
+        { resource: "local-io", amount: 1 },
+      ],
     },
     {
       code: "transmute.image.generate",
@@ -188,6 +208,11 @@ export const transmuteOperationRegistry: readonly TransmuteOperationDescriptor[]
           },
         },
       },
+      resources: [
+        { resource: "local-io", amount: 1 },
+        { resource: "network", amount: 1 },
+        { resource: "paid-call", amount: 1 },
+      ],
       transport: {
         method: "POST",
         endpointFromDiscovery: "endpoints.generateImage",
@@ -436,6 +461,21 @@ export function isTransmuteOperationCode(
   return transmuteOperationCodes.includes(value as TransmuteOperationCode)
 }
 
+export function transmuteOperationHostResourceClaims(
+  code: TransmuteOperationCode,
+): readonly HostResourceClaim[] {
+  const descriptor = transmuteOperationRegistry.find(
+    (candidate) => candidate.code === code,
+  )
+  if (descriptor === undefined) {
+    throw new TransmuteOperationError(
+      "INVALID_OPERATION",
+      "Unknown Transmute operation code.",
+    )
+  }
+  return descriptor.resources
+}
+
 export function searchTransmuteOperations(
   query = "",
   limit = transmuteOperationRegistry.length,
@@ -466,7 +506,77 @@ export function searchTransmuteOperations(
     .slice(0, limit)
 }
 
-export type TransmuteOperationDependencies = TransmuteAuthDependencies
+export interface TransmuteOperationDependencies extends TransmuteAuthDependencies {
+  /** Callback-scoped host authority inherited by operation subprocesses. */
+  readonly inheritedFileDescriptors?: readonly number[]
+  /** Optional coordinator override for deterministic hosts and tests. */
+  readonly hostResourceCoordinator?: HostResourceCoordinator
+  readonly signal?: AbortSignal
+  readonly waitTimeoutMilliseconds?: number
+}
+
+export interface TransmuteOperationHostAdmissionOptions {
+  readonly hostResourceCoordinator?: HostResourceCoordinator
+  readonly signal?: AbortSignal
+  readonly waitTimeoutMilliseconds?: number
+}
+
+function operationDependenciesWithLease(
+  dependencies: TransmuteOperationDependencies,
+  lease: HostResourceLease,
+): TransmuteOperationDependencies {
+  const inheritedFileDescriptors = [
+    ...(dependencies.inheritedFileDescriptors ?? []),
+    lease.inheritedFileDescriptor,
+  ].filter((descriptor, index, descriptors) => (
+    descriptors.indexOf(descriptor) === index
+  ))
+  if (
+    inheritedFileDescriptors.length > 16
+    || inheritedFileDescriptors.some((descriptor) => (
+      !Number.isSafeInteger(descriptor)
+      || descriptor < 0
+      || descriptor > 2_147_483_647
+    ))
+  ) {
+    throw new TransmuteOperationError(
+      "INVALID_OPERATION_INPUT",
+      "Operation host-resource inheritance exceeds its descriptor bound.",
+    )
+  }
+  const {
+    hostResourceCoordinator: _hostResourceCoordinator,
+    signal: _signal,
+    waitTimeoutMilliseconds: _waitTimeoutMilliseconds,
+    ...operationDependencies
+  } = dependencies
+  return {
+    ...operationDependencies,
+    inheritedFileDescriptors,
+  }
+}
+
+export async function withTransmuteOperationHostAdmission<T>(
+  code: TransmuteOperationCode,
+  callback: (lease: HostResourceLease) => T | Promise<T>,
+  options: TransmuteOperationHostAdmissionOptions = {},
+): Promise<T> {
+  const coordinator = options.hostResourceCoordinator
+    ?? createDefaultHostResourceCoordinator()
+  return await coordinator.withLease(
+    transmuteOperationHostResourceClaims(code),
+    async (lease) => {
+      await lease.assertOwned()
+      return await callback(lease)
+    },
+    {
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      ...(options.waitTimeoutMilliseconds === undefined
+        ? {}
+        : { waitTimeoutMilliseconds: options.waitTimeoutMilliseconds }),
+    },
+  )
+}
 
 const operationBuiltInConfig: DiagramConfig = Object.freeze({
   icons: builtInIcons,
@@ -563,7 +673,9 @@ async function renderOperationDiagram(
   } as const
 }
 
-export async function executeTransmuteOperation<C extends TransmuteOperationCode>(
+async function executeTransmuteOperationUncoordinated<
+  C extends TransmuteOperationCode,
+>(
   code: C,
   value: unknown,
   dependencies: TransmuteOperationDependencies = {},
@@ -589,6 +701,12 @@ export async function executeTransmuteOperation<C extends TransmuteOperationCode
         ...(options.timeoutMs === undefined
           ? {}
           : { limits: { maxDurationMs: options.timeoutMs } }),
+        ...(dependencies.inheritedFileDescriptors === undefined
+          ? {}
+          : {
+              inheritedFileDescriptors:
+                dependencies.inheritedFileDescriptors,
+            }),
       })
       if (result.outputPath === null) {
         throw new TransmuteOperationError(
@@ -611,4 +729,72 @@ export async function executeTransmuteOperation<C extends TransmuteOperationCode
         "Unknown Transmute operation code.",
       )
   }
+}
+
+/** Execute one operation under authority already held by a workflow node. */
+export async function executeTransmuteOperationWithLease<
+  C extends TransmuteOperationCode,
+>(
+  code: C,
+  value: unknown,
+  lease: HostResourceLease,
+  dependencies: TransmuteOperationDependencies = {},
+): Promise<TransmuteOperationResultMap[C]> {
+  await lease.assertOwned()
+  const available = new Map<string, number>()
+  for (const claim of lease.claims) {
+    if (
+      typeof claim.resource !== "string"
+      || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(claim.resource)
+      || !Number.isSafeInteger(claim.amount)
+      || claim.amount < 1
+    ) {
+      throw new TransmuteOperationError(
+        "INVALID_OPERATION",
+        "The active host-resource lease contains invalid claims.",
+      )
+    }
+    const total = (available.get(claim.resource) ?? 0) + claim.amount
+    if (!Number.isSafeInteger(total)) {
+      throw new TransmuteOperationError(
+        "INVALID_OPERATION",
+        "The active host-resource lease contains invalid claims.",
+      )
+    }
+    available.set(claim.resource, total)
+  }
+  const missing = transmuteOperationHostResourceClaims(code).filter(
+    claim => (available.get(claim.resource) ?? 0) < claim.amount,
+  )
+  if (missing.length > 0) {
+    throw new TransmuteOperationError(
+      "INVALID_OPERATION",
+      `The active host-resource lease does not cover ${missing
+        .map(claim => `${claim.resource}:${String(claim.amount)}`)
+        .join(", ")}.`,
+    )
+  }
+  return await executeTransmuteOperationUncoordinated(
+    code,
+    value,
+    operationDependenciesWithLease(dependencies, lease),
+  )
+}
+
+/** Execute one direct SDK operation under machine-wide resource admission. */
+export async function executeTransmuteOperation<C extends TransmuteOperationCode>(
+  code: C,
+  value: unknown,
+  dependencies: TransmuteOperationDependencies = {},
+): Promise<TransmuteOperationResultMap[C]> {
+  const input = parseTransmuteOperationInput(code, value)
+  return await withTransmuteOperationHostAdmission(
+    code,
+    async (lease) => await executeTransmuteOperationUncoordinated(
+      code,
+      input,
+      operationDependenciesWithLease(dependencies, lease),
+    ),
+    dependencies,
+  )
 }

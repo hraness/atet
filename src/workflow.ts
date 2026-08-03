@@ -1,12 +1,18 @@
 import {
-  executeTransmuteOperation,
+  executeTransmuteOperationWithLease,
   isTransmuteOperationCode,
   parseTransmuteOperationInput,
+  transmuteOperationHostResourceClaims,
   type TransmuteOperationCode,
   type TransmuteOperationDependencies,
   type TransmuteOperationInputMap,
   type TransmuteOperationResultMap,
 } from "./operations.js"
+import {
+  createDefaultHostResourceCoordinator,
+  type HostResourceCoordinator,
+  type HostResourceLease,
+} from "./host-resources.js"
 
 const workflowIdPattern = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/u
 const workflowStepIdPattern = /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/u
@@ -62,6 +68,7 @@ export class TransmuteWorkflowError extends Error {
 }
 
 export interface TransmuteWorkflowExecutorContext {
+  readonly hostResourceLease: HostResourceLease
   readonly signal: AbortSignal
   readonly stepId: string
 }
@@ -95,10 +102,16 @@ export interface DefineTransmuteWorkflowOptions<Input, Output>
   extends TransmuteWorkflowDefinition<Input, Output> {}
 
 export interface RunTransmuteWorkflowOptions {
+  /**
+   * Operation dependencies may also carry admission controls. Explicit
+   * workflow-level controls take precedence when both are present.
+   */
   readonly dependencies?: TransmuteOperationDependencies
   readonly executor?: TransmuteWorkflowExecutor
+  readonly hostResourceCoordinator?: HostResourceCoordinator
   readonly maximumSteps?: number
   readonly signal?: AbortSignal
+  readonly waitTimeoutMilliseconds?: number
 }
 
 export interface TransmuteWorkflowRun<Output> {
@@ -209,7 +222,9 @@ export async function runTransmuteWorkflow<Input, Output>(
 ): Promise<TransmuteWorkflowRun<Awaited<Output>>> {
   const normalized = defineTransmuteWorkflow(definition)
   const limit = maximumSteps(options.maximumSteps)
-  const signal = options.signal ?? new AbortController().signal
+  const signal = options.signal
+    ?? options.dependencies?.signal
+    ?? new AbortController().signal
   const invoked = new Set<string>()
   const completed: TransmuteWorkflowStepReceipt[] = []
   const dispatched: Promise<unknown>[] = []
@@ -233,7 +248,18 @@ export async function runTransmuteWorkflow<Input, Output>(
     ?? (<C extends TransmuteOperationCode>(
       code: C,
       operationInput: TransmuteOperationInputMap[C],
-    ) => executeTransmuteOperation(code, operationInput, options.dependencies))
+      context: TransmuteWorkflowExecutorContext,
+    ) => executeTransmuteOperationWithLease(
+      code,
+      operationInput,
+      context.hostResourceLease,
+      options.dependencies,
+    ))
+  const hostResourceCoordinator = options.hostResourceCoordinator
+    ?? options.dependencies?.hostResourceCoordinator
+    ?? createDefaultHostResourceCoordinator()
+  const waitTimeoutMilliseconds = options.waitTimeoutMilliseconds
+    ?? options.dependencies?.waitTimeoutMilliseconds
 
   async function dispatchOperation<C extends TransmuteOperationCode>(
     id: string,
@@ -277,21 +303,31 @@ export async function runTransmuteWorkflow<Input, Output>(
       )
     }
     try {
-      const result = await executor(code, normalizedInput, {
-        signal,
-        stepId: id,
-      })
-      if (signal.aborted) throw aborted(completed)
+      const result = await hostResourceCoordinator.withLease(
+        transmuteOperationHostResourceClaims(code),
+        async (hostResourceLease) => await executor(code, normalizedInput, {
+          hostResourceLease,
+          signal,
+          stepId: id,
+        }),
+        {
+          signal,
+          ...(waitTimeoutMilliseconds === undefined
+            ? {}
+            : { waitTimeoutMilliseconds }),
+        },
+      )
       completed.push(Object.freeze({ id, index, operation: code }))
+      if (signal.aborted) throw aborted(completed)
       return result
     } catch (cause) {
-      if (signal.aborted) throw aborted(completed, cause)
       if (
         cause instanceof TransmuteWorkflowError &&
         cause.code === "WORKFLOW_ABORTED"
       ) {
         throw cause
       }
+      if (signal.aborted) throw aborted(completed, cause)
       throw new TransmuteWorkflowError(
         "WORKFLOW_STEP_FAILED",
         `Workflow step ${id} (${code}) failed.`,

@@ -1,6 +1,6 @@
 {
   "name": "@hraness/transmute",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "A headless visual-media SDK, Bun CLI, and Agent Skill for typed workflows, deterministic diagrams, bounded image generation, safe raster vectorization, canvas interchange, semantic operations, and MCP.",
   "license": "MIT",
   "type": "module",
@@ -10,6 +10,7 @@
     "./src/discovery.ts",
     "./src/generate.ts",
     "./src/graphics-compat-cli.ts",
+    "./src/host-resources.ts",
     "./src/index.ts",
     "./src/operations.ts",
     "./src/vectorize/worker.ts",
@@ -34,7 +35,8 @@
     "svg",
     "vtracer",
     "mcp",
-    "workflow"
+    "workflow",
+    "resource-coordination"
   ],
   "exports": {
     ".": {
@@ -52,6 +54,10 @@
     "./generate": {
       "types": "./src/generate.ts",
       "import": "./dist/generate.js"
+    },
+    "./host-resources": {
+      "types": "./src/host-resources.ts",
+      "import": "./dist/host-resources.js"
     },
     "./operations": {
       "types": "./src/operations.ts",
@@ -81,6 +87,8 @@
     "src/discovery.ts",
     "src/fs.ts",
     "src/generate.ts",
+    "src/host-resource-posix.ts",
+    "src/host-resources.ts",
     "src/graphics-compat-cli.ts",
     "src/graphics-compat/artifacts.ts",
     "src/graphics-compat/auth.ts",
@@ -133,7 +141,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/index.ts ./src/auth.ts ./src/discovery.ts ./src/generate.ts ./src/operations.ts ./src/workflow.ts ./src/graphics-compat-cli.ts ./src/cli.ts ./src/vectorize/worker.ts --outdir ./dist --root ./src --target bun --format esm --splitting --packages external",
+    "build": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/index.ts ./src/auth.ts ./src/discovery.ts ./src/generate.ts ./src/host-resources.ts ./src/operations.ts ./src/workflow.ts ./src/graphics-compat-cli.ts ./src/cli.ts ./src/vectorize/worker.ts --outdir ./dist --root ./src --target bun --format esm --splitting --packages external",
     "typecheck": "tsc --noEmit",
     "test": "bun test ./src",
     "check:release-workflows": "bun test ./scripts/release-workflow.test.ts",

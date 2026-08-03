@@ -4,9 +4,11 @@ import {
   MAX_VECTORIZE_RESPONSE_BYTES,
   VECTORIZE_WORKER_PROTOCOL,
   VectorizeError,
+  configureVectorizeSharpConcurrency,
   forwardVectorizeWorkerTermination,
-  vectorizeImageInProcess
-} from "../index-gmbahcdg.js";
+  vectorizeImageInProcess,
+  withInheritedCommandFileDescriptors
+} from "../index-y5zkj6v2.js";
 import"../index-z1w83f81.js";
 
 // src/vectorize/worker.ts
@@ -31,11 +33,12 @@ await main();
 async function main() {
   let response;
   try {
+    configureVectorizeSharpConcurrency();
     const requestText = await readBoundedInput();
     const request = parseRequest(requestText);
     const input = decodeInput(request.input);
     const temporaryRoot = await validateTemporaryRoot(request.temporaryRoot);
-    const result = await vectorizeImageInProcess(input, request.options, temporaryRoot);
+    const result = await withInheritedCommandFileDescriptors(request.options.inheritedFileDescriptors, async () => await vectorizeImageInProcess(input, request.options, temporaryRoot));
     response = {
       ok: true,
       protocol: VECTORIZE_WORKER_PROTOCOL,

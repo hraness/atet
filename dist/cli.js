@@ -5,25 +5,27 @@ import {
   checkDiagramFile,
   renderDiagramFile,
   runMcpServer
-} from "./index-dk7qjakz.js";
-import"./index-ea2cfcf4.js";
+} from "./index-hf8stwfc.js";
+import"./index-24rrmyhb.js";
 import {
   executeTransmuteOperation,
   isTransmuteOperationCode,
   searchTransmuteOperations,
-  transmuteOperationCodes
-} from "./index-3881gnsc.js";
+  transmuteOperationCodes,
+  withTransmuteOperationHostAdmission
+} from "./index-q9jx29hh.js";
 import {
   generateTransmuteImageFile
-} from "./index-bx6frv9p.js";
+} from "./index-b6x4jg9v.js";
 import {
   loginTransmute,
   logoutTransmute,
   transmuteAuthStatus
-} from "./index-92tsktza.js";
+} from "./index-8chnv65r.js";
 import {
   transmuteImageModels
-} from "./index-89aws2ys.js";
+} from "./index-eakbnph9.js";
+import"./index-dxtrd5pg.js";
 import {
   desktopStatus,
   getLatestDesktopRelease,
@@ -38,7 +40,7 @@ import {
 import"./index-15w61te4.js";
 import {
   vectorizeImage
-} from "./index-gmbahcdg.js";
+} from "./index-y5zkj6v2.js";
 import {
   __require
 } from "./index-z1w83f81.js";
@@ -47,7 +49,7 @@ import {
 import { writeFile } from "fs/promises";
 import { resolve } from "path";
 import { createInterface } from "readline/promises";
-var transmuteCliVersion = "0.6.0";
+var transmuteCliVersion = "0.7.0";
 var help = `transmute ${transmuteCliVersion}
 
 Turn source material into deterministic diagrams, images, and canvas assets.
@@ -170,7 +172,7 @@ function printFindings(findings) {
   }
 }
 var starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/transmute/v0.6.0/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/transmute/v0.7.0/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },
@@ -208,6 +210,9 @@ async function confirmInstall() {
   } finally {
     prompt.close();
   }
+}
+function hostAdmissionOptions(dependencies) {
+  return dependencies.hostResourceCoordinator === undefined ? {} : { hostResourceCoordinator: dependencies.hostResourceCoordinator };
 }
 function canonicalArguments(args) {
   const [surface, subcommand, ...rest] = args;
@@ -266,10 +271,10 @@ async function main(args, dependencies = {}) {
   }
   if (command === "check") {
     const parsed = parseArguments(rest, new Set(["config"]));
-    const result = await checkDiagramFile({
+    const result = await withTransmuteOperationHostAdmission("transmute.diagram.check", async () => await checkDiagramFile({
       filePath: requiredPositional(parsed, 0, "diagram file"),
       ...parsed.options.config === undefined ? {} : { configPath: parsed.options.config }
-    });
+    }), hostAdmissionOptions(dependencies));
     console.log(`Valid diagram${result.configPath === null ? "" : ` with ${result.configPath}`}.`);
     printFindings(result.findings);
     if (parsed.flags.has("strict") && result.findings.length > 0)
@@ -279,12 +284,12 @@ async function main(args, dependencies = {}) {
   if (command === "render") {
     const parsed = parseArguments(rest, new Set(["out-dir", "config", "scale"]));
     const scale = parsed.options.scale === undefined ? undefined : Number.parseFloat(parsed.options.scale);
-    const result = await renderDiagramFile({
+    const result = await withTransmuteOperationHostAdmission("transmute.diagram.render", async () => await renderDiagramFile({
       filePath: requiredPositional(parsed, 0, "diagram file"),
       ...parsed.options["out-dir"] === undefined ? {} : { outDirectory: parsed.options["out-dir"] },
       ...parsed.options.config === undefined ? {} : { configPath: parsed.options.config },
       ...scale === undefined ? {} : { scale }
-    });
+    }), hostAdmissionOptions(dependencies));
     console.log(artifactSummary(result.artifacts));
     printFindings(result.findings);
     return;
@@ -305,12 +310,13 @@ async function main(args, dependencies = {}) {
     const alphaCutoff = parsePositiveInteger(parsed.options["alpha-cutoff"], "alpha-cutoff");
     const timeoutMs = parsePositiveInteger(parsed.options["timeout-ms"], "timeout-ms");
     const duotone = parseDuotone(parsed.options.duotone);
-    const result = await (dependencies.vectorize ?? vectorizeImage)(requiredPositional(parsed, 0, "raster image"), {
+    const result = await withTransmuteOperationHostAdmission("transmute.image.vectorize", async (lease) => await (dependencies.vectorize ?? vectorizeImage)(requiredPositional(parsed, 0, "raster image"), {
       ...alphaCutoff === undefined ? {} : { alphaCutoff },
       ...duotone === undefined ? {} : { duotone },
       ...timeoutMs === undefined ? {} : { limits: { maxDurationMs: timeoutMs } },
+      inheritedFileDescriptors: [lease.inheritedFileDescriptor],
       outputPath: output
-    });
+    }), hostAdmissionOptions(dependencies));
     if (parsed.flags.has("json")) {
       (dependencies.log ?? console.log)(JSON.stringify({ ...result.receipt, outputPath: result.outputPath }, null, 2));
     } else {
@@ -331,12 +337,12 @@ async function main(args, dependencies = {}) {
     if (!transmuteImageModels.includes(model)) {
       throw new Error(`--model must be ${transmuteImageModels[0]} or ${transmuteImageModels[1]}`);
     }
-    const result = await (dependencies.generate ?? generateTransmuteImageFile)({
+    const result = await withTransmuteOperationHostAdmission("transmute.image.generate", async () => await (dependencies.generate ?? generateTransmuteImageFile)({
       model,
       prompt: requiredPositional(parsed, 0, "prompt"),
       outputPath: requiredOption(parsed, "output"),
       ...parsed.options["idempotency-key"] === undefined ? {} : { idempotencyKey: parsed.options["idempotency-key"] }
-    });
+    }), hostAdmissionOptions(dependencies));
     if (parsed.flags.has("json")) {
       (dependencies.log ?? console.log)(JSON.stringify(result, null, 2));
     } else {
@@ -402,8 +408,10 @@ async function main(args, dependencies = {}) {
       } catch {
         throw new Error("--input must be valid JSON");
       }
-      const result = await executeTransmuteOperation(operation, input);
-      console.log(JSON.stringify({ operation, result }, null, 2));
+      const result = await executeTransmuteOperation(operation, input, {
+        ...hostAdmissionOptions(dependencies)
+      });
+      (dependencies.log ?? console.log)(JSON.stringify({ operation, result }, null, 2));
       return;
     }
     throw new Error("Use transmute code search [query] or transmute code execute <operation> --input <JSON>");

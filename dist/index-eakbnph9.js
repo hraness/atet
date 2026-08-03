@@ -346,7 +346,7 @@ async function fetchTransmuteDiscovery(fetchImplementation = fetch) {
     response = await fetchImplementation(transmuteDiscoveryUrl, {
       headers: {
         accept: "application/json",
-        "user-agent": "hraness-transmute-cli/0.6.0"
+        "user-agent": "hraness-transmute-cli/0.7.0"
       },
       redirect: "error",
       signal: AbortSignal.timeout(1e4)

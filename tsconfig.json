@@ -21,6 +21,9 @@
       "@hraness/transmute/generate": [
         "./src/generate.ts"
       ],
+      "@hraness/transmute/host-resources": [
+        "./src/host-resources.ts"
+      ],
       "@hraness/transmute/operations": [
         "./src/operations.ts"
       ],

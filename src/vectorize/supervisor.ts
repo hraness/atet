@@ -95,9 +95,19 @@ async function executeVectorizeWorker(
       WORKER_SHUTDOWN_RESERVE_MS -
       WORKER_RESPONSE_RESERVE_MS,
   )
+  const inheritedFileDescriptors = inheritedDescriptors(
+    options.inheritedFileDescriptors,
+  )
+  const workerInheritedFileDescriptors = inheritedFileDescriptors.map(
+    (_descriptor, index) => index + 3,
+  )
   const request: VectorizeWorkerRequest = {
     input: workerInput,
-    options: cloneOptions(options, workerDurationMs),
+    options: cloneOptions(
+      options,
+      workerDurationMs,
+      workerInheritedFileDescriptors,
+    ),
     protocol: VECTORIZE_WORKER_PROTOCOL,
     temporaryRoot,
   }
@@ -125,6 +135,9 @@ async function executeVectorizeWorker(
     Math.floor(remainingMs - WORKER_SHUTDOWN_RESERVE_MS),
     "trace_failed",
     {
+      ...(inheritedFileDescriptors.length === 0
+        ? {}
+        : { inheritedFileDescriptors }),
       maxStdoutBytes: MAX_VECTORIZE_RESPONSE_BYTES,
       stdin: requestBytes,
     },
@@ -199,6 +212,7 @@ function encodeBytes(
 function cloneOptions(
   options: VectorizeOptions,
   workerDurationMs: number,
+  inheritedFileDescriptors: readonly number[],
 ): VectorizeOptions {
   return {
     ...(options.alphaCutoff === undefined ? {} : { alphaCutoff: options.alphaCutoff }),
@@ -208,12 +222,36 @@ function cloneOptions(
     ...(options.duotone === undefined
       ? {}
       : { duotone: [options.duotone[0], options.duotone[1]] as const }),
+    ...(inheritedFileDescriptors.length === 0
+      ? {}
+      : { inheritedFileDescriptors }),
     limits: {
       ...options.limits,
       maxDurationMs: workerDurationMs,
     },
     ...(options.outputPath === undefined ? {} : { outputPath: options.outputPath }),
   }
+}
+
+function inheritedDescriptors(
+  value: readonly number[] | undefined,
+): readonly number[] {
+  const descriptors = value ?? []
+  if (
+    descriptors.length > 16
+    || descriptors.some((descriptor, index) => (
+      !Number.isSafeInteger(descriptor)
+      || descriptor < 0
+      || descriptor > 2_147_483_647
+      || descriptors.indexOf(descriptor) !== index
+    ))
+  ) {
+    throw new VectorizeError(
+      "invalid_input",
+      "Inherited vectorizer descriptors must be unique bounded integers.",
+    )
+  }
+  return Object.freeze([...descriptors])
 }
 
 function workerEntryPath(): string {

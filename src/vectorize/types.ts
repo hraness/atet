@@ -24,6 +24,12 @@ export interface VectorizeOptions {
   readonly cacheDirectory?: string
   /** Replace traced colors with a primary and secondary color. */
   readonly duotone?: readonly [primary: string, secondary: string]
+  /**
+   * Advanced host authority inherited by the isolated worker and tracer.
+   * At most sixteen unique open descriptors are accepted. Values are never
+   * recorded in provenance or receipts.
+   */
+  readonly inheritedFileDescriptors?: readonly number[]
   /** Bound a conversion more tightly than the package hard limits. */
   readonly limits?: Partial<VectorizeLimits>
   /** Atomically replace this file after every quality gate succeeds. */

@@ -14,6 +14,10 @@ import {
   transmuteProductionContract,
   transmuteRedirectUri,
 } from "../discovery.ts"
+import type {
+  HostResourceClaim,
+  HostResourceCoordinator,
+} from "../host-resources.ts"
 import {
   TransmuteMcpToolRuntime,
   mcpMaximumEdges,
@@ -21,6 +25,33 @@ import {
   mcpMaximumShapes,
 } from "./tools.ts"
 import type { McpToolResult } from "./types.ts"
+
+function recordingCoordinator(record: {
+  assertions: number
+  claims: HostResourceClaim[][]
+}, inheritedFileDescriptor = 97): HostResourceCoordinator {
+  const profile = {
+    id: "transmute.mcp-test-host/v1",
+    capacities: [],
+  } as const
+  return {
+    profile,
+    scope: "process",
+    async withLease(claims, callback) {
+      record.claims.push([...claims])
+      return await callback({
+        claims,
+        inheritedFileDescriptor,
+        profile,
+        ticket: String(record.claims.length),
+        assertOwned: () => {
+          record.assertions += 1
+          return Promise.resolve()
+        },
+      })
+    },
+  }
+}
 
 function expectToolError(result: McpToolResult, code: string): void {
   expect(result).toMatchObject({
@@ -127,7 +158,12 @@ describe("Transmute MCP tools", () => {
         join(root, "transmute.config.ts"),
         `await Bun.write(${JSON.stringify(marker)}, "executed"); export default {}\n`,
       )
-      const runtime = await TransmuteMcpToolRuntime.create(root)
+      const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
+      const runtime = await TransmuteMcpToolRuntime.create(
+        root,
+        {},
+        recordingCoordinator(admission),
+      )
       const result = await runtime.call("check_diagram", {
         path: "agent-flow.diagram.json",
       })
@@ -137,6 +173,11 @@ describe("Transmute MCP tools", () => {
         source: "agent-flow.diagram.json",
       })
       expect(await Bun.file(marker).exists()).toBe(false)
+      expect(admission.claims).toEqual([[
+        { resource: "cpu", amount: 1 },
+        { resource: "local-io", amount: 1 },
+      ]])
+      expect(admission.assertions).toBe(1)
     } finally {
       await rm(root, { recursive: true, force: true })
     }
@@ -447,6 +488,7 @@ describe("Transmute MCP tools", () => {
       0x56, 0x50, 0x38, 0x58,
     ])
     let calls = 0
+    const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
     try {
       const runtime = await TransmuteMcpToolRuntime.create(root, {
         secrets: {
@@ -485,7 +527,7 @@ describe("Transmute MCP tools", () => {
             requestId: "mcp_request",
           })
         },
-      })
+      }, recordingCoordinator(admission))
       const result = await runtime.call("execute_transmute", {
         operation: "transmute.image.generate",
         input: {
@@ -496,6 +538,11 @@ describe("Transmute MCP tools", () => {
         },
       })
       expect(calls).toBe(2)
+      expect(admission.claims).toEqual([[
+        { resource: "local-io", amount: 1 },
+        { resource: "network", amount: 1 },
+        { resource: "paid-call", amount: 1 },
+      ]])
       expect(result.isError).toBeUndefined()
       expect(result.content).toHaveLength(1)
       expect(result.structuredContent).toMatchObject({

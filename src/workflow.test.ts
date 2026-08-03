@@ -5,6 +5,11 @@ import {
   TransmuteWorkflowError,
   type TransmuteWorkflowExecutor,
 } from "./workflow.ts"
+import {
+  createProcessLocalHostResourceCoordinator,
+  type HostResourceCoordinator,
+  type HostResourceLeaseOptions,
+} from "./host-resources.ts"
 
 function diagramInput(value: unknown): { readonly path: string } {
   if (
@@ -18,7 +23,72 @@ function diagramInput(value: unknown): { readonly path: string } {
   return { path: Reflect.get(value, "path") as string }
 }
 
+async function waitUntil(predicate: () => boolean): Promise<void> {
+  const deadline = performance.now() + 2_000
+  while (!predicate()) {
+    if (performance.now() >= deadline) {
+      throw new Error("Timed out waiting for workflow executor admission.")
+    }
+    await Bun.sleep(2)
+  }
+}
+
 describe("typed Transmute workflows", () => {
+  test("wraps a custom executor in immutable operation-owned admission", async () => {
+    const coordinator = createProcessLocalHostResourceCoordinator({
+      profile: {
+        id: "test.workflow-admission/v1",
+        capacities: [
+          { resource: "cpu", limit: 1 },
+          { resource: "local-io", limit: 1 },
+        ],
+      },
+    })
+    const workflowSignal = new AbortController().signal
+    let observedAdmissionOptions: HostResourceLeaseOptions | undefined
+    const workflowCoordinator: HostResourceCoordinator = {
+      profile: coordinator.profile,
+      scope: coordinator.scope,
+      withLease: async (claims, callback, options) => {
+        observedAdmissionOptions = options
+        return await coordinator.withLease(claims, callback, options)
+      },
+    }
+    let observedLease: unknown
+    const workflow = defineTransmuteWorkflow({
+      id: "custom-executor-admission",
+      version: 1,
+      parseInput: diagramInput,
+      run: (context, input) => context.operation(
+        "check",
+        "transmute.diagram.check",
+        input,
+      ),
+    })
+    await runTransmuteWorkflow(workflow, { path: "flow.diagram.json" }, {
+      dependencies: {
+        hostResourceCoordinator: workflowCoordinator,
+        signal: workflowSignal,
+        waitTimeoutMilliseconds: 1_234,
+      },
+      executor: (async (_code, _input, { hostResourceLease, signal }) => {
+        observedLease = hostResourceLease
+        expect(signal).toBe(workflowSignal)
+        await hostResourceLease.assertOwned()
+        expect(hostResourceLease.claims).toEqual([
+          { resource: "cpu", amount: 1 },
+          { resource: "local-io", amount: 1 },
+        ])
+        return { configPath: null, findings: [] }
+      }) as TransmuteWorkflowExecutor,
+    })
+    expect(observedLease).toBeDefined()
+    expect(observedAdmissionOptions).toEqual({
+      signal: workflowSignal,
+      waitTimeoutMilliseconds: 1_234,
+    })
+  })
+
   test("parses input and runs typed operations with an ordered receipt", async () => {
     const calls: string[] = []
     const executor: TransmuteWorkflowExecutor = (async (code, input) => {
@@ -85,9 +155,30 @@ describe("typed Transmute workflows", () => {
   })
 
   test("keeps parallel receipts in invocation order", async () => {
+    const coordinator = createProcessLocalHostResourceCoordinator({
+      profile: {
+        id: "test.workflow-parallel-receipts/v1",
+        capacities: [
+          { resource: "cpu", limit: 2 },
+          { resource: "local-io", limit: 2 },
+        ],
+      },
+    })
+    const admitted = new Set<string>()
+    const completed = new Set<string>()
     const releases = new Map<string, () => void>()
+    const blockers = new Map(["first", "second"].map((stepId) => {
+      let release!: () => void
+      const blocker = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      releases.set(stepId, release)
+      return [stepId, blocker] as const
+    }))
     const executor = (async (_code, _input, { stepId }) => {
-      await new Promise<void>((resolve) => releases.set(stepId, resolve))
+      admitted.add(stepId)
+      await blockers.get(stepId)
+      completed.add(stepId)
       return { configPath: null, findings: [] }
     }) as TransmuteWorkflowExecutor
     const workflow = defineTransmuteWorkflow({
@@ -105,11 +196,16 @@ describe("typed Transmute workflows", () => {
           "transmute.diagram.check",
           input,
         )
-        await Promise.resolve()
-        releases.get("second")?.()
-        await Promise.resolve()
-        releases.get("first")?.()
-        await Promise.all([first, second])
+        try {
+          await waitUntil(() => admitted.size === 2)
+          releases.get("second")?.()
+          await waitUntil(() => completed.has("second"))
+          releases.get("first")?.()
+          await Promise.all([first, second])
+        } finally {
+          releases.get("second")?.()
+          releases.get("first")?.()
+        }
         return "done"
       },
     })
@@ -117,7 +213,7 @@ describe("typed Transmute workflows", () => {
     const result = await runTransmuteWorkflow(
       workflow,
       { path: "flow.diagram.json" },
-      { executor },
+      { executor, hostResourceCoordinator: coordinator },
     )
     expect(result.steps.map(({ id }) => id)).toEqual(["first", "second"])
   })
@@ -149,7 +245,7 @@ describe("typed Transmute workflows", () => {
     void execution.then(() => {
       settled = true
     })
-    await Promise.resolve()
+    await waitUntil(() => release !== undefined)
     expect(settled).toBe(false)
     release?.()
 
@@ -363,7 +459,20 @@ describe("typed Transmute workflows", () => {
   })
 
   test("freezes a parallel failure receipt before a sibling settles", async () => {
-    let releaseSibling: (() => void) | undefined
+    const coordinator = createProcessLocalHostResourceCoordinator({
+      profile: {
+        id: "test.workflow-parallel-failure/v1",
+        capacities: [
+          { resource: "cpu", limit: 2 },
+          { resource: "local-io", limit: 2 },
+        ],
+      },
+    })
+    let siblingAdmitted = false
+    let releaseSibling!: () => void
+    const siblingBlocker = new Promise<void>((resolve) => {
+      releaseSibling = resolve
+    })
     let markFailed: () => void = () => undefined
     const failed = new Promise<void>((resolve) => {
       markFailed = resolve
@@ -374,9 +483,8 @@ describe("typed Transmute workflows", () => {
         markFailed()
         throw cause
       }
-      await new Promise<void>((resolve) => {
-        releaseSibling = resolve
-      })
+      siblingAdmitted = true
+      await siblingBlocker
       return { configPath: null, findings: [] }
     }) as TransmuteWorkflowExecutor
     const workflow = defineTransmuteWorkflow({
@@ -394,16 +502,26 @@ describe("typed Transmute workflows", () => {
     const execution = runTransmuteWorkflow(
       workflow,
       { path: "flow.diagram.json" },
-      { executor },
+      { executor, hostResourceCoordinator: coordinator },
     )
-    await failed
-    releaseSibling?.()
+    let admissionFailure: unknown
+    try {
+      await failed
+      await waitUntil(() => siblingAdmitted)
+    } catch (error) {
+      admissionFailure = error
+    } finally {
+      releaseSibling()
+    }
 
     let failure: unknown
     try {
       await execution
     } catch (error) {
       failure = error
+    }
+    if (admissionFailure !== undefined) {
+      throw admissionFailure
     }
     expect(failure).toMatchObject({
       code: "WORKFLOW_STEP_FAILED",
@@ -424,7 +542,7 @@ describe("typed Transmute workflows", () => {
     })
     await expect(
       runTransmuteWorkflow(workflow, { path: "flow.diagram.json" }, {
-        signal: controller.signal,
+        dependencies: { signal: controller.signal },
       }),
     ).rejects.toMatchObject({ code: "WORKFLOW_ABORTED" })
   })
@@ -459,6 +577,35 @@ describe("typed Transmute workflows", () => {
       completedSteps: [],
     })
     expect(receivedSignal).toBe(controller.signal)
+  })
+
+  test("retains a completed step when cancellation becomes visible at settlement", async () => {
+    const controller = new AbortController()
+    const workflow = defineTransmuteWorkflow({
+      id: "abort-at-settlement",
+      version: 1,
+      parseInput: diagramInput,
+      run(context, input) {
+        return context.operation("check", "transmute.diagram.check", input)
+      },
+    })
+    const execution = runTransmuteWorkflow(
+      workflow,
+      { path: "flow.diagram.json" },
+      {
+        signal: controller.signal,
+        executor: (async () => {
+          controller.abort()
+          return { configPath: null, findings: [] }
+        }) as TransmuteWorkflowExecutor,
+      },
+    )
+    await expect(execution).rejects.toMatchObject({
+      code: "WORKFLOW_ABORTED",
+      completedSteps: [
+        { id: "check", index: 0, operation: "transmute.diagram.check" },
+      ],
+    })
   })
 
   test("validates stable workflow identity", () => {
