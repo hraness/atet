@@ -1,6 +1,11 @@
 # Transmute
 
-Transmute is a headless TypeScript toolkit and Bun CLI for turning checked source into visual assets. It currently provides deterministic diagrams, light and dark raster/vector exports, editable tldraw interchange, bounded raster-to-SVG conversion, authenticated hosted image generation, typed Bun-script workflows, semantic operation dispatch, and a local MCP server.
+Transmute is an agent tool for generating and editing images and video. This
+package is its narrower headless TypeScript toolkit and Bun CLI for turning
+checked source into visual assets. It currently provides deterministic
+diagrams, light and dark raster/vector exports, editable tldraw interchange,
+bounded raster-to-SVG conversion, authenticated hosted image generation, typed
+Bun-script workflows, semantic operation dispatch, and a local MCP server.
 
 The package is designed to compose with editors and video renderers. A diagram, generated image, traced SVG, or `.tldr` canvas remains an ordinary media input rather than a format trapped inside the tool.
 
