@@ -33,7 +33,7 @@ import type { HostResourceCoordinator } from "./host-resources.js"
 import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.js"
 import { pathExists } from "./fs.js"
 
-export const transmuteCliVersion = "0.7.0"
+export const transmuteCliVersion = "0.8.0"
 
 const help = `transmute ${transmuteCliVersion}
 
@@ -168,7 +168,7 @@ function printFindings(findings: Awaited<ReturnType<typeof checkDiagramFile>>["f
 }
 
 const starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/transmute/v0.7.0/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/transmute/v0.8.0/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },

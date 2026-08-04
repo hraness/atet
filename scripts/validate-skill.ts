@@ -31,6 +31,7 @@ if ((frontmatter.description?.length ?? 0) > 1024) {
 for (const relativePath of [
   "agents/openai.yaml",
   "references/customization.md",
+  "references/reference-led-3d.md",
   "references/visual-communication.md",
 ]) {
   try {

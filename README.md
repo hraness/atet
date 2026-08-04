@@ -13,17 +13,17 @@ Project site: [transmute.rocks](https://transmute.rocks)
 
 ## Install
 
-Pin the public repository to the immutable `v0.7.0` tag:
+Pin the public repository to the immutable `v0.8.0` tag:
 
 ```sh
-bun add --global github:hraness/transmute#v0.7.0
+bun add --global github:hraness/transmute#v0.8.0
 transmute doctor
 ```
 
 For programmatic use:
 
 ```sh
-bun add github:hraness/transmute#v0.7.0
+bun add github:hraness/transmute#v0.8.0
 ```
 
 Transmute requires Bun 1.3.14. Diagram rendering works on macOS, Linux, and Windows. Bounded VTracer execution works on macOS and Linux; Windows fails closed with `tool_platform` until its output can cross the same bounded capture path. Semantic operation and workflow resource admission is machine-global on macOS and Linux and process-local on other supported Bun platforms.
@@ -52,7 +52,7 @@ Use this schema URL in authored files:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/hraness/transmute/v0.7.0/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/transmute/v0.8.0/schema/diagram.schema.json",
   "version": 1,
   "name": "source-result",
   "canvas": { "width": 960, "height": 540 },
@@ -231,6 +231,32 @@ must inherit its descriptor and call `assertOwned()` before irreversible work.
 
 Workflow modules are trusted Bun code that you explicitly import and run. The SDK does not load arbitrary paths, evaluate source strings, add operation codes, or expose the private desktop recording and editing runtime.
 
+## Continue reference-led work in Desktop
+
+Image-to-Three.js scenes and reference-led metallic logo treatments use
+Transmute Desktop Code Mode. They are not hidden operations in this headless
+runner. Desktop composes `gateway.image`, reviewed HTML scene source, the exact
+Three.js browser lock, and `media.htmlOverlay` in its typed project graph.
+
+The staged Three.js flow is reference generation, source authoring, review,
+full-length 1x preview, then selected final render. The exact reference artifact
+remains bound to the scene as provenance. Model-produced JavaScript is never an
+operation input. The Desktop starter supplies explicit color and tone policy,
+camera fitting, draw-call and triangle ceilings, deterministic orbit, zoom and
+explode parameters, shader precompilation, and GPU cleanup.
+
+Metallic logo generation stays an image treatment. Its typed Desktop recipe
+takes an exact logo reference, brand
+name, background color, object color, and explicit model. The reference remains
+the shape authority, and the output remains a candidate until silhouette,
+negative space, proportions, and lettering pass review.
+
+The packaged Agent Skill contains the complete procedure in
+`skills/transmute/references/reference-led-3d.md`. If only this public package is
+installed, generate the source image here and continue in Desktop. Do not add
+Three.js as a dependency or evaluate scene source through the fixed public
+operation registry.
+
 ## Connect MCP
 
 ```sh
@@ -263,7 +289,7 @@ The skill keeps literal prompts, checked diagram source, rendering, vectorizatio
 
 ## Graphics v0.4 compatibility
 
-Version 0.5 folded the former `hraness/graphics` command into Transmute, and versions 0.6 and 0.7 preserve that contract unchanged. The package retains a `graphics` executable for existing automation. It preserves the v0.4 flat command grammar, `graphics.*` operation codes, JSON stdout, `graphics.config.*` discovery, `GRAPHICS_VTRACER_PATH`, `GRAPHICS_CACHE_DIR`, the `com.hraness.graphics.cli` credential entry, `hraness.graphics` cloud contract, and `search_graphics`/`execute_graphics` MCP tools.
+Version 0.5 folded the former `hraness/graphics` command into Transmute, and versions 0.6 through 0.8 preserve that contract unchanged. The package retains a `graphics` executable for existing automation. It preserves the v0.4 flat command grammar, `graphics.*` operation codes, JSON stdout, `graphics.config.*` discovery, `GRAPHICS_VTRACER_PATH`, `GRAPHICS_CACHE_DIR`, the `com.hraness.graphics.cli` credential entry, `hraness.graphics` cloud contract, and `search_graphics`/`execute_graphics` MCP tools.
 
 New scripts should use the namespaced Transmute grammar. The compatibility executable intentionally continues to report `0.4.0` because it is the frozen v0.4 contract.
 

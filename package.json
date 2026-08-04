@@ -1,6 +1,6 @@
 {
   "name": "@hraness/transmute",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "A headless visual-media SDK, Bun CLI, and Agent Skill for typed workflows, deterministic diagrams, bounded image generation, safe raster vectorization, canvas interchange, semantic operations, and MCP.",
   "license": "MIT",
   "type": "module",

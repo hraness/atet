@@ -1,6 +1,6 @@
 ---
 name: transmute
-description: Create or update concise diagrams from a literal user prompt, keep a checked `.diagram.json` source, generate light/dark exports, provide editable tldraw interchange, convert caller-owned raster artwork to bounded SVG, or generate one authenticated hosted WebP with an explicit supported model. Use for diagrams, flowcharts, maps, visual explanations, architecture overviews, bar charts, `.tldr` files, paired knowledge-base visuals, image-to-SVG conversion, semantic Transmute operation search/execute, or hosted image generation.
+description: Create or update concise diagrams from a literal user prompt, keep checked source, generate light/dark exports, provide editable tldraw interchange, convert caller-owned raster artwork to bounded SVG, generate one authenticated hosted WebP, or guide reviewed reference-image workflows for Three.js scenes and metallic logo treatments. Use for diagrams, flowcharts, maps, visual explanations, `.tldr` files, image-to-SVG conversion, image generation, low-poly or transparent 3D motion, metallic brand-symbol renders, semantic Transmute operations, or typed Bun workflows.
 ---
 
 # Create clear diagrams
@@ -150,6 +150,28 @@ and authentication-free.
   durable account-scoped idempotency.
 - Do not decode, write, or trust the image yourself. The CLI bounds canonical
   base64, validates RIFF/WebP media magic, and atomically publishes it.
+
+## Use reference-led 3D and material workflows deliberately
+
+Read [reference-led-3d.md](references/reference-led-3d.md) when the user asks to
+turn a generated or supplied image into a Three.js scene, a low-poly object, a
+transparent 3D loop, or a metallic logo product render.
+
+These are Desktop Code Mode capabilities. The public headless Bun runner can
+generate an image and run its four fixed portable operations, but it does not
+execute HTML overlays, Three.js, or the private project renderer. Never imply
+otherwise. In Desktop:
+
+- Stage image-to-Three work as reference generation, source authoring, review,
+  preview, then final render. Never send model-produced JavaScript directly to
+  a semantic operation.
+- Bind the exact reference artifact to the reviewed scene with
+  `createThreeReferenceScaffoldInput`, even when it is not visibly composited.
+- Use `createMetallicLogoImageRequest` for the reference-led square product
+  treatment. Keep model selection explicit and inspect identity fidelity before
+  accepting the result.
+- Render full-length previews at 1x first. Raise resolution or device scale only
+  after selecting the source and treatment.
 
 ## Vectorize a raster without changing its meaning
 

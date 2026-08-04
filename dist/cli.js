@@ -5,26 +5,26 @@ import {
   checkDiagramFile,
   renderDiagramFile,
   runMcpServer
-} from "./index-hf8stwfc.js";
-import"./index-24rrmyhb.js";
+} from "./index-5nq8hv28.js";
+import"./index-wq2gm2hy.js";
 import {
   executeTransmuteOperation,
   isTransmuteOperationCode,
   searchTransmuteOperations,
   transmuteOperationCodes,
   withTransmuteOperationHostAdmission
-} from "./index-q9jx29hh.js";
+} from "./index-62r8dnkq.js";
 import {
   generateTransmuteImageFile
-} from "./index-b6x4jg9v.js";
+} from "./index-ttffhm81.js";
 import {
   loginTransmute,
   logoutTransmute,
   transmuteAuthStatus
-} from "./index-8chnv65r.js";
+} from "./index-bt7a0bdq.js";
 import {
   transmuteImageModels
-} from "./index-eakbnph9.js";
+} from "./index-sn35spwy.js";
 import"./index-dxtrd5pg.js";
 import {
   desktopStatus,
@@ -49,7 +49,7 @@ import {
 import { writeFile } from "fs/promises";
 import { resolve } from "path";
 import { createInterface } from "readline/promises";
-var transmuteCliVersion = "0.7.0";
+var transmuteCliVersion = "0.8.0";
 var help = `transmute ${transmuteCliVersion}
 
 Turn source material into deterministic diagrams, images, and canvas assets.
@@ -172,7 +172,7 @@ function printFindings(findings) {
   }
 }
 var starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/transmute/v0.7.0/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/transmute/v0.8.0/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },
