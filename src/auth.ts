@@ -564,7 +564,7 @@ async function fetchAuthorizationLaunchUrl(
       method: "GET",
       headers: {
         accept: "application/json",
-        "user-agent": "hraness-transmute-cli/0.8.0",
+        "user-agent": "hraness-transmute-cli/0.9.0",
       },
       redirect: "manual",
       signal: AbortSignal.timeout(15_000),
@@ -649,7 +649,7 @@ async function tokenRequest(
         headers: {
           accept: "application/json",
           "content-type": "application/x-www-form-urlencoded",
-          "user-agent": "hraness-transmute-cli/0.8.0",
+          "user-agent": "hraness-transmute-cli/0.9.0",
         },
         body,
         redirect: "error",
@@ -985,7 +985,7 @@ export async function logoutTransmute(
             headers: {
               accept: "application/json",
               "content-type": "application/x-www-form-urlencoded",
-              "user-agent": "hraness-transmute-cli/0.8.0",
+              "user-agent": "hraness-transmute-cli/0.9.0",
             },
             body: new URLSearchParams({
               token,

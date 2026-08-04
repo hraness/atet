@@ -5,27 +5,8 @@ import {
   checkDiagramFile,
   renderDiagramFile,
   runMcpServer
-} from "./index-5nq8hv28.js";
-import"./index-wq2gm2hy.js";
-import {
-  executeTransmuteOperation,
-  isTransmuteOperationCode,
-  searchTransmuteOperations,
-  transmuteOperationCodes,
-  withTransmuteOperationHostAdmission
-} from "./index-62r8dnkq.js";
-import {
-  generateTransmuteImageFile
-} from "./index-ttffhm81.js";
-import {
-  loginTransmute,
-  logoutTransmute,
-  transmuteAuthStatus
-} from "./index-bt7a0bdq.js";
-import {
-  transmuteImageModels
-} from "./index-sn35spwy.js";
-import"./index-dxtrd5pg.js";
+} from "./index-e3gfc3mr.js";
+import"./index-bcn7vyff.js";
 import {
   desktopStatus,
   getLatestDesktopRelease,
@@ -37,10 +18,29 @@ import {
   installSkill,
   pathExists
 } from "./index-mjemj725.js";
+import {
+  executeTransmuteOperation,
+  isTransmuteOperationCode,
+  searchTransmuteOperations,
+  transmuteOperationCodes,
+  withTransmuteOperationHostAdmission
+} from "./index-wyraz81p.js";
 import"./index-15w61te4.js";
 import {
   vectorizeImage
 } from "./index-y5zkj6v2.js";
+import {
+  generateTransmuteImageFile
+} from "./index-mxht0dzb.js";
+import {
+  loginTransmute,
+  logoutTransmute,
+  transmuteAuthStatus
+} from "./index-3291mzra.js";
+import {
+  transmuteImageModels
+} from "./index-yz7y9m2g.js";
+import"./index-dxtrd5pg.js";
 import {
   __require
 } from "./index-z1w83f81.js";
@@ -49,7 +49,7 @@ import {
 import { writeFile } from "fs/promises";
 import { resolve } from "path";
 import { createInterface } from "readline/promises";
-var transmuteCliVersion = "0.8.0";
+var transmuteCliVersion = "0.9.0";
 var help = `transmute ${transmuteCliVersion}
 
 Turn source material into deterministic diagrams, images, and canvas assets.

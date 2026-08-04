@@ -1,12 +1,14 @@
 {
   "name": "@hraness/transmute",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "A headless visual-media SDK, Bun CLI, and Agent Skill for typed workflows, deterministic diagrams, bounded image generation, safe raster vectorization, canvas interchange, semantic operations, and MCP.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
     "./src/auth.ts",
     "./src/cli.ts",
+    "./src/code/advanced.ts",
+    "./src/code/index.ts",
     "./src/discovery.ts",
     "./src/generate.ts",
     "./src/graphics-compat-cli.ts",
@@ -47,6 +49,14 @@
       "types": "./src/auth.ts",
       "import": "./dist/auth.js"
     },
+    "./code": {
+      "types": "./src/code/index.ts",
+      "import": "./dist/code/index.js"
+    },
+    "./code/advanced": {
+      "types": "./src/code/advanced.ts",
+      "import": "./dist/code/advanced.js"
+    },
     "./discovery": {
       "types": "./src/discovery.ts",
       "import": "./dist/discovery.js"
@@ -81,6 +91,19 @@
     "src/auth.ts",
     "src/cli.ts",
     "src/cloud-errors.ts",
+    "src/code/advanced.ts",
+    "src/code/boundary.ts",
+    "src/code/canonical-json.ts",
+    "src/code/compiler.ts",
+    "src/code/contracts.ts",
+    "src/code/define-workflow.ts",
+    "src/code/errors.ts",
+    "src/code/graph-builder.ts",
+    "src/code/index.ts",
+    "src/code/portable-builder.ts",
+    "src/code/projection.ts",
+    "src/code/public-operations.ts",
+    "src/code/runtime.ts",
     "src/config.ts",
     "src/credential-lease.ts",
     "src/desktop.ts",
@@ -141,7 +164,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/index.ts ./src/auth.ts ./src/discovery.ts ./src/generate.ts ./src/host-resources.ts ./src/operations.ts ./src/workflow.ts ./src/graphics-compat-cli.ts ./src/cli.ts ./src/vectorize/worker.ts --outdir ./dist --root ./src --target bun --format esm --splitting --packages external",
+    "build": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/index.ts ./src/auth.ts ./src/code/index.ts ./src/code/advanced.ts ./src/discovery.ts ./src/generate.ts ./src/host-resources.ts ./src/operations.ts ./src/workflow.ts ./src/graphics-compat-cli.ts ./src/cli.ts ./src/vectorize/worker.ts --outdir ./dist --root ./src --target bun --format esm --splitting --packages external",
     "typecheck": "tsc --noEmit",
     "test": "bun test ./src",
     "check:release-workflows": "bun test ./scripts/release-workflow.test.ts",
@@ -154,7 +177,8 @@
   },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",
-    "sharp": "0.35.3"
+    "sharp": "0.35.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

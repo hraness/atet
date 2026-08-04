@@ -64,7 +64,7 @@ jobs:
             exit 1
           fi
       - run: bun pm pack --dry-run --ignore-scripts
-      - run: node --input-type=module -e 'await import("./dist/index.js")'
+      - run: node --input-type=module -e 'await Promise.all(["./dist/index.js", "./dist/code/index.js", "./dist/code/advanced.js", "./dist/workflow.js"].map((specifier) => import(specifier)))'
 
   official_vtracer:
     name: Official VTracer (${{ matrix.target }})

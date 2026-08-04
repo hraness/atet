@@ -7,23 +7,23 @@ diagrams, light and dark raster/vector exports, editable tldraw interchange,
 bounded raster-to-SVG conversion, authenticated hosted image generation, typed
 Bun-script workflows, semantic operation dispatch, and a local MCP server.
 
-The package is designed to compose with editors and video renderers. A diagram, generated image, traced SVG, or `.tldr` canvas remains an ordinary media input rather than a format trapped inside the tool.
+The package is designed to compose with editors and video renderers. Its portable declarative graph SDK is the canonical workflow core used by the restricted public host and the complete local host. The desktop shell is a native capture and UI client of that local host, not a second workflow engine. A diagram, generated image, traced SVG, or `.tldr` canvas remains an ordinary media input rather than a format trapped inside the tool.
 
 Project site: [transmute.rocks](https://transmute.rocks)
 
 ## Install
 
-Pin the public repository to the immutable `v0.8.0` tag:
+Pin the public repository to the immutable `v0.9.0` tag:
 
 ```sh
-bun add --global github:hraness/transmute#v0.8.0
+bun add --global github:hraness/transmute#v0.9.0
 transmute doctor
 ```
 
 For programmatic use:
 
 ```sh
-bun add github:hraness/transmute#v0.8.0
+bun add github:hraness/transmute#v0.9.0
 ```
 
 Transmute requires Bun 1.3.14. Diagram rendering works on macOS, Linux, and Windows. Bounded VTracer execution works on macOS and Linux; Windows fails closed with `tool_platform` until its output can cross the same bounded capture path. Semantic operation and workflow resource admission is machine-global on macOS and Linux and process-local on other supported Bun platforms.
@@ -49,6 +49,8 @@ system.dark.png
 The source remains authoritative. The five outputs are replaceable and each file is published through an atomic rename. The five-file family is not a filesystem transaction.
 
 Use this schema URL in authored files:
+
+The version-one diagram schema is unchanged in 0.9.0, so its canonical identity remains the `v0.8.0` URL.
 
 ```json
 {
@@ -145,7 +147,21 @@ const result = await executeTransmuteOperation("transmute.diagram.check", {
 })
 ```
 
-## Author a Bun workflow
+## Build a declarative workflow graph
+
+`@hraness/transmute/code` is the additive declarative SDK. It builds a typed graph, compiles that graph against the closed public capability projection, produces a deterministic plan and requirement envelope, then runs accepted operation nodes through the existing semantic executor and host-resource boundary.
+
+The public projection contains exactly the four diagram and image operations listed above. Workflow code cannot register another capability. A graph that names a local-host-only operation fails compilation with `unsupported-plan` before an executor or resource coordinator is called.
+
+See [`examples/declarative-workflow.ts`](examples/declarative-workflow.ts) for a standalone Bun module that checks and renders a diagram. Run it in a checkout with:
+
+```sh
+bun run examples/declarative-workflow.ts examples/capex-opex.diagram.json
+```
+
+`@hraness/transmute/code/advanced` exposes the portable graph, reference, projection, policy, compiler, plan, and runner contracts for hosts that need lower-level integration. It does not expose a mutable global registry, a capability-registration hook, complete local-host bindings, or built-in local workflows.
+
+## Use the v0.8 imperative workflow API
 
 `@hraness/transmute/workflow` composes the same fixed, typed operation registry in an ordinary Bun script. A definition parses its runtime input before work begins. Step ids are unique, execution is bounded to 64 steps by default, and the run result records completed steps in invocation order even when branches settle in a different order.
 
@@ -229,33 +245,40 @@ even if higher-level workflow cancellation has already returned an error.
 Custom executors receive the exact `hostResourceLease`; subprocess launchers
 must inherit its descriptor and call `assertOwned()` before irreversible work.
 
-Workflow modules are trusted Bun code that you explicitly import and run. The SDK does not load arbitrary paths, evaluate source strings, add operation codes, or expose the private desktop recording and editing runtime.
+Workflow modules are trusted current-user Bun code that you explicitly import and run. Module initialization has the same authority as other code run by the current user. The declarative compiler restricts operation nodes to the supplied closed capability projection and rejects unsupported capabilities before executor or resource admission. The SDK does not load arbitrary paths, evaluate source strings, add operation codes, or expose an open registration hook.
 
-## Continue reference-led work in Desktop
+## Continue reference-led work in the complete local host
 
 Image-to-Three.js scenes and reference-led metallic logo treatments use
-Transmute Desktop Code Mode. They are not hidden operations in this headless
-runner. Desktop composes `gateway.image`, reviewed HTML scene source, the exact
-Three.js browser lock, and `media.htmlOverlay` in its typed project graph.
+Transmute's complete local Code Mode host, which is currently distributed from
+the monorepo's `apps/desktop` workspace. That is a packaging location, not a
+separate Desktop-owned workflow core. The host consumes the same canonical SDK
+and adds the durable media runtime. The desktop shell adds native capture,
+operating-system permission flows, and application UI. Those capabilities are
+outside the public four-operation projection. The local host composes
+`gateway.image`, reviewed HTML scene source, the exact Three.js browser lock,
+and `media.htmlOverlay` in its typed project graph.
 
 The staged Three.js flow is reference generation, source authoring, review,
 full-length 1x preview, then selected final render. The exact reference artifact
 remains bound to the scene as provenance. Model-produced JavaScript is never an
-operation input. The Desktop starter supplies explicit color and tone policy,
+operation input. The local-host starter supplies explicit color and tone policy,
 camera fitting, draw-call and triangle ceilings, deterministic orbit, zoom and
 explode parameters, shader precompilation, and GPU cleanup.
 
-Metallic logo generation stays an image treatment. Its typed Desktop recipe
-takes an exact logo reference, brand
-name, background color, object color, and explicit model. The reference remains
-the shape authority, and the output remains a candidate until silhouette,
-negative space, proportions, and lettering pass review.
+Metallic logo generation stays an image treatment. Its typed local-host recipe
+takes an exact logo reference, brand name, background color, object color, and
+explicit model. The reference remains the shape authority, and the output
+remains a candidate until silhouette, negative space, proportions, and lettering
+pass review.
 
 The packaged Agent Skill contains the complete procedure in
 `skills/transmute/references/reference-led-3d.md`. If only this public package is
-installed, generate the source image here and continue in Desktop. Do not add
-Three.js as a dependency or evaluate scene source through the fixed public
-operation registry.
+installed, generate the source image here and continue in the complete local
+host. Local Bun scripts and CLI commands do not require the desktop shell; the
+shell is needed only for native capture, permissions, and application UI. Do
+not add Three.js as a dependency or evaluate scene source through the fixed
+public operation registry.
 
 ## Connect MCP
 
@@ -289,7 +312,7 @@ The skill keeps literal prompts, checked diagram source, rendering, vectorizatio
 
 ## Graphics v0.4 compatibility
 
-Version 0.5 folded the former `hraness/graphics` command into Transmute, and versions 0.6 through 0.8 preserve that contract unchanged. The package retains a `graphics` executable for existing automation. It preserves the v0.4 flat command grammar, `graphics.*` operation codes, JSON stdout, `graphics.config.*` discovery, `GRAPHICS_VTRACER_PATH`, `GRAPHICS_CACHE_DIR`, the `com.hraness.graphics.cli` credential entry, `hraness.graphics` cloud contract, and `search_graphics`/`execute_graphics` MCP tools.
+Version 0.5 folded the former `hraness/graphics` command into Transmute, and versions 0.6 through 0.9 preserve that contract unchanged. The package retains a `graphics` executable for existing automation. It preserves the v0.4 flat command grammar, `graphics.*` operation codes, JSON stdout, `graphics.config.*` discovery, `GRAPHICS_VTRACER_PATH`, `GRAPHICS_CACHE_DIR`, the `com.hraness.graphics.cli` credential entry, `hraness.graphics` cloud contract, and `search_graphics`/`execute_graphics` MCP tools.
 
 New scripts should use the namespaced Transmute grammar. The compatibility executable intentionally continues to report `0.4.0` because it is the frozen v0.4 contract.
 

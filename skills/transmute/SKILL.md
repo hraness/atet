@@ -157,10 +157,12 @@ Read [reference-led-3d.md](references/reference-led-3d.md) when the user asks to
 turn a generated or supplied image into a Three.js scene, a low-poly object, a
 transparent 3D loop, or a metallic logo product render.
 
-These are Desktop Code Mode capabilities. The public headless Bun runner can
-generate an image and run its four fixed portable operations, but it does not
-execute HTML overlays, Three.js, or the private project renderer. Never imply
-otherwise. In Desktop:
+These are complete local Code Mode host capabilities, currently distributed
+with Desktop. The public headless Bun runner can generate an image and run its
+four fixed portable operations, but it does not execute HTML overlays, Three.js,
+or the private project renderer. The Desktop shell supplies native capture,
+permissions, and UI rather than another workflow model. Never imply otherwise.
+In local Code Mode:
 
 - Stage image-to-Three work as reference generation, source authoring, review,
   preview, then final render. Never send model-produced JavaScript directly to

@@ -15,6 +15,12 @@
       "@hraness/transmute/auth": [
         "./src/auth.ts"
       ],
+      "@hraness/transmute/code": [
+        "./src/code/index.ts"
+      ],
+      "@hraness/transmute/code/advanced": [
+        "./src/code/advanced.ts"
+      ],
       "@hraness/transmute/discovery": [
         "./src/discovery.ts"
       ],

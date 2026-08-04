@@ -54,11 +54,11 @@ async function runCli(
 }
 
 describe("Transmute CLI", () => {
-  test("reports v0.8.0 and documents namespaced media surfaces", async () => {
+  test("reports v0.9.0 and documents namespaced media surfaces", async () => {
     const version = await runCli(["--version"], process.cwd())
     expect(version).toEqual({
       exitCode: 0,
-      stdout: "0.8.0\n",
+      stdout: "0.9.0\n",
       stderr: "",
     })
     const help = await runCli(["--help"], process.cwd())

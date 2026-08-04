@@ -11,6 +11,10 @@ bun run check
 
 Parser, layout, operation, protocol, configuration, or compatibility changes need deterministic examples. Add a property test when the behavior is a law, round trip, ordering rule, or arbitrary-input boundary. A shrunk property failure should become a named example regression.
 
+Keep the portable declarative graph SDK canonical in `src/code/`. The public capability projection contains only the four documented diagram and image operations. Add a capability through an owned, closed host projection; do not add an open registration hook. Unsupported capabilities must fail during compilation, before an executor or resource coordinator is invoked.
+
+Preserve the root module and `./workflow` v0.8 imperative APIs. Public declarative authoring belongs in `./code`, and lower-level compiler contracts belong in `./code/advanced`. Do not publish `./code/testing` or `./code/workflows`.
+
 Do not loosen byte, path, pixel, duration, process, fidelity, or credential limits to make a fixture pass. Explain and test any deliberate limit change.
 
 The `graphics` executable is a frozen v0.4 compatibility surface. New capabilities belong under the namespaced `transmute` grammar and `transmute.*` operation registry. Compatibility changes must prove that the old grammar, JSON output, cloud identity, credential service, configuration names, environment names, and MCP tools still behave as documented.

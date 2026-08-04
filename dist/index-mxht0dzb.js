@@ -1,7 +1,7 @@
 // @bun
 import {
   getTransmuteAccessToken
-} from "./index-bt7a0bdq.js";
+} from "./index-3291mzra.js";
 import {
   TransmuteCloudError,
   fetchTransmuteDiscovery,
@@ -9,7 +9,7 @@ import {
   readBoundedResponseBytes,
   transmuteImageModels,
   transmuteResponseMediaTypes
-} from "./index-sn35spwy.js";
+} from "./index-yz7y9m2g.js";
 
 // src/generate.ts
 import { randomUUID } from "crypto";
@@ -95,7 +95,7 @@ async function performGeneration(input, dependencies) {
         authorization: `Bearer ${accessToken}`,
         "content-type": "application/json",
         [discovery.capabilities.media.imageGeneration.idempotency.header]: idempotencyKey,
-        "user-agent": "hraness-transmute-cli/0.8.0"
+        "user-agent": "hraness-transmute-cli/0.9.0"
       },
       body: requestBody,
       redirect: "error",

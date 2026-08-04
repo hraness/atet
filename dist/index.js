@@ -15,71 +15,12 @@ import {
   transmuteMcpProtocolVersion,
   transmuteMcpServerName,
   transmuteMcpTools
-} from "./index-5nq8hv28.js";
+} from "./index-e3gfc3mr.js";
 import {
   TransmuteWorkflowError,
   defineTransmuteWorkflow,
   runTransmuteWorkflow
-} from "./index-wq2gm2hy.js";
-import {
-  TransmuteOperationError,
-  executeTransmuteOperation,
-  executeTransmuteOperationWithLease,
-  isTransmuteOperationCode,
-  parseTransmuteOperationInput,
-  searchTransmuteOperations,
-  transmuteOperationCodes,
-  transmuteOperationHostResourceClaims,
-  transmuteOperationRegistry,
-  withTransmuteOperationHostAdmission
-} from "./index-62r8dnkq.js";
-import {
-  generateTransmuteImage,
-  generateTransmuteImageFile,
-  validateTransmuteIdempotencyKey
-} from "./index-ttffhm81.js";
-import {
-  buildTransmuteAuthorizationUrl,
-  createPkcePair,
-  getTransmuteAccessToken,
-  loginTransmute,
-  logoutTransmute,
-  requireTransmuteAuthentication,
-  transmuteAuthStatus,
-  transmuteSecretsName,
-  transmuteSecretsService
-} from "./index-bt7a0bdq.js";
-import {
-  TransmuteCloudError,
-  fetchTransmuteDiscovery,
-  parseTransmuteDiscovery,
-  readBoundedJson,
-  readBoundedResponseBytes,
-  transmuteDesktopClientId,
-  transmuteDesktopEndpoints,
-  transmuteDesktopScopes,
-  transmuteDiscoveryMaximumBytes,
-  transmuteDiscoveryUrl,
-  transmuteImageGenerationQuota,
-  transmuteImageModels,
-  transmuteMaximumPromptBytes,
-  transmuteMaximumRawImageBytes,
-  transmuteProductionContract,
-  transmuteRedirectUri,
-  transmuteResponseMediaTypes
-} from "./index-sn35spwy.js";
-import {
-  HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
-  HostResourceError,
-  createDefaultHostResourceCoordinator,
-  createHostResourceCoordinator,
-  createProcessLocalHostResourceCoordinator,
-  defaultTransmuteHostResourceProfile,
-  defaultTransmuteHostResourceStateRoot,
-  normalizeHostResourceClaims,
-  normalizeHostResourceProfile,
-  transmuteHostResourceNames
-} from "./index-dxtrd5pg.js";
+} from "./index-bcn7vyff.js";
 import {
   desktopDownloadPage,
   desktopStatus,
@@ -93,6 +34,18 @@ import {
   bundledSkillPath,
   installSkill
 } from "./index-mjemj725.js";
+import {
+  TransmuteOperationError,
+  executeTransmuteOperation,
+  executeTransmuteOperationWithLease,
+  isTransmuteOperationCode,
+  parseTransmuteOperationInput,
+  searchTransmuteOperations,
+  transmuteOperationCodes,
+  transmuteOperationHostResourceClaims,
+  transmuteOperationRegistry,
+  withTransmuteOperationHostAdmission
+} from "./index-wyraz81p.js";
 import {
   DiagramValidationError,
   StackLayoutError,
@@ -117,6 +70,53 @@ import {
   vectorizeProfileNames,
   vtracerReleases
 } from "./index-y5zkj6v2.js";
+import {
+  generateTransmuteImage,
+  generateTransmuteImageFile,
+  validateTransmuteIdempotencyKey
+} from "./index-mxht0dzb.js";
+import {
+  buildTransmuteAuthorizationUrl,
+  createPkcePair,
+  getTransmuteAccessToken,
+  loginTransmute,
+  logoutTransmute,
+  requireTransmuteAuthentication,
+  transmuteAuthStatus,
+  transmuteSecretsName,
+  transmuteSecretsService
+} from "./index-3291mzra.js";
+import {
+  TransmuteCloudError,
+  fetchTransmuteDiscovery,
+  parseTransmuteDiscovery,
+  readBoundedJson,
+  readBoundedResponseBytes,
+  transmuteDesktopClientId,
+  transmuteDesktopEndpoints,
+  transmuteDesktopScopes,
+  transmuteDiscoveryMaximumBytes,
+  transmuteDiscoveryUrl,
+  transmuteImageGenerationQuota,
+  transmuteImageModels,
+  transmuteMaximumPromptBytes,
+  transmuteMaximumRawImageBytes,
+  transmuteProductionContract,
+  transmuteRedirectUri,
+  transmuteResponseMediaTypes
+} from "./index-yz7y9m2g.js";
+import {
+  HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
+  HostResourceError,
+  createDefaultHostResourceCoordinator,
+  createHostResourceCoordinator,
+  createProcessLocalHostResourceCoordinator,
+  defaultTransmuteHostResourceProfile,
+  defaultTransmuteHostResourceStateRoot,
+  normalizeHostResourceClaims,
+  normalizeHostResourceProfile,
+  transmuteHostResourceNames
+} from "./index-dxtrd5pg.js";
 import"./index-z1w83f81.js";
 export {
   withTransmuteOperationHostAdmission,

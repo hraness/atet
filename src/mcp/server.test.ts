@@ -99,7 +99,7 @@ describe("Transmute MCP stdio server", () => {
       expect(responses[0]?.result).toMatchObject({
         protocolVersion: "2025-11-25",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "hraness-transmute", version: "0.8.0" },
+        serverInfo: { name: "hraness-transmute", version: "0.9.0" },
       })
       const listed = responses[2]?.result as {
         readonly tools: readonly Readonly<Record<string, unknown>>[]

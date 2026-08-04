@@ -4,7 +4,7 @@ import {
   isTransmuteOperationCode,
   parseTransmuteOperationInput,
   transmuteOperationHostResourceClaims
-} from "./index-62r8dnkq.js";
+} from "./index-wyraz81p.js";
 import {
   createDefaultHostResourceCoordinator
 } from "./index-dxtrd5pg.js";

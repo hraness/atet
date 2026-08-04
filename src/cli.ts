@@ -33,7 +33,7 @@ import type { HostResourceCoordinator } from "./host-resources.js"
 import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.js"
 import { pathExists } from "./fs.js"
 
-export const transmuteCliVersion = "0.8.0"
+export const transmuteCliVersion = "0.9.0"
 
 const help = `transmute ${transmuteCliVersion}
 

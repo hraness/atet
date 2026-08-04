@@ -1,8 +1,11 @@
 # Reference-led Three.js and metallic treatments
 
-Use this guide only when Transmute Desktop Code Mode is available. The public
-`@hraness/transmute/workflow` package intentionally exposes no HTML renderer,
-Three.js operation, arbitrary source execution, or private media-project API.
+Use this guide only when Transmute's complete local Code Mode host is available.
+That host is currently distributed from the monorepo's `apps/desktop`
+workspace, alongside the thin desktop capture shell. The public
+`@hraness/transmute/code` and `@hraness/transmute/workflow` entrypoints
+intentionally expose no HTML renderer, Three.js operation, arbitrary source
+execution, or private media-project API.
 
 ## Separate reference generation from source execution
 
@@ -23,13 +26,13 @@ authority.
    only after selection.
 
 Do not collapse those stages into an operation that accepts JavaScript text.
-Desktop Code Mode is trusted local code with the current user's authority. It
+Local Code Mode is trusted local code with the current user's authority. It
 is not a sandbox. The reviewed physical source and its imports enter the graph
 identity before an effect can execute.
 
 ## Bind the reference to the reviewed scene
 
-In a Desktop Code Mode module, use the typed helper with the image artifact
+In a local Code Mode module, use the typed helper with the image artifact
 and its projected media type:
 
 ```ts
@@ -126,7 +129,7 @@ const candidate = workflow.gateway.image("metallic-logo",
   }));
 ```
 
-For direct Desktop CLI use, choose a live image model that accepts reference
+For direct local CLI use, choose a live image model that accepts reference
 images, then pass the exact logo with `--image` and the required
 `--allow-cloud-upload`. Inspect model capabilities before dispatch. Do not
 silently upload a local brand asset.

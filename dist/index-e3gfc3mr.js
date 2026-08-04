@@ -1,32 +1,5 @@
 // @bun
 import {
-  TransmuteOperationError,
-  executeTransmuteOperation,
-  parseTransmuteOperationInput,
-  searchTransmuteOperations,
-  transmuteOperationCodes,
-  transmuteOperationRegistry,
-  withTransmuteOperationHostAdmission
-} from "./index-62r8dnkq.js";
-import {
-  generateTransmuteImage,
-  generateTransmuteImageFile
-} from "./index-ttffhm81.js";
-import {
-  loginTransmute,
-  logoutTransmute,
-  requireTransmuteAuthentication,
-  transmuteAuthStatus
-} from "./index-bt7a0bdq.js";
-import {
-  TransmuteCloudError,
-  fetchTransmuteDiscovery,
-  parseTransmuteDiscovery
-} from "./index-sn35spwy.js";
-import {
-  createDefaultHostResourceCoordinator
-} from "./index-dxtrd5pg.js";
-import {
   desktopDownloadPage,
   desktopStatus,
   findDesktopApplication,
@@ -40,6 +13,15 @@ import {
   installSkill,
   pathExists
 } from "./index-mjemj725.js";
+import {
+  TransmuteOperationError,
+  executeTransmuteOperation,
+  parseTransmuteOperationInput,
+  searchTransmuteOperations,
+  transmuteOperationCodes,
+  transmuteOperationRegistry,
+  withTransmuteOperationHostAdmission
+} from "./index-wyraz81p.js";
 import {
   DiagramValidationError,
   StackLayoutError,
@@ -61,6 +43,24 @@ import {
   vectorizeHardLimits,
   vectorizeImage
 } from "./index-y5zkj6v2.js";
+import {
+  generateTransmuteImage,
+  generateTransmuteImageFile
+} from "./index-mxht0dzb.js";
+import {
+  loginTransmute,
+  logoutTransmute,
+  requireTransmuteAuthentication,
+  transmuteAuthStatus
+} from "./index-3291mzra.js";
+import {
+  TransmuteCloudError,
+  fetchTransmuteDiscovery,
+  parseTransmuteDiscovery
+} from "./index-yz7y9m2g.js";
+import {
+  createDefaultHostResourceCoordinator
+} from "./index-dxtrd5pg.js";
 
 // src/artifacts.ts
 import { mkdir, readFile as readFile2, rename, rm, writeFile } from "fs/promises";
@@ -1306,7 +1306,7 @@ async function processLine(line, session, writeLine) {
 }
 async function runMcpServer(options = {}) {
   const runtime = await TransmuteMcpToolRuntime.create(options.rootDirectory ?? process.cwd(), options.authDependencies);
-  const session = new TransmuteMcpSession(runtime, options.serverVersion ?? "0.8.0");
+  const session = new TransmuteMcpSession(runtime, options.serverVersion ?? "0.9.0");
   const writeLine = options.writeLine ?? defaultWriteLine;
   let buffered = Buffer.alloc(0);
   for await (const chunk of options.input ?? defaultInput()) {

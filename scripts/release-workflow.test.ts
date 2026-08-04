@@ -57,6 +57,9 @@ test("version tags pass the complete immutable release gate", async () => {
     "git status --porcelain --untracked-files=all -- dist bun.lock",
   )
   expect(workflow).toContain("bun pm pack --dry-run --ignore-scripts")
+  expect(workflow).toContain('"./dist/code/index.js"')
+  expect(workflow).toContain('"./dist/code/advanced.js"')
+  expect(workflow).toContain('"./dist/workflow.js"')
   expect(workflow).toContain("is not newer than")
   expect(workflow).toContain('gh release create "$GITHUB_REF_NAME"')
   expect(workflow).toContain("--verify-tag")
