@@ -15,12 +15,12 @@ import {
   transmuteMcpProtocolVersion,
   transmuteMcpServerName,
   transmuteMcpTools
-} from "./index-e3gfc3mr.js";
+} from "./index-egs2h3b1.js";
 import {
   TransmuteWorkflowError,
   defineTransmuteWorkflow,
   runTransmuteWorkflow
-} from "./index-bcn7vyff.js";
+} from "./index-xhvhwqgp.js";
 import {
   desktopDownloadPage,
   desktopStatus,
@@ -45,7 +45,7 @@ import {
   transmuteOperationHostResourceClaims,
   transmuteOperationRegistry,
   withTransmuteOperationHostAdmission
-} from "./index-wyraz81p.js";
+} from "./index-m6kydsys.js";
 import {
   DiagramValidationError,
   StackLayoutError,
@@ -116,7 +116,7 @@ import {
   normalizeHostResourceClaims,
   normalizeHostResourceProfile,
   transmuteHostResourceNames
-} from "./index-dxtrd5pg.js";
+} from "./index-eq77wsng.js";
 import"./index-z1w83f81.js";
 export {
   withTransmuteOperationHostAdmission,

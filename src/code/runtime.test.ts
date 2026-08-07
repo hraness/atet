@@ -18,7 +18,10 @@ import {
   runWorkflow,
   TransmuteWorkflowRunError,
 } from "./runtime.js"
-import type { OperationDiscovery } from "./contracts.js"
+import type {
+  OperationDiscovery,
+  WorkflowOutputValue,
+} from "./contracts.js"
 import type {
   PortableTransmuteOperationResultMap,
 } from "./public-operations.js"
@@ -117,6 +120,35 @@ async function capturedRunError(
 }
 
 describe("portable ephemeral workflow runtime", () => {
+  test("composes deeply nested bindings with one resolved node output", async () => {
+    const definition = defineWorkflow({
+      build(builder) {
+        const checked = builder.diagram.check("check", { path: "diagram.json" })
+        let output: WorkflowOutputValue = checked
+        for (let depth = 0; depth < 120; depth += 1) {
+          output = { nested: output }
+        }
+        return output
+      },
+      id: "nested-runtime-output",
+      inputSchema: z.strictObject({}),
+      inputSchemaId: "transmute.workflow.nested-runtime-output.input/v1",
+      version: 1,
+    })
+    const host = createTransmuteCodeHost({
+      execute: request => Promise.resolve(FIXTURE_RESULTS[request.kind]),
+    })
+
+    const result = await runWorkflow(definition, {}, { host })
+    let cursor: unknown = result.output
+    for (let depth = 0; depth < 120; depth += 1) {
+      cursor = (cursor as Readonly<Record<string, unknown>>).nested
+    }
+    expect(cursor).toEqual(FIXTURE_RESULTS["transmute.diagram.check"])
+    expect(Object.isFrozen(result.output)).toBe(true)
+    expect(Object.isFrozen(cursor)).toBe(true)
+  })
+
   test("compiles every node before host admission or execution", async () => {
     const desktopProjection = createWorkflowRegistryProjection(
       "transmute.workflow.registry.desktop-test/v1",

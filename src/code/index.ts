@@ -41,9 +41,12 @@ export function compileWorkflowGraph(
 }
 
 export {
+  boundedCanonicalJson,
+  boundedCanonicalJsonSha256,
   canonicalJson,
   canonicalJsonSha256,
   sha256Hex,
+  type CanonicalJsonBounds,
   type CanonicalJsonValue,
 } from "./canonical-json.js"
 export {

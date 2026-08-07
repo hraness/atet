@@ -9,6 +9,7 @@ var TRUSTED_COMPUTE_VERSION = 1;
 var WORKFLOW_COMPILATION_VERSION = "transmute-workflow-compilation-v1";
 var MAX_SERIALIZED_GRAPH_NODES = 4096;
 var MAX_SERIALIZED_NODE_DEPENDENCIES = 4096;
+var MAX_SERIALIZED_REF_PATH_SEGMENTS = 32;
 var MAX_OPERATION_DISCOVERY_ENTRIES = 4096;
 var MAX_TRUSTED_COMPUTE_INPUT_BYTES = 2 * 1024 * 1024;
 var MAX_TRUSTED_COMPUTE_OUTPUT_BYTES = 2 * 1024 * 1024;
@@ -48,7 +49,7 @@ var JsonValueSchema = z.lazy(() => z.preprocess(rejectReservedJsonObjectKey, z.u
 var SerializedRefV1Schema = z.strictObject({
   $ref: z.strictObject({
     nodeKey: NodeKeySchema,
-    path: z.array(RefPathSegmentSchema).max(32).optional(),
+    path: z.array(RefPathSegmentSchema).max(MAX_SERIALIZED_REF_PATH_SEGMENTS).optional(),
     schemaId: SchemaIdSchema
   }),
   version: z.literal(WORKFLOW_REF_VERSION)
@@ -323,184 +324,694 @@ function asTransmuteCodeError(error) {
   return new TransmuteCodeError("internal", transmuteCodeErrorMessage(error));
 }
 
-// src/code/canonical-json.ts
-function invalidCanonicalJson(message) {
-  throw new TransmuteCodeError("invalid-data", message);
-}
-function canonicalize(value, ancestors) {
-  if (value === null || typeof value === "boolean" || typeof value === "string") {
-    return JSON.stringify(value);
+// src/code/sha256.ts
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
+var UTF8_ENCODER = new TextEncoder;
+function createSha256HexHasher() {
+  if (typeof Bun !== "undefined") {
+    const hasher2 = new Bun.CryptoHasher("sha256");
+    return {
+      digestHex: () => hasher2.digest("hex"),
+      update: (input) => {
+        hasher2.update(input);
+      }
+    };
   }
+  const hasher = sha256.create();
+  return {
+    digestHex: () => bytesToHex(hasher.digest()),
+    update: (input) => {
+      hasher.update(typeof input === "string" ? UTF8_ENCODER.encode(input) : input);
+    }
+  };
+}
+function sha256Hex(input) {
+  const hasher = createSha256HexHasher();
+  hasher.update(input);
+  return hasher.digestHex();
+}
+
+// src/code/json-utf8.ts
+function jsonStringUtf8ByteLength(value, maximumBytes = Number.MAX_SAFE_INTEGER) {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 0)
+    return;
+  let bytes = 2;
+  if (bytes > maximumBytes)
+    return;
+  for (let index = 0;index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    let additional;
+    if (codeUnit === 34 || codeUnit === 92 || codeUnit === 8 || codeUnit === 9 || codeUnit === 10 || codeUnit === 12 || codeUnit === 13) {
+      additional = 2;
+    } else if (codeUnit < 32) {
+      additional = 6;
+    } else if (codeUnit < 128) {
+      additional = 1;
+    } else if (codeUnit < 2048) {
+      additional = 2;
+    } else if (codeUnit >= 55296 && codeUnit <= 56319) {
+      const next = value.charCodeAt(index + 1);
+      if (next >= 56320 && next <= 57343) {
+        additional = 4;
+        index += 1;
+      } else {
+        additional = 6;
+      }
+    } else if (codeUnit >= 56320 && codeUnit <= 57343) {
+      additional = 6;
+    } else {
+      additional = 3;
+    }
+    if (additional > maximumBytes - bytes)
+      return;
+    bytes += additional;
+  }
+  return bytes;
+}
+function utf8ByteLength(value, maximumBytes = Number.MAX_SAFE_INTEGER) {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 0)
+    return;
+  let bytes = 0;
+  for (let index = 0;index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    let additional;
+    if (codeUnit < 128) {
+      additional = 1;
+    } else if (codeUnit < 2048) {
+      additional = 2;
+    } else if (codeUnit >= 55296 && codeUnit <= 56319) {
+      const next = value.charCodeAt(index + 1);
+      if (next >= 56320 && next <= 57343) {
+        additional = 4;
+        index += 1;
+      } else {
+        additional = 3;
+      }
+    } else {
+      additional = 3;
+    }
+    if (additional > maximumBytes - bytes)
+      return;
+    bytes += additional;
+  }
+  return bytes;
+}
+
+// src/code/json-snapshot.ts
+var DEFAULT_MAXIMUM_DEPTH = 128;
+var DEFAULT_MAXIMUM_VALUES = 1e6;
+var HASH_BUFFER_CODE_UNITS = 64 * 1024;
+function invalidJson(message, details) {
+  throw new TransmuteCodeError("invalid-data", message, details);
+}
+function positiveLimit(value, name) {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    return invalidJson(`${name} must be a positive safe integer.`);
+  }
+  return value;
+}
+function enumerableSymbolDescriptor(descriptors) {
+  return Object.getOwnPropertySymbols(descriptors).some((symbol) => Reflect.get(descriptors, symbol)?.enumerable === true);
+}
+function captureJsonStructure(input, name, limits = {}) {
+  const maximumDepth = positiveLimit(limits.maximumDepth ?? DEFAULT_MAXIMUM_DEPTH, "JSON structure depth limit");
+  const maximumValues = positiveLimit(limits.maximumValues ?? DEFAULT_MAXIMUM_VALUES, "JSON structure value limit");
+  const maximumBytes = limits.maximumBytes === undefined ? undefined : positiveLimit(limits.maximumBytes, "JSON structure byte limit");
+  const active = new WeakSet;
+  const pending = [{ depth: 0, kind: "visit", value: input }];
+  let bytes = 0;
+  let discoveredValues = 1;
+  let root;
+  let rootAssigned = false;
+  const addBytes = (additional) => {
+    if (maximumBytes === undefined)
+      return;
+    if (additional > maximumBytes - bytes) {
+      return invalidJson(`${name} contains more than ${String(maximumBytes)} bytes.`, { actualLowerBound: bytes + additional, maximumBytes });
+    }
+    bytes += additional;
+  };
+  const addJsonString = (value) => {
+    if (maximumBytes === undefined)
+      return;
+    const additional = jsonStringUtf8ByteLength(value, maximumBytes - bytes);
+    if (additional === undefined) {
+      return invalidJson(`${name} contains more than ${String(maximumBytes)} bytes.`, { actualLowerBound: maximumBytes + 1, maximumBytes });
+    }
+    bytes += additional;
+  };
+  const discover = (additional) => {
+    if (additional > maximumValues - discoveredValues) {
+      return invalidJson(`${name} contains more than ${String(maximumValues)} structural values.`, { actualLowerBound: discoveredValues + additional, maximumValues });
+    }
+    discoveredValues += additional;
+  };
+  const assign = (assignment, value) => {
+    if (assignment === undefined) {
+      root = value;
+      rootAssigned = true;
+      return;
+    }
+    Object.defineProperty(assignment.target, assignment.key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true
+    });
+  };
+  try {
+    while (pending.length > 0) {
+      const frame = pending.pop();
+      if (frame === undefined)
+        continue;
+      if (frame.kind === "exit") {
+        active.delete(frame.source);
+        continue;
+      }
+      if (frame.depth > maximumDepth) {
+        return invalidJson(`${name} nesting exceeds ${String(maximumDepth)} levels.`, { actual: frame.depth, maximumDepth });
+      }
+      const value = frame.value;
+      if (typeof value === "string") {
+        addJsonString(value);
+        assign(frame.assignment, value);
+        continue;
+      }
+      if (value === null) {
+        addBytes(4);
+        assign(frame.assignment, value);
+        continue;
+      }
+      if (typeof value === "boolean") {
+        addBytes(value ? 4 : 5);
+        assign(frame.assignment, value);
+        continue;
+      }
+      if (typeof value === "number") {
+        if (Number.isFinite(value)) {
+          addBytes(JSON.stringify(Object.is(value, -0) ? 0 : value).length);
+        }
+        assign(frame.assignment, value);
+        continue;
+      }
+      if (typeof value !== "object") {
+        assign(frame.assignment, value);
+        continue;
+      }
+      const isArray = Array.isArray(value);
+      if (!isArray) {
+        const prototype = Object.getPrototypeOf(value);
+        if (prototype !== Object.prototype && prototype !== null) {
+          assign(frame.assignment, value);
+          continue;
+        }
+      }
+      if (active.has(value)) {
+        return invalidJson(`${name} does not support cyclic plain-container values.`);
+      }
+      const arrayLength = isArray ? value.length : undefined;
+      if (arrayLength !== undefined && arrayLength > maximumValues - discoveredValues) {
+        return invalidJson(`${name} contains more than ${String(maximumValues)} structural values.`, { actualLowerBound: discoveredValues + arrayLength, maximumValues });
+      }
+      const descriptors = Object.getOwnPropertyDescriptors(value);
+      if (Object.getOwnPropertySymbols(descriptors).some((symbol) => Reflect.get(descriptors, symbol)?.enumerable === true)) {
+        return invalidJson(`${name} cannot contain enumerable symbol properties.`);
+      }
+      const keys = Object.keys(descriptors).filter((key) => descriptors[key]?.enumerable === true);
+      const namedArrayKeys = arrayLength === undefined ? [] : keys.filter((key) => {
+        const index = Number(key);
+        return !(Number.isSafeInteger(index) && index >= 0 && index < arrayLength && String(index) === key);
+      });
+      if (arrayLength !== undefined) {
+        discover(arrayLength);
+        discover(namedArrayKeys.length);
+        addBytes(2 + Math.max(0, arrayLength - 1));
+        for (const key of namedArrayKeys) {
+          addJsonString(key);
+          addBytes(1);
+        }
+      } else {
+        discover(keys.length);
+        addBytes(2 + Math.max(0, keys.length - 1));
+        for (const key of keys) {
+          addJsonString(key);
+          addBytes(1);
+        }
+      }
+      const clone = arrayLength === undefined ? {} : new Array(arrayLength);
+      assign(frame.assignment, clone);
+      active.add(value);
+      pending.push({ kind: "exit", source: value });
+      for (let index = keys.length - 1;index >= 0; index -= 1) {
+        const key = keys[index];
+        if (key === undefined)
+          continue;
+        const descriptor = descriptors[key];
+        if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+          return invalidJson(`${name} properties must be plain data properties.`);
+        }
+        const numericKey = arrayLength !== undefined && Number.isSafeInteger(Number(key)) && Number(key) >= 0 && Number(key) < arrayLength && String(Number(key)) === key ? Number(key) : key;
+        pending.push({
+          assignment: { key: numericKey, target: clone },
+          depth: frame.depth + 1,
+          kind: "visit",
+          value: descriptor.value
+        });
+      }
+    }
+  } catch (error) {
+    if (error instanceof TransmuteCodeError)
+      throw error;
+    throw new TransmuteCodeError("invalid-data", `${name} could not be safely inspected.`, { cause: error instanceof Error ? error.message : String(error) });
+  }
+  if (!rootAssigned) {
+    return invalidJson(`${name} did not contain a capturable value.`);
+  }
+  return root;
+}
+function assignValue(assignment, value, setRoot) {
+  if (assignment === undefined) {
+    setRoot(value);
+    return;
+  }
+  if (Array.isArray(assignment.target)) {
+    assignment.target[assignment.key] = value;
+  } else {
+    Object.defineProperty(assignment.target, assignment.key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true
+    });
+  }
+}
+function scalarJson(value) {
   if (typeof value === "number") {
     if (!Number.isFinite(value)) {
-      return invalidCanonicalJson("Canonical JSON does not support non-finite numbers.");
+      return invalidJson("JSON snapshots do not support non-finite numbers.");
     }
     return JSON.stringify(Object.is(value, -0) ? 0 : value);
   }
-  if (typeof value !== "object") {
-    return invalidCanonicalJson(`Canonical JSON does not support ${typeof value} values.`);
-  }
-  if (ancestors.has(value)) {
-    return invalidCanonicalJson("Canonical JSON does not support cycles.");
-  }
-  ancestors.add(value);
-  try {
-    if (Array.isArray(value)) {
-      return `[${value.map((item) => canonicalize(item, ancestors)).join(",")}]`;
+  return JSON.stringify(value);
+}
+function captureBoundedJson(input, maximumBytesInput, name, limits = {}, capture) {
+  const maximumBytes = positiveLimit(maximumBytesInput, "JSON snapshot byte limit");
+  const maximumDepth = positiveLimit(limits.maximumDepth ?? DEFAULT_MAXIMUM_DEPTH, "JSON snapshot depth limit");
+  const maximumValues = positiveLimit(limits.maximumValues ?? DEFAULT_MAXIMUM_VALUES, "JSON snapshot value limit");
+  const active = new WeakSet;
+  const hash = capture.hash ? createSha256HexHasher() : undefined;
+  let hashPart = capture.hashPrefix ?? "";
+  const flushHash = () => {
+    if (hash === undefined || hashPart.length === 0)
+      return;
+    hash.update(hashPart);
+    hashPart = "";
+  };
+  const captureCanonicalText = capture.captureText;
+  const canonicalParts = [];
+  let canonicalPart = "";
+  const pending = [{ depth: 0, kind: "visit", value: input }];
+  let bytes = 0;
+  let discoveredValues = 1;
+  let root;
+  const append = (text, exactBytes = text.length) => {
+    if (exactBytes > maximumBytes - bytes) {
+      return invalidJson(`${name} contains more than ${String(maximumBytes)} bytes.`, { actualLowerBound: bytes + exactBytes, maximumBytes });
     }
-    const prototype = Object.getPrototypeOf(value);
-    if (prototype !== Object.prototype && prototype !== null) {
-      return invalidCanonicalJson("Canonical JSON accepts only arrays and plain objects.");
+    if (hash !== undefined) {
+      hashPart += text;
+      if (hashPart.length >= HASH_BUFFER_CODE_UNITS)
+        flushHash();
     }
-    const record = value;
-    return `{${Object.keys(record).sort().map((key) => {
-      const item = record[key];
-      if (item === undefined) {
-        return invalidCanonicalJson(`Canonical JSON property ${key} is undefined.`);
+    if (captureCanonicalText) {
+      canonicalPart += text;
+      if (canonicalPart.length >= 64 * 1024) {
+        canonicalParts.push(canonicalPart);
+        canonicalPart = "";
       }
-      return `${JSON.stringify(key)}:${canonicalize(item, ancestors)}`;
-    }).join(",")}}`;
-  } finally {
-    ancestors.delete(value);
+    }
+    bytes += exactBytes;
+  };
+  const discover = (additional) => {
+    if (additional > maximumValues - discoveredValues) {
+      return invalidJson(`${name} contains more than ${String(maximumValues)} JSON values.`, { actualLowerBound: discoveredValues + additional, maximumValues });
+    }
+    discoveredValues += additional;
+  };
+  const setRoot = (value) => {
+    root = value;
+  };
+  try {
+    while (pending.length > 0) {
+      const frame = pending.pop();
+      if (frame === undefined)
+        break;
+      if (frame.kind === "array") {
+        if (frame.index === frame.values) {
+          append("]");
+          active.delete(frame.source);
+          if (frame.clone !== undefined)
+            Object.freeze(frame.clone);
+          continue;
+        }
+        if (frame.index > 0)
+          append(",");
+        const descriptor = frame.descriptors[String(frame.index)];
+        if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+          return invalidJson(`${name} arrays must contain plain data elements.`);
+        }
+        pending.push({ ...frame, index: frame.index + 1 });
+        pending.push({
+          ...frame.clone === undefined ? {} : { assignment: { key: frame.index, target: frame.clone } },
+          depth: frame.depth + 1,
+          kind: "visit",
+          value: descriptor.value
+        });
+        continue;
+      }
+      if (frame.kind === "object") {
+        if (frame.index === frame.keys.length) {
+          append("}");
+          active.delete(frame.source);
+          if (frame.clone !== undefined)
+            Object.freeze(frame.clone);
+          continue;
+        }
+        const key = frame.keys[frame.index];
+        if (key === undefined) {
+          return invalidJson(`${name} lost an object key during traversal.`);
+        }
+        if (frame.index > 0)
+          append(",");
+        const keyBytes = jsonStringUtf8ByteLength(key, maximumBytes - bytes);
+        if (keyBytes === undefined) {
+          return invalidJson(`${name} contains more than ${String(maximumBytes)} bytes.`, { actualLowerBound: maximumBytes + 1, maximumBytes });
+        }
+        append(scalarJson(key), keyBytes);
+        append(":");
+        const descriptor = frame.descriptors[key];
+        if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+          return invalidJson(`${name} properties must be plain data properties.`);
+        }
+        pending.push({ ...frame, index: frame.index + 1 });
+        pending.push({
+          ...frame.clone === undefined ? {} : { assignment: { key, target: frame.clone } },
+          depth: frame.depth + 1,
+          kind: "visit",
+          value: descriptor.value
+        });
+        continue;
+      }
+      if (frame.depth > maximumDepth) {
+        return invalidJson(`${name} nesting exceeds ${String(maximumDepth)} levels.`, { actual: frame.depth, maximumDepth });
+      }
+      const value = frame.value;
+      if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string") {
+        const normalized = typeof value === "number" && Object.is(value, -0) ? 0 : value;
+        if (typeof value === "string") {
+          const stringBytes = jsonStringUtf8ByteLength(value, maximumBytes - bytes);
+          if (stringBytes === undefined) {
+            return invalidJson(`${name} contains more than ${String(maximumBytes)} bytes.`, { actualLowerBound: maximumBytes + 1, maximumBytes });
+          }
+          append(scalarJson(value), stringBytes);
+        } else {
+          append(scalarJson(value));
+        }
+        if (capture.captureValue) {
+          assignValue(frame.assignment, normalized, setRoot);
+        }
+        continue;
+      }
+      if (typeof value !== "object") {
+        return invalidJson(`${name} does not support ${typeof value} values.`);
+      }
+      if (active.has(value)) {
+        return invalidJson(`${name} does not support cyclic values.`);
+      }
+      const arrayLength = Array.isArray(value) ? value.length : undefined;
+      if (arrayLength !== undefined && arrayLength > maximumValues - discoveredValues) {
+        return invalidJson(`${name} contains more than ${String(maximumValues)} JSON values.`, {
+          actualLowerBound: discoveredValues + arrayLength,
+          maximumValues
+        });
+      }
+      if (arrayLength !== undefined) {
+        const punctuationBytes = 2 + Math.max(0, arrayLength - 1);
+        if (punctuationBytes > maximumBytes - bytes) {
+          return invalidJson(`${name} contains more than ${String(maximumBytes)} bytes.`, { actualLowerBound: bytes + punctuationBytes, maximumBytes });
+        }
+      }
+      active.add(value);
+      if (Array.isArray(value)) {
+        const length = arrayLength;
+        if (length === undefined) {
+          return invalidJson(`${name} lost an array length during traversal.`);
+        }
+        discoveredValues += length;
+        const descriptors2 = Object.getOwnPropertyDescriptors(value);
+        if (!capture.ignoreNonIndexArrayProperties) {
+          if (enumerableSymbolDescriptor(descriptors2)) {
+            return invalidJson(`${name} cannot contain enumerable symbol properties.`);
+          }
+          const keys2 = Object.keys(descriptors2).filter((key) => descriptors2[key]?.enumerable === true);
+          if (keys2.length !== length || keys2.some((key, index) => key !== String(index))) {
+            return invalidJson(`${name} arrays must be dense and cannot have named properties.`);
+          }
+        }
+        const clone2 = capture.captureValue ? [] : undefined;
+        if (clone2 !== undefined)
+          assignValue(frame.assignment, clone2, setRoot);
+        append("[");
+        pending.push({
+          clone: clone2,
+          depth: frame.depth,
+          descriptors: descriptors2,
+          index: 0,
+          kind: "array",
+          source: value,
+          values: length
+        });
+        continue;
+      }
+      const prototype = Object.getPrototypeOf(value);
+      if (prototype !== Object.prototype && prototype !== null) {
+        return invalidJson(`${name} accepts only arrays and plain objects.`);
+      }
+      const descriptors = Object.getOwnPropertyDescriptors(value);
+      if (enumerableSymbolDescriptor(descriptors)) {
+        return invalidJson(`${name} cannot contain enumerable symbol properties.`);
+      }
+      const keys = Object.keys(descriptors).filter((key) => descriptors[key]?.enumerable === true).sort();
+      discover(keys.length);
+      const clone = capture.captureValue ? {} : undefined;
+      if (clone !== undefined)
+        assignValue(frame.assignment, clone, setRoot);
+      append("{");
+      pending.push({
+        clone,
+        depth: frame.depth,
+        descriptors,
+        index: 0,
+        keys,
+        kind: "object",
+        source: value
+      });
+    }
+  } catch (error) {
+    if (error instanceof TransmuteCodeError)
+      throw error;
+    throw new TransmuteCodeError("invalid-data", `${name} could not be safely inspected.`, { cause: error instanceof Error ? error.message : String(error) });
   }
+  if (capture.captureValue && root === undefined) {
+    return invalidJson(`${name} did not contain a JSON value.`);
+  }
+  if (captureCanonicalText && canonicalPart.length > 0) {
+    canonicalParts.push(canonicalPart);
+  }
+  flushHash();
+  return Object.freeze({
+    bytes,
+    ...captureCanonicalText ? { canonicalText: canonicalParts.join("") } : {},
+    ...hash === undefined ? {} : { sha256: hash.digestHex() },
+    ...capture.captureValue ? { value: root } : {},
+    values: discoveredValues
+  });
+}
+function createBoundedJsonValueSnapshot(input, maximumBytesInput, name, limits = {}) {
+  const captured = captureBoundedJson(input, maximumBytesInput, name, limits, {
+    captureText: false,
+    captureValue: true,
+    hash: false,
+    ignoreNonIndexArrayProperties: false
+  });
+  if (captured.value === undefined) {
+    return invalidJson(`${name} did not produce a complete JSON value snapshot.`);
+  }
+  return captured;
+}
+function createBoundedJsonSnapshot(input, maximumBytesInput, name, limits = {}) {
+  const captured = captureBoundedJson(input, maximumBytesInput, name, limits, {
+    captureText: limits.captureCanonicalText === true,
+    captureValue: true,
+    hash: true,
+    ignoreNonIndexArrayProperties: false
+  });
+  if (captured.sha256 === undefined || captured.value === undefined) {
+    return invalidJson(`${name} did not produce a complete JSON snapshot.`);
+  }
+  return captured;
+}
+function createBoundedCanonicalJson(input, maximumBytesInput, name, limits = {}) {
+  const captured = captureBoundedJson(input, maximumBytesInput, name, limits, {
+    captureText: true,
+    captureValue: false,
+    hash: false,
+    ignoreNonIndexArrayProperties: true
+  });
+  if (captured.canonicalText === undefined) {
+    return invalidJson(`${name} did not produce canonical JSON text.`);
+  }
+  return captured.canonicalText;
+}
+function createBoundedCanonicalFingerprint(input, maximumBytesInput, name, limits = {}, hashPrefix) {
+  const captured = captureBoundedJson(input, maximumBytesInput, name, limits, {
+    captureText: false,
+    captureValue: false,
+    hash: true,
+    ignoreNonIndexArrayProperties: true,
+    ...hashPrefix === undefined ? {} : { hashPrefix }
+  });
+  if (captured.sha256 === undefined) {
+    return invalidJson(`${name} did not produce a canonical JSON identity.`);
+  }
+  return Object.freeze({ bytes: captured.bytes, sha256: captured.sha256 });
+}
+function createBoundedCanonicalSha256(input, maximumBytesInput, name, limits = {}, hashPrefix) {
+  return createBoundedCanonicalFingerprint(input, maximumBytesInput, name, limits, hashPrefix).sha256;
+}
+function deepFreezeJson(value) {
+  const active = new WeakSet;
+  const completed = new WeakSet;
+  const pending = [{ exiting: false, value }];
+  try {
+    while (pending.length > 0) {
+      const item = pending.pop();
+      if (item === undefined)
+        break;
+      const current = item.value;
+      if (current === null || typeof current === "boolean" || typeof current === "string") {
+        continue;
+      }
+      if (typeof current === "number") {
+        if (!Number.isFinite(current)) {
+          return invalidJson("JSON snapshots do not support non-finite numbers.");
+        }
+        continue;
+      }
+      if (typeof current !== "object") {
+        return invalidJson(`JSON snapshots do not support ${typeof current} values.`);
+      }
+      if (item.exiting) {
+        active.delete(current);
+        completed.add(current);
+        Object.freeze(current);
+        continue;
+      }
+      if (completed.has(current))
+        continue;
+      if (active.has(current)) {
+        return invalidJson("JSON snapshots do not support cycles.");
+      }
+      active.add(current);
+      pending.push({ exiting: true, value: current });
+      if (Array.isArray(current)) {
+        const length = current.length;
+        const descriptors2 = Object.getOwnPropertyDescriptors(current);
+        if (enumerableSymbolDescriptor(descriptors2)) {
+          return invalidJson("JSON snapshots cannot contain enumerable symbol properties.");
+        }
+        const keys2 = Object.keys(descriptors2).filter((key) => descriptors2[key]?.enumerable === true);
+        if (keys2.length !== length || keys2.some((key, index) => key !== String(index))) {
+          return invalidJson("JSON snapshot arrays must be dense and cannot have named properties.");
+        }
+        for (let index = length - 1;index >= 0; index -= 1) {
+          const descriptor = descriptors2[String(index)];
+          if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+            return invalidJson("JSON snapshot arrays must contain plain data elements.");
+          }
+          pending.push({ exiting: false, value: descriptor.value });
+        }
+        continue;
+      }
+      const prototype = Object.getPrototypeOf(current);
+      if (prototype !== Object.prototype && prototype !== null) {
+        return invalidJson("JSON snapshots accept only arrays and plain objects.");
+      }
+      const descriptors = Object.getOwnPropertyDescriptors(current);
+      if (enumerableSymbolDescriptor(descriptors)) {
+        return invalidJson("JSON snapshots cannot contain enumerable symbol properties.");
+      }
+      const keys = Object.keys(descriptors).filter((key) => descriptors[key]?.enumerable === true);
+      for (let index = keys.length - 1;index >= 0; index -= 1) {
+        const key = keys[index];
+        if (key === undefined)
+          continue;
+        const descriptor = descriptors[key];
+        if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+          return invalidJson("JSON snapshot properties must be plain data properties.");
+        }
+        if (descriptor.value === undefined) {
+          return invalidJson(`JSON snapshot property ${key} is undefined.`);
+        }
+        pending.push({ exiting: false, value: descriptor.value });
+      }
+    }
+  } catch (error) {
+    if (error instanceof TransmuteCodeError)
+      throw error;
+    throw new TransmuteCodeError("invalid-data", "JSON snapshot could not be safely inspected.", { cause: error instanceof Error ? error.message : String(error) });
+  }
+  return value;
+}
+
+// src/code/canonical-json.ts
+var MAX_CANONICAL_JSON_BYTES = Number.MAX_SAFE_INTEGER;
+var MAX_CANONICAL_JSON_DEPTH = Number.MAX_SAFE_INTEGER;
+var MAX_CANONICAL_JSON_VALUES = Number.MAX_SAFE_INTEGER;
+function compareUtf16Strings(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+function canonicalLimits(bounds) {
+  return {
+    maximumDepth: bounds?.maximumDepth ?? MAX_CANONICAL_JSON_DEPTH,
+    maximumValues: bounds?.maximumValues ?? MAX_CANONICAL_JSON_VALUES
+  };
+}
+function boundedCanonicalJson(value, bounds) {
+  return createBoundedCanonicalJson(value, bounds.maximumBytes, bounds.name ?? "Canonical JSON", canonicalLimits(bounds));
+}
+function boundedCanonicalJsonSha256(value, bounds, hashPrefix) {
+  return createBoundedCanonicalSha256(value, bounds.maximumBytes, bounds.name ?? "Canonical JSON", canonicalLimits(bounds), hashPrefix);
+}
+function boundedCanonicalJsonFingerprint(value, bounds, hashPrefix) {
+  return createBoundedCanonicalFingerprint(value, bounds.maximumBytes, bounds.name ?? "Canonical JSON", canonicalLimits(bounds), hashPrefix);
 }
 function canonicalJson(value) {
-  return canonicalize(value, new Set);
-}
-var SHA256_INITIAL = [
-  1779033703,
-  3144134277,
-  1013904242,
-  2773480762,
-  1359893119,
-  2600822924,
-  528734635,
-  1541459225
-];
-var SHA256_CONSTANTS = [
-  1116352408,
-  1899447441,
-  3049323471,
-  3921009573,
-  961987163,
-  1508970993,
-  2453635748,
-  2870763221,
-  3624381080,
-  310598401,
-  607225278,
-  1426881987,
-  1925078388,
-  2162078206,
-  2614888103,
-  3248222580,
-  3835390401,
-  4022224774,
-  264347078,
-  604807628,
-  770255983,
-  1249150122,
-  1555081692,
-  1996064986,
-  2554220882,
-  2821834349,
-  2952996808,
-  3210313671,
-  3336571891,
-  3584528711,
-  113926993,
-  338241895,
-  666307205,
-  773529912,
-  1294757372,
-  1396182291,
-  1695183700,
-  1986661051,
-  2177026350,
-  2456956037,
-  2730485921,
-  2820302411,
-  3259730800,
-  3345764771,
-  3516065817,
-  3600352804,
-  4094571909,
-  275423344,
-  430227734,
-  506948616,
-  659060556,
-  883997877,
-  958139571,
-  1322822218,
-  1537002063,
-  1747873779,
-  1955562222,
-  2024104815,
-  2227730452,
-  2361852424,
-  2428436474,
-  2756734187,
-  3204031479,
-  3329325298
-];
-function rotateRight(value, shift) {
-  return value >>> shift | value << 32 - shift;
-}
-function sha256Hex(input) {
-  const source = new TextEncoder().encode(input);
-  const bitLength = source.length * 8;
-  const paddedLength = Math.ceil((source.length + 9) / 64) * 64;
-  const bytes = new Uint8Array(paddedLength);
-  bytes.set(source);
-  bytes[source.length] = 128;
-  const view = new DataView(bytes.buffer);
-  view.setUint32(paddedLength - 8, Math.floor(bitLength / 4294967296), false);
-  view.setUint32(paddedLength - 4, bitLength >>> 0, false);
-  const state = [...SHA256_INITIAL];
-  const words = new Uint32Array(64);
-  for (let offset = 0;offset < paddedLength; offset += 64) {
-    for (let index = 0;index < 16; index += 1) {
-      words[index] = view.getUint32(offset + index * 4, false);
-    }
-    for (let index = 16;index < 64; index += 1) {
-      const word15 = words[index - 15] ?? 0;
-      const word2 = words[index - 2] ?? 0;
-      const sigma0 = rotateRight(word15, 7) ^ rotateRight(word15, 18) ^ word15 >>> 3;
-      const sigma1 = rotateRight(word2, 17) ^ rotateRight(word2, 19) ^ word2 >>> 10;
-      words[index] = (words[index - 16] ?? 0) + sigma0 + (words[index - 7] ?? 0) + sigma1 >>> 0;
-    }
-    let [a, b, c, d, e, f, g, h] = state;
-    for (let index = 0;index < 64; index += 1) {
-      const eValue = e ?? 0;
-      const aValue = a ?? 0;
-      const sum1 = rotateRight(eValue, 6) ^ rotateRight(eValue, 11) ^ rotateRight(eValue, 25);
-      const choice = eValue & (f ?? 0) ^ ~eValue & (g ?? 0);
-      const temporary1 = (h ?? 0) + sum1 + choice + (SHA256_CONSTANTS[index] ?? 0) + (words[index] ?? 0) >>> 0;
-      const sum0 = rotateRight(aValue, 2) ^ rotateRight(aValue, 13) ^ rotateRight(aValue, 22);
-      const majority = aValue & (b ?? 0) ^ aValue & (c ?? 0) ^ (b ?? 0) & (c ?? 0);
-      const temporary2 = sum0 + majority >>> 0;
-      h = g;
-      g = f;
-      f = e;
-      e = (d ?? 0) + temporary1 >>> 0;
-      d = c;
-      c = b;
-      b = a;
-      a = temporary1 + temporary2 >>> 0;
-    }
-    state[0] = (state[0] ?? 0) + (a ?? 0) >>> 0;
-    state[1] = (state[1] ?? 0) + (b ?? 0) >>> 0;
-    state[2] = (state[2] ?? 0) + (c ?? 0) >>> 0;
-    state[3] = (state[3] ?? 0) + (d ?? 0) >>> 0;
-    state[4] = (state[4] ?? 0) + (e ?? 0) >>> 0;
-    state[5] = (state[5] ?? 0) + (f ?? 0) >>> 0;
-    state[6] = (state[6] ?? 0) + (g ?? 0) >>> 0;
-    state[7] = (state[7] ?? 0) + (h ?? 0) >>> 0;
-  }
-  return state.map((word) => word.toString(16).padStart(8, "0")).join("");
+  return boundedCanonicalJson(value, {
+    maximumBytes: MAX_CANONICAL_JSON_BYTES
+  });
 }
 function canonicalJsonSha256(value) {
-  return sha256Hex(canonicalJson(value));
+  return boundedCanonicalJsonSha256(value, {
+    maximumBytes: MAX_CANONICAL_JSON_BYTES
+  });
+}
+function canonicalJsonSha256Prefixed(prefix, value) {
+  return boundedCanonicalJsonSha256(value, { maximumBytes: MAX_CANONICAL_JSON_BYTES }, prefix);
+}
+function canonicalJsonFingerprint(value, hashPrefix) {
+  return boundedCanonicalJsonFingerprint(value, { maximumBytes: MAX_CANONICAL_JSON_BYTES }, hashPrefix);
 }
 
 // src/code/public-operations.ts
@@ -541,7 +1052,25 @@ var TransmuteImageVectorizeInputSchema = schemaWithReadonlyOutput(z2.strictObjec
   outputPath: BoundedPathSchema.refine((value) => value.toLowerCase().endsWith(".svg"), "Vector output paths must end in .svg."),
   timeoutMs: z2.number().int().min(1).max(300000).optional()
 }));
-var PromptSchema = z2.string().refine((value) => value.trim().length > 0, "Prompts must not be blank.").refine((value) => !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value), "Prompts must not contain control characters.").refine((value) => new TextEncoder().encode(value).byteLength <= MAX_PROMPT_BYTES, `Prompts must contain at most ${String(MAX_PROMPT_BYTES)} UTF-8 bytes.`);
+var PromptSchema = z2.string().superRefine((value, context) => {
+  if (utf8ByteLength(value, MAX_PROMPT_BYTES) === undefined) {
+    context.addIssue({
+      code: "custom",
+      message: `Prompts must contain at most ${String(MAX_PROMPT_BYTES)} UTF-8 bytes.`
+    });
+    return;
+  }
+  if (value.trim().length === 0) {
+    context.addIssue({ code: "custom", message: "Prompts must not be blank." });
+    return;
+  }
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)) {
+    context.addIssue({
+      code: "custom",
+      message: "Prompts must not contain control characters."
+    });
+  }
+});
 var TransmuteImageGenerateInputSchema = schemaWithReadonlyOutput(z2.strictObject({
   idempotencyKey: z2.string().min(16).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u).optional(),
   model: TransmuteImageModelSchema,
@@ -753,8 +1282,58 @@ function parseCodeBoundary(schema, input, name) {
 // src/code/projection.ts
 var WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN = "transmute.workflow.registry-projection/v1";
 var PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID = "transmute.workflow.registry.public/v1";
+var OWNED_NORMALIZED_PROJECTIONS = new WeakSet;
+var MAX_OPERATION_DISCOVERY_VALUES = 17 + OPERATION_PREPARATION_KINDS.length + 3 * OPERATION_RESOURCE_KINDS.length;
+var MAX_OPERATION_DISCOVERY_LIST_VALUES = 1 + MAX_OPERATION_DISCOVERY_ENTRIES * MAX_OPERATION_DISCOVERY_VALUES;
+var MAX_OPERATION_DISCOVERY_LIST_BYTES = 32 * 1024 * 1024;
+var MAX_OPERATION_DISCOVERY_LIST_DEPTH = 8;
+var MAX_WORKFLOW_REGISTRY_PROJECTION_BYTES = MAX_OPERATION_DISCOVERY_LIST_BYTES + 4096;
+var MAX_WORKFLOW_REGISTRY_PROJECTION_DEPTH = MAX_OPERATION_DISCOVERY_LIST_DEPTH + 1;
+var MAX_WORKFLOW_REGISTRY_PROJECTION_VALUES = MAX_OPERATION_DISCOVERY_LIST_VALUES + 5;
 function discoveryList(source) {
   return Array.isArray(source) ? source : source.list();
+}
+function boundedOperationDiscoveryList(input, name = "operation discovery list") {
+  if (!Array.isArray(input)) {
+    throw new TransmuteCodeError("invalid-data", `${name} must be an array.`);
+  }
+  const length = input.length;
+  if (length > MAX_OPERATION_DISCOVERY_ENTRIES) {
+    throw new TransmuteCodeError("invalid-data", `${name} cannot exceed ${String(MAX_OPERATION_DISCOVERY_ENTRIES)} entries.`);
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  if (Object.getOwnPropertySymbols(descriptors).some((symbol) => Reflect.get(descriptors, symbol)?.enumerable === true)) {
+    throw new TransmuteCodeError("invalid-data", `${name} cannot contain enumerable symbol properties.`);
+  }
+  const keys = Object.keys(descriptors).filter((key) => descriptors[key]?.enumerable === true);
+  if (keys.length !== length || keys.some((key, index) => key !== String(index))) {
+    throw new TransmuteCodeError("invalid-data", `${name} must be dense and cannot have named properties.`);
+  }
+  const punctuationBytes = 2 + Math.max(0, length - 1);
+  let bytes = punctuationBytes;
+  let values = 1;
+  const captured = [];
+  for (let index = 0;index < length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+      throw new TransmuteCodeError("invalid-data", `${name} must contain plain data elements.`);
+    }
+    const remainingBytes = MAX_OPERATION_DISCOVERY_LIST_BYTES - bytes;
+    if (remainingBytes < 1) {
+      throw new TransmuteCodeError("invalid-data", `${name} contains more than ${String(MAX_OPERATION_DISCOVERY_LIST_BYTES)} bytes.`);
+    }
+    const snapshot = createBoundedJsonValueSnapshot(descriptor.value, remainingBytes, `${name} entry ${String(index)}`, {
+      maximumDepth: MAX_OPERATION_DISCOVERY_LIST_DEPTH - 1,
+      maximumValues: MAX_OPERATION_DISCOVERY_VALUES
+    });
+    bytes += snapshot.bytes;
+    values += snapshot.values;
+    if (values > MAX_OPERATION_DISCOVERY_LIST_VALUES) {
+      throw new TransmuteCodeError("invalid-data", `${name} contains more than ${String(MAX_OPERATION_DISCOVERY_LIST_VALUES)} JSON values.`);
+    }
+    captured.push(snapshot.value);
+  }
+  return Object.freeze(captured);
 }
 function operationKey(kind, version) {
   return `${kind}@${String(version)}`;
@@ -763,7 +1342,7 @@ function uniqueSorted(values) {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 function normalizeOperationDiscovery(input) {
-  const normalized = input.map((item) => {
+  const normalized = boundedOperationDiscoveryList(input).map((item) => {
     const parsed = parseCodeBoundary(OperationDiscoverySchema, item, "operation discovery entry");
     const preparation = uniqueSorted(parsed.policy.preparation);
     if (preparation.length !== parsed.policy.preparation.length) {
@@ -802,11 +1381,18 @@ function createWorkflowRegistryProjectionHash(input) {
   const id = parseCodeBoundary(SchemaIdSchema, input.id, "registry projection id");
   const discovery = normalizeOperationDiscovery(input.discovery);
   const trustedCompute = input.trustedCompute ?? false;
-  return sha256Hex(`${WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN}\x00${canonicalJson({
+  return workflowRegistryProjectionHashFromNormalized({
     discovery,
     id,
     trustedCompute
-  })}`);
+  });
+}
+function workflowRegistryProjectionHashFromNormalized(input) {
+  return canonicalJsonSha256Prefixed(`${WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN}\x00`, {
+    discovery: input.discovery,
+    id: input.id,
+    trustedCompute: input.trustedCompute
+  });
 }
 function createWorkflowRegistryProjection(idInput, source, options = {}) {
   const id = parseCodeBoundary(SchemaIdSchema, idInput, "registry projection id");
@@ -815,20 +1401,29 @@ function createWorkflowRegistryProjection(idInput, source, options = {}) {
   const parsed = parseCodeBoundary(WorkflowRegistryProjectionSchema, {
     discovery,
     id,
-    projectionSha256: createWorkflowRegistryProjectionHash({
+    projectionSha256: workflowRegistryProjectionHashFromNormalized({
       discovery,
       id,
       trustedCompute
     }),
     trustedCompute
   }, "workflow registry projection");
-  return Object.freeze({
+  const projection = Object.freeze({
     ...parsed,
     discovery: freezeDiscovery(parsed.discovery)
   });
+  OWNED_NORMALIZED_PROJECTIONS.add(projection);
+  return projection;
 }
 function parseWorkflowRegistryProjection(input) {
-  const parsed = parseCodeBoundary(WorkflowRegistryProjectionSchema, input, "workflow registry projection");
+  if (typeof input === "object" && input !== null && OWNED_NORMALIZED_PROJECTIONS.has(input)) {
+    return input;
+  }
+  const captured = createBoundedJsonValueSnapshot(input, MAX_WORKFLOW_REGISTRY_PROJECTION_BYTES, "workflow registry projection", {
+    maximumDepth: MAX_WORKFLOW_REGISTRY_PROJECTION_DEPTH,
+    maximumValues: MAX_WORKFLOW_REGISTRY_PROJECTION_VALUES
+  }).value;
+  const parsed = parseCodeBoundary(WorkflowRegistryProjectionSchema, captured, "workflow registry projection");
   const normalized = createWorkflowRegistryProjection(parsed.id, parsed.discovery, { trustedCompute: parsed.trustedCompute });
   if (parsed.projectionSha256 !== normalized.projectionSha256) {
     throw new TransmuteCodeError("invalid-data", "Workflow registry projection hash does not match its contents.", {
@@ -837,7 +1432,7 @@ function parseWorkflowRegistryProjection(input) {
       projectionId: parsed.id
     });
   }
-  if (canonicalJson(parsed) !== canonicalJson(normalized)) {
+  if (canonicalJsonSha256(parsed) !== canonicalJsonSha256(normalized)) {
     throw new TransmuteCodeError("invalid-data", "Workflow registry projection discovery is not normalized.", { projectionId: parsed.id });
   }
   return normalized;
@@ -862,6 +1457,7 @@ var PUBLIC_WORKFLOW_REGISTRY_PROJECTION = createPublicWorkflowRegistryProjection
 var PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION = PUBLIC_WORKFLOW_REGISTRY_PROJECTION;
 
 // src/code/compiler.ts
+import { z as z3 } from "zod";
 var WORKFLOW_GRAPH_HASH_DOMAIN = "transmute.workflow.graph/v1";
 var WORKFLOW_COMPILATION_HASH_DOMAIN = "transmute.workflow.compilation/v1";
 var DEFAULT_GRAPH_COMPILER_LIMITS = Object.freeze({
@@ -871,6 +1467,20 @@ var DEFAULT_GRAPH_COMPILER_LIMITS = Object.freeze({
   maxNodes: 256,
   maxTotalOperationFanOut: 4096
 });
+var MAX_SERIALIZED_GRAPH_BYTES = 64 * 1024 * 1024;
+var MAX_SERIALIZED_GRAPH_DEPTH = 160;
+var MAX_SERIALIZED_GRAPH_VALUES = 1100000;
+var MAX_GRAPH_COMPILER_LIMIT_BYTES = 1024;
+var MAX_GRAPH_COMPILER_LIMIT_DEPTH = 2;
+var MAX_GRAPH_COMPILER_LIMIT_INPUT_VALUES = 16;
+var MAX_WORKFLOW_COMPILATION_BYTES = 80 * 1024 * 1024;
+var MAX_WORKFLOW_COMPILATION_DEPTH = 192;
+var MAX_OPERATION_DISCOVERY_VALUES2 = 17 + OPERATION_PREPARATION_KINDS.length + 3 * OPERATION_RESOURCE_KINDS.length;
+var MAX_WORKFLOW_PROJECTION_VALUES = 5 + MAX_OPERATION_DISCOVERY_ENTRIES * MAX_OPERATION_DISCOVERY_VALUES2;
+var MAX_REQUIREMENT_ENVELOPE_VALUES = 21 + 3 * MAX_SERIALIZED_GRAPH_NODES + WORKFLOW_EFFECT_CLASSES.length + OPERATION_PREPARATION_KINDS.length + 3 * OPERATION_RESOURCE_KINDS.length + WORKFLOW_RESUME_CLASSES.length + UNRESOLVED_REQUIREMENT_KINDS.length;
+var MAX_TOPOLOGICAL_WAVE_VALUES = 1 + 2 * MAX_SERIALIZED_GRAPH_NODES;
+var MAX_GRAPH_COMPILER_LIMIT_VALUES = 6;
+var MAX_WORKFLOW_COMPILATION_VALUES = MAX_SERIALIZED_GRAPH_VALUES + MAX_WORKFLOW_PROJECTION_VALUES + MAX_REQUIREMENT_ENVELOPE_VALUES + MAX_TOPOLOGICAL_WAVE_VALUES + MAX_GRAPH_COMPILER_LIMIT_VALUES + 4;
 function invalidData(message, details) {
   throw new TransmuteCodeError("invalid-data", message, details);
 }
@@ -898,26 +1508,49 @@ function safeAdd(left, right, name) {
 function normalizeLimits(input) {
   if (input === undefined)
     return DEFAULT_GRAPH_COMPILER_LIMITS;
-  if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    return parseCodeBoundary(GraphCompilerLimitsSchema, input, "graph compiler limits");
+  const captured = createBoundedJsonValueSnapshot(input, MAX_GRAPH_COMPILER_LIMIT_BYTES, "graph compiler limits", {
+    maximumDepth: MAX_GRAPH_COMPILER_LIMIT_DEPTH,
+    maximumValues: MAX_GRAPH_COMPILER_LIMIT_INPUT_VALUES
+  }).value;
+  if (typeof captured !== "object" || captured === null || Array.isArray(captured)) {
+    return parseCodeBoundary(GraphCompilerLimitsSchema, captured, "graph compiler limits");
   }
   return parseCodeBoundary(GraphCompilerLimitsSchema, {
     ...DEFAULT_GRAPH_COMPILER_LIMITS,
-    ...input
+    ...captured
   }, "graph compiler limits");
 }
-function normalizeAuthoredWorkflowGraph(graphInput) {
-  const graph = parseCodeBoundary(AuthoredWorkflowGraphV1Schema, graphInput, "authored workflow graph");
+function preflightAuthoredWorkflowGraph(graphInput, maximumNodes) {
+  if (typeof graphInput !== "object" || graphInput === null || Array.isArray(graphInput)) {
+    return;
+  }
+  const nodes = Object.getOwnPropertyDescriptor(graphInput, "nodes")?.value;
+  if (Array.isArray(nodes) && nodes.length > maximumNodes) {
+    return invalidData(`Workflow has ${String(nodes.length)} nodes; the limit is ${String(maximumNodes)}.`, { actual: nodes.length, limit: maximumNodes });
+  }
+}
+function normalizeAuthoredWorkflowGraph(graphInput, maximumNodes = MAX_SERIALIZED_GRAPH_NODES) {
+  preflightAuthoredWorkflowGraph(graphInput, maximumNodes);
+  const captured = createBoundedJsonValueSnapshot(graphInput, MAX_SERIALIZED_GRAPH_BYTES, "Authored workflow graph", {
+    maximumDepth: MAX_SERIALIZED_GRAPH_DEPTH,
+    maximumValues: MAX_SERIALIZED_GRAPH_VALUES
+  }).value;
+  const graph = parseCodeBoundary(AuthoredWorkflowGraphV1Schema, captured, "authored workflow graph");
+  if (graph.nodes.length > maximumNodes) {
+    return invalidData(`Workflow has ${String(graph.nodes.length)} nodes; the limit is ${String(maximumNodes)}.`, { actual: graph.nodes.length, limit: maximumNodes });
+  }
   const sorted = {
     ...graph,
     nodes: [...graph.nodes].sort((left, right) => left.key.localeCompare(right.key))
   };
-  const canonical = JSON.parse(canonicalJson(sorted));
-  return parseCodeBoundary(AuthoredWorkflowGraphV1Schema, canonical, "normalized authored workflow graph");
+  return deepFreezeJson(sorted);
+}
+function workflowGraphHashFromNormalized(graph) {
+  return canonicalJsonSha256Prefixed(`${WORKFLOW_GRAPH_HASH_DOMAIN}\x00`, graph);
 }
 function createWorkflowGraphHash(graphInput) {
   const graph = normalizeAuthoredWorkflowGraph(graphInput);
-  return sha256Hex(`${WORKFLOW_GRAPH_HASH_DOMAIN}\x00${canonicalJson(graph)}`);
+  return workflowGraphHashFromNormalized(graph);
 }
 var createGraphHash = createWorkflowGraphHash;
 function isSerializedRef(value) {
@@ -947,7 +1580,7 @@ function collectReferences(value) {
         pending.push(item);
     }
   }
-  return references.sort((left, right) => left.$ref.nodeKey.localeCompare(right.$ref.nodeKey) || left.$ref.schemaId.localeCompare(right.$ref.schemaId) || canonicalJson(left.$ref.path ?? []).localeCompare(canonicalJson(right.$ref.path ?? [])));
+  return references;
 }
 function arraysEqual(left, right) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
@@ -1020,7 +1653,7 @@ function topologicalWaves(nodes, limits) {
   };
 }
 function validateGraph(graphInput, projection, limits) {
-  const graph = normalizeAuthoredWorkflowGraph(graphInput);
+  const graph = normalizeAuthoredWorkflowGraph(graphInput, limits.maxNodes);
   if (graph.nodes.length > limits.maxNodes) {
     return invalidData(`Workflow has ${String(graph.nodes.length)} nodes; the limit is ${String(limits.maxNodes)}.`, { actual: graph.nodes.length, limit: limits.maxNodes });
   }
@@ -1226,50 +1859,68 @@ function resolveProjection(options) {
   }
   return PUBLIC_WORKFLOW_REGISTRY_PROJECTION;
 }
+var RequiredCompilationComponentSchema = z3.unknown().refine((value) => value !== undefined, "Required");
+var ShallowCompiledWorkflowGraphSchema = z3.strictObject({
+  compilationSha256: Sha256Schema,
+  envelope: RequiredCompilationComponentSchema,
+  graph: RequiredCompilationComponentSchema,
+  graphSha256: Sha256Schema,
+  limits: RequiredCompilationComponentSchema,
+  projection: RequiredCompilationComponentSchema,
+  topologicalWaves: RequiredCompilationComponentSchema,
+  version: z3.literal(WORKFLOW_COMPILATION_VERSION)
+});
+function boundedCompilationInput(input, name) {
+  return createBoundedJsonValueSnapshot(input, MAX_WORKFLOW_COMPILATION_BYTES, name, {
+    maximumDepth: MAX_WORKFLOW_COMPILATION_DEPTH,
+    maximumValues: MAX_WORKFLOW_COMPILATION_VALUES
+  }).value;
+}
+function workflowCompilationHashFromValidated(compilation) {
+  return canonicalJsonSha256Prefixed(`${WORKFLOW_COMPILATION_HASH_DOMAIN}\x00`, compilation);
+}
 function createWorkflowCompilationHash(compilationInput) {
-  const input = compilationInput;
-  const unsigned = {
-    envelope: input.envelope,
-    graph: input.graph,
-    graphSha256: input.graphSha256,
-    limits: input.limits,
-    projection: input.projection,
-    topologicalWaves: input.topologicalWaves,
-    version: input.version
-  };
+  const bounded = boundedCompilationInput(compilationInput, "workflow compilation");
+  if (typeof bounded !== "object" || bounded === null || Array.isArray(bounded)) {
+    return invalidData("Workflow compilation must be a plain object.");
+  }
+  const {
+    compilationSha256: ignoredCompilationSha256,
+    ...unsigned
+  } = bounded;
   const parsed = parseCodeBoundary(CompiledWorkflowGraphSchema.omit({ compilationSha256: true }), unsigned, "unsigned workflow compilation");
-  return sha256Hex(`${WORKFLOW_COMPILATION_HASH_DOMAIN}\x00${canonicalJson(parsed)}`);
+  return workflowCompilationHashFromValidated(parsed);
 }
 function compileWorkflowGraph(options) {
   const limits = normalizeLimits(options.limits);
   const projection = resolveProjection(options);
-  const discovery = normalizeOperationDiscovery(projection.discovery);
-  const normalizedProjection = createWorkflowRegistryProjection(projection.id, discovery, { trustedCompute: projection.trustedCompute });
-  if (projection.projectionSha256 !== normalizedProjection.projectionSha256) {
-    throw new TransmuteCodeError("invalid-data", "Workflow registry projection hash does not match its normalized contents.", { projectionId: projection.id });
-  }
-  const validated = validateGraph(options.graph, normalizedProjection, limits);
-  const graphSha256 = createWorkflowGraphHash(validated.graph);
+  const validated = validateGraph(options.graph, projection, limits);
+  const graphSha256 = workflowGraphHashFromNormalized(validated.graph);
   const unsigned = {
     envelope: deriveRequirementEnvelope(validated),
     graph: validated.graph,
     graphSha256,
     limits,
-    projection: normalizedProjection,
+    projection,
     topologicalWaves: validated.topology.waves,
     version: WORKFLOW_COMPILATION_VERSION
   };
   return deepFreeze(parseCodeBoundary(CompiledWorkflowGraphSchema, {
     ...unsigned,
-    compilationSha256: createWorkflowCompilationHash(unsigned)
+    compilationSha256: workflowCompilationHashFromValidated(unsigned)
   }, "compiled workflow graph"));
 }
 function parseCompiledWorkflowGraph(input) {
-  const parsed = parseCodeBoundary(CompiledWorkflowGraphSchema, input, "compiled workflow graph");
-  const expected = createWorkflowCompilationHash(parsed);
-  if (parsed.compilationSha256 !== expected) {
+  const bounded = boundedCompilationInput(input, "compiled workflow graph");
+  const parsed = parseCodeBoundary(ShallowCompiledWorkflowGraphSchema, bounded, "compiled workflow graph");
+  const {
+    compilationSha256: parsedCompilationSha256,
+    ...unsigned
+  } = parsed;
+  const expected = workflowCompilationHashFromValidated(unsigned);
+  if (parsedCompilationSha256 !== expected) {
     throw new TransmuteCodeError("invalid-data", "Workflow compilation hash does not match its contents.", {
-      actualCompilationSha256: parsed.compilationSha256,
+      actualCompilationSha256: parsedCompilationSha256,
       expectedCompilationSha256: expected
     });
   }
@@ -1278,7 +1929,7 @@ function parseCompiledWorkflowGraph(input) {
     limits: parsed.limits,
     projection: parsed.projection
   });
-  if (canonicalJson(recompiled) !== canonicalJson(parsed)) {
+  if (recompiled.compilationSha256 !== parsedCompilationSha256) {
     throw new TransmuteCodeError("invalid-data", "Workflow compilation topology, requirements, or projection do not match the graph.");
   }
   return recompiled;
@@ -1286,14 +1937,40 @@ function parseCompiledWorkflowGraph(input) {
 
 // src/code/graph-builder.ts
 var MAX_AUTHORING_VALUE_DEPTH = 128;
+var MAX_AUTHORING_VALUES = 1e6;
+function consumeAuthoringValue(budget) {
+  if (budget.consumed >= budget.maximum) {
+    throw new TransmuteCodeError("invalid-data", `Workflow authoring values exceed the ${String(MAX_AUTHORING_VALUES)} value limit.`);
+  }
+  budget.consumed += 1;
+}
+function consumeAuthoringValues(budget, additional) {
+  requireAuthoringCapacity(budget, additional);
+  budget.consumed += additional;
+}
+function requireAuthoringCapacity(budget, additional) {
+  if (additional > budget.maximum - budget.consumed) {
+    throw new TransmuteCodeError("invalid-data", `Workflow authoring values exceed the ${String(MAX_AUTHORING_VALUES)} value limit.`);
+  }
+}
+function encodingBudget(state) {
+  return {
+    consumed: 0,
+    maximum: MAX_AUTHORING_VALUES - state.authoredValues
+  };
+}
+function requireStateCapacity(state, additional) {
+  if (additional > MAX_AUTHORING_VALUES - state.authoredValues) {
+    throw new TransmuteCodeError("invalid-data", `Workflow authoring values exceed the ${String(MAX_AUTHORING_VALUES)} value limit.`);
+  }
+}
 function discoveryKey(kind, version) {
   return `${kind}@${String(version)}`;
 }
 function providerDiscovery(provider) {
   const source = provider;
-  if (typeof source.list === "function")
-    return source.list();
-  return provider.discovery;
+  const discovery = typeof source.list === "function" ? source.list() : provider.discovery;
+  return boundedOperationDiscoveryList(discovery);
 }
 function operationContractValue(discovery) {
   return Object.freeze({
@@ -1307,21 +1984,32 @@ function isPlainRecord(value) {
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
+function rejectEnumerableSymbols(descriptors, name) {
+  if (Object.getOwnPropertySymbols(descriptors).some((symbol) => Reflect.get(descriptors, symbol)?.enumerable === true)) {
+    throw new TransmuteCodeError("invalid-data", `${name} cannot contain enumerable symbol properties.`);
+  }
+}
 function cloneSerializedRef(reference) {
-  return parseCodeBoundary(SerializedRefV1Schema, reference.serialized, "workflow reference");
+  return deepFreezeJson(parseCodeBoundary(SerializedRefV1Schema, reference.serialized, "workflow reference"));
+}
+function serializedReferenceValueCount(reference) {
+  const path = reference.$ref.path;
+  return path === undefined ? 5 : 6 + path.length;
 }
 function isOwnedRef(value, state) {
   return typeof value === "object" && value !== null && WORKFLOW_REF_BRAND in value && state.references.has(value);
 }
-function encodeInputValue(input, state, dependencies, ancestors, depth) {
+function encodeInputValue(input, state, dependencies, ancestors, depth, budget) {
   if (depth > MAX_AUTHORING_VALUE_DEPTH) {
     throw new TransmuteCodeError("invalid-data", `Workflow input nesting exceeds ${String(MAX_AUTHORING_VALUE_DEPTH)} levels.`);
   }
   if (isOwnedRef(input, state)) {
     const serialized = cloneSerializedRef(input);
+    consumeAuthoringValues(budget, serializedReferenceValueCount(serialized));
     dependencies.add(serialized.$ref.nodeKey);
     return serialized;
   }
+  consumeAuthoringValue(budget);
   if (typeof input === "object" && input !== null && WORKFLOW_REF_BRAND in input) {
     throw new TransmuteCodeError("invalid-data", "Use a typed Ref value created by this workflow graph builder.");
   }
@@ -1343,7 +2031,23 @@ function encodeInputValue(input, state, dependencies, ancestors, depth) {
   ancestors.add(input);
   try {
     if (Array.isArray(input)) {
-      return input.map((value) => encodeInputValue(value, state, dependencies, ancestors, depth + 1));
+      const length = input.length;
+      requireAuthoringCapacity(budget, length);
+      const descriptors2 = Object.getOwnPropertyDescriptors(input);
+      rejectEnumerableSymbols(descriptors2, "Workflow node input arrays");
+      const keys2 = Object.keys(descriptors2).filter((key) => descriptors2[key]?.enumerable === true);
+      if (keys2.length !== length || keys2.some((key, index) => key !== String(index))) {
+        throw new TransmuteCodeError("invalid-data", "Workflow node input arrays must be dense and cannot have named properties.");
+      }
+      const encoded2 = [];
+      for (let index = 0;index < length; index += 1) {
+        const descriptor = descriptors2[String(index)];
+        if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+          throw new TransmuteCodeError("invalid-data", "Workflow node input arrays must contain plain data elements.");
+        }
+        encoded2.push(encodeInputValue(descriptor.value, state, dependencies, ancestors, depth + 1, budget));
+      }
+      return encoded2;
     }
     if (!isPlainRecord(input)) {
       throw new TransmuteCodeError("invalid-data", "Workflow node input accepts only JSON values and typed workflow references.");
@@ -1351,12 +2055,20 @@ function encodeInputValue(input, state, dependencies, ancestors, depth) {
     if (Object.hasOwn(input, "$ref")) {
       throw new TransmuteCodeError("invalid-data", "Use a typed Ref value instead of constructing the reserved $ref field.");
     }
+    const descriptors = Object.getOwnPropertyDescriptors(input);
+    rejectEnumerableSymbols(descriptors, "Workflow node inputs");
+    const keys = Object.keys(descriptors).filter((key) => descriptors[key]?.enumerable === true).sort();
+    requireAuthoringCapacity(budget, keys.length);
     const encoded = {};
-    for (const key of Object.keys(input).sort()) {
+    for (const key of keys) {
       if (key === "__proto__") {
         throw new TransmuteCodeError("invalid-data", "Workflow inputs cannot contain the reserved __proto__ object key.");
       }
-      encoded[key] = encodeInputValue(input[key], state, dependencies, ancestors, depth + 1);
+      const descriptor = descriptors[key];
+      if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+        throw new TransmuteCodeError("invalid-data", "Workflow node input properties must be plain data properties.");
+      }
+      encoded[key] = encodeInputValue(descriptor.value, state, dependencies, ancestors, depth + 1, budget);
     }
     return encoded;
   } finally {
@@ -1365,34 +2077,60 @@ function encodeInputValue(input, state, dependencies, ancestors, depth) {
 }
 function encodeOperationInput(input, state) {
   const dependencies = new Set;
-  const value = encodeInputValue(input, state, dependencies, new Set, 0);
+  const budget = encodingBudget(state);
+  const value = encodeInputValue(input, state, dependencies, new Set, 0, budget);
   return {
     dependencies: [...dependencies].sort((left, right) => left.localeCompare(right)),
-    value
+    value,
+    values: budget.consumed
   };
 }
 function encodeControlDependencies(after, state) {
   if (after === undefined)
     return [];
-  const references = Array.isArray(after) ? after : [after];
   const dependencies = new Set;
-  for (const reference of references) {
+  const appendReference = (reference) => {
     if (!isOwnedRef(reference, state)) {
       throw new TransmuteCodeError("invalid-data", "Operation control dependencies must be typed Ref values created by this workflow graph builder.");
     }
     dependencies.add(cloneSerializedRef(reference).$ref.nodeKey);
+  };
+  if (!Array.isArray(after)) {
+    appendReference(after);
+    return [...dependencies];
+  }
+  const length = after.length;
+  if (length > MAX_SERIALIZED_NODE_DEPENDENCIES) {
+    throw new TransmuteCodeError("invalid-data", `Operation control dependencies cannot exceed ${String(MAX_SERIALIZED_NODE_DEPENDENCIES)} entries.`);
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(after);
+  rejectEnumerableSymbols(descriptors, "Operation control dependencies");
+  const keys = Object.keys(descriptors).filter((key) => descriptors[key]?.enumerable === true);
+  if (keys.length !== length || keys.some((key, index) => key !== String(index))) {
+    throw new TransmuteCodeError("invalid-data", "Operation control dependencies must be a dense array without named properties.");
+  }
+  for (let index = 0;index < length; index += 1) {
+    const descriptor = descriptors[String(index)];
+    if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+      throw new TransmuteCodeError("invalid-data", "Operation control dependencies must contain plain data elements.");
+    }
+    appendReference(descriptor.value);
   }
   return [...dependencies].sort((left, right) => left.localeCompare(right));
 }
 function combineDependencies(dataDependencies, controlDependencies) {
   return [...new Set([...dataDependencies, ...controlDependencies])].sort((left, right) => left.localeCompare(right));
 }
-function encodeOutputValue(output, state, ancestors, depth) {
+function encodeOutputValue(output, state, ancestors, depth, budget) {
   if (depth > MAX_AUTHORING_VALUE_DEPTH) {
     throw new TransmuteCodeError("invalid-data", `Workflow output nesting exceeds ${String(MAX_AUTHORING_VALUE_DEPTH)} levels.`);
   }
-  if (isOwnedRef(output, state))
-    return cloneSerializedRef(output);
+  if (isOwnedRef(output, state)) {
+    const serialized = cloneSerializedRef(output);
+    consumeAuthoringValues(budget, serializedReferenceValueCount(serialized));
+    return serialized;
+  }
+  consumeAuthoringValue(budget);
   if (typeof output !== "object" || output === null) {
     throw new TransmuteCodeError("invalid-data", "Workflow outputs must contain only typed references, arrays, and named objects.");
   }
@@ -1402,7 +2140,23 @@ function encodeOutputValue(output, state, ancestors, depth) {
   ancestors.add(output);
   try {
     if (Array.isArray(output)) {
-      return output.map((value) => encodeOutputValue(value, state, ancestors, depth + 1));
+      const length = output.length;
+      requireAuthoringCapacity(budget, length);
+      const descriptors2 = Object.getOwnPropertyDescriptors(output);
+      rejectEnumerableSymbols(descriptors2, "Workflow output arrays");
+      const keys2 = Object.keys(descriptors2).filter((key) => descriptors2[key]?.enumerable === true);
+      if (keys2.length !== length || keys2.some((key, index) => key !== String(index))) {
+        throw new TransmuteCodeError("invalid-data", "Workflow output arrays must be dense and cannot have named properties.");
+      }
+      const encoded2 = [];
+      for (let index = 0;index < length; index += 1) {
+        const descriptor = descriptors2[String(index)];
+        if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+          throw new TransmuteCodeError("invalid-data", "Workflow output arrays must contain plain data elements.");
+        }
+        encoded2.push(encodeOutputValue(descriptor.value, state, ancestors, depth + 1, budget));
+      }
+      return encoded2;
     }
     if (!isPlainRecord(output)) {
       throw new TransmuteCodeError("invalid-data", "Workflow outputs accept only typed references, arrays, and plain objects.");
@@ -1410,12 +2164,20 @@ function encodeOutputValue(output, state, ancestors, depth) {
     if (Object.hasOwn(output, "$ref")) {
       throw new TransmuteCodeError("invalid-data", "Use a typed Ref value instead of constructing the reserved $ref field.");
     }
+    const descriptors = Object.getOwnPropertyDescriptors(output);
+    rejectEnumerableSymbols(descriptors, "Workflow outputs");
+    const keys = Object.keys(descriptors).filter((key) => descriptors[key]?.enumerable === true).sort();
+    requireAuthoringCapacity(budget, keys.length);
     const encoded = {};
-    for (const key of Object.keys(output).sort()) {
+    for (const key of keys) {
       if (key === "__proto__") {
         throw new TransmuteCodeError("invalid-data", "Workflow outputs cannot contain the reserved __proto__ object key.");
       }
-      encoded[key] = encodeOutputValue(output[key], state, ancestors, depth + 1);
+      const descriptor = descriptors[key];
+      if (descriptor === undefined || descriptor.get !== undefined || descriptor.set !== undefined) {
+        throw new TransmuteCodeError("invalid-data", "Workflow output properties must be plain data properties.");
+      }
+      encoded[key] = encodeOutputValue(descriptor.value, state, ancestors, depth + 1, budget);
     }
     return encoded;
   } finally {
@@ -1423,6 +2185,17 @@ function encodeOutputValue(output, state, ancestors, depth) {
   }
 }
 function createReference(nodeKey, schemaId, state, path = []) {
+  if (path.length > MAX_SERIALIZED_REF_PATH_SEGMENTS) {
+    throw new TransmuteCodeError("invalid-data", `Workflow reference paths cannot exceed ${String(MAX_SERIALIZED_REF_PATH_SEGMENTS)} segments.`);
+  }
+  const serialized = deepFreezeJson({
+    $ref: {
+      nodeKey,
+      ...path.length === 0 ? {} : { path: [...path] },
+      schemaId
+    },
+    version: WORKFLOW_REF_VERSION
+  });
   const reference = Object.freeze({
     [WORKFLOW_REF_BRAND]: () => {
       throw new TransmuteCodeError("internal", "A workflow reference type marker is not executable.");
@@ -1431,22 +2204,21 @@ function createReference(nodeKey, schemaId, state, path = []) {
       if (!Number.isSafeInteger(index) || index < 0) {
         throw new TransmuteCodeError("invalid-data", "Workflow reference array indexes must be nonnegative safe integers.");
       }
+      if (path.length >= MAX_SERIALIZED_REF_PATH_SEGMENTS) {
+        throw new TransmuteCodeError("invalid-data", `Workflow reference paths cannot exceed ${String(MAX_SERIALIZED_REF_PATH_SEGMENTS)} segments.`);
+      }
       return createReference(nodeKey, schemaId, state, [...path, index]);
     },
     select: (key) => {
       if (typeof key !== "string" || key.length < 1 || key.length > 128) {
         throw new TransmuteCodeError("invalid-data", "Workflow reference field names must contain 1\u2013128 characters.");
       }
+      if (path.length >= MAX_SERIALIZED_REF_PATH_SEGMENTS) {
+        throw new TransmuteCodeError("invalid-data", `Workflow reference paths cannot exceed ${String(MAX_SERIALIZED_REF_PATH_SEGMENTS)} segments.`);
+      }
       return createReference(nodeKey, schemaId, state, [...path, key]);
     },
-    serialized: Object.freeze({
-      $ref: Object.freeze({
-        nodeKey,
-        ...path.length === 0 ? {} : { path: [...path] },
-        schemaId
-      }),
-      version: WORKFLOW_REF_VERSION
-    })
+    serialized
   });
   state.references.add(reference);
   return reference;
@@ -1462,6 +2234,7 @@ function createState(provider) {
     discovery.set(key, item);
   }
   return {
+    authoredValues: 7,
     computes: new Map,
     discovery,
     nodes: new Map,
@@ -1469,10 +2242,13 @@ function createState(provider) {
   };
 }
 function defineWorkflowFragment(build) {
+  if (typeof build !== "function") {
+    throw new TransmuteCodeError("invalid-data", "Workflow fragments require a build function.");
+  }
   return Object.freeze({ build });
 }
 function operationContract(provider, kind, version) {
-  const discovery = providerDiscovery(provider).find((candidate) => candidate.kind === kind && candidate.version === version);
+  const discovery = createState(provider).discovery.get(discoveryKey(kind, version));
   if (discovery === undefined) {
     throw new TransmuteCodeError("unsupported-plan", `Unsupported operation: ${kind}@${String(version)}`, { kind, version });
   }
@@ -1531,13 +2307,15 @@ class WorkflowGraphBuilder {
     if (existing !== undefined && existing !== definition) {
       throw new TransmuteCodeError("conflict", `Duplicate trusted compute key: ${compute.key}`, { key: compute.key });
     }
-    this.#state.computes.set(compute.key, definition);
     const key = this.#nodeKey(keyInput);
     const encoded = encodeOperationInput(input, this.#state);
     const controlDependencies = encodeControlDependencies(options.after, this.#state);
+    const dependencies = combineDependencies(encoded.dependencies, controlDependencies);
+    const nodeValues = encoded.values + 15 + controlDependencies.length + dependencies.length + (options.label === undefined ? 0 : 1);
+    requireStateCapacity(this.#state, nodeValues);
     const node = parseCodeBoundary(AuthoredGraphNodeV1Schema, {
       controlDependencies,
-      dependencies: combineDependencies(encoded.dependencies, controlDependencies),
+      dependencies,
       executor: { compute, kind: "compute" },
       input: encoded.value,
       inputSchemaId: definition.inputSchemaId,
@@ -1545,7 +2323,9 @@ class WorkflowGraphBuilder {
       ...options.label === undefined ? {} : { label: options.label },
       outputSchemaId: definition.outputSchemaId
     }, "authored compute node");
+    this.#state.computes.set(compute.key, definition);
     this.#state.nodes.set(key, node);
+    this.#state.authoredValues += nodeValues;
     return createReference(key, definition.outputSchemaId, this.#state);
   }
   computeDefinitions() {
@@ -1553,18 +2333,23 @@ class WorkflowGraphBuilder {
   }
   build(workflowInput, outputs) {
     const workflow = parseCodeBoundary(WorkflowIdentitySchema, workflowInput, "workflow identity");
-    return parseCodeBoundary(AuthoredWorkflowGraphV1Schema, {
+    const outputBudget = encodingBudget(this.#state);
+    const encodedOutputs = encodeOutputValue(outputs, this.#state, new Set, 0, outputBudget);
+    return deepFreezeJson(parseCodeBoundary(AuthoredWorkflowGraphV1Schema, {
       nodes: [...this.#state.nodes.values()].sort((left, right) => left.key.localeCompare(right.key)),
-      outputs: encodeOutputValue(outputs, this.#state, new Set, 0),
+      outputs: encodedOutputs,
       version: WORKFLOW_GRAPH_VERSION,
       workflow
-    }, "authored workflow graph");
+    }, "authored workflow graph"));
   }
   #nodeKey(keyInput) {
     const keySegment = parseCodeBoundary(NodeKeySegmentSchema, keyInput, "workflow node key segment");
     const key = [...this.#namespace, keySegment].join("/");
     if (this.#state.nodes.has(key)) {
       throw new TransmuteCodeError("conflict", `Duplicate workflow node key: ${key}`, { nodeKey: key });
+    }
+    if (this.#state.nodes.size >= MAX_SERIALIZED_GRAPH_NODES) {
+      throw new TransmuteCodeError("invalid-data", `Workflow nodes cannot exceed ${String(MAX_SERIALIZED_GRAPH_NODES)} entries.`);
     }
     return key;
   }
@@ -1586,9 +2371,12 @@ class WorkflowGraphBuilder {
     }
     const encoded = encodeOperationInput(request.input, this.#state);
     const controlDependencies = encodeControlDependencies(options.after, this.#state);
+    const dependencies = combineDependencies(encoded.dependencies, controlDependencies);
+    const nodeValues = encoded.values + 11 + controlDependencies.length + dependencies.length + (options.label === undefined ? 0 : 1);
+    requireStateCapacity(this.#state, nodeValues);
     const node = parseCodeBoundary(AuthoredGraphNodeV1Schema, {
       controlDependencies,
-      dependencies: combineDependencies(encoded.dependencies, controlDependencies),
+      dependencies,
       executor: {
         kind: "operation",
         operation: { kind: discovery.kind, version: discovery.version }
@@ -1600,6 +2388,7 @@ class WorkflowGraphBuilder {
       outputSchemaId: discovery.outputSchemaId
     }, "authored operation node");
     this.#state.nodes.set(key, node);
+    this.#state.authoredValues += nodeValues;
     return createReference(key, discovery.outputSchemaId, this.#state);
   }
 }
@@ -1639,6 +2428,13 @@ class PortableWorkflowBuilder {
 }
 
 // src/code/define-workflow.ts
+function boundedWorkflowInput(schema, input) {
+  const capturedInput = captureJsonStructure(input, "workflow input", {
+    maximumBytes: MAX_TRUSTED_COMPUTE_INPUT_BYTES
+  });
+  const parsedInput = parseCodeBoundary(schema, capturedInput, "workflow input");
+  return createBoundedJsonValueSnapshot(parsedInput, MAX_TRUSTED_COMPUTE_INPUT_BYTES, "JSON-safe workflow input").value;
+}
 function workflowDefinitionIdentity(options) {
   if (typeof options.build !== "function") {
     throw new TransmuteCodeError("invalid-data", "Workflow definitions require a build function.");
@@ -1650,7 +2446,19 @@ function workflowDefinitionIdentity(options) {
   }
   return { id, inputSchemaId, version: options.version };
 }
+function assertOptionsObject(value, name) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TransmuteCodeError("invalid-data", `${name} must be an object.`);
+  }
+}
+function assertSchemaCapability(value, name) {
+  if (typeof value !== "object" || value === null || typeof value.safeParse !== "function") {
+    throw new TransmuteCodeError("invalid-data", `${name} must provide a synchronous safeParse function.`);
+  }
+}
 function defineWorkflow(options) {
+  assertOptionsObject(options, "Workflow definition options");
+  assertSchemaCapability(options.inputSchema, "Workflow input schema");
   const identity = workflowDefinitionIdentity(options);
   return Object.freeze({
     build: options.build,
@@ -1661,10 +2469,12 @@ function defineWorkflow(options) {
   });
 }
 function buildWorkflow(definition, input) {
-  const parsedInput = parseCodeBoundary(definition.inputSchema, input, "workflow input");
-  const workflowInput = parseCodeBoundary(JsonValueSchema, parsedInput, "JSON-safe workflow input");
+  assertOptionsObject(definition, "Workflow definition");
+  assertSchemaCapability(definition.inputSchema, "Workflow input schema");
+  workflowDefinitionIdentity(definition);
+  const workflowInput = boundedWorkflowInput(definition.inputSchema, input);
   const builder = PortableWorkflowBuilder.create();
-  const outputs = definition.build(builder, parsedInput);
+  const outputs = definition.build(builder, workflowInput);
   const graph = builder.build({
     id: definition.id,
     inputSchemaId: definition.inputSchemaId,
@@ -1678,6 +2488,12 @@ function buildWorkflow(definition, input) {
 }
 var buildWorkflowGraph = buildWorkflow;
 function defineCompute(options) {
+  assertOptionsObject(options, "Trusted compute definition options");
+  assertSchemaCapability(options.inputSchema, "Trusted compute input schema");
+  assertSchemaCapability(options.outputSchema, "Trusted compute output schema");
+  if (typeof options.run !== "function") {
+    throw new TransmuteCodeError("invalid-data", "Trusted compute definitions require a run function.");
+  }
   const key = parseCodeBoundary(ComputeKeySchema, options.key, "trusted compute key");
   const inputSchemaId = parseCodeBoundary(SchemaIdSchema, options.inputSchemaId, "trusted compute input schema id");
   const outputSchemaId = parseCodeBoundary(SchemaIdSchema, options.outputSchemaId, "trusted compute output schema id");
@@ -1695,7 +2511,7 @@ function defineCompute(options) {
   }
   return Object.freeze({
     [TRUSTED_COMPUTE_BRAND]: true,
-    bounds: identity.bounds,
+    bounds: deepFreezeJson(identity.bounds),
     inputSchema: options.inputSchema,
     inputSchemaId,
     key,
@@ -1705,6 +2521,8 @@ function defineCompute(options) {
   });
 }
 function defineAdvancedWorkflow(options) {
+  assertOptionsObject(options, "Advanced workflow definition options");
+  assertSchemaCapability(options.inputSchema, "Advanced workflow input schema");
   const identity = workflowDefinitionIdentity(options);
   return Object.freeze({
     build: options.build,
@@ -1715,10 +2533,12 @@ function defineAdvancedWorkflow(options) {
   });
 }
 function buildAdvancedWorkflow(definition, provider, input) {
-  const parsedInput = parseCodeBoundary(definition.inputSchema, input, "workflow input");
-  const workflowInput = parseCodeBoundary(JsonValueSchema, parsedInput, "JSON-safe workflow input");
+  assertOptionsObject(definition, "Advanced workflow definition");
+  assertSchemaCapability(definition.inputSchema, "Advanced workflow input schema");
+  workflowDefinitionIdentity(definition);
+  const workflowInput = boundedWorkflowInput(definition.inputSchema, input);
   const builder = WorkflowGraphBuilder.create(provider);
-  const outputs = definition.build(builder, parsedInput);
+  const outputs = definition.build(builder, workflowInput);
   return Object.freeze({
     computeDefinitions: builder.computeDefinitions(),
     graph: builder.build({
@@ -1743,6 +2563,9 @@ function seconds(value) {
 // src/code/runtime.ts
 var WORKFLOW_NODE_RECEIPT_VERSION = "transmute-workflow-node-receipt-v1";
 var WORKFLOW_NODE_RECEIPT_HASH_DOMAIN = "transmute.workflow.node-receipt/v1";
+var MAX_WORKFLOW_RESULT_BYTES = 96 * 1024 * 1024;
+var MAX_WORKFLOW_RESULT_DEPTH = 320;
+var MAX_WORKFLOW_RESULT_VALUES = 1300000;
 function createTransmuteCodeHost(options) {
   if (typeof options !== "object" || options === null) {
     throw new TransmuteCodeError("invalid-data", "A Transmute Code host must be an object.");
@@ -1824,27 +2647,19 @@ function resolveValue(value, values) {
   }
   return value;
 }
-function boundedJson(value, maximumBytes, name) {
-  const parsed = parseCodeBoundary(JsonValueSchema, value, name);
-  const bytes = new TextEncoder().encode(canonicalJson(parsed)).byteLength;
-  if (bytes > maximumBytes) {
-    throw new TransmuteCodeError("invalid-data", `${name} contains ${String(bytes)} bytes; the limit is ${String(maximumBytes)}.`, { actualBytes: bytes, maximumBytes });
-  }
-  return parsed;
-}
-function createNodeReceipt(index, nodeKey, kind, input, output) {
+function createNodeReceipt(index, nodeKey, kind, inputSha256, outputSha256) {
   const unsigned = {
     index,
-    inputSha256: sha256Hex(canonicalJson(input)),
+    inputSha256,
     kind,
     nodeKey,
     operationVersion: 2,
-    outputSha256: sha256Hex(canonicalJson(output)),
+    outputSha256,
     version: WORKFLOW_NODE_RECEIPT_VERSION
   };
   return Object.freeze({
     ...unsigned,
-    receiptSha256: sha256Hex(`${WORKFLOW_NODE_RECEIPT_HASH_DOMAIN}\x00${canonicalJson(unsigned)}`)
+    receiptSha256: canonicalJsonSha256Prefixed(`${WORKFLOW_NODE_RECEIPT_HASH_DOMAIN}\x00`, unsigned)
   });
 }
 function publicOperationNode(node) {
@@ -1896,27 +2711,29 @@ async function executePublicNode(host, node, values, context) {
   const { kind } = node.executor.operation;
   const contract = PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[kind];
   const resolvedInput = resolveValue(node.input, values);
-  const parsedInput = parseCodeBoundary(contract.inputSchema, resolvedInput, `${kind} input at node ${node.key}`);
-  const boundedInput = boundedJson(parsedInput, contract.policy.maxInputBytes, `${kind} input at node ${node.key}`);
-  const request = {
-    input: parsedInput,
+  const rawInput = createBoundedJsonValueSnapshot(resolvedInput, contract.policy.maxInputBytes, `${kind} raw input at node ${node.key}`);
+  const parsedInput = parseCodeBoundary(contract.inputSchema, rawInput.value, `${kind} input at node ${node.key}`);
+  const boundedInput = createBoundedJsonSnapshot(parsedInput, contract.policy.maxInputBytes, `${kind} input at node ${node.key}`);
+  const request = Object.freeze({
+    input: boundedInput.value,
     kind,
     nodeKey: node.key,
     version: 2
-  };
+  });
   throwIfAborted(context.signal);
   const dispatch = async () => await host.execute(request, context);
-  const rawOutput = host.admit === undefined ? await dispatch() : await host.admit({
+  const rawOutput = host.admit === undefined ? await dispatch() : await host.admit(Object.freeze({
     kind,
     nodeKey: node.key,
     policy: contract.policy,
     version: 2
-  }, dispatch, context);
-  const parsedOutput = parseCodeBoundary(contract.outputSchema, rawOutput, `${kind} output at node ${node.key}`);
-  return {
+  }), dispatch, context);
+  const boundedRawOutput = createBoundedJsonValueSnapshot(rawOutput, contract.policy.maxOutputBytes, `${kind} raw output at node ${node.key}`);
+  const parsedOutput = parseCodeBoundary(contract.outputSchema, boundedRawOutput.value, `${kind} output at node ${node.key}`);
+  return Object.freeze({
     input: boundedInput,
-    output: boundedJson(parsedOutput, contract.policy.maxOutputBytes, `${kind} output at node ${node.key}`)
-  };
+    output: createBoundedJsonSnapshot(parsedOutput, contract.policy.maxOutputBytes, `${kind} output at node ${node.key}`)
+  });
 }
 async function runBuiltWorkflow(built, options) {
   const compilation = compileWorkflowGraph({
@@ -1954,8 +2771,8 @@ async function runBuiltWorkflow(built, options) {
     for (const outcome of outcomes) {
       if (outcome.kind !== "executed")
         continue;
-      values.set(outcome.node.key, outcome.executed.output);
-      receipts.push(createNodeReceipt(receipts.length, outcome.node.key, outcome.node.executor.operation.kind, outcome.executed.input, outcome.executed.output));
+      values.set(outcome.node.key, outcome.executed.output.value);
+      receipts.push(createNodeReceipt(receipts.length, outcome.node.key, outcome.node.executor.operation.kind, outcome.executed.input.sha256, outcome.executed.output.sha256));
     }
     const failure = outcomes.find((outcome) => outcome.kind === "failed");
     if (failure !== undefined) {
@@ -1968,7 +2785,10 @@ async function runBuiltWorkflow(built, options) {
   }
   let output;
   try {
-    output = parseCodeBoundary(JsonValueSchema, resolveValue(compilation.graph.outputs, values), "workflow output");
+    output = createBoundedJsonValueSnapshot(resolveValue(compilation.graph.outputs, values), MAX_WORKFLOW_RESULT_BYTES, "workflow output", {
+      maximumDepth: MAX_WORKFLOW_RESULT_DEPTH,
+      maximumValues: MAX_WORKFLOW_RESULT_VALUES
+    }).value;
   } catch (error) {
     throw workflowRunFailure(error, `Workflow output resolution failed: ${transmuteCodeErrorMessage(error)}`, receipts);
   }
@@ -1982,4 +2802,4 @@ async function runWorkflow(definition, input, options) {
   return await runBuiltWorkflow(buildWorkflow(definition, input), options);
 }
 
-export { WORKFLOW_GRAPH_VERSION, WORKFLOW_REF_VERSION, GRAPH_ABI, REQUIREMENT_ENVELOPE_VERSION, TRUSTED_COMPUTE_VERSION, WORKFLOW_COMPILATION_VERSION, MAX_SERIALIZED_GRAPH_NODES, MAX_SERIALIZED_NODE_DEPENDENCIES, MAX_OPERATION_DISCOVERY_ENTRIES, MAX_TRUSTED_COMPUTE_INPUT_BYTES, MAX_TRUSTED_COMPUTE_OUTPUT_BYTES, MAX_TRUSTED_COMPUTE_DURATION_MS, WorkflowIdSchema, NodeKeySegmentSchema, NodeKeySchema, SchemaIdSchema, ComputeKeySchema, OperationKindSchema, Sha256Schema, PositiveSafeIntegerSchema, NonnegativeSafeIntegerSchema, RefPathSegmentSchema, JsonValueSchema, SerializedRefV1Schema, GraphInputValueSchema, WorkflowOutputBindingSchema, AuthoredOperationIdentitySchema, AuthoredComputeIdentitySchema, AuthoredNodeExecutorSchema, AuthoredGraphNodeV1Schema, isOperationGraphNode, isComputeGraphNode, WorkflowIdentitySchema, AuthoredWorkflowGraphV1Schema, OPERATION_EFFECT_CLASSES, WORKFLOW_EFFECT_CLASSES, OPERATION_RESUME_CLASSES, WORKFLOW_RESUME_CLASSES, OPERATION_PREPARATION_KINDS, OPERATION_LIFECYCLE_KINDS, OPERATION_RESOURCE_KINDS, OperationResourceClaimSchema, OperationPolicySchema, TrustedComputePolicySchema, WorkflowNodePolicySchema, trustedComputePolicy, OperationDiscoverySchema, WorkflowRegistryProjectionSchema, GraphCompilerLimitsSchema, UNRESOLVED_REQUIREMENT_KINDS, RequirementEnvelopeBoundsSchema, RequirementEnvelopeSchema, CompiledWorkflowGraphSchema, TRUSTED_COMPUTE_BRAND, WORKFLOW_REF_BRAND, TransmuteCodeError, transmuteCodeErrorMessage, asTransmuteCodeError, canonicalJson, sha256Hex, canonicalJsonSha256, TransmuteImageModelSchema, TransmuteDiagramCheckInputSchema, TransmuteDiagramRenderInputSchema, TransmuteImageVectorizeInputSchema, TransmuteImageGenerateInputSchema, TransmuteLintFindingSchema, TransmuteDiagramCheckOutputSchema, TransmuteRenderArtifactsSchema, TransmuteDiagramRenderOutputSchema, TransmuteVectorizeQualityReceiptSchema, TransmuteVectorizeProvenanceSchema, TransmuteVectorizeReceiptSchema, TransmuteImageVectorizeOutputSchema, TransmuteImageGenerateOutputSchema, PORTABLE_TRANSMUTE_OPERATION_KINDS, PORTABLE_TRANSMUTE_OPERATION_CONTRACTS, isPortableTransmuteOperationKind, WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN, PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID, normalizeOperationDiscovery, createWorkflowRegistryProjectionHash, createWorkflowRegistryProjection, parseWorkflowRegistryProjection, createPublicWorkflowRegistryProjection, PUBLIC_WORKFLOW_REGISTRY_PROJECTION, PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION, WORKFLOW_GRAPH_HASH_DOMAIN, WORKFLOW_COMPILATION_HASH_DOMAIN, DEFAULT_GRAPH_COMPILER_LIMITS, normalizeAuthoredWorkflowGraph, createWorkflowGraphHash, createGraphHash, createWorkflowCompilationHash, compileWorkflowGraph, parseCompiledWorkflowGraph, defineWorkflowFragment, operationContract, WorkflowGraphBuilder, definePortableWorkflowFragment, PortableWorkflowBuilder, defineWorkflow, buildWorkflow, buildWorkflowGraph, defineCompute, defineAdvancedWorkflow, buildAdvancedWorkflow, seconds, WORKFLOW_NODE_RECEIPT_VERSION, WORKFLOW_NODE_RECEIPT_HASH_DOMAIN, createTransmuteCodeHost, TransmuteWorkflowRunError, runBuiltWorkflow, runWorkflow };
+export { WORKFLOW_GRAPH_VERSION, WORKFLOW_REF_VERSION, GRAPH_ABI, REQUIREMENT_ENVELOPE_VERSION, TRUSTED_COMPUTE_VERSION, WORKFLOW_COMPILATION_VERSION, MAX_SERIALIZED_GRAPH_NODES, MAX_SERIALIZED_NODE_DEPENDENCIES, MAX_SERIALIZED_REF_PATH_SEGMENTS, MAX_OPERATION_DISCOVERY_ENTRIES, MAX_TRUSTED_COMPUTE_INPUT_BYTES, MAX_TRUSTED_COMPUTE_OUTPUT_BYTES, MAX_TRUSTED_COMPUTE_DURATION_MS, WorkflowIdSchema, NodeKeySegmentSchema, NodeKeySchema, SchemaIdSchema, ComputeKeySchema, OperationKindSchema, Sha256Schema, PositiveSafeIntegerSchema, NonnegativeSafeIntegerSchema, RefPathSegmentSchema, JsonValueSchema, SerializedRefV1Schema, GraphInputValueSchema, WorkflowOutputBindingSchema, AuthoredOperationIdentitySchema, AuthoredComputeIdentitySchema, AuthoredNodeExecutorSchema, AuthoredGraphNodeV1Schema, isOperationGraphNode, isComputeGraphNode, WorkflowIdentitySchema, AuthoredWorkflowGraphV1Schema, OPERATION_EFFECT_CLASSES, WORKFLOW_EFFECT_CLASSES, OPERATION_RESUME_CLASSES, WORKFLOW_RESUME_CLASSES, OPERATION_PREPARATION_KINDS, OPERATION_LIFECYCLE_KINDS, OPERATION_RESOURCE_KINDS, OperationResourceClaimSchema, OperationPolicySchema, TrustedComputePolicySchema, WorkflowNodePolicySchema, trustedComputePolicy, OperationDiscoverySchema, WorkflowRegistryProjectionSchema, GraphCompilerLimitsSchema, UNRESOLVED_REQUIREMENT_KINDS, RequirementEnvelopeBoundsSchema, RequirementEnvelopeSchema, CompiledWorkflowGraphSchema, TRUSTED_COMPUTE_BRAND, WORKFLOW_REF_BRAND, TransmuteCodeError, transmuteCodeErrorMessage, asTransmuteCodeError, createSha256HexHasher, sha256Hex, compareUtf16Strings, boundedCanonicalJson, boundedCanonicalJsonSha256, boundedCanonicalJsonFingerprint, canonicalJson, canonicalJsonSha256, canonicalJsonSha256Prefixed, canonicalJsonFingerprint, TransmuteImageModelSchema, TransmuteDiagramCheckInputSchema, TransmuteDiagramRenderInputSchema, TransmuteImageVectorizeInputSchema, TransmuteImageGenerateInputSchema, TransmuteLintFindingSchema, TransmuteDiagramCheckOutputSchema, TransmuteRenderArtifactsSchema, TransmuteDiagramRenderOutputSchema, TransmuteVectorizeQualityReceiptSchema, TransmuteVectorizeProvenanceSchema, TransmuteVectorizeReceiptSchema, TransmuteImageVectorizeOutputSchema, TransmuteImageGenerateOutputSchema, PORTABLE_TRANSMUTE_OPERATION_KINDS, PORTABLE_TRANSMUTE_OPERATION_CONTRACTS, isPortableTransmuteOperationKind, WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN, PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID, boundedOperationDiscoveryList, normalizeOperationDiscovery, createWorkflowRegistryProjectionHash, createWorkflowRegistryProjection, parseWorkflowRegistryProjection, createPublicWorkflowRegistryProjection, PUBLIC_WORKFLOW_REGISTRY_PROJECTION, PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION, WORKFLOW_GRAPH_HASH_DOMAIN, WORKFLOW_COMPILATION_HASH_DOMAIN, DEFAULT_GRAPH_COMPILER_LIMITS, normalizeAuthoredWorkflowGraph, createWorkflowGraphHash, createGraphHash, createWorkflowCompilationHash, compileWorkflowGraph, parseCompiledWorkflowGraph, defineWorkflowFragment, operationContract, WorkflowGraphBuilder, definePortableWorkflowFragment, PortableWorkflowBuilder, defineWorkflow, buildWorkflow, buildWorkflowGraph, defineCompute, defineAdvancedWorkflow, buildAdvancedWorkflow, seconds, WORKFLOW_NODE_RECEIPT_VERSION, WORKFLOW_NODE_RECEIPT_HASH_DOMAIN, MAX_WORKFLOW_RESULT_BYTES, MAX_WORKFLOW_RESULT_DEPTH, MAX_WORKFLOW_RESULT_VALUES, createTransmuteCodeHost, TransmuteWorkflowRunError, runBuiltWorkflow, runWorkflow };

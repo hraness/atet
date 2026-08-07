@@ -40,6 +40,15 @@ function deferred(): Readonly<{
   return { promise, resolve }
 }
 
+async function rejection(promise: Promise<unknown>): Promise<unknown> {
+  try {
+    await Promise.resolve(promise)
+  } catch (error) {
+    return error
+  }
+  throw new Error("Expected promise to reject.")
+}
+
 async function waitUntil(
   predicate: () => boolean | Promise<boolean>,
   timeoutMilliseconds = 2_000,
@@ -68,6 +77,43 @@ async function temporaryStateRoot(): Promise<Readonly<{
 }>> {
   const parent = await mkdtemp(join(tmpdir(), "transmute-host-resources-"))
   return { parent, stateRoot: join(parent, "state") }
+}
+
+interface CapturedTimeout {
+  readonly delayMilliseconds: number
+  fire(): void
+}
+
+function captureTimeouts(): Readonly<{
+  readonly scheduled: CapturedTimeout[]
+  restore(): void
+}> {
+  const originalSetTimeout = globalThis.setTimeout
+  const scheduled: CapturedTimeout[] = []
+  const handles: ReturnType<typeof setTimeout>[] = []
+  globalThis.setTimeout = ((
+    callback: (...arguments_: unknown[]) => void,
+    delayMilliseconds = 0,
+    ...arguments_: unknown[]
+  ): ReturnType<typeof setTimeout> => {
+    const handle = originalSetTimeout(() => undefined, 60_000)
+    handles.push(handle)
+    scheduled.push({
+      delayMilliseconds,
+      fire: () => {
+        clearTimeout(handle)
+        callback(...arguments_)
+      },
+    })
+    return handle
+  }) as typeof setTimeout
+  return {
+    scheduled,
+    restore: () => {
+      globalThis.setTimeout = originalSetTimeout
+      for (const handle of handles) clearTimeout(handle)
+    },
+  }
 }
 
 const describeMachineHostResources = process.platform === "darwin"
@@ -230,6 +276,160 @@ describe("Transmute host-resource profiles", () => {
 })
 
 describeMachineHostResources("machine-global Transmute host-resource coordination", () => {
+  test("desynchronizes ticket retries within adaptive bounds and aborts a parked wait", async () => {
+    const temporary = await temporaryStateRoot()
+    const sharedProfile = profile({ cpu: 1 })
+    const coordinator = createHostResourceCoordinator({
+      pollIntervalMilliseconds: 25,
+      profile: sharedProfile,
+      stateRoot: temporary.stateRoot,
+      waitTimeoutMilliseconds: 2_000,
+    })
+    const smallPollCoordinator = createHostResourceCoordinator({
+      pollIntervalMilliseconds: 2,
+      profile: sharedProfile,
+      stateRoot: temporary.stateRoot,
+      waitTimeoutMilliseconds: 2_000,
+    })
+    const release = deferred()
+    let holderEntered = false
+    const retryDelays: number[][] = []
+    let holder: Promise<void> | undefined
+    try {
+      holder = coordinator.withLease(
+        [{ resource: "cpu", amount: 1 }],
+        async () => {
+          holderEntered = true
+          await release.promise
+        },
+      )
+      await waitUntil(() => holderEntered)
+
+      for (const waitingCoordinator of [
+        coordinator,
+        coordinator,
+        smallPollCoordinator,
+      ]) {
+        const controller = new AbortController()
+        const captured = captureTimeouts()
+        let callbackEntered = false
+        let waiting: Promise<void> | undefined
+        try {
+          waiting = waitingCoordinator.withLease(
+            [{ resource: "cpu", amount: 1 }],
+            () => {
+              callbackEntered = true
+            },
+            { signal: controller.signal },
+          )
+          for (let retry = 0; retry < 4; retry += 1) {
+            await waitUntil(() => captured.scheduled.length > retry)
+            if (retry < 3) captured.scheduled[retry]?.fire()
+          }
+          retryDelays.push(captured.scheduled.slice(0, 4).map(
+            ({ delayMilliseconds }) => delayMilliseconds,
+          ))
+          controller.abort()
+          captured.restore()
+          expect(await rejection(waiting)).toMatchObject({ code: "WAIT_ABORTED" })
+          expect(callbackEntered).toBe(false)
+        } finally {
+          controller.abort()
+          captured.restore()
+          await waiting?.catch(() => undefined)
+        }
+      }
+
+      expect(retryDelays).toHaveLength(3)
+      for (const delays of retryDelays.slice(0, 2)) {
+        expect(delays[0]).toBeWithin(13, 26)
+        expect(delays[1]).toBeWithin(25, 51)
+        expect(delays[2]).toBeWithin(50, 101)
+        expect(delays[3]).toBeWithin(100, 201)
+      }
+      expect(retryDelays[0]).not.toEqual(retryDelays[1])
+      for (const delay of retryDelays[2] ?? []) {
+        expect(delay).toBeWithin(1, 3)
+      }
+      release.resolve()
+      await holder
+    } finally {
+      release.resolve()
+      await holder?.catch(() => undefined)
+      await rm(temporary.parent, { recursive: true, force: true })
+    }
+  })
+
+  test("resets adaptive delay when the relevant queue makes progress", async () => {
+    const temporary = await temporaryStateRoot()
+    const coordinator = createHostResourceCoordinator({
+      pollIntervalMilliseconds: 25,
+      profile: profile({ cpu: 2 }),
+      stateRoot: temporary.stateRoot,
+      waitTimeoutMilliseconds: 2_000,
+    })
+    const firstRelease = deferred()
+    const secondRelease = deferred()
+    let activeHolders = 0
+    let captured: ReturnType<typeof captureTimeouts> | undefined
+    const controller = new AbortController()
+    let first: Promise<void> | undefined
+    let second: Promise<void> | undefined
+    let waiting: Promise<void> | undefined
+    try {
+      first = coordinator.withLease(
+        [{ resource: "cpu", amount: 1 }],
+        async () => {
+          activeHolders += 1
+          await firstRelease.promise
+        },
+      )
+      second = coordinator.withLease(
+        [{ resource: "cpu", amount: 1 }],
+        async () => {
+          activeHolders += 1
+          await secondRelease.promise
+        },
+      )
+      await waitUntil(() => activeHolders === 2)
+      const activeCapture = captureTimeouts()
+      captured = activeCapture
+      waiting = coordinator.withLease(
+        [{ resource: "cpu", amount: 2 }],
+        () => undefined,
+        { signal: controller.signal },
+      )
+      await waitUntil(() => activeCapture.scheduled.length === 1)
+      activeCapture.scheduled[0]?.fire()
+      await waitUntil(() => activeCapture.scheduled.length === 2)
+      activeCapture.scheduled[1]?.fire()
+      await waitUntil(() => activeCapture.scheduled.length === 3)
+      expect(activeCapture.scheduled[2]?.delayMilliseconds).toBeWithin(50, 101)
+
+      firstRelease.resolve()
+      await first
+      activeCapture.scheduled[2]?.fire()
+      await waitUntil(() => activeCapture.scheduled.length === 4)
+      expect(activeCapture.scheduled[3]?.delayMilliseconds).toBeWithin(13, 26)
+
+      controller.abort()
+      activeCapture.restore()
+      expect(await rejection(waiting)).toMatchObject({ code: "WAIT_ABORTED" })
+      secondRelease.resolve()
+      await second
+    } finally {
+      controller.abort()
+      captured?.restore()
+      await waiting?.catch(() => undefined)
+      firstRelease.resolve()
+      secondRelease.resolve()
+      await Promise.allSettled([first, second].filter(
+        (lease): lease is Promise<void> => lease !== undefined,
+      ))
+      await rm(temporary.parent, { recursive: true, force: true })
+    }
+  })
+
   test("atomically admits vectors across separate coordinator instances", async () => {
     const temporary = await temporaryStateRoot()
     const sharedProfile = profile({ cpu: 2, "local-io": 1 })

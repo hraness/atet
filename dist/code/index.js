@@ -7,6 +7,9 @@ import {
   GRAPH_ABI,
   GraphCompilerLimitsSchema,
   JsonValueSchema,
+  MAX_WORKFLOW_RESULT_BYTES,
+  MAX_WORKFLOW_RESULT_DEPTH,
+  MAX_WORKFLOW_RESULT_VALUES,
   OperationDiscoverySchema,
   OperationKindSchema,
   OperationPolicySchema,
@@ -44,6 +47,8 @@ import {
   WORKFLOW_REF_BRAND,
   WORKFLOW_REF_VERSION,
   asTransmuteCodeError,
+  boundedCanonicalJson,
+  boundedCanonicalJsonSha256,
   buildWorkflow,
   buildWorkflowGraph,
   canonicalJson,
@@ -62,7 +67,7 @@ import {
   seconds,
   sha256Hex,
   transmuteCodeErrorMessage
-} from "../index-ceza8wzc.js";
+} from "../index-09p7f3bc.js";
 import"../index-z1w83f81.js";
 // src/code/index.ts
 function compileWorkflowGraph2(options) {
@@ -91,6 +96,8 @@ export {
   canonicalJson,
   buildWorkflowGraph,
   buildWorkflow,
+  boundedCanonicalJsonSha256,
+  boundedCanonicalJson,
   asTransmuteCodeError,
   WORKFLOW_REF_VERSION,
   WORKFLOW_REF_BRAND,
@@ -128,6 +135,9 @@ export {
   OperationPolicySchema,
   OperationKindSchema,
   OperationDiscoverySchema,
+  MAX_WORKFLOW_RESULT_VALUES,
+  MAX_WORKFLOW_RESULT_DEPTH,
+  MAX_WORKFLOW_RESULT_BYTES,
   JsonValueSchema,
   GraphCompilerLimitsSchema,
   GRAPH_ABI,

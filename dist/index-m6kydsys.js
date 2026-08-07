@@ -20,7 +20,7 @@ import {
 } from "./index-yz7y9m2g.js";
 import {
   createDefaultHostResourceCoordinator
-} from "./index-dxtrd5pg.js";
+} from "./index-eq77wsng.js";
 
 // src/operations.ts
 import { randomUUID } from "crypto";

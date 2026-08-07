@@ -1,10 +1,20 @@
+import { z } from "zod"
+
 import {
   AuthoredWorkflowGraphV1Schema,
   CompiledWorkflowGraphSchema,
   GraphCompilerLimitsSchema,
+  MAX_OPERATION_DISCOVERY_ENTRIES,
+  MAX_SERIALIZED_GRAPH_NODES,
+  OPERATION_PREPARATION_KINDS,
+  OPERATION_RESOURCE_KINDS,
   REQUIREMENT_ENVELOPE_VERSION,
   RequirementEnvelopeSchema,
+  Sha256Schema,
+  UNRESOLVED_REQUIREMENT_KINDS,
   WORKFLOW_COMPILATION_VERSION,
+  WORKFLOW_EFFECT_CLASSES,
+  WORKFLOW_RESUME_CLASSES,
   isComputeGraphNode,
   isOperationGraphNode,
   trustedComputePolicy,
@@ -25,13 +35,18 @@ import {
   type WorkflowRegistryProjection,
   type WorkflowResumeClass,
 } from "./contracts.js"
-import { canonicalJson, sha256Hex } from "./canonical-json.js"
+import {
+  canonicalJsonSha256Prefixed,
+} from "./canonical-json.js"
 import { parseCodeBoundary } from "./boundary.js"
 import { TransmuteCodeError } from "./errors.js"
 import {
+  createBoundedJsonValueSnapshot,
+  deepFreezeJson,
+} from "./json-snapshot.js"
+import {
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
   createWorkflowRegistryProjection,
-  normalizeOperationDiscovery,
   parseWorkflowRegistryProjection,
 } from "./projection.js"
 
@@ -46,6 +61,38 @@ export const DEFAULT_GRAPH_COMPILER_LIMITS = Object.freeze({
   maxNodes: 256,
   maxTotalOperationFanOut: 4_096,
 }) satisfies GraphCompilerLimits
+
+const MAX_SERIALIZED_GRAPH_BYTES = 64 * 1024 * 1024
+const MAX_SERIALIZED_GRAPH_DEPTH = 160
+const MAX_SERIALIZED_GRAPH_VALUES = 1_100_000
+const MAX_GRAPH_COMPILER_LIMIT_BYTES = 1_024
+const MAX_GRAPH_COMPILER_LIMIT_DEPTH = 2
+const MAX_GRAPH_COMPILER_LIMIT_INPUT_VALUES = 16
+// A compilation contains the graph, registry projection, topology, limits,
+// and requirement envelope. Its bounds must compose rather than reuse the
+// graph's exact ceiling.
+const MAX_WORKFLOW_COMPILATION_BYTES = 80 * 1024 * 1024
+const MAX_WORKFLOW_COMPILATION_DEPTH = 192
+const MAX_OPERATION_DISCOVERY_VALUES = 17
+  + OPERATION_PREPARATION_KINDS.length
+  + (3 * OPERATION_RESOURCE_KINDS.length)
+const MAX_WORKFLOW_PROJECTION_VALUES = 5
+  + (MAX_OPERATION_DISCOVERY_ENTRIES * MAX_OPERATION_DISCOVERY_VALUES)
+const MAX_REQUIREMENT_ENVELOPE_VALUES = 21
+  + (3 * MAX_SERIALIZED_GRAPH_NODES)
+  + WORKFLOW_EFFECT_CLASSES.length
+  + OPERATION_PREPARATION_KINDS.length
+  + (3 * OPERATION_RESOURCE_KINDS.length)
+  + WORKFLOW_RESUME_CLASSES.length
+  + UNRESOLVED_REQUIREMENT_KINDS.length
+const MAX_TOPOLOGICAL_WAVE_VALUES = 1 + (2 * MAX_SERIALIZED_GRAPH_NODES)
+const MAX_GRAPH_COMPILER_LIMIT_VALUES = 6
+const MAX_WORKFLOW_COMPILATION_VALUES = MAX_SERIALIZED_GRAPH_VALUES
+  + MAX_WORKFLOW_PROJECTION_VALUES
+  + MAX_REQUIREMENT_ENVELOPE_VALUES
+  + MAX_TOPOLOGICAL_WAVE_VALUES
+  + MAX_GRAPH_COMPILER_LIMIT_VALUES
+  + 4 // Compilation root plus its three scalar fields.
 
 export interface CompileWorkflowGraphOptions {
   readonly graph: unknown
@@ -62,7 +109,6 @@ export interface ValidatedGraphTopology {
   readonly structuralFanOut: number
   readonly waves: readonly (readonly string[])[]
 }
-
 interface ValidatedGraph {
   readonly graph: AuthoredWorkflowGraphV1
   readonly policiesByNode: ReadonlyMap<string, WorkflowNodePolicy>
@@ -104,44 +150,97 @@ function safeAdd(left: number, right: number, name: string): number {
 
 function normalizeLimits(input: unknown): GraphCompilerLimits {
   if (input === undefined) return DEFAULT_GRAPH_COMPILER_LIMITS
-  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+  const captured = createBoundedJsonValueSnapshot(
+    input,
+    MAX_GRAPH_COMPILER_LIMIT_BYTES,
+    "graph compiler limits",
+    {
+      maximumDepth: MAX_GRAPH_COMPILER_LIMIT_DEPTH,
+      maximumValues: MAX_GRAPH_COMPILER_LIMIT_INPUT_VALUES,
+    },
+  ).value
+  if (typeof captured !== "object" || captured === null || Array.isArray(captured)) {
     return parseCodeBoundary(
       GraphCompilerLimitsSchema,
-      input,
+      captured,
       "graph compiler limits",
     )
   }
   return parseCodeBoundary(GraphCompilerLimitsSchema, {
     ...DEFAULT_GRAPH_COMPILER_LIMITS,
-    ...input,
+    ...captured,
   }, "graph compiler limits")
+}
+
+function preflightAuthoredWorkflowGraph(
+  graphInput: unknown,
+  maximumNodes: number,
+): void {
+  if (
+    typeof graphInput !== "object"
+    || graphInput === null
+    || Array.isArray(graphInput)
+  ) {
+    return
+  }
+  const nodes = Object.getOwnPropertyDescriptor(
+    graphInput,
+    "nodes",
+  )?.value as unknown
+  if (Array.isArray(nodes) && nodes.length > maximumNodes) {
+    return invalidData(
+      `Workflow has ${String(nodes.length)} nodes; the limit is ${String(maximumNodes)}.`,
+      { actual: nodes.length, limit: maximumNodes },
+    )
+  }
 }
 
 export function normalizeAuthoredWorkflowGraph(
   graphInput: unknown,
+  maximumNodes = MAX_SERIALIZED_GRAPH_NODES,
 ): AuthoredWorkflowGraphV1 {
+  preflightAuthoredWorkflowGraph(graphInput, maximumNodes)
+  const captured = createBoundedJsonValueSnapshot(
+    graphInput,
+    MAX_SERIALIZED_GRAPH_BYTES,
+    "Authored workflow graph",
+    {
+      maximumDepth: MAX_SERIALIZED_GRAPH_DEPTH,
+      maximumValues: MAX_SERIALIZED_GRAPH_VALUES,
+    },
+  ).value
   const graph = parseCodeBoundary(
     AuthoredWorkflowGraphV1Schema,
-    graphInput,
+    captured,
     "authored workflow graph",
   )
+  if (graph.nodes.length > maximumNodes) {
+    return invalidData(
+      `Workflow has ${String(graph.nodes.length)} nodes; the limit is ${String(maximumNodes)}.`,
+      { actual: graph.nodes.length, limit: maximumNodes },
+    )
+  }
   const sorted = {
     ...graph,
-    nodes: [...graph.nodes].sort((left, right) => left.key.localeCompare(right.key)),
+    nodes: [...graph.nodes].sort((left, right) => (
+      left.key.localeCompare(right.key)
+    )),
   }
-  const canonical = JSON.parse(canonicalJson(sorted)) as unknown
-  return parseCodeBoundary(
-    AuthoredWorkflowGraphV1Schema,
-    canonical,
-    "normalized authored workflow graph",
+  return deepFreezeJson(sorted)
+}
+
+function workflowGraphHashFromNormalized(
+  graph: AuthoredWorkflowGraphV1,
+): string {
+  return canonicalJsonSha256Prefixed(
+    `${WORKFLOW_GRAPH_HASH_DOMAIN}\0`,
+    graph,
   )
 }
 
 export function createWorkflowGraphHash(graphInput: unknown): string {
   const graph = normalizeAuthoredWorkflowGraph(graphInput)
-  return sha256Hex(
-    `${WORKFLOW_GRAPH_HASH_DOMAIN}\0${canonicalJson(graph)}`,
-  )
+  return workflowGraphHashFromNormalized(graph)
 }
 
 export const createGraphHash = createWorkflowGraphHash
@@ -179,13 +278,7 @@ function collectReferences(
       for (const item of Object.values(current)) pending.push(item)
     }
   }
-  return references.sort((left, right) => (
-    left.$ref.nodeKey.localeCompare(right.$ref.nodeKey)
-    || left.$ref.schemaId.localeCompare(right.$ref.schemaId)
-    || canonicalJson(left.$ref.path ?? []).localeCompare(
-      canonicalJson(right.$ref.path ?? []),
-    )
-  ))
+  return references
 }
 
 function arraysEqual(left: readonly string[], right: readonly string[]): boolean {
@@ -298,7 +391,7 @@ function validateGraph(
   projection: WorkflowRegistryProjection,
   limits: GraphCompilerLimits,
 ): ValidatedGraph {
-  const graph = normalizeAuthoredWorkflowGraph(graphInput)
+  const graph = normalizeAuthoredWorkflowGraph(graphInput, limits.maxNodes)
   if (graph.nodes.length > limits.maxNodes) {
     return invalidData(
       `Workflow has ${String(graph.nodes.length)} nodes; the limit is ${String(limits.maxNodes)}.`,
@@ -561,7 +654,9 @@ function deriveRequirementEnvelope(validated: ValidatedGraph): RequirementEnvelo
     preparation: uniqueSorted(preparation),
     resources: [...resources]
       .map(([resource, amount]) => ({ amount, resource }))
-      .sort((left, right) => left.resource.localeCompare(right.resource)),
+      .sort((left, right) => (
+        left.resource.localeCompare(right.resource)
+      )),
     resumeClasses: uniqueSorted(resumeClasses),
     unresolved: uniqueSorted(unresolved),
     version: REQUIREMENT_ENVELOPE_VERSION,
@@ -608,27 +703,61 @@ function resolveProjection(
 
 type UnsignedWorkflowCompilation = Omit<CompiledWorkflowGraph, "compilationSha256">
 
+const RequiredCompilationComponentSchema = z.unknown().refine(
+  value => value !== undefined,
+  "Required",
+)
+const ShallowCompiledWorkflowGraphSchema = z.strictObject({
+  compilationSha256: Sha256Schema,
+  envelope: RequiredCompilationComponentSchema,
+  graph: RequiredCompilationComponentSchema,
+  graphSha256: Sha256Schema,
+  limits: RequiredCompilationComponentSchema,
+  projection: RequiredCompilationComponentSchema,
+  topologicalWaves: RequiredCompilationComponentSchema,
+  version: z.literal(WORKFLOW_COMPILATION_VERSION),
+})
+
+function boundedCompilationInput(input: unknown, name: string): unknown {
+  return createBoundedJsonValueSnapshot(
+    input,
+    MAX_WORKFLOW_COMPILATION_BYTES,
+    name,
+    {
+      maximumDepth: MAX_WORKFLOW_COMPILATION_DEPTH,
+      maximumValues: MAX_WORKFLOW_COMPILATION_VALUES,
+    },
+  ).value
+}
+
+function workflowCompilationHashFromValidated(compilation: unknown): string {
+  return canonicalJsonSha256Prefixed(
+    `${WORKFLOW_COMPILATION_HASH_DOMAIN}\0`,
+    compilation,
+  )
+}
+
 export function createWorkflowCompilationHash(
   compilationInput: unknown,
 ): string {
-  const input = compilationInput as Partial<CompiledWorkflowGraph>
-  const unsigned = {
-    envelope: input.envelope,
-    graph: input.graph,
-    graphSha256: input.graphSha256,
-    limits: input.limits,
-    projection: input.projection,
-    topologicalWaves: input.topologicalWaves,
-    version: input.version,
+  const bounded = boundedCompilationInput(
+    compilationInput,
+    "workflow compilation",
+  )
+  if (typeof bounded !== "object" || bounded === null || Array.isArray(bounded)) {
+    return invalidData("Workflow compilation must be a plain object.")
   }
+  const {
+    compilationSha256: ignoredCompilationSha256,
+    ...unsigned
+  } = bounded as Record<string, unknown>
+  void ignoredCompilationSha256
   const parsed = parseCodeBoundary(
     CompiledWorkflowGraphSchema.omit({ compilationSha256: true }),
     unsigned,
     "unsigned workflow compilation",
   )
-  return sha256Hex(
-    `${WORKFLOW_COMPILATION_HASH_DOMAIN}\0${canonicalJson(parsed)}`,
-  )
+  return workflowCompilationHashFromValidated(parsed)
 }
 
 export function compileWorkflowGraph(
@@ -636,49 +765,41 @@ export function compileWorkflowGraph(
 ): CompiledWorkflowGraph {
   const limits = normalizeLimits(options.limits)
   const projection = resolveProjection(options)
-  const discovery = normalizeOperationDiscovery(projection.discovery)
-  const normalizedProjection = createWorkflowRegistryProjection(
-    projection.id,
-    discovery,
-    { trustedCompute: projection.trustedCompute },
-  )
-  if (projection.projectionSha256 !== normalizedProjection.projectionSha256) {
-    throw new TransmuteCodeError(
-      "invalid-data",
-      "Workflow registry projection hash does not match its normalized contents.",
-      { projectionId: projection.id },
-    )
-  }
-  const validated = validateGraph(options.graph, normalizedProjection, limits)
-  const graphSha256 = createWorkflowGraphHash(validated.graph)
+  const validated = validateGraph(options.graph, projection, limits)
+  const graphSha256 = workflowGraphHashFromNormalized(validated.graph)
   const unsigned: UnsignedWorkflowCompilation = {
     envelope: deriveRequirementEnvelope(validated),
     graph: validated.graph,
     graphSha256,
     limits,
-    projection: normalizedProjection,
+    projection,
     topologicalWaves: validated.topology.waves,
     version: WORKFLOW_COMPILATION_VERSION,
   }
   return deepFreeze(parseCodeBoundary(CompiledWorkflowGraphSchema, {
     ...unsigned,
-    compilationSha256: createWorkflowCompilationHash(unsigned),
+    compilationSha256: workflowCompilationHashFromValidated(unsigned),
   }, "compiled workflow graph"))
 }
 
 export function parseCompiledWorkflowGraph(input: unknown): CompiledWorkflowGraph {
+  const bounded = boundedCompilationInput(input, "compiled workflow graph")
   const parsed = parseCodeBoundary(
-    CompiledWorkflowGraphSchema,
-    input,
+    ShallowCompiledWorkflowGraphSchema,
+    bounded,
     "compiled workflow graph",
   )
-  const expected = createWorkflowCompilationHash(parsed)
-  if (parsed.compilationSha256 !== expected) {
+  const {
+    compilationSha256: parsedCompilationSha256,
+    ...unsigned
+  } = parsed
+  const expected = workflowCompilationHashFromValidated(unsigned)
+  if (parsedCompilationSha256 !== expected) {
     throw new TransmuteCodeError(
       "invalid-data",
       "Workflow compilation hash does not match its contents.",
       {
-        actualCompilationSha256: parsed.compilationSha256,
+        actualCompilationSha256: parsedCompilationSha256,
         expectedCompilationSha256: expected,
       },
     )
@@ -688,7 +809,10 @@ export function parseCompiledWorkflowGraph(input: unknown): CompiledWorkflowGrap
     limits: parsed.limits,
     projection: parsed.projection,
   })
-  if (canonicalJson(recompiled) !== canonicalJson(parsed)) {
+  // The parsed contents were independently hashed above. Recompilation must
+  // resolve to that exact authenticated identity, which avoids another full
+  // canonical serialization while retaining the SHA-256 collision boundary.
+  if (recompiled.compilationSha256 !== parsedCompilationSha256) {
     throw new TransmuteCodeError(
       "invalid-data",
       "Workflow compilation topology, requirements, or projection do not match the graph.",

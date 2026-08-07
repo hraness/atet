@@ -1,7 +1,6 @@
 import type { z } from "zod"
 
 import {
-  JsonValueSchema,
   isComputeGraphNode,
   isOperationGraphNode,
   type AuthoredGraphNodeV1,
@@ -18,7 +17,9 @@ import {
 import {
   compileWorkflowGraph,
 } from "./compiler.js"
-import { canonicalJson, sha256Hex } from "./canonical-json.js"
+import {
+  canonicalJsonSha256Prefixed,
+} from "./canonical-json.js"
 import { parseCodeBoundary } from "./boundary.js"
 import {
   buildWorkflow,
@@ -38,11 +39,20 @@ import {
   type PortableTransmuteOperationResultMap,
 } from "./public-operations.js"
 import { PUBLIC_WORKFLOW_REGISTRY_PROJECTION } from "./projection.js"
+import {
+  createBoundedJsonSnapshot,
+  createBoundedJsonValueSnapshot,
+  type BoundedJsonSnapshot,
+} from "./json-snapshot.js"
 
 export const WORKFLOW_NODE_RECEIPT_VERSION =
   "transmute-workflow-node-receipt-v1" as const
 export const WORKFLOW_NODE_RECEIPT_HASH_DOMAIN =
   "transmute.workflow.node-receipt/v1" as const
+export const MAX_WORKFLOW_RESULT_BYTES = 96 * 1024 * 1024
+// Output bindings and one resolved node output compose at this boundary.
+export const MAX_WORKFLOW_RESULT_DEPTH = 320
+export const MAX_WORKFLOW_RESULT_VALUES = 1_300_000
 
 export interface TransmuteCodeExecutionRequest<
   Kind extends PortableTransmuteOperationKind = PortableTransmuteOperationKind,
@@ -262,43 +272,27 @@ function resolveValue(
   return value
 }
 
-function boundedJson(
-  value: unknown,
-  maximumBytes: number,
-  name: string,
-): JsonValue {
-  const parsed = parseCodeBoundary(JsonValueSchema, value, name)
-  const bytes = new TextEncoder().encode(canonicalJson(parsed)).byteLength
-  if (bytes > maximumBytes) {
-    throw new TransmuteCodeError(
-      "invalid-data",
-      `${name} contains ${String(bytes)} bytes; the limit is ${String(maximumBytes)}.`,
-      { actualBytes: bytes, maximumBytes },
-    )
-  }
-  return parsed
-}
-
 function createNodeReceipt(
   index: number,
   nodeKey: string,
   kind: PortableTransmuteOperationKind,
-  input: JsonValue,
-  output: JsonValue,
+  inputSha256: string,
+  outputSha256: string,
 ): WorkflowNodeReceipt {
   const unsigned = {
     index,
-    inputSha256: sha256Hex(canonicalJson(input)),
+    inputSha256,
     kind,
     nodeKey,
     operationVersion: 2 as const,
-    outputSha256: sha256Hex(canonicalJson(output)),
+    outputSha256,
     version: WORKFLOW_NODE_RECEIPT_VERSION,
   }
   return Object.freeze({
     ...unsigned,
-    receiptSha256: sha256Hex(
-      `${WORKFLOW_NODE_RECEIPT_HASH_DOMAIN}\0${canonicalJson(unsigned)}`,
+    receiptSha256: canonicalJsonSha256Prefixed(
+      `${WORKFLOW_NODE_RECEIPT_HASH_DOMAIN}\0`,
+      unsigned,
     ),
   })
 }
@@ -411,49 +405,64 @@ async function executePublicNode(
   },
   values: ReadonlyMap<string, JsonValue>,
   context: TransmuteCodeExecutionContext,
-): Promise<{ readonly input: JsonValue; readonly output: JsonValue }> {
+): Promise<{
+  readonly input: BoundedJsonSnapshot
+  readonly output: BoundedJsonSnapshot
+}> {
   const { kind } = node.executor.operation
   const contract = PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[kind]
   const resolvedInput = resolveValue(node.input, values)
+  const rawInput = createBoundedJsonValueSnapshot(
+    resolvedInput,
+    contract.policy.maxInputBytes,
+    `${kind} raw input at node ${node.key}`,
+  )
   const parsedInput = parseCodeBoundary(
     contract.inputSchema as z.ZodType<unknown>,
-    resolvedInput,
+    rawInput.value,
     `${kind} input at node ${node.key}`,
   ) as PortableTransmuteOperationInputMap[typeof kind]
-  const boundedInput = boundedJson(
+  const boundedInput = createBoundedJsonSnapshot(
     parsedInput,
     contract.policy.maxInputBytes,
     `${kind} input at node ${node.key}`,
   )
-  const request: TransmuteCodeExecutionRequest<typeof kind> = {
-    input: parsedInput,
+  const request: TransmuteCodeExecutionRequest<typeof kind> = Object.freeze({
+    input: boundedInput.value as unknown as PortableTransmuteOperationInputMap[
+      typeof kind
+    ],
     kind,
     nodeKey: node.key,
     version: 2,
-  }
+  })
   throwIfAborted(context.signal)
   const dispatch = async () => await host.execute(request, context)
   const rawOutput = host.admit === undefined
     ? await dispatch()
-    : await host.admit({
+    : await host.admit(Object.freeze({
         kind,
         nodeKey: node.key,
         policy: contract.policy,
         version: 2,
-      }, dispatch, context)
+      }), dispatch, context)
+  const boundedRawOutput = createBoundedJsonValueSnapshot(
+    rawOutput,
+    contract.policy.maxOutputBytes,
+    `${kind} raw output at node ${node.key}`,
+  )
   const parsedOutput = parseCodeBoundary(
     contract.outputSchema as z.ZodType<unknown>,
-    rawOutput,
+    boundedRawOutput.value,
     `${kind} output at node ${node.key}`,
   )
-  return {
+  return Object.freeze({
     input: boundedInput,
-    output: boundedJson(
+    output: createBoundedJsonSnapshot(
       parsedOutput,
       contract.policy.maxOutputBytes,
       `${kind} output at node ${node.key}`,
     ),
-  }
+  })
 }
 
 export async function runBuiltWorkflow<
@@ -505,13 +514,13 @@ export async function runBuiltWorkflow<
     // complete dispatched wave before the runtime returns an error.
     for (const outcome of outcomes) {
       if (outcome.kind !== "executed") continue
-      values.set(outcome.node.key, outcome.executed.output)
+      values.set(outcome.node.key, outcome.executed.output.value)
       receipts.push(createNodeReceipt(
         receipts.length,
         outcome.node.key,
         outcome.node.executor.operation.kind,
-        outcome.executed.input,
-        outcome.executed.output,
+        outcome.executed.input.sha256,
+        outcome.executed.output.sha256,
       ))
     }
     const failure = outcomes.find(
@@ -536,11 +545,15 @@ export async function runBuiltWorkflow<
   }
   let output: ResolvedWorkflowOutput<Output>
   try {
-    output = parseCodeBoundary(
-      JsonValueSchema,
+    output = createBoundedJsonValueSnapshot(
       resolveValue(compilation.graph.outputs, values),
+      MAX_WORKFLOW_RESULT_BYTES,
       "workflow output",
-    ) as ResolvedWorkflowOutput<Output>
+      {
+        maximumDepth: MAX_WORKFLOW_RESULT_DEPTH,
+        maximumValues: MAX_WORKFLOW_RESULT_VALUES,
+      },
+    ).value as ResolvedWorkflowOutput<Output>
   } catch (error) {
     throw workflowRunFailure(
       error,

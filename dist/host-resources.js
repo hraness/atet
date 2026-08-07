@@ -10,7 +10,7 @@ import {
   normalizeHostResourceClaims,
   normalizeHostResourceProfile,
   transmuteHostResourceNames
-} from "./index-dxtrd5pg.js";
+} from "./index-eq77wsng.js";
 import"./index-z1w83f81.js";
 export {
   transmuteHostResourceNames,

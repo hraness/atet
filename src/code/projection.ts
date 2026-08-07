@@ -1,4 +1,7 @@
 import {
+  MAX_OPERATION_DISCOVERY_ENTRIES,
+  OPERATION_PREPARATION_KINDS,
+  OPERATION_RESOURCE_KINDS,
   OperationDiscoverySchema,
   SchemaIdSchema,
   WorkflowRegistryProjectionSchema,
@@ -6,9 +9,13 @@ import {
   type OperationDiscoverySource,
   type WorkflowRegistryProjection,
 } from "./contracts.js"
-import { canonicalJson, sha256Hex } from "./canonical-json.js"
+import {
+  canonicalJsonSha256,
+  canonicalJsonSha256Prefixed,
+} from "./canonical-json.js"
 import { parseCodeBoundary } from "./boundary.js"
 import { TransmuteCodeError } from "./errors.js"
+import { createBoundedJsonValueSnapshot } from "./json-snapshot.js"
 import {
   PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
   PORTABLE_TRANSMUTE_OPERATION_KINDS,
@@ -27,12 +34,107 @@ export interface CreateWorkflowRegistryProjectionOptions {
   readonly trustedCompute?: boolean
 }
 
+const OWNED_NORMALIZED_PROJECTIONS = new WeakSet<object>()
+const MAX_OPERATION_DISCOVERY_VALUES = 17
+  + OPERATION_PREPARATION_KINDS.length
+  + (3 * OPERATION_RESOURCE_KINDS.length)
+const MAX_OPERATION_DISCOVERY_LIST_VALUES = 1
+  + (MAX_OPERATION_DISCOVERY_ENTRIES * MAX_OPERATION_DISCOVERY_VALUES)
+const MAX_OPERATION_DISCOVERY_LIST_BYTES = 32 * 1024 * 1024
+const MAX_OPERATION_DISCOVERY_LIST_DEPTH = 8
+const MAX_WORKFLOW_REGISTRY_PROJECTION_BYTES =
+  MAX_OPERATION_DISCOVERY_LIST_BYTES + 4_096
+const MAX_WORKFLOW_REGISTRY_PROJECTION_DEPTH =
+  MAX_OPERATION_DISCOVERY_LIST_DEPTH + 1
+const MAX_WORKFLOW_REGISTRY_PROJECTION_VALUES =
+  MAX_OPERATION_DISCOVERY_LIST_VALUES + 5
+
 function discoveryList(
   source: WorkflowRegistryProjectionSource,
-): readonly OperationDiscovery[] {
+): unknown {
   return Array.isArray(source)
     ? source
     : (source as OperationDiscoverySource).list()
+}
+
+export function boundedOperationDiscoveryList(
+  input: unknown,
+  name = "operation discovery list",
+): readonly unknown[] {
+  if (!Array.isArray(input)) {
+    throw new TransmuteCodeError("invalid-data", `${name} must be an array.`)
+  }
+  const length = input.length
+  if (length > MAX_OPERATION_DISCOVERY_ENTRIES) {
+    throw new TransmuteCodeError(
+      "invalid-data",
+      `${name} cannot exceed ${String(MAX_OPERATION_DISCOVERY_ENTRIES)} entries.`,
+    )
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(input)
+  if (Object.getOwnPropertySymbols(descriptors).some(
+    symbol => (Reflect.get(descriptors, symbol) as PropertyDescriptor | undefined)
+      ?.enumerable === true,
+  )) {
+    throw new TransmuteCodeError(
+      "invalid-data",
+      `${name} cannot contain enumerable symbol properties.`,
+    )
+  }
+  const keys = Object.keys(descriptors)
+    .filter(key => descriptors[key]?.enumerable === true)
+  if (
+    keys.length !== length
+    || keys.some((key, index) => key !== String(index))
+  ) {
+    throw new TransmuteCodeError(
+      "invalid-data",
+      `${name} must be dense and cannot have named properties.`,
+    )
+  }
+  const punctuationBytes = 2 + Math.max(0, length - 1)
+  let bytes = punctuationBytes
+  let values = 1
+  const captured: unknown[] = []
+  for (let index = 0; index < length; index += 1) {
+    const descriptor = descriptors[String(index)]
+    if (
+      descriptor === undefined
+      || descriptor.get !== undefined
+      || descriptor.set !== undefined
+    ) {
+      throw new TransmuteCodeError(
+        "invalid-data",
+        `${name} must contain plain data elements.`,
+      )
+    }
+    const remainingBytes = MAX_OPERATION_DISCOVERY_LIST_BYTES - bytes
+    if (remainingBytes < 1) {
+      throw new TransmuteCodeError(
+        "invalid-data",
+        `${name} contains more than ${String(MAX_OPERATION_DISCOVERY_LIST_BYTES)} bytes.`,
+      )
+    }
+    const snapshot = createBoundedJsonValueSnapshot(
+      descriptor.value,
+      remainingBytes,
+      `${name} entry ${String(index)}`,
+      {
+        maximumDepth: MAX_OPERATION_DISCOVERY_LIST_DEPTH - 1,
+        maximumValues: MAX_OPERATION_DISCOVERY_VALUES,
+      },
+    )
+    bytes += snapshot.bytes
+    values += snapshot.values
+    if (values > MAX_OPERATION_DISCOVERY_LIST_VALUES) {
+      throw new TransmuteCodeError(
+        "invalid-data",
+        `${name} contains more than ${String(MAX_OPERATION_DISCOVERY_LIST_VALUES)} JSON values.`,
+      )
+    }
+    captured.push(snapshot.value)
+  }
+  return Object.freeze(captured)
 }
 
 function operationKey(kind: string, version: number): string {
@@ -46,9 +148,9 @@ function uniqueSorted<Value extends string>(
 }
 
 export function normalizeOperationDiscovery(
-  input: readonly OperationDiscovery[],
+  input: unknown,
 ): readonly OperationDiscovery[] {
-  const normalized = input.map((item) => {
+  const normalized = boundedOperationDiscoveryList(input).map((item) => {
     const parsed = parseCodeBoundary(
       OperationDiscoverySchema,
       item,
@@ -63,7 +165,9 @@ export function normalizeOperationDiscovery(
       )
     }
     const resources = [...parsed.policy.resources]
-      .sort((left, right) => left.resource.localeCompare(right.resource))
+      .sort((left, right) => (
+        left.resource.localeCompare(right.resource)
+      ))
     if (new Set(resources.map(resource => resource.resource)).size !== resources.length) {
       throw new TransmuteCodeError(
         "invalid-data",
@@ -116,12 +220,25 @@ export function createWorkflowRegistryProjectionHash(input: {
   const id = parseCodeBoundary(SchemaIdSchema, input.id, "registry projection id")
   const discovery = normalizeOperationDiscovery(input.discovery)
   const trustedCompute = input.trustedCompute ?? false
-  return sha256Hex(
-    `${WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN}\0${canonicalJson({
-      discovery,
-      id,
-      trustedCompute,
-    })}`,
+  return workflowRegistryProjectionHashFromNormalized({
+    discovery,
+    id,
+    trustedCompute,
+  })
+}
+
+function workflowRegistryProjectionHashFromNormalized(input: {
+  readonly discovery: readonly OperationDiscovery[]
+  readonly id: string
+  readonly trustedCompute: boolean
+}): string {
+  return canonicalJsonSha256Prefixed(
+    `${WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN}\0`,
+    {
+      discovery: input.discovery,
+      id: input.id,
+      trustedCompute: input.trustedCompute,
+    },
   )
 }
 
@@ -136,25 +253,43 @@ export function createWorkflowRegistryProjection(
   const parsed = parseCodeBoundary(WorkflowRegistryProjectionSchema, {
     discovery,
     id,
-    projectionSha256: createWorkflowRegistryProjectionHash({
+    projectionSha256: workflowRegistryProjectionHashFromNormalized({
       discovery,
       id,
       trustedCompute,
     }),
     trustedCompute,
   }, "workflow registry projection")
-  return Object.freeze({
+  const projection = Object.freeze({
     ...parsed,
     discovery: freezeDiscovery(parsed.discovery),
   })
+  OWNED_NORMALIZED_PROJECTIONS.add(projection)
+  return projection
 }
 
 export function parseWorkflowRegistryProjection(
   input: unknown,
 ): WorkflowRegistryProjection {
+  if (
+    typeof input === "object"
+    && input !== null
+    && OWNED_NORMALIZED_PROJECTIONS.has(input)
+  ) {
+    return input as WorkflowRegistryProjection
+  }
+  const captured = createBoundedJsonValueSnapshot(
+    input,
+    MAX_WORKFLOW_REGISTRY_PROJECTION_BYTES,
+    "workflow registry projection",
+    {
+      maximumDepth: MAX_WORKFLOW_REGISTRY_PROJECTION_DEPTH,
+      maximumValues: MAX_WORKFLOW_REGISTRY_PROJECTION_VALUES,
+    },
+  ).value
   const parsed = parseCodeBoundary(
     WorkflowRegistryProjectionSchema,
-    input,
+    captured,
     "workflow registry projection",
   )
   const normalized = createWorkflowRegistryProjection(
@@ -173,7 +308,7 @@ export function parseWorkflowRegistryProjection(
       },
     )
   }
-  if (canonicalJson(parsed) !== canonicalJson(normalized)) {
+  if (canonicalJsonSha256(parsed) !== canonicalJsonSha256(normalized)) {
     throw new TransmuteCodeError(
       "invalid-data",
       "Workflow registry projection discovery is not normalized.",

@@ -5,8 +5,8 @@ import {
   checkDiagramFile,
   renderDiagramFile,
   runMcpServer
-} from "./index-e3gfc3mr.js";
-import"./index-bcn7vyff.js";
+} from "./index-egs2h3b1.js";
+import"./index-xhvhwqgp.js";
 import {
   desktopStatus,
   getLatestDesktopRelease,
@@ -24,7 +24,7 @@ import {
   searchTransmuteOperations,
   transmuteOperationCodes,
   withTransmuteOperationHostAdmission
-} from "./index-wyraz81p.js";
+} from "./index-m6kydsys.js";
 import"./index-15w61te4.js";
 import {
   vectorizeImage
@@ -40,7 +40,7 @@ import {
 import {
   transmuteImageModels
 } from "./index-yz7y9m2g.js";
-import"./index-dxtrd5pg.js";
+import"./index-eq77wsng.js";
 import {
   __require
 } from "./index-z1w83f81.js";

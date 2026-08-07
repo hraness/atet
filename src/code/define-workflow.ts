@@ -3,7 +3,6 @@ import type { z } from "zod"
 import {
   AuthoredComputeIdentitySchema,
   ComputeKeySchema,
-  JsonValueSchema,
   MAX_TRUSTED_COMPUTE_DURATION_MS,
   MAX_TRUSTED_COMPUTE_INPUT_BYTES,
   MAX_TRUSTED_COMPUTE_OUTPUT_BYTES,
@@ -19,6 +18,11 @@ import {
 } from "./contracts.js"
 import { parseCodeBoundary } from "./boundary.js"
 import { TransmuteCodeError } from "./errors.js"
+import {
+  captureJsonStructure,
+  createBoundedJsonValueSnapshot,
+  deepFreezeJson,
+} from "./json-snapshot.js"
 import {
   WorkflowGraphBuilder,
   type OperationDiscoveryProvider,
@@ -55,6 +59,25 @@ export interface BuiltWorkflow<
   readonly __output?: () => Output
 }
 
+function boundedWorkflowInput<Input>(
+  schema: z.ZodType<Input>,
+  input: unknown,
+): JsonValue {
+  const capturedInput = captureJsonStructure(input, "workflow input", {
+    maximumBytes: MAX_TRUSTED_COMPUTE_INPUT_BYTES,
+  })
+  const parsedInput = parseCodeBoundary(
+    schema,
+    capturedInput,
+    "workflow input",
+  )
+  return createBoundedJsonValueSnapshot(
+    parsedInput,
+    MAX_TRUSTED_COMPUTE_INPUT_BYTES,
+    "JSON-safe workflow input",
+  ).value
+}
+
 function workflowDefinitionIdentity(options: {
   readonly build: unknown
   readonly id: string
@@ -86,9 +109,36 @@ function workflowDefinitionIdentity(options: {
   return { id, inputSchemaId, version: options.version }
 }
 
+function assertOptionsObject(
+  value: unknown,
+  name: string,
+): asserts value is Readonly<Record<string, unknown>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TransmuteCodeError("invalid-data", `${name} must be an object.`)
+  }
+}
+
+function assertSchemaCapability(
+  value: unknown,
+  name: string,
+): asserts value is z.ZodType<unknown> {
+  if (
+    typeof value !== "object"
+    || value === null
+    || typeof (value as { readonly safeParse?: unknown }).safeParse !== "function"
+  ) {
+    throw new TransmuteCodeError(
+      "invalid-data",
+      `${name} must provide a synchronous safeParse function.`,
+    )
+  }
+}
+
 export function defineWorkflow<Input, Output extends WorkflowOutputValue>(
   options: WorkflowDefinitionOptions<Input, Output>,
 ): WorkflowDefinition<Input, Output> {
+  assertOptionsObject(options, "Workflow definition options")
+  assertSchemaCapability(options.inputSchema, "Workflow input schema")
   const identity = workflowDefinitionIdentity(options)
   return Object.freeze({
     build: options.build,
@@ -106,18 +156,12 @@ export function buildWorkflow<
   definition: WorkflowDefinition<Input, Output>,
   input: unknown,
 ): BuiltWorkflow<JsonValue, Output> {
-  const parsedInput = parseCodeBoundary(
-    definition.inputSchema,
-    input,
-    "workflow input",
-  )
-  const workflowInput = parseCodeBoundary(
-    JsonValueSchema,
-    parsedInput,
-    "JSON-safe workflow input",
-  )
+  assertOptionsObject(definition, "Workflow definition")
+  assertSchemaCapability(definition.inputSchema, "Workflow input schema")
+  workflowDefinitionIdentity(definition)
+  const workflowInput = boundedWorkflowInput(definition.inputSchema, input)
   const builder = PortableWorkflowBuilder.create()
-  const outputs = definition.build(builder, parsedInput)
+  const outputs = definition.build(builder, workflowInput as unknown as Input)
   const graph = builder.build({
     id: definition.id,
     inputSchemaId: definition.inputSchemaId,
@@ -154,6 +198,15 @@ export interface DefineComputeOptions<Input, Output> {
 export function defineCompute<Input, Output>(
   options: DefineComputeOptions<Input, Output>,
 ): TrustedComputeDefinition<Input, Output> {
+  assertOptionsObject(options, "Trusted compute definition options")
+  assertSchemaCapability(options.inputSchema, "Trusted compute input schema")
+  assertSchemaCapability(options.outputSchema, "Trusted compute output schema")
+  if (typeof options.run !== "function") {
+    throw new TransmuteCodeError(
+      "invalid-data",
+      "Trusted compute definitions require a run function.",
+    )
+  }
   const key = parseCodeBoundary(ComputeKeySchema, options.key, "trusted compute key")
   const inputSchemaId = parseCodeBoundary(
     SchemaIdSchema,
@@ -188,7 +241,7 @@ export function defineCompute<Input, Output>(
   }
   return Object.freeze({
     [TRUSTED_COMPUTE_BRAND]: true as const,
-    bounds: identity.bounds,
+    bounds: deepFreezeJson(identity.bounds),
     inputSchema: options.inputSchema,
     inputSchemaId,
     key,
@@ -226,6 +279,8 @@ export function defineAdvancedWorkflow<
 >(
   options: AdvancedWorkflowDefinitionOptions<Input, Output>,
 ): AdvancedWorkflowDefinition<Input, Output> {
+  assertOptionsObject(options, "Advanced workflow definition options")
+  assertSchemaCapability(options.inputSchema, "Advanced workflow input schema")
   const identity = workflowDefinitionIdentity(options)
   return Object.freeze({
     build: options.build,
@@ -244,18 +299,12 @@ export function buildAdvancedWorkflow<
   provider: OperationDiscoveryProvider,
   input: unknown,
 ): BuiltAdvancedWorkflow {
-  const parsedInput = parseCodeBoundary(
-    definition.inputSchema,
-    input,
-    "workflow input",
-  )
-  const workflowInput = parseCodeBoundary(
-    JsonValueSchema,
-    parsedInput,
-    "JSON-safe workflow input",
-  )
+  assertOptionsObject(definition, "Advanced workflow definition")
+  assertSchemaCapability(definition.inputSchema, "Advanced workflow input schema")
+  workflowDefinitionIdentity(definition)
+  const workflowInput = boundedWorkflowInput(definition.inputSchema, input)
   const builder = WorkflowGraphBuilder.create(provider)
-  const outputs = definition.build(builder, parsedInput)
+  const outputs = definition.build(builder, workflowInput as unknown as Input)
   return Object.freeze({
     computeDefinitions: builder.computeDefinitions(),
     graph: builder.build({

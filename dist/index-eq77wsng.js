@@ -175,6 +175,9 @@ var maximumResourceAmount = 1e6;
 var maximumTicket = 0xffff_ffff_ffff_ffffn;
 var defaultPollIntervalMilliseconds = 25;
 var defaultWaitTimeoutMilliseconds = 35000;
+var maximumAdmissionBackoffMilliseconds = 250;
+var smallPollIntervalMilliseconds = 4;
+var maximumAdmissionBackoffMultiplier = 8;
 var HOST_RESOURCE_MAX_WAIT_MILLISECONDS = 24 * 60 * 60000;
 var transmuteHostResourceNames = Object.freeze([
   "cpu",
@@ -586,6 +589,22 @@ async function waitForRetry(pollIntervalMilliseconds, signal, deadline) {
   });
   throwIfWaitEnded(signal, deadline);
 }
+function mixRetrySeed(ticket, retry) {
+  const mask = 0xffff_ffff_ffff_ffffn;
+  let value = BigInt(ticket) + BigInt(retry + 1) * 0x9e37_79b9_7f4a_7c15n & mask;
+  value = (value ^ value >> 30n) * 0xbf58_476d_1ce4_e5b9n & mask;
+  value = (value ^ value >> 27n) * 0x94d0_49bb_1331_11ebn & mask;
+  return (value ^ value >> 31n) & mask;
+}
+function admissionRetryDelayMilliseconds(pollIntervalMilliseconds, ticket, unchangedRetryCount) {
+  const adaptiveLimit = pollIntervalMilliseconds <= smallPollIntervalMilliseconds ? pollIntervalMilliseconds : Math.max(pollIntervalMilliseconds, Math.min(maximumAdmissionBackoffMilliseconds, pollIntervalMilliseconds * maximumAdmissionBackoffMultiplier));
+  const exponent = Math.min(unchangedRetryCount, Math.ceil(Math.log2(maximumAdmissionBackoffMultiplier)));
+  const ceiling = Math.min(adaptiveLimit, pollIntervalMilliseconds * 2 ** exponent);
+  const floor = Math.max(1, Math.ceil(ceiling / 2));
+  const width = ceiling - floor + 1;
+  const offset = Number(mixRetrySeed(ticket, unchangedRetryCount) % BigInt(width));
+  return floor + offset;
+}
 async function withControlLock(directory, pollIntervalMilliseconds, signal, deadline, callback) {
   const descriptor = openPrivateFile(join(directory, controlFileName));
   let locked = false;
@@ -814,6 +833,19 @@ function canFitClaims(profile, active, requested) {
     return limit !== undefined && (used.get(resource) ?? 0) + amount <= limit;
   });
 }
+function admissionQueueState(marker, live) {
+  const ticket = BigInt(marker.document.ticket);
+  const blockers = live.filter((candidate) => {
+    if (sameMarker(candidate, marker))
+      return false;
+    if (!claimsOverlap(candidate.document.claims, marker.document.claims)) {
+      return false;
+    }
+    return candidate.document.phase === "A" || BigInt(candidate.document.ticket) < ticket;
+  });
+  return sha256(blockers.map((candidate) => `${candidate.name}\x00${markerJson(candidate.document)}`).join(`
+`));
+}
 function attemptAdmission(marker, live, profile) {
   assertOwnedMarkerIdentity(marker);
   const current = live.find((candidate) => sameMarker(candidate, marker));
@@ -822,30 +854,46 @@ function attemptAdmission(marker, live, profile) {
   }
   const ticket = BigInt(marker.document.ticket);
   const earlierOverlap = live.some((candidate) => candidate.document.phase === "W" && BigInt(candidate.document.ticket) < ticket && claimsOverlap(candidate.document.claims, marker.document.claims));
-  if (earlierOverlap)
-    return false;
+  if (earlierOverlap) {
+    return {
+      admitted: false,
+      queueState: admissionQueueState(marker, live)
+    };
+  }
   const active = live.filter((candidate) => candidate.document.phase === "A");
-  if (!canFitClaims(profile, active, marker.document.claims))
-    return false;
+  if (!canFitClaims(profile, active, marker.document.claims)) {
+    return {
+      admitted: false,
+      queueState: admissionQueueState(marker, live)
+    };
+  }
   const admitted = { ...marker.document, phase: "A" };
   writeDescriptor(marker.descriptor, markerJson(admitted));
   marker.document = admitted;
-  return true;
+  return { admitted: true, queueState: "" };
 }
 function markerMatchesOwnedActive(candidate, marker) {
   return sameMarker(candidate, marker) && candidate.document.phase === "A" && marker.document.phase === "A" && markerJson(candidate.document) === markerJson(marker.document);
 }
 async function admitMarker(marker, root, options, signal, deadline, state) {
+  let previousQueueState;
+  let unchangedRetryCount = 0;
   for (;; ) {
-    const admitted = await withControlLock(root, options.pollIntervalMilliseconds, signal, deadline, () => {
+    const attempt = await withControlLock(root, options.pollIntervalMilliseconds, signal, deadline, () => {
       const currentState = state();
       assertMatchingProfile(currentState, options.profile);
       const live = scanLiveMarkers(root, options.profile, options.profileSha256);
       return attemptAdmission(marker, live, options.profile);
     });
-    if (admitted)
+    if (attempt.admitted)
       return;
-    await waitForRetry(options.pollIntervalMilliseconds, signal, deadline);
+    if (attempt.queueState === previousQueueState) {
+      unchangedRetryCount += 1;
+    } else {
+      previousQueueState = attempt.queueState;
+      unchangedRetryCount = 0;
+    }
+    await waitForRetry(admissionRetryDelayMilliseconds(options.pollIntervalMilliseconds, marker.document.ticket, unchangedRetryCount), signal, deadline);
   }
 }
 async function assertMarkerOwned(marker, root, options, state) {

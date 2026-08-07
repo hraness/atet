@@ -9,6 +9,7 @@ export const WORKFLOW_COMPILATION_VERSION = "transmute-workflow-compilation-v1" 
 
 export const MAX_SERIALIZED_GRAPH_NODES = 4_096
 export const MAX_SERIALIZED_NODE_DEPENDENCIES = 4_096
+export const MAX_SERIALIZED_REF_PATH_SEGMENTS = 32
 export const MAX_OPERATION_DISCOVERY_ENTRIES = 4_096
 export const MAX_TRUSTED_COMPUTE_INPUT_BYTES = 2 * 1024 * 1024
 export const MAX_TRUSTED_COMPUTE_OUTPUT_BYTES = 2 * 1024 * 1024
@@ -75,7 +76,9 @@ export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() => z.preprocess(
 export const SerializedRefV1Schema = z.strictObject({
   $ref: z.strictObject({
     nodeKey: NodeKeySchema,
-    path: z.array(RefPathSegmentSchema).max(32).optional(),
+    path: z.array(RefPathSegmentSchema)
+      .max(MAX_SERIALIZED_REF_PATH_SEGMENTS)
+      .optional(),
     schemaId: SchemaIdSchema,
   }),
   version: z.literal(WORKFLOW_REF_VERSION),

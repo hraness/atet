@@ -5,6 +5,7 @@ import {
   type OperationLifecycleKind,
   type OperationPolicy,
 } from "./contracts.js"
+import { utf8ByteLength } from "./json-utf8.js"
 
 const MAX_PATH_CHARACTERS = 4_096
 const MAX_PROMPT_BYTES = 8_192
@@ -169,17 +170,26 @@ export const TransmuteImageVectorizeInputSchema = schemaWithReadonlyOutput<
   timeoutMs: z.number().int().min(1).max(300_000).optional(),
 }))
 
-const PromptSchema = z.string()
-  .refine(value => value.trim().length > 0, "Prompts must not be blank.")
-  .refine(
-    // eslint-disable-next-line no-control-regex -- Reject every disallowed prompt control byte.
-    value => !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value),
-    "Prompts must not contain control characters.",
-  )
-  .refine(
-    value => new TextEncoder().encode(value).byteLength <= MAX_PROMPT_BYTES,
-    `Prompts must contain at most ${String(MAX_PROMPT_BYTES)} UTF-8 bytes.`,
-  )
+const PromptSchema = z.string().superRefine((value, context) => {
+  if (utf8ByteLength(value, MAX_PROMPT_BYTES) === undefined) {
+    context.addIssue({
+      code: "custom",
+      message: `Prompts must contain at most ${String(MAX_PROMPT_BYTES)} UTF-8 bytes.`,
+    })
+    return
+  }
+  if (value.trim().length === 0) {
+    context.addIssue({ code: "custom", message: "Prompts must not be blank." })
+    return
+  }
+  // eslint-disable-next-line no-control-regex -- Reject every disallowed prompt control byte.
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)) {
+    context.addIssue({
+      code: "custom",
+      message: "Prompts must not contain control characters.",
+    })
+  }
+})
 
 export const TransmuteImageGenerateInputSchema = schemaWithReadonlyOutput<
   TransmuteImageGenerateInput

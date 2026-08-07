@@ -100,10 +100,13 @@
     "src/code/errors.ts",
     "src/code/graph-builder.ts",
     "src/code/index.ts",
+    "src/code/json-snapshot.ts",
+    "src/code/json-utf8.ts",
     "src/code/portable-builder.ts",
     "src/code/projection.ts",
     "src/code/public-operations.ts",
     "src/code/runtime.ts",
+    "src/code/sha256.ts",
     "src/config.ts",
     "src/credential-lease.ts",
     "src/desktop.ts",
@@ -176,6 +179,7 @@
     "prepack": "bun run check"
   },
   "dependencies": {
+    "@noble/hashes": "2.2.0",
     "@resvg/resvg-js": "2.6.2",
     "sharp": "0.35.3",
     "zod": "^4.4.3"

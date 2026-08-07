@@ -46,6 +46,9 @@ const maximumResourceAmount = 1_000_000
 const maximumTicket = 0xffff_ffff_ffff_ffffn
 const defaultPollIntervalMilliseconds = 25
 const defaultWaitTimeoutMilliseconds = 35_000
+const maximumAdmissionBackoffMilliseconds = 250
+const smallPollIntervalMilliseconds = 4
+const maximumAdmissionBackoffMultiplier = 8
 
 /** Largest supported explicit admission wait for any host-resource lease. */
 export const HOST_RESOURCE_MAX_WAIT_MILLISECONDS = 24 * 60 * 60_000
@@ -738,6 +741,49 @@ async function waitForRetry(
   throwIfWaitEnded(signal, deadline)
 }
 
+function mixRetrySeed(ticket: string, retry: number): bigint {
+  const mask = 0xffff_ffff_ffff_ffffn
+  let value = (
+    BigInt(ticket)
+    + BigInt(retry + 1) * 0x9e37_79b9_7f4a_7c15n
+  ) & mask
+  value = ((value ^ (value >> 30n)) * 0xbf58_476d_1ce4_e5b9n) & mask
+  value = ((value ^ (value >> 27n)) * 0x94d0_49bb_1331_11ebn) & mask
+  return (value ^ (value >> 31n)) & mask
+}
+
+function admissionRetryDelayMilliseconds(
+  pollIntervalMilliseconds: number,
+  ticket: string,
+  unchangedRetryCount: number,
+): number {
+  // Explicit tiny intervals are commonly used by deterministic local callers.
+  // Keep them as the upper bound instead of silently stretching their loop.
+  const adaptiveLimit = pollIntervalMilliseconds <= smallPollIntervalMilliseconds
+    ? pollIntervalMilliseconds
+    : Math.max(
+      pollIntervalMilliseconds,
+      Math.min(
+        maximumAdmissionBackoffMilliseconds,
+        pollIntervalMilliseconds * maximumAdmissionBackoffMultiplier,
+      ),
+    )
+  const exponent = Math.min(
+    unchangedRetryCount,
+    Math.ceil(Math.log2(maximumAdmissionBackoffMultiplier)),
+  )
+  const ceiling = Math.min(
+    adaptiveLimit,
+    pollIntervalMilliseconds * (2 ** exponent),
+  )
+  const floor = Math.max(1, Math.ceil(ceiling / 2))
+  const width = ceiling - floor + 1
+  const offset = Number(
+    mixRetrySeed(ticket, unchangedRetryCount) % BigInt(width),
+  )
+  return floor + offset
+}
+
 async function withControlLock<T>(
   directory: string,
   pollIntervalMilliseconds: number,
@@ -1061,11 +1107,34 @@ function canFitClaims(
   })
 }
 
+interface AdmissionAttempt {
+  readonly admitted: boolean
+  readonly queueState: string
+}
+
+function admissionQueueState(
+  marker: OwnedMarker,
+  live: readonly LiveMarker[],
+): string {
+  const ticket = BigInt(marker.document.ticket)
+  const blockers = live.filter((candidate) => {
+    if (sameMarker(candidate, marker)) return false
+    if (!claimsOverlap(candidate.document.claims, marker.document.claims)) {
+      return false
+    }
+    return candidate.document.phase === "A"
+      || BigInt(candidate.document.ticket) < ticket
+  })
+  return sha256(blockers.map((candidate) => (
+    `${candidate.name}\0${markerJson(candidate.document)}`
+  )).join("\n"))
+}
+
 function attemptAdmission(
   marker: OwnedMarker,
   live: readonly LiveMarker[],
   profile: HostResourceProfile,
-): boolean {
+): AdmissionAttempt {
   assertOwnedMarkerIdentity(marker)
   const current = live.find((candidate) => sameMarker(candidate, marker))
   if (
@@ -1084,13 +1153,23 @@ function attemptAdmission(
     && BigInt(candidate.document.ticket) < ticket
     && claimsOverlap(candidate.document.claims, marker.document.claims)
   ))
-  if (earlierOverlap) return false
+  if (earlierOverlap) {
+    return {
+      admitted: false,
+      queueState: admissionQueueState(marker, live),
+    }
+  }
   const active = live.filter((candidate) => candidate.document.phase === "A")
-  if (!canFitClaims(profile, active, marker.document.claims)) return false
+  if (!canFitClaims(profile, active, marker.document.claims)) {
+    return {
+      admitted: false,
+      queueState: admissionQueueState(marker, live),
+    }
+  }
   const admitted: MarkerDocument = { ...marker.document, phase: "A" }
   writeDescriptor(marker.descriptor, markerJson(admitted))
   marker.document = admitted
-  return true
+  return { admitted: true, queueState: "" }
 }
 
 function markerMatchesOwnedActive(
@@ -1111,8 +1190,10 @@ async function admitMarker(
   deadline: number,
   state: () => StateDocument,
 ): Promise<void> {
+  let previousQueueState: string | undefined
+  let unchangedRetryCount = 0
   for (;;) {
-    const admitted = await withControlLock(
+    const attempt = await withControlLock(
       root,
       options.pollIntervalMilliseconds,
       signal,
@@ -1128,8 +1209,25 @@ async function admitMarker(
         return attemptAdmission(marker, live, options.profile)
       },
     )
-    if (admitted) return
-    await waitForRetry(options.pollIntervalMilliseconds, signal, deadline)
+    if (attempt.admitted) return
+    // The durable earlier-ticket marker remains the FIFO authority. Backoff
+    // only changes when this candidate rechecks it, and relevant marker
+    // progress restores the initial responsive interval without a watcher.
+    if (attempt.queueState === previousQueueState) {
+      unchangedRetryCount += 1
+    } else {
+      previousQueueState = attempt.queueState
+      unchangedRetryCount = 0
+    }
+    await waitForRetry(
+      admissionRetryDelayMilliseconds(
+        options.pollIntervalMilliseconds,
+        marker.document.ticket,
+        unchangedRetryCount,
+      ),
+      signal,
+      deadline,
+    )
   }
 }
 
