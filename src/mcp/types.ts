@@ -1,4 +1,4 @@
-import type { TransmuteAuthDependencies } from "../auth.js"
+import type { TransmuteGenerateDependencies } from "../generate.js"
 
 export type JsonRpcId = string | number
 export type JsonRpcResponseId = JsonRpcId | null
@@ -66,9 +66,6 @@ export interface McpServerOptions {
    */
   readonly writeLine?: (line: string) => void | Promise<void>
   readonly serverVersion?: string
-  /**
-   * Injectable network and credential-store dependencies. Normal CLI usage
-   * uses global fetch and Bun.secrets.
-   */
-  readonly authDependencies?: TransmuteAuthDependencies
+  /** Injectable Gateway runtime, environment, and fixed-origin fetch seams. */
+  readonly generateDependencies?: TransmuteGenerateDependencies
 }

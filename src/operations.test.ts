@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { transmuteImageModels } from "./discovery.ts"
+import { transmuteImageModels } from "./generate.ts"
 import type {
   HostResourceClaim,
   HostResourceCoordinator,
@@ -55,15 +55,14 @@ describe("canonical Transmute operations", () => {
         ({ code }) => code === "transmute.image.generate",
       ),
     ).toMatchObject({
-      execution: "hosted",
-      authentication: "required",
+      execution: "gateway",
+      authentication: "environment",
       destructive: true,
       idempotent: false,
       transport: {
         method: "POST",
-        endpointFromDiscovery: "endpoints.generateImage",
+        authority: "https://ai-gateway.vercel.sh/v4/ai",
         authorization: "bearer",
-        idempotencyHeader: "Idempotency-Key",
         retry: "never",
       },
     })
@@ -116,7 +115,7 @@ describe("canonical Transmute operations", () => {
       "transmute.diagram.check",
       "transmute.diagram.render",
     ])
-    expect(searchTransmuteOperations("hosted image", 1).map(({ code }) => code))
+    expect(searchTransmuteOperations("gateway image", 1).map(({ code }) => code))
       .toEqual(["transmute.image.generate"])
     expect(() => searchTransmuteOperations("\0")).toThrow("[INVALID_SEARCH]")
   })
@@ -196,7 +195,7 @@ describe("canonical Transmute operations", () => {
     }
   })
 
-  test("does not contact discovery or auth before local vectorization", async () => {
+  test("does not contact Gateway dependencies before local vectorization", async () => {
     const networkInputs: string[] = []
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
     await expect(
@@ -212,11 +211,6 @@ describe("canonical Transmute operations", () => {
             return new Response(null, { status: 500 })
           },
           hostResourceCoordinator: recordingCoordinator(admission),
-          secrets: {
-            get: async () => null,
-            set: async () => undefined,
-            delete: async () => false,
-          },
         },
       ),
     ).rejects.toThrow()

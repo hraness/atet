@@ -1,0 +1,13 @@
+{
+  "formatVersion": 1,
+  "assets": [
+    {
+      "bytes": 178,
+      "codePointID": "1f9ec",
+      "domain": "transmute.rocks",
+      "emoji": "🧬",
+      "path": "transmute.rocks.svg",
+      "sha256": "bba61dbf3128cd21638c793685ffb054f8b5fee92f98d35ee9c0328f8e0979af"
+    }
+  ]
+}

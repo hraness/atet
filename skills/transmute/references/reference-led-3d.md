@@ -1,11 +1,10 @@
 # Reference-led Three.js and metallic treatments
 
 Use this guide only when Transmute's complete local Code Mode host is available.
-That host is currently distributed from the monorepo's `apps/desktop`
-workspace, alongside the thin desktop capture shell. The public
-`@hraness/transmute/code` and `@hraness/transmute/workflow` entrypoints
-intentionally expose no HTML renderer, Three.js operation, arbitrary source
-execution, or private media-project API.
+It ships in this repository alongside the thin desktop capture shell. The
+portable `@hraness/transmute/code` and `@hraness/transmute/workflow`
+entrypoints intentionally expose no HTML renderer, Three.js operation, or
+arbitrary source execution. Those capabilities belong to the local host.
 
 ## Separate reference generation from source execution
 

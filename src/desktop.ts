@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path"
 import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 import { pathExists } from "./fs.js"
+import { nonGatewayChildEnvironment } from "./process-environment.js"
 
 const releaseApi = "https://api.github.com/repos/tldraw/tldraw-offline/releases/latest"
 export const desktopDownloadPage = "https://offline.tldraw.com"
@@ -135,6 +136,7 @@ async function download(asset: ReleaseAsset, filePath: string): Promise<void> {
 
 function spawnDetached(command: readonly string[]): void {
   const child = Bun.spawn([...command], {
+    env: nonGatewayChildEnvironment(),
     stdin: "ignore",
     stdout: "ignore",
     stderr: "ignore",

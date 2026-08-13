@@ -1,0 +1,1 @@
+export const MAX_EVENT_QUERY_LIMIT = 10_000;

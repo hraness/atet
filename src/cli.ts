@@ -16,12 +16,11 @@ import {
   vectorizeImage,
 } from "./index.js"
 import {
-  transmuteAuthStatus,
-  loginTransmute,
-  logoutTransmute,
-} from "./auth.js"
-import { transmuteImageModels, type TransmuteImageModel } from "./discovery.js"
-import { generateTransmuteImageFile } from "./generate.js"
+  generateTransmuteImageFile,
+  transmuteGatewayCredentialStatus,
+  transmuteImageModels,
+  type TransmuteImageModel,
+} from "./generate.js"
 import {
   executeTransmuteOperation,
   transmuteOperationCodes,
@@ -33,7 +32,7 @@ import type { HostResourceCoordinator } from "./host-resources.js"
 import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.js"
 import { pathExists } from "./fs.js"
 
-export const transmuteCliVersion = "0.9.0"
+export const transmuteCliVersion = "1.0.0"
 
 const help = `transmute ${transmuteCliVersion}
 
@@ -44,10 +43,7 @@ Usage:
   transmute diagram check <file> [--config <file>] [--strict]
   transmute diagram render <file> [--out-dir <directory>] [--config <file>] [--scale <number>]
   transmute image vectorize <image> --output <file.svg> [--json] [--duotone <#rgb,#rgb>]
-  transmute image generate <prompt> --output <file.webp> [--model <model>] [--idempotency-key <key>] [--json]
-  transmute auth login
-  transmute auth logout
-  transmute auth status
+  transmute image generate <prompt> --output <file.png|jpg|webp> [--model <provider/model>] [--json]
   transmute code search [query] [--limit <number>]
   transmute code execute <operation> --input <JSON>
   transmute mcp --root <workspace>
@@ -73,14 +69,12 @@ tldraw Offline or the tldraw SDK.
 Vectorize adaptively traces a raster with a checksum-pinned VTracer binary.
 It enforces bounded input, decode, time, path, and output budgets and emits a
 safe path-only SVG (plus an internal vector alpha mask when fidelity requires).
-It is fully local and requires no Transmute login. No source path or bytes are
-sent to discovery, OAuth, generation, or another network endpoint.
+It is fully local. No source path or bytes are sent to a network endpoint.
 
-Generate sends one authenticated, non-retried free-preview request with durable
-suite-account idempotency using exactly openai/gpt-image-1.5 or
-recraft/recraft-v4.1-utility. The UTC-day limits are 10 per account and a 100
-global safety cap; payment is not yet enforced. Responses are bounded,
-validated WebP images and are published with an atomic local rename.
+Generate sends one bounded, non-retried request directly to Vercel AI Gateway.
+Set AI_GATEWAY_API_KEY, or run through \`vercel env run -- …\` so
+VERCEL_OIDC_TOKEN is available. Transmute never stores or prints the token.
+PNG, JPEG, and WebP responses are signature-checked and published atomically.
 
 Code mode searches and executes a fixed semantic registry. Execute accepts
 typed JSON for one exact owned operation code; it never evaluates source text.
@@ -240,12 +234,6 @@ function canonicalArguments(args: readonly string[]): readonly string[] {
     }
     throw new Error("Use transmute image vectorize or generate")
   }
-  if (surface === "auth") {
-    if (subcommand === "login" || subcommand === "logout") {
-      return [subcommand, ...rest]
-    }
-    return args
-  }
   if (surface === "canvas") {
     if (subcommand === "open") return ["open", ...rest]
     if (subcommand === "status" || subcommand === "url" || subcommand === "install") {
@@ -259,8 +247,6 @@ function canonicalArguments(args: readonly string[]): readonly string[] {
     surface === "render" ||
     surface === "vectorize" ||
     surface === "generate" ||
-    surface === "login" ||
-    surface === "logout" ||
     surface === "open" ||
     surface === "desktop"
   ) {
@@ -384,7 +370,7 @@ export async function main(
   if (command === "generate") {
     const parsed = parseArguments(
       rest,
-      new Set(["model", "output", "idempotency-key"]),
+      new Set(["model", "output"]),
     )
     const unknownFlags = [...parsed.flags].filter((flag) => flag !== "json")
     if (unknownFlags.length > 0) {
@@ -394,9 +380,12 @@ export async function main(
       throw new Error("transmute image generate accepts exactly one prompt")
     }
     const model = parsed.options.model ?? transmuteImageModels[1]
-    if (!transmuteImageModels.includes(model as TransmuteImageModel)) {
+    if (
+      model.length > 256 ||
+      !/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/iu.test(model)
+    ) {
       throw new Error(
-        `--model must be ${transmuteImageModels[0]} or ${transmuteImageModels[1]}`,
+        "--model must be a bounded Vercel AI Gateway provider/model id",
       )
     }
     const result = await withTransmuteOperationHostAdmission(
@@ -405,9 +394,6 @@ export async function main(
         model: model as TransmuteImageModel,
         prompt: requiredPositional(parsed, 0, "prompt"),
         outputPath: requiredOption(parsed, "output"),
-        ...(parsed.options["idempotency-key"] === undefined
-          ? {}
-          : { idempotencyKey: parsed.options["idempotency-key"] }),
       }),
       hostAdmissionOptions(dependencies),
     )
@@ -418,42 +404,6 @@ export async function main(
         `Generated ${result.mediaType} with ${result.model}: ${result.outputPath} (${result.bytes} bytes, request ${result.requestId})`,
       )
     }
-    return
-  }
-
-  if (command === "login") {
-    const parsed = parseArguments(rest, new Set())
-    if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
-      throw new Error("transmute auth login accepts no arguments")
-    }
-    const status = await loginTransmute()
-    console.log(
-      `Logged in to Transmute${status.expiresAt === null ? "" : ` until ${status.expiresAt}`}.`,
-    )
-    return
-  }
-
-  if (command === "logout") {
-    const parsed = parseArguments(rest, new Set())
-    if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
-      throw new Error("transmute auth logout accepts no arguments")
-    }
-    const result = await logoutTransmute()
-    console.log(
-      result.removed
-        ? "Logged out of Transmute."
-        : "Transmute was already logged out.",
-    )
-    return
-  }
-
-  if (command === "auth") {
-    const [subcommand, ...subcommandArgs] = rest
-    if (subcommand !== "status" || subcommandArgs.length > 0) {
-      throw new Error("Use transmute auth login, logout, or status")
-    }
-    const status = await transmuteAuthStatus()
-    console.log(JSON.stringify(status, null, 2))
     return
   }
 
@@ -543,18 +493,12 @@ export async function main(
         : "Local raster-to-SVG vectorizer ready without authentication (VTracer downloads on first use)",
     )
     console.log("Root-relative MCP check/render server ready (trusted local workspace)")
-    try {
-      const auth = await transmuteAuthStatus()
-      console.log(
-        auth.authenticated
-          ? "Transmute authenticated features ready"
-          : "Transmute hosted features require `transmute auth login`",
-      )
-    } catch {
-      console.log(
-        "Transmute credential store unavailable (authenticated features disabled)",
-      )
-    }
+    const gateway = transmuteGatewayCredentialStatus()
+    console.log(
+      gateway.available
+        ? `Vercel AI Gateway ready via ${gateway.source}`
+        : "Vercel AI Gateway requires AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN",
+    )
     console.log(
       status.installedPath === null
         ? "tldraw Offline not installed (optional)"

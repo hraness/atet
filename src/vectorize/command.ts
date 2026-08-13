@@ -9,6 +9,7 @@ import {
   type FileHandle,
 } from "node:fs/promises"
 import { join } from "node:path"
+import { nonGatewayChildEnvironment } from "../process-environment.js"
 import { VectorizeError, type VectorizeErrorCode } from "./types.js"
 
 const MAX_COMMAND_OUTPUT_BYTES = 64 * 1_024
@@ -294,7 +295,7 @@ async function runBoundedCommandInternal(
   try {
     child = Bun.spawn([...command], {
       detached: ownsProcessGroup,
-      env: process.env,
+      env: nonGatewayChildEnvironment(),
       stdio: [
         options.stdin ?? "ignore",
         "pipe",
@@ -622,6 +623,7 @@ async function killWindowsProcessTree(pid: number): Promise<void> {
       ["taskkill.exe", "/PID", String(pid), "/T", "/F"],
       {
         detached: false,
+        env: nonGatewayChildEnvironment(),
         stderr: "pipe",
         stdin: "ignore",
         stdout: "pipe",

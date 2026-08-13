@@ -11,9 +11,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   transmuteImageModels,
-  transmuteProductionContract,
-  transmuteRedirectUri,
-} from "../discovery.ts"
+} from "../generate.ts"
 import type {
   HostResourceClaim,
   HostResourceCoordinator,
@@ -93,59 +91,6 @@ function source(options: { readonly width?: number; readonly height?: number } =
     ],
     edges: [{ id: "source-result", from: "source", to: "result" }],
   })
-}
-
-function remoteDiscovery(): Record<string, unknown> {
-  return {
-    schemaVersion: 2,
-    product: "transmute",
-    environment: "production",
-    capabilities: {
-      media: {
-        apiBaseUrl: transmuteProductionContract.apiBaseUrl,
-        operationsUrl: transmuteProductionContract.operationsUrl,
-        authorization: {
-          type: "oauth2-authorization-code",
-          issuer: transmuteProductionContract.issuer,
-          authorizationEndpoint: transmuteProductionContract.authorizationEndpoint,
-          tokenEndpoint: transmuteProductionContract.tokenEndpoint,
-          revocationEndpoint: transmuteProductionContract.revocationEndpoint,
-          clientId: transmuteProductionContract.clientId,
-          redirectUri: transmuteRedirectUri,
-          scopes: ["openid", "offline_access"],
-          resource: transmuteProductionContract.resource,
-          pkce: "S256",
-        },
-        endpoints: { generateImage: transmuteProductionContract.generateImage },
-        imageGeneration: {
-          access: "authenticated",
-          billing: "free-preview",
-          models: transmuteImageModels,
-          maximumPromptBytes: 8_192,
-          maximumRawImageBytes: 3_145_728,
-          imagesPerRequest: 1,
-          responseMediaTypes: ["image/webp"],
-          quota: {
-            accountDailyLimit: 10,
-            globalDailySafetyLimit: 100,
-            paymentEnforced: false,
-            period: "utc-day",
-          },
-          idempotency: {
-            header: "Idempotency-Key",
-            durable: true,
-            scope: "suite-account",
-          },
-        },
-        vectorize: {
-          access: "local",
-          billing: "free",
-          execution: "local",
-        },
-      },
-      desktop: { availability: "unavailable" },
-    },
-  }
 }
 
 describe("Transmute MCP tools", () => {
@@ -481,52 +426,30 @@ describe("Transmute MCP tools", () => {
     }
   })
 
-  test("executes authenticated hosted generation to a confined file with metadata-only output", async () => {
+  test("executes direct Gateway generation to a confined file with metadata-only output", async () => {
     const root = await mkdtemp(join(tmpdir(), "transmute-mcp-generate-"))
     const webp = Uint8Array.from([
       0x52, 0x49, 0x46, 0x46, 0x08, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
       0x56, 0x50, 0x38, 0x58,
     ])
-    let calls = 0
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
     try {
       const runtime = await TransmuteMcpToolRuntime.create(root, {
-        secrets: {
-          get: async () =>
-            JSON.stringify({
-              schemaVersion: 1,
-              issuer: transmuteProductionContract.issuer,
-              clientId: transmuteProductionContract.clientId,
-              resource: transmuteProductionContract.resource,
-              accessToken: "mcp-access-token",
-              refreshToken: "mcp-refresh-token",
-              expiresAt: Date.now() + 60 * 60_000,
-            }),
-          set: async () => undefined,
-          delete: async () => false,
-        },
-        fetch: async (input, init) => {
-          calls += 1
-          if (
-            String(input) ===
-            "https://transmute.rocks/.well-known/transmute-cli.json"
-          ) {
-            return Response.json(remoteDiscovery())
-          }
-          expect(String(input)).toBe(
-            transmuteProductionContract.generateImage,
-          )
-          expect(init?.redirect).toBe("error")
-          return Response.json({
-            apiVersion: "v1",
-            image: {
-              base64: Buffer.from(webp).toString("base64"),
-              mediaType: "image/webp",
-            },
-            model: transmuteImageModels[0],
-            requestId: "mcp_request",
-          })
-        },
+        environment: { AI_GATEWAY_API_KEY: "mcp-gateway-key-1" },
+        loadRuntime: async () => ({
+          createGateway: settings => {
+            expect(settings.apiKey).toBe("mcp-gateway-key-1")
+            return { imageModel: modelId => modelId }
+          },
+          generateImage: async settings => {
+            expect(settings.maxRetries).toBe(0)
+            return {
+              images: [{ mediaType: "image/webp", uint8Array: webp }],
+              providerMetadata: { gateway: { generationId: "mcp_request" } },
+              warnings: [],
+            }
+          },
+        }),
       }, recordingCoordinator(admission))
       const result = await runtime.call("execute_transmute", {
         operation: "transmute.image.generate",
@@ -534,10 +457,8 @@ describe("Transmute MCP tools", () => {
           model: transmuteImageModels[0],
           prompt: "one bounded image",
           outputPath: "generated/image.webp",
-          idempotencyKey: "mcp-request-key-01",
         },
       })
-      expect(calls).toBe(2)
       expect(admission.claims).toEqual([[
         { resource: "local-io", amount: 1 },
         { resource: "network", amount: 1 },
@@ -552,7 +473,9 @@ describe("Transmute MCP tools", () => {
           mediaType: "image/webp",
           model: transmuteImageModels[0],
           outputPath: "generated/image.webp",
-          requestId: "mcp_request",
+          provider: "vercel-ai-gateway",
+          requestId: expect.stringMatching(/^sha256:[a-f0-9]{64}$/u),
+          sha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
         },
       })
       expect(JSON.stringify(result.structuredContent)).not.toContain(

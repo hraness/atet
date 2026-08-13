@@ -12,17 +12,14 @@
       "@hraness/transmute": [
         "./src/index.ts"
       ],
-      "@hraness/transmute/auth": [
-        "./src/auth.ts"
+      "@hraness/transmute/cli": [
+        "./src/cli.ts"
       ],
       "@hraness/transmute/code": [
         "./src/code/index.ts"
       ],
       "@hraness/transmute/code/advanced": [
         "./src/code/advanced.ts"
-      ],
-      "@hraness/transmute/discovery": [
-        "./src/discovery.ts"
       ],
       "@hraness/transmute/generate": [
         "./src/generate.ts"
@@ -35,6 +32,21 @@
       ],
       "@hraness/transmute/workflow": [
         "./src/workflow.ts"
+      ],
+      "@hraness/transmute/scene": [
+        "./packages/scene/src/index.ts"
+      ],
+      "@hraness/transmute/local/code": [
+        "./apps/desktop/code/public.ts"
+      ],
+      "@hraness/transmute/local/code/advanced": [
+        "./apps/desktop/code/advanced.ts"
+      ],
+      "@hraness/transmute/local/code/workflows": [
+        "./apps/desktop/workflows/index.ts"
+      ],
+      "@hraness/transmute/local/html-overlay": [
+        "./apps/desktop/html-overlay/index.ts"
       ]
     },
     "verbatimModuleSyntax": true,
@@ -58,6 +70,8 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
+    "packages/scene/**/*.ts",
+    "scripts/**/*.ts",
     "examples/**/*.ts",
     "examples/**/*.tsx"
   ]

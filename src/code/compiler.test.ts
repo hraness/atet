@@ -116,12 +116,12 @@ describe("portable workflow compiler", () => {
     const oversizedBlankPrompt = TransmuteImageGenerateInputSchema.safeParse({
       model: "openai/gpt-image-1.5",
       outputPath: "render.webp",
-      prompt: " ".repeat(8_193),
+      prompt: " ".repeat(32 * 1024 + 1),
     })
     expect(oversizedBlankPrompt.success).toBe(false)
     if (oversizedBlankPrompt.success) throw new Error("Expected prompt rejection")
     expect(oversizedBlankPrompt.error.issues.map(issue => issue.message)).toEqual([
-      "Prompts must contain at most 8192 UTF-8 bytes.",
+      "Prompts must contain at most 32768 UTF-8 bytes.",
     ])
   })
 

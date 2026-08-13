@@ -35,3 +35,10 @@ License 2.0. Sharp's prebuilt
 [`libvips`](https://github.com/libvips/libvips) dependency is distributed under
 the GNU Lesser General Public License 3.0 or later. Both remain separately
 installed runtime dependencies and are not relicensed by this project.
+
+Optional model-backed generation uses
+[`@ai-sdk/gateway`](https://www.npmjs.com/package/@ai-sdk/gateway) and the
+[`ai`](https://www.npmjs.com/package/ai) SDK. Prompts and referenced media are
+sent to Vercel AI Gateway and the model provider selected by the caller, under
+those services' terms. Transmute does not operate an intermediary generation
+service.

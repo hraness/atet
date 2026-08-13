@@ -1,0 +1,44 @@
+.{
+    .id = "com.hraness.transmute",
+    .name = "transmute",
+    .display_name = "Transmute",
+    .version = "1.0.0",
+    .icons = .{"assets/icon.png"},
+    .platforms = .{"macos"},
+    .permissions = .{},
+    .capabilities = .{ "webview", "js_bridge" },
+    .bridge = .{
+        .commands = .{
+            .{
+                .name = "transmute.runtime.snapshot",
+                .origins = .{"zero://app"},
+            },
+            .{
+                .name = "transmute.runtime.dispatch",
+                .origins = .{"zero://app"},
+            },
+        },
+    },
+    .frontend = .{
+        .dist = "frontend/dist",
+        .entry = "index.html",
+        .spa_fallback = true,
+        .dev = .{
+            .url = "http://127.0.0.1:5173/",
+            .command = .{ "bun", "run", "--cwd", "../..", "dev:frontend", "--", "--host", "127.0.0.1" },
+            .ready_path = "/",
+            .timeout_ms = 30000,
+        },
+    },
+    .security = .{
+        .navigation = .{
+            .allowed_origins = .{"zero://app"},
+            .external_links = .{ .action = "deny" },
+        },
+    },
+    .web_engine = "system",
+    .cef = .{ .dir = "third_party/cef/macos", .auto_install = false },
+    .windows = .{
+        .{ .label = "main", .title = "Transmute", .width = 760, .height = 760, .restore_state = true },
+    },
+}

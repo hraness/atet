@@ -1,0 +1,13 @@
+{
+  "name": "@hraness/transmute-web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The static public site for Transmute.",
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "build": "bun run ./scripts/build.ts",
+    "check": "bun run test && bun run build",
+    "test": "bun test ./site.test.ts"
+  }
+}
