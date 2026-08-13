@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
-import {
-  type TransmuteAuthDependencies,
-} from "./auth.js"
 import { builtInIcons } from "./icons.js"
 import { lintDiagram } from "./lint.js"
 import { parseDiagramSpec } from "./parse.js"
@@ -12,14 +9,11 @@ import { serializeTldr } from "./tldr.js"
 import type { DiagramConfig, LintFinding, RenderArtifacts } from "./types.js"
 import {
   generateTransmuteImageFile,
-  validateTransmuteIdempotencyKey,
-  type GeneratedTransmuteImageFile,
-} from "./generate.js"
-import {
-  transmuteImageModels,
   transmuteMaximumPromptBytes,
+  type GeneratedTransmuteImageFile,
+  type TransmuteGenerateDependencies,
   type TransmuteImageModel,
-} from "./discovery.js"
+} from "./generate.js"
 import {
   vectorizeImage,
   type VectorizeReceipt,
@@ -44,8 +38,8 @@ export interface TransmuteOperationDescriptor {
   readonly code: TransmuteOperationCode
   readonly title: string
   readonly description: string
-  readonly execution: "local" | "hosted"
-  readonly authentication: "none" | "required"
+  readonly execution: "gateway" | "local"
+  readonly authentication: "environment" | "none"
   readonly destructive: boolean
   readonly idempotent: boolean
   readonly inputSchema: Readonly<Record<string, unknown>>
@@ -53,9 +47,8 @@ export interface TransmuteOperationDescriptor {
   readonly resources: readonly HostResourceClaim[]
   readonly transport?: {
     readonly method: "POST"
-    readonly endpointFromDiscovery: "endpoints.generateImage"
+    readonly authority: "https://ai-gateway.vercel.sh/v4/ai"
     readonly authorization: "bearer"
-    readonly idempotencyHeader: "Idempotency-Key"
     readonly retry: "never"
   }
 }
@@ -78,7 +71,9 @@ export class TransmuteOperationError extends Error {
 
 const modelSchema = {
   type: "string",
-  enum: transmuteImageModels,
+  minLength: 3,
+  maxLength: 256,
+  pattern: "^[a-zA-Z0-9][a-zA-Z0-9._-]*/[a-zA-Z0-9][a-zA-Z0-9._:-]*$",
 } as const
 
 const pathSchema = {
@@ -183,9 +178,9 @@ export const transmuteOperationRegistry: readonly TransmuteOperationDescriptor[]
       code: "transmute.image.generate",
       title: "Generate image",
       description:
-        "Generate one bounded free-preview WebP with an explicitly supported hosted model, durable suite-account idempotency, and no ambiguous retry.",
-      execution: "hosted",
-      authentication: "required",
+        "Generate one bounded image directly through Vercel AI Gateway with an environment credential and no client retry.",
+      execution: "gateway",
+      authentication: "environment",
       destructive: true,
       idempotent: false,
       inputSchema: {
@@ -200,12 +195,6 @@ export const transmuteOperationRegistry: readonly TransmuteOperationDescriptor[]
             maxLength: transmuteMaximumPromptBytes,
           },
           outputPath: pathSchema,
-          idempotencyKey: {
-            type: "string",
-            minLength: 16,
-            maxLength: 128,
-            pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
-          },
         },
       },
       resources: [
@@ -215,9 +204,8 @@ export const transmuteOperationRegistry: readonly TransmuteOperationDescriptor[]
       ],
       transport: {
         method: "POST",
-        endpointFromDiscovery: "endpoints.generateImage",
+        authority: "https://ai-gateway.vercel.sh/v4/ai",
         authorization: "bearer",
-        idempotencyHeader: "Idempotency-Key",
         retry: "never",
       },
     },
@@ -244,7 +232,6 @@ export interface GenerateTransmuteOperationInput {
   readonly model: TransmuteImageModel
   readonly prompt: string
   readonly outputPath: string
-  readonly idempotencyKey?: string
 }
 
 export interface TransmuteOperationInputMap {
@@ -385,19 +372,13 @@ function parseVectorize(value: unknown): VectorizeTransmuteOperationInput {
 }
 
 function parseGenerate(value: unknown): GenerateTransmuteOperationInput {
-  const input = record(value, [
-    "model",
-    "prompt",
-    "outputPath",
-    "idempotencyKey",
-  ])
+  const input = record(value, ["model", "prompt", "outputPath"])
   if (
     typeof input.model !== "string" ||
-    !transmuteImageModels.includes(input.model as TransmuteImageModel)
+    input.model.length > 256 ||
+    !/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/iu.test(input.model)
   ) {
-    operationFailure(
-      `model must be ${transmuteImageModels[0]} or ${transmuteImageModels[1]}.`,
-    )
+    operationFailure("model must be a bounded Vercel AI Gateway provider/model id.")
   }
   if (
     typeof input.prompt !== "string" ||
@@ -409,28 +390,14 @@ function parseGenerate(value: unknown): GenerateTransmuteOperationInput {
       `prompt must be non-empty and no more than ${transmuteMaximumPromptBytes} UTF-8 bytes.`,
     )
   }
-  if (input.idempotencyKey !== undefined) {
-    try {
-      validateTransmuteIdempotencyKey(
-        typeof input.idempotencyKey === "string"
-          ? input.idempotencyKey
-          : "",
-      )
-    } catch {
-      operationFailure("idempotencyKey is invalid.")
-    }
-  }
   const outputPath = pathValue(input.outputPath, "outputPath")
-  if (!outputPath.toLowerCase().endsWith(".webp")) {
-    operationFailure("outputPath must end in .webp.")
+  if (!/\.(?:jpe?g|png|webp)$/iu.test(outputPath)) {
+    operationFailure("outputPath must end in .png, .jpg, .jpeg, or .webp.")
   }
   return {
     model: input.model as TransmuteImageModel,
     prompt: input.prompt,
     outputPath,
-    ...(input.idempotencyKey === undefined
-      ? {}
-      : { idempotencyKey: input.idempotencyKey as string }),
   }
 }
 
@@ -506,7 +473,7 @@ export function searchTransmuteOperations(
     .slice(0, limit)
 }
 
-export interface TransmuteOperationDependencies extends TransmuteAuthDependencies {
+export interface TransmuteOperationDependencies extends TransmuteGenerateDependencies {
   /** Callback-scoped host authority inherited by operation subprocesses. */
   readonly inheritedFileDescriptors?: readonly number[]
   /** Optional coordinator override for deterministic hosts and tests. */
@@ -721,7 +688,15 @@ async function executeTransmuteOperationUncoordinated<
     }
     case "transmute.image.generate": {
       const options = input as GenerateTransmuteOperationInput
-      return (await generateTransmuteImageFile(options, dependencies)) as TransmuteOperationResultMap[C]
+      return (await generateTransmuteImageFile(
+        {
+          ...options,
+          ...(dependencies.signal === undefined
+            ? {}
+            : { signal: dependencies.signal }),
+        },
+        dependencies,
+      )) as TransmuteOperationResultMap[C]
     }
     default:
       throw new TransmuteOperationError(

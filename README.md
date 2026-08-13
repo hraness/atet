@@ -1,10 +1,10 @@
 # Transmute
 
 Transmute is an agent tool for generating and editing images and video. This
-package is its narrower headless TypeScript toolkit and Bun CLI for turning
-checked source into visual assets. It currently provides deterministic
-diagrams, light and dark raster/vector exports, editable tldraw interchange,
-bounded raster-to-SVG conversion, authenticated hosted image generation, typed
+package is its open-source TypeScript SDK and Bun CLI for turning checked
+source into visual assets. It provides deterministic diagrams, light and dark
+raster/vector exports, editable tldraw interchange, bounded raster-to-SVG
+conversion, direct Vercel AI Gateway image generation, typed
 Bun-script workflows, semantic operation dispatch, and a local MCP server.
 
 The package is designed to compose with editors and video renderers. Its portable declarative graph SDK is the canonical workflow core used by the restricted public host and the complete local host. The desktop shell is a native capture and UI client of that local host, not a second workflow engine. A diagram, generated image, traced SVG, or `.tldr` canvas remains an ordinary media input rather than a format trapped inside the tool.
@@ -13,17 +13,17 @@ Project site: [transmute.rocks](https://transmute.rocks)
 
 ## Install
 
-Pin the public repository to the immutable `v0.9.0` tag:
+Pin the public repository to the immutable `v1.0.0` tag:
 
 ```sh
-bun add --global github:hraness/transmute#v0.9.0
+bun add --global github:hraness/transmute#v1.0.0
 transmute doctor
 ```
 
 For programmatic use:
 
 ```sh
-bun add github:hraness/transmute#v0.9.0
+bun add github:hraness/transmute#v1.0.0
 ```
 
 Transmute requires Bun 1.3.14. Diagram rendering works on macOS, Linux, and Windows. Bounded VTracer execution works on macOS and Linux; Windows fails closed with `tool_platform` until its output can cross the same bounded capture path. Semantic operation and workflow resource admission is machine-global on macOS and Linux and process-local on other supported Bun platforms.
@@ -50,7 +50,7 @@ The source remains authoritative. The five outputs are replaceable and each file
 
 Use this schema URL in authored files:
 
-The version-one diagram schema is unchanged in 0.9.0, so its canonical identity remains the `v0.8.0` URL.
+The version-one diagram schema is unchanged in 1.0.0, so its canonical identity remains the `v0.8.0` URL.
 
 ```json
 {
@@ -85,7 +85,7 @@ transmute image vectorize input.png \
   --duotone '#171717,#7c3aed'
 ```
 
-Canonical vectorization requires no account or login and makes no discovery, OAuth, or generation request. It bounds encoded input, decoded dimensions and pixels, subprocess time, paths, emitted bytes, and measured fidelity. The output is rebuilt as inert SVG geometry; foreign tracer SVG is not passed through.
+Canonical vectorization requires no credential and makes no network request. It bounds encoded input, decoded dimensions and pixels, subprocess time, paths, emitted bytes, and measured fidelity. The output is rebuilt as inert SVG geometry; foreign tracer SVG is not passed through.
 
 VTracer 0.6.4 downloads from a checksum-pinned official release on first use. `TRANSMUTE_VTRACER_PATH` may point to a compatible local binary, whose hash is recorded in the receipt. `TRANSMUTE_CACHE_DIR` overrides the default tool cache.
 
@@ -101,20 +101,34 @@ const result = await vectorizeImage("input.png", {
 console.log(result.receipt.sourceSha256, result.receipt.svgSha256)
 ```
 
-## Generate a hosted image
+## Generate an image through Vercel AI Gateway
 
-Hosted generation is separate from local vectorization and requires a Transmute login:
+Generation goes directly from your process to Vercel AI Gateway. Transmute has
+no account, OAuth, database, or hosted generation service of its own.
 
 ```sh
-transmute auth login
+export AI_GATEWAY_API_KEY=your_key
 transmute image generate 'one cobalt circle on white' \
   --output circle.webp
-transmute auth logout
 ```
 
-The CLI accepts `recraft/recraft-v4.1-utility` and `openai/gpt-image-1.5`, requests one WebP, validates its bounded base64 and media magic, and atomically publishes the selected output. Requests carry a durable suite-account `Idempotency-Key`; the client never retries an ambiguous generation request.
+If the repository is linked to a Vercel project, inject its environment without
+writing a local dotenv file:
 
-Discovery is pinned to `https://transmute.rocks/.well-known/transmute-cli.json`. OAuth uses authorization code with S256 PKCE and the fixed `http://127.0.0.1:49671/oauth/callback` loopback. Tokens are stored through `Bun.secrets`, never in project files or command output.
+```sh
+vercel link
+vercel env run -- transmute image generate \
+  'a polished metallic monogram on transparent black' \
+  --model openai/gpt-image-1.5 \
+  --output monogram.webp
+```
+
+`AI_GATEWAY_API_KEY` takes precedence over `VERCEL_OIDC_TOKEN`. Vercel
+deployments supply the latter automatically; `vercel env run` can supply it to
+local commands. Transmute never stores, accepts on argv, or prints either
+credential. It pins `https://ai-gateway.vercel.sh/v4/ai`, rejects redirects,
+bounds streamed responses, requests one image with `maxRetries: 0`, validates
+PNG, JPEG, or WebP signatures, and publishes with atomic no-replace semantics.
 
 ## Use semantic operations
 
@@ -250,12 +264,11 @@ Workflow modules are trusted current-user Bun code that you explicitly import an
 ## Continue reference-led work in the complete local host
 
 Image-to-Three.js scenes and reference-led metallic logo treatments use
-Transmute's complete local Code Mode host, which is currently distributed from
-the monorepo's `apps/desktop` workspace. That is a packaging location, not a
-separate Desktop-owned workflow core. The host consumes the same canonical SDK
-and adds the durable media runtime. The desktop shell adds native capture,
-operating-system permission flows, and application UI. Those capabilities are
-outside the public four-operation projection. The local host composes
+Transmute's complete local Code Mode host in this repository. The host consumes
+the same canonical SDK and adds the durable media runtime. The desktop shell
+adds native capture, operating-system permission flows, and application UI.
+Those capabilities are outside the portable four-operation projection. The
+local host composes
 `gateway.image`, reviewed HTML scene source, the exact Three.js browser lock,
 and `media.htmlOverlay` in its typed project graph.
 
@@ -310,12 +323,6 @@ transmute skill install --target agents --scope project
 
 The skill keeps literal prompts, checked diagram source, rendering, vectorization, semantic operations, and review steps together. `transmute skill path` prints its packaged location.
 
-## Graphics v0.4 compatibility
-
-Version 0.5 folded the former `hraness/graphics` command into Transmute, and versions 0.6 through 0.9 preserve that contract unchanged. The package retains a `graphics` executable for existing automation. It preserves the v0.4 flat command grammar, `graphics.*` operation codes, JSON stdout, `graphics.config.*` discovery, `GRAPHICS_VTRACER_PATH`, `GRAPHICS_CACHE_DIR`, the `com.hraness.graphics.cli` credential entry, `hraness.graphics` cloud contract, and `search_graphics`/`execute_graphics` MCP tools.
-
-New scripts should use the namespaced Transmute grammar. The compatibility executable intentionally continues to report `0.4.0` because it is the frozen v0.4 contract.
-
 ## Command reference
 
 | Command | Result |
@@ -324,13 +331,12 @@ New scripts should use the namespaced Transmute grammar. The compatibility execu
 | `transmute diagram check <file>` | Parse and lint a version-one diagram source. |
 | `transmute diagram render <file>` | Replace `.tldr`, light/dark SVG, and light/dark PNG derivatives. |
 | `transmute image vectorize <image>` | Trace one local raster to bounded inert SVG without authentication. |
-| `transmute image generate <prompt>` | Generate one authenticated, validated WebP. |
-| `transmute auth login|logout|status` | Manage or inspect the hosted-feature credential. |
+| `transmute image generate <prompt>` | Generate one validated image directly through Vercel AI Gateway. |
 | `transmute code search|execute` | Search or execute the fixed semantic registry. |
 | `transmute mcp --root <workspace>` | Serve confined tools over stdio. |
 | `transmute canvas open|status|url|install` | Inspect or use optional canvas integration. |
 | `transmute skill path|install` | Locate or install the packaged Agent Skill. |
-| `transmute doctor` | Report runtime, vectorizer, hosted-feature, MCP, and canvas status. |
+| `transmute doctor` | Report runtime, vectorizer, Gateway environment, MCP, and canvas status. |
 
 ## Development
 

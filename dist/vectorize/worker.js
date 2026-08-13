@@ -8,7 +8,7 @@ import {
   forwardVectorizeWorkerTermination,
   vectorizeImageInProcess,
   withInheritedCommandFileDescriptors
-} from "../index-y5zkj6v2.js";
+} from "../index-vdtz0dng.js";
 import"../index-z1w83f81.js";
 
 // src/vectorize/worker.ts

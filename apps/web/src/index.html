@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#151515" media="(prefers-color-scheme: dark)">
+    <meta name="description" content="Transmute is an open-source system for turning ideas and raw assets into images, diagrams, animated loops, and video.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://transmute.rocks/">
+    <meta property="og:title" content="Transmute — visual media workflows in code">
+    <meta property="og:description" content="Open-source visual media workflows for images, diagrams, animated loops, and video.">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Transmute — visual media workflows in code">
+    <meta name="twitter:description" content="Open-source visual media workflows for images, diagrams, animated loops, and video.">
+    <link rel="canonical" href="https://transmute.rocks/">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/theme.js" defer></script>
+    <title>Transmute — visual media workflows in code</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="wordmark" href="/" aria-label="Transmute home">Transmute</a>
+        <a href="https://github.com/hraness/transmute">GitHub</a>
+      </div>
+    </header>
+
+    <main class="shell" id="main" tabindex="-1">
+      <article>
+        <h1>Transmute</h1>
+        <p class="intro">
+          Transmute is an open-source system for turning an idea, sketch,
+          recording, or raw asset into a finished visual. Use it as a TypeScript
+          SDK in a Bun script, as a local media host, or through the desktop shell
+          when a workflow needs screen, camera, or microphone capture.
+        </p>
+
+        <section aria-labelledby="outputs">
+          <h2 id="outputs">Outputs</h2>
+          <dl class="output-list">
+            <div>
+              <dt>Images</dt>
+              <dd>
+                Generate through Vercel AI Gateway, vectorize raster references,
+                or render stills with code. Reference-led treatments can bind an
+                input image to reviewed Three.js geometry, materials, lighting,
+                and camera decisions, including metallic logo product renders.
+              </dd>
+            </div>
+            <div>
+              <dt>Diagrams</dt>
+              <dd>
+                Build a checked, editable tldraw source with explicit layout and
+                styling. Render SVG or PNG derivatives when a fixed asset is
+                needed without trapping the diagram in that export.
+              </dd>
+            </div>
+            <div>
+              <dt>Animated loops</dt>
+              <dd>
+                Author deterministic HTML, CSS, SVG, Canvas, WebGL, Three.js, or
+                shader scenes. Render finite loops with explicit timing and an
+                optional transparent background for reuse in another composition.
+              </dd>
+            </div>
+            <div>
+              <dt>Video</dt>
+              <dd>
+                Compose recordings, images, diagrams, loops, audio, transcripts,
+                captions, and overlays. Derive clean and captioned exports for
+                16:9, 9:16, 1:1, 4:5, or a custom target from the same edit.
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section aria-labelledby="project">
+          <h2 id="project">One project</h2>
+          <p>
+            A project is an immutable graph of sources, operations, and artifacts.
+            Captions, crops, aspect ratios, quality tiers, and delivery formats are
+            independent variants of one edit, not copies that drift apart. The SDK
+            defines and validates that graph. The local host schedules durable media
+            work and recovery. The desktop shell adds native capture and permissions;
+            it does not introduce another workflow engine.
+          </p>
+        </section>
+
+        <section aria-labelledby="identity">
+          <h2 id="identity">Identity and reuse</h2>
+          <p>
+            Each derivation is identified by its exact inputs, source revision,
+            operation, renderer, toolchain, and output profile. A verified artifact
+            with the same identity can be adopted instead of rendered again. A
+            meaningful change creates a new identity, so caching never guesses that
+            two different runs are equivalent and partial results remain reusable.
+          </p>
+        </section>
+
+        <section aria-labelledby="iteration">
+          <h2 id="iteration">Parallel iteration</h2>
+          <p>
+            Agents can fork independent candidates from one frozen project revision,
+            render each candidate, and compare them without sharing mutable files.
+            Selection and promotion are explicit. If the project changed underneath
+            a candidate, promotion fails closed and preserves every branch instead of
+            silently merging conflicting editorial work.
+          </p>
+        </section>
+
+        <section aria-labelledby="rendering">
+          <h2 id="rendering">Preview and final render</h2>
+          <p>
+            The default preview keeps the complete duration while lowering spatial
+            quality and choosing a faster encoder recipe. Final quality is an
+            explicit render after selection. A machine-level scheduler keeps ready
+            work inside one resource ceiling, runs independent work in parallel when
+            it fits, and serializes expensive video encodes by default so FFmpeg does
+            not compete with itself.
+          </p>
+        </section>
+
+        <section aria-labelledby="gateway">
+          <h2 id="gateway">Bring your own Gateway access</h2>
+          <p>
+            Transmute has no hosted account or browser generation service. Local SDK
+            and CLI processes read <code>AI_GATEWAY_API_KEY</code> or Vercel's
+            short-lived <code>VERCEL_OIDC_TOKEN</code>. With a linked Vercel project,
+            inject the environment for one command without writing a credential into
+            the project:
+          </p>
+          <pre><code>vercel link
+vercel env run -- bun run render.ts</code></pre>
+          <p>
+            Local media stays local unless a workflow explicitly sends a bounded
+            input to a generation provider. The website never receives a Gateway
+            credential.
+          </p>
+        </section>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <a class="hraness-brand" href="https://hraness.com" aria-label="hraness">
+          <svg aria-hidden="true" class="hraness-mark" focusable="false" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <path d="M372 141a116 116 0 1 1-232 0 116 116 0 1 1 232 0Zm-14 0a102 102 0 1 0-204 0 102 102 0 1 0 204 0Zm-8 0a94 94 0 1 1-188 0 94 94 0 1 1 188 0Z" fill="currentColor" fill-rule="evenodd"/>
+            <path d="M211 252c75-8 154 30 204 94 32 40 51 89 59 142H184c20-28 29-57 22-87-9-39-26-71-28-99-2-22 9-39 33-50Z" fill="currentColor"/>
+            <path d="M246 270c-27-20-67-23-100-9-25 11-42 31-46 56l-34 20 38 12c4 25 14 47 31 66 15 13 22 32 18 56l-14 17h116c-20-27-23-50-8-68 6-8 14-14 23-21 23-20 34-50 28-79-5-22-23-40-52-50ZM132 309c9-14 22-22 38-22 13 0 25 7 34 19-10 14-23 22-39 22-14 0-25-6-33-19Z" fill="currentColor" fill-rule="evenodd"/>
+            <path d="M151 410c-2 30-16 57-43 78h197c-19-27-40-49-63-63-28-18-59-23-91-15Z" fill="currentColor"/>
+            <circle cx="166" cy="307" fill="currentColor" r="8"/>
+          </svg>
+          <span>hraness</span>
+        </a>
+        <fieldset class="appearance" aria-label="Appearance">
+          <legend>Appearance</legend>
+          <button type="button" data-theme-choice="light">Light</button>
+          <button type="button" data-theme-choice="dark">Dark</button>
+          <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
+        </fieldset>
+      </div>
+    </footer>
+  </body>
+</html>

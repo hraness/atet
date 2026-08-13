@@ -9,14 +9,20 @@ bun install --frozen-lockfile --ignore-scripts
 bun run check
 ```
 
-Parser, layout, operation, protocol, configuration, or compatibility changes need deterministic examples. Add a property test when the behavior is a law, round trip, ordering rule, or arbitrary-input boundary. A shrunk property failure should become a named example regression.
+Use a narrower command while iterating:
 
-Keep the portable declarative graph SDK canonical in `src/code/`. The public capability projection contains only the four documented diagram and image operations. Add a capability through an owned, closed host projection; do not add an open registration hook. Unsupported capabilities must fail during compilation, before an executor or resource coordinator is invoked.
+```sh
+bun run check:sdk
+bun run check:desktop
+bun run check:web
+```
 
-Preserve the root module and `./workflow` v0.8 imperative APIs. Public declarative authoring belongs in `./code`, and lower-level compiler contracts belong in `./code/advanced`. Do not publish `./code/testing` or `./code/workflows`.
+Parser, layout, operation, protocol, configuration, or scheduler changes need deterministic examples. Add a property test for a law, round trip, ordering rule, or arbitrary-input boundary. A shrunk property failure should become a named regression.
 
-Do not loosen byte, path, pixel, duration, process, fidelity, or credential limits to make a fixture pass. Explain and test any deliberate limit change.
+Keep the portable declarative graph SDK canonical in `src/code/`. The complete local host extends that fixed model under `apps/desktop/`; it does not maintain a competing graph contract. Public local-host entrypoints use `@hraness/transmute/local/*`.
 
-The `graphics` executable is a frozen v0.4 compatibility surface. New capabilities belong under the namespaced `transmute` grammar and `transmute.*` operation registry. Compatibility changes must prove that the old grammar, JSON output, cloud identity, credential service, configuration names, environment names, and MCP tools still behave as documented.
+Generation uses Vercel AI Gateway directly. Do not add an account service, session store, custom OAuth flow, hosted proxy, billing dependency, or browser credential field. Tests must use inert credentials and controlled transports.
+
+Do not loosen byte, path, pixel, frame, duration, process, fidelity, download, or resource-admission limits to make a fixture pass. Explain and test any deliberate limit change.
 
 By contributing, you agree that your contribution is licensed under the MIT License.

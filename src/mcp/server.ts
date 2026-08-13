@@ -227,11 +227,11 @@ export async function runMcpServer(
 ): Promise<void> {
   const runtime = await TransmuteMcpToolRuntime.create(
     options.rootDirectory ?? process.cwd(),
-    options.authDependencies,
+    options.generateDependencies,
   )
   const session = new TransmuteMcpSession(
     runtime,
-    options.serverVersion ?? "0.9.0",
+    options.serverVersion ?? "1.0.0",
   )
   const writeLine = options.writeLine ?? defaultWriteLine
   let buffered = Buffer.alloc(0)

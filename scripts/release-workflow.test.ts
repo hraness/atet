@@ -29,6 +29,36 @@ function isMissingFile(error: unknown): boolean {
   )
 }
 
+test("public CI routes independent SDK, local-host, site, and native proofs", async () => {
+  const workflow = await readWorkflow("public-ci.yml", "ci.yml")
+
+  expect(workflow).toContain("plan:\n    name: Plan")
+  expect(workflow).toContain("boundary:\n    name: Standalone boundary")
+  expect(workflow).toContain("sdk:\n    name: SDK")
+  expect(workflow).toContain("desktop:\n    name: Local host")
+  expect(workflow).toContain("site:\n    name: Static site")
+  expect(workflow).toContain("package:\n    name: Packed consumer")
+  expect(workflow).toContain("native:\n    name: macOS native shell")
+  expect(workflow).toContain("if: needs.plan.outputs.sdk == 'true'")
+  expect(workflow).toContain("if: needs.plan.outputs.desktop == 'true'")
+  expect(workflow).toContain("if: needs.plan.outputs.site == 'true'")
+  expect(workflow).toContain("if: needs.plan.outputs.package == 'true'")
+  expect(workflow).toContain("if: needs.plan.outputs.native == 'true'")
+  expect(workflow).toContain("bun run check:standalone")
+  expect(workflow).toContain("bun run check:sdk")
+  expect(workflow).toContain("bun run check:desktop")
+  expect(workflow).toContain("bun run check:web")
+  expect(workflow).toContain("bun run test:package")
+  expect(workflow).toContain("bun run test:desktop:macos")
+  expect(workflow).toContain("bun run package:desktop:macos")
+  expect(workflow).toContain("git status --porcelain --untracked-files=all -- dist bun.lock")
+  expect(workflow).toContain("git status --porcelain --untracked-files=all -- apps/desktop/dist/cli bun.lock")
+  expect(workflow).toContain("needs: [plan, boundary, sdk, desktop, site, package, native]")
+  expect(workflow).toContain('[[ "$result" == success || "$result" == skipped ]]')
+  expect(workflow).not.toContain(`@${"jungle"}/`)
+  expect(workflow).not.toContain(["projects", "transmute"].join("/"))
+})
+
 test("version tags pass the complete immutable release gate", async () => {
   const workflow = await readWorkflow("public-release.yml", "release.yml")
 
@@ -53,13 +83,18 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).toContain('newest_stable_tag="$(git tag --list')
   expect(workflow).toContain("bun install --frozen-lockfile --ignore-scripts")
   expect(workflow).toContain("bun run check")
+  expect(workflow).toContain("native_macos:\n    name: macOS native shell")
+  expect(workflow).toContain("bun run test:desktop:macos")
+  expect(workflow).toContain("bun run package:desktop:macos")
+  expect(workflow).toContain("needs: [verify, official_vtracer, native_macos]")
   expect(workflow).toContain(
-    "git status --porcelain --untracked-files=all -- dist bun.lock",
+    "git status --porcelain --untracked-files=all -- dist apps/desktop/dist/cli bun.lock",
   )
   expect(workflow).toContain("bun pm pack --dry-run --ignore-scripts")
   expect(workflow).toContain('"./dist/code/index.js"')
   expect(workflow).toContain('"./dist/code/advanced.js"')
   expect(workflow).toContain('"./dist/workflow.js"')
+  expect(workflow).toContain('"./dist/generate.js"')
   expect(workflow).toContain("is not newer than")
   expect(workflow).toContain('gh release create "$GITHUB_REF_NAME"')
   expect(workflow).toContain("--verify-tag")

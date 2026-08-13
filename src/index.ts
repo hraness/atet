@@ -14,15 +14,9 @@ import {
   selectDesktopAsset,
 } from "./desktop.js"
 import {
-  transmuteAuthStatus,
-  loginTransmute,
-  logoutTransmute,
-  requireTransmuteAuthentication,
-} from "./auth.js"
-import { fetchTransmuteDiscovery, parseTransmuteDiscovery } from "./discovery.js"
-import {
   generateTransmuteImage,
   generateTransmuteImageFile,
+  transmuteGatewayCredentialStatus,
 } from "./generate.js"
 import { builtInIcons } from "./icons.js"
 import {
@@ -73,11 +67,10 @@ export const diagramApi = Object.freeze({
   desktopStatus,
   DiagramValidationError,
   findDesktopApplication,
-  fetchTransmuteDiscovery,
   generateTransmuteImage,
   generateTransmuteImageFile,
   getLatestDesktopRelease,
-  transmuteAuthStatus,
+  transmuteGatewayCredentialStatus,
   transmuteMcpProtocolVersion,
   transmuteMcpServerName,
   transmuteMcpTools,
@@ -86,15 +79,12 @@ export const diagramApi = Object.freeze({
   installDesktop,
   installSkill,
   lintDiagram,
-  loginTransmute,
-  logoutTransmute,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
   openInDesktop,
   parseDiagramSource,
   parseDiagramSpec,
-  parseTransmuteDiscovery,
   readDiagramFile,
   renderDiagramFile,
   renderPng,
@@ -102,7 +92,6 @@ export const diagramApi = Object.freeze({
   resolveEdge,
   resolveDiagramSource,
   resolveStackLayout,
-  requireTransmuteAuthentication,
   runMcpServer,
   searchTransmuteOperations,
   selectDesktopAsset,
@@ -124,11 +113,10 @@ export {
   desktopStatus,
   DiagramValidationError,
   findDesktopApplication,
-  fetchTransmuteDiscovery,
   generateTransmuteImage,
   generateTransmuteImageFile,
   getLatestDesktopRelease,
-  transmuteAuthStatus,
+  transmuteGatewayCredentialStatus,
   transmuteMcpProtocolVersion,
   transmuteMcpServerName,
   transmuteMcpTools,
@@ -137,15 +125,12 @@ export {
   installDesktop,
   installSkill,
   lintDiagram,
-  loginTransmute,
-  logoutTransmute,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
   openInDesktop,
   parseDiagramSource,
   parseDiagramSpec,
-  parseTransmuteDiscovery,
   readDiagramFile,
   renderDiagramFile,
   renderPng,
@@ -153,7 +138,6 @@ export {
   resolveDiagramSource,
   resolveEdge,
   resolveStackLayout,
-  requireTransmuteAuthentication,
   runMcpServer,
   searchTransmuteOperations,
   selectDesktopAsset,
@@ -168,9 +152,7 @@ export {
   WorkspaceBoundaryError,
   executeTransmuteOperation,
 }
-export * from "./auth.js"
 export * from "./cloud-errors.js"
-export * from "./discovery.js"
 export * from "./generate.js"
 export * from "./host-resources.js"
 export * from "./operations.js"

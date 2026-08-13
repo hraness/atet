@@ -1,11 +1,10 @@
 import { rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import {
-  requireTransmuteAuthentication,
-  type TransmuteAuthDependencies,
-} from "../auth.js"
 import { TransmuteCloudError } from "../cloud-errors.js"
-import { generateTransmuteImageFile } from "../generate.js"
+import {
+  generateTransmuteImageFile,
+  type TransmuteGenerateDependencies,
+} from "../generate.js"
 import { builtInIcons } from "../icons.js"
 import { lintDiagram } from "../lint.js"
 import {
@@ -683,28 +682,28 @@ async function loadDiagram(
 
 export class TransmuteMcpToolRuntime {
   readonly boundary: WorkspaceBoundary
-  readonly authDependencies: TransmuteAuthDependencies
+  readonly generateDependencies: TransmuteGenerateDependencies
   readonly hostResourceCoordinator: HostResourceCoordinator
   private renderQueue: Promise<void> = Promise.resolve()
 
   private constructor(
     boundary: WorkspaceBoundary,
-    authDependencies: TransmuteAuthDependencies,
+    generateDependencies: TransmuteGenerateDependencies,
     hostResourceCoordinator: HostResourceCoordinator,
   ) {
     this.boundary = boundary
-    this.authDependencies = authDependencies
+    this.generateDependencies = generateDependencies
     this.hostResourceCoordinator = hostResourceCoordinator
   }
 
   static async create(
     rootDirectory: string,
-    authDependencies: TransmuteAuthDependencies = {},
+    generateDependencies: TransmuteGenerateDependencies = {},
     hostResourceCoordinator?: HostResourceCoordinator,
   ): Promise<TransmuteMcpToolRuntime> {
     return new TransmuteMcpToolRuntime(
       await WorkspaceBoundary.create(rootDirectory),
-      authDependencies,
+      generateDependencies,
       hostResourceCoordinator ?? createDefaultHostResourceCoordinator(),
     )
   }
@@ -860,13 +859,10 @@ export class TransmuteMcpToolRuntime {
         options.operation,
         options.input,
       ) as GenerateTransmuteOperationInput
-      const discovery = await requireTransmuteAuthentication(
-        this.authDependencies,
-      )
       const output = await this.boundary.prepareOutputFile(input.outputPath)
       const generated = await generateTransmuteImageFile(
         { ...input, outputPath: output.absolutePath },
-        { ...this.authDependencies, discovery },
+        this.generateDependencies,
       )
       return successResult(
         `Executed ${options.operation}: ${output.relativePath} (request ${safeFragment(generated.requestId, 256)}).`,
@@ -875,11 +871,13 @@ export class TransmuteMcpToolRuntime {
           operation: options.operation,
           result: {
             bytes: generated.bytes,
-            idempotencyKey: generated.idempotencyKey,
             mediaType: generated.mediaType,
             model: generated.model,
             outputPath: output.relativePath,
+            provider: generated.provider,
             requestId: generated.requestId,
+            sha256: generated.sha256,
+            warnings: generated.warnings,
           },
         },
       )

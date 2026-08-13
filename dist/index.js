@@ -5,62 +5,58 @@ import {
   WorkspaceBoundaryError,
   artifactSummary,
   checkDiagramFile,
-  diagramApi,
-  mcpMaximumRenderedPixels,
-  mcpMaximumScale,
-  mcpSourceByteLimit,
-  readDiagramFile,
-  renderDiagramFile,
-  runMcpServer,
-  transmuteMcpProtocolVersion,
-  transmuteMcpServerName,
-  transmuteMcpTools
-} from "./index-egs2h3b1.js";
-import {
-  TransmuteWorkflowError,
-  defineTransmuteWorkflow,
-  runTransmuteWorkflow
-} from "./index-xhvhwqgp.js";
-import {
   desktopDownloadPage,
   desktopStatus,
+  diagramApi,
   findDesktopApplication,
   getLatestDesktopRelease,
   installDesktop,
+  mcpMaximumRenderedPixels,
+  mcpMaximumScale,
+  mcpSourceByteLimit,
   openInDesktop,
-  selectDesktopAsset
-} from "./index-h67mtvfj.js";
+  readDiagramFile,
+  renderDiagramFile,
+  runMcpServer,
+  selectDesktopAsset,
+  transmuteMcpProtocolVersion,
+  transmuteMcpServerName,
+  transmuteMcpTools
+} from "./index-1q22ndkb.js";
 import {
   bundledSkillPath,
   installSkill
 } from "./index-mjemj725.js";
 import {
-  TransmuteOperationError,
-  executeTransmuteOperation,
-  executeTransmuteOperationWithLease,
-  isTransmuteOperationCode,
-  parseTransmuteOperationInput,
-  searchTransmuteOperations,
-  transmuteOperationCodes,
-  transmuteOperationHostResourceClaims,
-  transmuteOperationRegistry,
-  withTransmuteOperationHostAdmission
-} from "./index-m6kydsys.js";
+  TransmuteWorkflowError,
+  defineTransmuteWorkflow,
+  runTransmuteWorkflow
+} from "./index-6v1ym2sg.js";
 import {
   DiagramValidationError,
   StackLayoutError,
+  TransmuteOperationError,
   builtInIcons,
+  executeTransmuteOperation,
+  executeTransmuteOperationWithLease,
+  isTransmuteOperationCode,
   lintDiagram,
   parseDiagramSource,
   parseDiagramSpec,
+  parseTransmuteOperationInput,
   renderPng,
   renderSvg,
   resolveDiagramSource,
   resolveEdge,
   resolveStackLayout,
+  searchTransmuteOperations,
   serializeTldr,
-  stackLayoutDefaults
-} from "./index-15w61te4.js";
+  stackLayoutDefaults,
+  transmuteOperationCodes,
+  transmuteOperationHostResourceClaims,
+  transmuteOperationRegistry,
+  withTransmuteOperationHostAdmission
+} from "./index-v0jxrbzw.js";
 import {
   VTRACER_VERSION,
   VectorizeError,
@@ -69,42 +65,19 @@ import {
   vectorizeImage,
   vectorizeProfileNames,
   vtracerReleases
-} from "./index-y5zkj6v2.js";
-import {
-  generateTransmuteImage,
-  generateTransmuteImageFile,
-  validateTransmuteIdempotencyKey
-} from "./index-mxht0dzb.js";
-import {
-  buildTransmuteAuthorizationUrl,
-  createPkcePair,
-  getTransmuteAccessToken,
-  loginTransmute,
-  logoutTransmute,
-  requireTransmuteAuthentication,
-  transmuteAuthStatus,
-  transmuteSecretsName,
-  transmuteSecretsService
-} from "./index-3291mzra.js";
+} from "./index-vdtz0dng.js";
 import {
   TransmuteCloudError,
-  fetchTransmuteDiscovery,
-  parseTransmuteDiscovery,
-  readBoundedJson,
-  readBoundedResponseBytes,
-  transmuteDesktopClientId,
-  transmuteDesktopEndpoints,
-  transmuteDesktopScopes,
-  transmuteDiscoveryMaximumBytes,
-  transmuteDiscoveryUrl,
-  transmuteImageGenerationQuota,
+  createFixedGatewayFetch,
+  generateTransmuteImage,
+  generateTransmuteImageFile,
+  transmuteGatewayApiBaseUrl,
+  transmuteGatewayCredentialStatus,
   transmuteImageModels,
   transmuteMaximumPromptBytes,
   transmuteMaximumRawImageBytes,
-  transmuteProductionContract,
-  transmuteRedirectUri,
   transmuteResponseMediaTypes
-} from "./index-yz7y9m2g.js";
+} from "./index-4daanrct.js";
 import {
   HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
   HostResourceError,
@@ -125,12 +98,7 @@ export {
   vectorizeImage,
   vectorizeHardLimits,
   vectorizeDefaultLimits,
-  validateTransmuteIdempotencyKey,
-  transmuteSecretsService,
-  transmuteSecretsName,
   transmuteResponseMediaTypes,
-  transmuteRedirectUri,
-  transmuteProductionContract,
   transmuteOperationRegistry,
   transmuteOperationHostResourceClaims,
   transmuteOperationCodes,
@@ -140,14 +108,9 @@ export {
   transmuteMaximumRawImageBytes,
   transmuteMaximumPromptBytes,
   transmuteImageModels,
-  transmuteImageGenerationQuota,
   transmuteHostResourceNames,
-  transmuteDiscoveryUrl,
-  transmuteDiscoveryMaximumBytes,
-  transmuteDesktopScopes,
-  transmuteDesktopEndpoints,
-  transmuteDesktopClientId,
-  transmuteAuthStatus,
+  transmuteGatewayCredentialStatus,
+  transmuteGatewayApiBaseUrl,
   stackLayoutDefaults,
   serializeTldr,
   selectDesktopAsset,
@@ -157,15 +120,11 @@ export {
   resolveStackLayout,
   resolveEdge,
   resolveDiagramSource,
-  requireTransmuteAuthentication,
   renderSvg,
   renderPng,
   renderDiagramFile,
   readDiagramFile,
-  readBoundedResponseBytes,
-  readBoundedJson,
   parseTransmuteOperationInput,
-  parseTransmuteDiscovery,
   parseDiagramSpec,
   parseDiagramSource,
   openInDesktop,
@@ -174,18 +133,14 @@ export {
   mcpSourceByteLimit,
   mcpMaximumScale,
   mcpMaximumRenderedPixels,
-  logoutTransmute,
-  loginTransmute,
   lintDiagram,
   isTransmuteOperationCode,
   installSkill,
   installDesktop,
-  getTransmuteAccessToken,
   getLatestDesktopRelease,
   generateTransmuteImageFile,
   generateTransmuteImage,
   findDesktopApplication,
-  fetchTransmuteDiscovery,
   executeTransmuteOperationWithLease,
   executeTransmuteOperation,
   diagramApi,
@@ -195,13 +150,12 @@ export {
   defaultTransmuteHostResourceStateRoot,
   defaultTransmuteHostResourceProfile,
   createProcessLocalHostResourceCoordinator,
-  createPkcePair,
   createHostResourceCoordinator,
+  createFixedGatewayFetch,
   createDefaultHostResourceCoordinator,
   checkDiagramFile,
   bundledSkillPath,
   builtInIcons,
-  buildTransmuteAuthorizationUrl,
   artifactSummary,
   WorkspaceBoundaryError,
   WorkspaceBoundary,

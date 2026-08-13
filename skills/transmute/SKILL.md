@@ -1,6 +1,6 @@
 ---
 name: transmute
-description: Create or update concise diagrams from a literal user prompt, keep checked source, generate light/dark exports, provide editable tldraw interchange, convert caller-owned raster artwork to bounded SVG, generate one authenticated hosted WebP, or guide reviewed reference-image workflows for Three.js scenes and metallic logo treatments. Use for diagrams, flowcharts, maps, visual explanations, `.tldr` files, image-to-SVG conversion, image generation, low-poly or transparent 3D motion, metallic brand-symbol renders, semantic Transmute operations, or typed Bun workflows.
+description: Create or update concise diagrams from a literal user prompt, keep checked source, generate light/dark exports, provide editable tldraw interchange, convert caller-owned raster artwork to bounded SVG, generate images directly through Vercel AI Gateway, or guide reviewed reference-image workflows for Three.js scenes and metallic logo treatments. Use for diagrams, flowcharts, maps, visual explanations, `.tldr` files, image-to-SVG conversion, image generation, low-poly or transparent 3D motion, metallic brand-symbol renders, semantic Transmute operations, or typed Bun workflows.
 ---
 
 # Create clear diagrams
@@ -105,51 +105,37 @@ If the repository uses its own font or icon package, read
 licensed font to the repository. Default rendering uses the system sans-serif
 stack.
 
-## Authenticate before hosted image generation
+## Provide a Vercel AI Gateway credential
 
-Use the OAuth browser flow when hosted generation reports `AUTH_REQUIRED`:
+Prefer a process-local environment variable. Never place a key on argv, write
+it into a project file, print it, or ask Transmute to persist it:
 
 ```sh
-transmute auth login
-transmute auth status
+export AI_GATEWAY_API_KEY='<value>'
 ```
 
-The callback is fixed at `http://127.0.0.1:49671/oauth/callback`. Tokens belong
-only in the operating-system credential store through `Bun.secrets`. Never ask
-the user to paste a token, copy one into a file, print one in task output, or
-bypass discovery. On supported macOS and Linux hosts, `transmute auth logout` revokes
-the remote credential when possible and removes the local credential. Login,
-refresh, and logout use process-scope-bound coordination; sharing its lease
-directory across Linux PID namespaces fails closed without deleting another
-scope's marker. Credential mutations fail closed on Windows until Transmute has
-an equivalent private native coordination primitive.
+When the workspace is linked and the user is authenticated with Vercel, prefer
+`vercel env run -- <command>`. Transmute reads `AI_GATEWAY_API_KEY` first and
+`VERCEL_OIDC_TOKEN` second. It has no product account, OAuth, database, or local
+credential store.
 
-## Generate one hosted WebP literally
+## Generate one Gateway image literally
 
-When the user explicitly asks for hosted raster generation, preserve their
+When the user explicitly asks for raster generation, preserve their
 prompt rather than enriching it:
 
 ```sh
-transmute image generate '<literal prompt>' --output path/to/image.webp
+vercel env run -- transmute image generate \
+  '<literal prompt>' --output path/to/image.webp
 ```
 
-The default model is `recraft/recraft-v4.1-utility`. Use
-`--model openai/gpt-image-1.5` only when the user asks for it or its behavior is
-material to the requested result. Those are the only supported IDs.
+The default model is `recraft/recraft-v4.1-utility`. Use another bounded
+`provider/model` Gateway id only when the user requests it or its behavior is
+material. Vectorization remains local and authentication-free.
 
-Hosted generation is an authenticated, bounded free preview. Its UTC-day
-account limit is 10 and its global daily safety limit is 100. Payment is not
-yet enforced. Vectorization is governed separately and remains local, free,
-and authentication-free.
-
-- Keep the required `.webp` output path inside the user's requested workspace.
-- Let the CLI create an idempotency UUID. Supply `--idempotency-key` only when
-  a caller already owns a stable 16–128 character key. The service stores the
-  key durably within the suite-account scope.
-- Never retry a failed generation call: an error can be ambiguous even with
-  durable account-scoped idempotency.
-- Do not decode, write, or trust the image yourself. The CLI bounds canonical
-  base64, validates RIFF/WebP media magic, and atomically publishes it.
+- Keep `.png`, `.jpg`, `.jpeg`, or `.webp` output inside the requested workspace.
+- Never retry a failed generation call. The CLI itself sets `maxRetries: 0`.
+- Let the CLI bound the response, validate media magic, and publish atomically.
 
 ## Use reference-led 3D and material workflows deliberately
 
@@ -157,11 +143,11 @@ Read [reference-led-3d.md](references/reference-led-3d.md) when the user asks to
 turn a generated or supplied image into a Three.js scene, a low-poly object, a
 transparent 3D loop, or a metallic logo product render.
 
-These are complete local Code Mode host capabilities, currently distributed
-with Desktop. The public headless Bun runner can generate an image and run its
-four fixed portable operations, but it does not execute HTML overlays, Three.js,
-or the private project renderer. The Desktop shell supplies native capture,
-permissions, and UI rather than another workflow model. Never imply otherwise.
+These are complete local Code Mode host capabilities in the same open-source
+project. The portable SDK retains its fixed four-operation projection; the
+local host adds HTML overlays, Three.js, durable media execution, and project
+rendering. The Desktop shell supplies native capture, permissions, and UI
+rather than another workflow model.
 In local Code Mode:
 
 - Stage image-to-Three work as reference generation, source authoring, review,
@@ -184,8 +170,8 @@ raster as the source and treat the SVG as a replaceable derivative:
 transmute image vectorize path/to/input.png --output path/to/input.svg --json
 ```
 
-- Do not authenticate for vectorization. The conversion is local and does not
-  contact discovery, OAuth, generation, or any other network endpoint.
+- Do not provide a credential for vectorization. The conversion is local and
+  does not contact any network endpoint.
 - Do not redraw, relabel, crop, recolor, or simplify the subject beyond the
   trace mechanics the command measures.
 - Use `--duotone '#primary,#secondary'` only when the user explicitly asks for

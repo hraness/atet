@@ -8,8 +8,8 @@ import {
 import { utf8ByteLength } from "./json-utf8.js"
 
 const MAX_PATH_CHARACTERS = 4_096
-const MAX_PROMPT_BYTES = 8_192
-const MAX_GENERATED_IMAGE_BYTES = 3_145_728
+const MAX_PROMPT_BYTES = 32 * 1024
+const MAX_GENERATED_IMAGE_BYTES = 64 * 1024 * 1024
 const MAX_VECTOR_INPUT_BYTES = 16 * 1024 * 1024
 const MAX_VECTOR_OUTPUT_BYTES = 2_000_000
 const MAX_DIAGRAM_ARTIFACT_BYTES = 64 * 1024 * 1024
@@ -30,9 +30,7 @@ function schemaWithReadonlyOutput<Output>(
   return schema as z.ZodType<Output>
 }
 
-export type TransmuteImageModel =
-  | "openai/gpt-image-1.5"
-  | "recraft/recraft-v4.1-utility"
+export type TransmuteImageModel = string
 
 export interface TransmuteDiagramCheckInput {
   readonly path: string
@@ -52,7 +50,6 @@ export interface TransmuteImageVectorizeInput {
 }
 
 export interface TransmuteImageGenerateInput {
-  readonly idempotencyKey?: string
   readonly model: TransmuteImageModel
   readonly outputPath: string
   readonly prompt: string
@@ -130,17 +127,19 @@ export interface TransmuteImageVectorizeOutput {
 
 export interface TransmuteImageGenerateOutput {
   readonly bytes: number
-  readonly idempotencyKey: string
-  readonly mediaType: "image/webp"
+  readonly mediaType: "image/jpeg" | "image/png" | "image/webp"
   readonly model: TransmuteImageModel
   readonly outputPath: string
+  readonly provider: "vercel-ai-gateway"
   readonly requestId: string
+  readonly sha256: string
+  readonly warnings: readonly string[]
 }
 
-export const TransmuteImageModelSchema = z.enum([
-  "openai/gpt-image-1.5",
-  "recraft/recraft-v4.1-utility",
-]) satisfies z.ZodType<TransmuteImageModel>
+export const TransmuteImageModelSchema = z.string()
+  .min(3)
+  .max(256)
+  .regex(/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/iu) satisfies z.ZodType<TransmuteImageModel>
 
 export const TransmuteDiagramCheckInputSchema = z.strictObject({
   path: BoundedPathSchema,
@@ -182,7 +181,6 @@ const PromptSchema = z.string().superRefine((value, context) => {
     context.addIssue({ code: "custom", message: "Prompts must not be blank." })
     return
   }
-  // eslint-disable-next-line no-control-regex -- Reject every disallowed prompt control byte.
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)) {
     context.addIssue({
       code: "custom",
@@ -194,15 +192,10 @@ const PromptSchema = z.string().superRefine((value, context) => {
 export const TransmuteImageGenerateInputSchema = schemaWithReadonlyOutput<
   TransmuteImageGenerateInput
 >(z.strictObject({
-  idempotencyKey: z.string()
-    .min(16)
-    .max(128)
-    .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u)
-    .optional(),
   model: TransmuteImageModelSchema,
   outputPath: BoundedPathSchema.refine(
-    value => value.toLowerCase().endsWith(".webp"),
-    "Generated image output paths must end in .webp.",
+    value => /\.(?:jpe?g|png|webp)$/iu.test(value),
+    "Generated image output paths must end in .png, .jpg, .jpeg, or .webp.",
   ),
   prompt: PromptSchema,
 }))
@@ -282,21 +275,19 @@ export const TransmuteImageVectorizeOutputSchema = z.strictObject({
 
 export const TransmuteImageGenerateOutputSchema = z.strictObject({
   bytes: PositiveSafeIntegerSchema.max(MAX_GENERATED_IMAGE_BYTES),
-  idempotencyKey: z.string()
-    .min(16)
-    .max(128)
-    .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u),
-  mediaType: z.literal("image/webp"),
+  mediaType: z.enum(["image/jpeg", "image/png", "image/webp"]),
   model: TransmuteImageModelSchema,
   outputPath: BoundedPathSchema,
+  provider: z.literal("vercel-ai-gateway"),
   requestId: z.string()
     .min(1)
     .max(256)
     .refine(
-      // eslint-disable-next-line no-control-regex -- Request ids are protocol text, never control data.
       value => !/[\u0000-\u001f\u007f]/u.test(value),
       "Request ids must not contain control characters.",
     ),
+  sha256: Sha256Schema,
+  warnings: z.array(z.string().min(1).max(256)).max(100),
 }) satisfies z.ZodType<TransmuteImageGenerateOutput>
 
 export interface PortableTransmuteOperationInputMap {

@@ -1,0 +1,329 @@
+:root[data-transmute-surface="product"] {
+  color-scheme: dark;
+  --transmute-bg: #111110;
+  --transmute-surface: #1c1c1a;
+  --transmute-raised: #242421;
+  --transmute-border: #3b3b36;
+  --transmute-text: #f4f3ed;
+  --transmute-muted: #aaa99f;
+  --transmute-active: #ff665c;
+  --transmute-warning: #e5bc6c;
+  --transmute-success: #76c895;
+  --font-text: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  background: var(--transmute-bg);
+  color: var(--transmute-text);
+  font-family: var(--font-text);
+}
+
+.transmute-button {
+  display: inline-flex;
+}
+
+.transmute-button__control {
+  min-height: 2.5rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--transmute-border, #45453f);
+  border-radius: 0.5rem;
+  background: var(--transmute-raised, #242421);
+  color: var(--transmute-text, #f4f3ed);
+  cursor: pointer;
+}
+
+.transmute-button__control[data-variant="primary"] {
+  border-color: var(--transmute-active, #ff665c);
+  background: var(--transmute-active, #ff665c);
+  color: #111110;
+}
+
+.transmute-button__control:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.transmute-button__control:focus-visible,
+.transmute-search input:focus-visible {
+  outline: 2px solid currentcolor;
+  outline-offset: 2px;
+}
+
+.transmute-search {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.transmute-search__label {
+  color: var(--faint, var(--transmute-muted));
+  font: 0.7rem/1.2 var(--font-mono);
+}
+
+.transmute-search input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line, var(--transmute-border));
+  border-radius: 0.5rem;
+  background: var(--background, var(--transmute-surface));
+  color: var(--foreground, var(--transmute-text));
+}
+
+html,
+body,
+#root {
+  min-width: 0;
+  min-height: 100%;
+}
+
+body[data-transmute-surface="product"] {
+  margin: 0;
+  background:
+    radial-gradient(circle at 80% -10%, rgb(255 102 92 / 10%), transparent 42%),
+    var(--transmute-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.recorder-shell {
+  display: grid;
+  width: min(100% - 2rem, 38rem);
+  min-width: 0;
+  margin: 0 auto;
+  padding: 1.5rem 0 2rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.app-header,
+.section-heading,
+.status-row,
+.controls,
+.source-list li {
+  display: flex;
+  align-items: center;
+}
+
+.app-header,
+.section-heading,
+.source-list li {
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.app-header {
+  padding: 0.25rem 0.25rem 0.75rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.2rem;
+  color: var(--transmute-muted);
+  font: 600 0.68rem/1.2 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.recorder-shell h1,
+.recorder-shell h2,
+.recorder-shell p {
+  margin: 0;
+}
+
+.recorder-shell h1,
+.recorder-shell h2,
+.recording-card strong,
+.elapsed,
+.source-list strong {
+  color: var(--transmute-text);
+}
+
+.recorder-shell h1 {
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+
+.recorder-shell h2 {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.local-badge,
+.section-heading > span {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--transmute-border);
+  border-radius: 999px;
+  color: var(--transmute-muted);
+  font: 500 0.68rem/1 var(--font-mono);
+}
+
+.recording-card,
+.inputs-card,
+.permissions-card {
+  min-width: 0;
+  border: 1px solid var(--transmute-border);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--transmute-surface) 94%, transparent);
+  box-shadow: 0 1rem 4rem rgb(0 0 0 / 18%);
+}
+
+.recording-card {
+  display: grid;
+  min-height: 15rem;
+  padding: 1.35rem;
+  gap: 0.85rem;
+}
+
+.status-row {
+  gap: 0.6rem;
+  color: var(--transmute-muted);
+}
+
+.status-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--transmute-success);
+  box-shadow: 0 0 0 0.25rem rgb(118 200 149 / 10%);
+}
+
+.recording-card[data-tone="active"] .status-dot {
+  background: var(--transmute-active);
+  box-shadow: 0 0 0 0.25rem rgb(255 102 92 / 12%);
+  animation: recording-pulse 1.6s ease-in-out infinite;
+}
+
+.recording-card[data-tone="pending"] .status-dot {
+  background: var(--transmute-warning);
+}
+
+.recording-card[data-tone="failed"] .status-dot {
+  background: var(--transmute-active);
+}
+
+.elapsed {
+  align-self: center;
+  font: 500 clamp(3.4rem, 14vw, 5.3rem)/0.95 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.08em;
+}
+
+.recording-path {
+  overflow: hidden;
+  color: var(--transmute-muted);
+  font: 0.72rem/1.5 var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.controls {
+  align-self: end;
+  gap: 0.65rem;
+}
+
+.controls > .transmute-button {
+  min-width: 7rem;
+}
+
+.controls .transmute-button__control {
+  min-height: 2.75rem;
+  font: 600 0.88rem/1 var(--font-text);
+}
+
+.permissions-card summary:focus-visible {
+  outline: 2px solid var(--transmute-text);
+  outline-offset: 3px;
+}
+
+.error-message {
+  color: #ff9891;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.inputs-card {
+  padding: 1.25rem;
+}
+
+.source-list {
+  display: grid;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.source-list li {
+  min-height: 2.7rem;
+  border-top: 1px solid color-mix(in srgb, var(--transmute-border) 65%, transparent);
+  font-size: 0.8rem;
+}
+
+.source-list li span {
+  color: var(--transmute-muted);
+}
+
+.source-list li strong {
+  overflow: hidden;
+  max-width: 70%;
+  font-weight: 500;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.privacy-note {
+  margin-top: 0.9rem;
+  color: var(--transmute-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.permissions-card {
+  padding: 0.9rem 1rem;
+  color: var(--transmute-warning);
+  font-size: 0.78rem;
+}
+
+.permissions-card summary {
+  min-height: 2.75rem;
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 2.75rem;
+}
+
+.permissions-card ul {
+  display: grid;
+  margin: 0.5rem 0 0.25rem;
+  padding-left: 1.2rem;
+  gap: 0.35rem;
+  color: var(--transmute-muted);
+}
+
+@keyframes recording-pulse {
+  0%,
+  100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (max-width: 34rem) {
+  .recorder-shell {
+    width: min(100% - 1rem, 38rem);
+    padding-top: 0.75rem;
+  }
+
+  .recording-card {
+    min-height: 14rem;
+  }
+
+  .elapsed {
+    font-size: 3.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recording-card[data-tone="active"] .status-dot {
+    animation: none;
+  }
+}

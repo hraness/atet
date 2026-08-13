@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "types": ["@native-sdk/cli", "bun", "vite/client"]
+  },
+  "include": [
+    "contracts/**/*.ts",
+    "core/**/*.ts",
+    "application/**/*.ts",
+    "code/**/*.ts",
+    "workflows/**/*.ts",
+    "html-overlay/**/*.ts",
+    "cli/**/*.ts",
+    "capture/**/*.ts",
+    "runtime/**/*.ts",
+    "frontend/**/*.ts",
+    "frontend/**/*.tsx",
+    "direct/**/*.ts",
+    "direct/**/*.tsx"
+  ]
+}

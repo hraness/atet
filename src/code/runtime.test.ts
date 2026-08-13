@@ -62,11 +62,13 @@ const FIXTURE_RESULTS: PortableTransmuteOperationResultMap = {
   },
   "transmute.image.generate": {
     bytes: 100,
-    idempotencyKey: "fixture-key-0001",
     mediaType: "image/webp",
     model: "openai/gpt-image-1.5",
     outputPath: "/tmp/generated.webp",
+    provider: "vercel-ai-gateway",
     requestId: "request_fixture",
+    sha256: "a".repeat(64),
+    warnings: [],
   },
   "transmute.image.vectorize": {
     outputPath: "/tmp/vector.svg",
