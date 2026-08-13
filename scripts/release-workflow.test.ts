@@ -47,10 +47,15 @@ test("public CI routes independent SDK, local-host, site, and native proofs", as
   expect(workflow).toContain("bun run check:standalone")
   expect(workflow).toContain("bun run check:sdk")
   expect(workflow).toContain("bun run check:desktop")
+  expect(workflow).toContain("sudo apt-get install --yes ffmpeg")
   expect(workflow).toContain("bun run check:web")
   expect(workflow).toContain("bun run test:package")
   expect(workflow).toContain("bun run test:desktop:macos")
   expect(workflow).toContain("bun run package:desktop:macos")
+  expect(workflow).toContain(
+    "mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29",
+  )
+  expect(workflow).toContain('version: "0.16.0"')
   expect(workflow).toContain("git status --porcelain --untracked-files=all -- dist bun.lock")
   expect(workflow).toContain("git status --porcelain --untracked-files=all -- apps/desktop/dist/cli bun.lock")
   expect(workflow).toContain("needs: [plan, boundary, sdk, desktop, site, package, native]")
@@ -83,9 +88,14 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).toContain('newest_stable_tag="$(git tag --list')
   expect(workflow).toContain("bun install --frozen-lockfile --ignore-scripts")
   expect(workflow).toContain("bun run check")
+  expect(workflow).toContain("sudo apt-get install --yes ffmpeg")
   expect(workflow).toContain("native_macos:\n    name: macOS native shell")
   expect(workflow).toContain("bun run test:desktop:macos")
   expect(workflow).toContain("bun run package:desktop:macos")
+  expect(workflow).toContain(
+    "mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29",
+  )
+  expect(workflow).toContain('version: "0.16.0"')
   expect(workflow).toContain("needs: [verify, official_vtracer, native_macos]")
   expect(workflow).toContain(
     "git status --porcelain --untracked-files=all -- dist apps/desktop/dist/cli bun.lock",

@@ -1,6 +1,20 @@
 import { expect, test } from "bun:test";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import { zigArgumentsWithWorkerBudget } from "./run-zig";
+
+test("the ejected desktop build resolves the root-owned Native SDK package", async () => {
+  const source = await readFile(resolve(import.meta.dir, "..", "build.zig"), "utf8");
+
+  expect(source).toContain(
+    'const default_native_sdk_path = "../../node_modules/@native-sdk/cli";',
+  );
+  expect(source).not.toContain(
+    'const default_native_sdk_path = "node_modules/@native-sdk/cli";',
+  );
+  expect(source).toContain("package_exe.root_module.strip = true;");
+});
 
 test("caps uncapped Zig builds at the admitted worker budget", () => {
   expect(zigArgumentsWithWorkerBudget(

@@ -32,7 +32,7 @@ const PackageTarget = enum {
     linux,
 };
 
-const default_native_sdk_path = "node_modules/@native-sdk/cli";
+const default_native_sdk_path = "../../node_modules/@native-sdk/cli";
 const app_exe_name = "transmute";
 const minimum_macos_version = "15.0";
 const minimum_macos_flag = "-mmacosx-version-min=" ++ minimum_macos_version;
@@ -171,6 +171,9 @@ pub fn build(b: *std.Build) void {
         linkPlatform(b, target, package_app_mod, built, selected_platform, web_engine, web_layer, native_sdk_path, cef_dir, cef_auto_install);
         break :pkg built;
     };
+    // Published native artifacts must not retain build-machine source paths in
+    // debug sections. The package relocation proof scans the signed bytes.
+    package_exe.root_module.strip = true;
 
     const package = b.addSystemCommand(&.{
         "bunx",
