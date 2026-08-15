@@ -713,12 +713,17 @@ export function isGeneratedLegacyIdentityPath(path: string): boolean {
 export function planLegacyIdentityInventoryUpdate(
   expected: readonly LegacyIdentityInventoryEntry[],
   actual: readonly LegacyIdentitySnapshot[],
+  trackedGeneratedPaths: ReadonlySet<string>,
 ): LegacyIdentityInventoryUpdate {
   const problems: string[] = []
   const entries: LegacyIdentityInventoryEntry[] = []
   const expectedByPath = new Map(expected.map(entry => [entry.path, entry]))
-  const actualPaths = new Set(actual.map(entry => entry.path))
-  for (const snapshot of actual) {
+  const inventorySnapshots = actual.filter(snapshot => (
+    !isGeneratedLegacyIdentityPath(snapshot.path)
+    || trackedGeneratedPaths.has(snapshot.path)
+  ))
+  const actualPaths = new Set(inventorySnapshots.map(entry => entry.path))
+  for (const snapshot of inventorySnapshots) {
     const existing = expectedByPath.get(snapshot.path)
     if (isGeneratedLegacyIdentityPath(snapshot.path)) {
       entries.push({
@@ -764,11 +769,16 @@ export function planLegacyIdentityInventoryUpdate(
 export function compareLegacyIdentityInventory(
   expected: readonly LegacyIdentityInventoryEntry[],
   actual: readonly LegacyIdentitySnapshot[],
+  trackedGeneratedPaths: ReadonlySet<string>,
 ): readonly string[] {
   const problems: string[] = []
   const expectedByPath = new Map(expected.map(entry => [entry.path, entry]))
-  const actualByPath = new Map(actual.map(entry => [entry.path, entry]))
-  for (const snapshot of actual) {
+  const inventorySnapshots = actual.filter(snapshot => (
+    !isGeneratedLegacyIdentityPath(snapshot.path)
+    || trackedGeneratedPaths.has(snapshot.path)
+  ))
+  const actualByPath = new Map(inventorySnapshots.map(entry => [entry.path, entry]))
+  for (const snapshot of inventorySnapshots) {
     const entry = expectedByPath.get(snapshot.path)
     if (entry === undefined) {
       problems.push(`legacy identity inventory is missing ${snapshot.path}`)

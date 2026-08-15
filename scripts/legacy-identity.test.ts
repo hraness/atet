@@ -98,13 +98,13 @@ describe("Atet predecessor identity inventory", () => {
       identityLinesSha256: "2".repeat(64),
       occurrenceCount: 1,
       path: "dist/example.js",
-    }])).toEqual([
+    }], new Set(["dist/example.js"]))).toEqual([
       "legacy identity inventory is missing dist/example.js",
       "src/example.ts identity line count changed: expected 1, received 2",
       "src/example.ts identity occurrence count changed: expected 1, received 3",
       "src/example.ts identity-bearing lines changed",
     ]);
-    expect(compareLegacyIdentityInventory([entry], [])).toEqual([
+    expect(compareLegacyIdentityInventory([entry], [], new Set())).toEqual([
       "legacy identity inventory has surplus src/example.ts",
     ]);
   });
@@ -137,6 +137,7 @@ describe("Atet predecessor identity inventory", () => {
         occurrenceCount: 2,
         path: "src/example.ts",
       }],
+      new Set(["dist/new.js"]),
     )).toEqual({
       entries: [{
         categories: ["generated"],
@@ -149,6 +150,69 @@ describe("Atet predecessor identity inventory", () => {
         "src/example.ts changed; review and edit its source inventory row explicitly",
       ],
     });
+  });
+
+  test("tracks committed generated identity without blessing ignored build output", () => {
+    const sourceSnapshot = {
+      identityLineCount: 1,
+      identityLinesSha256: "0".repeat(64),
+      occurrenceCount: 1,
+      path: "src/example.ts",
+    };
+    const generatedSnapshot = {
+      identityLineCount: 1,
+      identityLinesSha256: "1".repeat(64),
+      occurrenceCount: 1,
+      path: "dist/committed.js",
+    };
+    const ignoredGeneratedSnapshot = {
+      identityLineCount: 1,
+      identityLinesSha256: "2".repeat(64),
+      occurrenceCount: 1,
+      path: "apps/web/dist/ignored.js",
+    };
+    const sourceEntry = {
+      ...sourceSnapshot,
+      categories: ["serialized-reader"] as const,
+    };
+    const generatedEntry = {
+      ...generatedSnapshot,
+      categories: ["generated"] as const,
+    };
+    const ignoredGeneratedEntry = {
+      ...ignoredGeneratedSnapshot,
+      categories: ["generated"] as const,
+    };
+    const actual = [sourceSnapshot, generatedSnapshot, ignoredGeneratedSnapshot];
+    const trackedGeneratedPaths = new Set([generatedEntry.path]);
+
+    expect(compareLegacyIdentityInventory(
+      [generatedEntry, sourceEntry],
+      actual,
+      trackedGeneratedPaths,
+    )).toEqual([]);
+    expect(planLegacyIdentityInventoryUpdate(
+      [ignoredGeneratedEntry, generatedEntry, sourceEntry],
+      actual,
+      trackedGeneratedPaths,
+    )).toEqual({
+      entries: [generatedEntry, sourceEntry],
+      problems: [],
+    });
+    expect(compareLegacyIdentityInventory(
+      [ignoredGeneratedEntry, generatedEntry, sourceEntry],
+      actual,
+      trackedGeneratedPaths,
+    )).toEqual([
+      "legacy identity inventory has surplus apps/web/dist/ignored.js",
+    ]);
+    expect(compareLegacyIdentityInventory(
+      [],
+      [actual[0]!],
+      new Set(),
+    )).toEqual([
+      "legacy identity inventory is missing src/example.ts",
+    ]);
   });
 
   test("rejects malformed, duplicate, and uncategorized inventory entries", () => {

@@ -1092,15 +1092,6 @@
   },
   {
     "identityLineCount": 1,
-    "identityLinesSha256": "14c8d6fef1490c9ba65740571f219f63386b12b06de93c7b8227c80b4a247071",
-    "occurrenceCount": 13,
-    "path": "apps/desktop/frontend/dist/assets/index-d2SQ55wJ.js",
-    "categories": [
-      "generated"
-    ]
-  },
-  {
-    "identityLineCount": 1,
     "identityLinesSha256": "3e86ed398d44506ef6bd7436eafb15dcbaa8a88d9151d30d0cca188f6ba60b6b",
     "occurrenceCount": 1,
     "path": "apps/desktop/html-overlay/contracts.test.ts",

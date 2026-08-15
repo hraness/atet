@@ -309,6 +309,24 @@ async function collectFiles(path: string): Promise<string[]> {
   return nested.flat();
 }
 
+async function trackedRepositoryPaths(): Promise<ReadonlySet<string>> {
+  const git = Bun.spawn(
+    ["git", "ls-files", "--cached", "-z", "--"],
+    { cwd: ROOT, stderr: "pipe", stdout: "pipe" },
+  );
+  const [exitCode, stdout, stderr] = await Promise.all([
+    git.exited,
+    new Response(git.stdout).text(),
+    new Response(git.stderr).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(
+      `Unable to enumerate tracked standalone files: ${stderr.trim() || `git exited ${exitCode}`}`,
+    );
+  }
+  return new Set(stdout.split("\0").filter(path => path.length > 0));
+}
+
 async function readJson(path: string): Promise<Record<string, unknown>> {
   return JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
 }
@@ -353,6 +371,7 @@ const files = (await Promise.all(SCANNED_ROOTS.map(async root => {
     throw error;
   }
 }))).flat().concat(SCANNED_ROOT_FILES.map(file => join(ROOT, file))).sort();
+const trackedPaths = await trackedRepositoryPaths();
 
 const inventoryInput: unknown = JSON.parse(
   await readFile(LEGACY_IDENTITY_INVENTORY_PATH, "utf8"),
@@ -379,6 +398,10 @@ for (const file of files) {
   ) continue;
   const text = await readFile(file, "utf8");
   const identityBoundaryFile = LEGACY_IDENTITY_BOUNDARY_FILES.has(rootRelative);
+  const generatedOutput = isGeneratedLegacyIdentityPath(rootRelative);
+  // Source review includes new files. Generated identity mirrors only what Git
+  // will package, never ignored build output left behind by a prior phase.
+  const inventoryEligible = !generatedOutput || trackedPaths.has(rootRelative);
   if (!identityBoundaryFile && rootRelative !== "scripts/package-smoke.ts") {
     for (const rule of FORBIDDEN_SOURCE) {
       if (rule.pattern.test(text)) {
@@ -386,7 +409,7 @@ for (const file of files) {
       }
     }
   }
-  if (!identityBoundaryFile) {
+  if (!identityBoundaryFile && inventoryEligible) {
     const snapshot = legacyIdentitySnapshot(rootRelative, text);
     if (snapshot !== null) legacyIdentitySnapshots.push(snapshot);
     sourceProblems.push(...duplicateIdentityAlternatives(rootRelative, text));
@@ -394,7 +417,6 @@ for (const file of files) {
   const unreviewedIdentity = identityBoundaryFile
     ? ""
     : removeReviewedLegacyCompatibility(rootRelative, text);
-  const generatedOutput = isGeneratedLegacyIdentityPath(rootRelative);
   if (
     !generatedOutput
     && !inventoriedIdentityPaths.has(rootRelative)
@@ -410,9 +432,17 @@ legacyIdentitySnapshots.sort((left, right) => left.path.localeCompare(right.path
 
 const inventoryProblems = UPDATE_LEGACY_IDENTITY_INVENTORY
   ? []
-  : compareLegacyIdentityInventory(inventoryEntries, legacyIdentitySnapshots);
+  : compareLegacyIdentityInventory(
+      inventoryEntries,
+      legacyIdentitySnapshots,
+      trackedPaths,
+    );
 const inventoryUpdate = UPDATE_LEGACY_IDENTITY_INVENTORY
-  ? planLegacyIdentityInventoryUpdate(inventoryEntries, legacyIdentitySnapshots)
+  ? planLegacyIdentityInventoryUpdate(
+      inventoryEntries,
+      legacyIdentitySnapshots,
+      trackedPaths,
+    )
   : { entries: [], problems: [] };
 
 const problems = [
