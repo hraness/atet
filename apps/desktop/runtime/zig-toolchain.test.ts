@@ -29,7 +29,7 @@ async function executable(
 }
 
 async function temporaryRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "transmute zig toolchain "));
+  const root = await mkdtemp(join(tmpdir(), "atet zig toolchain "));
   temporaryDirectories.push(root);
   return root;
 }

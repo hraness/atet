@@ -28,7 +28,7 @@ function emptyPlan(durationUs: number) {
       typedText: { enabled: false },
       typingSpans: [],
     },
-    kind: "transmute.project-render-plan",
+    kind: "atet.project-render-plan",
     output: {
       background: "#000000ff",
       durationUs,

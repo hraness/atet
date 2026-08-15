@@ -1321,7 +1321,7 @@ export class CaptureHelperRecordingController implements RecordingController {
       displays: options.displays.kind === "all"
         ? { kind: "all" }
         : { displayIds: [...options.displays.displayIds], kind: "selected" },
-      excludedBundleIdentifiers: ["com.hraness.transmute"],
+      excludedBundleIdentifiers: ["com.hraness.atet"],
       interactionEventProcessIdentifier:
         options.interactionEventProcessIdentifier ?? null,
       metadata: true,
@@ -1354,7 +1354,7 @@ export class CaptureHelperRecordingController implements RecordingController {
         helperVersion: this.#helperVersion,
         now: this.#now,
         recordingId,
-        toolVersion: "1.0.0",
+        toolVersion: "2.0.0",
         verifier: this.#verifier,
       });
       await this.#bundleWriter.initialize();

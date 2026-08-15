@@ -1,6 +1,6 @@
 # Notices
 
-Transmute is an independent project and is not affiliated with or endorsed by
+Atet is an independent project and is not affiliated with or endorsed by
 tldraw, Inc.
 
 The runtime package does not include the tldraw SDK or tldraw Offline. It writes
@@ -9,7 +9,7 @@ diagram into compatible tldraw software. The development test suite optionally
 uses the upstream `tldraw` package to check compatibility; that package remains
 under the [tldraw license](https://tldraw.dev/community/license).
 
-The optional `transmute canvas install` command downloads an unmodified installer
+The optional `atet canvas install` command downloads an unmodified installer
 from the official
 [`tldraw/tldraw-offline`](https://github.com/tldraw/tldraw-offline) GitHub
 release and verifies the SHA-256 digest published by GitHub. tldraw Offline is
@@ -40,5 +40,5 @@ Optional model-backed generation uses
 [`@ai-sdk/gateway`](https://www.npmjs.com/package/@ai-sdk/gateway) and the
 [`ai`](https://www.npmjs.com/package/ai) SDK. Prompts and referenced media are
 sent to Vercel AI Gateway and the model provider selected by the caller, under
-those services' terms. Transmute does not operate an intermediary generation
+those services' terms. Atet does not operate an intermediary generation
 service.

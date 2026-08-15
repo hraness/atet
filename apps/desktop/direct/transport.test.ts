@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  TRANSMUTE_DESKTOP_PROTOCOL,
-  TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+  ATET_DESKTOP_PROTOCOL,
+  ATET_DESKTOP_PROTOCOL_VERSION,
 } from "../contracts";
 import { createRuntimeBridge } from "../frontend/src/runtime-bridge";
-import { createTransmuteDirectSession } from "./session";
+import { createAtetDirectSession } from "./session";
 
 function idleSession() {
-  const created = createTransmuteDirectSession({ kind: "scenario", scenario: "idle-ready" });
+  const created = createAtetDirectSession({ kind: "scenario", scenario: "idle-ready" });
   if (!created.ok) throw new Error(created.error.message);
   return created.value;
 }
@@ -55,7 +55,7 @@ describe("deterministic recorder transport", () => {
         camera: { kind: "default" },
         displays: { kind: "all" },
         microphone: { kind: "default" },
-        recordingDirectory: "artifacts/transmute/recordings",
+        recordingDirectory: "artifacts/atet/recordings",
         systemAudio: true,
         typedText: "disabled",
         windowMetadata: "titles-and-bounds",
@@ -86,10 +86,10 @@ describe("deterministic recorder transport", () => {
   test("rejects a command/request-kind mismatch without mutating state", async () => {
     const session = idleSession();
     const harness = session.harness;
-    const response = await harness.transport.invoke("transmute.runtime.dispatch", {
+    const response = await harness.transport.invoke("atet.runtime.dispatch", {
       payload: { kind: "snapshot" },
-      protocol: TRANSMUTE_DESKTOP_PROTOCOL,
-      protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+      protocol: ATET_DESKTOP_PROTOCOL,
+      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
       requestId: "request_mismatch01",
     });
 
@@ -103,7 +103,7 @@ describe("deterministic recorder transport", () => {
   });
 
   test("pushes a live recording into an interrupted pause before explicit resume and stop", async () => {
-    const created = createTransmuteDirectSession({
+    const created = createAtetDirectSession({
       kind: "scenario",
       scenario: "partial-source-failure",
     });

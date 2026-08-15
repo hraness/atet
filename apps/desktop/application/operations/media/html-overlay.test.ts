@@ -172,7 +172,7 @@ async function workflowContext(
 
 describe("media.html-overlay application operation", () => {
   test("binds an HTML document, declared assets, and exact host capabilities", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-operation-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-operation-"));
     roots.push(root);
     const inputDirectory = join(root, "overlay-inputs");
     await mkdir(inputDirectory, { recursive: true });
@@ -271,7 +271,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test("binds inline HTML deterministically without a repository document", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-operation-inline-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-operation-inline-"));
     roots.push(root);
     const application = operationApplicationContext(root, {
       capabilities: async () => await fixtureCapabilities(root),
@@ -301,7 +301,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test("binds generated Gateway images as exact HTML overlay resources", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-generated-resource-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-generated-resource-"));
     roots.push(root);
     const image = Buffer.from([
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -383,7 +383,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test("rejects fake renderer lock and execution-integrity evidence", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-operation-locks-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-operation-locks-"));
     roots.push(root);
     const fixture = await createOperationProjectFixture(root);
     const snapshot = await openProjectSnapshot(
@@ -459,7 +459,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test("publishes exact locks and fail-closed checkpoint recovery evidence", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-operation-recovery-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-operation-recovery-"));
     roots.push(root);
     const fixture = await createOperationProjectFixture(root);
     const motion = getApprovedHtmlOverlayLibraryLock("motion");
@@ -485,9 +485,11 @@ describe("media.html-overlay application operation", () => {
       fixture.projectRoot,
       fixture.project.projectId,
     );
+    let observedGeneratorVersion: string | undefined;
     const definition = createHtmlOverlayOperationDefinition({
       bindBrowserRuntime: bindFixtureBrowserRuntime,
       ingest: async (projectDirectory, input) => {
+        observedGeneratorVersion = input.generatorVersion;
         const bytes = await readFile(input.path);
         const digest = sha256(bytes);
         const path = `assets/${digest}.mov`;
@@ -522,7 +524,6 @@ describe("media.html-overlay application operation", () => {
         videoStartUs: 0,
         videoStreamIndex: 0,
       }),
-      toolVersion: "transmute-fixture",
     });
     const registry = new OperationRegistry();
     registry.register(definition);
@@ -535,11 +536,12 @@ describe("media.html-overlay application operation", () => {
       version: 1,
     });
     const output = HtmlOverlayOutputSchema.parse(result.output);
+    expect(observedGeneratorVersion).toBe("atet-2.0.0");
     expect(result.receiptReference).toBe(output.receipt.path);
     const receipt = HtmlOverlayReceiptSchema.parse(JSON.parse(
       await readFile(join(root, output.receipt.path), "utf8"),
     ));
-    expect(receipt.kind).toBe("transmute.html-overlay-preparation-receipt");
+    expect(receipt.kind).toBe("atet.html-overlay-preparation-receipt");
     expect(receipt.libraryLocks).toEqual([motion, three]);
     expect(receipt.libraryLocksSha256).toBe(
       canonicalJsonSha256(receipt.libraryLocks),
@@ -549,11 +551,11 @@ describe("media.html-overlay application operation", () => {
       throw new Error("Expected an HTML-overlay workflow context.");
     }
     const identity = {
-      inputSchemaId: "studio.operation.media.html-overlay.input/v1",
+      inputSchemaId: "atet.operation.media.html-overlay.input/v1",
       kind: "media.html-overlay",
       nodeKey: context.workflow.nodeKey,
       nodePlanSha256: context.workflow.nodePlanSha256,
-      outputSchemaId: "studio.operation.media.html-overlay.output/v1",
+      outputSchemaId: "atet.operation.media.html-overlay.output/v1",
       runId: context.workflow.runId,
       version: 1,
     } as const;
@@ -647,7 +649,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test.skipIf(
-    process.env.TRANSMUTE_RUN_HTML_OVERLAY_OPERATION_SMOKE !== "1"
+    process.env.ATET_RUN_HTML_OVERLAY_OPERATION_SMOKE !== "1"
     || process.platform !== "darwin"
     || !existsSync(CHROME)
     || !existsSync(FFMPEG)
@@ -655,7 +657,7 @@ describe("media.html-overlay application operation", () => {
   )(
     "renders, alpha-encodes, ingests, and prepares a real compositor overlay",
     async () => {
-      const root = await mkdtemp(join(tmpdir(), "transmute-html-operation-real-"));
+      const root = await mkdtemp(join(tmpdir(), "atet-html-operation-real-"));
       roots.push(root);
       const fixture = await createOperationProjectFixture(root);
       const inputDirectory = join(root, "overlay-inputs");
@@ -693,7 +695,7 @@ describe("media.html-overlay application operation", () => {
       };
       const registry = new OperationRegistry();
       registry.register(createHtmlOverlayOperationDefinition({
-        toolVersion: "transmute-smoke",
+        toolVersion: "atet-smoke",
       }));
       const snapshot = await openProjectSnapshot(
         fixture.projectRoot,

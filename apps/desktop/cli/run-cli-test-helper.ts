@@ -3,10 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import {
   createProcessLocalHostResourceCoordinator,
-  defaultTransmuteHostResourceProfile,
+  defaultAtetHostResourceProfile,
   type HostResourceCoordinator,
   type HostResourceProfile,
-} from "@hraness/transmute/host-resources";
+} from "@hraness/atet/host-resources";
 
 import { runCli as runProductionCli } from "./commands";
 
@@ -27,12 +27,12 @@ function testHostResourceProfile(
   ) {
     throw new Error("CLI test runner invocation must be an integer from 1 through 32.");
   }
-  const defaults = defaultTransmuteHostResourceProfile(TEST_HOST_PARALLELISM);
+  const defaults = defaultAtetHostResourceProfile(TEST_HOST_PARALLELISM);
   return {
     capacities: defaults.capacities,
     id: invocation === undefined
-      ? `transmute.cli-test/${testFileName}/v1`
-      : `transmute.cli-test/${testFileName}/invocation-${invocation}/v1`,
+      ? `atet.cli-test/${testFileName}/v1`
+      : `atet.cli-test/${testFileName}/invocation-${invocation}/v1`,
   };
 }
 

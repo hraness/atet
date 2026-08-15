@@ -7,27 +7,27 @@ import { join, resolve, sep } from "node:path";
 import { verifyFaceAnalyzerIdentity } from "../analysis/build";
 import {
   DesktopResponseSchema,
-  TRANSMUTE_DESKTOP_PROTOCOL,
-  TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+  ATET_DESKTOP_PROTOCOL,
+  ATET_DESKTOP_PROTOCOL_VERSION,
 } from "../contracts";
 import { HostResponseSchema } from "./src/host-protocol";
 
 const desktopRoot = resolve(import.meta.dir, "..");
 const packageRoot = join(desktopRoot, "zig-out", "package");
-export const macOSAppPath = join(packageRoot, "transmute-1.0.0-macos-ReleaseFast.app");
+export const macOSAppPath = join(packageRoot, "atet-2.0.0-macos-ReleaseFast.app");
 
 type RuntimeManifest = Readonly<{
-  capture: Readonly<{ name: "transmute-capture"; sha256: string }>;
-  faceAnalyzer: Readonly<{ name: "transmute-face-analyzer"; sha256: string }>;
-  gateway: Readonly<{ bunVersion: string; name: "transmute-gateway"; sha256: string }>;
+  capture: Readonly<{ name: "atet-capture"; sha256: string }>;
+  faceAnalyzer: Readonly<{ name: "atet-face-analyzer"; sha256: string }>;
+  gateway: Readonly<{ bunVersion: string; name: "atet-gateway"; sha256: string }>;
   schemaVersion: 2;
 }>;
 
 export const requiredUsageDescriptions = Object.freeze({
-  NSAudioCaptureUsageDescription: "Transmute records system audio as a separate editing source.",
-  NSCameraUsageDescription: "Transmute records the selected camera as a separate editing source.",
-  NSMicrophoneUsageDescription: "Transmute records the selected microphone as a separate editing source.",
-  NSScreenCaptureUsageDescription: "Transmute records each display as a separate editing source.",
+  NSAudioCaptureUsageDescription: "Atet records system audio as a separate editing source.",
+  NSCameraUsageDescription: "Atet records the selected camera as a separate editing source.",
+  NSMicrophoneUsageDescription: "Atet records the selected microphone as a separate editing source.",
+  NSScreenCaptureUsageDescription: "Atet records each display as a separate editing source.",
 });
 
 async function assertExecutable(path: string, label: string): Promise<string> {
@@ -41,7 +41,7 @@ async function assertInsidePackage(path: string): Promise<string> {
   const canonicalPackageRoot = await realpath(packageRoot);
   const canonicalAppRoot = await realpath(path);
   if (!canonicalAppRoot.startsWith(`${canonicalPackageRoot}${sep}`) || !canonicalAppRoot.endsWith(".app")) {
-    throw new Error("Refusing to stage Transmute resources outside the expected package root.");
+    throw new Error("Refusing to stage Atet resources outside the expected package root.");
   }
   return canonicalAppRoot;
 }
@@ -77,9 +77,9 @@ function parseRuntimeManifest(value: unknown): RuntimeManifest {
     }
     return raw;
   };
-  const capture = component("capture", "transmute-capture", ["name", "sha256"]);
-  const faceAnalyzer = component("faceAnalyzer", "transmute-face-analyzer", ["name", "sha256"]);
-  const gateway = component("gateway", "transmute-gateway", ["bunVersion", "name", "sha256"]);
+  const capture = component("capture", "atet-capture", ["name", "sha256"]);
+  const faceAnalyzer = component("faceAnalyzer", "atet-face-analyzer", ["name", "sha256"]);
+  const gateway = component("gateway", "atet-gateway", ["bunVersion", "name", "sha256"]);
   if (
     value.schemaVersion !== 2
     || Object.keys(value).sort().join(",") !== "capture,faceAnalyzer,gateway,schemaVersion"
@@ -92,21 +92,21 @@ function parseRuntimeManifest(value: unknown): RuntimeManifest {
     throw new Error("Packaged runtime manifest has an invalid envelope.");
   }
   return {
-    capture: { name: "transmute-capture", sha256: capture.sha256 },
-    faceAnalyzer: { name: "transmute-face-analyzer", sha256: faceAnalyzer.sha256 },
-    gateway: { bunVersion: gateway.bunVersion, name: "transmute-gateway", sha256: gateway.sha256 },
+    capture: { name: "atet-capture", sha256: capture.sha256 },
+    faceAnalyzer: { name: "atet-face-analyzer", sha256: faceAnalyzer.sha256 },
+    gateway: { bunVersion: gateway.bunVersion, name: "atet-gateway", sha256: gateway.sha256 },
     schemaVersion: 2,
   };
 }
 
 export async function writeFinalRuntimeManifest(runtimeRoot: string, bunVersion = Bun.version): Promise<RuntimeManifest> {
   const manifest: RuntimeManifest = {
-    capture: { name: "transmute-capture", sha256: await sha256(join(runtimeRoot, "bin", "transmute-capture")) },
+    capture: { name: "atet-capture", sha256: await sha256(join(runtimeRoot, "bin", "atet-capture")) },
     faceAnalyzer: {
-      name: "transmute-face-analyzer",
-      sha256: await sha256(join(runtimeRoot, "bin", "transmute-face-analyzer")),
+      name: "atet-face-analyzer",
+      sha256: await sha256(join(runtimeRoot, "bin", "atet-face-analyzer")),
     },
-    gateway: { bunVersion, name: "transmute-gateway", sha256: await sha256(join(runtimeRoot, "bin", "transmute-gateway")) },
+    gateway: { bunVersion, name: "atet-gateway", sha256: await sha256(join(runtimeRoot, "bin", "atet-gateway")) },
     schemaVersion: 2,
   };
   const destination = join(runtimeRoot, "manifest.json");
@@ -181,22 +181,22 @@ async function verifyMinimumMacOS(executable: string): Promise<void> {
 
 async function verifyStagedGateway(gateway: string, captureHelper: string): Promise<void> {
   const request = {
-    command: "transmute.runtime.snapshot",
+    command: "atet.runtime.snapshot",
     id: "package-probe",
     payload: {
       payload: { kind: "snapshot" },
-      protocol: TRANSMUTE_DESKTOP_PROTOCOL,
-      protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+      protocol: ATET_DESKTOP_PROTOCOL,
+      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
       requestId: "request_packageprobe1",
     },
   };
   const environment: Record<string, string> = {
-    TRANSMUTE_CAPTURE_HELPER: captureHelper,
+    ATET_CAPTURE_HELPER: captureHelper,
     LANG: process.env.LANG ?? "en_US.UTF-8",
     PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
     TMPDIR: process.env.TMPDIR ?? "/tmp",
   };
-  const temporaryHome = await mkdtemp(join(tmpdir(), "transmute-package-home-"));
+  const temporaryHome = await mkdtemp(join(tmpdir(), "atet-package-home-"));
   environment.HOME = temporaryHome;
   const child = Bun.spawn([gateway], { env: environment, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
   await child.stdin.write(`${JSON.stringify(request)}\n`);
@@ -247,8 +247,8 @@ async function assertTreeOmitsCheckoutPath(root: string, checkoutRoot: string): 
 async function verifyRelocatedPackage(appRoot: string): Promise<void> {
   const checkoutRoot = await realpath(resolve(desktopRoot, "../.."));
   await assertTreeOmitsCheckoutPath(appRoot, checkoutRoot);
-  const relocationRoot = await mkdtemp(join(tmpdir(), "transmute-relocation-proof-"));
-  const relocatedApp = join(relocationRoot, "Renamed Transmute.app");
+  const relocationRoot = await mkdtemp(join(tmpdir(), "atet-relocation-proof-"));
+  const relocatedApp = join(relocationRoot, "Renamed Atet.app");
   try {
     await cp(appRoot, relocatedApp, { recursive: true });
     await run(["/usr/bin/codesign", "--verify", "--deep", "--strict", relocatedApp]);
@@ -256,8 +256,8 @@ async function verifyRelocatedPackage(appRoot: string): Promise<void> {
     await verifyFinalRuntimeManifest(relocatedRuntime);
     await assertTreeOmitsCheckoutPath(relocatedApp, checkoutRoot);
     await verifyStagedGateway(
-      join(relocatedRuntime, "bin", "transmute-gateway"),
-      join(relocatedRuntime, "bin", "transmute-capture"),
+      join(relocatedRuntime, "bin", "atet-gateway"),
+      join(relocatedRuntime, "bin", "atet-capture"),
     );
   } finally {
     await rm(relocationRoot, { force: true, recursive: true });
@@ -265,7 +265,7 @@ async function verifyRelocatedPackage(appRoot: string): Promise<void> {
 }
 
 export async function stageMacOSPackage(): Promise<void> {
-  if (process.platform !== "darwin") throw new Error("Transmute macOS packaging requires macOS.");
+  if (process.platform !== "darwin") throw new Error("Atet macOS packaging requires macOS.");
 
   const appRoot = await assertInsidePackage(macOSAppPath);
   const resourcesRoot = join(appRoot, "Contents", "Resources");
@@ -273,20 +273,20 @@ export async function stageMacOSPackage(): Promise<void> {
   const runtimeBin = join(runtimeRoot, "bin");
   const frontendDestination = join(resourcesRoot, "frontend", "dist");
   const gatewaySource = await assertExecutable(
-    join(desktopRoot, "runtime", "dist", "transmute-gateway"),
-    "Compiled Transmute gateway",
+    join(desktopRoot, "runtime", "dist", "atet-gateway"),
+    "Compiled Atet gateway",
   );
   const captureSource = await assertExecutable(
-    join(desktopRoot, "capture", "dist", "transmute-capture"),
-    "Transmute capture helper",
+    join(desktopRoot, "capture", "dist", "atet-capture"),
+    "Atet capture helper",
   );
   const faceAnalyzerSource = await assertExecutable(
-    join(desktopRoot, "analysis", "dist", "transmute-face-analyzer"),
-    "Transmute face analyzer",
+    join(desktopRoot, "analysis", "dist", "atet-face-analyzer"),
+    "Atet face analyzer",
   );
   await verifyFaceAnalyzerIdentity(faceAnalyzerSource);
   const frontendSource = await realpath(join(desktopRoot, "frontend", "dist"));
-  if (!(await stat(frontendSource)).isDirectory()) throw new Error("Built Transmute frontend is missing.");
+  if (!(await stat(frontendSource)).isDirectory()) throw new Error("Built Atet frontend is missing.");
 
   await Promise.all([
     rm(runtimeRoot, { force: true, recursive: true }),
@@ -297,9 +297,9 @@ export async function stageMacOSPackage(): Promise<void> {
     mkdir(join(resourcesRoot, "frontend"), { recursive: true }),
   ]);
 
-  const gatewayDestination = join(runtimeBin, "transmute-gateway");
-  const captureDestination = join(runtimeBin, "transmute-capture");
-  const faceAnalyzerDestination = join(runtimeBin, "transmute-face-analyzer");
+  const gatewayDestination = join(runtimeBin, "atet-gateway");
+  const captureDestination = join(runtimeBin, "atet-capture");
+  const faceAnalyzerDestination = join(runtimeBin, "atet-face-analyzer");
   await Promise.all([
     copyFile(gatewaySource, gatewayDestination),
     copyFile(captureSource, captureDestination),
@@ -327,16 +327,16 @@ export async function stageMacOSPackage(): Promise<void> {
     verifyFaceAnalyzerIdentity(faceAnalyzerDestination),
   ]);
   await run([
-    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.transmute.gateway",
+    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.atet.gateway",
     "--entitlements", join(desktopRoot, "runtime", "gateway.entitlements.plist"),
     "--sign", "-", "--timestamp=none", gatewayDestination,
   ]);
   await run([
-    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.transmute.capture",
+    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.atet.capture",
     "--sign", "-", "--timestamp=none", captureDestination,
   ]);
   await run([
-    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.transmute.face-analyzer",
+    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.atet.face-analyzer",
     "--sign", "-", "--timestamp=none", faceAnalyzerDestination,
   ]);
   await Promise.all([
@@ -348,14 +348,14 @@ export async function stageMacOSPackage(): Promise<void> {
   await writeFinalRuntimeManifest(runtimeRoot);
   await verifyFinalRuntimeManifest(runtimeRoot);
   await run([
-    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.transmute",
+    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.atet",
     "--sign", "-", "--timestamp=none", appRoot,
   ]);
   await run(["/usr/bin/codesign", "--verify", "--deep", "--strict", appRoot]);
   await verifyFinalRuntimeManifest(runtimeRoot);
-  await verifyMinimumMacOS(join(appRoot, "Contents", "MacOS", "transmute"));
+  await verifyMinimumMacOS(join(appRoot, "Contents", "MacOS", "atet"));
 
-  await verifyPlistString(infoPlist, "CFBundleIdentifier", "com.hraness.transmute");
+  await verifyPlistString(infoPlist, "CFBundleIdentifier", "com.hraness.atet");
   await verifyPlistString(infoPlist, "LSMinimumSystemVersion", "15.0");
   for (const [key, value] of Object.entries(requiredUsageDescriptions)) {
     await verifyPlistString(infoPlist, key, value);
@@ -368,7 +368,7 @@ export async function stageMacOSPackage(): Promise<void> {
   ]);
   await verifyRelocatedPackage(appRoot);
 
-  process.stdout.write(`Staged and verified Transmute.app resources at ${resourcesRoot}\n`);
+  process.stdout.write(`Staged and verified Atet.app resources at ${resourcesRoot}\n`);
 }
 
 if (import.meta.main) await stageMacOSPackage();

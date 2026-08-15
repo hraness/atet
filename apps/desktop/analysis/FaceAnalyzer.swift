@@ -7,7 +7,7 @@ import Foundation
 import ImageIO
 import Vision
 
-private let analyzerKind = "transmute.face-analysis"
+private let analyzerKind = "atet.face-analysis"
 private let analyzerSchemaVersion = 1
 private let analyzerVersion = "1.0.0"
 private let pinnedVisionRevision = VNDetectFaceRectanglesRequestRevision3
@@ -850,7 +850,7 @@ private func normalizedFailure(_ error: Error) -> AnalyzerFailure {
 }
 
 private func writeVersion(_ backend: Backend) throws {
-    let line = "transmute-face-analyzer \(analyzerVersion) (schema \(analyzerSchemaVersion); "
+    let line = "atet-face-analyzer \(analyzerVersion) (schema \(analyzerSchemaVersion); "
         + "Apple Vision revision \(backend.revision); \(backend.architecture); \(backend.osBuild))\n"
     let data = Data(line.utf8)
     guard data.count > 0, data.count <= 512 else {
@@ -884,7 +884,7 @@ private struct FaceAnalyzerMain {
             let failure = normalizedFailure(error)
             let activeWriter = writer ?? JSONLineWriter(maximumBytes: hardMaximumLineBytes)
             try? activeWriter.write(ErrorEvent(code: failure.code, message: failure.message), terminal: true)
-            let diagnostic = "transmute-face-analyzer [\(failure.code)]: \(failure.message)\n"
+            let diagnostic = "atet-face-analyzer [\(failure.code)]: \(failure.message)\n"
             FileHandle.standardError.write(Data(diagnostic.utf8))
             Darwin.exit(2)
         }

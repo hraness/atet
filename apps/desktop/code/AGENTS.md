@@ -1,6 +1,6 @@
 # Contents
 
-- `contracts.ts`, `graph-builder.ts`, `define-workflow.ts`, `compiler.ts`, and `plan-contracts.ts` – compatibility facades over the canonical `@hraness/transmute/code` graph, authoring, compilation, and identity contracts.
+- `contracts.ts`, `graph-builder.ts`, `define-workflow.ts`, `compiler.ts`, and `plan-contracts.ts` – compatibility facades over the canonical `@hraness/atet/code` graph, authoring, compilation, and identity contracts.
 - `planning.ts` – trusted-source loading plus project and declared-file static preflight.
 - `file-candidate.ts` – the progressive public declaration for compute-selectable local files.
 - `creative-recipes.ts` – literal, typed media-treatment recipes for reusable Code Mode requests.
@@ -22,4 +22,4 @@
 - Parse persisted graphs and plans from `unknown` through strict versioned schemas. Reject duplicate or dangling nodes, schema mismatches, cycles, and configured node, edge, depth, and fan-out limits before execution.
 - Preserve the portable compiler's graph, node, reference, and plan identities. Local planning may bind runtime, bundle, registry, project, and requirement evidence through explicit host extension points, but it must not redefine canonical identity.
 - Keep `/testing` helpers out of production workflow-loading paths. Public authoring, advanced graph access, and testing fixtures remain separate export surfaces.
-- Author local workflows through `@hraness/transmute/local/{code,code/advanced,code/workflows,html-overlay}`. Do not add predecessor aliases.
+- Author local workflows through `@hraness/atet/local/{code,code/advanced,code/workflows,html-overlay}`. Accept only the four exact `@hraness/transmute/local/*` predecessors as input-only migration aliases, and never emit or document them in new templates.

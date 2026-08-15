@@ -290,11 +290,12 @@ export const HtmlOverlayAuthoringInputSchema = z.strictObject({
   canvas: HtmlOverlayCanvasSchema,
   html: HtmlDocumentSchema,
   // Studio v1 authoring inputs remain readable, but every parsed/new value is
-  // normalized to the canonical Transmute identity before hashing or render.
+  // normalized to the canonical Atet identity before hashing or render.
   kind: z.union([
+    z.literal("atet.html-overlay"),
     z.literal("transmute.html-overlay"),
     z.literal("studio.html-overlay"),
-  ]).overwrite(() => "transmute.html-overlay" as const),
+  ]).overwrite(() => "atet.html-overlay" as const),
   libraries: HtmlOverlayLibrarySelectionSchema.default([]),
   parameters: HtmlOverlayParametersSchema.default({}),
   resources: HtmlOverlayDeclaredResourcesSchema.default([]),

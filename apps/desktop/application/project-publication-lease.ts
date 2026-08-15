@@ -8,6 +8,7 @@ import {
 } from "../contracts";
 import { canonicalJson } from "../core/canonical-json";
 import {
+  canonicalAtetPersistenceDocument,
   createNodeBundleFileSystem,
   saveVideoProject,
 } from "../core/storage";
@@ -217,11 +218,11 @@ export async function mergeProjectAnalysisReference(
         >= Date.parse(publicationSnapshot.project.updatedAt)
         ? reference.createdAt
         : publicationSnapshot.project.updatedAt;
-      const project = VideoProjectV1Schema.parse({
+      const project = canonicalAtetPersistenceDocument(VideoProjectV1Schema.parse({
         ...publicationSnapshot.project,
         analyses: [...publicationSnapshot.project.analyses, reference],
         updatedAt,
-      });
+      }));
       await options.beforePublication?.();
       assertProjectEditBasis(options.basis, publicationSnapshot);
       await saveVideoProject(publicationSnapshot.openProject.fileSystem, project);

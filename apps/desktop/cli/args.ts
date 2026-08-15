@@ -785,7 +785,7 @@ const JSON_SPEC = { "--json": "flag" } as const;
 
 function parseDoctor(argv: readonly string[]): CliCommand {
   const parsed = parseOptions(argv, JSON_SPEC);
-  exactPositionals(parsed, 0, "transmute doctor [--json]");
+  exactPositionals(parsed, 0, "atet doctor [--json]");
   return { json: optionFlag(parsed, "--json"), kind: "doctor" };
 }
 
@@ -834,7 +834,7 @@ function parseAiModels(argv: readonly string[]): CliCommand {
       "--refresh": "flag",
       "--type": "value",
     });
-    exactPositionals(parsed, 0, "transmute ai models list [options]");
+    exactPositionals(parsed, 0, "atet ai models list [options]");
     return {
       json: optionFlag(parsed, "--json"),
       kind: "ai-models-list",
@@ -856,7 +856,7 @@ function parseAiModels(argv: readonly string[]): CliCommand {
       ...JSON_SPEC,
       "--refresh": "flag",
     });
-    const [model] = exactPositionals(parsed, 1, "transmute ai models show <model> [--refresh] [--json]");
+    const [model] = exactPositionals(parsed, 1, "atet ai models show <model> [--refresh] [--json]");
     return {
       json: optionFlag(parsed, "--json"),
       kind: "ai-models-show",
@@ -864,18 +864,18 @@ function parseAiModels(argv: readonly string[]): CliCommand {
       refresh: optionFlag(parsed, "--refresh"),
     };
   }
-  fail("Usage: transmute ai models <list|show> [options]");
+  fail("Usage: atet ai models <list|show> [options]");
 }
 
 function parseAiProviderOptions(argv: readonly string[]): CliCommand {
   if (argv[0] !== "inspect") {
-    fail("Usage: transmute ai provider-options inspect <json-file> [--json]");
+    fail("Usage: atet ai provider-options inspect <json-file> [--json]");
   }
   const parsed = parseOptions(argv.slice(1), JSON_SPEC);
   const [path] = exactPositionals(
     parsed,
     1,
-    "transmute ai provider-options inspect <json-file> [--json]",
+    "atet ai provider-options inspect <json-file> [--json]",
   );
   return {
     json: optionFlag(parsed, "--json"),
@@ -885,7 +885,7 @@ function parseAiProviderOptions(argv: readonly string[]): CliCommand {
 }
 
 function parseAiImage(argv: readonly string[]): CliCommand {
-  if (argv[0] !== "generate") fail("Usage: transmute ai image generate --model <id> [options]");
+  if (argv[0] !== "generate") fail("Usage: atet ai image generate --model <id> [options]");
   const parsed = parseOptions(argv.slice(1), {
     ...JSON_SPEC,
     "--allow-cloud-upload": "flag",
@@ -905,7 +905,7 @@ function parseAiImage(argv: readonly string[]): CliCommand {
     "--temperature": "value",
     "--timeout": "value",
   });
-  exactPositionals(parsed, 0, "transmute ai image generate --model <id> [options]");
+  exactPositionals(parsed, 0, "atet ai image generate --model <id> [options]");
   const prompt = oneTextSource(parsed, "--prompt", "--prompt-file", { required: false });
   const images = optionStrings(parsed, "--image");
   if (images.length > 16) fail("--image may be specified at most 16 times.");
@@ -944,7 +944,7 @@ function parseAiImage(argv: readonly string[]): CliCommand {
 }
 
 function parseAiVideo(argv: readonly string[]): CliCommand {
-  if (argv[0] !== "generate") fail("Usage: transmute ai video generate --model <id> [options]");
+  if (argv[0] !== "generate") fail("Usage: atet ai video generate --model <id> [options]");
   const parsed = parseOptions(argv.slice(1), {
     ...JSON_SPEC,
     "--allow-cloud-upload": "flag",
@@ -965,7 +965,7 @@ function parseAiVideo(argv: readonly string[]): CliCommand {
     "--seed": "value",
     "--timeout": "value",
   });
-  exactPositionals(parsed, 0, "transmute ai video generate --model <id> [options]");
+  exactPositionals(parsed, 0, "atet ai video generate --model <id> [options]");
   const prompt = oneTextSource(parsed, "--prompt", "--prompt-file", { required: false });
   const image = optionString(parsed, "--image");
   const frameImages = parseGatewayFrameInputs(optionStrings(parsed, "--frame"));
@@ -1033,7 +1033,7 @@ function parseAiVideo(argv: readonly string[]): CliCommand {
 }
 
 function parseAiSpeech(argv: readonly string[]): CliCommand {
-  if (argv[0] !== "generate") fail("Usage: transmute ai speech generate --model <id> [options]");
+  if (argv[0] !== "generate") fail("Usage: atet ai speech generate --model <id> [options]");
   const parsed = parseOptions(argv.slice(1), {
     ...JSON_SPEC,
     "--format": "value",
@@ -1048,7 +1048,7 @@ function parseAiSpeech(argv: readonly string[]): CliCommand {
     "--timeout": "value",
     "--voice": "value",
   });
-  exactPositionals(parsed, 0, "transmute ai speech generate --model <id> [options]");
+  exactPositionals(parsed, 0, "atet ai speech generate --model <id> [options]");
   const text = oneTextSource(parsed, "--text", "--text-file", { required: true });
   const instructions = oneTextSource(parsed, "--instructions", "--instructions-file", { required: false });
   const model = optionString(parsed, "--model");
@@ -1082,7 +1082,7 @@ function parseAiTranscribe(argv: readonly string[]): CliCommand {
   const [input] = exactPositionals(
     parsed,
     1,
-    "transmute ai transcribe <audio-path> --model <id> --allow-cloud-audio-upload [options]",
+    "atet ai transcribe <audio-path> --model <id> --allow-cloud-audio-upload [options]",
   );
   const model = optionString(parsed, "--model");
   if (model === undefined) fail("--model is required.");
@@ -1109,7 +1109,7 @@ function parseAi(argv: readonly string[]): CliCommand {
     case "speech": return parseAiSpeech(argv.slice(1));
     case "transcribe": return parseAiTranscribe(argv.slice(1));
     case undefined:
-    default: fail("Usage: transmute ai <models|provider-options|image|video|speech|transcribe> [options]");
+    default: fail("Usage: atet ai <models|provider-options|image|video|speech|transcribe> [options]");
   }
 }
 
@@ -1133,7 +1133,7 @@ function parseMediaAudio(argv: readonly string[]): CliCommand {
     "--reverb-wet": "value",
     "--volume-db": "value",
   });
-  const [input] = exactPositionals(parsed, 1, "transmute media audio <media-path> [effects] [--output <path>] [--json]");
+  const [input] = exactPositionals(parsed, 1, "atet media audio <media-path> [effects] [--output <path>] [--json]");
   const compressorConfigured = [
     "--compressor-attack-ms",
     "--compressor-makeup-db",
@@ -1218,7 +1218,7 @@ function parseMediaColor(argv: readonly string[]): CliCommand {
     "--tint": "value",
     "--video-stream": "value",
   });
-  const [input] = exactPositionals(parsed, 1, "transmute media color <video-path> [grade] [--output <path>] [--json]");
+  const [input] = exactPositionals(parsed, 1, "atet media color <video-path> [grade] [--output <path>] [--json]");
   const preset = optionString(parsed, "--preset") === undefined
     ? undefined
     : oneOf(optionString(parsed, "--preset"), "--preset", [
@@ -1255,14 +1255,14 @@ function parseMedia(argv: readonly string[]): CliCommand {
     case "audio": return parseMediaAudio(argv.slice(1));
     case "color": return parseMediaColor(argv.slice(1));
     case undefined:
-    default: fail("Usage: transmute media <audio|color> <media-path> [options]");
+    default: fail("Usage: atet media <audio|color> <media-path> [options]");
   }
 }
 
 function parseRecordings(argv: readonly string[]): CliCommand {
-  if (argv[0] !== "list") fail("Usage: transmute recordings list [--json] [--limit n]");
+  if (argv[0] !== "list") fail("Usage: atet recordings list [--json] [--limit n]");
   const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--limit": "value" });
-  exactPositionals(parsed, 0, "transmute recordings list [--json] [--limit n]");
+  exactPositionals(parsed, 0, "atet recordings list [--json] [--limit n]");
   return {
     json: optionFlag(parsed, "--json"),
     kind: "recordings-list",
@@ -1274,7 +1274,7 @@ function parseProjects(argv: readonly string[]): CliCommand {
   const action = argv[0];
   if (action === "list") {
     const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--limit": "value" });
-    exactPositionals(parsed, 0, "transmute projects list [--json] [--limit n]");
+    exactPositionals(parsed, 0, "atet projects list [--json] [--limit n]");
     return {
       json: optionFlag(parsed, "--json"),
       kind: "projects-list",
@@ -1287,7 +1287,7 @@ function parseProjects(argv: readonly string[]): CliCommand {
       "--from-recording": "value",
       "--name": "value",
     });
-    exactPositionals(parsed, 0, "transmute projects create --from-recording <recording> [--name <name>] [--json]");
+    exactPositionals(parsed, 0, "atet projects create --from-recording <recording> [--name <name>] [--json]");
     const recording = optionString(parsed, "--from-recording");
     if (recording === undefined) fail("projects create requires --from-recording.");
     return {
@@ -1297,7 +1297,7 @@ function parseProjects(argv: readonly string[]): CliCommand {
       recording,
     };
   }
-  fail("Usage: transmute projects <list|create> ...");
+  fail("Usage: atet projects <list|create> ...");
 }
 
 function cameraFrame(value: string | undefined, name: string): CameraFrame {
@@ -1331,13 +1331,13 @@ function parseProjectCamera(project: string, argv: readonly string[]): CliComman
   const action = argv[0];
   if (action === "show") {
     const parsed = parseOptions(argv.slice(1), JSON_SPEC);
-    exactPositionals(parsed, 0, "transmute project edit <project> camera show [--json]");
+    exactPositionals(parsed, 0, "atet project edit <project> camera show [--json]");
     return { action, json: optionFlag(parsed, "--json"), kind: "project-camera-edit", project };
   }
   if (action === "remove") {
     const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--id": "value" });
     if (parsed.positionals.length > 1) {
-      fail("Usage: transmute project edit <project> camera remove <camera-move-id> [--json]");
+      fail("Usage: atet project edit <project> camera remove <camera-move-id> [--json]");
     }
     const cameraMoveId = parsed.positionals[0] ?? optionString(parsed, "--id");
     if (cameraMoveId === undefined) fail("camera remove requires a camera-move ID.");
@@ -1362,7 +1362,7 @@ function parseProjectCamera(project: string, argv: readonly string[]): CliComman
     });
     const [from, to] = timeRange(
       parsed,
-      "transmute project edit <project> camera push --placement <id> --stream <id> --from <time> --to <time> --center <x,y> --end-zoom <z>",
+      "atet project edit <project> camera push --placement <id> --stream <id> --from <time> --to <time> --center <x,y> --end-zoom <z>",
     );
     const placement = optionString(parsed, "--placement");
     const stream = optionString(parsed, "--stream");
@@ -1396,7 +1396,7 @@ function parseProjectCamera(project: string, argv: readonly string[]): CliComman
     });
     const [from, to] = timeRange(
       parsed,
-      "transmute project edit <project> camera reframe --placement <id> --stream <id> --from <time> --to <time> --from-frame <x,y,z> --to-frame <x,y,z>",
+      "atet project edit <project> camera reframe --placement <id> --stream <id> --from <time> --to <time> --from-frame <x,y,z> --to-frame <x,y,z>",
     );
     const placement = optionString(parsed, "--placement");
     const stream = optionString(parsed, "--stream");
@@ -1428,7 +1428,7 @@ function parseProjectCamera(project: string, argv: readonly string[]): CliComman
     exactPositionals(
       parsed,
       0,
-      "transmute project edit <project> camera path --placement <id> --stream <id> --keyframe <time,x,y,zoom> --keyframe <time,x,y,zoom> ...",
+      "atet project edit <project> camera path --placement <id> --stream <id> --keyframe <time,x,y,zoom> --keyframe <time,x,y,zoom> ...",
     );
     const placement = optionString(parsed, "--placement");
     const stream = optionString(parsed, "--stream");
@@ -1471,7 +1471,7 @@ function parseProjectCamera(project: string, argv: readonly string[]): CliComman
     });
     const [from, to] = timeRange(
       parsed,
-      "transmute project edit <project> camera follow-faces --placement <id> --analysis <id> --from <time> --to <time> (--track <id> ... | --select <largest|all>) [--require-all-selected]",
+      "atet project edit <project> camera follow-faces --placement <id> --analysis <id> --from <time> --to <time> (--track <id> ... | --select <largest|all>) [--require-all-selected]",
     );
     const placement = optionString(parsed, "--placement");
     const analysis = optionString(parsed, "--analysis");
@@ -1540,14 +1540,14 @@ function parseProjectCamera(project: string, argv: readonly string[]): CliComman
       tracks,
     };
   }
-  fail("Usage: transmute project edit <project> camera <push|reframe|path|follow-faces|show|remove> ...");
+  fail("Usage: atet project edit <project> camera <push|reframe|path|follow-faces|show|remove> ...");
 }
 
 function parseProject(argv: readonly string[]): CliCommand {
   const action = argv[0];
   if (action === "inspect") {
     const parsed = parseOptions(argv.slice(1), JSON_SPEC);
-    const [project] = exactPositionals(parsed, 1, "transmute project inspect <project> [--json]");
+    const [project] = exactPositionals(parsed, 1, "atet project inspect <project> [--json]");
     return { json: optionFlag(parsed, "--json"), kind: "project-inspect", project: project! };
   }
   if (action === "add") {
@@ -1559,7 +1559,7 @@ function parseProject(argv: readonly string[]): CliCommand {
     const [project, path] = exactPositionals(
       parsed,
       2,
-      "transmute project add <project> <path> --role <role> [--at <project-time>] [--json]",
+      "atet project add <project> <path> --role <role> [--at <project-time>] [--json]",
     );
     return {
       at: optionString(parsed, "--at") ?? "0s",
@@ -1654,14 +1654,14 @@ function parseProject(argv: readonly string[]): CliCommand {
       };
     }
     if (project === undefined || (operation !== "cut" && operation !== "trim" && operation !== "speed")) {
-      fail("Usage: transmute project edit <project> <cut|trim|speed|camera|zoom|overlay|cursor|clicks|keystrokes|typed-text> ...");
+      fail("Usage: atet project edit <project> <cut|trim|speed|camera|zoom|overlay|cursor|clicks|keystrokes|typed-text> ...");
     }
     const parsed = parseOptions(argv.slice(3), JSON_SPEC);
     if (operation === "speed") {
       const [from, to, rate] = exactPositionals(
         parsed,
         3,
-        "transmute project edit <project> speed <from> <to> <rate> [--json]",
+        "atet project edit <project> speed <from> <to> <rate> [--json]",
       );
       return {
         from: from!,
@@ -1676,7 +1676,7 @@ function parseProject(argv: readonly string[]): CliCommand {
     const [from, to] = exactPositionals(
       parsed,
       2,
-      `transmute project edit <project> ${operation} <from> <to> [--json]`,
+      `atet project edit <project> ${operation} <from> <to> [--json]`,
     );
     return {
       from: from!,
@@ -1690,7 +1690,7 @@ function parseProject(argv: readonly string[]): CliCommand {
   if (action === "render") {
     const renderAction = argv[1];
     if (renderAction !== "plan" && renderAction !== "run") {
-      fail("Usage: transmute project render <plan|run> <project> [options]");
+      fail("Usage: atet project render <plan|run> <project> [options]");
     }
     const parsed = parseOptions(argv.slice(2), {
       ...JSON_SPEC,
@@ -1701,7 +1701,7 @@ function parseProject(argv: readonly string[]): CliCommand {
       "--output": "value",
       "--width": "value",
     });
-    const [project] = exactPositionals(parsed, 1, `transmute project render ${renderAction} <project> [options]`);
+    const [project] = exactPositionals(parsed, 1, `atet project render ${renderAction} <project> [options]`);
     if (renderAction === "plan" && optionFlag(parsed, "--dry-run")) fail("--dry-run is valid only for project render run.");
     return {
       action: renderAction,
@@ -1716,12 +1716,12 @@ function parseProject(argv: readonly string[]): CliCommand {
       width: strictEvenPositiveInteger(optionString(parsed, "--width"), "--width", 1_920),
     };
   }
-  fail("Usage: transmute project <inspect|add|edit|render> ...");
+  fail("Usage: atet project <inspect|add|edit|render> ...");
 }
 
 function parseInspect(argv: readonly string[]): CliCommand {
   const parsed = parseOptions(argv, { ...JSON_SPEC, "--fields": "value" });
-  const [recording] = exactPositionals(parsed, 1, "transmute inspect <recording> [--json] [--fields csv]");
+  const [recording] = exactPositionals(parsed, 1, "atet inspect <recording> [--json] [--fields csv]");
   const fieldsValue = optionString(parsed, "--fields");
   const fields = fieldsValue === undefined
     ? undefined
@@ -1744,7 +1744,7 @@ function parseEvents(argv: readonly string[]): CliCommand {
   const [recording] = exactPositionals(
     parsed,
     1,
-    "transmute events <recording> --kind <kind> [--from time] [--to time] [--around time] [--limit n] [--json|--jsonl]",
+    "atet events <recording> --kind <kind> [--from time] [--to time] [--around time] [--limit n] [--json|--jsonl]",
   );
   const eventKinds = optionStrings(parsed, "--kind").flatMap((value) => value.split(","))
     .map((value) => value.trim()).filter((value) => value !== "");
@@ -1785,7 +1785,7 @@ function parseRecord(argv: readonly string[]): CliCommand {
       "--typed-text": "value",
       "--webcam": "value",
     });
-    exactPositionals(parsed, 0, "transmute record start [options]");
+    exactPositionals(parsed, 0, "atet record start [options]");
     const displays = optionStrings(parsed, "--display").map((displayId) =>
       captureSourceId(displayId, "--display", 64)!
     );
@@ -1821,10 +1821,10 @@ function parseRecord(argv: readonly string[]): CliCommand {
   }
   if (action === "pause" || action === "resume" || action === "stop" || action === "status") {
     const parsed = parseOptions(argv.slice(1), JSON_SPEC);
-    exactPositionals(parsed, 0, `transmute record ${action} [--json]`);
+    exactPositionals(parsed, 0, `atet record ${action} [--json]`);
     return { action, json: optionFlag(parsed, "--json"), kind: "record" };
   }
-  fail("Usage: transmute record <start|pause|resume|stop|status> [options]");
+  fail("Usage: atet record <start|pause|resume|stop|status> [options]");
 }
 
 const TIME_RANGE_SPEC = {
@@ -1866,7 +1866,7 @@ function parseZoom(argv: readonly string[]): EditCommand {
   if (verb === "remove") {
     const parsed = parseOptions(remaining, { "--id": "value" });
     const positionalId = parsed.positionals[0];
-    if (parsed.positionals.length > 1) fail("Usage: transmute edit <recording> zoom remove <id>");
+    if (parsed.positionals.length > 1) fail("Usage: atet edit <recording> zoom remove <id>");
     const id = positionalId ?? optionString(parsed, "--id");
     if (id === undefined) fail("zoom remove requires an ID.");
     return { id, operation: "zoom-remove" };
@@ -1883,7 +1883,7 @@ function parseZoom(argv: readonly string[]): EditCommand {
     "--target": "value",
     "--window": "value",
   });
-  const [from, to] = timeRange(parsed, "transmute edit <recording> zoom [add] --from <time> --to <time> --target <target>");
+  const [from, to] = timeRange(parsed, "atet edit <recording> zoom [add] --from <time> --to <time> --target <target>");
   const target = oneOf(optionString(parsed, "--target"), "--target", [
     "rect", "point", "cursor", "window", "focused-input",
   ] as const);
@@ -1918,12 +1918,12 @@ function parseOverlay(argv: readonly string[]): EditCommand {
   const verb = argv[0];
   if (verb === "remove") {
     const parsed = parseOptions(argv.slice(1), { "--id": "value" });
-    if (parsed.positionals.length > 1) fail("Usage: transmute edit <recording> overlay remove <id>");
+    if (parsed.positionals.length > 1) fail("Usage: atet edit <recording> overlay remove <id>");
     const id = parsed.positionals[0] ?? optionString(parsed, "--id");
     if (id === undefined) fail("overlay remove requires an ID.");
     return { id, operation: "overlay-remove" };
   }
-  if (verb !== "add") fail("Usage: transmute edit <recording> overlay <add|remove> ...");
+  if (verb !== "add") fail("Usage: atet edit <recording> overlay <add|remove> ...");
   const parsed = parseOptions(argv.slice(1), {
     ...TIME_RANGE_SPEC,
     "--anchor": "value",
@@ -1960,7 +1960,7 @@ function parseOverlay(argv: readonly string[]): EditCommand {
     "--width": "value",
     "--z-index": "value",
   });
-  const [from, to] = timeRange(parsed, "transmute edit <recording> overlay add --kind <kind> --source <path-or-emoji> --from <time> --to <time>");
+  const [from, to] = timeRange(parsed, "atet edit <recording> overlay add --kind <kind> --source <path-or-emoji> --from <time> --to <time>");
   const overlayKind = oneOf(optionString(parsed, "--kind"), "--kind", [
     "image", "svg", "gif", "video", "emoji",
   ] as const);
@@ -2041,7 +2041,7 @@ function parseEdit(argv: readonly string[]): CliCommand {
   const recording = argv[0];
   const operation = argv[1];
   if (recording === undefined || operation === undefined) {
-    fail("Usage: transmute edit <recording> <init|show|trim|cut|speed|zoom|overlay|cursor|clicks|keystrokes|typed-text> ...");
+    fail("Usage: atet edit <recording> <init|show|trim|cut|speed|zoom|overlay|cursor|clicks|keystrokes|typed-text> ...");
   }
   const operationArgs = argv.slice(2);
   let json = false;
@@ -2049,7 +2049,7 @@ function parseEdit(argv: readonly string[]): CliCommand {
   let edit: EditCommand;
   if (operation === "init" || operation === "show") {
     const parsed = parseOptions(operationArgs, { "--fps": "value", "--json": "flag" });
-    exactPositionals(parsed, 0, `transmute edit <recording> ${operation} [--json]`);
+    exactPositionals(parsed, 0, `atet edit <recording> ${operation} [--json]`);
     json = optionFlag(parsed, "--json");
     fps = optionString(parsed, "--fps") === undefined
       ? undefined
@@ -2076,7 +2076,7 @@ function parseEdit(argv: readonly string[]): CliCommand {
     }
     if (operation === "trim" || operation === "cut") {
       const parsed = parseOptions(cleanArgs, TIME_RANGE_SPEC);
-      const [from, to] = timeRange(parsed, `transmute edit <recording> ${operation} <from> <to>`);
+      const [from, to] = timeRange(parsed, `atet edit <recording> ${operation} <from> <to>`);
       edit = { from, operation, to };
     } else if (operation === "speed") {
       const parsed = parseOptions(cleanArgs, { ...TIME_RANGE_SPEC, "--rate": "value" });
@@ -2088,7 +2088,7 @@ function parseEdit(argv: readonly string[]): CliCommand {
         to = parsed.positionals[1]!;
         rate = strictNumber(parsed.positionals[2], "rate");
       } else {
-        [from, to] = timeRange(parsed, "transmute edit <recording> speed --from <time> --to <time> --rate <number>");
+        [from, to] = timeRange(parsed, "atet edit <recording> speed --from <time> --to <time> --rate <number>");
         rate = strictNumber(optionString(parsed, "--rate"), "--rate");
       }
       edit = { from, operation, rate, to };
@@ -2102,7 +2102,7 @@ function parseEdit(argv: readonly string[]): CliCommand {
         "--enabled": "value",
         "--smoothing": "value",
       });
-      if (parsed.positionals.length > 1) fail("Usage: transmute edit <recording> cursor <on|off> [options]");
+      if (parsed.positionals.length > 1) fail("Usage: atet edit <recording> cursor <on|off> [options]");
       const toggle = parsed.positionals[0];
       if (toggle !== undefined && toggle !== "on" && toggle !== "off") fail("cursor state must be on or off.");
       edit = {
@@ -2119,7 +2119,7 @@ function parseEdit(argv: readonly string[]): CliCommand {
       };
     } else if (operation === "keystrokes") {
       const parsed = parseOptions(cleanArgs, { "--enabled": "value", "--stop-after": "value" });
-      if (parsed.positionals.length > 1) fail("Usage: transmute edit <recording> keystrokes <on|off> [--stop-after time]");
+      if (parsed.positionals.length > 1) fail("Usage: atet edit <recording> keystrokes <on|off> [--stop-after time]");
       const toggle = parsed.positionals[0];
       if (toggle !== undefined && toggle !== "on" && toggle !== "off") fail("keystrokes state must be on or off.");
       edit = {
@@ -2136,7 +2136,7 @@ function parseEdit(argv: readonly string[]): CliCommand {
         "--radius": "value",
         "--style": "value",
       });
-      const [toggle] = exactPositionals(parsed, 1, "transmute edit <recording> clicks <on|off> [options]");
+      const [toggle] = exactPositionals(parsed, 1, "atet edit <recording> clicks <on|off> [options]");
       if (toggle !== "on" && toggle !== "off") fail("clicks state must be on or off.");
       edit = {
         color: optionString(parsed, "--color") ?? "#ffcc00cc",
@@ -2152,7 +2152,7 @@ function parseEdit(argv: readonly string[]): CliCommand {
         "--max-characters": "value",
         "--placement": "value",
       });
-      const [toggle] = exactPositionals(parsed, 1, "transmute edit <recording> typed-text <on|off> [options]");
+      const [toggle] = exactPositionals(parsed, 1, "atet edit <recording> typed-text <on|off> [options]");
       if (toggle !== "on" && toggle !== "off") fail("typed-text state must be on or off.");
       edit = {
         enabled: toggle === "on",
@@ -2188,7 +2188,7 @@ function parseAnalyze(argv: readonly string[]): CliCommand {
     const [project] = exactPositionals(
       parsed,
       1,
-      "transmute analyze faces <project> --source <asset:video-stream> [options] [--json]",
+      "atet analyze faces <project> --source <asset:video-stream> [options] [--json]",
     );
     const source = optionString(parsed, "--source");
     if (source === undefined) fail("analyze faces requires --source.");
@@ -2227,7 +2227,7 @@ function parseAnalyze(argv: readonly string[]): CliCommand {
       "--source": "value",
       "--window": "value",
     });
-    const [project] = exactPositionals(parsed, 1, "transmute analyze music <project> --source <asset:stream> [--window <time>] [--json]");
+    const [project] = exactPositionals(parsed, 1, "atet analyze music <project> --source <asset:stream> [--window <time>] [--json]");
     const source = optionString(parsed, "--source");
     if (source === undefined) fail("analyze music requires --source.");
     return {
@@ -2251,7 +2251,7 @@ function parseAnalyze(argv: readonly string[]): CliCommand {
     const [project] = exactPositionals(
       parsed,
       1,
-      "transmute analyze scenes <project> --source <asset:stream> [--execute --allow-cloud-upload] [options]",
+      "atet analyze scenes <project> --source <asset:stream> [--execute --allow-cloud-upload] [options]",
     );
     const source = optionString(parsed, "--source");
     if (source === undefined) fail("analyze scenes requires --source.");
@@ -2291,7 +2291,7 @@ function parseAnalyze(argv: readonly string[]): CliCommand {
       "--threads": "value",
       "--whisper": "value",
     });
-    const [project] = exactPositionals(parsed, 1, "transmute analyze speech <project> --source <asset:stream> --model <path> [options]");
+    const [project] = exactPositionals(parsed, 1, "atet analyze speech <project> --source <asset:stream> --model <path> [options]");
     const source = optionString(parsed, "--source");
     if (source === undefined) fail("analyze speech requires --source.");
     const minimumFillerConfidence = strictNumber(
@@ -2324,7 +2324,7 @@ function parseAnalyze(argv: readonly string[]): CliCommand {
       "--apply": "flag",
       "--plan": "value",
     });
-    const [recording] = exactPositionals(parsed, 1, "transmute analyze zooms <recording> [--apply] [--plan <id>] [--json]");
+    const [recording] = exactPositionals(parsed, 1, "atet analyze zooms <recording> [--apply] [--plan <id>] [--json]");
     return {
       apply: optionFlag(parsed, "--apply"),
       json: optionFlag(parsed, "--json"),
@@ -2334,7 +2334,7 @@ function parseAnalyze(argv: readonly string[]): CliCommand {
     };
   }
   if (argv[0] !== "inactivity") {
-    fail("Usage: transmute analyze <faces|inactivity|zooms|music|scenes|speech> ...");
+    fail("Usage: atet analyze <faces|inactivity|zooms|music|scenes|speech> ...");
   }
   const parsed = parseOptions(argv.slice(1), {
     ...JSON_SPEC,
@@ -2345,7 +2345,7 @@ function parseAnalyze(argv: readonly string[]): CliCommand {
     "--protect-audio": "value",
     "--speed-rate": "value",
   });
-  const [recording] = exactPositionals(parsed, 1, "transmute analyze inactivity <recording|project> [options]");
+  const [recording] = exactPositionals(parsed, 1, "atet analyze inactivity <recording|project> [options]");
   const threshold = strictNumber(optionString(parsed, "--motion-threshold"), "--motion-threshold", 0.003);
   if (threshold < 0 || threshold > 1) fail("--motion-threshold must be between 0 and 1.");
   const speedRate = strictNumber(optionString(parsed, "--speed-rate"), "--speed-rate", 8);
@@ -2365,7 +2365,7 @@ function parseAnalyze(argv: readonly string[]): CliCommand {
 
 function parseFaces(argv: readonly string[]): CliCommand {
   if (argv[0] !== "list") {
-    fail("Usage: transmute faces list <project> <analysis-id> [options] [--json]");
+    fail("Usage: atet faces list <project> <analysis-id> [options] [--json]");
   }
   const parsed = parseOptions(argv.slice(1), {
     ...JSON_SPEC,
@@ -2377,7 +2377,7 @@ function parseFaces(argv: readonly string[]): CliCommand {
   const [project, analysis] = exactPositionals(
     parsed,
     2,
-    "transmute faces list <project> <analysis-id> [options] [--json]",
+    "atet faces list <project> <analysis-id> [options] [--json]",
   );
   const minConfidence = strictNumber(
     optionString(parsed, "--min-confidence"),
@@ -2408,7 +2408,7 @@ function parseFillers(argv: readonly string[]): CliCommand {
     const [project, analysis] = exactPositionals(
       parsed,
       2,
-      "transmute fillers list <project> <speech-analysis-id> [--auto-only] [--json]",
+      "atet fillers list <project> <speech-analysis-id> [--auto-only] [--json]",
     );
     return {
       analysis: analysis!,
@@ -2423,7 +2423,7 @@ function parseFillers(argv: readonly string[]): CliCommand {
     const [project, analysis, candidate] = exactPositionals(
       parsed,
       3,
-      "transmute fillers apply <project> <speech-analysis-id> <candidate-id> [--placement <id>] [--json]",
+      "atet fillers apply <project> <speech-analysis-id> <candidate-id> [--placement <id>] [--json]",
     );
     return {
       analysis: analysis!,
@@ -2434,7 +2434,7 @@ function parseFillers(argv: readonly string[]): CliCommand {
       project: project!,
     };
   }
-  fail("Usage: transmute fillers <list|apply> ...");
+  fail("Usage: atet fillers <list|apply> ...");
 }
 
 function parseAlign(argv: readonly string[]): CliCommand {
@@ -2450,7 +2450,7 @@ function parseAlign(argv: readonly string[]): CliCommand {
       "--target": "value",
       "--target-placement": "value",
     });
-    const [project] = exactPositionals(parsed, 1, "transmute align analyze <project> --reference <asset:stream> --target <asset:stream> [options]");
+    const [project] = exactPositionals(parsed, 1, "atet align analyze <project> --reference <asset:stream> --target <asset:stream> [options]");
     const reference = optionString(parsed, "--reference");
     const target = optionString(parsed, "--target");
     if (reference === undefined || target === undefined) fail("align analyze requires --reference and --target.");
@@ -2480,7 +2480,7 @@ function parseAlign(argv: readonly string[]): CliCommand {
     const [project, analysis] = exactPositionals(
       parsed,
       2,
-      "transmute align apply <project> <analysis-id> --candidate <candidate-id> [options]",
+      "atet align apply <project> <analysis-id> --candidate <candidate-id> [options]",
     );
     const candidate = optionString(parsed, "--candidate");
     if (candidate === undefined) fail("align apply requires --candidate.");
@@ -2494,13 +2494,13 @@ function parseAlign(argv: readonly string[]): CliCommand {
       targetPlacement: optionString(parsed, "--target-placement"),
     };
   }
-  fail("Usage: transmute align <analyze|apply> ...");
+  fail("Usage: atet align <analyze|apply> ...");
 }
 
 function parseRender(argv: readonly string[]): CliCommand {
   const action = argv[0];
   if (action !== "plan" && action !== "run") {
-    fail("Usage: transmute render <plan|run> <recording> [options]");
+    fail("Usage: atet render <plan|run> <recording> [options]");
   }
   const parsed = parseOptions(argv.slice(1), {
     ...JSON_SPEC,
@@ -2510,7 +2510,7 @@ function parseRender(argv: readonly string[]): CliCommand {
     "--no-auto-inactivity": "flag",
     "--output": "value",
   });
-  const [recording] = exactPositionals(parsed, 1, `transmute render ${action} <recording> [options]`);
+  const [recording] = exactPositionals(parsed, 1, `atet render ${action} <recording> [options]`);
   const keepInactivity = optionFlag(parsed, "--keep-inactivity");
   const noAutoInactivity = optionFlag(parsed, "--no-auto-inactivity");
   if (keepInactivity && noAutoInactivity) fail("Use only one inactivity opt-out flag.");
@@ -2539,7 +2539,7 @@ function parseRender(argv: readonly string[]): CliCommand {
 
 function parseAssets(argv: readonly string[]): CliCommand {
   if (argv[0] !== "emoji" || (argv[1] !== "search" && argv[1] !== "resolve")) {
-    fail("Usage: transmute assets emoji <search|resolve> <glyph|name|hex-id> [options]");
+    fail("Usage: atet assets emoji <search|resolve> <glyph|name|hex-id> [options]");
   }
   const action = argv[1];
   const parsed = parseOptions(argv.slice(2), {
@@ -2548,7 +2548,7 @@ function parseAssets(argv: readonly string[]): CliCommand {
     "--provider": "value",
     "--variant": "value",
   });
-  const [query] = exactPositionals(parsed, 1, `transmute assets emoji ${action} <glyph|name|hex-id> [options]`);
+  const [query] = exactPositionals(parsed, 1, `atet assets emoji ${action} <glyph|name|hex-id> [options]`);
   const variant = optionString(parsed, "--variant") === undefined
     ? undefined
     : oneOf(optionString(parsed, "--variant"), "--variant", ["color", "duotone"] as const);
@@ -2623,7 +2623,7 @@ function parseOperations(argv: readonly string[]): CliCommand {
   const action = argv[0];
   if (action === "list") {
     const parsed = parseOptions(argv.slice(1), JSON_SPEC);
-    exactPositionals(parsed, 0, "transmute operations list [--json]");
+    exactPositionals(parsed, 0, "atet operations list [--json]");
     return { json: optionFlag(parsed, "--json"), kind: "operations-list" };
   }
   if (action === "show") {
@@ -2631,18 +2631,18 @@ function parseOperations(argv: readonly string[]): CliCommand {
     const [operation] = exactPositionals(
       parsed,
       1,
-      "transmute operations show <kind>[@<version>] [--json]",
+      "atet operations show <kind>[@<version>] [--json]",
     );
     return { json: optionFlag(parsed, "--json"), kind: "operations-show", operation: operation! };
   }
-  fail("Usage: transmute operations <list|show> ...");
+  fail("Usage: atet operations <list|show> ...");
 }
 
 function parseDiagram(argv: readonly string[]): CliCommand {
   const action = argv[0];
   if (action === "check") {
     const parsed = parseOptions(argv.slice(1), JSON_SPEC);
-    const [path] = exactPositionals(parsed, 1, "transmute diagram check <diagram.json> [--json]");
+    const [path] = exactPositionals(parsed, 1, "atet diagram check <diagram.json> [--json]");
     return { json: optionFlag(parsed, "--json"), kind: "diagram-check", path: path! };
   }
   if (action === "render") {
@@ -2653,7 +2653,7 @@ function parseDiagram(argv: readonly string[]): CliCommand {
     const [path] = exactPositionals(
       parsed,
       1,
-      "transmute diagram render <diagram.json> [--scale <0..4>] [--json]",
+      "atet diagram render <diagram.json> [--scale <0..4>] [--json]",
     );
     return {
       json: optionFlag(parsed, "--json"),
@@ -2662,7 +2662,7 @@ function parseDiagram(argv: readonly string[]): CliCommand {
       scale: optionalBoundedNumber(optionString(parsed, "--scale"), "--scale", Number.EPSILON, 4),
     };
   }
-  fail("Usage: transmute diagram <check|render> <diagram.json> [options]");
+  fail("Usage: atet diagram <check|render> <diagram.json> [options]");
 }
 
 function parseDuotone(value: string | undefined): readonly [string, string] | undefined {
@@ -2679,7 +2679,7 @@ function parseDuotone(value: string | undefined): readonly [string, string] | un
 
 function parseImage(argv: readonly string[]): CliCommand {
   if (argv[0] !== "vectorize") {
-    fail("Usage: transmute image vectorize <raster-path> [options]");
+    fail("Usage: atet image vectorize <raster-path> [options]");
   }
   const parsed = parseOptions(argv.slice(1), {
     ...JSON_SPEC,
@@ -2690,7 +2690,7 @@ function parseImage(argv: readonly string[]): CliCommand {
   const [inputPath] = exactPositionals(
     parsed,
     1,
-    "transmute image vectorize <raster-path> [--duotone <#primary,#secondary>] [--alpha-cutoff <1..64>] [--timeout-ms <1..300000>] [--json]",
+    "atet image vectorize <raster-path> [--duotone <#primary,#secondary>] [--alpha-cutoff <1..64>] [--timeout-ms <1..300000>] [--json]",
   );
   const alphaCutoff = optionalStrictInteger(
     optionString(parsed, "--alpha-cutoff"),
@@ -2720,12 +2720,12 @@ function parseWorkflows(argv: readonly string[]): CliCommand {
   const action = argv[0];
   if (action === "list") {
     const parsed = parseOptions(argv.slice(1), JSON_SPEC);
-    exactPositionals(parsed, 0, "transmute workflows list [--json]");
+    exactPositionals(parsed, 0, "atet workflows list [--json]");
     return { json: optionFlag(parsed, "--json"), kind: "workflows-list" };
   }
   if (action === "show") {
     const parsed = parseOptions(argv.slice(1), JSON_SPEC);
-    const [workflow] = exactPositionals(parsed, 1, "transmute workflows show <id> [--json]");
+    const [workflow] = exactPositionals(parsed, 1, "atet workflows show <id> [--json]");
     return { json: optionFlag(parsed, "--json"), kind: "workflows-show", workflow: workflow! };
   }
   if (action === "plan") {
@@ -2733,7 +2733,7 @@ function parseWorkflows(argv: readonly string[]): CliCommand {
     const [workflow] = exactPositionals(
       parsed,
       1,
-      "transmute workflows plan <id> --input <json-file> [--json]",
+      "atet workflows plan <id> --input <json-file> [--json]",
     );
     const input = optionString(parsed, "--input");
     if (input === undefined) fail("workflows plan requires --input.");
@@ -2753,7 +2753,7 @@ function parseWorkflows(argv: readonly string[]): CliCommand {
     const [workflow] = exactPositionals(
       parsed,
       1,
-      "transmute workflows run <id> --input <json-file> [--provider-options <json-file>] [--jobs <n>] [--json|--jsonl]",
+      "atet workflows run <id> --input <json-file> [--provider-options <json-file>] [--jobs <n>] [--json|--jsonl]",
     );
     const input = optionString(parsed, "--input");
     if (input === undefined) fail("workflows run requires --input.");
@@ -2765,19 +2765,19 @@ function parseWorkflows(argv: readonly string[]): CliCommand {
       ...runOutput(parsed),
     };
   }
-  fail("Usage: transmute workflows <list|show|plan|run> ...");
+  fail("Usage: atet workflows <list|show|plan|run> ...");
 }
 
 function parseCode(argv: readonly string[]): CliCommand {
   const action = argv[0];
   if (action === "init") {
     const parsed = parseOptions(argv.slice(1), {});
-    const [path] = exactPositionals(parsed, 1, "transmute code init <path>");
+    const [path] = exactPositionals(parsed, 1, "atet code init <path>");
     return { kind: "code-init", path: path! };
   }
   if (action === "check") {
     const parsed = parseOptions(argv.slice(1), JSON_SPEC);
-    const [path] = exactPositionals(parsed, 1, "transmute code check <path> [--json]");
+    const [path] = exactPositionals(parsed, 1, "atet code check <path> [--json]");
     return { json: optionFlag(parsed, "--json"), kind: "code-check", path: path! };
   }
   if (action === "plan") {
@@ -2785,7 +2785,7 @@ function parseCode(argv: readonly string[]): CliCommand {
     const [path] = exactPositionals(
       parsed,
       1,
-      "transmute code plan <path> --input <json-file> [--json]",
+      "atet code plan <path> --input <json-file> [--json]",
     );
     const input = optionString(parsed, "--input");
     if (input === undefined) fail("code plan requires --input.");
@@ -2801,7 +2801,7 @@ function parseCode(argv: readonly string[]): CliCommand {
     const [path] = exactPositionals(
       parsed,
       1,
-      "transmute code run <path> --input <json-file> [--plan <sha256>] [--provider-options <json-file>] [--jobs <n>] [--json|--jsonl]",
+      "atet code run <path> --input <json-file> [--plan <sha256>] [--provider-options <json-file>] [--jobs <n>] [--json|--jsonl]",
     );
     const input = optionString(parsed, "--input");
     if (input === undefined) fail("code run requires --input.");
@@ -2814,14 +2814,14 @@ function parseCode(argv: readonly string[]): CliCommand {
       ...runOutput(parsed),
     };
   }
-  fail("Usage: transmute code <init|check|plan|run> ...");
+  fail("Usage: atet code <init|check|plan|run> ...");
 }
 
 function parseRuns(argv: readonly string[]): CliCommand {
   const action = argv[0];
   if (action === "list") {
     const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--limit": "value" });
-    exactPositionals(parsed, 0, "transmute runs list [--limit <n>] [--json]");
+    exactPositionals(parsed, 0, "atet runs list [--limit <n>] [--json]");
     const limit = strictInteger(optionString(parsed, "--limit"), "--limit", 20);
     if (limit < 1 || limit > 1_000) fail("--limit must be from 1 through 1000.");
     return { json: optionFlag(parsed, "--json"), kind: "runs-list", limit };
@@ -2831,7 +2831,7 @@ function parseRuns(argv: readonly string[]): CliCommand {
     const [runId] = exactPositionals(
       parsed,
       1,
-      "transmute runs show <run-id> [--nodes failed|all] [--json]",
+      "atet runs show <run-id> [--nodes failed|all] [--json]",
     );
     return {
       json: optionFlag(parsed, "--json"),
@@ -2849,7 +2849,7 @@ function parseRuns(argv: readonly string[]): CliCommand {
     const [runId] = exactPositionals(
       parsed,
       1,
-      "transmute runs resume <run-id> [--provider-options <json-file>] [--replay-ambiguous-code <node-key> ...] [--jobs <n>] [--json|--jsonl]",
+      "atet runs resume <run-id> [--provider-options <json-file>] [--replay-ambiguous-code <node-key> ...] [--jobs <n>] [--json|--jsonl]",
     );
     return {
       kind: "runs-resume",
@@ -2869,7 +2869,7 @@ function parseRuns(argv: readonly string[]): CliCommand {
     const [runId, nodeKey] = exactPositionals(
       parsed,
       2,
-      "transmute runs approve <run-id> <node-key> (--preparation-plan <sha256>|--node-plan <sha256>) [--json]",
+      "atet runs approve <run-id> <node-key> (--preparation-plan <sha256>|--node-plan <sha256>) [--json]",
     );
     const preparation = checkedSha256(optionString(parsed, "--preparation-plan"), "--preparation-plan");
     const effect = checkedSha256(optionString(parsed, "--node-plan"), "--node-plan");
@@ -2887,10 +2887,10 @@ function parseRuns(argv: readonly string[]): CliCommand {
   }
   if (action === "cancel") {
     const parsed = parseOptions(argv.slice(1), JSON_SPEC);
-    const [runId] = exactPositionals(parsed, 1, "transmute runs cancel <run-id> [--json]");
+    const [runId] = exactPositionals(parsed, 1, "atet runs cancel <run-id> [--json]");
     return { json: optionFlag(parsed, "--json"), kind: "runs-cancel", runId: checkedRunId(runId!) };
   }
-  fail("Usage: transmute runs <list|show|resume|approve|cancel> ...");
+  fail("Usage: atet runs <list|show|resume|approve|cancel> ...");
 }
 
 function helpTopic(argv: readonly string[], index: number): readonly string[] {
@@ -2934,6 +2934,6 @@ export function parseCliArgs(argv: readonly string[]): CliCommand {
     case "render": return parseRender(argv.slice(1));
     case "assets": return parseAssets(argv.slice(1));
     case "__complete": return { kind: "complete", words: argv.slice(1) };
-    default: fail(`Unknown command: ${command}. Run transmute help.`);
+    default: fail(`Unknown command: ${command}. Run atet help.`);
   }
 }

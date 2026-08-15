@@ -17,7 +17,7 @@ import {
   type WorkflowRegistryProjection,
 } from "./contracts.js"
 import { parseCodeBoundary } from "./boundary.js"
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 import {
   captureJsonStructure,
   createBoundedJsonValueSnapshot,
@@ -89,7 +89,7 @@ function workflowDefinitionIdentity(options: {
   readonly version: number
 } {
   if (typeof options.build !== "function") {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow definitions require a build function.",
     )
@@ -101,7 +101,7 @@ function workflowDefinitionIdentity(options: {
     "workflow input schema id",
   )
   if (!Number.isSafeInteger(options.version) || options.version < 1) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow versions must be positive safe integers.",
     )
@@ -114,7 +114,7 @@ function assertOptionsObject(
   name: string,
 ): asserts value is Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new TransmuteCodeError("invalid-data", `${name} must be an object.`)
+    throw new AtetCodeError("invalid-data", `${name} must be an object.`)
   }
 }
 
@@ -127,7 +127,7 @@ function assertSchemaCapability(
     || value === null
     || typeof (value as { readonly safeParse?: unknown }).safeParse !== "function"
   ) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `${name} must provide a synchronous safeParse function.`,
     )
@@ -202,7 +202,7 @@ export function defineCompute<Input, Output>(
   assertSchemaCapability(options.inputSchema, "Trusted compute input schema")
   assertSchemaCapability(options.outputSchema, "Trusted compute output schema")
   if (typeof options.run !== "function") {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Trusted compute definitions require a run function.",
     )
@@ -234,7 +234,7 @@ export function defineCompute<Input, Output>(
     version: 1,
   }, "trusted compute definition")
   if (identity.bounds.maxDurationMs > MAX_TRUSTED_COMPUTE_DURATION_MS) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Trusted compute duration exceeds the host maximum.",
     )
@@ -318,14 +318,14 @@ export function buildAdvancedWorkflow<
 
 export function seconds(value: number): number {
   if (!Number.isFinite(value) || value < 0) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Seconds must be a finite nonnegative number.",
     )
   }
   const microseconds = value * 1_000_000
   if (!Number.isSafeInteger(microseconds)) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Seconds must resolve to an integer number of safe microseconds.",
     )

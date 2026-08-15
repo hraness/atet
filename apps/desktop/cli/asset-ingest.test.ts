@@ -25,14 +25,14 @@ function movBytes(): Uint8Array {
 }
 
 test("content-addresses a generated MOV with exact generated provenance", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-generated-overlay-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-generated-overlay-test-"));
   const bundle = join(temporary, "project_generated01");
   const source = join(temporary, "rendered.mov");
   const bytes = movBytes();
   const sourceSha256 = createHash("sha256").update(bytes).digest("hex");
   const input = {
     command: ["bun", "run", "studio", "html-overlay", "render"],
-    generator: "transmute-html-overlay",
+    generator: "atet-html-overlay",
     generatorVersion: "1",
     path: source,
     sourceSha256,
@@ -65,7 +65,7 @@ test("content-addresses a generated MOV with exact generated provenance", async 
 });
 
 test("rejects a generated MOV whose expected hash does not match its rendered bytes", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-generated-overlay-hash-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-generated-overlay-hash-test-"));
   const bundle = join(temporary, "project_generated02");
   const source = join(temporary, "rendered.mov");
   try {
@@ -85,7 +85,7 @@ test("rejects a generated MOV whose expected hash does not match its rendered by
 });
 
 test("rejects invalid generated MOV signatures before publication", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-generated-overlay-signature-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-generated-overlay-signature-test-"));
   const bundle = join(temporary, "project_generated03");
   const source = join(temporary, "rendered.mov");
   const bytes = Buffer.from("not a QuickTime movie", "utf8");
@@ -106,7 +106,7 @@ test("rejects invalid generated MOV signatures before publication", async () => 
 });
 
 test.skipIf(process.platform === "win32")("rejects symlink sources for generated MOV ingestion", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-generated-overlay-path-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-generated-overlay-path-test-"));
   const source = join(temporary, "rendered.mov");
   const sourceLink = join(temporary, "rendered-link.mov");
   const bytes = movBytes();
@@ -127,7 +127,7 @@ test.skipIf(process.platform === "win32")("rejects symlink sources for generated
 });
 
 test("content-addresses image, SVG, GIF, and video overlays", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-assets-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-assets-test-"));
   const bundle = join(temporary, "rec_assets001");
   try {
     const inputs = [
@@ -153,7 +153,7 @@ test("content-addresses image, SVG, GIF, and video overlays", async () => {
 });
 
 test("concurrently creates a fresh asset directory without losing either overlay", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-assets-parallel-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-assets-parallel-test-"));
   const bundle = join(temporary, "project_parallel01");
   const firstSource = join(temporary, "first.png");
   const secondSource = join(temporary, "second.png");
@@ -193,7 +193,7 @@ test("concurrently creates a fresh asset directory without losing either overlay
 });
 
 test("settles same-content parallel publication before verifying the winner", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-assets-same-content-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-assets-same-content-test-"));
   const source = join(temporary, "same.png");
   const bytes = Uint8Array.from([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1,
@@ -220,7 +220,7 @@ test("settles same-content parallel publication before verifying the winner", as
 });
 
 test("streams large non-SVG overlays without applying the in-memory SVG bound", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-large-overlay-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-large-overlay-test-"));
   const bundle = join(temporary, "rec_large0001");
   const source = join(temporary, "large.mp4");
   const bytes = 40 * 1024 * 1024 + 17;
@@ -293,7 +293,7 @@ test("stream copier rejects a source that ends before its declared size", () => 
 });
 
 test("verifies an existing content-addressed collision by streaming and preserves it", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-overlay-collision-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-overlay-collision-test-"));
   const bundle = join(temporary, "rec_collision1");
   const assets = join(bundle, "assets");
   const source = join(temporary, "image.png");
@@ -318,7 +318,7 @@ test("verifies an existing content-addressed collision by streaming and preserve
 });
 
 test.skipIf(process.platform === "win32")("rejects a persistent hardlink at a content-addressed asset leaf", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-overlay-hardlink-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-overlay-hardlink-test-"));
   const bundle = join(temporary, "rec_hardlink1");
   const assets = join(bundle, "assets");
   const source = join(temporary, "source.png");
@@ -344,7 +344,7 @@ test.skipIf(process.platform === "win32")("rejects a persistent hardlink at a co
 });
 
 test("rejects oversized SVG intrinsic dimensions during ingestion", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-svg-size-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-svg-size-test-"));
   try {
     const source = join(temporary, "huge.svg");
     await writeFile(source, "<svg xmlns='http://www.w3.org/2000/svg' width='20000' height='1'></svg>");
@@ -356,7 +356,7 @@ test("rejects oversized SVG intrinsic dimensions during ingestion", async () => 
 });
 
 test("keeps SVG sanitation on a bounded in-memory path", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-svg-byte-bound-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-svg-byte-bound-test-"));
   const source = join(temporary, "oversized.svg");
   try {
     const handle = await open(source, "wx", 0o600);
@@ -385,7 +385,7 @@ test("derives a missing SVG dimension from the viewBox aspect ratio", () => {
 });
 
 test("rejects active SVG content and external resource references", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-svg-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-svg-test-"));
   const bundle = join(temporary, "rec_svg00001");
   const source = join(temporary, "unsafe.svg");
   const unsafe = [
@@ -414,7 +414,7 @@ test("rejects active SVG content and external resource references", async () => 
 });
 
 test.skipIf(process.platform === "win32")("rejects symlink sources and asset-directory escapes", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-asset-path-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-asset-path-test-"));
   try {
     const source = join(temporary, "image.png");
     const sourceLink = join(temporary, "image-link.png");
@@ -446,7 +446,7 @@ test.skipIf(process.platform === "win32")("rejects symlink sources and asset-dir
 });
 
 test.skipIf(process.platform === "win32")("rejects a symlink at a content-addressed asset leaf", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-asset-leaf-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-asset-leaf-test-"));
   const bundle = join(temporary, "rec_leaf0001");
   const source = join(temporary, "image.png");
   const outside = join(temporary, "outside.png");

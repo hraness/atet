@@ -1,4 +1,4 @@
-export type TransmuteCloudErrorCode =
+export type AtetCloudErrorCode =
   | "AUTHENTICATION_REQUIRED"
   | "GENERATION_FAILED"
   | "GENERATION_INVALID_RESPONSE"
@@ -11,16 +11,21 @@ export type TransmuteCloudErrorCode =
  * `cause` is retained for local diagnostics but is deliberately not included
  * in the public message or CLI output.
  */
-export class TransmuteCloudError extends Error {
-  readonly code: TransmuteCloudErrorCode
+export class AtetCloudError extends Error {
+  readonly code: AtetCloudErrorCode
 
   constructor(
-    code: TransmuteCloudErrorCode,
+    code: AtetCloudErrorCode,
     message: string,
     options?: ErrorOptions,
   ) {
     super(`[${code}] ${message}`, options)
-    this.name = "TransmuteCloudError"
+    this.name = "AtetCloudError"
     this.code = code
   }
 }
+
+/** @deprecated Use {@link AtetCloudErrorCode}. */
+export type TransmuteCloudErrorCode = AtetCloudErrorCode
+/** @deprecated Use {@link AtetCloudError}. */
+export { AtetCloudError as TransmuteCloudError }

@@ -10,7 +10,7 @@ import { z } from "zod";
 import { CliError } from "./errors";
 import { environmentWithoutGatewayCredentials } from "./io";
 
-export const MUTATION_LOCK_FILE = ".transmute-mutation.lock";
+export const MUTATION_LOCK_FILE = ".atet-mutation.lock";
 export const MUTATION_LOCK_TEMP_PREFIX = `${MUTATION_LOCK_FILE}.acquire-`;
 
 const MAX_OWNER_BYTES = 16_384;

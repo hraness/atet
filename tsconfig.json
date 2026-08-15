@@ -9,43 +9,43 @@
     "moduleResolution": "Bundler",
     "moduleDetection": "force",
     "paths": {
-      "@hraness/transmute": [
+      "@hraness/atet": [
         "./src/index.ts"
       ],
-      "@hraness/transmute/cli": [
+      "@hraness/atet/cli": [
         "./src/cli.ts"
       ],
-      "@hraness/transmute/code": [
+      "@hraness/atet/code": [
         "./src/code/index.ts"
       ],
-      "@hraness/transmute/code/advanced": [
+      "@hraness/atet/code/advanced": [
         "./src/code/advanced.ts"
       ],
-      "@hraness/transmute/generate": [
+      "@hraness/atet/generate": [
         "./src/generate.ts"
       ],
-      "@hraness/transmute/host-resources": [
+      "@hraness/atet/host-resources": [
         "./src/host-resources.ts"
       ],
-      "@hraness/transmute/operations": [
+      "@hraness/atet/operations": [
         "./src/operations.ts"
       ],
-      "@hraness/transmute/workflow": [
+      "@hraness/atet/workflow": [
         "./src/workflow.ts"
       ],
-      "@hraness/transmute/scene": [
+      "@hraness/atet/scene": [
         "./packages/scene/src/index.ts"
       ],
-      "@hraness/transmute/local/code": [
+      "@hraness/atet/local/code": [
         "./apps/desktop/code/public.ts"
       ],
-      "@hraness/transmute/local/code/advanced": [
+      "@hraness/atet/local/code/advanced": [
         "./apps/desktop/code/advanced.ts"
       ],
-      "@hraness/transmute/local/code/workflows": [
+      "@hraness/atet/local/code/workflows": [
         "./apps/desktop/workflows/index.ts"
       ],
-      "@hraness/transmute/local/html-overlay": [
+      "@hraness/atet/local/html-overlay": [
         "./apps/desktop/html-overlay/index.ts"
       ]
     },

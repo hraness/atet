@@ -21,8 +21,8 @@ export function projectCameraNextCommands(
   cameraMoveId: CameraMoveId,
 ): Readonly<{ readonly remove: string; readonly show: string }> {
   return {
-    remove: `transmute project edit ${projectId} camera remove ${cameraMoveId} --json`,
-    show: `transmute project edit ${projectId} camera show --json`,
+    remove: `atet project edit ${projectId} camera remove ${cameraMoveId} --json`,
+    show: `atet project edit ${projectId} camera show --json`,
   };
 }
 

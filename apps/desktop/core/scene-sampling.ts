@@ -1,7 +1,7 @@
 import type { SourceInterval } from "../contracts/edit";
 import { canonicalJsonSha256 } from "./canonical-json";
 
-export const SCENE_SAMPLING_VERSION = "transmute-scene-sampling-v1";
+export const SCENE_SAMPLING_VERSION = "atet-scene-sampling-v1";
 
 export const SCENE_BATCH_LIMITS = {
   imageBytes: 6_000_000,

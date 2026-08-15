@@ -31,7 +31,7 @@ export const SocialVariantsInputSchema = z.strictObject({
 export const socialVariants = defineWorkflow({
   id: "social-variants",
   inputSchema: SocialVariantsInputSchema,
-  inputSchemaId: "studio.workflow.social-variants.input/v3",
+  inputSchemaId: "atet.workflow.social-variants.input/v3",
   version: 3,
   build(workflow, input) {
     const project = workflow.project.snapshot("project", input.project);

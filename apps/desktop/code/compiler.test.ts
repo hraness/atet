@@ -13,7 +13,10 @@ import {
   GRAPH_ABI,
   GRAPH_COMPILER_ABI,
   GRAPH_SCHEDULER_ABI,
+  GRAPH_PLAN_VERSION,
+  REQUIREMENT_ENVELOPE_VERSION,
   STATIC_BINDINGS_VERSION,
+  WORKFLOW_GRAPH_VERSION,
   WORKFLOW_REF_VERSION,
   type AuthoredWorkflowGraphV1,
   type GraphCompilerLimits,
@@ -42,7 +45,7 @@ const bundle = {
 } satisfies WorkflowBundleIdentity;
 
 const runtime = {
-  applicationBuild: "transmute-compiler-test",
+  applicationBuild: "atet-compiler-test",
   bunRevision: "compiler-test-revision",
   bunVersion: "1.3.14",
   bundlerConfigurationSha256: ZERO_HASH,
@@ -290,13 +293,13 @@ describe("workflow graph compiler", () => {
     });
   });
 
-  test("derives the Transmute family for visual media operations", () => {
+  test("derives the Atet family for visual media operations", () => {
     const registry = new OperationRegistry();
     register(
       registry,
-      "transmute.diagram.check",
-      "test.transmute-diagram-check-input/v1",
-      "test.transmute-diagram-check-output/v1",
+      "atet.diagram.check",
+      "test.atet-diagram-check-input/v1",
+      "test.atet-diagram-check-output/v1",
       policy({
         cancellable: false,
         effect: "local-read",
@@ -308,12 +311,12 @@ describe("workflow graph compiler", () => {
     const builder = WorkflowGraphBuilder.create(registry);
     const checked = builder.operationByKind("check", {
       input: { path: "fixtures/system.diagram.json" },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 1,
     });
     const graph = builder.build({
-      id: "transmute-visual-compiler",
-      inputSchemaId: "test.transmute-visual-compiler-input/v1",
+      id: "atet-visual-compiler",
+      inputSchemaId: "test.atet-visual-compiler-input/v1",
       version: 1,
     }, { checked });
 
@@ -327,8 +330,8 @@ describe("workflow graph compiler", () => {
 
     expect(plan.envelope).toMatchObject({
       effects: ["local-read"],
-      operationFamilies: ["transmute"],
-      operationKinds: ["transmute.diagram.check"],
+      operationFamilies: ["atet"],
+      operationKinds: ["atet.diagram.check"],
       preparation: ["local-media"],
       resources: [{ amount: 1, resource: "local-io" }],
     });
@@ -613,5 +616,70 @@ describe("workflow graph compiler", () => {
       ...forgedTopology,
       graphPlanSha256: createGraphPlanHash(forgedTopology),
     })).toThrow(/topology/u);
+  });
+
+  test("verifies predecessor plan hashes before coherent Atet normalization", () => {
+    const canonical = compile(graphFixture(registryFixture()));
+    const legacy = JSON.parse(
+      JSON.stringify(canonical)
+        .replaceAll("atet-workflow-graph-v2", "studio-workflow-graph-v2")
+        .replaceAll("atet-workflow-ref-v1", "studio-workflow-ref-v1")
+        .replaceAll("atet-requirement-envelope-v2", "studio-requirement-envelope-v2")
+        .replaceAll("atet-workflow-graph-abi-v2", "studio-workflow-graph-abi-v2")
+        .replaceAll("atet-workflow-compiler-v2", "transmute-workflow-compiler-v2")
+        .replaceAll("atet-workflow-scheduler-v2", "transmute-workflow-scheduler-v2")
+        .replaceAll("atet-code-worker-abi-v4", "transmute-code-worker-abi-v4")
+        .replaceAll("atet-static-bindings-v1", "transmute-static-bindings-v1")
+        .replaceAll("atet-graph-plan-v2", "transmute-graph-plan-v2")
+        .replaceAll("atet-compiler-test", "transmute-compiler-test")
+        .replaceAll("test.snapshot-input/v1", "studio.operation.project.snapshot.input/v1")
+        .replaceAll("test.snapshot-output/v1", "studio.operation.project.snapshot.output/v1")
+        .replaceAll("test.faces-input/v1", "studio.operation.analysis.faces.input/v1")
+        .replaceAll("test.faces-output/v1", "studio.operation.analysis.faces.output/v1")
+        .replaceAll("test.music-input/v1", "studio.operation.analysis.music.input/v1")
+        .replaceAll("test.music-output/v1", "studio.operation.analysis.music.output/v1")
+        .replaceAll("test.edits-input/v1", "studio.operation.derive.edit-batch.input/v1")
+        .replaceAll("test.edits-output/v1", "studio.operation.derive.edit-batch.output/v1"),
+    ) as typeof canonical;
+    const { graphPlanSha256: ignoredGraphPlanSha256, ...legacyUnsigned } = legacy;
+    void ignoredGraphPlanSha256;
+    const authenticatedLegacy = {
+      ...legacyUnsigned,
+      graphPlanSha256: createGraphPlanHash(legacyUnsigned),
+    };
+
+    const parsed = parseGraphPlan(authenticatedLegacy);
+    expect(parsed.version).toBe(GRAPH_PLAN_VERSION);
+    expect(parsed.graph.version).toBe(WORKFLOW_GRAPH_VERSION);
+    expect(parsed.envelope.version).toBe(REQUIREMENT_ENVELOPE_VERSION);
+    expect(parsed.runtime).toMatchObject({
+      applicationBuild: "atet-compiler-test",
+      codeWorkerAbi: CODE_WORKER_ABI,
+      compilerAbi: GRAPH_COMPILER_ABI,
+      graphAbi: GRAPH_ABI,
+      schedulerAbi: GRAPH_SCHEDULER_ABI,
+    });
+    expect(parsed.staticBindings.version).toBe(STATIC_BINDINGS_VERSION);
+    expect(parsed.registry.discovery.every(discovery => (
+      !/^(?:studio|transmute)\./u.test(discovery.inputSchemaId)
+      && !/^(?:studio|transmute)\./u.test(discovery.outputSchemaId)
+    ))).toBe(true);
+    expect(JSON.stringify(parsed)).not.toMatch(/studio|transmute/u);
+
+    expect(() => parseGraphPlan({
+      ...authenticatedLegacy,
+      runtime: {
+        ...authenticatedLegacy.runtime,
+        applicationBuild: "transmute-tampered",
+      },
+    })).toThrow("hash does not match");
+    const forgedLegacyUnsigned = {
+      ...legacyUnsigned,
+      envelope: { ...legacyUnsigned.envelope, effects: [] },
+    };
+    expect(() => parseGraphPlan({
+      ...forgedLegacyUnsigned,
+      graphPlanSha256: createGraphPlanHash(forgedLegacyUnsigned),
+    })).toThrow(/requirements/u);
   });
 });

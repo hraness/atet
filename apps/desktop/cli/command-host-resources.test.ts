@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import {
   createProcessLocalHostResourceCoordinator,
-  defaultTransmuteHostResourceProfile,
-} from "@hraness/transmute/host-resources";
+  defaultAtetHostResourceProfile,
+} from "@hraness/atet/host-resources";
 
 import type { CliCommand } from "./args";
 import {
@@ -21,7 +21,7 @@ function command(value: Readonly<Record<string, unknown>>): CliCommand {
 }
 
 const coordinator = createProcessLocalHostResourceCoordinator({
-  profile: defaultTransmuteHostResourceProfile(8),
+  profile: defaultAtetHostResourceProfile(8),
 });
 
 describe("CLI command host-resource policy", () => {
@@ -111,7 +111,7 @@ describe("CLI command host-resource policy", () => {
     const singleCpu = createProcessLocalHostResourceCoordinator({
       profile: {
         capacities: [{ limit: 1, resource: "cpu" }],
-        id: "transmute.cli-test/single-cpu/v1",
+        id: "atet.cli-test/single-cpu/v1",
       },
     });
     expect(computeWorkerPoolSize(8, 4, singleCpu)).toBe(1);
@@ -126,7 +126,7 @@ describe("CLI command host-resource policy", () => {
     const replayCoordinator = createProcessLocalHostResourceCoordinator({
       profile: {
         capacities: [{ limit: 2, resource: "cpu" }],
-        id: "transmute.cli-test/replay-two-cpu/v1",
+        id: "atet.cli-test/replay-two-cpu/v1",
       },
     });
     expect(replayComputeWorkerPoolSize(

@@ -43,11 +43,12 @@ import {
   recordingStartOperationDefinition,
   recordingStartOperationDefinitionV1,
   recordingStopOperationDefinition,
-  transmuteDiagramCheckOperationDefinition,
-  transmuteDiagramRenderOperationDefinition,
-  transmuteImageVectorizeOperationDefinition,
+  atetDiagramCheckOperationDefinition,
+  atetDiagramRenderOperationDefinition,
+  atetImageVectorizeOperationDefinition,
 } from "./operations";
-import { transmutePortableOperationDefinitions } from "./operations/transmute-portable";
+import { atetPortableOperationDefinitions } from "./operations/atet-portable";
+import { ATET_APPLICATION_TOOL_VERSION } from "./operation";
 import { OperationRegistry } from "./registry";
 
 export interface CreateApplicationOperationRegistryOptions {
@@ -60,7 +61,7 @@ export function createApplicationOperationRegistry(
 ): OperationRegistry {
   const nextAnalysisId = options.nextAnalysisId
     ?? (() => `analysis_${randomUUID().replaceAll("-", "")}`);
-  const toolVersion = options.toolVersion ?? "transmute-1.0.0";
+  const toolVersion = options.toolVersion ?? ATET_APPLICATION_TOOL_VERSION;
   const registry = new OperationRegistry();
   registry.register(projectSnapshotOperationDefinition);
   registry.register(createProjectInactivityOperationDefinition({
@@ -107,10 +108,10 @@ export function createApplicationOperationRegistry(
   registry.register(recordingPauseOperationDefinition);
   registry.register(recordingResumeOperationDefinition);
   registry.register(recordingStopOperationDefinition);
-  registry.register(transmuteDiagramCheckOperationDefinition);
-  registry.register(transmuteDiagramRenderOperationDefinition);
-  registry.register(transmuteImageVectorizeOperationDefinition);
-  for (const definition of transmutePortableOperationDefinitions) {
+  registry.register(atetDiagramCheckOperationDefinition);
+  registry.register(atetDiagramRenderOperationDefinition);
+  registry.register(atetImageVectorizeOperationDefinition);
+  for (const definition of atetPortableOperationDefinitions) {
     registry.register(definition);
   }
   return registry;

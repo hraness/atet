@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { createTransmuteDirectSession } from "./session";
+import { createAtetDirectSession } from "./session";
 
-describe("Transmute Direct session", () => {
+describe("Atet Direct session", () => {
   test("binds activation, coverage, observation, and transport teardown", () => {
-    const created = createTransmuteDirectSession({ kind: "query", source: "" });
+    const created = createAtetDirectSession({ kind: "query", source: "" });
     if (!created.ok) throw new Error(created.error.message);
     const session = created.value;
 

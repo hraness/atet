@@ -6,7 +6,7 @@ import { ApplicationError } from "../application/errors";
 
 const MAX_TYPE_DIAGNOSTICS = 20;
 const MAX_TYPE_DIAGNOSTIC_BYTES = 32 * 1024;
-const WORKFLOW_GLOBALS_PATH = "/transmute-workflow-typecheck-globals.d.ts";
+const WORKFLOW_GLOBALS_PATH = "/atet-workflow-typecheck-globals.d.ts";
 const WORKFLOW_GLOBALS_SOURCE = [
   "declare const Bun: any;",
   "declare const process: any;",
@@ -120,7 +120,7 @@ export function typecheckWorkflowSnapshot(
   }
   const typecheckImporterPath = resolve(
     dirname(configPath),
-    "transmute-workflow-typecheck.ts",
+    "atet-workflow-typecheck.ts",
   );
   const aliasPaths = Object.fromEntries(
     Object.entries(options.aliases)

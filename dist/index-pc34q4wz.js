@@ -18,7 +18,7 @@ async function pathExists(filePath) {
 
 // src/skill-install.ts
 function bundledSkillPath() {
-  return resolve(dirname(fileURLToPath(import.meta.url)), "../skills/transmute");
+  return resolve(dirname(fileURLToPath(import.meta.url)), "../skills/atet");
 }
 function targetRoot(target, scope, projectDirectory) {
   const directory = target === "codex" ? ".codex" : target === "claude" ? ".claude" : ".agents";
@@ -31,9 +31,9 @@ async function installSkill(options) {
   const root = targetRoot(options.target, options.scope, resolve(options.projectDirectory ?? process.cwd()));
   const legacy = join(root, "diagram");
   if (await pathExists(legacy)) {
-    throw new Error(`Legacy diagram skill found at ${legacy}. Remove or move that directory, then rerun "transmute skill install --target ${options.target} --scope ${options.scope}". Transmute will not install both skills side by side.`);
+    throw new Error(`Legacy diagram skill found at ${legacy}. Remove or move that directory, then rerun "atet skill install --target ${options.target} --scope ${options.scope}". Atet will not install both skills side by side.`);
   }
-  const destination = join(root, "transmute");
+  const destination = join(root, "atet");
   if (await pathExists(destination)) {
     if (!options.force) {
       throw new Error(`Skill already exists at ${destination}; pass --force to replace it`);

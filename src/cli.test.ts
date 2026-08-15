@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { main as runTransmuteCliInProcess } from "./cli.ts"
-import { transmuteImageModels } from "./generate.ts"
+import { main as runAtetCliInProcess } from "./cli.ts"
+import { atetImageModels } from "./generate.ts"
 import type {
   HostResourceClaim,
   HostResourceCoordinator,
@@ -14,7 +14,7 @@ function recordingCoordinator(record: {
   claims: HostResourceClaim[][]
 }, inheritedFileDescriptor = 83): HostResourceCoordinator {
   const profile = {
-    id: "transmute.cli-test-host/v1",
+    id: "atet.cli-test-host/v1",
     capacities: [],
   } as const
   return {
@@ -53,30 +53,45 @@ async function runCli(
   return { exitCode, stdout, stderr }
 }
 
-describe("Transmute CLI", () => {
-  test("reports v1.0.0 and documents namespaced media surfaces", async () => {
+describe("Atet CLI", () => {
+  test("reports v2.0.0 and documents namespaced media surfaces", async () => {
     const version = await runCli(["--version"], process.cwd())
     expect(version).toEqual({
       exitCode: 0,
-      stdout: "1.0.0\n",
+      stdout: "2.0.0\n",
       stderr: "",
     })
     const help = await runCli(["--help"], process.cwd())
     expect(help.exitCode).toBe(0)
     for (const command of [
-      "transmute diagram init",
-      "transmute diagram check",
-      "transmute diagram render",
-      "transmute image vectorize",
-      "transmute image generate",
-      "transmute canvas open",
-      "transmute code search",
-      "transmute code execute",
-      "search_transmute/execute_transmute",
+      "atet diagram init",
+      "atet diagram check",
+      "atet diagram render",
+      "atet image vectorize",
+      "atet image generate",
+      "atet canvas open",
+      "atet code search",
+      "atet code execute",
+      "search_atet/execute_atet",
     ]) {
       expect(help.stdout).toContain(command)
     }
-    expect(help.stdout).not.toContain("transmute auth")
+    expect(help.stdout).not.toContain("atet auth")
+  })
+
+  test("initializes diagrams against the canonical v2 schema", async () => {
+    const root = await mkdtemp(join(tmpdir(), "atet-cli-init-"))
+    try {
+      const result = await runCli(["diagram", "init", "system.diagram.json"], root)
+      expect(result.exitCode).toBe(0)
+      expect(result.stderr).toBe("")
+      const diagram = JSON.parse(await readFile(join(root, "system.diagram.json"), "utf8"))
+      expect(diagram.$schema).toBe(
+        "https://raw.githubusercontent.com/hraness/atet/v2.0.0/schema/diagram.schema.json",
+      )
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   test("searches the canonical registry as bounded JSON", async () => {
@@ -88,15 +103,25 @@ describe("Transmute CLI", () => {
     expect(result.stderr).toBe("")
     const parsed = JSON.parse(result.stdout)
     expect(parsed.operations.map(({ code }: { code: string }) => code)).toEqual([
-      "transmute.diagram.check",
-      "transmute.diagram.render",
+      "atet.diagram.check",
+      "atet.diagram.render",
+    ])
+
+    const predecessor = await runCli(
+      ["code", "search", "transmute.diagram.check"],
+      process.cwd(),
+    )
+    expect(predecessor.exitCode).toBe(0)
+    expect(predecessor.stderr).toBe("")
+    expect(JSON.parse(predecessor.stdout).operations).toEqual([
+      expect.objectContaining({ code: "atet.diagram.check" }),
     ])
   })
 
   test("defaults direct generation to the Recraft utility model", async () => {
     const output: string[] = []
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-    await runTransmuteCliInProcess(
+    await runAtetCliInProcess(
       [
         "image",
         "generate",
@@ -108,14 +133,14 @@ describe("Transmute CLI", () => {
       {
         generate: async (input) => {
           expect(input).toEqual({
-            model: transmuteImageModels[1],
+            model: atetImageModels[1],
             prompt: "one literal illustration",
             outputPath: "illustration.webp",
           })
           return {
             bytes: 128,
             mediaType: "image/webp",
-            model: transmuteImageModels[1],
+            model: atetImageModels[1],
             outputPath: "/workspace/illustration.webp",
             provider: "vercel-ai-gateway",
             requestId: "request_default_model",
@@ -128,7 +153,7 @@ describe("Transmute CLI", () => {
       },
     )
     expect(JSON.parse(output.join("\n"))).toMatchObject({
-      model: transmuteImageModels[1],
+      model: atetImageModels[1],
       mediaType: "image/webp",
     })
     expect(admission.claims).toEqual([[
@@ -142,7 +167,7 @@ describe("Transmute CLI", () => {
     const output: string[] = []
     let calls = 0
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-    await runTransmuteCliInProcess(
+    await runAtetCliInProcess(
       ["image", "vectorize", "source.png", "--output", "source.svg", "--json"],
       {
         hostResourceCoordinator: recordingCoordinator(admission, 89),
@@ -203,12 +228,12 @@ describe("Transmute CLI", () => {
       width: 16,
     })
     await expect(
-      runTransmuteCliInProcess(["vectorize", "source.png", "--output", "source.svg"]),
+      runAtetCliInProcess(["vectorize", "source.png", "--output", "source.svg"]),
     ).rejects.toThrow("flat `vectorize` command moved")
   })
 
   test("executes exact typed JSON without loading workspace code", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-cli-code-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-cli-code-"))
     const marker = join(root, "config-executed")
     try {
       await writeFile(
@@ -230,10 +255,27 @@ describe("Transmute CLI", () => {
         }),
       )
       await writeFile(
-        join(root, "transmute.config.ts"),
+        join(root, "atet.config.ts"),
         `await Bun.write(${JSON.stringify(marker)}, "executed"); export default {}\n`,
       )
       const result = await runCli(
+        [
+          "code",
+          "execute",
+          "atet.diagram.check",
+          "--input",
+          JSON.stringify({ path: "flow.diagram.json" }),
+        ],
+        root,
+      )
+      expect(result.exitCode).toBe(0)
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        operation: "atet.diagram.check",
+        result: { configPath: null },
+      })
+      expect(await Bun.file(marker).exists()).toBe(false)
+
+      const predecessor = await runCli(
         [
           "code",
           "execute",
@@ -243,18 +285,18 @@ describe("Transmute CLI", () => {
         ],
         root,
       )
-      expect(result.exitCode).toBe(0)
-      expect(JSON.parse(result.stdout)).toMatchObject({
-        operation: "transmute.diagram.check",
+      expect(predecessor.exitCode).toBe(0)
+      expect(predecessor.stderr).toBe("")
+      expect(JSON.parse(predecessor.stdout)).toMatchObject({
+        operation: "atet.diagram.check",
         result: { configPath: null },
       })
-      expect(await Bun.file(marker).exists()).toBe(false)
 
       const rejected = await runCli(
         [
           "code",
           "execute",
-          "transmute.diagram.check",
+          "atet.diagram.check",
           "--input",
           JSON.stringify({
             path: "flow.diagram.json",
@@ -272,7 +314,7 @@ describe("Transmute CLI", () => {
   })
 
   test("admits in-process code execution through the operation registry", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-cli-admission-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-cli-admission-"))
     try {
       const path = join(root, "flow.diagram.json")
       await writeFile(path, JSON.stringify({
@@ -283,10 +325,10 @@ describe("Transmute CLI", () => {
       }))
       const output: string[] = []
       const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-      await runTransmuteCliInProcess([
+      await runAtetCliInProcess([
         "code",
         "execute",
-        "transmute.diagram.check",
+        "atet.diagram.check",
         "--input",
         JSON.stringify({ path }),
       ], {
@@ -294,7 +336,7 @@ describe("Transmute CLI", () => {
         log: line => output.push(line),
       })
       expect(JSON.parse(output.join("\n"))).toMatchObject({
-        operation: "transmute.diagram.check",
+        operation: "atet.diagram.check",
         result: { configPath: null },
       })
       expect(admission.claims).toEqual([[

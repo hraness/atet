@@ -527,7 +527,7 @@ private final class DisplayRecorder:
             subject: "display \(display.displayID)"
         )
         timingQueue = DispatchQueue(
-            label: "com.hraness.transmute.capture.display-timing.\(display.displayID)",
+            label: "com.hraness.atet.capture.display-timing.\(display.displayID)",
             qos: .userInitiated
         )
         super.init()
@@ -1852,7 +1852,7 @@ final class CameraSegmentRecorder: @unchecked Sendable {
     private let delegate: MediaFileDelegate
     private let interruptionReporter: CaptureInterruptionReporter
     private let interruptionMonitor: CaptureAVInterruptionMonitor
-    private let sessionQueue = DispatchQueue(label: "com.hraness.transmute.capture.camera")
+    private let sessionQueue = DispatchQueue(label: "com.hraness.atet.capture.camera")
     private let stopFlight = CaptureSingleFlight<CameraRecordingCompletion, Never>()
     let sourceJSON: [String: Any]
 
@@ -2269,7 +2269,7 @@ final class MicrophoneSegmentRecorder: @unchecked Sendable {
     private let delegate: MediaFileDelegate
     private let interruptionReporter: CaptureInterruptionReporter
     private let interruptionMonitor: CaptureAVInterruptionMonitor
-    private let sessionQueue = DispatchQueue(label: "com.hraness.transmute.capture.microphone")
+    private let sessionQueue = DispatchQueue(label: "com.hraness.atet.capture.microphone")
     private let stopFlight =
         CaptureSingleFlight<MicrophoneRecordingCompletion, Never>()
 

@@ -9,6 +9,7 @@ import {
   rm,
 } from "node:fs/promises";
 import {
+  dirname,
   isAbsolute,
   join,
   relative,
@@ -600,7 +601,10 @@ async function generatedDirectory(
 ): Promise<string> {
   return await ensurePhysicalPrivateDirectoryWithin(
     application.paths.repositoryRoot,
-    `artifacts/transmute/generated/media-operations/${category}`,
+    relative(
+      application.paths.repositoryRoot,
+      join(dirname(application.paths.artifactRoot), `generated/media-operations/${category}`),
+    ),
   );
 }
 

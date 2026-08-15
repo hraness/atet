@@ -93,7 +93,7 @@ function controllerSnapshot(
     logicalTimeUs: action === "start" ? 0 : action === "stop" ? 4_000_000 : 2_000_000,
     permissions: AUTHORIZED_PERMISSIONS,
     recordingId: "rec_operation01",
-    recordingRoot: "/private/repository/artifacts/transmute/recordings/rec_operation01",
+    recordingRoot: "/private/repository/artifacts/atet/recordings/rec_operation01",
     state,
     updatedAt: `2026-07-23T15:00:0${
       action === "start" ? "0" : action === "pause" ? "1" : action === "resume" ? "2" : "3"
@@ -399,7 +399,7 @@ describe("recording application operations", () => {
         nodeKey: "recording-start",
         nodePlanSha256: "a".repeat(64),
         runId: "run_recording01",
-        workspaceDirectory: "/private/repository/artifacts/transmute/private/workflow-runs/test",
+        workspaceDirectory: "/private/repository/artifacts/atet/private/workflow-runs/test",
       },
     };
     expect(await rejection(recordingRegistry().execute(context, {

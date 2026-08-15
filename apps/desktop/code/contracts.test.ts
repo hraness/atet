@@ -102,7 +102,7 @@ describe("workflow graph contracts", () => {
     })).toThrow();
     expect(() => SerializedRefV1Schema.parse({
       ...validReference,
-      version: "transmute-workflow-ref-v2",
+      version: "atet-workflow-ref-v2",
     })).toThrow();
 
     const malformedReference = structuredClone(validGraph()) as {
@@ -116,7 +116,7 @@ describe("workflow graph contracts", () => {
 
     expect(() => AuthoredWorkflowGraphV1Schema.parse({
       ...(validGraph() as Record<string, unknown>),
-      version: "transmute-workflow-graph-v999",
+      version: "atet-workflow-graph-v999",
     })).toThrow();
   });
 

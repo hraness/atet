@@ -1,8 +1,8 @@
 # Reference-led Three.js and metallic treatments
 
-Use this guide only when Transmute's complete local Code Mode host is available.
+Use this guide only when Atet's complete local Code Mode host is available.
 It ships in this repository alongside the thin desktop capture shell. The
-portable `@hraness/transmute/code` and `@hraness/transmute/workflow`
+portable `@hraness/atet/code` and `@hraness/atet/workflow`
 entrypoints intentionally expose no HTML renderer, Three.js operation, or
 arbitrary source execution. Those capabilities belong to the local host.
 
@@ -15,7 +15,7 @@ authority.
    record.
 2. Inspect the subject, silhouette, palette, proportions, negative space, and
    intended polygon character.
-3. Run `transmute html scaffold three --output <scene.html>`. The command does
+3. Run `atet html scaffold three --output <scene.html>`. The command does
    not overwrite an existing source.
 4. Edit only the scaffold's `createSubject()` region unless the requested
    camera, lights, or timing require a reviewed change elsewhere.
@@ -61,12 +61,12 @@ private URL and settle decoding before frame zero:
 
 ```js
 const texture = new THREE.TextureLoader()
-  .loadAsync(TransmuteOverlay.asset("reference-image"))
+  .loadAsync(AtetOverlay.asset("reference-image"))
   .then((loaded) => {
     loaded.colorSpace = THREE.SRGBColorSpace;
     return loaded;
   });
-TransmuteOverlay.ready(texture);
+AtetOverlay.ready(texture);
 ```
 
 Never load a remote URL, data URL, object URL, undeclared font, environment map,
@@ -75,7 +75,7 @@ or model file from scene code.
 ## Preserve deterministic motion
 
 - Derive every visible state from `progress`, `timeMs`, parameters, or
-  `TransmuteOverlay.randomFor(key)`.
+  `AtetOverlay.randomFor(key)`.
 - Do not use `requestAnimationFrame`, `setAnimationLoop`, wall-clock time,
   mutable random sequences, pointer input, or cumulative per-frame state.
 - Create geometry, materials, textures, vectors, matrices, and arrays before

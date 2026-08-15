@@ -81,7 +81,7 @@ jobs:
             "$sdk" "$desktop" "$native" "$package" "$site" | tee -a "$GITHUB_OUTPUT"
 
   boundary:
-    name: Standalone boundary
+    name: Atet standalone boundary
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -94,7 +94,7 @@ jobs:
       - run: bun run check:standalone
 
   sdk:
-    name: SDK
+    name: Atet SDK
     needs: plan
     if: needs.plan.outputs.sdk == 'true'
     runs-on: ubuntu-latest
@@ -120,7 +120,7 @@ jobs:
       - run: node --input-type=module -e 'await Promise.all(["./dist/index.js","./dist/cli.js","./dist/code/index.js","./dist/code/advanced.js","./dist/generate.js","./dist/host-resources.js","./dist/operations.js","./dist/workflow.js"].map(path => import(path)))'
 
   desktop:
-    name: Local host
+    name: Atet local runtime
     needs: plan
     if: needs.plan.outputs.desktop == 'true'
     runs-on: ubuntu-latest
@@ -147,7 +147,7 @@ jobs:
           fi
 
   site:
-    name: Static site
+    name: Atet site
     needs: plan
     if: needs.plan.outputs.site == 'true'
     runs-on: ubuntu-latest
@@ -163,7 +163,7 @@ jobs:
       - run: bun run check:web
 
   package:
-    name: Packed consumer
+    name: Atet packed consumer
     needs: plan
     if: needs.plan.outputs.package == 'true'
     runs-on: ubuntu-latest
@@ -178,7 +178,7 @@ jobs:
       - run: bun run test:package
 
   native:
-    name: macOS native shell
+    name: Atet macOS shell
     needs: plan
     if: needs.plan.outputs.native == 'true'
     runs-on: macos-15

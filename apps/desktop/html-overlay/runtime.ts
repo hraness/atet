@@ -35,7 +35,7 @@ function scriptLiteral(value: unknown): string {
 
 /**
  * Produces a complete JavaScript expression. Evaluating it installs the frozen
- * page-facing `globalThis.TransmuteOverlay` API and returns a host controller with
+ * page-facing `globalThis.AtetOverlay` API and returns a host controller with
  * `renderFrame(frame)`. The controller is not stored on the page global.
  */
 export function createHtmlOverlayBrowserRuntimeSource(
@@ -158,7 +158,7 @@ export function createHtmlOverlayBrowserRuntimeSource(
   };
   const randomFor = (key) => {
     if (typeof key !== "string" || key.length === 0 || key.length > 256) {
-      throw new TypeError("TransmuteOverlay.randomFor requires a nonempty string key of at most 256 characters.");
+      throw new TypeError("AtetOverlay.randomFor requires a nonempty string key of at most 256 characters.");
     }
     return nextMulberry32(randomSeed("key\\0" + key))[1];
   };
@@ -242,7 +242,7 @@ export function createHtmlOverlayBrowserRuntimeSource(
   }
 
   const NativeDate = globalThis.Date;
-  function TransmuteDate(...args) {
+  function AtetDate(...args) {
     if (new.target === undefined) {
       return new NativeDate(config.epochMs + currentTimeMs).toString();
     }
@@ -254,34 +254,34 @@ export function createHtmlOverlayBrowserRuntimeSource(
       new.target,
     );
   }
-  TransmuteDate.prototype = NativeDate.prototype;
+  AtetDate.prototype = NativeDate.prototype;
   Object.defineProperty(NativeDate.prototype, "constructor", {
     configurable: false,
     enumerable: false,
-    value: TransmuteDate,
+    value: AtetDate,
     writable: false,
   });
   for (const [name, value] of [
     ["parse", NativeDate.parse.bind(NativeDate)],
     ["UTC", NativeDate.UTC.bind(NativeDate)],
   ]) {
-    Object.defineProperty(TransmuteDate, name, {
+    Object.defineProperty(AtetDate, name, {
       configurable: false,
       enumerable: false,
       value,
       writable: false,
     });
   }
-  Object.defineProperty(TransmuteDate, "now", {
+  Object.defineProperty(AtetDate, "now", {
     configurable: false,
     enumerable: false,
     value: () => config.epochMs + currentTimeMs,
     writable: false,
   });
-  replaceRuntimeValue(globalThis, "Date", TransmuteDate);
+  replaceRuntimeValue(globalThis, "Date", AtetDate);
   if (typeof globalThis.File === "function") {
     const NativeFile = globalThis.File;
-    function TransmuteFile(bits, name, options) {
+    function AtetFile(bits, name, options) {
       const normalizedOptions = (
         options === undefined
         || options === null
@@ -299,28 +299,28 @@ export function createHtmlOverlayBrowserRuntimeSource(
       return Reflect.construct(
         NativeFile,
         [bits, name, normalizedOptions],
-        new.target ?? TransmuteFile,
+        new.target ?? AtetFile,
       );
     }
-    TransmuteFile.prototype = Object.create(NativeFile.prototype, {
+    AtetFile.prototype = Object.create(NativeFile.prototype, {
       constructor: {
         configurable: false,
         enumerable: false,
-        value: TransmuteFile,
+        value: AtetFile,
         writable: false,
       },
     });
     Object.defineProperty(NativeFile.prototype, "constructor", {
       configurable: false,
       enumerable: false,
-      value: TransmuteFile,
+      value: AtetFile,
       writable: false,
     });
-    Object.defineProperty(TransmuteFile, "name", {
+    Object.defineProperty(AtetFile, "name", {
       configurable: false,
       value: "File",
     });
-    replaceRuntimeValue(globalThis, "File", TransmuteFile);
+    replaceRuntimeValue(globalThis, "File", AtetFile);
   }
   if (globalThis.performance !== undefined) {
     replaceRuntimeValue(
@@ -348,7 +348,7 @@ export function createHtmlOverlayBrowserRuntimeSource(
     }
     const rejectPerformanceTimelineWrite = () => {
       throw new DOMException(
-        "The ambient Performance Timeline is unavailable; use the TransmuteOverlay frame clock.",
+        "The ambient Performance Timeline is unavailable; use the AtetOverlay frame clock.",
         "NotSupportedError",
       );
     };
@@ -454,7 +454,7 @@ export function createHtmlOverlayBrowserRuntimeSource(
       "PerformanceObserver",
       function () {
         throw new DOMException(
-          "PerformanceObserver is unavailable; use the TransmuteOverlay frame clock.",
+          "PerformanceObserver is unavailable; use the AtetOverlay frame clock.",
           "NotSupportedError",
         );
       },
@@ -463,7 +463,7 @@ export function createHtmlOverlayBrowserRuntimeSource(
   if (typeof globalThis.URL?.createObjectURL === "function") {
     const rejectObjectUrl = () => {
       throw new DOMException(
-        "Blob object URLs are unavailable; declare the overlay asset with TransmuteOverlay.asset().",
+        "Blob object URLs are unavailable; declare the overlay asset with AtetOverlay.asset().",
         "NotSupportedError",
       );
     };
@@ -643,7 +643,7 @@ export function createHtmlOverlayBrowserRuntimeSource(
   if (globalThis.Temporal?.Now !== undefined) {
     const rejectTemporalNow = () => {
       throw new DOMException(
-        "Temporal.Now is unavailable; use the TransmuteOverlay frame clock.",
+        "Temporal.Now is unavailable; use the AtetOverlay frame clock.",
         "NotSupportedError",
       );
     };
@@ -661,7 +661,7 @@ export function createHtmlOverlayBrowserRuntimeSource(
 
   const requireRegistration = (name) => {
     if (!registrationOpen) {
-      throw new Error("TransmuteOverlay." + name + " must be called before the first rendered frame.");
+      throw new Error("AtetOverlay." + name + " must be called before the first rendered frame.");
     }
   };
 
@@ -700,7 +700,7 @@ export function createHtmlOverlayBrowserRuntimeSource(
     onFrame(callback) {
       requireRegistration("onFrame");
       if (typeof callback !== "function") {
-        throw new TypeError("TransmuteOverlay.onFrame requires a callback.");
+        throw new TypeError("AtetOverlay.onFrame requires a callback.");
       }
       callbacks.push(callback);
       return () => {
@@ -721,7 +721,7 @@ export function createHtmlOverlayBrowserRuntimeSource(
         || promise === null
         || typeof promise.then !== "function"
       ) {
-        throw new TypeError("TransmuteOverlay.ready requires a promise or thenable.");
+        throw new TypeError("AtetOverlay.ready requires a promise or thenable.");
       }
       pendingReadiness += 1;
       const pending = Promise.resolve(promise).finally(() => {
@@ -735,7 +735,7 @@ export function createHtmlOverlayBrowserRuntimeSource(
     trackAnimation(animation) {
       requireRegistration("trackAnimation");
       if ((typeof animation !== "object" && typeof animation !== "function") || animation === null) {
-        throw new TypeError("TransmuteOverlay.trackAnimation requires animation controls.");
+        throw new TypeError("AtetOverlay.trackAnimation requires animation controls.");
       }
       if (!("time" in animation) && !("currentTime" in animation)) {
         throw new TypeError("A tracked animation must expose Motion time or WAAPI currentTime.");
@@ -747,12 +747,21 @@ export function createHtmlOverlayBrowserRuntimeSource(
     width: config.width,
   });
 
-  if (Object.hasOwn(globalThis, "TransmuteOverlay")) {
+  if (
+    Object.hasOwn(globalThis, "AtetOverlay")
+    || Object.hasOwn(globalThis, "TransmuteOverlay")
+  ) {
     throw new Error("The HTML overlay authoring API is already installed.");
   }
-  Object.defineProperty(globalThis, "TransmuteOverlay", {
+  Object.defineProperty(globalThis, "AtetOverlay", {
     configurable: false,
     enumerable: true,
+    value: publicApi,
+    writable: false,
+  });
+  Object.defineProperty(globalThis, "TransmuteOverlay", {
+    configurable: false,
+    enumerable: false,
     value: publicApi,
     writable: false,
   });

@@ -110,12 +110,12 @@ async function execute(paths: RepositoryPaths, argv: readonly string[]): Promise
 }
 
 async function projectFixture(): Promise<Fixture> {
-  const root = await mkdtemp(join(tmpdir(), "transmute-command-safety-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-command-safety-"));
   const paths: RepositoryPaths = {
-    artifactRoot: join(root, "artifacts", "transmute", "recordings"),
-    desktopRoot: join(root, "projects", "transmute", "apps", "desktop"),
-    privateRoot: join(root, "artifacts", "transmute", "private"),
-    projectRoot: join(root, "artifacts", "transmute", "projects"),
+    artifactRoot: join(root, "artifacts", "atet", "recordings"),
+    desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
+    privateRoot: join(root, "artifacts", "atet", "private"),
+    projectRoot: join(root, "artifacts", "atet", "projects"),
     repositoryRoot: root,
   };
   const recordingDirectory = join(paths.artifactRoot, "rec_example001");
@@ -208,7 +208,7 @@ async function addImportedVideoPlacement(open: OpenProject): Promise<OpenProject
         codec: "h264",
         container: "mov",
         fileRange: { endUs: 10_000_000, startUs: 0 },
-        path: "artifacts/transmute/projects/project_safety001/imports/imported-camera.mov",
+        path: "artifacts/atet/projects/project_safety001/imports/imported-camera.mov",
         sha256: HASH,
         streamIndex: 0,
       }],
@@ -225,7 +225,7 @@ async function addImportedVideoPlacement(open: OpenProject): Promise<OpenProject
         codec: "aac",
         container: "mov",
         fileRange: { endUs: 10_000_000, startUs: 0 },
-        path: "artifacts/transmute/projects/project_safety001/imports/imported-camera.mov",
+        path: "artifacts/atet/projects/project_safety001/imports/imported-camera.mov",
         sha256: HASH,
         streamIndex: 1,
       }],
@@ -299,7 +299,7 @@ function alignmentAnalysis(
       target,
       targetPlacement,
     }),
-    kind: "studio.audio-alignment-analysis",
+    kind: "atet.audio-alignment-analysis",
     matches: [],
     reference: storedReference,
     result: {
@@ -364,7 +364,7 @@ function speechAnalysis(project: OpenProject["project"]): SpeechAnalysisV1 {
     createdAt: LATER,
     durationUs: 10_000_000,
     inputDigest: HASH,
-      kind: "studio.speech-analysis",
+    kind: "atet.speech-analysis",
     result: {
       detectedLanguage: "en",
       fillers: [{
@@ -411,7 +411,7 @@ function otherSpeechAnalysis(
     createdAt: LATER,
     durationUs: 10_000_000,
     inputDigest: HASH,
-      kind: "studio.speech-analysis",
+    kind: "atet.speech-analysis",
     result: status === "no-speech"
       ? { detectedLanguage: null, reason: "no-speech", status: "no-speech" }
       : {
@@ -459,7 +459,7 @@ function musicAnalysis(
     durationUs: 10_000_000,
     inputDigest: HASH,
     keyRegions: [],
-    kind: "studio.music-analysis",
+    kind: "atet.music-analysis",
     musicRegions: [{ confidence: 1, range: { endUs: 8_500_000, startUs: 8_000_000 } }],
     schemaVersion: 1,
     subject,
@@ -553,8 +553,8 @@ describe("project metadata and render safety", () => {
       });
       expect(editReceipt.cameraMoveId).toStartWith("camera_");
       expect(editReceipt.nextCommands).toEqual({
-        remove: `transmute project edit project_safety001 camera remove ${editReceipt.cameraMoveId} --json`,
-        show: "transmute project edit project_safety001 camera show --json",
+        remove: `atet project edit project_safety001 camera remove ${editReceipt.cameraMoveId} --json`,
+        show: "atet project edit project_safety001 camera show --json",
       });
 
       const render = await execute(fixture.paths, [
@@ -589,7 +589,7 @@ describe("project metadata and render safety", () => {
         cameraMoves: 0,
         keyframeCount: 2,
         nextCommands: {
-          show: "transmute project edit project_safety001 camera show --json",
+          show: "atet project edit project_safety001 camera show --json",
         },
         operation: "remove",
       });
@@ -602,10 +602,10 @@ describe("project metadata and render safety", () => {
       expect(human).toMatchObject({ exitCode: 0, stderr: "" });
       expect(human.stdout).toContain(`push ${editReceipt.cameraMoveId} keyframes=2`);
       expect(human.stdout).toContain(
-        "show: transmute project edit project_safety001 camera show --json",
+        "show: atet project edit project_safety001 camera show --json",
       );
       expect(human.stdout).toContain(
-        `remove: transmute project edit project_safety001 camera remove ${editReceipt.cameraMoveId} --json`,
+        `remove: atet project edit project_safety001 camera remove ${editReceipt.cameraMoveId} --json`,
       );
     } finally {
       await rm(fixture.root, { force: true, recursive: true });

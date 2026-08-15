@@ -10,7 +10,7 @@ import {
   type SceneProviderRequest,
   type SceneProviderResult,
   validateSceneProviderRequest,
-} from "@hraness/transmute/scene";
+} from "@hraness/atet/scene";
 
 import type { ActiveGatewayCredential } from "./gateway-credential";
 
@@ -345,7 +345,7 @@ export function createGatewaySceneProvider(
             });
             const output = ai.Output.object({
               description: "One bounded, observable description for every supplied scene identifier.",
-              name: "transmute_scene_descriptions",
+              name: "atet_scene_descriptions",
               schema: GeneratedSceneBatchSchema,
             });
             assertSceneDispatchActive(controller.signal);
@@ -360,7 +360,7 @@ export function createGatewaySceneProvider(
               providerOptions: {
                 gateway: {
                   disallowPromptTraining: true,
-                  tags: ["transmute", "scene-analysis", "v1"],
+                  tags: ["atet", "scene-analysis", "v1"],
                   zeroDataRetention: true,
                 },
               },

@@ -67,7 +67,7 @@ afterEach(async () => {
 });
 
 async function fixtureRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "transmute-media-operation-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-media-operation-"));
   roots.push(root);
   return root;
 }
@@ -173,7 +173,7 @@ describe("media application operations", () => {
 
   test("audio and color effects publish verified content addresses and receipts", async () => {
     const root = await fixtureRoot();
-    const sourceDirectory = join(root, "artifacts", "transmute", "recordings");
+    const sourceDirectory = join(root, "artifacts", "atet", "recordings");
     await mkdir(sourceDirectory, { recursive: true });
     const inputBytes = Buffer.from("immutable source media");
     const inputPath = join(sourceDirectory, "source.media");
@@ -202,7 +202,7 @@ describe("media application operations", () => {
     const audioTransform: AudioEffectsTransformV1 = {
       audioStreamIndex: 0,
       effects: [{ gainDb: -3, kind: "volume" }],
-      kind: "studio.audio-effects-transform",
+      kind: "atet.audio-effects-transform",
       output: { kind: "audio-only", profile: "wav-pcm-s16le" },
       schemaVersion: 1,
     };
@@ -268,7 +268,7 @@ describe("media application operations", () => {
         bytes: inputBytes.byteLength,
         sha256: sha256(inputBytes),
       },
-      kind: "transmute.local-media-transform-receipt",
+      kind: "atet.local-media-transform-receipt",
       operation: "audio-effects",
       output: {
         bytes: audioBytes.byteLength,
@@ -278,7 +278,7 @@ describe("media application operations", () => {
 
     const colorTransform: ColorGradeTransformV1 = {
       grade: { kind: "preset", preset: "clean" },
-      kind: "studio.color-grade-transform",
+      kind: "atet.color-grade-transform",
       outputProfile: "h264-mp4",
       schemaVersion: 1,
       videoStreamIndex: 0,
@@ -325,14 +325,14 @@ describe("media application operations", () => {
   test("ingest returns an authority-free immutable candidate asset", async () => {
     const root = await fixtureRoot();
     const fixture = await createOperationProjectFixture(root);
-    const inputDirectory = join(root, "artifacts", "transmute", "recordings");
+    const inputDirectory = join(root, "artifacts", "atet", "recordings");
     await mkdir(inputDirectory, { recursive: true });
     const sourceBytes = Buffer.from("ingest source");
     const sourcePath = join(inputDirectory, "source.mp4");
     await writeFile(sourcePath, sourceBytes, { mode: 0o600 });
     const importedBytes = Buffer.from("ingested immutable media");
     const importedSha256 = sha256(importedBytes);
-    const importedRelative = `artifacts/transmute/projects/${fixture.project.projectId}/imports/${importedSha256}.media`;
+    const importedRelative = `artifacts/atet/projects/${fixture.project.projectId}/imports/${importedSha256}.media`;
     const importedAbsolute = join(root, importedRelative);
     const baseAsset = operationTestProject().assets[0]!;
     let receivedAbortSignal = false;
@@ -401,7 +401,7 @@ describe("media application operations", () => {
     const output = MediaIngestOutputSchema.parse(result.output);
     expect(JSON.parse(
       await readFile(join(root, output.receipt.path), "utf8"),
-    )).toMatchObject({ kind: "transmute.local-media-ingest-receipt" });
+    )).toMatchObject({ kind: "atet.local-media-ingest-receipt" });
     expect(output.artifact).toEqual({
       bytes: importedBytes.byteLength,
       path: importedRelative,
@@ -418,11 +418,11 @@ describe("media application operations", () => {
       throw new Error("Expected workflow operation context.");
     }
     const identity = {
-      inputSchemaId: "studio.operation.media.ingest.input/v1",
+      inputSchemaId: "atet.operation.media.ingest.input/v1",
       kind: "media.ingest",
       nodeKey: baseContext.workflow.nodeKey,
       nodePlanSha256: baseContext.workflow.nodePlanSha256,
-      outputSchemaId: "studio.operation.media.ingest.output/v1",
+      outputSchemaId: "atet.operation.media.ingest.output/v1",
       runId: baseContext.workflow.runId,
       version: 1,
     } as const;
@@ -518,7 +518,7 @@ describe("media application operations", () => {
 
   test("host binding rejects stale digests, symlinks, and cancellation", async () => {
     const root = await fixtureRoot();
-    const sourceDirectory = join(root, "artifacts", "transmute", "recordings");
+    const sourceDirectory = join(root, "artifacts", "atet", "recordings");
     await mkdir(sourceDirectory, { recursive: true });
     const inputPath = join(sourceDirectory, "source.media");
     await writeFile(inputPath, "source", { mode: 0o600 });

@@ -27,7 +27,7 @@ afterEach(async () => {
 });
 
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "transmute-operation-checkpoint-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-operation-checkpoint-"));
   roots.push(root);
   const application = operationApplicationContext(root);
   const workspaceDirectory = join(
@@ -38,11 +38,11 @@ async function fixture() {
   await mkdir(workspaceDirectory, { mode: 0o700, recursive: true });
   let publicationChecks = 0;
   const identity = {
-    inputSchemaId: "studio.operation.media.color-grade.input/v1",
+    inputSchemaId: "atet.operation.media.color-grade.input/v1",
     kind: "media.color-grade",
     nodeKey: "polish/grade",
     nodePlanSha256: "a".repeat(64),
-    outputSchemaId: "studio.operation.media.color-grade.output/v1",
+    outputSchemaId: "atet.operation.media.color-grade.output/v1",
     runId: "run_checkpoint",
     version: 1,
   } satisfies OperationCheckpointExecutionIdentity;
@@ -85,7 +85,7 @@ describe("operation completion checkpoints", () => {
     });
     expect(checkpoint?.output).toEqual(output);
     expect(checkpoint?.outputSha256).toMatch(/^[a-f0-9]{64}$/u);
-    expect(checkpoint?.kind).toBe("transmute.workflow-operation-completion");
+    expect(checkpoint?.kind).toBe("atet.workflow-operation-completion");
     expect(value.publicationChecks()).toBe(1);
 
     await writeOperationCompletionCheckpoint(value.context, {
@@ -101,15 +101,25 @@ describe("operation completion checkpoints", () => {
       OPERATION_COMPLETION_CHECKPOINT_FILE,
     );
     const legacySource = (await readFile(path, "utf8")).replace(
-      "transmute.workflow-operation-completion",
+      "atet.workflow-operation-completion",
       "studio.workflow-operation-completion",
     );
     await writeFile(path, legacySource, { mode: 0o600 });
-    expect((await readOperationCompletionCheckpoint({
+    expect(readOperationCompletionCheckpoint({
       expected: value.identity,
       privateRoot: value.context.application.paths.privateRoot,
       workspaceDirectory: value.workspaceDirectory,
-    }))?.kind).toBe("studio.workflow-operation-completion");
+    })).rejects.toThrow();
+
+    const canonicalKindWithLegacyIdentity = (await readFile(path, "utf8"))
+      .replace("studio.workflow-operation-completion", "atet.workflow-operation-completion")
+      .replaceAll("atet.operation.", "transmute.operation.");
+    await writeFile(path, canonicalKindWithLegacyIdentity, { mode: 0o600 });
+    expect(readOperationCompletionCheckpoint({
+      expected: value.identity,
+      privateRoot: value.context.application.paths.privateRoot,
+      workspaceDirectory: value.workspaceDirectory,
+    })).rejects.toThrow("different exact node plan");
   });
 
   test("distinguishes no publication from tampered or mismatched evidence", async () => {

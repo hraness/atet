@@ -18,16 +18,16 @@ async function writeSidecars(runtimeRoot: string): Promise<void> {
   const bin = join(runtimeRoot, "bin");
   await mkdir(bin, { recursive: true });
   await Promise.all([
-    writeFile(join(bin, "transmute-capture"), "signed capture bytes"),
-    writeFile(join(bin, "transmute-face-analyzer"), "signed face analyzer bytes"),
-    writeFile(join(bin, "transmute-gateway"), "signed gateway bytes"),
+    writeFile(join(bin, "atet-capture"), "signed capture bytes"),
+    writeFile(join(bin, "atet-face-analyzer"), "signed face analyzer bytes"),
+    writeFile(join(bin, "atet-gateway"), "signed gateway bytes"),
   ]);
 }
 
 test("runtime manifest is relocatable and contains no build checkout path", async () => {
-  const checkoutRoot = await mkdtemp(join(tmpdir(), "transmute-build-checkout-"));
-  const relocationRoot = await mkdtemp(join(tmpdir(), "transmute-relocated-app-"));
-  const runtimeRoot = join(checkoutRoot, "Transmute.app", "Contents", "Resources", "runtime");
+  const checkoutRoot = await mkdtemp(join(tmpdir(), "atet-build-checkout-"));
+  const relocationRoot = await mkdtemp(join(tmpdir(), "atet-relocated-app-"));
+  const runtimeRoot = join(checkoutRoot, "Atet.app", "Contents", "Resources", "runtime");
   const relocatedRuntimeRoot = join(relocationRoot, "Renamed.app", "Contents", "Resources", "runtime");
   try {
     await writeSidecars(runtimeRoot);
@@ -46,7 +46,7 @@ test("runtime manifest is relocatable and contains no build checkout path", asyn
     expect(manifestBytes).not.toContain(checkoutRoot);
     expect(manifestBytes).not.toContain("repository-root.txt");
 
-    await writeFile(join(relocatedRuntimeRoot, "bin", "transmute-gateway"), "mutated after manifest");
+    await writeFile(join(relocatedRuntimeRoot, "bin", "atet-gateway"), "mutated after manifest");
     expect(verifyFinalRuntimeManifest(relocatedRuntimeRoot))
       .rejects.toThrow(/final signed sidecars/u);
   } finally {

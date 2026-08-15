@@ -4,16 +4,16 @@ import {
   DesktopEventSchema,
   DesktopRequestSchema,
   DesktopResponseSchema,
-  TRANSMUTE_DESKTOP_PROTOCOL,
-  TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+  ATET_DESKTOP_PROTOCOL,
+  ATET_DESKTOP_PROTOCOL_VERSION,
   type CaptureDomainCommand,
   type CaptureRuntimeSnapshot,
   type DesktopEvent,
 } from "../../contracts";
 
-export const TRANSMUTE_RUNTIME_SNAPSHOT_COMMAND = "transmute.runtime.snapshot";
-export const TRANSMUTE_RUNTIME_DISPATCH_COMMAND = "transmute.runtime.dispatch";
-export const TRANSMUTE_RUNTIME_EVENT = "transmute.runtime.event";
+export const ATET_RUNTIME_SNAPSHOT_COMMAND = "atet.runtime.snapshot";
+export const ATET_RUNTIME_DISPATCH_COMMAND = "atet.runtime.dispatch";
+export const ATET_RUNTIME_EVENT = "atet.runtime.event";
 
 export interface NativeRuntimeTransport {
   invoke(command: string, payload?: NativeSdkJson): Promise<unknown>;
@@ -83,8 +83,8 @@ function request(
   try {
     return DesktopRequestSchema.parse({
       payload,
-      protocol: TRANSMUTE_DESKTOP_PROTOCOL,
-      protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+      protocol: ATET_DESKTOP_PROTOCOL,
+      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
       requestId,
     });
   } catch (error: unknown) {
@@ -127,12 +127,12 @@ export function createRuntimeBridge(
   };
   return Object.freeze({
     dispatch: async (command: CaptureDomainCommand) => await invoke(
-      TRANSMUTE_RUNTIME_DISPATCH_COMMAND,
+      ATET_RUNTIME_DISPATCH_COMMAND,
       { command, kind: "dispatch" },
     ),
-    snapshot: async () => await invoke(TRANSMUTE_RUNTIME_SNAPSHOT_COMMAND, { kind: "snapshot" }),
+    snapshot: async () => await invoke(ATET_RUNTIME_SNAPSHOT_COMMAND, { kind: "snapshot" }),
     subscribe(listener: RuntimeBridgeListener) {
-      return transport.on(TRANSMUTE_RUNTIME_EVENT, (detail) => {
+      return transport.on(ATET_RUNTIME_EVENT, (detail) => {
         try {
           listener.onEvent(DesktopEventSchema.parse(detail));
         } catch (error: unknown) {

@@ -4,7 +4,7 @@ import { Button, Disclosure } from "./ui";
 
 import {
   CaptureRuntimeSnapshotSchema,
-  TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+  ATET_DESKTOP_PROTOCOL_VERSION,
   type CaptureDomainCommand,
   type CaptureRuntimeSnapshot,
 } from "../../contracts";
@@ -40,7 +40,7 @@ const EMPTY_SNAPSHOT = CaptureRuntimeSnapshotSchema.parse({
     systemAudio: "not-determined",
     windowMetadata: "not-determined",
   },
-  protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+  protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
   sources: { audioSources: [], cameras: [], displays: [] },
   state: { lastRecording: null, state: "idle" },
   updatedAt: "1970-01-01T00:00:00.000Z",
@@ -65,7 +65,7 @@ function commandFor(action: RecorderAction): CaptureDomainCommand {
       camera: { kind: "default" },
       displays: { kind: "all" },
       microphone: { kind: "default" },
-      recordingDirectory: "artifacts/transmute/recordings",
+      recordingDirectory: "artifacts/atet/recordings",
       systemAudio: true,
       typedText: "disabled",
       windowMetadata: "titles-and-bounds",
@@ -199,7 +199,7 @@ export default function App({ bridge, now = Date.now }: AppProps) {
     <main className="recorder-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">Transmute</p>
+          <p className="eyebrow">Atet</p>
           <h1>Raw capture</h1>
         </div>
         <span className="local-badge">Local only</span>
@@ -211,7 +211,7 @@ export default function App({ bridge, now = Date.now }: AppProps) {
           <strong>{connection === "connecting" ? "Connecting…" : presentation.label}</strong>
         </div>
         <p aria-label={`Elapsed time ${formatElapsed(elapsedUs)}`} className="elapsed">{formatElapsed(elapsedUs)}</p>
-        <p className="recording-path">{presentation.path ?? "artifacts/transmute/recordings/"}</p>
+        <p className="recording-path">{presentation.path ?? "artifacts/atet/recordings/"}</p>
 
         <div
           aria-busy={pendingCommandId !== null}

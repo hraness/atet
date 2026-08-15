@@ -919,11 +919,11 @@ const START_OPTIONS = {
 };
 
 const FIXTURE_FOCUS_IDENTITY = {
-  fieldId: "transmute-fixture-public-01234567-89ab-4cde-8fab-0123456789ab",
+  fieldId: "atet-fixture-public-01234567-89ab-4cde-8fab-0123456789ab",
   processId: 42,
   windowId: "9001",
   windowTitle:
-    "Transmute Interaction Fixture · 01234567-89ab-4cde-8fab-0123456789ab",
+    "Atet Interaction Fixture · 01234567-89ab-4cde-8fab-0123456789ab",
 } as const;
 
 async function exists(path: string): Promise<boolean> {
@@ -1028,8 +1028,8 @@ test("dispatches recording mutations without hidden status preflights", async ()
 
 test("rejects resume when no recording identity exists", async () => {
   const controller = new CaptureHelperRecordingController({
-    artifactRoot: join(tmpdir(), "transmute-controller-unused-artifacts"),
-    executable: join(tmpdir(), "transmute-controller-unused-helper"),
+    artifactRoot: join(tmpdir(), "atet-controller-unused-artifacts"),
+    executable: join(tmpdir(), "atet-controller-unused-helper"),
     io: { now: () => new Date("2026-07-22T12:00:00.000Z") },
   });
 
@@ -1044,9 +1044,9 @@ test("rejects resume when no recording identity exists", async () => {
 });
 
 test("rejects an initial segment that starts beyond the empty bundle frontier", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-start-frontier-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-start-frontier-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("start-wrong-frontier");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1074,9 +1074,9 @@ test("rejects an initial segment that starts beyond the empty bundle frontier", 
 });
 
 test("accepts initial segment-started sources as the authoritative resolved selection", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-start-source-replacement-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-start-source-replacement-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("start-source-replacement");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1106,9 +1106,9 @@ test("accepts initial segment-started sources as the authoritative resolved sele
 });
 
 test("drives one long-lived helper through start, pause, resume, stop, and strict manifest finalization", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory();
   const observedEvents: CaptureEvent["event"][] = [];
   let isolatedObserverFailures = 0;
@@ -1155,7 +1155,7 @@ test("drives one long-lived helper through start, pause, resume, stop, and stric
     expect(manifest).toMatchObject({
       state: "stopped",
       timeline: { durationUs: 2_000_000 },
-      tool: { name: "transmute", version: "1.0.0" },
+      tool: { name: "atet", version: "2.0.0" },
     });
     expect(manifest.tracks.map(({ kind }) => kind).sort()).toEqual(["display-video", "system-audio"]);
     expect(manifest.tracks.every(({ segments }) => segments.length === 2)).toBeTrue();
@@ -1186,9 +1186,9 @@ test("drives one long-lived helper through start, pause, resume, stop, and stric
 });
 
 test("persists a completion interruption before exposing the paused snapshot", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-completion-interruption-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-completion-interruption-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("pause-interruption");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1244,9 +1244,9 @@ test("persists a completion interruption before exposing the paused snapshot", a
 });
 
 test("preserves an interrupted helper completion when media verification rejects the segment", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-rejected-interruption-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-rejected-interruption-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("pause-interruption");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1322,10 +1322,10 @@ test("preserves an interrupted helper completion when media verification rejects
 test("persists both deferred completion and prepared-start interruptions when verification fails", async () => {
   const temporary = await mkdtemp(join(
     tmpdir(),
-    "transmute-controller-rejected-deferred-interruptions-test-",
+    "atet-controller-rejected-deferred-interruptions-test-",
   ));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory(
     "resume-after-auto-close-fatal-interruption",
   );
@@ -1409,9 +1409,9 @@ test("persists both deferred completion and prepared-start interruptions when ve
 });
 
 test("records prepared-start interruption evidence before fatal resume settlement", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-prepared-interruption-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-prepared-interruption-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("resume-prepared-interruption");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1470,9 +1470,9 @@ test("records prepared-start interruption evidence before fatal resume settlemen
 });
 
 test("rejects a genuine duplicate resume without settling or closing the active session", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-duplicate-resume-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-duplicate-resume-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory();
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1514,9 +1514,9 @@ test("rejects a genuine duplicate resume without settling or closing the active 
 });
 
 test("persists deferred completion and remains resumable after a recoverable source-start failure", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-deferred-resume-failure-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-deferred-resume-failure-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("resume-after-auto-close-start-failure");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1561,9 +1561,9 @@ test("persists deferred completion and remains resumable after a recoverable sou
 });
 
 test("keeps an already-paused session alive after a first-event recoverable resume failure", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-direct-resume-failure-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-direct-resume-failure-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("resume-start-failure");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1606,9 +1606,9 @@ test("keeps an already-paused session alive after a first-event recoverable resu
 });
 
 test("persists valid deferred completion but settles a nonrecoverable resume failure", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-fatal-resume-failure-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-fatal-resume-failure-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("resume-after-auto-close-fatal");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1643,9 +1643,9 @@ test("persists valid deferred completion but settles a nonrecoverable resume fai
 });
 
 test("reconciles an auto-closed segment before resuming on the same request", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-auto-resume-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-auto-resume-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("resume-after-auto-close");
   const observedEvents: CaptureEvent["event"][] = [];
   await writeFile(helper, "test helper", { mode: 0o700 });
@@ -1686,9 +1686,9 @@ test("reconciles an auto-closed segment before resuming on the same request", as
 });
 
 test("atomically advances from an old completion to replacement segment-started sources", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-resume-source-replacement-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-resume-source-replacement-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory(
     "resume-after-auto-close-source-replacement",
   );
@@ -1732,9 +1732,9 @@ test("atomically advances from an old completion to replacement segment-started 
 });
 
 test("persists an auto-closed paused segment before publishing status", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-auto-status-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-auto-status-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("status-auto-pause");
   const observedEvents: CaptureEvent["event"][] = [];
   await writeFile(helper, "test helper", { mode: 0o700 });
@@ -1776,9 +1776,9 @@ test("persists an auto-closed paused segment before publishing status", async ()
 });
 
 test("persists stopped status only after same-request session completion", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-auto-stop-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-auto-stop-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("status-auto-stop-complete");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1816,9 +1816,9 @@ test("persists stopped status only after same-request session completion", async
 });
 
 test("accepts stopped status after an earlier command proved session completion", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-proven-stop-status-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-proven-stop-status-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory();
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1848,9 +1848,9 @@ test("accepts stopped status after an earlier command proved session completion"
 });
 
 test("advances live recording status monotonically without inventing completed segments", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-monotonic-status-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-monotonic-status-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("status-recording-monotonic");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1888,9 +1888,9 @@ test("advances live recording status monotonically without inventing completed s
 });
 
 test("rejects recording status with an invented completed-segment count", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-status-count-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-status-count-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("status-recording-invented-count");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1924,9 +1924,9 @@ test("rejects recording status with an invented completed-segment count", async 
 });
 
 test("rejects recording status that regresses the prior live logical time", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-status-time-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-status-time-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("status-recording-time-regression");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -1965,9 +1965,9 @@ test("rejects recording status that regresses the prior live logical time", asyn
 });
 
 test("keeps a normal recording status recording without changing its manifest phase", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-live-status-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-live-status-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("status-recording");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -2005,10 +2005,10 @@ for (const [scenario, reportedState] of [
   test(`rejects active-session ${reportedState} status before snapshot mutation`, async () => {
     const temporary = await mkdtemp(join(
       tmpdir(),
-      `transmute-controller-status-${reportedState}-test-`,
+      `atet-controller-status-${reportedState}-test-`,
     ));
-    const helper = join(temporary, "transmute-capture");
-    const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+    const helper = join(temporary, "atet-capture");
+    const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
     const factory = new ProtocolTransportFactory(scenario);
     await writeFile(helper, "test helper", { mode: 0o700 });
     const controller = new CaptureHelperRecordingController({
@@ -2050,9 +2050,9 @@ for (const [scenario, reportedState] of [
 }
 
 test("refreshes available sources without changing selected sources or the raw bundle", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-available-sources-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-available-sources-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("status-available-sources");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -2083,9 +2083,9 @@ test("refreshes available sources without changing selected sources or the raw b
 });
 
 test("rejects completion source drift before persisting the segment", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-completion-source-drift-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-completion-source-drift-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("pause-selected-source-drift");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -2119,9 +2119,9 @@ test("rejects completion source drift before persisting the segment", async () =
 });
 
 test("rejects selected-source drift even when the fresh inventory is valid", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-source-drift-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-source-drift-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("status-selected-source-drift");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -2153,9 +2153,9 @@ test("rejects selected-source drift even when the fresh inventory is valid", asy
 });
 
 test("drains completion and session events before the same shutdown acknowledgement", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-shutdown-order-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-shutdown-order-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("shutdown-finalizes");
   const observedEvents: CaptureEvent["event"][] = [];
   await writeFile(helper, "test helper", { mode: 0o700 });
@@ -2235,9 +2235,9 @@ for (const malformed of [
   },
 ] as const) {
   test(`rejects ${malformed.name} before applying prefix evidence`, async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-malformed-sequence-test-"));
-    const helper = join(temporary, "transmute-capture");
-    const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+    const temporary = await mkdtemp(join(tmpdir(), "atet-controller-malformed-sequence-test-"));
+    const helper = join(temporary, "atet-capture");
+    const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
     const factory = new ProtocolTransportFactory(malformed.scenario);
     await writeFile(helper, "test helper", { mode: 0o700 });
     const controller = new CaptureHelperRecordingController({
@@ -2274,9 +2274,9 @@ for (const malformed of [
 }
 
 test("rejects a resumed segment that starts beyond the persisted bundle frontier", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-resume-frontier-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-resume-frontier-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("resume-wrong-start-frontier");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -2328,9 +2328,9 @@ for (const terminalRegression of [
   },
 ] as const) {
   test(`rejects ${terminalRegression.name}`, async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-terminal-regression-test-"));
-    const helper = join(temporary, "transmute-capture");
-    const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+    const temporary = await mkdtemp(join(tmpdir(), "atet-controller-terminal-regression-test-"));
+    const helper = join(temporary, "atet-capture");
+    const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
     const factory = new ProtocolTransportFactory(terminalRegression.scenario);
     await writeFile(helper, "test helper", { mode: 0o700 });
     const controller = new CaptureHelperRecordingController({
@@ -2366,9 +2366,9 @@ for (const terminalRegression of [
 }
 
 test("passes a cloned process-scoped typed-text focus identity to the helper", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-focus-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-focus-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory();
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -2398,9 +2398,9 @@ test("passes a cloned process-scoped typed-text focus identity to the helper", a
 });
 
 test("passes exact display, camera, and microphone selections to every helper segment", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-sources-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-sources-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory();
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -2470,9 +2470,9 @@ test("round-trips the exact persisted interaction and typed-text scope", () => {
 });
 
 test("marks the bundle failed and clears active state when native finalization fails", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-finalization-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-finalization-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory("pause-finalization");
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -2511,9 +2511,9 @@ for (const scenario of [
   },
 ] as const) {
   test(`refuses to report a stopped recording with out-of-tolerance ${scenario.name}`, async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-sync-rejection-test-"));
-    const helper = join(temporary, "transmute-capture");
-    const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+    const temporary = await mkdtemp(join(tmpdir(), "atet-controller-sync-rejection-test-"));
+    const helper = join(temporary, "atet-capture");
+    const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
     const factory = new ProtocolTransportFactory(scenario.fault);
     await writeFile(helper, "test helper", { mode: 0o700 });
     const controller = new CaptureHelperRecordingController({
@@ -2563,9 +2563,9 @@ for (const scenario of [
 }
 
 test("retires replies from a failed helper and starts cleanly after segment verification fails", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-verification-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-verification-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ReusableProtocolTransportFactory();
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({
@@ -2602,9 +2602,9 @@ test("retires replies from a failed helper and starts cleanly after segment veri
 });
 
 test("marks a finalized segment failed when active-state persistence is unsafe", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-controller-persistence-test-"));
-  const helper = join(temporary, "transmute-capture");
-  const artifactRoot = join(temporary, "artifacts", "transmute", "recordings");
+  const temporary = await mkdtemp(join(tmpdir(), "atet-controller-persistence-test-"));
+  const helper = join(temporary, "atet-capture");
+  const artifactRoot = join(temporary, "artifacts", "atet", "recordings");
   const factory = new ProtocolTransportFactory();
   await writeFile(helper, "test helper", { mode: 0o700 });
   const controller = new CaptureHelperRecordingController({

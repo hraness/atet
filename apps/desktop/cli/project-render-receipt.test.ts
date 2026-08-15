@@ -31,10 +31,10 @@ async function materializeProject(root: string): Promise<{
   readonly paths: RepositoryPaths;
 }> {
   const paths: RepositoryPaths = {
-    artifactRoot: join(root, "artifacts", "transmute", "recordings"),
-    desktopRoot: join(root, "projects", "transmute", "apps", "desktop"),
-    privateRoot: join(root, "artifacts", "transmute", "private"),
-    projectRoot: join(root, "artifacts", "transmute", "projects"),
+    artifactRoot: join(root, "artifacts", "atet", "recordings"),
+    desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
+    privateRoot: join(root, "artifacts", "atet", "private"),
+    projectRoot: join(root, "artifacts", "atet", "projects"),
     repositoryRoot: root,
   };
   const recordingDirectory = join(paths.artifactRoot, "rec_example001");
@@ -76,7 +76,7 @@ async function materializeProject(root: string): Promise<{
 }
 
 test("project receipts hash the persisted full plan document while retaining its composition-keyed path", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "transmute-project-render-receipt-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-project-render-receipt-")));
   try {
     const fixture = await materializeProject(root);
     const outputRelative = "renders/custom/final.mp4";

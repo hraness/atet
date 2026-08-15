@@ -1,7 +1,7 @@
 .{
-    .name = .transmute,
-    .fingerprint = 0xe9830fbee8664699,
-    .version = "1.0.0",
+    .name = .atet,
+    .fingerprint = 0xbec4a53120ac8933,
+    .version = "2.0.0",
     .minimum_zig_version = "0.16.0",
     .dependencies = .{},
     .paths = .{ "build.zig", "build.zig.zon", "src", "assets", "frontend", "app.zon", "README.md" },

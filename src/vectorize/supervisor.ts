@@ -50,7 +50,7 @@ export async function runVectorizeWorker(
     )
   }
   const workerInput = encodeInput(input, limits.maxInputBytes)
-  const temporaryRoot = await mkdtemp(join(tmpdir(), "transmute-vectorize-"))
+  const temporaryRoot = await mkdtemp(join(tmpdir(), "atet-vectorize-"))
   let result: VectorizeResult
   try {
     result = await executeVectorizeWorker(

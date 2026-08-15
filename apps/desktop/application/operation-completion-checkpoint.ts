@@ -46,10 +46,7 @@ const OperationCompletionCheckpointSchema = z.strictObject({
     runId: z.string().min(1).max(256),
     version: z.number().int().safe().positive(),
   }),
-  kind: z.union([
-    z.literal("transmute.workflow-operation-completion"),
-    z.literal("studio.workflow-operation-completion"),
-  ]),
+  kind: z.literal("atet.workflow-operation-completion"),
   output: z.unknown(),
   outputSha256: Sha256Schema,
   schemaVersion: z.literal(1),
@@ -158,7 +155,7 @@ function checkpointFor(
 ): OperationCompletionCheckpoint {
   return OperationCompletionCheckpointSchema.parse({
     identity,
-    kind: "transmute.workflow-operation-completion",
+    kind: "atet.workflow-operation-completion",
     output,
     outputSha256: operationCheckpointOutputSha256(output),
     schemaVersion: 1,

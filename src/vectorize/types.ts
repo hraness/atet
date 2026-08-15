@@ -16,7 +16,7 @@ export interface VectorizeLimits {
 
 export interface VectorizeOptions {
   /**
-   * Pixels below this alpha byte are removed before tracing. Transmute also
+   * Pixels below this alpha byte are removed before tracing. Atet also
    * evaluates an alpha-preserving candidate when the removed mass is material.
    */
   readonly alphaCutoff?: number

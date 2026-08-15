@@ -88,7 +88,7 @@ export async function loadCurrentPlan(recording: OpenRecording): Promise<EditPla
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       throw new CliError(
         "not-found",
-        `Recording ${recording.manifest.recordingId} has no edit plan. Run: transmute edit ${recording.manifest.recordingId} init`,
+        `Recording ${recording.manifest.recordingId} has no edit plan. Run: atet edit ${recording.manifest.recordingId} init`,
       );
     }
     throw error;

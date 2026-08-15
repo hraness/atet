@@ -16,7 +16,7 @@ export const TalkingHeadCleanupInputSchema = z.strictObject({
 export const talkingHeadCleanup = defineWorkflow({
   id: "talking-head-cleanup",
   inputSchema: TalkingHeadCleanupInputSchema,
-  inputSchemaId: "studio.workflow.talking-head-cleanup.input/v2",
+  inputSchemaId: "atet.workflow.talking-head-cleanup.input/v2",
   version: 2,
   build(workflow, input) {
     const project = workflow.project.snapshot("project", input.project);

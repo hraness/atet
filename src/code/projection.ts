@@ -14,16 +14,22 @@ import {
   canonicalJsonSha256Prefixed,
 } from "./canonical-json.js"
 import { parseCodeBoundary } from "./boundary.js"
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 import { createBoundedJsonValueSnapshot } from "./json-snapshot.js"
 import {
+  PORTABLE_ATET_OPERATION_CONTRACTS,
+  PORTABLE_ATET_OPERATION_KINDS,
   PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
   PORTABLE_TRANSMUTE_OPERATION_KINDS,
 } from "./public-operations.js"
 
 export const WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN =
+  // Stable domain salt for version-one projection hashes. The serialized
+  // projection identity and discovery are canonicalized independently.
   "transmute.workflow.registry-projection/v1" as const
 export const PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID =
+  "atet.workflow.registry.public/v1" as const
+export const LEGACY_PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID =
   "transmute.workflow.registry.public/v1" as const
 
 export type WorkflowRegistryProjectionSource =
@@ -62,11 +68,11 @@ export function boundedOperationDiscoveryList(
   name = "operation discovery list",
 ): readonly unknown[] {
   if (!Array.isArray(input)) {
-    throw new TransmuteCodeError("invalid-data", `${name} must be an array.`)
+    throw new AtetCodeError("invalid-data", `${name} must be an array.`)
   }
   const length = input.length
   if (length > MAX_OPERATION_DISCOVERY_ENTRIES) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `${name} cannot exceed ${String(MAX_OPERATION_DISCOVERY_ENTRIES)} entries.`,
     )
@@ -76,7 +82,7 @@ export function boundedOperationDiscoveryList(
     symbol => (Reflect.get(descriptors, symbol) as PropertyDescriptor | undefined)
       ?.enumerable === true,
   )) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `${name} cannot contain enumerable symbol properties.`,
     )
@@ -87,7 +93,7 @@ export function boundedOperationDiscoveryList(
     keys.length !== length
     || keys.some((key, index) => key !== String(index))
   ) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `${name} must be dense and cannot have named properties.`,
     )
@@ -103,14 +109,14 @@ export function boundedOperationDiscoveryList(
       || descriptor.get !== undefined
       || descriptor.set !== undefined
     ) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `${name} must contain plain data elements.`,
       )
     }
     const remainingBytes = MAX_OPERATION_DISCOVERY_LIST_BYTES - bytes
     if (remainingBytes < 1) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `${name} contains more than ${String(MAX_OPERATION_DISCOVERY_LIST_BYTES)} bytes.`,
       )
@@ -127,7 +133,7 @@ export function boundedOperationDiscoveryList(
     bytes += snapshot.bytes
     values += snapshot.values
     if (values > MAX_OPERATION_DISCOVERY_LIST_VALUES) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `${name} contains more than ${String(MAX_OPERATION_DISCOVERY_LIST_VALUES)} JSON values.`,
       )
@@ -147,7 +153,14 @@ function uniqueSorted<Value extends string>(
   return [...new Set(values)].sort((left, right) => left.localeCompare(right))
 }
 
-export function normalizeOperationDiscovery(
+function canonicalAtetIdentity(value: string): string {
+  if (value === "studio" || value === "transmute") return "atet"
+  return value
+    .replace(/^studio\./u, "atet.")
+    .replace(/^transmute\./u, "atet.")
+}
+
+function normalizeOperationDiscoveryPreservingIdentity(
   input: unknown,
 ): readonly OperationDiscovery[] {
   const normalized = boundedOperationDiscoveryList(input).map((item) => {
@@ -158,7 +171,7 @@ export function normalizeOperationDiscovery(
     )
     const preparation = uniqueSorted(parsed.policy.preparation)
     if (preparation.length !== parsed.policy.preparation.length) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `Duplicate preparation requirement for ${operationKey(parsed.kind, parsed.version)}.`,
         { kind: parsed.kind, version: parsed.version },
@@ -169,7 +182,7 @@ export function normalizeOperationDiscovery(
         left.resource.localeCompare(right.resource)
       ))
     if (new Set(resources.map(resource => resource.resource)).size !== resources.length) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `Duplicate resource claim for ${operationKey(parsed.kind, parsed.version)}.`,
         { kind: parsed.kind, version: parsed.version },
@@ -186,7 +199,7 @@ export function normalizeOperationDiscovery(
   for (const operation of normalized) {
     const key = operationKey(operation.kind, operation.version)
     if (seen.has(key)) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "conflict",
         `Duplicate operation discovery entry: ${key}`,
         { kind: operation.kind, version: operation.version },
@@ -195,6 +208,19 @@ export function normalizeOperationDiscovery(
     seen.add(key)
   }
   return normalized
+}
+
+export function normalizeOperationDiscovery(
+  input: unknown,
+): readonly OperationDiscovery[] {
+  return normalizeOperationDiscoveryPreservingIdentity(input).map(operation => (
+    parseCodeBoundary(OperationDiscoverySchema, {
+      ...operation,
+      inputSchemaId: canonicalAtetIdentity(operation.inputSchemaId),
+      kind: canonicalAtetIdentity(operation.kind),
+      outputSchemaId: canonicalAtetIdentity(operation.outputSchemaId),
+    }, "canonical operation discovery entry")
+  ))
 }
 
 function freezeDiscovery(
@@ -217,7 +243,9 @@ export function createWorkflowRegistryProjectionHash(input: {
   readonly id: string
   readonly trustedCompute?: boolean
 }): string {
-  const id = parseCodeBoundary(SchemaIdSchema, input.id, "registry projection id")
+  const id = canonicalAtetIdentity(
+    parseCodeBoundary(SchemaIdSchema, input.id, "registry projection id"),
+  )
   const discovery = normalizeOperationDiscovery(input.discovery)
   const trustedCompute = input.trustedCompute ?? false
   return workflowRegistryProjectionHashFromNormalized({
@@ -231,9 +259,9 @@ function workflowRegistryProjectionHashFromNormalized(input: {
   readonly discovery: readonly OperationDiscovery[]
   readonly id: string
   readonly trustedCompute: boolean
-}): string {
+}, domain = WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN): string {
   return canonicalJsonSha256Prefixed(
-    `${WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN}\0`,
+    `${domain}\0`,
     {
       discovery: input.discovery,
       id: input.id,
@@ -247,7 +275,9 @@ export function createWorkflowRegistryProjection(
   source: WorkflowRegistryProjectionSource,
   options: CreateWorkflowRegistryProjectionOptions = {},
 ): WorkflowRegistryProjection {
-  const id = parseCodeBoundary(SchemaIdSchema, idInput, "registry projection id")
+  const id = canonicalAtetIdentity(
+    parseCodeBoundary(SchemaIdSchema, idInput, "registry projection id"),
+  )
   const discovery = normalizeOperationDiscovery(discoveryList(source))
   const trustedCompute = options.trustedCompute ?? false
   const parsed = parseCodeBoundary(WorkflowRegistryProjectionSchema, {
@@ -292,33 +322,56 @@ export function parseWorkflowRegistryProjection(
     captured,
     "workflow registry projection",
   )
-  const normalized = createWorkflowRegistryProjection(
-    parsed.id,
+  const exactDiscovery = normalizeOperationDiscoveryPreservingIdentity(
     parsed.discovery,
-    { trustedCompute: parsed.trustedCompute },
   )
-  if (parsed.projectionSha256 !== normalized.projectionSha256) {
-    throw new TransmuteCodeError(
+  const exactIdentity = {
+    discovery: exactDiscovery,
+    id: parsed.id,
+    trustedCompute: parsed.trustedCompute,
+  }
+  const expectedProjectionSha256 =
+    workflowRegistryProjectionHashFromNormalized(exactIdentity)
+  if (parsed.projectionSha256 !== expectedProjectionSha256) {
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow registry projection hash does not match its contents.",
       {
         actualProjectionSha256: parsed.projectionSha256,
-        expectedProjectionSha256: normalized.projectionSha256,
+        expectedProjectionSha256,
         projectionId: parsed.id,
       },
     )
   }
-  if (canonicalJsonSha256(parsed) !== canonicalJsonSha256(normalized)) {
-    throw new TransmuteCodeError(
+  if (canonicalJsonSha256(parsed.discovery) !== canonicalJsonSha256(exactDiscovery)) {
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow registry projection discovery is not normalized.",
       { projectionId: parsed.id },
     )
   }
-  return normalized
+  return createWorkflowRegistryProjection(
+    parsed.id,
+    exactDiscovery,
+    { trustedCompute: parsed.trustedCompute },
+  )
 }
 
 function publicDiscovery(): readonly OperationDiscovery[] {
+  return PORTABLE_ATET_OPERATION_KINDS.map((kind) => {
+    const contract = PORTABLE_ATET_OPERATION_CONTRACTS[kind]
+    return {
+      inputSchemaId: contract.inputSchemaId,
+      kind: contract.kind,
+      lifecycle: contract.lifecycle,
+      outputSchemaId: contract.outputSchemaId,
+      policy: contract.policy,
+      version: contract.version,
+    }
+  })
+}
+
+function legacyPublicDiscovery(): readonly OperationDiscovery[] {
   return PORTABLE_TRANSMUTE_OPERATION_KINDS.map((kind) => {
     const contract = PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[kind]
     return {
@@ -343,6 +396,21 @@ export function createPublicWorkflowRegistryProjection(): WorkflowRegistryProjec
 export const PUBLIC_WORKFLOW_REGISTRY_PROJECTION =
   createPublicWorkflowRegistryProjection()
 
-/** Compatibility spelling for hosts that identify this as the Transmute projection. */
-export const PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION =
+const legacyPublicDiscoveryEntries =
+  normalizeOperationDiscoveryPreservingIdentity(legacyPublicDiscovery())
+
+/** Exact version-one discovery retained only for predecessor readers. */
+export const PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION = Object.freeze({
+  discovery: freezeDiscovery(legacyPublicDiscoveryEntries),
+  id: LEGACY_PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
+  projectionSha256: workflowRegistryProjectionHashFromNormalized({
+    discovery: legacyPublicDiscoveryEntries,
+    id: LEGACY_PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
+    trustedCompute: false,
+  }),
+  trustedCompute: false,
+}) satisfies WorkflowRegistryProjection
+
+/** Compatibility spelling for hosts that identify this as the Atet projection. */
+export const PUBLIC_ATET_WORKFLOW_PROJECTION =
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION

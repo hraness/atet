@@ -1,4 +1,4 @@
-import { realpath, stat } from "node:fs/promises";
+import { lstat, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import {
   CaptureInterruptionSchema,
@@ -7,7 +7,7 @@ import {
   DesktopEventSchema,
   DesktopRequestSchema,
   DesktopResponseSchema,
-  TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+  ATET_DESKTOP_PROTOCOL_VERSION,
   RecordingIdSchema,
   RepositoryRelativePathSchema,
   RuntimeSourceSummarySchema,
@@ -102,6 +102,59 @@ function isInside(root: string, candidate: string): boolean {
   return value === "" || (!value.startsWith(`..${sep}`) && value !== ".." && !isAbsolute(value));
 }
 
+async function optionalPhysicalDirectory(path: string): Promise<boolean> {
+  try {
+    const details = await lstat(path);
+    if (details.isSymbolicLink() || !details.isDirectory()) {
+      throw new RuntimeServiceError(
+        "unavailable",
+        "Atet artifact namespaces must be physical directories.",
+        false,
+      );
+    }
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+/** Selects one physical artifact namespace before any recorder can write. */
+export async function resolveRecordingArtifactDirectory(
+  repositoryRoot: string,
+  requestedDirectory: CaptureStartOptions["recordingDirectory"],
+): Promise<string> {
+  if (
+    requestedDirectory !== "artifacts/atet/recordings"
+    && requestedDirectory !== "artifacts/transmute/recordings"
+  ) {
+    throw new RuntimeServiceError(
+      "unavailable",
+      "Custom recording subdirectories are not available yet; use artifacts/atet/recordings.",
+      false,
+    );
+  }
+  const artifactsRoot = resolve(repositoryRoot, "artifacts");
+  const canonicalRoot = resolve(artifactsRoot, "atet");
+  const predecessorRoot = resolve(artifactsRoot, "transmute");
+  const artifactsExists = await optionalPhysicalDirectory(artifactsRoot);
+  const [canonicalExists, predecessorExists] = artifactsExists
+    ? await Promise.all([
+        optionalPhysicalDirectory(canonicalRoot),
+        optionalPhysicalDirectory(predecessorRoot),
+      ])
+    : [false, false];
+  if (canonicalExists && predecessorExists) {
+    throw new RuntimeServiceError(
+      "conflict",
+      "Both artifacts/atet and artifacts/transmute exist. Reconcile them before Atet records new media.",
+      false,
+    );
+  }
+  const selectedRoot = predecessorExists ? predecessorRoot : canonicalRoot;
+  return resolve(selectedRoot, "recordings");
+}
+
 function safeRecordingPath(repositoryRoot: string, absolutePath: string): string {
   const normalized = resolve(absolutePath);
   if (!isInside(repositoryRoot, normalized)) {
@@ -179,7 +232,7 @@ function responseError(requestId: string, error: RuntimeServiceError): DesktopRe
       retryable: error.retryable,
     },
     ok: false,
-    protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
     requestId,
   });
 }
@@ -567,8 +620,8 @@ export class RecordingService {
       throw new RuntimeServiceError("invalid-request", "Desktop request is invalid.", false);
     }
     if (
-      (bridgeCommand === "transmute.runtime.snapshot" && request.payload.kind !== "snapshot")
-      || (bridgeCommand === "transmute.runtime.dispatch" && request.payload.kind !== "dispatch")
+      (bridgeCommand === "atet.runtime.snapshot" && request.payload.kind !== "snapshot")
+      || (bridgeCommand === "atet.runtime.dispatch" && request.payload.kind !== "dispatch")
     ) {
       return responseError(request.requestId, new RuntimeServiceError("invalid-request", "Bridge command and request payload disagree.", false));
     }
@@ -578,7 +631,7 @@ export class RecordingService {
         : await this.#dispatchAndPublish(request.payload.command);
       return DesktopResponseSchema.parse({
         ok: true,
-        protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+        protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
         requestId: request.requestId,
         snapshot,
       });
@@ -626,7 +679,7 @@ export class RecordingService {
     if (this.#repositoryRoot === null) {
       return this.#snapshotFromState({
         code: "repository-not-configured",
-        message: "Repackage Transmute from a Transmute checkout or launch it with TRANSMUTE_REPOSITORY_ROOT.",
+        message: "Repackage Atet from an Atet checkout or launch it with ATET_REPOSITORY_ROOT.",
         recordingId: null,
         recordingPath: null,
         sourceTimeUs: null,
@@ -690,7 +743,7 @@ export class RecordingService {
         await this.#publish({
           commandId: command.commandId,
           kind: "command-settled",
-          protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+          protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
           status: "succeeded",
         });
         return snapshot;
@@ -702,7 +755,7 @@ export class RecordingService {
         await this.#publish({
           commandId: command.commandId,
           kind: "command-settled",
-          protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+          protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
           status: "failed",
         });
         throw error;
@@ -712,7 +765,7 @@ export class RecordingService {
 
   async #execute(command: CaptureDomainCommand): Promise<CaptureRuntimeSnapshot> {
     if (this.#repositoryRoot === null) {
-      throw new RuntimeServiceError("unavailable", "A Transmute repository checkout is not configured.", false);
+      throw new RuntimeServiceError("unavailable", "An Atet repository checkout is not configured.", false);
     }
     switch (command.kind) {
     case "start": {
@@ -831,15 +884,11 @@ export class RecordingService {
   }
 
   async #resolveRecordingDirectory(options: CaptureStartOptions): Promise<string> {
-    if (options.recordingDirectory !== "artifacts/transmute/recordings") {
-      throw new RuntimeServiceError(
-        "unavailable",
-        "Custom recording subdirectories are not available yet; use artifacts/transmute/recordings.",
-        false,
-      );
-    }
-    const requested = resolve(this.#repositoryRoot!, options.recordingDirectory);
-    const allowedRoot = resolve(this.#repositoryRoot!, "artifacts/transmute/recordings");
+    const requested = await resolveRecordingArtifactDirectory(
+      this.#repositoryRoot!,
+      options.recordingDirectory,
+    );
+    const allowedRoot = resolve(this.#repositoryRoot!, "artifacts");
     if (!isInside(allowedRoot, requested)) {
       throw new RuntimeServiceError("invalid-request", "Recording directory escapes the repository artifact root.", false);
     }
@@ -948,7 +997,7 @@ export class RecordingService {
       availableSources: this.#availableSources,
       lastInterruption: this.#lastInterruption,
       permissions: this.#permissions,
-      protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
       sources: this.#sources,
       state: {
         code: failure.code,
@@ -1024,7 +1073,7 @@ export class RecordingService {
     if (!force && material === this.#lastPublishedMaterial) return;
     await this.#publish({
       kind: "snapshot-changed",
-      protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
       snapshot,
     });
     this.#lastPublishedMaterial = material;
@@ -1062,7 +1111,7 @@ export class RecordingService {
       availableSources: this.#availableSources,
       lastInterruption: this.#lastInterruption,
       permissions: this.#permissions,
-      protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
       sources: this.#sources,
       state,
       updatedAt: this.#now().toISOString(),
@@ -1076,10 +1125,10 @@ export class RecordingService {
 
 export async function resolveGatewayRepositoryRoot(value: string | undefined): Promise<string | null> {
   if (value === undefined || value.trim() === "") return null;
-  if (!isAbsolute(value)) throw new Error("TRANSMUTE_REPOSITORY_ROOT must be absolute.");
+  if (!isAbsolute(value)) throw new Error("ATET_REPOSITORY_ROOT must be absolute.");
   const canonical = await realpath(value);
   if (!(await stat(canonical)).isDirectory()) {
-    throw new Error("Configured Transmute workspace is not a directory.");
+    throw new Error("Configured Atet workspace is not a directory.");
   }
   return canonical;
 }

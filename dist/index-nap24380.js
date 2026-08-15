@@ -3,45 +3,57 @@ import {
   bundledSkillPath,
   installSkill,
   pathExists
-} from "./index-mjemj725.js";
+} from "./index-pc34q4wz.js";
 import {
+  AtetWorkflowError,
+  defineAtetWorkflow,
+  runAtetWorkflow
+} from "./index-smffk7h7.js";
+import {
+  AtetOperationError,
   DiagramValidationError,
   StackLayoutError,
-  TransmuteOperationError,
+  atetOperationCodes,
+  atetOperationRegistry,
   builtInIcons,
+  executeAtetOperation,
   executeTransmuteOperation,
   lintDiagram,
+  parseAtetOperationInput,
   parseDiagramSource,
   parseDiagramSpec,
-  parseTransmuteOperationInput,
   renderPng,
   renderSvg,
   resolveDiagramSource,
   resolveEdge,
   resolveStackLayout,
   sanitizeIcon,
+  searchAtetOperations,
   searchTransmuteOperations,
   serializeTldr,
   stackLayoutDefaults,
   transmuteOperationCodes,
   transmuteOperationRegistry,
-  withTransmuteOperationHostAdmission
-} from "./index-v0jxrbzw.js";
+  withAtetOperationHostAdmission
+} from "./index-65by8228.js";
 import {
   VectorizeError,
   nonGatewayChildEnvironment,
   vectorizeHardLimits,
   vectorizeImage
-} from "./index-vdtz0dng.js";
+} from "./index-7jg2r2mc.js";
 import {
-  TransmuteCloudError,
+  AtetCloudError,
+  atetGatewayCredentialStatus,
+  generateAtetImage,
+  generateAtetImageFile,
   generateTransmuteImage,
   generateTransmuteImageFile,
   transmuteGatewayCredentialStatus
-} from "./index-4daanrct.js";
+} from "./index-41988ev7.js";
 import {
   createDefaultHostResourceCoordinator
-} from "./index-eq77wsng.js";
+} from "./index-64bhbap5.js";
 
 // src/artifacts.ts
 import { mkdir, readFile as readFile2, rename, rm, writeFile } from "fs/promises";
@@ -52,10 +64,10 @@ import { readFile } from "fs/promises";
 import { dirname, extname, isAbsolute, resolve } from "path";
 import { pathToFileURL } from "url";
 var configNames = [
-  { current: "transmute.config.ts", legacy: "diagram.config.ts" },
-  { current: "transmute.config.mjs", legacy: "diagram.config.mjs" },
-  { current: "transmute.config.js", legacy: "diagram.config.js" },
-  { current: "transmute.config.json", legacy: "diagram.config.json" }
+  { current: "atet.config.ts", predecessor: "transmute.config.ts", retired: "diagram.config.ts" },
+  { current: "atet.config.mjs", predecessor: "transmute.config.mjs", retired: "diagram.config.mjs" },
+  { current: "atet.config.js", predecessor: "transmute.config.js", retired: "diagram.config.js" },
+  { current: "atet.config.json", predecessor: "transmute.config.json", retired: "diagram.config.json" }
 ];
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -116,7 +128,7 @@ function parseTheme(value, at) {
 }
 function parseConfig(value) {
   if (!isRecord(value))
-    throw new Error("Transmute config must export an object");
+    throw new Error("Atet config must export an object");
   const font = value.font === undefined ? undefined : parseFont(value.font, "font");
   const icons = value.icons === undefined ? undefined : parseIcons(value.icons, "icons");
   let theme;
@@ -135,16 +147,41 @@ function parseConfig(value) {
   };
 }
 async function discoverConfig(directory) {
+  let current = null;
+  let predecessor = null;
   for (const names of configNames) {
     const candidate = resolve(directory, names.current);
-    if (await pathExists(candidate))
-      return candidate;
+    if (await pathExists(candidate)) {
+      current = candidate;
+      break;
+    }
   }
   for (const names of configNames) {
-    const candidate = resolve(directory, names.legacy);
+    const candidate = resolve(directory, names.predecessor);
+    if (await pathExists(candidate)) {
+      predecessor = candidate;
+      break;
+    }
+  }
+  if (current !== null && predecessor !== null) {
+    const [currentBytes, predecessorBytes] = await Promise.all([
+      readFile(current),
+      readFile(predecessor)
+    ]);
+    if (!currentBytes.equals(predecessorBytes)) {
+      throw new Error(`Conflicting Atet configs found at ${current} and ${predecessor}. Remove one or make their bytes identical.`);
+    }
+    return current;
+  }
+  if (current !== null)
+    return current;
+  if (predecessor !== null)
+    return predecessor;
+  for (const names of configNames) {
+    const candidate = resolve(directory, names.retired);
     if (await pathExists(candidate)) {
       const replacement = resolve(directory, names.current);
-      throw new Error(`Legacy Transmute config found at ${candidate}. Rename it to ${replacement}; Transmute does not auto-load diagram.config.*.`);
+      throw new Error(`Legacy Atet config found at ${candidate}. Rename it to ${replacement}; Atet does not auto-load diagram.config.*.`);
     }
   }
   return null;
@@ -308,7 +345,7 @@ async function getLatestDesktopRelease() {
   const response = await fetch(releaseApi, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "hraness-transmute",
+      "User-Agent": "hraness-atet",
       "X-GitHub-Api-Version": "2022-11-28"
     }
   });
@@ -324,7 +361,7 @@ async function sha256(filePath) {
 }
 async function download(asset, filePath) {
   const response = await fetch(asset.browser_download_url, {
-    headers: { "User-Agent": "hraness-transmute" },
+    headers: { "User-Agent": "hraness-atet" },
     redirect: "follow"
   });
   if (!response.ok || response.body === null) {
@@ -360,7 +397,7 @@ function spawnDetached(command) {
 async function installDesktop(options) {
   const release = await getLatestDesktopRelease();
   const asset = selectDesktopAsset(release);
-  const cacheDirectory = join2(homedir(), ".cache", "transmute", "installers", release.tag_name);
+  const cacheDirectory = join2(homedir(), ".cache", "atet", "installers", release.tag_name);
   const installerPath = join2(cacheDirectory, asset.name);
   let reusable = false;
   if (await pathExists(installerPath)) {
@@ -437,7 +474,7 @@ async function openInDesktop(filePath) {
     throw new Error(`File does not exist: ${absolutePath}`);
   const application = await findDesktopApplication();
   if (application === null) {
-    throw new Error(`tldraw Offline is not installed. Run "transmute canvas install" or visit ${desktopDownloadPage}`);
+    throw new Error(`tldraw Offline is not installed. Run "atet canvas install" or visit ${desktopDownloadPage}`);
   }
   if (hostPlatform() === "darwin") {
     spawnDetached(["open", "-a", application, absolutePath]);
@@ -705,11 +742,11 @@ function deepFreeze(value) {
     deepFreeze(nested);
   return Object.freeze(value);
 }
-var transmuteMcpTools = deepFreeze([
+var atetMcpTools = deepFreeze([
   {
     name: "check_diagram",
     title: "Check diagram",
-    description: "Parse and lint one root-relative Transmute diagram source without changing files. Uses only built-in icons and themes.",
+    description: "Parse and lint one root-relative Atet diagram source without changing files. Uses only built-in icons and themes.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -760,7 +797,7 @@ var transmuteMcpTools = deepFreeze([
   {
     name: "render_diagram",
     title: "Render diagram",
-    description: "Render one root-relative Transmute diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
+    description: "Render one root-relative Atet diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -833,9 +870,9 @@ var transmuteMcpTools = deepFreeze([
     }
   },
   {
-    name: "search_transmute",
-    title: "Search Transmute operations",
-    description: "Search the fixed semantic Transmute operation registry by bounded text. This never executes code or changes files.",
+    name: "search_atet",
+    title: "Search Atet operations",
+    description: "Search the fixed semantic Atet operation registry by bounded text. This never executes code or changes files.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -877,7 +914,7 @@ var transmuteMcpTools = deepFreeze([
       }
     },
     annotations: {
-      title: "Search Transmute operations",
+      title: "Search Atet operations",
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
@@ -885,8 +922,8 @@ var transmuteMcpTools = deepFreeze([
     }
   },
   {
-    name: "execute_transmute",
-    title: "Execute Transmute operation",
+    name: "execute_atet",
+    title: "Execute Atet operation",
     description: "Execute one exact operation code with typed JSON input. Never accepts or evaluates source code. Local paths remain confined to the configured workspace root.",
     inputSchema: {
       type: "object",
@@ -895,7 +932,7 @@ var transmuteMcpTools = deepFreeze([
       properties: {
         operation: {
           type: "string",
-          enum: transmuteOperationCodes
+          enum: atetOperationCodes
         },
         input: {
           type: "object",
@@ -909,12 +946,12 @@ var transmuteMcpTools = deepFreeze([
       required: ["ok", "operation", "result"],
       properties: {
         ok: { const: true },
-        operation: { type: "string", enum: transmuteOperationCodes },
+        operation: { type: "string", enum: atetOperationCodes },
         result: { type: "object" }
       }
     },
     annotations: {
-      title: "Execute Transmute operation",
+      title: "Execute Atet operation",
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: false,
@@ -922,6 +959,41 @@ var transmuteMcpTools = deepFreeze([
     }
   }
 ]);
+function operationSchemaWithCodes(schema, operationCodes) {
+  const properties = Reflect.get(schema, "properties");
+  const operation = typeof properties === "object" && properties !== null ? Reflect.get(properties, "operation") : undefined;
+  if (typeof properties !== "object" || properties === null || typeof operation !== "object" || operation === null) {
+    throw new Error("Internal MCP operation schema is invalid.");
+  }
+  return {
+    ...schema,
+    properties: {
+      ...properties,
+      operation: { ...operation, enum: operationCodes }
+    }
+  };
+}
+var transmuteMcpTools = deepFreeze(atetMcpTools.map((tool) => {
+  if (tool.name === "search_atet") {
+    return {
+      ...tool,
+      name: "search_transmute",
+      title: "Search Transmute operations",
+      description: "Deprecated v1 alias for search_atet."
+    };
+  }
+  if (tool.name === "execute_atet") {
+    return {
+      ...tool,
+      name: "execute_transmute",
+      title: "Execute Transmute operation",
+      description: "Deprecated v1 alias for execute_atet.",
+      inputSchema: operationSchemaWithCodes(tool.inputSchema, transmuteOperationCodes),
+      outputSchema: tool.outputSchema
+    };
+  }
+  return tool;
+}));
 
 class ToolFailure extends Error {
   code;
@@ -990,7 +1062,7 @@ function parseSearchArguments(value) {
   }
   rejectUnknownKeys(value, new Set(["query", "limit"]));
   const query = value.query ?? "";
-  const limit = value.limit ?? transmuteOperationCodes.length;
+  const limit = value.limit ?? atetOperationCodes.length;
   if (typeof query !== "string" || query.length > 200 || /[\u0000-\u001f\u007f]/u.test(query) || !Number.isInteger(limit) || limit < 1 || limit > 20) {
     throw new ToolFailure("INVALID_ARGUMENTS", "query must be a bounded string and limit must be an integer from 1 through 20.");
   }
@@ -1001,13 +1073,29 @@ function parseExecuteArguments(value) {
     throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
   }
   rejectUnknownKeys(value, new Set(["operation", "input"]));
-  if (typeof value.operation !== "string" || !transmuteOperationCodes.includes(value.operation) || !isRecord3(value.input)) {
-    throw new ToolFailure("INVALID_ARGUMENTS", "operation must be an exact Transmute operation code and input must be an object.");
+  if (typeof value.operation !== "string" || !atetOperationCodes.includes(value.operation) || !isRecord3(value.input)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "operation must be an exact Atet operation code and input must be an object.");
   }
   return {
     operation: value.operation,
     input: value.input
   };
+}
+function parseTransmuteExecuteArguments(value) {
+  if (!isRecord3(value)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
+  }
+  rejectUnknownKeys(value, new Set(["operation", "input"]));
+  if (typeof value.operation !== "string" || !transmuteOperationCodes.includes(value.operation) || !isRecord3(value.input)) {
+    throw new ToolFailure("INVALID_ARGUMENTS", "operation must be an exact Transmute v1 operation code and input must be an object.");
+  }
+  return {
+    operation: value.operation,
+    input: value.input
+  };
+}
+function canonicalAtetOperation(operation) {
+  return operation.replace(/^transmute\./u, "atet.");
 }
 function assertBuiltInIcons(spec) {
   for (const shape of spec.shapes) {
@@ -1075,10 +1163,10 @@ function failureResult(error) {
   } else if (error instanceof WorkspaceBoundaryError) {
     code = error.code;
     message = safeFragment(error.message, 320);
-  } else if (error instanceof TransmuteCloudError) {
+  } else if (error instanceof AtetCloudError) {
     code = error.code;
     message = safeFragment(error.message.replace(/^\[[A-Z_]+\]\s*/u, ""), 320);
-  } else if (error instanceof TransmuteOperationError) {
+  } else if (error instanceof AtetOperationError) {
     code = error.code;
     message = safeFragment(error.message.replace(/^\[[A-Z_]+\]\s*/u, ""), 320);
   } else if (error instanceof VectorizeError) {
@@ -1106,7 +1194,7 @@ function portableDirectory(filePath) {
   return separator === -1 ? "." : filePath.slice(0, separator);
 }
 async function atomicOverwrite(filePath, data) {
-  const temporaryPath = join4(dirname5(filePath), `.${crypto.randomUUID()}.transmute-mcp.tmp`);
+  const temporaryPath = join4(dirname5(filePath), `.${crypto.randomUUID()}.atet-mcp.tmp`);
   try {
     await writeFile2(temporaryPath, data, { flag: "wx" });
     try {
@@ -1137,7 +1225,7 @@ async function loadDiagram(boundary, path) {
   return { source, spec };
 }
 
-class TransmuteMcpToolRuntime {
+class AtetMcpToolRuntime {
   boundary;
   generateDependencies;
   hostResourceCoordinator;
@@ -1148,10 +1236,10 @@ class TransmuteMcpToolRuntime {
     this.hostResourceCoordinator = hostResourceCoordinator;
   }
   static async create(rootDirectory, generateDependencies = {}, hostResourceCoordinator) {
-    return new TransmuteMcpToolRuntime(await WorkspaceBoundary.create(rootDirectory), generateDependencies, hostResourceCoordinator ?? createDefaultHostResourceCoordinator());
+    return new AtetMcpToolRuntime(await WorkspaceBoundary.create(rootDirectory), generateDependencies, hostResourceCoordinator ?? createDefaultHostResourceCoordinator());
   }
   async withHostAdmission(operation, callback) {
-    return await withTransmuteOperationHostAdmission(operation, callback, {
+    return await withAtetOperationHostAdmission(operation, callback, {
       hostResourceCoordinator: this.hostResourceCoordinator
     });
   }
@@ -1168,20 +1256,30 @@ class TransmuteMcpToolRuntime {
     try {
       if (name === "check_diagram") {
         const options = parseCheckArguments(argumentsValue);
-        return await this.withHostAdmission("transmute.diagram.check", async () => await this.check(options));
+        return await this.withHostAdmission("atet.diagram.check", async () => await this.check(options));
       }
       if (name === "render_diagram") {
         const options = parseRenderArguments(argumentsValue);
-        return await this.enqueueRender(async () => await this.withHostAdmission("transmute.diagram.render", async () => await this.render(options)));
+        return await this.enqueueRender(async () => await this.withHostAdmission("atet.diagram.render", async () => await this.render(options)));
+      }
+      if (name === "search_atet") {
+        const options = parseSearchArguments(argumentsValue);
+        const operations = searchAtetOperations(options.query, options.limit);
+        return successResult(`Found ${operations.length} Atet operation${operations.length === 1 ? "" : "s"}.`, { ok: true, operations });
       }
       if (name === "search_transmute") {
         const options = parseSearchArguments(argumentsValue);
-        const operations = searchTransmuteOperations(options.query, options.limit);
-        return successResult(`Found ${operations.length} Transmute operation${operations.length === 1 ? "" : "s"}.`, { ok: true, operations });
+        const operations = searchAtetOperations(options.query.replace(/\btransmute\./gu, "atet."), options.limit);
+        return successResult(`Found ${operations.length} Atet operation${operations.length === 1 ? "" : "s"}.`, { ok: true, operations });
       }
-      if (name === "execute_transmute") {
+      if (name === "execute_atet") {
         const options = parseExecuteArguments(argumentsValue);
         return await this.execute(options);
+      }
+      if (name === "execute_transmute") {
+        const options = parseTransmuteExecuteArguments(argumentsValue);
+        const canonical = canonicalAtetOperation(options.operation);
+        return await this.execute({ operation: canonical, input: options.input });
       }
       throw new ToolFailure("UNKNOWN_TOOL", "Requested tool is not available.");
     } catch (error) {
@@ -1201,20 +1299,20 @@ class TransmuteMcpToolRuntime {
     };
   }
   async execute(options) {
-    if (options.operation === "transmute.diagram.check") {
-      const input = parseTransmuteOperationInput(options.operation, options.input);
+    if (options.operation === "atet.diagram.check") {
+      const input = parseAtetOperationInput(options.operation, options.input);
       return this.wrapSemanticResult(options.operation, await this.withHostAdmission(options.operation, async () => await this.check({ path: input.path })));
     }
-    if (options.operation === "transmute.diagram.render") {
-      const input = parseTransmuteOperationInput(options.operation, options.input);
+    if (options.operation === "atet.diagram.render") {
+      const input = parseAtetOperationInput(options.operation, options.input);
       return this.enqueueRender(async () => await this.withHostAdmission(options.operation, async () => this.wrapSemanticResult(options.operation, await this.render({
         path: input.path,
         ...input.outDirectory === undefined ? {} : { outDirectory: input.outDirectory },
         scale: input.scale ?? defaultScale
       }))));
     }
-    if (options.operation === "transmute.image.vectorize") {
-      const input = parseTransmuteOperationInput(options.operation, options.input);
+    if (options.operation === "atet.image.vectorize") {
+      const input = parseAtetOperationInput(options.operation, options.input);
       return this.enqueueRender(async () => await this.withHostAdmission(options.operation, async (lease) => {
         const source = await this.boundary.resolveInputFile(input.inputPath, vectorizeHardLimits.maxInputBytes);
         const output = await this.boundary.prepareOutputFile(input.outputPath);
@@ -1237,9 +1335,9 @@ class TransmuteMcpToolRuntime {
       }));
     }
     return await this.withHostAdmission(options.operation, async () => {
-      const input = parseTransmuteOperationInput(options.operation, options.input);
+      const input = parseAtetOperationInput(options.operation, options.input);
       const output = await this.boundary.prepareOutputFile(input.outputPath);
-      const generated = await generateTransmuteImageFile({ ...input, outputPath: output.absolutePath }, this.generateDependencies);
+      const generated = await generateAtetImageFile({ ...input, outputPath: output.absolutePath }, this.generateDependencies);
       return successResult(`Executed ${options.operation}: ${output.relativePath} (request ${safeFragment(generated.requestId, 256)}).`, {
         ok: true,
         operation: options.operation,
@@ -1321,8 +1419,13 @@ class TransmuteMcpToolRuntime {
   }
 }
 
+// src/version.ts
+var ATET_VERSION = "2.0.0";
+
 // src/mcp/server.ts
-var transmuteMcpProtocolVersion = "2025-11-25";
+var atetMcpProtocolVersion = "2025-11-25";
+var atetMcpServerName = "hraness-atet";
+var transmuteMcpProtocolVersion = atetMcpProtocolVersion;
 var transmuteMcpServerName = "hraness-transmute";
 var maximumMessageBytes = 1024 * 1024;
 function isRecord4(value) {
@@ -1364,7 +1467,7 @@ function parseToolCall(params) {
   };
 }
 
-class TransmuteMcpSession {
+class AtetMcpSession {
   runtime;
   serverVersion;
   state = "new";
@@ -1397,15 +1500,15 @@ class TransmuteMcpSession {
       }
       this.state = "initializing";
       return success(id, {
-        protocolVersion: transmuteMcpProtocolVersion,
+        protocolVersion: atetMcpProtocolVersion,
         capabilities: {
           tools: { listChanged: false }
         },
         serverInfo: {
-          name: transmuteMcpServerName,
+          name: atetMcpServerName,
           version: this.serverVersion
         },
-        instructions: "Use the compatibility check_diagram/render_diagram tools or search_transmute followed by execute_transmute with an exact registry code and typed JSON. Local paths are root-relative; source code is never accepted or evaluated."
+        instructions: "Use the compatibility check_diagram/render_diagram tools or search_atet followed by execute_atet with an exact registry code and typed JSON. Legacy search_transmute and execute_transmute calls remain accepted but are not listed. Local paths are root-relative; source code is never accepted or evaluated."
       });
     }
     if (this.state !== "ready") {
@@ -1417,12 +1520,12 @@ class TransmuteMcpSession {
       if (request.params !== undefined && (!isRecord4(request.params) || Object.keys(request.params).length > 0)) {
         return failure(id, -32602, "Invalid tools/list parameters");
       }
-      return success(id, { tools: transmuteMcpTools });
+      return success(id, { tools: atetMcpTools });
     }
     if (request.method === "tools/call") {
       try {
         const toolCall = parseToolCall(request.params);
-        if (!transmuteMcpTools.some((tool) => tool.name === toolCall.name)) {
+        if (!atetMcpTools.some((tool) => tool.name === toolCall.name) && !transmuteMcpTools.some((tool) => tool.name === toolCall.name)) {
           return failure(id, -32602, "Unknown tool");
         }
         return success(id, await this.runtime.call(toolCall.name, toolCall.argumentsValue));
@@ -1472,8 +1575,8 @@ async function processLine(line, session, writeLine) {
     await emitResponse(writeLine, response);
 }
 async function runMcpServer(options = {}) {
-  const runtime = await TransmuteMcpToolRuntime.create(options.rootDirectory ?? process.cwd(), options.generateDependencies);
-  const session = new TransmuteMcpSession(runtime, options.serverVersion ?? "1.0.0");
+  const runtime = await AtetMcpToolRuntime.create(options.rootDirectory ?? process.cwd(), options.generateDependencies);
+  const session = new AtetMcpSession(runtime, options.serverVersion ?? ATET_VERSION);
   const writeLine = options.writeLine ?? defaultWriteLine;
   let buffered = Buffer.alloc(0);
   for await (const chunk of options.input ?? defaultInput()) {
@@ -1508,24 +1611,25 @@ async function runMcpServer(options = {}) {
   }
 }
 // src/index.ts
-var diagramApi = Object.freeze({
+var atetApi = Object.freeze({
   artifactSummary,
   builtInIcons,
   bundledSkillPath,
   checkDiagramFile,
   desktopDownloadPage,
   desktopStatus,
+  defineAtetWorkflow,
   DiagramValidationError,
   findDesktopApplication,
-  generateTransmuteImage,
-  generateTransmuteImageFile,
+  generateAtetImage,
+  generateAtetImageFile,
   getLatestDesktopRelease,
-  transmuteGatewayCredentialStatus,
-  transmuteMcpProtocolVersion,
-  transmuteMcpServerName,
-  transmuteMcpTools,
-  transmuteOperationRegistry,
-  TransmuteMcpToolRuntime,
+  atetGatewayCredentialStatus,
+  atetMcpProtocolVersion,
+  atetMcpServerName,
+  atetMcpTools,
+  atetOperationRegistry,
+  AtetMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
@@ -1542,15 +1646,28 @@ var diagramApi = Object.freeze({
   resolveEdge,
   resolveDiagramSource,
   resolveStackLayout,
+  runAtetWorkflow,
   runMcpServer,
-  searchTransmuteOperations,
+  searchAtetOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
   StackLayoutError,
+  AtetWorkflowError,
   vectorizeImage,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
+  executeAtetOperation,
+  generateTransmuteImage,
+  generateTransmuteImageFile,
+  transmuteGatewayCredentialStatus,
+  transmuteMcpProtocolVersion,
+  transmuteMcpServerName,
+  transmuteMcpTools,
+  transmuteOperationRegistry,
+  TransmuteMcpToolRuntime: AtetMcpToolRuntime,
+  searchTransmuteOperations,
   executeTransmuteOperation
 });
-export { readDiagramFile, checkDiagramFile, renderDiagramFile, artifactSummary, desktopDownloadPage, selectDesktopAsset, getLatestDesktopRelease, installDesktop, findDesktopApplication, desktopStatus, openInDesktop, mcpSourceByteLimit, WorkspaceBoundaryError, WorkspaceBoundary, mcpMaximumScale, mcpMaximumRenderedPixels, transmuteMcpTools, TransmuteMcpToolRuntime, transmuteMcpProtocolVersion, transmuteMcpServerName, runMcpServer, diagramApi };
+var diagramApi = atetApi;
+export { readDiagramFile, checkDiagramFile, renderDiagramFile, artifactSummary, desktopDownloadPage, selectDesktopAsset, getLatestDesktopRelease, installDesktop, findDesktopApplication, desktopStatus, openInDesktop, mcpSourceByteLimit, WorkspaceBoundaryError, WorkspaceBoundary, mcpMaximumScale, mcpMaximumRenderedPixels, atetMcpTools, transmuteMcpTools, AtetMcpToolRuntime, ATET_VERSION, atetMcpProtocolVersion, atetMcpServerName, transmuteMcpProtocolVersion, transmuteMcpServerName, runMcpServer, atetApi, diagramApi };

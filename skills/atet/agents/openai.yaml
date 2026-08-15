@@ -1,0 +1,4 @@
+interface:
+  display_name: "Atet"
+  short_description: "Create checked visuals, images, and reviewed 3D scenes"
+  default_prompt: "Create or update a visual that follows my prompt literally, keeps checked source and exact references, and uses reviewed Atet workflows with bounded rendering defaults."

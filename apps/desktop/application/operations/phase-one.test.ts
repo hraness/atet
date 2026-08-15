@@ -98,7 +98,7 @@ function preparedImageOverlay(
 
 describe("project application operations", () => {
   test("rejects a snapshot when the project changes after plan-time binding", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-operations-snapshot-drift-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-operations-snapshot-drift-"));
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);
       const planned = hashProjectGeneration(fixture.project, fixture.plan);
@@ -122,7 +122,7 @@ describe("project application operations", () => {
   });
 
   test("snapshots full canonical documents and commits one ordered checked batch", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-operations-project-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-operations-project-"));
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);
       const registry = new OperationRegistry();
@@ -271,7 +271,7 @@ describe("project application operations", () => {
   });
 
   test("adds and removes prepared overlays through one checked transaction", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-operations-overlays-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-operations-overlays-"));
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);
       const registry = new OperationRegistry();
@@ -474,7 +474,7 @@ describe("project application operations", () => {
 });
 
 test("concurrent analysis wrappers merge authoritative references without lost updates", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-operations-analysis-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-operations-analysis-"));
   try {
     const fixture = await createOperationProjectFixture(repositoryRoot);
     const calls: Array<Readonly<Record<string, unknown>>> = [];
@@ -766,7 +766,7 @@ test("concurrent analysis wrappers merge authoritative references without lost u
 });
 
 test("checked commits reject a missing typed edit basis", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-operations-generation-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-operations-generation-"));
   try {
     const fixture = await createOperationProjectFixture(repositoryRoot);
     const registry = new OperationRegistry();

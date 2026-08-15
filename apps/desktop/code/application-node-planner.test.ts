@@ -40,11 +40,11 @@ import {
 import {
   CommitProjectEditsInputV3Schema,
   BindCandidateRenderOutputInputSchema,
-  TRANSMUTE_PROJECT_RENDERER_ABI,
+  ATET_PROJECT_RENDERER_ABI,
   deriveProjectEditBatchV2,
   deriveProjectEditBatchV3,
 } from "../application/operations";
-import { createTransmutePortableOperationDefinitions } from "../application/operations/transmute-portable";
+import { createAtetPortableOperationDefinitions } from "../application/operations/atet-portable";
 import { OperationRegistry } from "../application/registry";
 import {
   VideoProjectV1Schema,
@@ -220,7 +220,7 @@ describe("application node planner", () => {
   test("routes captioned render plans through the exact v2 host binder", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-node-planner-caption-binding-",
+      "atet-node-planner-caption-binding-",
     ));
     try {
       const projectId = "project_captionbinder";
@@ -237,7 +237,7 @@ describe("application node planner", () => {
           generationSha256: "5".repeat(64),
           projectSha256,
         },
-        kind: "transmute.project-edit-revision-reference",
+        kind: "atet.project-edit-revision-reference",
         outputGeometrySha256: hashProjectEditRevisionOutputGeometry({
           pixelHeight: 1_920,
           pixelWidth: 1_080,
@@ -292,7 +292,7 @@ describe("application node planner", () => {
               planSha256: revision.baseGeneration.currentPlanSha256,
               projectSha256,
             }],
-            version: "transmute-static-bindings-v1",
+            version: "atet-static-bindings-v1",
           },
         },
         node,
@@ -312,7 +312,7 @@ describe("application node planner", () => {
   test("binds every visual file input and changes diagram cache identity when bytes change", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-node-planner-visual-binding-",
+      "atet-node-planner-visual-binding-",
     ));
     try {
       const fixtureDirectory = join(repositoryRoot, "fixtures");
@@ -329,9 +329,9 @@ describe("application node planner", () => {
       );
       const plan = async (
         kind:
-          | "transmute.diagram.check"
-          | "transmute.diagram.render"
-          | "transmute.image.vectorize",
+          | "atet.diagram.check"
+          | "atet.diagram.render"
+          | "atet.image.vectorize",
         input: Readonly<Record<string, unknown>>,
         path: string,
       ) => {
@@ -358,7 +358,7 @@ describe("application node planner", () => {
                 kind: "file",
               })],
               initialSubjects: [],
-              version: "transmute-static-bindings-v1",
+              version: "atet-static-bindings-v1",
             },
           },
           node,
@@ -370,17 +370,17 @@ describe("application node planner", () => {
       };
 
       const checkedV1 = await plan(
-        "transmute.diagram.check",
+        "atet.diagram.check",
         { path: diagramPath },
         diagramPath,
       );
       const rendered = await plan(
-        "transmute.diagram.render",
+        "atet.diagram.render",
         { path: diagramPath, scale: 2 },
         diagramPath,
       );
       const vectorized = await plan(
-        "transmute.image.vectorize",
+        "atet.image.vectorize",
         { inputPath: rasterPath },
         rasterPath,
       );
@@ -409,7 +409,7 @@ describe("application node planner", () => {
 
       await writeFile(join(repositoryRoot, diagramPath), "diagram-v2");
       const checkedV2 = await plan(
-        "transmute.diagram.check",
+        "atet.diagram.check",
         { path: diagramPath },
         diagramPath,
       );
@@ -432,11 +432,11 @@ describe("application node planner", () => {
   test("pins portable v2 sources and serializes their exact output targets", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-node-planner-portable-binding-",
+      "atet-node-planner-portable-binding-",
     ));
     const externalRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-node-planner-portable-external-",
+      "atet-node-planner-portable-external-",
     ));
     try {
       const fixtureDirectory = join(repositoryRoot, "fixtures");
@@ -452,10 +452,10 @@ describe("application node planner", () => {
       const planner = createApplicationNodePlanner(boundApplication);
       const plan = async (
         kind:
-          | "transmute.diagram.check"
-          | "transmute.diagram.render"
-          | "transmute.image.generate"
-          | "transmute.image.vectorize",
+          | "atet.diagram.check"
+          | "atet.diagram.render"
+          | "atet.image.generate"
+          | "atet.image.vectorize",
         input: Readonly<Record<string, unknown>>,
         sourcePath?: string,
       ) => {
@@ -484,7 +484,7 @@ describe("application node planner", () => {
                     kind: "file",
                   })],
               initialSubjects: [],
-              version: "transmute-static-bindings-v1",
+              version: "atet-static-bindings-v1",
             },
           },
           node,
@@ -496,7 +496,7 @@ describe("application node planner", () => {
       };
 
       const checkedV1 = await plan(
-        "transmute.diagram.check",
+        "atet.diagram.check",
         { path: diagramPath },
         diagramPath,
       );
@@ -516,7 +516,7 @@ describe("application node planner", () => {
       const externalPath = join(externalRoot, "external.diagram.json");
       await writeFile(externalPath, "external-diagram");
       const checkedExternal = await plan(
-        "transmute.diagram.check",
+        "atet.diagram.check",
         { path: externalPath },
         externalPath,
       );
@@ -531,13 +531,13 @@ describe("application node planner", () => {
       await symlink(externalRoot, join(fixtureDirectory, "external-alias"));
       const escapedRelativeSource = "fixtures/external-alias/external.diagram.json";
       expect(plan(
-        "transmute.diagram.check",
+        "atet.diagram.check",
         { path: escapedRelativeSource },
         escapedRelativeSource,
       )).rejects.toBeInstanceOf(Error);
 
       const rendered = await plan(
-        "transmute.diagram.render",
+        "atet.diagram.render",
         { path: diagramPath, scale: 2 },
         diagramPath,
       );
@@ -550,7 +550,7 @@ describe("application node planner", () => {
 
       const vectorOutput = "generated/sketch.svg";
       const vectorized = await plan(
-        "transmute.image.vectorize",
+        "atet.image.vectorize",
         { inputPath: rasterPath, outputPath: vectorOutput },
         rasterPath,
       );
@@ -568,12 +568,12 @@ describe("application node planner", () => {
       ));
       expect(vectorized.publicationKeys).toHaveLength(1);
       expect((await plan(
-        "transmute.image.vectorize",
+        "atet.image.vectorize",
         { inputPath: rasterPath, outputPath: vectorOutput },
         rasterPath,
       )).publicationKeys).toEqual(vectorized.publicationKeys);
       const lexicalAliasOutput = await plan(
-        "transmute.image.vectorize",
+        "atet.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: join(repositoryRoot, "generated/platform-alias.svg"),
@@ -581,7 +581,7 @@ describe("application node planner", () => {
         rasterPath,
       );
       const physicalAliasOutput = await plan(
-        "transmute.image.vectorize",
+        "atet.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: join(
@@ -598,7 +598,7 @@ describe("application node planner", () => {
         physicalAliasOutput.publicationKeys,
       );
 
-      const generated = await plan("transmute.image.generate", {
+      const generated = await plan("atet.image.generate", {
         model: "openai/gpt-image-1.5",
         outputPath: "generated/example.webp",
         prompt: "A deterministic fixture",
@@ -613,7 +613,7 @@ describe("application node planner", () => {
       expect(generated.publicationKeys).toEqual(vectorized.publicationKeys);
 
       const renderCollision = await plan(
-        "transmute.image.vectorize",
+        "atet.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: "fixtures/system.light.svg",
@@ -629,7 +629,7 @@ describe("application node planner", () => {
         join(repositoryRoot, "aliased-output"),
       );
       const aliasedOutput = await plan(
-        "transmute.image.vectorize",
+        "atet.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: "aliased-output/sketch.svg",
@@ -643,7 +643,7 @@ describe("application node planner", () => {
         ),
       });
       const physicalOutput = await plan(
-        "transmute.image.vectorize",
+        "atet.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: join(physicalOutputDirectory, "sketch.svg"),
@@ -658,7 +658,7 @@ describe("application node planner", () => {
       await writeFile(externalOutputPath, "old-output");
       await symlink(externalRoot, join(repositoryRoot, "external-output-alias"));
       expect(plan(
-        "transmute.image.vectorize",
+        "atet.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: "external-output-alias/escaped.svg",
@@ -668,7 +668,7 @@ describe("application node planner", () => {
 
       await writeFile(join(repositoryRoot, diagramPath), "diagram-v2");
       const checkedV2 = await plan(
-        "transmute.diagram.check",
+        "atet.diagram.check",
         { path: diagramPath },
         diagramPath,
       );
@@ -685,14 +685,14 @@ describe("application node planner", () => {
       const symlinkPath = "fixtures/symlink.diagram.json";
       await symlink(join(repositoryRoot, diagramPath), join(repositoryRoot, symlinkPath));
       expect(plan(
-        "transmute.diagram.check",
+        "atet.diagram.check",
         { path: symlinkPath },
         symlinkPath,
       )).rejects.toBeInstanceOf(Error);
 
       let pinnedExecutions = 0;
       const pinnedRegistry = new OperationRegistry();
-      for (const definition of createTransmutePortableOperationDefinitions({
+      for (const definition of createAtetPortableOperationDefinitions({
         execute: async (_kind, input, dependencies) => {
           pinnedExecutions += 1;
           const pinnedPath = (input as Readonly<{ path: string }>).path;
@@ -710,16 +710,16 @@ describe("application node planner", () => {
         application: boundApplication,
       }, {
         input: checkedV1.exactInput,
-        kind: "transmute.diagram.check",
+        kind: "atet.diagram.check",
         version: 2,
       });
       expect(pinnedExecutions).toBe(1);
 
       let vectorPinObserved = false;
       const vectorPinRegistry = new OperationRegistry();
-      for (const definition of createTransmutePortableOperationDefinitions({
+      for (const definition of createAtetPortableOperationDefinitions({
         execute: async (kind, input, dependencies) => {
-          if (kind !== "transmute.image.vectorize") {
+          if (kind !== "atet.image.vectorize") {
             throw new Error("Unexpected portable operation.");
           }
           vectorPinObserved = true;
@@ -738,7 +738,7 @@ describe("application node planner", () => {
         application: boundApplication,
       }, {
         input: vectorized.exactInput,
-        kind: "transmute.image.vectorize",
+        kind: "atet.image.vectorize",
         version: 2,
       })).rejects.toThrow("vector-pin-observed");
       expect(vectorPinObserved).toBe(true);
@@ -760,7 +760,7 @@ describe("application node planner", () => {
         );
         let rootSwapExecutions = 0;
         const rootSwapRegistry = new OperationRegistry();
-        for (const definition of createTransmutePortableOperationDefinitions({
+        for (const definition of createAtetPortableOperationDefinitions({
           execute: () => {
             rootSwapExecutions += 1;
             return Promise.resolve({ configPath: null, findings: [] });
@@ -774,7 +774,7 @@ describe("application node planner", () => {
             application: boundApplication,
           }, {
             input: checkedV1.exactInput,
-            kind: "transmute.diagram.check",
+            kind: "atet.diagram.check",
             version: 2,
           });
         } catch (error) {
@@ -789,7 +789,7 @@ describe("application node planner", () => {
 
       const replacedSnapshotPath = `${checkedV2Input.path}.moved`;
       const replacementRegistry = new OperationRegistry();
-      for (const definition of createTransmutePortableOperationDefinitions({
+      for (const definition of createAtetPortableOperationDefinitions({
         execute: async (_kind, input) => {
           const pinnedPath = (input as Readonly<{ path: string }>).path;
           await rename(checkedV2Input.path, replacedSnapshotPath);
@@ -804,7 +804,7 @@ describe("application node planner", () => {
         application: boundApplication,
       }, {
         input: checkedV2.exactInput,
-        kind: "transmute.diagram.check",
+        kind: "atet.diagram.check",
         version: 2,
       })).rejects.toMatchObject({ code: "ambiguous" });
 
@@ -815,7 +815,7 @@ describe("application node planner", () => {
       await writeFile(checkedV1Input.path, "tampered");
       let delegatedExecutions = 0;
       const executionRegistry = new OperationRegistry();
-      for (const definition of createTransmutePortableOperationDefinitions({
+      for (const definition of createAtetPortableOperationDefinitions({
         execute: () => {
           delegatedExecutions += 1;
           return Promise.resolve({ configPath: null, findings: [] });
@@ -827,12 +827,12 @@ describe("application node planner", () => {
         application: boundApplication,
       }, {
         input: checkedV1.exactInput,
-        kind: "transmute.diagram.check",
+        kind: "atet.diagram.check",
         version: 2,
       })).rejects.toMatchObject({ code: "conflict" });
       expect(delegatedExecutions).toBe(0);
       expect(plan(
-        "transmute.diagram.check",
+        "atet.diagram.check",
         { path: diagramPath },
         diagramPath,
       )).rejects.toThrow("destination contains different bytes");
@@ -862,7 +862,7 @@ describe("application node planner", () => {
             planSha256: currentPlanSha256,
             projectSha256,
           }],
-          version: "transmute-static-bindings-v1",
+          version: "atet-static-bindings-v1",
         },
       },
       node: {
@@ -872,9 +872,9 @@ describe("application node planner", () => {
           operation: { kind: "project.snapshot", version: 1 },
         },
         input: { project: "project_example" },
-        inputSchemaId: "studio.operation.project.snapshot.input/v1",
+        inputSchemaId: "atet.operation.project.snapshot.input/v1",
         key: "project",
-        outputSchemaId: "studio.operation.project.snapshot.output/v1",
+        outputSchemaId: "atet.operation.project.snapshot.output/v1",
       },
       operation: {
         kind: "project.snapshot",
@@ -898,7 +898,7 @@ describe("application node planner", () => {
   test("binds creative candidates to exactly one host-owned frozen snapshot", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-node-planner-creative-base-",
+      "atet-node-planner-creative-base-",
     ));
     try {
       const fixtureProject = await createOperationProjectFixture(repositoryRoot);
@@ -971,7 +971,7 @@ describe("application node planner", () => {
               planSha256: snapshot.generation.currentPlanSha256,
               projectSha256: snapshot.generation.projectSha256,
             }],
-            version: "transmute-static-bindings-v1",
+            version: "atet-static-bindings-v1",
           },
         },
         node: candidateNode,
@@ -1026,7 +1026,7 @@ describe("application node planner", () => {
   test("binds candidate render derivations to the exact host toolchain", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-node-planner-candidate-render-",
+      "atet-node-planner-candidate-render-",
     ));
     try {
       const projectFixture = await createOperationProjectFixture(repositoryRoot);
@@ -1051,7 +1051,7 @@ describe("application node planner", () => {
         bindingsSha256: "d".repeat(64),
         candidate,
         derivationSha256: "e".repeat(64),
-        kind: "transmute.creative-candidate-revision-reference",
+        kind: "atet.creative-candidate-revision-reference",
         planId: projectFixture.plan.planId,
         projectEditPlanSha256: base.generation.currentPlanSha256,
         projectId: projectFixture.project.projectId,
@@ -1064,7 +1064,7 @@ describe("application node planner", () => {
       const revision = RenderableProjectEditRevisionReferenceSchema.parse({
         artifact: candidateRevision.artifact,
         baseGeneration: base.generation,
-        kind: "transmute.project-edit-revision-reference",
+        kind: "atet.project-edit-revision-reference",
         outputGeometrySha256: hashProjectEditRevisionOutputGeometry({
           pixelHeight: 540,
           pixelWidth: 960,
@@ -1087,7 +1087,7 @@ describe("application node planner", () => {
           path: `renders/plans/${planArtifactSha256}.json`,
           sha256: planArtifactSha256,
         },
-        kind: "transmute.project-render-plan-reference",
+        kind: "atet.project-render-plan-reference",
         outputGeometrySha256: revision.outputGeometrySha256,
         planSha256: canonicalJsonSha256({ kind: "planner-plan" }),
         projectEditPlanSha256: revision.projectEditPlanSha256,
@@ -1150,7 +1150,7 @@ describe("application node planner", () => {
                 planSha256: base.generation.currentPlanSha256,
                 projectSha256: base.generation.projectSha256,
               }],
-              version: "transmute-static-bindings-v1",
+              version: "atet-static-bindings-v1",
             },
           },
           node,
@@ -1167,7 +1167,7 @@ describe("application node planner", () => {
         .toBe(FIXTURE_EXECUTABLE);
       expect(exact.binding.ffmpeg.executableSha256)
         .toBe(exact.binding.ffprobe.executableSha256);
-      expect(exact.rendererAbi).toBe(TRANSMUTE_PROJECT_RENDERER_ABI);
+      expect(exact.rendererAbi).toBe(ATET_PROJECT_RENDERER_ABI);
       expect(planned.expectedProjectGeneration).toBeUndefined();
       expect(planned.publicationKeys).toEqual([]);
     } finally {
@@ -1178,7 +1178,7 @@ describe("application node planner", () => {
   test("binds v2 metadata commits to the exact recording manifest before hashing the node plan", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-node-planner-v2-binding-",
+      "atet-node-planner-v2-binding-",
     ));
     try {
       const fixtureProject = await createOperationRecordingProjectFixture(
@@ -1271,7 +1271,7 @@ describe("application node planner", () => {
               planSha256: snapshot.generation.currentPlanSha256,
               projectSha256: snapshot.generation.projectSha256,
             }],
-            version: "transmute-static-bindings-v1",
+            version: "atet-static-bindings-v1",
           },
         },
         node: commitNode,
@@ -1329,7 +1329,7 @@ describe("application node planner", () => {
   test("binds v3 manual zoom selectors before hashing the node plan", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-node-planner-v3-zoom-binding-",
+      "atet-node-planner-v3-zoom-binding-",
     ));
     try {
       const fixtureProject = await createOperationRecordingProjectFixture(
@@ -1413,7 +1413,7 @@ describe("application node planner", () => {
               planSha256: snapshot.generation.currentPlanSha256,
               projectSha256: snapshot.generation.projectSha256,
             }],
-            version: "transmute-static-bindings-v1",
+            version: "atet-static-bindings-v1",
           },
         },
         node: commitNode,
@@ -1500,7 +1500,7 @@ describe("application node planner", () => {
   test("reconciles interrupted v2 project commits with the matching exact schema", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-node-planner-v2-commit-",
+      "atet-node-planner-v2-commit-",
     ));
     try {
       const fixtureProject = await createOperationProjectFixture(
@@ -1581,7 +1581,7 @@ describe("application node planner", () => {
   });
 
   test("binds deterministic analysis IDs into exact execution inputs", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-node-planner-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-node-planner-"));
     try {
       const project = await createOperationProjectFixture(repositoryRoot);
       const boundApplication = operationApplicationContext(repositoryRoot, {
@@ -1618,7 +1618,7 @@ describe("application node planner", () => {
               planSha256: "4".repeat(64),
               projectSha256: "5".repeat(64),
             }],
-            version: "transmute-static-bindings-v1",
+            version: "atet-static-bindings-v1",
           },
         },
         preparationPlan: {},
@@ -1652,7 +1652,7 @@ describe("application node planner", () => {
   test("does not inject an analysis ID into project auto-zoom input", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-node-planner-auto-zoom-",
+      "atet-node-planner-auto-zoom-",
     ));
     try {
       const project = await createOperationRecordingProjectFixture(
@@ -1681,7 +1681,7 @@ describe("application node planner", () => {
               planSha256: "4".repeat(64),
               projectSha256: "5".repeat(64),
             }],
-            version: "transmute-static-bindings-v1",
+            version: "atet-static-bindings-v1",
           },
         },
         node: {
@@ -1752,12 +1752,12 @@ describe("application node planner", () => {
             outputs: [{
               bytes: 5,
               mediaType: "audio/mpeg",
-              path: "artifacts/transmute/generated/speech.mp3",
+              path: "artifacts/atet/generated/speech.mp3",
               sha256: "b".repeat(64),
             }],
             receipt: {
               bytes: 100,
-              path: "artifacts/transmute/generated/receipt.json",
+              path: "artifacts/atet/generated/receipt.json",
               sha256: "c".repeat(64),
             },
             requestId: input.requestId,
@@ -1804,12 +1804,12 @@ describe("application node planner", () => {
     });
     expect(await planner.reconcile!(reconciliationRequest)).toMatchObject({
       kind: "completed",
-      receiptReference: "artifacts/transmute/generated/receipt.json",
+      receiptReference: "artifacts/atet/generated/receipt.json",
       summary: {
         bytes: 5,
         model: SPEECH_MODEL,
         outputs: 1,
-        receipt: "artifacts/transmute/generated/receipt.json",
+        receipt: "artifacts/atet/generated/receipt.json",
       },
     });
     expect(reconciliations).toHaveLength(1);

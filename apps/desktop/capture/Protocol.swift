@@ -92,7 +92,7 @@ struct CaptureOptions {
         systemAudio: true,
         typedText: false,
         typedTextFocusIdentities: nil,
-        excludedBundleIdentifiers: ["com.hraness.transmute"]
+        excludedBundleIdentifiers: ["com.hraness.atet"]
     )
 
     var json: [String: Any] {
@@ -569,7 +569,7 @@ final class ProtocolEmitter: @unchecked Sendable {
     }
 
     func diagnostic(_ message: String) {
-        let line = "transmute-capture: \(bounded(message, maximumUTF8Bytes: 8_192))\n"
+        let line = "atet-capture: \(bounded(message, maximumUTF8Bytes: 8_192))\n"
         guard let data = line.data(using: .utf8) else { return }
         try? FileHandle.standardError.write(contentsOf: data)
     }

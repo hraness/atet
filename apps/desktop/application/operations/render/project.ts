@@ -84,7 +84,7 @@ const PROJECT_RENDER_PRECOMMIT_MAXIMUM_BYTES = 256 * 1_024;
 const PROJECT_RENDER_PRECOMMIT_DOMAIN =
   "studio.project-render-publication-precommit/v1";
 const CANDIDATE_RENDER_REUSE_RECORD_DOMAIN =
-  "transmute.candidate-render-reuse-record/v1";
+  "atet.candidate-render-reuse-record/v1";
 
 const ProjectRenderExecutionIdentitySchema = z.strictObject({
   nodeKey: z.string()
@@ -99,6 +99,7 @@ const ProjectRenderExecutionIdentitySchema = z.strictObject({
 
 const ProjectRenderPublicationPrecommitBodySchema = z.strictObject({
   kind: z.union([
+    z.literal("atet.project-render-publication-precommit"),
     z.literal("transmute.project-render-publication-precommit"),
     z.literal("studio.project-render-publication-precommit"),
   ]),
@@ -146,7 +147,10 @@ type ProjectRenderPublicationPrecommit = z.infer<
 const CandidateRenderReuseRecordBodyV1Schema = z.strictObject({
   derivationSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   inputSha256: z.string().regex(/^[a-f0-9]{64}$/u),
-  kind: z.literal("transmute.candidate-render-reuse-record"),
+  kind: z.union([
+    z.literal("atet.candidate-render-reuse-record"),
+    z.literal("transmute.candidate-render-reuse-record"),
+  ]),
   output: ProjectRenderOutputReferenceSchema,
   rendererAbi: CandidateProjectRendererAbiSchema,
   schemaVersion: z.literal(1),
@@ -545,7 +549,7 @@ function createPublicationPrecommit(
 ): ProjectRenderPublicationPrecommit {
   const receiptContentsSha256 = sha256Hex(`${canonicalJson(receipt)}\n`);
   const body = ProjectRenderPublicationPrecommitBodySchema.parse({
-    kind: "transmute.project-render-publication-precommit",
+    kind: "atet.project-render-publication-precommit",
     receipt,
     receiptContentsSha256,
     schemaVersion: 1,
@@ -715,7 +719,7 @@ function receiptReference(
 ): ProjectRenderReceiptReference {
   return ProjectRenderReceiptReferenceSchema.parse({
     bytes: new TextEncoder().encode(contents).byteLength,
-    kind: "transmute.project-render-receipt-reference",
+    kind: "atet.project-render-receipt-reference",
     nodePlanSha256,
     outputSha256: output.sha256,
     path,
@@ -899,7 +903,7 @@ function createCandidateRenderReuseRecord(options: {
   const body = CandidateRenderReuseRecordBodyV1Schema.parse({
     derivationSha256: options.input.derivation.derivationSha256,
     inputSha256: canonicalJsonSha256(options.input),
-    kind: "transmute.candidate-render-reuse-record",
+    kind: "atet.candidate-render-reuse-record",
     output: options.receipt.output,
     rendererAbi: options.input.derivation.rendererAbi,
     schemaVersion: 1,
@@ -1591,7 +1595,7 @@ const projectRenderLifecycle = {
             await workflow.beforePublication();
             const output = ProjectRenderOutputReferenceSchema.parse({
               ...outputIntegrity,
-              kind: "transmute.project-render-output-reference",
+              kind: "atet.project-render-output-reference",
               path: input.output.path,
               planArtifactSha256: input.plan.artifact.sha256,
               projectId: input.plan.projectId,
@@ -1731,11 +1735,11 @@ const projectRenderLifecycle = {
 
 export const projectRenderOperationDefinition = {
   inputSchema: ProjectRenderInputSchema,
-  inputSchemaId: "studio.operation.render.project.input/v1",
+  inputSchemaId: "atet.operation.render.project.input/v1",
   kind: "render.project",
   lifecycle: projectRenderLifecycle,
   outputSchema: ProjectRenderOutputSchema,
-  outputSchemaId: "studio.operation.render.project.output/v1",
+  outputSchemaId: "atet.operation.render.project.output/v1",
   policy: {
     cache: "exact-run",
     cancellable: true,
@@ -1775,9 +1779,9 @@ export const projectRenderOperationDefinition = {
 export const projectRenderOperationDefinitionV2 = {
   ...projectRenderOperationDefinition,
   inputSchema: ProjectRenderInputSchemaV2,
-  inputSchemaId: "studio.operation.render.project.input/v2",
+  inputSchemaId: "atet.operation.render.project.input/v2",
   lifecycle: projectRenderLifecycle,
-  outputSchemaId: "studio.operation.render.project.output/v2",
+  outputSchemaId: "atet.operation.render.project.output/v2",
   policy: {
     ...projectRenderOperationDefinition.policy,
     resources: [
@@ -1803,9 +1807,9 @@ export const projectRenderOperationDefinitionV2 = {
 export const projectRenderOperationDefinitionV3 = {
   ...projectRenderOperationDefinitionV2,
   inputSchema: ProjectRenderInputSchemaV3,
-  inputSchemaId: "studio.operation.render.project.input/v3",
+  inputSchemaId: "atet.operation.render.project.input/v3",
   lifecycle: projectRenderLifecycle,
-  outputSchemaId: "studio.operation.render.project.output/v3",
+  outputSchemaId: "atet.operation.render.project.output/v3",
   version: 3,
 } satisfies OperationDefinition<
   "render.project",

@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import {
+  defineAtetWorkflow,
   defineTransmuteWorkflow,
+  runAtetWorkflow,
   runTransmuteWorkflow,
-  TransmuteWorkflowError,
+  AtetWorkflowError,
+  type AtetWorkflowExecutor,
   type TransmuteWorkflowExecutor,
 } from "./workflow.ts"
 import {
@@ -33,7 +36,49 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
   }
 }
 
-describe("typed Transmute workflows", () => {
+describe("typed Atet workflows", () => {
+  test("adapts the v1 workflow input surface and emits canonical receipts", async () => {
+    const observed: string[] = []
+    const executor: TransmuteWorkflowExecutor = (async (code, input) => {
+      observed.push(`${code}:${Reflect.get(input, "path") as string}`)
+      return { configPath: null, findings: [] }
+    }) as TransmuteWorkflowExecutor
+    const workflow = defineTransmuteWorkflow({
+      id: "legacy-input-adapter",
+      version: 1,
+      parseInput: diagramInput,
+      run: (context, input) => context.operation(
+        "check",
+        "transmute.diagram.check",
+        input,
+      ),
+    })
+
+    const result = await runTransmuteWorkflow(
+      workflow,
+      { path: "legacy.diagram.json" },
+      {
+        executor,
+        hostResourceCoordinator: createProcessLocalHostResourceCoordinator({
+          profile: {
+            id: "test.legacy-workflow-adapter/v1",
+            capacities: [
+              { resource: "cpu", limit: 1 },
+              { resource: "local-io", limit: 1 },
+            ],
+          },
+        }),
+      },
+    )
+
+    expect(observed).toEqual([
+      "transmute.diagram.check:legacy.diagram.json",
+    ])
+    expect(result.steps).toEqual([
+      { id: "check", index: 0, operation: "atet.diagram.check" },
+    ])
+  })
+
   test("wraps a custom executor in immutable operation-owned admission", async () => {
     const coordinator = createProcessLocalHostResourceCoordinator({
       profile: {
@@ -55,17 +100,17 @@ describe("typed Transmute workflows", () => {
       },
     }
     let observedLease: unknown
-    const workflow = defineTransmuteWorkflow({
+    const workflow = defineAtetWorkflow({
       id: "custom-executor-admission",
       version: 1,
       parseInput: diagramInput,
       run: (context, input) => context.operation(
         "check",
-        "transmute.diagram.check",
+        "atet.diagram.check",
         input,
       ),
     })
-    await runTransmuteWorkflow(workflow, { path: "flow.diagram.json" }, {
+    await runAtetWorkflow(workflow, { path: "flow.diagram.json" }, {
       dependencies: {
         hostResourceCoordinator: workflowCoordinator,
         signal: workflowSignal,
@@ -80,7 +125,7 @@ describe("typed Transmute workflows", () => {
           { resource: "local-io", amount: 1 },
         ])
         return { configPath: null, findings: [] }
-      }) as TransmuteWorkflowExecutor,
+      }) as AtetWorkflowExecutor,
     })
     expect(observedLease).toBeDefined()
     expect(observedAdmissionOptions).toEqual({
@@ -91,12 +136,12 @@ describe("typed Transmute workflows", () => {
 
   test("parses input and runs typed operations with an ordered receipt", async () => {
     const calls: string[] = []
-    const executor: TransmuteWorkflowExecutor = (async (code, input) => {
+    const executor: AtetWorkflowExecutor = (async (code, input) => {
       calls.push(`${code}:${Reflect.get(input, "path") as string}`)
-      if (code === "transmute.diagram.check") {
+      if (code === "atet.diagram.check") {
         return { configPath: null, findings: [] }
       }
-      if (code === "transmute.diagram.render") {
+      if (code === "atet.diagram.render") {
         return {
           artifacts: {
             spec: "/tmp/flow.diagram.json",
@@ -111,20 +156,20 @@ describe("typed Transmute workflows", () => {
         }
       }
       throw new Error(`Unexpected operation ${code}`)
-    }) as TransmuteWorkflowExecutor
-    const workflow = defineTransmuteWorkflow({
+    }) as AtetWorkflowExecutor
+    const workflow = defineAtetWorkflow({
       id: "checked-render",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
         const checked = await context.operation(
           "check",
-          "transmute.diagram.check",
+          "atet.diagram.check",
           input,
         )
         const rendered = await context.operation(
           "render",
-          "transmute.diagram.render",
+          "atet.diagram.render",
           input,
         )
         return {
@@ -134,22 +179,22 @@ describe("typed Transmute workflows", () => {
       },
     })
 
-    const result = await runTransmuteWorkflow(
+    const result = await runAtetWorkflow(
       workflow,
       { path: "/tmp/flow.diagram.json" },
       { executor },
     )
 
     expect(calls).toEqual([
-      "transmute.diagram.check:/tmp/flow.diagram.json",
-      "transmute.diagram.render:/tmp/flow.diagram.json",
+      "atet.diagram.check:/tmp/flow.diagram.json",
+      "atet.diagram.render:/tmp/flow.diagram.json",
     ])
     expect(result).toEqual({
       workflow: { id: "checked-render", version: 1 },
       output: { artifact: "/tmp/flow.light.svg", findingCount: 0 },
       steps: [
-        { id: "check", index: 0, operation: "transmute.diagram.check" },
-        { id: "render", index: 1, operation: "transmute.diagram.render" },
+        { id: "check", index: 0, operation: "atet.diagram.check" },
+        { id: "render", index: 1, operation: "atet.diagram.render" },
       ],
     })
   })
@@ -180,20 +225,20 @@ describe("typed Transmute workflows", () => {
       await blockers.get(stepId)
       completed.add(stepId)
       return { configPath: null, findings: [] }
-    }) as TransmuteWorkflowExecutor
-    const workflow = defineTransmuteWorkflow({
+    }) as AtetWorkflowExecutor
+    const workflow = defineAtetWorkflow({
       id: "parallel-checks",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
         const first = context.operation(
           "first",
-          "transmute.diagram.check",
+          "atet.diagram.check",
           input,
         )
         const second = context.operation(
           "second",
-          "transmute.diagram.check",
+          "atet.diagram.check",
           input,
         )
         try {
@@ -210,7 +255,7 @@ describe("typed Transmute workflows", () => {
       },
     })
 
-    const result = await runTransmuteWorkflow(
+    const result = await runAtetWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       { executor, hostResourceCoordinator: coordinator },
@@ -225,19 +270,19 @@ describe("typed Transmute workflows", () => {
         release = resolve
       })
       return { configPath: null, findings: [] }
-    }) as TransmuteWorkflowExecutor
-    const workflow = defineTransmuteWorkflow({
+    }) as AtetWorkflowExecutor
+    const workflow = defineAtetWorkflow({
       id: "drain-operation",
       version: 1,
       parseInput: diagramInput,
       run(context, input) {
-        void context.operation("check", "transmute.diagram.check", input)
+        void context.operation("check", "atet.diagram.check", input)
         return "scheduled"
       },
     })
 
     let settled = false
-    const execution = runTransmuteWorkflow(
+    const execution = runAtetWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       { executor },
@@ -252,29 +297,29 @@ describe("typed Transmute workflows", () => {
     const result = await execution
     expect(result.output).toBe("scheduled")
     expect(result.steps).toEqual([
-      { id: "check", index: 0, operation: "transmute.diagram.check" },
+      { id: "check", index: 0, operation: "atet.diagram.check" },
     ])
   })
 
   test("turns an un-awaited operation rejection into workflow failure", async () => {
     const cause = new Error("background check failed")
-    const workflow = defineTransmuteWorkflow({
+    const workflow = defineAtetWorkflow({
       id: "drain-failure",
       version: 1,
       parseInput: diagramInput,
       run(context, input) {
-        void context.operation("check", "transmute.diagram.check", input)
+        void context.operation("check", "atet.diagram.check", input)
         return "scheduled"
       },
     })
 
-    await expect(runTransmuteWorkflow(
+    await expect(runAtetWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       {
         executor: (async () => {
           throw cause
-        }) as TransmuteWorkflowExecutor,
+        }) as AtetWorkflowExecutor,
       },
     )).rejects.toMatchObject({
       cause,
@@ -286,20 +331,20 @@ describe("typed Transmute workflows", () => {
 
   test("rejects invalid foreign input before invoking an operation", async () => {
     let executed = false
-    const workflow = defineTransmuteWorkflow({
+    const workflow = defineAtetWorkflow({
       id: "checked-render",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
-        return context.operation("check", "transmute.diagram.check", input)
+        return context.operation("check", "atet.diagram.check", input)
       },
     })
     await expect(
-      runTransmuteWorkflow(workflow, null, {
+      runAtetWorkflow(workflow, null, {
         executor: (async () => {
           executed = true
           throw new Error("must not execute")
-        }) as TransmuteWorkflowExecutor,
+        }) as AtetWorkflowExecutor,
       }),
     ).rejects.toMatchObject({ code: "INVALID_WORKFLOW_INPUT" })
     expect(executed).toBe(false)
@@ -310,8 +355,8 @@ describe("typed Transmute workflows", () => {
     const executor = (async () => {
       executions += 1
       return { configPath: null, findings: [] }
-    }) as TransmuteWorkflowExecutor
-    const unknownOperation = defineTransmuteWorkflow({
+    }) as AtetWorkflowExecutor
+    const unknownOperation = defineAtetWorkflow({
       id: "unknown-operation",
       version: 1,
       parseInput: diagramInput,
@@ -323,33 +368,33 @@ describe("typed Transmute workflows", () => {
         ) => Promise<unknown>
         return unsafeOperation(
           "unknown",
-          "transmute.private.render",
+          "atet.private.render",
           input,
         )
       },
     })
     await expect(
-      runTransmuteWorkflow(
+      runAtetWorkflow(
         unknownOperation,
         { path: "flow.diagram.json" },
         { executor },
       ),
     ).rejects.toMatchObject({ code: "INVALID_WORKFLOW_STEP" })
 
-    const invalidInput = defineTransmuteWorkflow({
+    const invalidInput = defineAtetWorkflow({
       id: "invalid-operation-input",
       version: 1,
       parseInput: diagramInput,
       run(context) {
         return context.operation(
           "invalid",
-          "transmute.diagram.check",
+          "atet.diagram.check",
           { path: "" },
         )
       },
     })
     await expect(
-      runTransmuteWorkflow(
+      runAtetWorkflow(
         invalidInput,
         { path: "flow.diagram.json" },
         { executor },
@@ -360,37 +405,37 @@ describe("typed Transmute workflows", () => {
 
   test("bounds steps and rejects duplicate ids", async () => {
     const executor = (async () => ({ configPath: null, findings: [] })) as
-      TransmuteWorkflowExecutor
-    const duplicate = defineTransmuteWorkflow({
+      AtetWorkflowExecutor
+    const duplicate = defineAtetWorkflow({
       id: "duplicate",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
-        await context.operation("same", "transmute.diagram.check", input)
-        return context.operation("same", "transmute.diagram.check", input)
+        await context.operation("same", "atet.diagram.check", input)
+        return context.operation("same", "atet.diagram.check", input)
       },
     })
     await expect(
-      runTransmuteWorkflow(duplicate, { path: "flow.diagram.json" }, { executor }),
+      runAtetWorkflow(duplicate, { path: "flow.diagram.json" }, { executor }),
     ).rejects.toMatchObject({
       code: "INVALID_WORKFLOW_STEP",
       completedSteps: [
-        { id: "same", index: 0, operation: "transmute.diagram.check" },
+        { id: "same", index: 0, operation: "atet.diagram.check" },
       ],
       message: expect.stringContaining("Duplicate workflow step id"),
     })
 
-    const bounded = defineTransmuteWorkflow({
+    const bounded = defineAtetWorkflow({
       id: "bounded",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
-        await context.operation("one", "transmute.diagram.check", input)
-        return context.operation("two", "transmute.diagram.check", input)
+        await context.operation("one", "atet.diagram.check", input)
+        return context.operation("two", "atet.diagram.check", input)
       },
     })
     await expect(
-      runTransmuteWorkflow(bounded, { path: "flow.diagram.json" }, {
+      runAtetWorkflow(bounded, { path: "flow.diagram.json" }, {
         executor,
         maximumSteps: 1,
       }),
@@ -402,30 +447,30 @@ describe("typed Transmute workflows", () => {
 
   test("identifies a failed step without hiding its cause", async () => {
     const cause = new Error("render unavailable")
-    const workflow = defineTransmuteWorkflow({
+    const workflow = defineAtetWorkflow({
       id: "failed-render",
       version: 1,
       parseInput: diagramInput,
       run(context, input) {
-        return context.operation("render", "transmute.diagram.render", input)
+        return context.operation("render", "atet.diagram.render", input)
       },
     })
     try {
-      await runTransmuteWorkflow(workflow, { path: "flow.diagram.json" }, {
+      await runAtetWorkflow(workflow, { path: "flow.diagram.json" }, {
         executor: (async () => {
           throw cause
-        }) as TransmuteWorkflowExecutor,
+        }) as AtetWorkflowExecutor,
       })
       throw new Error("Expected workflow failure")
     } catch (error) {
-      expect(error).toBeInstanceOf(TransmuteWorkflowError)
+      expect(error).toBeInstanceOf(AtetWorkflowError)
       expect(error).toMatchObject({
         cause,
         code: "WORKFLOW_STEP_FAILED",
         completedSteps: [],
         failedStep: {
           id: "render",
-          operation: "transmute.diagram.render",
+          operation: "atet.diagram.render",
         },
       })
     }
@@ -434,18 +479,18 @@ describe("typed Transmute workflows", () => {
   test("wraps authored-code failure with completed step receipts", async () => {
     const cause = new Error("postcondition failed")
     const executor = (async () => ({ configPath: null, findings: [] })) as
-      TransmuteWorkflowExecutor
-    const workflow = defineTransmuteWorkflow({
+      AtetWorkflowExecutor
+    const workflow = defineAtetWorkflow({
       id: "postcondition",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
-        await context.operation("check", "transmute.diagram.check", input)
+        await context.operation("check", "atet.diagram.check", input)
         throw cause
       },
     })
 
-    await expect(runTransmuteWorkflow(
+    await expect(runAtetWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       { executor },
@@ -453,7 +498,7 @@ describe("typed Transmute workflows", () => {
       cause,
       code: "WORKFLOW_FAILED",
       completedSteps: [
-        { id: "check", index: 0, operation: "transmute.diagram.check" },
+        { id: "check", index: 0, operation: "atet.diagram.check" },
       ],
     })
   })
@@ -486,20 +531,20 @@ describe("typed Transmute workflows", () => {
       siblingAdmitted = true
       await siblingBlocker
       return { configPath: null, findings: [] }
-    }) as TransmuteWorkflowExecutor
-    const workflow = defineTransmuteWorkflow({
+    }) as AtetWorkflowExecutor
+    const workflow = defineAtetWorkflow({
       id: "parallel-failure",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
         await Promise.all([
-          context.operation("failed", "transmute.diagram.check", input),
-          context.operation("sibling", "transmute.diagram.check", input),
+          context.operation("failed", "atet.diagram.check", input),
+          context.operation("sibling", "atet.diagram.check", input),
         ])
       },
     })
 
-    const execution = runTransmuteWorkflow(
+    const execution = runAtetWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       { executor, hostResourceCoordinator: coordinator },
@@ -534,14 +579,14 @@ describe("typed Transmute workflows", () => {
   test("honors an already-aborted signal", async () => {
     const controller = new AbortController()
     controller.abort()
-    const workflow = defineTransmuteWorkflow({
+    const workflow = defineAtetWorkflow({
       id: "abort-before-run",
       version: 1,
       parseInput: diagramInput,
       run: () => "unreachable",
     })
     await expect(
-      runTransmuteWorkflow(workflow, { path: "flow.diagram.json" }, {
+      runAtetWorkflow(workflow, { path: "flow.diagram.json" }, {
         dependencies: { signal: controller.signal },
       }),
     ).rejects.toMatchObject({ code: "WORKFLOW_ABORTED" })
@@ -551,15 +596,15 @@ describe("typed Transmute workflows", () => {
     const controller = new AbortController()
     const executorCause = new Error("executor observed abort")
     let receivedSignal: AbortSignal | undefined
-    const workflow = defineTransmuteWorkflow({
+    const workflow = defineAtetWorkflow({
       id: "abort-in-flight",
       version: 1,
       parseInput: diagramInput,
       run(context, input) {
-        return context.operation("check", "transmute.diagram.check", input)
+        return context.operation("check", "atet.diagram.check", input)
       },
     })
-    const execution = runTransmuteWorkflow(
+    const execution = runAtetWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       {
@@ -568,7 +613,7 @@ describe("typed Transmute workflows", () => {
           receivedSignal = signal
           controller.abort()
           throw executorCause
-        }) as TransmuteWorkflowExecutor,
+        }) as AtetWorkflowExecutor,
       },
     )
     await expect(execution).rejects.toMatchObject({
@@ -581,15 +626,15 @@ describe("typed Transmute workflows", () => {
 
   test("retains a completed step when cancellation becomes visible at settlement", async () => {
     const controller = new AbortController()
-    const workflow = defineTransmuteWorkflow({
+    const workflow = defineAtetWorkflow({
       id: "abort-at-settlement",
       version: 1,
       parseInput: diagramInput,
       run(context, input) {
-        return context.operation("check", "transmute.diagram.check", input)
+        return context.operation("check", "atet.diagram.check", input)
       },
     })
-    const execution = runTransmuteWorkflow(
+    const execution = runAtetWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       {
@@ -597,25 +642,25 @@ describe("typed Transmute workflows", () => {
         executor: (async () => {
           controller.abort()
           return { configPath: null, findings: [] }
-        }) as TransmuteWorkflowExecutor,
+        }) as AtetWorkflowExecutor,
       },
     )
     await expect(execution).rejects.toMatchObject({
       code: "WORKFLOW_ABORTED",
       completedSteps: [
-        { id: "check", index: 0, operation: "transmute.diagram.check" },
+        { id: "check", index: 0, operation: "atet.diagram.check" },
       ],
     })
   })
 
   test("validates stable workflow identity", () => {
-    expect(() => defineTransmuteWorkflow({
+    expect(() => defineAtetWorkflow({
       id: "Desktop Workflow",
       version: 1,
       parseInput: (value) => value,
       run: (_context, input) => input,
     })).toThrow("[INVALID_WORKFLOW]")
-    expect(() => defineTransmuteWorkflow({
+    expect(() => defineAtetWorkflow({
       id: "valid",
       version: 0,
       parseInput: (value) => value,

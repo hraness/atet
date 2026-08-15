@@ -392,6 +392,7 @@ export const VideoProjectV1Schema = z.strictObject({
   createdAt: IsoTimestampSchema,
   currentEditPlanPath: RepositoryRelativePathSchema.nullable(),
   kind: z.union([
+    z.literal("atet.video-project"),
     z.literal("transmute.video-project"),
     z.literal("studio.video-project"),
   ]),
@@ -588,6 +589,7 @@ export const ProjectEditPlanV1Schema = z.strictObject({
   derivations: z.array(ProjectEditDerivationSchema),
   keep: z.array(SourceIntervalSchema),
   kind: z.union([
+    z.literal("atet.project-edit-plan"),
     z.literal("transmute.project-edit-plan"),
     z.literal("studio.project-edit-plan"),
   ]),

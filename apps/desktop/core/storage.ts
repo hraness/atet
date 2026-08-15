@@ -42,7 +42,7 @@ export const RECORDING_MANIFEST_PATH = "manifest.json";
 export const VIDEO_PROJECT_PATH = "project.json";
 export const CURRENT_PROJECT_EDIT_PLAN_PATH = "edits/current.json";
 const MAXIMUM_STRUCTURED_FILE_BYTES = 256 * 1024 * 1024;
-const IMMUTABLE_COPY_TEMP_PREFIX = ".transmute-copy-";
+const IMMUTABLE_COPY_TEMP_PREFIX = ".atet-copy-";
 
 export interface BundleFileSystem {
   /**
@@ -80,6 +80,35 @@ export interface BundleFileSystem {
 export interface BundleFileIntegrity {
   readonly bytes: number;
   readonly sha256: string;
+}
+
+export type AtetPersistenceDocument =
+  | AnalysisArtifact
+  | EditPlanV1
+  | ProjectEditPlanV1
+  | RecordingManifestV1
+  | VideoProjectV1;
+
+/**
+ * Project a parsed mutable persistence document to the exact identity that a
+ * current Atet writer will put on disk. Callers that authenticate immutable
+ * predecessor bytes must do that before invoking this projection.
+ */
+export function canonicalAtetPersistenceDocument<
+  Value extends AtetPersistenceDocument,
+>(value: Value): Value {
+  const kind = value.kind
+    .replace(/^transmute\./u, "atet.")
+    .replace(/^studio\./u, "atet.");
+  if ("tool" in value && value.kind.endsWith(".recording-bundle")) {
+    if (kind === value.kind && value.tool.name === "atet") return value;
+    return {
+      ...value,
+      kind,
+      tool: { ...value.tool, name: "atet" },
+    } as Value;
+  }
+  return kind === value.kind ? value : { ...value, kind } as Value;
 }
 
 /** Publish canonical immutable text and verify the physical winner. */
@@ -133,7 +162,9 @@ export async function saveRecordingManifest(
   path = RECORDING_MANIFEST_PATH,
 ): Promise<void> {
   RepositoryRelativePathSchema.parse(path);
-  const parsed = RecordingManifestV1Schema.parse(manifest);
+  const parsed = RecordingManifestV1Schema.parse(canonicalAtetPersistenceDocument(
+    RecordingManifestV1Schema.parse(manifest),
+  ));
   await fileSystem.writeTextAtomic(path, `${canonicalJson(parsed)}\n`);
 }
 
@@ -149,7 +180,9 @@ export async function saveEditPlan(
   path = editPlanPath(plan.planId),
 ): Promise<void> {
   RepositoryRelativePathSchema.parse(path);
-  const parsed = EditPlanV1Schema.parse(plan);
+  const parsed = EditPlanV1Schema.parse(canonicalAtetPersistenceDocument(
+    EditPlanV1Schema.parse(plan),
+  ));
   await fileSystem.writeTextAtomic(path, `${canonicalJson(parsed)}\n`);
 }
 
@@ -168,7 +201,9 @@ export async function saveVideoProject(
   path = VIDEO_PROJECT_PATH,
 ): Promise<void> {
   RepositoryRelativePathSchema.parse(path);
-  const parsed = VideoProjectV1Schema.parse(project);
+  const parsed = VideoProjectV1Schema.parse(canonicalAtetPersistenceDocument(
+    VideoProjectV1Schema.parse(project),
+  ));
   await fileSystem.writeTextAtomic(path, `${canonicalJson(parsed)}\n`);
 }
 
@@ -187,7 +222,9 @@ export async function saveProjectEditPlan(
   path = CURRENT_PROJECT_EDIT_PLAN_PATH,
 ): Promise<void> {
   RepositoryRelativePathSchema.parse(path);
-  const parsed = ProjectEditPlanV1Schema.parse(plan);
+  const parsed = ProjectEditPlanV1Schema.parse(canonicalAtetPersistenceDocument(
+    ProjectEditPlanV1Schema.parse(plan),
+  ));
   await fileSystem.writeTextAtomic(path, `${canonicalJson(parsed)}\n`);
 }
 
@@ -225,7 +262,7 @@ export async function saveProjectEditRevision(
   return path;
 }
 
-type AnalysisArtifact =
+export type AnalysisArtifact =
   | AudioAlignmentAnalysisV1
   | FaceAnalysisV1
   | ProjectInactivityAnalysisV1
@@ -248,7 +285,7 @@ export async function loadAnalysisArtifact(
     SpeechAnalysisV1Schema,
   ] as const) {
     const parsed = schema.safeParse(input);
-    if (parsed.success) return parsed.data;
+    if (parsed.success) return parsed.data as AnalysisArtifact;
   }
   throw new Error(`Analysis artifact does not match a supported schema: ${path}`);
 }
@@ -271,7 +308,10 @@ export async function saveAnalysisArtifact(
   if (parsed === undefined || !parsed.success) {
     throw new Error("Analysis artifact does not match a supported schema.");
   }
-  await fileSystem.writeTextAtomic(path, `${canonicalJson(parsed.data)}\n`);
+  await fileSystem.writeTextAtomic(
+    path,
+    `${canonicalJson(canonicalAtetPersistenceDocument(parsed.data))}\n`,
+  );
 }
 
 function isWithin(root: string, candidate: string): boolean {

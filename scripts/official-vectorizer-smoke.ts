@@ -47,8 +47,8 @@ invariant(
   `Runner is ${process.platform}/${process.arch}, expected ${expectedPlatform}/${expectedArch}.`,
 )
 invariant(
-  process.env.TRANSMUTE_VTRACER_PATH === undefined,
-  "Official VTracer smoke must not use TRANSMUTE_VTRACER_PATH.",
+  process.env.ATET_VTRACER_PATH === undefined,
+  "Official VTracer smoke must not use ATET_VTRACER_PATH.",
 )
 
 const releaseKey = `${process.platform}-${process.arch}`
@@ -67,7 +67,7 @@ invariant(
   `VTracer release metadata changed for ${releaseKey}.`,
 )
 
-const work = await mkdtemp(join(tmpdir(), "transmute-official-vtracer-"))
+const work = await mkdtemp(join(tmpdir(), "atet-official-vtracer-"))
 try {
   // Generated in memory, so this smoke fixture carries no third-party rights.
   const raster = await sharp({

@@ -197,6 +197,7 @@ export const MediaOverlayReceiptSchema = z.strictObject({
   exactInputSha256: Sha256Schema,
   ffprobeVersion: z.string().min(1).max(256).nullable(),
   kind: z.union([
+    z.literal("atet.local-overlay-preparation-receipt"),
     z.literal("transmute.local-overlay-preparation-receipt"),
     z.literal("studio.local-overlay-preparation-receipt"),
   ]),
@@ -416,7 +417,7 @@ export function createMediaOverlayOperationDefinition(
   const resolveEmoji = dependencies.resolveEmoji ?? resolveEmojiAsset;
   return {
     inputSchema: MediaOverlayInputSchema,
-    inputSchemaId: "studio.operation.media.overlay.input/v1",
+    inputSchemaId: "atet.operation.media.overlay.input/v1",
     kind: "media.overlay",
     lifecycle: {
       kind: "local-artifact",
@@ -675,7 +676,7 @@ export function createMediaOverlayOperationDefinition(
             ffprobeVersion: names.length === 0
               ? null
               : mediaCapabilityVersion(bindings, "ffprobe"),
-            kind: "transmute.local-overlay-preparation-receipt",
+            kind: "atet.local-overlay-preparation-receipt",
             operationSha256: canonicalJsonSha256(operation),
             overlayId: operation.overlayId,
             projectGenerationSha256: snapshot.generation.generationSha256,
@@ -694,9 +695,9 @@ export function createMediaOverlayOperationDefinition(
             receipt,
           });
           await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId: "studio.operation.media.overlay.input/v1",
+            inputSchemaId: "atet.operation.media.overlay.input/v1",
             kind: "media.overlay",
-            outputSchemaId: "studio.operation.media.overlay.output/v1",
+            outputSchemaId: "atet.operation.media.overlay.output/v1",
             version: 1,
           }, output);
           return output;
@@ -706,7 +707,7 @@ export function createMediaOverlayOperationDefinition(
       },
     },
     outputSchema: MediaOverlayOutputSchema,
-    outputSchemaId: "studio.operation.media.overlay.output/v1",
+    outputSchemaId: "atet.operation.media.overlay.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

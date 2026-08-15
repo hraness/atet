@@ -1,7 +1,7 @@
 import {
-  defineTransmuteWorkflow,
-  runTransmuteWorkflow,
-} from "@hraness/transmute/workflow"
+  defineAtetWorkflow,
+  runAtetWorkflow,
+} from "@hraness/atet/workflow"
 
 interface RenderWorkflowInput {
   readonly path: string
@@ -26,14 +26,14 @@ function parseInput(value: unknown): RenderWorkflowInput {
   }
 }
 
-export const checkedRenderWorkflow = defineTransmuteWorkflow({
+export const checkedRenderWorkflow = defineAtetWorkflow({
   id: "checked-render",
   version: 1,
   parseInput,
   async run(workflow, input) {
     const checked = await workflow.operation(
       "check-source",
-      "transmute.diagram.check",
+      "atet.diagram.check",
       { path: input.path },
     )
     if (checked.findings.length > 0) {
@@ -41,7 +41,7 @@ export const checkedRenderWorkflow = defineTransmuteWorkflow({
     }
     const rendered = await workflow.operation(
       "render-assets",
-      "transmute.diagram.render",
+      "atet.diagram.render",
       {
         path: input.path,
         ...(input.outDirectory === undefined
@@ -61,7 +61,7 @@ if (import.meta.main) {
   if (path === undefined) {
     throw new Error("Usage: bun run examples/render-workflow.ts <diagram> [out-dir]")
   }
-  const result = await runTransmuteWorkflow(checkedRenderWorkflow, {
+  const result = await runAtetWorkflow(checkedRenderWorkflow, {
     path,
     ...(Bun.argv[3] === undefined ? {} : { outDirectory: Bun.argv[3] }),
   })

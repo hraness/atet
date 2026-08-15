@@ -49,7 +49,7 @@ export type FreezeProjectEditRevisionOutput = z.infer<
 
 export const freezeProjectEditRevisionOperationDefinition = {
   inputSchema: FreezeProjectEditRevisionInputSchema,
-  inputSchemaId: "studio.operation.edit.freeze-revision.input/v1",
+  inputSchemaId: "atet.operation.edit.freeze-revision.input/v1",
   kind: "edit.freeze-revision",
   lifecycle: {
     kind: "local-artifact",
@@ -131,7 +131,7 @@ export const freezeProjectEditRevisionOperationDefinition = {
           sha256: artifactSha256,
         },
         baseGeneration: publicationSnapshot.generation,
-        kind: "transmute.project-edit-revision-reference",
+        kind: "atet.project-edit-revision-reference",
         outputGeometrySha256,
         pixelHeight: input.pixelHeight,
         pixelWidth: input.pixelWidth,
@@ -146,7 +146,7 @@ export const freezeProjectEditRevisionOperationDefinition = {
     },
   },
   outputSchema: FreezeProjectEditRevisionOutputSchema,
-  outputSchemaId: "studio.operation.edit.freeze-revision.output/v1",
+  outputSchemaId: "atet.operation.edit.freeze-revision.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,

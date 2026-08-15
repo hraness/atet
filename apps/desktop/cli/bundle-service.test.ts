@@ -21,7 +21,7 @@ function event(sequence: number, sourceTimeUs: number): string {
 }
 
 test("streams, validates, filters, and explicitly limits event JSONL", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-events-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-events-test-"));
   const recordingRoot = join(temporary, "rec_example001");
   const laterPath = "events/cursor-later.jsonl";
   const earlierPath = "events/cursor-earlier.jsonl";

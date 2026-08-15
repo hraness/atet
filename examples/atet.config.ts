@@ -1,4 +1,4 @@
-import type { DiagramConfig } from "@hraness/transmute"
+import type { DiagramConfig } from "@hraness/atet"
 
 export default {
   icons: {

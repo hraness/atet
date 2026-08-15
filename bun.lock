@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@hraness/transmute",
+      "name": "@hraness/atet",
       "dependencies": {
         "@ai-sdk/gateway-v4": "npm:@ai-sdk/gateway@^4.0.27",
         "@noble/hashes": "2.2.0",
@@ -43,11 +43,11 @@
       },
     },
     "apps/web": {
-      "name": "@hraness/transmute-web",
+      "name": "@hraness/atet-web",
       "version": "0.0.0",
     },
     "packages/scene": {
-      "name": "@hraness/transmute-scene",
+      "name": "@hraness/atet-scene",
       "version": "1.0.0",
       "dependencies": {
         "zod": "^4.1.12",
@@ -116,11 +116,11 @@
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.12", "", {}, "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww=="],
 
+    "@hraness/atet-scene": ["@hraness/atet-scene@workspace:packages/scene"],
+
+    "@hraness/atet-web": ["@hraness/atet-web@workspace:apps/web"],
+
     "@hraness/direct": ["@hraness/direct@github:hraness/direct#5e58fd5", { "peerDependencies": { "react": ">=18 <20" }, "optionalPeers": ["react"] }, "hraness-direct-5e58fd5", "sha512-i972Fy1Yp0BXpx1pRKDEaTmL8XwbYCP9pDwEtywRLMgjq4UODUSAR3S0V67ovUk2RSqYN2llqz/NMut/Admz3g=="],
-
-    "@hraness/transmute-scene": ["@hraness/transmute-scene@workspace:packages/scene"],
-
-    "@hraness/transmute-web": ["@hraness/transmute-web@workspace:apps/web"],
 
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 

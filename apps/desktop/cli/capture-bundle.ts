@@ -414,7 +414,7 @@ function initialManifest(options: CaptureBundleWriterOptions): RecordingManifest
     diagnostics: [],
     eventStreams: [],
     interruptions: [],
-    kind: "transmute.recording-bundle",
+    kind: "atet.recording-bundle",
     permissions: options.configured.permissions,
     platform: {
       architecture: process.arch,
@@ -430,7 +430,7 @@ function initialManifest(options: CaptureBundleWriterOptions): RecordingManifest
       nativeClock: { kind: "mach-continuous-microseconds", segments: [] },
       timebase: "microseconds",
     },
-    tool: { captureVersion: options.helperVersion, name: "transmute", version: options.toolVersion },
+    tool: { captureVersion: options.helperVersion, name: "atet", version: options.toolVersion },
     tracks: [],
     updatedAt: timestamp,
   });

@@ -25,7 +25,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 function temporaryDirectory(): string {
-  const directory = mkdtempSync(join(tmpdir(), "transmute-worker-guardian-"));
+  const directory = mkdtempSync(join(tmpdir(), "atet-worker-guardian-"));
   temporaryDirectories.push(directory);
   return directory;
 }

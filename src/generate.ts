@@ -1,59 +1,59 @@
 import { createHash, randomUUID } from "node:crypto"
 import { link, rm, writeFile } from "node:fs/promises"
 import { dirname, extname, resolve } from "node:path"
-import { TransmuteCloudError } from "./cloud-errors.js"
+import { AtetCloudError } from "./cloud-errors.js"
 
-export const transmuteGatewayApiBaseUrl =
+export const atetGatewayApiBaseUrl =
   "https://ai-gateway.vercel.sh/v4/ai" as const
 
-export const transmuteImageModels = Object.freeze([
+export const atetImageModels = Object.freeze([
   "openai/gpt-image-1.5",
   "recraft/recraft-v4.1-utility",
 ] as const)
 
-export const transmuteResponseMediaTypes = Object.freeze([
+export const atetResponseMediaTypes = Object.freeze([
   "image/png",
   "image/jpeg",
   "image/webp",
 ] as const)
 
-export const transmuteMaximumPromptBytes = 32 * 1024
-export const transmuteMaximumRawImageBytes = 64 * 1024 * 1024
+export const atetMaximumPromptBytes = 32 * 1024
+export const atetMaximumRawImageBytes = 64 * 1024 * 1024
 
-export type TransmuteImageModel = string
-export type TransmuteResponseMediaType =
-  (typeof transmuteResponseMediaTypes)[number]
-export type TransmuteGatewayCredentialSource =
+export type AtetImageModel = string
+export type AtetResponseMediaType =
+  (typeof atetResponseMediaTypes)[number]
+export type AtetGatewayCredentialSource =
   | "AI_GATEWAY_API_KEY"
   | "VERCEL_OIDC_TOKEN"
 
-export interface TransmuteGatewayCredentialStatus {
+export interface AtetGatewayCredentialStatus {
   readonly available: boolean
-  readonly source: TransmuteGatewayCredentialSource | null
+  readonly source: AtetGatewayCredentialSource | null
 }
 
-export interface GenerateTransmuteImageInput {
-  readonly model: TransmuteImageModel
+export interface GenerateAtetImageInput {
+  readonly model: AtetImageModel
   readonly prompt: string
   readonly signal?: AbortSignal
   readonly timeoutMs?: number
 }
 
-export interface GeneratedTransmuteImage {
+export interface GeneratedAtetImage {
   readonly image: {
     readonly base64: string
-    readonly mediaType: TransmuteResponseMediaType
+    readonly mediaType: AtetResponseMediaType
   }
-  readonly model: TransmuteImageModel
+  readonly model: AtetImageModel
   readonly provider: "vercel-ai-gateway"
   readonly requestId: string
   readonly warnings: readonly string[]
 }
 
-export interface GeneratedTransmuteImageFile {
+export interface GeneratedAtetImageFile {
   readonly bytes: number
-  readonly mediaType: TransmuteResponseMediaType
-  readonly model: TransmuteImageModel
+  readonly mediaType: AtetResponseMediaType
+  readonly model: AtetImageModel
   readonly outputPath: string
   readonly provider: "vercel-ai-gateway"
   readonly requestId: string
@@ -61,8 +61,8 @@ export interface GeneratedTransmuteImageFile {
   readonly warnings: readonly string[]
 }
 
-type TransmuteEnvironment = Readonly<Record<string, string | undefined>>
-type TransmuteGatewayFetch = (
+type AtetEnvironment = Readonly<Record<string, string | undefined>>
+type AtetGatewayFetch = (
   input: string | URL | Request,
   init?: RequestInit,
 ) => Promise<Response>
@@ -74,15 +74,15 @@ interface GatewayProvider {
 interface GatewayRuntime {
   createGateway(settings: Readonly<{
     apiKey: string
-    baseURL: typeof transmuteGatewayApiBaseUrl
-    fetch: TransmuteGatewayFetch
+    baseURL: typeof atetGatewayApiBaseUrl
+    fetch: AtetGatewayFetch
   }>): GatewayProvider
   generateImage(input: Readonly<Record<string, unknown>>): Promise<unknown>
 }
 
-export interface TransmuteGenerateDependencies {
-  readonly environment?: TransmuteEnvironment
-  readonly fetch?: TransmuteGatewayFetch
+export interface AtetGenerateDependencies {
+  readonly environment?: AtetEnvironment
+  readonly fetch?: AtetGatewayFetch
   readonly loadRuntime?: () => Promise<GatewayRuntime>
   readonly maximumResponseBytes?: number
 }
@@ -92,7 +92,7 @@ const maximumGenerationTimeoutMs = 30 * 60_000
 const defaultMaximumGatewayResponseBytes = 96 * 1024 * 1024
 
 function invalidArgument(message: string): never {
-  throw new TransmuteCloudError("INVALID_ARGUMENT", message)
+  throw new AtetCloudError("INVALID_ARGUMENT", message)
 }
 
 function credentialValue(value: string): string {
@@ -102,7 +102,7 @@ function credentialValue(value: string): string {
     value.trim() !== value ||
     /[^\x21-\x7e]/u.test(value)
   ) {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "AUTHENTICATION_REQUIRED",
       "The selected Vercel AI Gateway credential is invalid.",
     )
@@ -111,15 +111,15 @@ function credentialValue(value: string): string {
 }
 
 function environment(
-  injected: TransmuteEnvironment | undefined,
-): TransmuteEnvironment {
+  injected: AtetEnvironment | undefined,
+): AtetEnvironment {
   return injected ?? process.env
 }
 
 function resolveGatewayCredential(
-  injected: TransmuteEnvironment | undefined,
+  injected: AtetEnvironment | undefined,
 ): Readonly<{
-  source: TransmuteGatewayCredentialSource
+  source: AtetGatewayCredentialSource
   token: string
 }> {
   const values = environment(injected)
@@ -135,15 +135,15 @@ function resolveGatewayCredential(
       token: credentialValue(values.VERCEL_OIDC_TOKEN),
     }
   }
-  throw new TransmuteCloudError(
+  throw new AtetCloudError(
     "AUTHENTICATION_REQUIRED",
-    "Set AI_GATEWAY_API_KEY or run Transmute through `vercel env run -- …` with VERCEL_OIDC_TOKEN available.",
+    "Set AI_GATEWAY_API_KEY or run Atet through `vercel env run -- …` with VERCEL_OIDC_TOKEN available.",
   )
 }
 
-export function transmuteGatewayCredentialStatus(
-  injected?: TransmuteEnvironment,
-): TransmuteGatewayCredentialStatus {
+export function atetGatewayCredentialStatus(
+  injected?: AtetEnvironment,
+): AtetGatewayCredentialStatus {
   const values = environment(injected)
   if (values.AI_GATEWAY_API_KEY !== undefined) {
     credentialValue(values.AI_GATEWAY_API_KEY)
@@ -173,10 +173,10 @@ function validatePrompt(value: unknown): string {
     typeof value !== "string" ||
     value.trim().length === 0 ||
     /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value) ||
-    Buffer.byteLength(value, "utf8") > transmuteMaximumPromptBytes
+    Buffer.byteLength(value, "utf8") > atetMaximumPromptBytes
   ) {
     invalidArgument(
-      `Prompt must be non-empty and no more than ${transmuteMaximumPromptBytes} UTF-8 bytes.`,
+      `Prompt must be non-empty and no more than ${atetMaximumPromptBytes} UTF-8 bytes.`,
     )
   }
   return value
@@ -207,7 +207,7 @@ function parseFunction(
   value: unknown,
 ): (input: Readonly<Record<string, unknown>>) => Promise<unknown> {
   if (typeof value !== "function") {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_FAILED",
       "The Vercel AI Gateway runtime is unavailable.",
     )
@@ -227,7 +227,7 @@ function disableAiSdkWarningLogging(): void {
 
 function assertGenerationActive(signal: AbortSignal): void {
   if (signal.aborted) {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_FAILED",
       "Vercel AI Gateway image generation was cancelled or exceeded its deadline.",
     )
@@ -243,20 +243,20 @@ async function loadDefaultGatewayRuntime(): Promise<GatewayRuntime> {
       import("@ai-sdk/gateway-v4"),
     ])
   } catch {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_FAILED",
       "The Vercel AI Gateway runtime is unavailable.",
     )
   }
   if (!isObject(aiModule) || !isObject(gatewayModule)) {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_FAILED",
       "The Vercel AI Gateway runtime is unavailable.",
     )
   }
   const generateImage = parseFunction(aiModule.generateImage)
   if (typeof gatewayModule.createGateway !== "function") {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_FAILED",
       "The Vercel AI Gateway runtime is unavailable.",
     )
@@ -268,7 +268,7 @@ async function loadDefaultGatewayRuntime(): Promise<GatewayRuntime> {
     createGateway: settings => {
       const provider = createGateway(settings)
       if (!isObject(provider) || typeof provider.imageModel !== "function") {
-        throw new TransmuteCloudError(
+        throw new AtetCloudError(
           "GENERATION_FAILED",
           "The Vercel AI Gateway runtime is unavailable.",
         )
@@ -284,9 +284,9 @@ function gatewayUrl(input: string | URL | Request): URL {
   try {
     if (input instanceof Request) return new URL(input.url)
     if (input instanceof URL) return new URL(input.href)
-    return new URL(input, transmuteGatewayApiBaseUrl)
+    return new URL(input, atetGatewayApiBaseUrl)
   } catch {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_FAILED",
       "The Vercel AI Gateway request was rejected.",
     )
@@ -320,7 +320,7 @@ function boundedResponse(response: Response, maximumBytes: number): Response {
     const value = Number(declared)
     if (!Number.isSafeInteger(value) || value < 0 || value > maximumBytes) {
       void response.body?.cancel().catch(() => undefined)
-      throw new TransmuteCloudError(
+      throw new AtetCloudError(
         "GENERATION_INVALID_RESPONSE",
         "Vercel AI Gateway returned an invalid bounded response.",
       )
@@ -343,7 +343,7 @@ function boundedResponse(response: Response, maximumBytes: number): Response {
         if (bytes > maximumBytes) {
           await reader.cancel().catch(() => undefined)
           controller.error(
-            new TransmuteCloudError(
+            new AtetCloudError(
               "GENERATION_INVALID_RESPONSE",
               "Vercel AI Gateway returned an invalid bounded response.",
             ),
@@ -353,7 +353,7 @@ function boundedResponse(response: Response, maximumBytes: number): Response {
         controller.enqueue(next.value)
       } catch {
         controller.error(
-          new TransmuteCloudError(
+          new AtetCloudError(
             "GENERATION_INVALID_RESPONSE",
             "Vercel AI Gateway returned an invalid bounded response.",
           ),
@@ -370,10 +370,10 @@ function boundedResponse(response: Response, maximumBytes: number): Response {
 
 export function createFixedGatewayFetch(
   options: Readonly<{
-    fetch?: TransmuteGatewayFetch
+    fetch?: AtetGatewayFetch
     maximumResponseBytes?: number
   }> = {},
-): TransmuteGatewayFetch {
+): AtetGatewayFetch {
   const fetchImplementation = options.fetch ?? globalThis.fetch
   const maximumResponseBytes =
     options.maximumResponseBytes ?? defaultMaximumGatewayResponseBytes
@@ -384,7 +384,7 @@ export function createFixedGatewayFetch(
   ) {
     invalidArgument("maximumResponseBytes is outside the supported range.")
   }
-  const fixed = new URL(transmuteGatewayApiBaseUrl)
+  const fixed = new URL(atetGatewayApiBaseUrl)
   return async (input, init) => {
     const url = gatewayUrl(input)
     if (
@@ -394,7 +394,7 @@ export function createFixedGatewayFetch(
       url.username !== "" ||
       url.password !== ""
     ) {
-      throw new TransmuteCloudError(
+      throw new AtetCloudError(
         "GENERATION_FAILED",
         "The Vercel AI Gateway request was rejected.",
       )
@@ -407,15 +407,15 @@ export function createFixedGatewayFetch(
         redirect: "error",
       })
     } catch (error) {
-      if (error instanceof TransmuteCloudError) throw error
-      throw new TransmuteCloudError(
+      if (error instanceof AtetCloudError) throw error
+      throw new AtetCloudError(
         "GENERATION_FAILED",
         "Vercel AI Gateway image generation failed; the request was not retried.",
       )
     }
     if (response.redirected || (response.status >= 300 && response.status < 400)) {
       await response.body?.cancel().catch(() => undefined)
-      throw new TransmuteCloudError(
+      throw new AtetCloudError(
         "GENERATION_FAILED",
         "The Vercel AI Gateway request was rejected.",
       )
@@ -434,12 +434,12 @@ function combineSignals(
 }> {
   const controller = new AbortController()
   const abort = (): void => controller.abort(caller?.reason)
-  let rejectInterruption: ((error: TransmuteCloudError) => void) | undefined
+  let rejectInterruption: ((error: AtetCloudError) => void) | undefined
   const interruption = new Promise<never>((_resolve, reject) => {
     rejectInterruption = reject
   })
   const rejectOnAbort = (): void => {
-    rejectInterruption?.(new TransmuteCloudError(
+    rejectInterruption?.(new AtetCloudError(
       "GENERATION_FAILED",
       "Vercel AI Gateway image generation was cancelled or exceeded its deadline.",
     ))
@@ -460,26 +460,26 @@ function combineSignals(
   }
 }
 
-function mediaType(value: unknown): TransmuteResponseMediaType {
+function mediaType(value: unknown): AtetResponseMediaType {
   if (
     typeof value !== "string" ||
-    !transmuteResponseMediaTypes.includes(value as TransmuteResponseMediaType)
+    !atetResponseMediaTypes.includes(value as AtetResponseMediaType)
   ) {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_INVALID_RESPONSE",
       "Vercel AI Gateway returned an unsupported image type.",
     )
   }
-  return value as TransmuteResponseMediaType
+  return value as AtetResponseMediaType
 }
 
 function validImageBytes(
   bytes: Uint8Array,
-  type: TransmuteResponseMediaType,
+  type: AtetResponseMediaType,
 ): boolean {
   if (
     bytes.byteLength < 12 ||
-    bytes.byteLength > transmuteMaximumRawImageBytes
+    bytes.byteLength > atetMaximumRawImageBytes
   ) {
     return false
   }
@@ -525,23 +525,23 @@ function warningReceipt(value: unknown): string {
 function parseResult(
   value: unknown,
   model: string,
-): Readonly<{ bytes: Uint8Array; response: GeneratedTransmuteImage }> {
+): Readonly<{ bytes: Uint8Array; response: GeneratedAtetImage }> {
   if (!isObject(value) || !Array.isArray(value.images) || value.images.length !== 1) {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_INVALID_RESPONSE",
       "Vercel AI Gateway did not return exactly one image.",
     )
   }
   const image = value.images[0]
   if (!isObject(image) || !(image.uint8Array instanceof Uint8Array)) {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_INVALID_RESPONSE",
       "Vercel AI Gateway returned an invalid bounded image.",
     )
   }
   const type = mediaType(image.mediaType)
   if (!validImageBytes(image.uint8Array, type)) {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_INVALID_RESPONSE",
       "Vercel AI Gateway returned an invalid bounded image.",
     )
@@ -580,11 +580,11 @@ function parseResult(
 }
 
 async function performGeneration(
-  input: GenerateTransmuteImageInput,
-  dependencies: TransmuteGenerateDependencies,
+  input: GenerateAtetImageInput,
+  dependencies: AtetGenerateDependencies,
 ): Promise<Readonly<{
   bytes: Uint8Array
-  response: GeneratedTransmuteImage
+  response: GeneratedAtetImage
 }>> {
   const model = validateModel(input.model)
   const prompt = validatePrompt(input.prompt)
@@ -593,14 +593,14 @@ async function performGeneration(
   try {
     const generation = (async () => {
       assertGenerationActive(timeout.signal)
-      // Raw AI SDK warnings may contain provider-controlled details. Transmute
+      // Raw AI SDK warnings may contain provider-controlled details. Atet
       // emits only allowlisted warning kinds and message hashes.
       disableAiSdkWarningLogging()
       const runtime = await (dependencies.loadRuntime ?? loadDefaultGatewayRuntime)()
       assertGenerationActive(timeout.signal)
       const provider = runtime.createGateway({
         apiKey: credential.token,
-        baseURL: transmuteGatewayApiBaseUrl,
+        baseURL: atetGatewayApiBaseUrl,
         fetch: createFixedGatewayFetch({
           ...(dependencies.fetch === undefined ? {} : { fetch: dependencies.fetch }),
           ...(dependencies.maximumResponseBytes === undefined
@@ -620,8 +620,8 @@ async function performGeneration(
     })()
     return await Promise.race([generation, timeout.interruption])
   } catch (error) {
-    if (error instanceof TransmuteCloudError) throw error
-    throw new TransmuteCloudError(
+    if (error instanceof AtetCloudError) throw error
+    throw new AtetCloudError(
       "GENERATION_FAILED",
       "Vercel AI Gateway image generation failed; the request was not retried.",
     )
@@ -630,14 +630,14 @@ async function performGeneration(
   }
 }
 
-export async function generateTransmuteImage(
-  input: GenerateTransmuteImageInput,
-  dependencies: TransmuteGenerateDependencies = {},
-): Promise<GeneratedTransmuteImage> {
+export async function generateAtetImage(
+  input: GenerateAtetImageInput,
+  dependencies: AtetGenerateDependencies = {},
+): Promise<GeneratedAtetImage> {
   return (await performGeneration(input, dependencies)).response
 }
 
-function expectedMediaType(outputPath: string): TransmuteResponseMediaType {
+function expectedMediaType(outputPath: string): AtetResponseMediaType {
   const extension = extname(outputPath).toLocaleLowerCase("en-US")
   if (extension === ".png") return "image/png"
   if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg"
@@ -652,7 +652,7 @@ async function atomicImageWrite(
   const absolutePath = resolve(outputPath)
   const temporaryPath = resolve(
     dirname(absolutePath),
-    `.${randomUUID()}.transmute-generate.tmp`,
+    `.${randomUUID()}.atet-generate.tmp`,
   )
   try {
     await writeFile(temporaryPath, bytes, { flag: "wx" })
@@ -661,19 +661,19 @@ async function atomicImageWrite(
     await link(temporaryPath, absolutePath)
     return absolutePath
   } catch {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "OUTPUT_WRITE_FAILED",
-      "Transmute could not atomically write the generated image.",
+      "Atet could not atomically write the generated image.",
     )
   } finally {
     await rm(temporaryPath, { force: true }).catch(() => undefined)
   }
 }
 
-export async function generateTransmuteImageFile(
-  input: GenerateTransmuteImageInput & { readonly outputPath: string },
-  dependencies: TransmuteGenerateDependencies = {},
-): Promise<GeneratedTransmuteImageFile> {
+export async function generateAtetImageFile(
+  input: GenerateAtetImageInput & { readonly outputPath: string },
+  dependencies: AtetGenerateDependencies = {},
+): Promise<GeneratedAtetImageFile> {
   if (
     typeof input.outputPath !== "string" ||
     input.outputPath.length < 1 ||
@@ -685,7 +685,7 @@ export async function generateTransmuteImageFile(
   const expected = expectedMediaType(input.outputPath)
   const generated = await performGeneration(input, dependencies)
   if (generated.response.image.mediaType !== expected) {
-    throw new TransmuteCloudError(
+    throw new AtetCloudError(
       "GENERATION_INVALID_RESPONSE",
       `Generated ${generated.response.image.mediaType} does not match the requested ${expected} output path.`,
     )
@@ -702,3 +702,36 @@ export async function generateTransmuteImageFile(
     warnings: generated.response.warnings,
   }
 }
+
+/** @deprecated Use Atet names for newly authored integrations. */
+export const transmuteGatewayApiBaseUrl = atetGatewayApiBaseUrl
+/** @deprecated Use {@link atetImageModels}. */
+export const transmuteImageModels = atetImageModels
+/** @deprecated Use {@link atetResponseMediaTypes}. */
+export const transmuteResponseMediaTypes = atetResponseMediaTypes
+/** @deprecated Use {@link atetMaximumPromptBytes}. */
+export const transmuteMaximumPromptBytes = atetMaximumPromptBytes
+/** @deprecated Use {@link atetMaximumRawImageBytes}. */
+export const transmuteMaximumRawImageBytes = atetMaximumRawImageBytes
+/** @deprecated Use {@link AtetImageModel}. */
+export type TransmuteImageModel = AtetImageModel
+/** @deprecated Use {@link AtetResponseMediaType}. */
+export type TransmuteResponseMediaType = AtetResponseMediaType
+/** @deprecated Use {@link AtetGatewayCredentialSource}. */
+export type TransmuteGatewayCredentialSource = AtetGatewayCredentialSource
+/** @deprecated Use {@link AtetGatewayCredentialStatus}. */
+export type TransmuteGatewayCredentialStatus = AtetGatewayCredentialStatus
+/** @deprecated Use {@link GenerateAtetImageInput}. */
+export type GenerateTransmuteImageInput = GenerateAtetImageInput
+/** @deprecated Use {@link GeneratedAtetImage}. */
+export type GeneratedTransmuteImage = GeneratedAtetImage
+/** @deprecated Use {@link GeneratedAtetImageFile}. */
+export type GeneratedTransmuteImageFile = GeneratedAtetImageFile
+/** @deprecated Use {@link AtetGenerateDependencies}. */
+export type TransmuteGenerateDependencies = AtetGenerateDependencies
+/** @deprecated Use {@link atetGatewayCredentialStatus}. */
+export const transmuteGatewayCredentialStatus = atetGatewayCredentialStatus
+/** @deprecated Use {@link generateAtetImage}. */
+export const generateTransmuteImage = generateAtetImage
+/** @deprecated Use {@link generateAtetImageFile}. */
+export const generateTransmuteImageFile = generateAtetImageFile

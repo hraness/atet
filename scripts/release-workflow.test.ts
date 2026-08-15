@@ -29,16 +29,16 @@ function isMissingFile(error: unknown): boolean {
   )
 }
 
-test("public CI routes independent SDK, local-host, site, and native proofs", async () => {
+test("public CI routes independent Atet SDK, local-runtime, site, and native proofs", async () => {
   const workflow = await readWorkflow("public-ci.yml", "ci.yml")
 
   expect(workflow).toContain("plan:\n    name: Plan")
-  expect(workflow).toContain("boundary:\n    name: Standalone boundary")
-  expect(workflow).toContain("sdk:\n    name: SDK")
-  expect(workflow).toContain("desktop:\n    name: Local host")
-  expect(workflow).toContain("site:\n    name: Static site")
-  expect(workflow).toContain("package:\n    name: Packed consumer")
-  expect(workflow).toContain("native:\n    name: macOS native shell")
+  expect(workflow).toContain("boundary:\n    name: Atet standalone boundary")
+  expect(workflow).toContain("sdk:\n    name: Atet SDK")
+  expect(workflow).toContain("desktop:\n    name: Atet local runtime")
+  expect(workflow).toContain("site:\n    name: Atet site")
+  expect(workflow).toContain("package:\n    name: Atet packed consumer")
+  expect(workflow).toContain("native:\n    name: Atet macOS shell")
   expect(workflow).toContain("if: needs.plan.outputs.sdk == 'true'")
   expect(workflow).toContain("if: needs.plan.outputs.desktop == 'true'")
   expect(workflow).toContain("if: needs.plan.outputs.site == 'true'")
@@ -61,7 +61,7 @@ test("public CI routes independent SDK, local-host, site, and native proofs", as
   expect(workflow).toContain("needs: [plan, boundary, sdk, desktop, site, package, native]")
   expect(workflow).toContain('[[ "$result" == success || "$result" == skipped ]]')
   expect(workflow).not.toContain(`@${"jungle"}/`)
-  expect(workflow).not.toContain(["projects", "transmute"].join("/"))
+  expect(workflow).not.toContain(["projects", "atet"].join("/"))
 })
 
 test("version tags pass the complete immutable release gate", async () => {
@@ -89,7 +89,7 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).toContain("bun install --frozen-lockfile --ignore-scripts")
   expect(workflow).toContain("bun run check")
   expect(workflow).toContain("sudo apt-get install --yes ffmpeg")
-  expect(workflow).toContain("native_macos:\n    name: macOS native shell")
+  expect(workflow).toContain("native_macos:\n    name: Atet macOS shell")
   expect(workflow).toContain("bun run test:desktop:macos")
   expect(workflow).toContain("bun run package:desktop:macos")
   expect(workflow).toContain(
@@ -110,6 +110,7 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).toContain("--verify-tag")
   expect(workflow).toContain("--generate-notes")
   expect(workflow).toContain("--latest")
+  expect(workflow).toContain('--title "Atet $GITHUB_REF_NAME"')
   expect(workflow).toContain(
     "--json assets,isDraft,isImmutable,isPrerelease,tagName",
   )
@@ -122,10 +123,11 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).not.toContain("administration:")
 })
 
-test("public vectorizer workflow verifies every reviewed platform without write permissions", async () => {
+test("public Atet VTracer workflow verifies every reviewed platform without write permissions", async () => {
   const workflow = await readWorkflow("public-vectorizer.yml", "vectorizer.yml")
 
   expect(workflow).toContain("permissions:\n  contents: read")
+  expect(workflow).toContain("name: Atet VTracer")
   expect(workflow).toContain("pull_request:")
   expect(workflow).toContain("branches: [main]")
   for (const target of [

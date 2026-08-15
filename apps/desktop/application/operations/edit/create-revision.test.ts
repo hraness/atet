@@ -84,7 +84,7 @@ function faceEvidence() {
     createdAt: "2026-07-23T15:00:00.000Z",
     durationUs: 10_000_000,
     inputDigest: FACE_INPUT_SHA256,
-    kind: "studio.face-analysis",
+    kind: "atet.face-analysis",
     privacy: {
       biometricIdentification: "not-performed",
       execution: "local-only",
@@ -119,7 +119,7 @@ function faceEvidence() {
       streamId: "stream_operation01",
     },
     tool: {
-      name: "transmute-face-analyzer",
+      name: "atet-face-analyzer",
       profile: "offline-boxes",
       version: "0.1.0",
     },
@@ -161,7 +161,7 @@ function executionContext(
 
 describe("immutable face-follow edit revisions", () => {
   test("derives and publishes independent common aspects without moving current", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-face-revisions-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-face-revisions-"));
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);
       const evidence = faceEvidence();
@@ -210,7 +210,7 @@ describe("immutable face-follow edit revisions", () => {
       )).output);
       expect(repeated).toEqual(drafts[0]!);
       expect(drafts.every(draft =>
-        draft.kind === "transmute.face-follow-edit-revision-draft"
+        draft.kind === "atet.face-follow-edit-revision-draft"
       )).toBe(true);
       expect(new Set(drafts.map(draft => draft.planSha256)).size).toBe(3);
       expect(drafts.map(draft => [
@@ -238,7 +238,7 @@ describe("immutable face-follow edit revisions", () => {
       )));
       expect(references.map(reference => reference.aspect)).toEqual([...aspects]);
       expect(references.every(reference =>
-        reference.kind === "transmute.project-edit-revision-reference"
+        reference.kind === "atet.project-edit-revision-reference"
       )).toBe(true);
       expect(new Set(references.map(reference => reference.artifact.path)).size)
         .toBe(3);
@@ -250,7 +250,7 @@ describe("immutable face-follow edit revisions", () => {
         const published = ProjectEditRevisionDocumentSchema.parse(
           JSON.parse(publishedText) as unknown,
         );
-        expect(published.kind).toBe("transmute.project-edit-revision");
+        expect(published.kind).toBe("atet.project-edit-revision");
         expect(published.project).toEqual(project);
         expect(published.projectEditPlan).toEqual(drafts[index]!.plan);
         expect(published.projectSha256).toBe(reference.projectSha256);
@@ -281,7 +281,7 @@ describe("immutable face-follow edit revisions", () => {
   });
 
   test("rejects stale bases, unrelated draft edits, and occupied revision paths", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-face-revision-conflicts-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-face-revision-conflicts-"));
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);
       const evidence = faceEvidence();

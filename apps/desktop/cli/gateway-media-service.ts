@@ -29,7 +29,8 @@ import {
 import { gatewayMediaBytesMatchType } from "./gateway-media-signature";
 
 export const GATEWAY_MEDIA_API_BASE_URL = "https://ai-gateway.vercel.sh/v4/ai";
-export const GATEWAY_MEDIA_UPLOAD_POLICY = "transmute.gateway-media-cloud-upload.v1";
+export const GATEWAY_MEDIA_UPLOAD_POLICY = "atet.gateway-media-cloud-upload.v1";
+export const PREDECESSOR_GATEWAY_MEDIA_UPLOAD_POLICY = "transmute.gateway-media-cloud-upload.v1";
 export const LEGACY_GATEWAY_MEDIA_UPLOAD_POLICY = "studio.gateway-media-cloud-upload.v1";
 
 const MAXIMUM_IMAGE_INPUT_BYTES = 50 * 1024 * 1024;
@@ -104,6 +105,7 @@ export interface GatewayUploadConsent {
   readonly allowCloudUpload: true;
   readonly policy:
     | typeof GATEWAY_MEDIA_UPLOAD_POLICY
+    | typeof PREDECESSOR_GATEWAY_MEDIA_UPLOAD_POLICY
     | typeof LEGACY_GATEWAY_MEDIA_UPLOAD_POLICY;
 }
 
@@ -397,7 +399,7 @@ export function createAiSdkGatewayMediaSdk(options: Readonly<{
     apiKey: string,
     signal: AbortSignal,
   ): Promise<Readonly<{ provider: GatewayAiProvider; runtime: GatewayAiSdkRuntime }>> => {
-    // AI SDK logs raw provider warnings by default. Transmute persists only
+    // AI SDK logs raw provider warnings by default. Atet persists only
     // allowlisted warning types and message hashes, so disable the SDK logger
     // before loading or invoking its runtime.
     disableAiSdkWarningLogging();
@@ -1307,6 +1309,7 @@ function parseConsent(
     value.allowCloudUpload !== true
     || (
       value.policy !== GATEWAY_MEDIA_UPLOAD_POLICY
+      && value.policy !== PREDECESSOR_GATEWAY_MEDIA_UPLOAD_POLICY
       && value.policy !== LEGACY_GATEWAY_MEDIA_UPLOAD_POLICY
     )
     || typeof value.acknowledgedAt !== "string"

@@ -7,16 +7,16 @@ import {
   type Ref,
 } from "./contracts.js"
 import type {
-  PortableTransmuteOperationResultMap,
+  PortableAtetOperationResultMap,
 } from "./public-operations.js"
 import {
   buildWorkflow,
   defineCompute,
   defineWorkflow,
 } from "./define-workflow.js"
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 import {
-  createTransmuteCodeHost,
+  createAtetCodeHost,
   runWorkflow,
 } from "./runtime.js"
 
@@ -42,7 +42,7 @@ describe("portable SDK immutable snapshots", () => {
       inputSchema: z.strictObject({
         source: z.strictObject({ path: z.string().min(1) }),
       }),
-      inputSchemaId: "transmute.workflow.immutable-sdk-snapshot.input/v1",
+      inputSchemaId: "atet.workflow.immutable-sdk-snapshot.input/v1",
       version: 1,
     })
     const callerInput = { source: { path: "system.json" } }
@@ -55,7 +55,7 @@ describe("portable SDK immutable snapshots", () => {
       }],
     } as const
     let executedInput: unknown
-    const host = createTransmuteCodeHost({
+    const host = createAtetCodeHost({
       execute: (request) => {
         executedInput = request.input
         expect(Object.isFrozen(request)).toBe(true)
@@ -64,7 +64,7 @@ describe("portable SDK immutable snapshots", () => {
           ;(request.input as { path: string }).path = "mutated.json"
         }).toThrow()
         return Promise.resolve(hostOutput as unknown as (
-          PortableTransmuteOperationResultMap[typeof request.kind]
+          PortableAtetOperationResultMap[typeof request.kind]
         ))
       },
     })
@@ -112,10 +112,10 @@ describe("portable SDK immutable snapshots", () => {
   test("freezes compute bounds and rejects missing definition capabilities", () => {
     const compute = defineCompute({
       inputSchema: z.strictObject({ value: z.number() }),
-      inputSchemaId: "transmute.compute.fixture.input/v1",
-      key: "transmute.compute.fixture/v1",
+      inputSchemaId: "atet.compute.fixture.input/v1",
+      key: "atet.compute.fixture/v1",
       outputSchema: z.strictObject({ value: z.number() }),
-      outputSchemaId: "transmute.compute.fixture.output/v1",
+      outputSchemaId: "atet.compute.fixture.output/v1",
       run: input => input,
     })
     expect(Object.isFrozen(compute)).toBe(true)
@@ -129,18 +129,18 @@ describe("portable SDK immutable snapshots", () => {
       id: "missing-schema",
       // @ts-expect-error A JavaScript caller can provide a schema-shaped lie.
       inputSchema: {},
-      inputSchemaId: "transmute.workflow.missing-schema.input/v1",
+      inputSchemaId: "atet.workflow.missing-schema.input/v1",
       version: 1,
-    })).toThrow(TransmuteCodeError)
+    })).toThrow(AtetCodeError)
     expect(() => defineCompute({
       inputSchema: z.unknown(),
-      inputSchemaId: "transmute.compute.missing-run.input/v1",
-      key: "transmute.compute.missing-run/v1",
+      inputSchemaId: "atet.compute.missing-run.input/v1",
+      key: "atet.compute.missing-run/v1",
       outputSchema: z.unknown(),
-      outputSchemaId: "transmute.compute.missing-run.output/v1",
+      outputSchemaId: "atet.compute.missing-run.output/v1",
       // @ts-expect-error A JavaScript caller can omit the execution capability.
       run: undefined,
-    })).toThrow(TransmuteCodeError)
+    })).toThrow(AtetCodeError)
   })
 
   test("bounds hostile raw workflow inputs before user schemas or builders run", () => {
@@ -156,16 +156,16 @@ describe("portable SDK immutable snapshots", () => {
         schemaCalls += 1
         return value
       }, z.unknown()),
-      inputSchemaId: "transmute.workflow.hostile-input-boundary.input/v1",
+      inputSchemaId: "atet.workflow.hostile-input-boundary.input/v1",
       version: 1,
     })
     const expectRejected = (value: unknown, message: string): void => {
       try {
         buildWorkflow(definition, value)
       } catch (error) {
-        expect(error).toBeInstanceOf(TransmuteCodeError)
-        expect((error as TransmuteCodeError).code).toBe("invalid-data")
-        expect((error as TransmuteCodeError).message).toContain(message)
+        expect(error).toBeInstanceOf(AtetCodeError)
+        expect((error as AtetCodeError).code).toBe("invalid-data")
+        expect((error as AtetCodeError).message).toContain(message)
         return
       }
       throw new Error("Expected hostile workflow input to be rejected.")
@@ -209,7 +209,7 @@ describe("portable SDK immutable snapshots", () => {
         value => value instanceof Date ? value.toISOString() : value,
         z.string().transform(path => ({ path })),
       ),
-      inputSchemaId: "transmute.workflow.transformed-input-boundary.input/v1",
+      inputSchemaId: "atet.workflow.transformed-input-boundary.input/v1",
       version: 1,
     })
     const input = new Date("2026-08-04T12:34:56.000Z")
@@ -231,7 +231,7 @@ describe("portable SDK immutable snapshots", () => {
         schemaInput = value
         return value
       }, z.strictObject({ value: z.string() })),
-      inputSchemaId: "transmute.workflow.captured-schema-input.input/v1",
+      inputSchemaId: "atet.workflow.captured-schema-input.input/v1",
       version: 1,
     })
     let propertyReads = 0

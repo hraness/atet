@@ -61,7 +61,7 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
 }
 
 async function projectFixture(repositoryRoot: string): Promise<OpenProject> {
-  const recordingDirectory = join(repositoryRoot, "artifacts", "transmute", "recordings", "rec_example001");
+  const recordingDirectory = join(repositoryRoot, "artifacts", "atet", "recordings", "rec_example001");
   await mkdir(join(recordingDirectory, "media"), { recursive: true });
   await mkdir(join(recordingDirectory, "events"), { recursive: true });
   const mediaContents = "media";
@@ -107,13 +107,13 @@ async function projectFixture(repositoryRoot: string): Promise<OpenProject> {
   });
   await saveRecordingManifest(createNodeBundleFileSystem(recordingDirectory), manifest);
   const recording = await openRecording(
-    join(repositoryRoot, "artifacts", "transmute", "recordings"),
+    join(repositoryRoot, "artifacts", "atet", "recordings"),
     manifest.recordingId,
   );
   const project = await createProjectFromRecording({
     id: "project_inactive01",
     now: NOW,
-    projectRoot: join(repositoryRoot, "artifacts", "transmute", "projects"),
+    projectRoot: join(repositoryRoot, "artifacts", "atet", "projects"),
     recording,
     repositoryRoot,
   });
@@ -136,13 +136,13 @@ async function projectFixture(repositoryRoot: string): Promise<OpenProject> {
 
 describe("project inactivity analysis", () => {
   test("intersects every enabled screen and audio stream and protects mapped recording interactions", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-inactivity-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-inactivity-"));
     try {
       const project = await projectFixture(repositoryRoot);
       const runner = new InactivityRunner();
       const result = await analyzeAndPersistProjectInactivity({
         analysisId: "analysis_inactive01",
-        artifactRoot: join(repositoryRoot, "artifacts", "transmute", "recordings"),
+        artifactRoot: join(repositoryRoot, "artifacts", "atet", "recordings"),
         config: {
           ...DEFAULT_PROJECT_INACTIVITY_CONFIG,
           edgeHandleUs: 0,
@@ -159,7 +159,7 @@ describe("project inactivity analysis", () => {
         toolVersion: "test",
       });
 
-      expect(result.analysis.kind).toBe("transmute.project-inactivity-analysis");
+      expect(result.analysis.kind).toBe("atet.project-inactivity-analysis");
       expect(result.analysis.displays).toHaveLength(2);
       expect(result.analysis.audio).toHaveLength(2);
       expect(result.analysis.displays.map(item => item.intervals[0]?.projectRange)).toEqual([
@@ -199,7 +199,7 @@ describe("project inactivity analysis", () => {
       expect(result.project.analyses.at(-1)).toEqual(result.reference);
       const duplicate = await rejection(analyzeAndPersistProjectInactivity({
         analysisId: "analysis_inactive01",
-        artifactRoot: join(repositoryRoot, "artifacts", "transmute", "recordings"),
+        artifactRoot: join(repositoryRoot, "artifacts", "atet", "recordings"),
         ffmpeg: "ffmpeg-test",
         ffmpegVersion: "ffmpeg fixture",
         ffprobe: "ffprobe-test",
@@ -217,13 +217,13 @@ describe("project inactivity analysis", () => {
   });
 
   test("omits audio probes and evidence when silence protection is disabled", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-inactivity-no-audio-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-inactivity-no-audio-"));
     try {
       const project = await projectFixture(repositoryRoot);
       const runner = new InactivityRunner();
       const result = await analyzeAndPersistProjectInactivity({
         analysisId: "analysis_inactive02",
-        artifactRoot: join(repositoryRoot, "artifacts", "transmute", "recordings"),
+        artifactRoot: join(repositoryRoot, "artifacts", "atet", "recordings"),
         config: {
           ...DEFAULT_PROJECT_INACTIVITY_CONFIG,
           edgeHandleUs: 0,
@@ -253,14 +253,14 @@ describe("project inactivity analysis", () => {
   });
 
   test("rejects project media symlinks that resolve outside the repository", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-inactivity-path-"));
-    const outsideRoot = await mkdtemp(join(tmpdir(), "transmute-project-inactivity-outside-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-inactivity-path-"));
+    const outsideRoot = await mkdtemp(join(tmpdir(), "atet-project-inactivity-outside-"));
     try {
       const project = await projectFixture(repositoryRoot);
       const mediaPath = join(
         repositoryRoot,
         "artifacts",
-        "transmute",
+        "atet",
         "recordings",
         "rec_example001",
         "media",
@@ -273,7 +273,7 @@ describe("project inactivity analysis", () => {
 
       const error = await rejection(analyzeAndPersistProjectInactivity({
         analysisId: "analysis_inactive03",
-        artifactRoot: join(repositoryRoot, "artifacts", "transmute", "recordings"),
+        artifactRoot: join(repositoryRoot, "artifacts", "atet", "recordings"),
         config: { ...DEFAULT_PROJECT_INACTIVITY_CONFIG, requireAudioSilence: false },
         ffmpeg: "ffmpeg-test",
         ffmpegVersion: "ffmpeg fixture",

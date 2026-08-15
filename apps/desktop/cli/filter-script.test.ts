@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { materializeFilterScript } from "./filter-script";
 
 test("materializes and reuses a content-addressed private filter graph", async () => {
-  const root = await mkdtemp(join(tmpdir(), "transmute-filter-script-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-filter-script-"));
   try {
     const first = await materializeFilterScript({
       graph: "color=black[out]",

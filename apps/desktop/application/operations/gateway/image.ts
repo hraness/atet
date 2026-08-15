@@ -13,7 +13,7 @@ import {
 
 export const gatewayImageOperationDefinition = {
   inputSchema: GatewayImageOperationInputSchema,
-  inputSchemaId: "studio.operation.gateway.image.input/v1",
+  inputSchemaId: "atet.operation.gateway.image.input/v1",
   kind: "gateway.image",
   lifecycle: {
     kind: "paid-dispatch",
@@ -26,7 +26,7 @@ export const gatewayImageOperationDefinition = {
     },
   },
   outputSchema: GatewayImageOperationResultSchema,
-  outputSchemaId: "studio.operation.gateway.image.output/v1",
+  outputSchemaId: "atet.operation.gateway.image.output/v1",
   policy: gatewayOperationPolicy({
     maximumDurationMs: 5 * 60_000,
     mediaInput: true,

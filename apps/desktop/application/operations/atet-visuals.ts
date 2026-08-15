@@ -1,12 +1,12 @@
 import {
-  executeTransmuteOperation,
-  executeTransmuteOperationWithLease,
+  executeAtetOperation,
+  executeAtetOperationWithLease,
   vectorizeImage,
   type HostResourceCoordinator,
   type LintFinding,
   type VectorizeOptions,
   type VectorizeResult,
-} from "@hraness/transmute";
+} from "@hraness/atet";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
@@ -42,36 +42,36 @@ const DiagramFindingSchema = z.strictObject({
   shapeIds: z.array(z.string().min(1).max(128)).max(256),
 });
 
-const TransmuteMediaInputRequestSchema = z.union([
+const AtetMediaInputRequestSchema = z.union([
   RepositoryRelativePathSchema,
   MediaArtifactRequestSchema,
 ]);
 
-export const TransmuteDiagramCheckInputSchema = z.strictObject({
-  path: TransmuteMediaInputRequestSchema,
+export const AtetDiagramCheckInputSchema = z.strictObject({
+  path: AtetMediaInputRequestSchema,
 });
 
-export const BoundTransmuteDiagramCheckInputSchema =
-  TransmuteDiagramCheckInputSchema.extend({
+export const BoundAtetDiagramCheckInputSchema =
+  AtetDiagramCheckInputSchema.extend({
     path: MediaArtifactReferenceSchema,
   }).strict();
 
-export const TransmuteDiagramCheckOutputSchema = z.strictObject({
+export const AtetDiagramCheckOutputSchema = z.strictObject({
   findings: z.array(DiagramFindingSchema).max(256),
   source: MediaArtifactReferenceSchema,
 });
 
-export const TransmuteDiagramRenderInputSchema =
-  TransmuteDiagramCheckInputSchema.extend({
+export const AtetDiagramRenderInputSchema =
+  AtetDiagramCheckInputSchema.extend({
     scale: z.number().finite().positive().max(4).optional(),
   }).strict();
 
-export const BoundTransmuteDiagramRenderInputSchema =
-  TransmuteDiagramRenderInputSchema.extend({
+export const BoundAtetDiagramRenderInputSchema =
+  AtetDiagramRenderInputSchema.extend({
     path: MediaArtifactReferenceSchema,
   }).strict();
 
-export const TransmuteDiagramArtifactsSchema = z.strictObject({
+export const AtetDiagramArtifactsSchema = z.strictObject({
   darkPng: MediaArtifactReferenceSchema,
   darkSvg: MediaArtifactReferenceSchema,
   lightPng: MediaArtifactReferenceSchema,
@@ -79,8 +79,8 @@ export const TransmuteDiagramArtifactsSchema = z.strictObject({
   tldr: MediaArtifactReferenceSchema,
 });
 
-export const TransmuteDiagramRenderOutputSchema = z.strictObject({
-  artifacts: TransmuteDiagramArtifactsSchema,
+export const AtetDiagramRenderOutputSchema = z.strictObject({
+  artifacts: AtetDiagramArtifactsSchema,
   created: z.strictObject({
     darkPng: z.boolean(),
     darkSvg: z.boolean(),
@@ -93,13 +93,19 @@ export const TransmuteDiagramRenderOutputSchema = z.strictObject({
   source: MediaArtifactReferenceSchema,
 });
 
-export const TransmuteDiagramRenderReceiptSchema = z.strictObject({
-  artifacts: TransmuteDiagramArtifactsSchema,
+export const AtetDiagramRenderReceiptSchema = z.strictObject({
+  artifacts: AtetDiagramArtifactsSchema,
   createdAt: z.string().datetime({ offset: true }),
   exactInputSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   findings: z.array(DiagramFindingSchema).max(256),
-  kind: z.literal("transmute.visual-artifact-receipt"),
-  operation: z.literal("transmute.diagram.render"),
+  kind: z.union([
+    z.literal("atet.visual-artifact-receipt"),
+    z.literal("transmute.visual-artifact-receipt"),
+  ]),
+  operation: z.union([
+    z.literal("atet.diagram.render"),
+    z.literal("transmute.diagram.render"),
+  ]),
   scale: z.number().finite().positive().max(4),
   schemaVersion: z.literal(1),
   source: MediaArtifactReferenceSchema,
@@ -107,15 +113,15 @@ export const TransmuteDiagramRenderReceiptSchema = z.strictObject({
 
 const HexColorSchema = z.string().regex(/^#[a-fA-F0-9]{3}(?:[a-fA-F0-9]{3})?$/u);
 
-export const TransmuteImageVectorizeInputSchema = z.strictObject({
+export const AtetImageVectorizeInputSchema = z.strictObject({
   alphaCutoff: z.number().int().min(1).max(64).optional(),
   duotone: z.tuple([HexColorSchema, HexColorSchema]).optional(),
-  inputPath: TransmuteMediaInputRequestSchema,
+  inputPath: AtetMediaInputRequestSchema,
   timeoutMs: z.number().int().min(1).max(300_000).optional(),
 });
 
-export const BoundTransmuteImageVectorizeInputSchema =
-  TransmuteImageVectorizeInputSchema.extend({
+export const BoundAtetImageVectorizeInputSchema =
+  AtetImageVectorizeInputSchema.extend({
     inputPath: MediaArtifactReferenceSchema,
   }).strict();
 
@@ -163,7 +169,7 @@ const VectorizeReceiptSchema = z.strictObject({
   width: z.number().int().positive(),
 });
 
-export const TransmuteImageVectorizeOutputSchema = z.strictObject({
+export const AtetImageVectorizeOutputSchema = z.strictObject({
   artifact: MediaArtifactReferenceSchema,
   created: z.boolean(),
   receipt: MediaArtifactReferenceSchema,
@@ -171,35 +177,41 @@ export const TransmuteImageVectorizeOutputSchema = z.strictObject({
   vectorizer: VectorizeReceiptSchema,
 });
 
-export const TransmuteImageVectorizeReceiptSchema = z.strictObject({
+export const AtetImageVectorizeReceiptSchema = z.strictObject({
   artifact: MediaArtifactReferenceSchema,
   createdAt: z.string().datetime({ offset: true }),
   exactInputSha256: z.string().regex(/^[a-f0-9]{64}$/u),
-  kind: z.literal("transmute.visual-artifact-receipt"),
-  operation: z.literal("transmute.image.vectorize"),
+  kind: z.union([
+    z.literal("atet.visual-artifact-receipt"),
+    z.literal("transmute.visual-artifact-receipt"),
+  ]),
+  operation: z.union([
+    z.literal("atet.image.vectorize"),
+    z.literal("transmute.image.vectorize"),
+  ]),
   schemaVersion: z.literal(1),
   source: MediaArtifactReferenceSchema,
   vectorizer: VectorizeReceiptSchema,
 });
 
-export type TransmuteDiagramCheckInput = z.infer<typeof TransmuteDiagramCheckInputSchema>;
-export type BoundTransmuteDiagramCheckInput = z.infer<typeof BoundTransmuteDiagramCheckInputSchema>;
-export type TransmuteDiagramCheckOutput = z.infer<typeof TransmuteDiagramCheckOutputSchema>;
-export type TransmuteDiagramRenderInput = z.infer<typeof TransmuteDiagramRenderInputSchema>;
-export type BoundTransmuteDiagramRenderInput = z.infer<typeof BoundTransmuteDiagramRenderInputSchema>;
-export type TransmuteDiagramRenderOutput = z.infer<typeof TransmuteDiagramRenderOutputSchema>;
-export type TransmuteImageVectorizeInput = z.infer<typeof TransmuteImageVectorizeInputSchema>;
-export type BoundTransmuteImageVectorizeInput = z.infer<typeof BoundTransmuteImageVectorizeInputSchema>;
-export type TransmuteImageVectorizeOutput = z.infer<typeof TransmuteImageVectorizeOutputSchema>;
+export type AtetDiagramCheckInput = z.infer<typeof AtetDiagramCheckInputSchema>;
+export type BoundAtetDiagramCheckInput = z.infer<typeof BoundAtetDiagramCheckInputSchema>;
+export type AtetDiagramCheckOutput = z.infer<typeof AtetDiagramCheckOutputSchema>;
+export type AtetDiagramRenderInput = z.infer<typeof AtetDiagramRenderInputSchema>;
+export type BoundAtetDiagramRenderInput = z.infer<typeof BoundAtetDiagramRenderInputSchema>;
+export type AtetDiagramRenderOutput = z.infer<typeof AtetDiagramRenderOutputSchema>;
+export type AtetImageVectorizeInput = z.infer<typeof AtetImageVectorizeInputSchema>;
+export type BoundAtetImageVectorizeInput = z.infer<typeof BoundAtetImageVectorizeInputSchema>;
+export type AtetImageVectorizeOutput = z.infer<typeof AtetImageVectorizeOutputSchema>;
 
-export const TRANSMUTE_VISUAL_FILE_OPERATION_KINDS = [
-  "transmute.diagram.check",
-  "transmute.diagram.render",
-  "transmute.image.vectorize",
+export const ATET_VISUAL_FILE_OPERATION_KINDS = [
+  "atet.diagram.check",
+  "atet.diagram.render",
+  "atet.image.vectorize",
 ] as const;
 
-export type TransmuteVisualFileOperationKind =
-  typeof TRANSMUTE_VISUAL_FILE_OPERATION_KINDS[number];
+export type AtetVisualFileOperationKind =
+  typeof ATET_VISUAL_FILE_OPERATION_KINDS[number];
 
 type DiagramCheck = (path: string) => Promise<{ readonly findings: readonly LintFinding[] }>;
 type DiagramRender = (input: Readonly<{
@@ -222,7 +234,7 @@ type ImageVectorize = (
   options: VectorizeOptions,
 ) => Promise<VectorizeResult>;
 
-export interface TransmuteVisualOperationDependencies {
+export interface AtetVisualOperationDependencies {
   readonly checkDiagram?: DiagramCheck;
   readonly hostResourceCoordinator?: HostResourceCoordinator;
   readonly renderDiagram?: DiagramRender;
@@ -230,57 +242,57 @@ export interface TransmuteVisualOperationDependencies {
 }
 
 function mediaRequest(
-  input: z.infer<typeof TransmuteMediaInputRequestSchema>,
+  input: z.infer<typeof AtetMediaInputRequestSchema>,
 ): z.infer<typeof MediaArtifactRequestSchema> {
   return typeof input === "string" ? { path: input } : input;
 }
 
-export async function bindTransmuteVisualOperationInput(
+export async function bindAtetVisualOperationInput(
   application: ApplicationContext,
-  kind: TransmuteVisualFileOperationKind,
+  kind: AtetVisualFileOperationKind,
   inputValue: unknown,
   signal: AbortSignal = new AbortController().signal,
 ): Promise<
-  | BoundTransmuteDiagramCheckInput
-  | BoundTransmuteDiagramRenderInput
-  | BoundTransmuteImageVectorizeInput
+  | BoundAtetDiagramCheckInput
+  | BoundAtetDiagramRenderInput
+  | BoundAtetImageVectorizeInput
 > {
   switch (kind) {
-    case "transmute.diagram.check": {
-      const input = TransmuteDiagramCheckInputSchema.parse(inputValue);
+    case "atet.diagram.check": {
+      const input = AtetDiagramCheckInputSchema.parse(inputValue);
       const source = await bindRepositoryMedia(
         application,
         mediaRequest(input.path),
         signal,
         MAXIMUM_DIAGRAM_SOURCE_BYTES,
       );
-      return BoundTransmuteDiagramCheckInputSchema.parse({
+      return BoundAtetDiagramCheckInputSchema.parse({
         ...input,
         path: source.artifact,
       });
     }
-    case "transmute.diagram.render": {
-      const input = TransmuteDiagramRenderInputSchema.parse(inputValue);
+    case "atet.diagram.render": {
+      const input = AtetDiagramRenderInputSchema.parse(inputValue);
       const source = await bindRepositoryMedia(
         application,
         mediaRequest(input.path),
         signal,
         MAXIMUM_DIAGRAM_SOURCE_BYTES,
       );
-      return BoundTransmuteDiagramRenderInputSchema.parse({
+      return BoundAtetDiagramRenderInputSchema.parse({
         ...input,
         path: source.artifact,
       });
     }
-    case "transmute.image.vectorize": {
-      const input = TransmuteImageVectorizeInputSchema.parse(inputValue);
+    case "atet.image.vectorize": {
+      const input = AtetImageVectorizeInputSchema.parse(inputValue);
       const source = await bindRepositoryMedia(
         application,
         mediaRequest(input.inputPath),
         signal,
         MAXIMUM_MEDIA_EFFECT_INPUT_BYTES,
       );
-      return BoundTransmuteImageVectorizeInputSchema.parse({
+      return BoundAtetImageVectorizeInputSchema.parse({
         ...input,
         inputPath: source.artifact,
       });
@@ -301,11 +313,11 @@ async function publishDiagramArtifacts(
   context: OperationExecutionContext,
   artifacts: Awaited<ReturnType<DiagramRender>>["artifacts"],
 ): Promise<Readonly<{
-  artifacts: z.infer<typeof TransmuteDiagramArtifactsSchema>;
-  created: z.infer<typeof TransmuteDiagramRenderOutputSchema>["created"];
+  artifacts: z.infer<typeof AtetDiagramArtifactsSchema>;
+  created: z.infer<typeof AtetDiagramRenderOutputSchema>["created"];
 }>> {
-  const published: Partial<Record<keyof z.infer<typeof TransmuteDiagramArtifactsSchema>, MediaArtifactReference>> = {};
-  const created: Partial<Record<keyof z.infer<typeof TransmuteDiagramArtifactsSchema>, boolean>> = {};
+  const published: Partial<Record<keyof z.infer<typeof AtetDiagramArtifactsSchema>, MediaArtifactReference>> = {};
+  const created: Partial<Record<keyof z.infer<typeof AtetDiagramArtifactsSchema>, boolean>> = {};
   const entries = [
     ["darkPng", artifacts.darkPng, ".png"],
     ["darkSvg", artifacts.darkSvg, ".svg"],
@@ -324,8 +336,8 @@ async function publishDiagramArtifacts(
     created[key] = result.created;
   }
   return {
-    artifacts: TransmuteDiagramArtifactsSchema.parse(published),
-    created: TransmuteDiagramRenderOutputSchema.shape.created.parse(created),
+    artifacts: AtetDiagramArtifactsSchema.parse(published),
+    created: AtetDiagramRenderOutputSchema.shape.created.parse(created),
   };
 }
 
@@ -336,13 +348,13 @@ function defaultCheckDiagram(
 ): ReturnType<DiagramCheck> {
   const lease = application.hostResourceLease;
   return lease === undefined
-    ? executeTransmuteOperation("transmute.diagram.check", { path }, {
+    ? executeAtetOperation("atet.diagram.check", { path }, {
         ...(hostResourceCoordinator === undefined
           ? {}
           : { hostResourceCoordinator }),
       })
-    : executeTransmuteOperationWithLease(
-        "transmute.diagram.check",
+    : executeAtetOperationWithLease(
+        "atet.diagram.check",
         { path },
         lease,
       );
@@ -355,13 +367,13 @@ function defaultRenderDiagram(
 ): ReturnType<DiagramRender> {
   const lease = application.hostResourceLease;
   return lease === undefined
-    ? executeTransmuteOperation("transmute.diagram.render", input, {
+    ? executeAtetOperation("atet.diagram.render", input, {
         ...(hostResourceCoordinator === undefined
           ? {}
           : { hostResourceCoordinator }),
       })
-    : executeTransmuteOperationWithLease(
-        "transmute.diagram.render",
+    : executeAtetOperationWithLease(
+        "atet.diagram.render",
         input,
         lease,
       );
@@ -395,23 +407,23 @@ async function writeDiagramInputSnapshot(
   }
 }
 
-export function createTransmuteDiagramCheckOperationDefinition(
-  dependencies: TransmuteVisualOperationDependencies = {},
+export function createAtetDiagramCheckOperationDefinition(
+  dependencies: AtetVisualOperationDependencies = {},
 ): OperationDefinition<
-  "transmute.diagram.check",
-  TransmuteDiagramCheckInput,
-  TransmuteDiagramCheckOutput
+  "atet.diagram.check",
+  AtetDiagramCheckInput,
+  AtetDiagramCheckOutput
 > {
   const check = dependencies.checkDiagram;
   return {
-    inputSchema: TransmuteDiagramCheckInputSchema,
-    inputSchemaId: "transmute.operation.diagram.check.input/v1",
-    kind: "transmute.diagram.check",
+    inputSchema: AtetDiagramCheckInputSchema,
+    inputSchemaId: "atet.operation.diagram.check.input/v1",
+    kind: "atet.diagram.check",
     lifecycle: {
       kind: "pure",
       execute: async (context, input) => {
         throwIfAborted(context.abortSignal);
-        const parsedInput = TransmuteDiagramCheckInputSchema.parse(input);
+        const parsedInput = AtetDiagramCheckInputSchema.parse(input);
         const source = await loadRepositoryMedia(
           context.application,
           mediaRequest(parsedInput.path),
@@ -440,7 +452,7 @@ export function createTransmuteDiagramCheckOperationDefinition(
             context.abortSignal,
             MAXIMUM_DIAGRAM_SOURCE_BYTES,
           );
-          return TransmuteDiagramCheckOutputSchema.parse({
+          return AtetDiagramCheckOutputSchema.parse({
             findings: checked.findings,
             source: source.artifact,
           });
@@ -454,8 +466,8 @@ export function createTransmuteDiagramCheckOperationDefinition(
         }
       },
     },
-    outputSchema: TransmuteDiagramCheckOutputSchema,
-    outputSchemaId: "transmute.operation.diagram.check.output/v1",
+    outputSchema: AtetDiagramCheckOutputSchema,
+    outputSchemaId: "atet.operation.diagram.check.output/v1",
     policy: {
       cache: "content-addressed",
       cancellable: false,
@@ -477,35 +489,35 @@ export function createTransmuteDiagramCheckOperationDefinition(
         source: output.source.path,
         sourceSha256: output.source.sha256,
       },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
     }),
     version: 1,
   };
 }
 
-export function createTransmuteDiagramRenderOperationDefinition(
-  dependencies: TransmuteVisualOperationDependencies = {},
+export function createAtetDiagramRenderOperationDefinition(
+  dependencies: AtetVisualOperationDependencies = {},
 ): OperationDefinition<
-  "transmute.diagram.render",
-  TransmuteDiagramRenderInput,
-  TransmuteDiagramRenderOutput
+  "atet.diagram.render",
+  AtetDiagramRenderInput,
+  AtetDiagramRenderOutput
 > {
   const render = dependencies.renderDiagram;
   return {
-    inputSchema: TransmuteDiagramRenderInputSchema,
-    inputSchemaId: "transmute.operation.diagram.render.input/v1",
-    kind: "transmute.diagram.render",
+    inputSchema: AtetDiagramRenderInputSchema,
+    inputSchemaId: "atet.operation.diagram.render.input/v1",
+    kind: "atet.diagram.render",
     lifecycle: {
       kind: "local-artifact",
       execute: async (context, input) => {
-        const parsedInput = TransmuteDiagramRenderInputSchema.parse(input);
+        const parsedInput = AtetDiagramRenderInputSchema.parse(input);
         const source = await loadRepositoryMedia(
           context.application,
           mediaRequest(parsedInput.path),
           context.abortSignal,
           MAXIMUM_DIAGRAM_SOURCE_BYTES,
         );
-        const boundInput = BoundTransmuteDiagramRenderInputSchema.parse({
+        const boundInput = BoundAtetDiagramRenderInputSchema.parse({
           ...parsedInput,
           path: source.artifact,
         });
@@ -537,13 +549,13 @@ export function createTransmuteDiagramRenderOperationDefinition(
             MAXIMUM_DIAGRAM_SOURCE_BYTES,
           );
           const published = await publishDiagramArtifacts(context, rendered.artifacts);
-          const receiptBody = TransmuteDiagramRenderReceiptSchema.parse({
+          const receiptBody = AtetDiagramRenderReceiptSchema.parse({
             artifacts: published.artifacts,
             createdAt: context.application.clock.now().toISOString(),
             exactInputSha256: canonicalJsonSha256(boundInput),
             findings: rendered.findings,
-            kind: "transmute.visual-artifact-receipt",
-            operation: "transmute.diagram.render",
+            kind: "atet.visual-artifact-receipt",
+            operation: "atet.diagram.render",
             scale: boundInput.scale ?? 2,
             schemaVersion: 1,
             source: source.artifact,
@@ -553,16 +565,16 @@ export function createTransmuteDiagramRenderOperationDefinition(
             receipt: receiptBody,
             workspace,
           });
-          const output = TransmuteDiagramRenderOutputSchema.parse({
+          const output = AtetDiagramRenderOutputSchema.parse({
             ...published,
             findings: rendered.findings,
             receipt,
             source: source.artifact,
           });
           await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId: "transmute.operation.diagram.render.input/v1",
-            kind: "transmute.diagram.render",
-            outputSchemaId: "transmute.operation.diagram.render.output/v1",
+            inputSchemaId: "atet.operation.diagram.render.input/v1",
+            kind: "atet.diagram.render",
+            outputSchemaId: "atet.operation.diagram.render.output/v1",
             version: 1,
           }, output);
           return output;
@@ -576,8 +588,8 @@ export function createTransmuteDiagramRenderOperationDefinition(
         }
       },
     },
-    outputSchema: TransmuteDiagramRenderOutputSchema,
-    outputSchemaId: "transmute.operation.diagram.render.output/v1",
+    outputSchema: AtetDiagramRenderOutputSchema,
+    outputSchemaId: "atet.operation.diagram.render.output/v1",
     policy: {
       cache: "content-addressed",
       cancellable: false,
@@ -603,35 +615,35 @@ export function createTransmuteDiagramRenderOperationDefinition(
         receipt: output.receipt.path,
         sourceSha256: output.source.sha256,
       },
-      kind: "transmute.diagram.render",
+      kind: "atet.diagram.render",
     }),
     version: 1,
   };
 }
 
-export function createTransmuteImageVectorizeOperationDefinition(
-  dependencies: TransmuteVisualOperationDependencies = {},
+export function createAtetImageVectorizeOperationDefinition(
+  dependencies: AtetVisualOperationDependencies = {},
 ): OperationDefinition<
-  "transmute.image.vectorize",
-  TransmuteImageVectorizeInput,
-  TransmuteImageVectorizeOutput
+  "atet.image.vectorize",
+  AtetImageVectorizeInput,
+  AtetImageVectorizeOutput
 > {
   const vectorize = dependencies.vectorize ?? vectorizeImage;
   return {
-    inputSchema: TransmuteImageVectorizeInputSchema,
-    inputSchemaId: "transmute.operation.image.vectorize.input/v1",
-    kind: "transmute.image.vectorize",
+    inputSchema: AtetImageVectorizeInputSchema,
+    inputSchemaId: "atet.operation.image.vectorize.input/v1",
+    kind: "atet.image.vectorize",
     lifecycle: {
       kind: "local-artifact",
       execute: async (context, input) => {
-        const parsedInput = TransmuteImageVectorizeInputSchema.parse(input);
+        const parsedInput = AtetImageVectorizeInputSchema.parse(input);
         const source = await bindRepositoryMedia(
           context.application,
           mediaRequest(parsedInput.inputPath),
           context.abortSignal,
           MAXIMUM_MEDIA_EFFECT_INPUT_BYTES,
         );
-        const boundInput = BoundTransmuteImageVectorizeInputSchema.parse({
+        const boundInput = BoundAtetImageVectorizeInputSchema.parse({
           ...parsedInput,
           inputPath: source.artifact,
         });
@@ -698,12 +710,12 @@ export function createTransmuteImageVectorizeOperationDefinition(
               "Vectorizer receipt SVG hash or byte length does not match the staged output.",
             );
           }
-          const receiptBody = TransmuteImageVectorizeReceiptSchema.parse({
+          const receiptBody = AtetImageVectorizeReceiptSchema.parse({
             artifact: published.artifact,
             createdAt: context.application.clock.now().toISOString(),
             exactInputSha256: canonicalJsonSha256(boundInput),
-            kind: "transmute.visual-artifact-receipt",
-            operation: "transmute.image.vectorize",
+            kind: "atet.visual-artifact-receipt",
+            operation: "atet.image.vectorize",
             schemaVersion: 1,
             source: source.artifact,
             vectorizer,
@@ -713,7 +725,7 @@ export function createTransmuteImageVectorizeOperationDefinition(
             receipt: receiptBody,
             workspace,
           });
-          const output = TransmuteImageVectorizeOutputSchema.parse({
+          const output = AtetImageVectorizeOutputSchema.parse({
             artifact: published.artifact,
             created: published.created,
             receipt,
@@ -721,9 +733,9 @@ export function createTransmuteImageVectorizeOperationDefinition(
             vectorizer,
           });
           await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId: "transmute.operation.image.vectorize.input/v1",
-            kind: "transmute.image.vectorize",
-            outputSchemaId: "transmute.operation.image.vectorize.output/v1",
+            inputSchemaId: "atet.operation.image.vectorize.input/v1",
+            kind: "atet.image.vectorize",
+            outputSchemaId: "atet.operation.image.vectorize.output/v1",
             version: 1,
           }, output);
           return output;
@@ -734,8 +746,8 @@ export function createTransmuteImageVectorizeOperationDefinition(
         }
       },
     },
-    outputSchema: TransmuteImageVectorizeOutputSchema,
-    outputSchemaId: "transmute.operation.image.vectorize.output/v1",
+    outputSchema: AtetImageVectorizeOutputSchema,
+    outputSchemaId: "atet.operation.image.vectorize.output/v1",
     policy: {
       cache: "content-addressed",
       cancellable: false,
@@ -762,15 +774,15 @@ export function createTransmuteImageVectorizeOperationDefinition(
         sha256: output.artifact.sha256,
         sourceSha256: output.source.sha256,
       },
-      kind: "transmute.image.vectorize",
+      kind: "atet.image.vectorize",
     }),
     version: 1,
   };
 }
 
-export const transmuteDiagramCheckOperationDefinition =
-  createTransmuteDiagramCheckOperationDefinition();
-export const transmuteDiagramRenderOperationDefinition =
-  createTransmuteDiagramRenderOperationDefinition();
-export const transmuteImageVectorizeOperationDefinition =
-  createTransmuteImageVectorizeOperationDefinition();
+export const atetDiagramCheckOperationDefinition =
+  createAtetDiagramCheckOperationDefinition();
+export const atetDiagramRenderOperationDefinition =
+  createAtetDiagramRenderOperationDefinition();
+export const atetImageVectorizeOperationDefinition =
+  createAtetImageVectorizeOperationDefinition();

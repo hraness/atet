@@ -12,7 +12,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import sharp from "sharp"
-import { main as runTransmuteCli } from "../cli.ts"
+import { main as runAtetCli } from "../cli.ts"
 import {
   configureVectorizeSharpConcurrency,
   VECTORIZE_SHARP_CONCURRENCY,
@@ -60,8 +60,8 @@ test("Windows fails closed before raster or VTracer work", async () => {
 
 test("vectorizes a raster through a compatible override with a deterministic receipt", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "transmute-vectorize-test-"))
-  const previousOverride = process.env.TRANSMUTE_VTRACER_PATH
+  const work = await mkdtemp(join(tmpdir(), "atet-vectorize-test-"))
+  const previousOverride = process.env.ATET_VTRACER_PATH
   try {
     const mock = join(work, "vtracer")
     await writeFile(
@@ -77,7 +77,7 @@ test("vectorizes a raster through a compatible override with a deterministic rec
       ].join("\n"),
     )
     await chmod(mock, 0o755)
-    process.env.TRANSMUTE_VTRACER_PATH = mock
+    process.env.ATET_VTRACER_PATH = mock
 
     const input = join(work, "input.png")
     const output = join(work, "output.svg")
@@ -128,7 +128,7 @@ test("vectorizes a raster through a compatible override with a deterministic rec
 
     const cliOutput = join(work, "cli.svg")
     const cliLines: string[] = []
-    await runTransmuteCli(
+    await runAtetCli(
       [
         "image",
         "vectorize",
@@ -151,8 +151,8 @@ test("vectorizes a raster through a compatible override with a deterministic rec
     })
     expect(await readFile(cliOutput, "utf8")).toContain('viewBox="0 0 2 1"')
   } finally {
-    if (previousOverride === undefined) delete process.env.TRANSMUTE_VTRACER_PATH
-    else process.env.TRANSMUTE_VTRACER_PATH = previousOverride
+    if (previousOverride === undefined) delete process.env.ATET_VTRACER_PATH
+    else process.env.ATET_VTRACER_PATH = previousOverride
     await rm(work, { force: true, recursive: true })
   }
 })
@@ -160,8 +160,8 @@ test("vectorizes a raster through a compatible override with a deterministic rec
 test("the public conversion boundary enforces one wall-clock budget", async () => {
   if (process.platform === "win32") return
   const durationMs = 3_000
-  const work = await mkdtemp(join(tmpdir(), "transmute-vectorize-deadline-"))
-  const previousOverride = process.env.TRANSMUTE_VTRACER_PATH
+  const work = await mkdtemp(join(tmpdir(), "atet-vectorize-deadline-"))
+  const previousOverride = process.env.ATET_VTRACER_PATH
   const pids: number[] = []
   let conversionRoot: string | undefined
   try {
@@ -184,7 +184,7 @@ test("the public conversion boundary enforces one wall-clock budget", async () =
       ].join("\n"),
     )
     await chmod(mock, 0o755)
-    process.env.TRANSMUTE_VTRACER_PATH = mock
+    process.env.ATET_VTRACER_PATH = mock
     const input = await sharp({
       create: {
         background: { alpha: 1, b: 0, g: 0, r: 255 },
@@ -207,7 +207,7 @@ test("the public conversion boundary enforces one wall-clock budget", async () =
     )
     await Promise.all(pids.map(waitUntilGone))
     conversionRoot = await readFile(temporaryRootPath, "utf8")
-    expect(conversionRoot).toContain("transmute-vectorize-")
+    expect(conversionRoot).toContain("atet-vectorize-")
     await expect(lstat(conversionRoot)).rejects.toMatchObject({ code: "ENOENT" })
   } finally {
     for (const pid of pids) {
@@ -220,8 +220,8 @@ test("the public conversion boundary enforces one wall-clock budget", async () =
     if (conversionRoot !== undefined) {
       await rm(conversionRoot, { force: true, recursive: true })
     }
-    if (previousOverride === undefined) delete process.env.TRANSMUTE_VTRACER_PATH
-    else process.env.TRANSMUTE_VTRACER_PATH = previousOverride
+    if (previousOverride === undefined) delete process.env.ATET_VTRACER_PATH
+    else process.env.ATET_VTRACER_PATH = previousOverride
     await rm(work, { force: true, recursive: true })
   }
 })
@@ -240,8 +240,8 @@ async function waitUntilGone(pid: number): Promise<void> {
 
 test("raw tracer output is stopped at the streaming byte quota", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "transmute-vectorize-quota-"))
-  const previousOverride = process.env.TRANSMUTE_VTRACER_PATH
+  const work = await mkdtemp(join(tmpdir(), "atet-vectorize-quota-"))
+  const previousOverride = process.env.ATET_VTRACER_PATH
   try {
     const mock = join(work, "vtracer")
     await writeFile(
@@ -257,7 +257,7 @@ test("raw tracer output is stopped at the streaming byte quota", async () => {
       ].join("\n"),
     )
     await chmod(mock, 0o755)
-    process.env.TRANSMUTE_VTRACER_PATH = mock
+    process.env.ATET_VTRACER_PATH = mock
     const input = await sharp({
       create: {
         background: { alpha: 1, b: 0, g: 0, r: 255 },
@@ -283,8 +283,8 @@ test("raw tracer output is stopped at the streaming byte quota", async () => {
     expect(caught).toMatchObject({ code: "quality_limit" })
     expect(JSON.stringify(caught)).toContain("too much primary output")
   } finally {
-    if (previousOverride === undefined) delete process.env.TRANSMUTE_VTRACER_PATH
-    else process.env.TRANSMUTE_VTRACER_PATH = previousOverride
+    if (previousOverride === undefined) delete process.env.ATET_VTRACER_PATH
+    else process.env.ATET_VTRACER_PATH = previousOverride
     await rm(work, { force: true, recursive: true })
   }
 })

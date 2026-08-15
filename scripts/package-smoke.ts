@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join, sep } from "node:path";
 
-const packageName = "@hraness/transmute";
+const packageName = "@hraness/atet";
 const importSpecifiers = [
   packageName,
   `${packageName}/cli`,
@@ -71,13 +71,13 @@ const packageTextExtensions = new Set([
 ]);
 const forbiddenPackageText = [
   { label: "private package", pattern: /@jungle\//u },
-  { label: "private source path", pattern: /projects\/transmute/u },
+  { label: "private source path", pattern: /projects\/(?:atet|transmute)/u },
   { label: "private fixture path", pattern: /\/(?:tmp|work)\/jungle\//u },
   { label: "account database runtime", pattern: /(?:^|[^a-z])convex(?:[^a-z]|$)/iu },
   { label: "hosted auth runtime", pattern: /better-auth/iu },
   { label: "hosted account runtime", pattern: /suite[-_ ]accounts/iu },
   { label: "hosted account origin", pattern: /account\.hraness\.com/iu },
-  { label: "hosted Transmute API", pattern: /transmute\.rocks\/api/iu },
+  { label: "legacy hosted API", pattern: /transmute\.rocks\/api/iu },
   { label: "legacy Graphics runtime", pattern: /graphics-compat/iu },
 ] as const;
 
@@ -135,6 +135,28 @@ async function runOutput(command: string[], cwd: string): Promise<string> {
   return stdout;
 }
 
+async function runCaptured(
+  command: string[],
+  cwd: string,
+): Promise<Readonly<{ stdout: string; stderr: string }>> {
+  const child = Bun.spawn(command, {
+    cwd,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(
+      `Command failed (${String(exitCode)}): ${command.join(" ")}\n${stderr}`,
+    );
+  }
+  return { stderr, stdout };
+}
+
 async function runFailure(
   command: string[],
   cwd: string,
@@ -168,7 +190,7 @@ function record(value: unknown, label: string): Record<string, unknown> {
 }
 
 const repository = process.cwd();
-const work = await mkdtemp(join(tmpdir(), "transmute-package-smoke-"));
+const work = await mkdtemp(join(tmpdir(), "atet-package-smoke-"));
 try {
   const archive = join(work, "package.tgz");
   const consumer = join(work, "consumer");
@@ -188,7 +210,7 @@ try {
   );
   await run([process.execPath, "add", archive, "--ignore-scripts"], consumer);
   const installedPackage = await realpath(
-    join(consumer, "node_modules", "@hraness", "transmute"),
+    join(consumer, "node_modules", "@hraness", "atet"),
   );
   await scanPackedPackage(installedPackage);
   await run([
@@ -197,15 +219,19 @@ try {
     `await Promise.all(${JSON.stringify(importSpecifiers)}.map(specifier => import(specifier)))`,
   ], consumer);
   await run([
+    join(consumer, "node_modules", ".bin", "atet"),
+    "--help",
+  ], consumer);
+  await run([
     join(consumer, "node_modules", ".bin", "transmute"),
     "--help",
   ], consumer);
   const doctorText = await runOutput([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "doctor",
     "--json",
   ], consumer);
-  const doctor = record(JSON.parse(doctorText) as unknown, "transmute doctor --json");
+  const doctor = record(JSON.parse(doctorText) as unknown, "atet doctor --json");
   const consumerRoot = await realpath(consumer);
   if (doctor.repositoryRoot !== consumerRoot) {
     throw new Error(
@@ -221,21 +247,41 @@ try {
       `Packed CLI reports version ${JSON.stringify(doctor.version)} instead of package version ${JSON.stringify(packageJson.version)}.`,
     );
   }
-  const operationsText = await runOutput([
+  const predecessorDoctor = await runCaptured([
     join(consumer, "node_modules", ".bin", "transmute"),
+    "doctor",
+    "--json",
+  ], consumer);
+  const predecessorDoctorJson = record(
+    JSON.parse(predecessorDoctor.stdout) as unknown,
+    "transmute doctor --json",
+  );
+  if (
+    predecessorDoctorJson.repositoryRoot !== consumerRoot
+    || predecessorDoctorJson.version !== packageJson.version
+  ) {
+    throw new Error("Packed predecessor CLI did not retain canonical doctor behavior.");
+  }
+  if (predecessorDoctor.stderr !== "transmute is deprecated; use atet.\n") {
+    throw new Error(
+      `Packed predecessor CLI warning drifted: ${JSON.stringify(predecessorDoctor.stderr)}`,
+    );
+  }
+  const operationsText = await runOutput([
+    join(consumer, "node_modules", ".bin", "atet"),
     "operations",
     "list",
     "--json",
   ], consumer);
   const operations = record(
     JSON.parse(operationsText) as unknown,
-    "transmute operations list --json",
+    "atet operations list --json",
   ).operations;
   if (!Array.isArray(operations) || operations.length === 0) {
     throw new Error("Packed CLI returned no local operations.");
   }
   const semanticSearchText = await runOutput([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "code",
     "search",
     "--limit",
@@ -243,13 +289,13 @@ try {
   ], consumer);
   const semanticOperations = record(
     JSON.parse(semanticSearchText) as unknown,
-    "transmute code search --limit 1",
+    "atet code search --limit 1",
   ).operations;
   if (!Array.isArray(semanticOperations) || semanticOperations.length !== 1) {
     throw new Error("Packed CLI did not delegate semantic code search.");
   }
   const skillPath = (await runOutput([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "skill",
     "path",
   ], consumer)).trim();
@@ -258,15 +304,15 @@ try {
     throw new Error(`Packed CLI resolved a skill outside its install: ${skillPath}`);
   }
   const canvasStatus = record(JSON.parse(await runOutput([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "canvas",
     "status",
-  ], consumer)) as unknown, "transmute canvas status");
+  ], consumer)) as unknown, "atet canvas status");
   if (!("installedPath" in canvasStatus) || !("server" in canvasStatus)) {
     throw new Error("Packed CLI did not delegate canvas status.");
   }
   await runFailure([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "mcp",
   ], consumer, "--root is required");
   await run([
@@ -280,7 +326,74 @@ try {
     .map((specifier, index) => `import * as surface${String(index)} from ${JSON.stringify(specifier)};`)
     .join("\n");
   const uses = importSpecifiers.map((_, index) => `surface${String(index)}`).join(", ");
-  await writeFile(join(consumer, "index.ts"), `${imports}\nvoid [${uses}];\n`);
+  const predecessorTypeFixture = `
+import { executeTransmuteOperationWithLease } from "@hraness/atet";
+import {
+  createTransmuteCodeHost,
+  type TransmuteCodeExecutionRequest,
+  type TransmuteCodeExecutor,
+} from "@hraness/atet/code";
+import {
+  defineTransmuteWorkflow,
+  type TransmuteWorkflowExecutor,
+} from "@hraness/atet/workflow";
+
+const predecessorRequest: TransmuteCodeExecutionRequest<"transmute.diagram.check"> = {
+  input: { path: "diagram.json" },
+  kind: "transmute.diagram.check",
+  nodeKey: "check",
+  version: 2,
+};
+const predecessorCodeExecutor = (async request => {
+  if (request.kind === "transmute.diagram.check") {
+    return { configPath: null, findings: [] };
+  }
+  throw new Error("fixture does not execute");
+}) as TransmuteCodeExecutor;
+const predecessorHost = createTransmuteCodeHost({ execute: predecessorCodeExecutor });
+const predecessorWorkflowExecutor = (async code => {
+  if (code === "transmute.diagram.check") {
+    return { configPath: null, findings: [] };
+  }
+  throw new Error("fixture does not execute");
+}) as TransmuteWorkflowExecutor;
+const predecessorWorkflow = defineTransmuteWorkflow({
+  id: "predecessor-consumer",
+  version: 1,
+  parseInput: value => value as { readonly path: string },
+  run: (context, input) => context.operation(
+    "check",
+    "transmute.diagram.check",
+    input,
+  ),
+});
+if (surface0.atetApi !== surface0.diagramApi) {
+  throw new Error("Deprecated diagramApi must be the canonical atetApi object.");
+}
+void [
+  surface0.atetApi.defineAtetWorkflow,
+  surface0.atetApi.runAtetWorkflow,
+  surface0.diagramApi.executeTransmuteOperation,
+  surface0.diagramApi.generateTransmuteImage,
+  surface0.diagramApi.generateTransmuteImageFile,
+  surface0.diagramApi.searchTransmuteOperations,
+  surface0.diagramApi.transmuteGatewayCredentialStatus,
+  surface0.diagramApi.transmuteMcpProtocolVersion,
+  surface0.diagramApi.transmuteMcpServerName,
+  surface0.diagramApi.transmuteMcpTools,
+  surface0.diagramApi.transmuteOperationRegistry,
+  surface0.diagramApi.TransmuteMcpToolRuntime,
+  predecessorRequest,
+  predecessorHost,
+  predecessorWorkflow,
+  predecessorWorkflowExecutor,
+  executeTransmuteOperationWithLease,
+];
+`;
+  await writeFile(
+    join(consumer, "index.ts"),
+    `${imports}\nvoid [${uses}];\n${predecessorTypeFixture}`,
+  );
   await writeFile(
     join(consumer, "tsconfig.json"),
     `${JSON.stringify({

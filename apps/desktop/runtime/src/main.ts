@@ -18,7 +18,12 @@ import {
   hostSuccess,
   parseHostRequest,
 } from "./host-protocol";
-import { RecordingService, resolveGatewayRepositoryRoot } from "./recording-service";
+import {
+  RecordingService,
+  resolveGatewayRepositoryRoot,
+  resolveRecordingArtifactDirectory,
+} from "./recording-service";
+import { renamedEnvironmentValue } from "../../cli/renamed-environment";
 
 const defaultOperationSettlementTimeoutMs = 30_000;
 const defaultInitializationAbortGraceMs = 250;
@@ -32,16 +37,29 @@ const maxQueuedOutputLines = MAX_PENDING_HOST_REQUESTS;
 const strictUtf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
 function diagnostic(message: string): void {
-  process.stderr.write(`transmute-gateway: ${message}\n`);
+  process.stderr.write(`atet-gateway: ${message}\n`);
 }
 
 async function executableFromEnvironment(value: string | undefined): Promise<string> {
-  if (value === undefined || !isAbsolute(value)) throw new Error("TRANSMUTE_CAPTURE_HELPER must name an absolute executable.");
+  if (value === undefined || !isAbsolute(value)) throw new Error("ATET_CAPTURE_HELPER must name an absolute executable.");
   const canonical = await realpath(value);
   const details = await stat(canonical);
-  if (!details.isFile()) throw new Error("TRANSMUTE_CAPTURE_HELPER is not a regular file.");
+  if (!details.isFile()) throw new Error("ATET_CAPTURE_HELPER is not a regular file.");
   await access(canonical, constants.X_OK);
   return canonical;
+}
+
+async function physicalDirectoryExists(path: string): Promise<boolean> {
+  try {
+    const details = await lstat(path);
+    if (details.isSymbolicLink() || !details.isDirectory()) {
+      throw new Error("Atet workspace must be a physical directory.");
+    }
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
 }
 
 /** Selects mutable project state independently from immutable bundled tools. */
@@ -51,17 +69,27 @@ export async function resolveRuntimeRepositoryRoot(options: {
   readonly homeDirectory?: string;
 } = {}): Promise<string | null> {
   const environmentValue = options.environmentValue
-    ?? process.env.TRANSMUTE_REPOSITORY_ROOT;
+    ?? renamedEnvironmentValue(process.env, "ATET_REPOSITORY_ROOT");
   if (environmentValue !== undefined && environmentValue.trim() !== "") {
     return await resolveGatewayRepositoryRoot(environmentValue);
   }
   const homeDirectory = options.homeDirectory ?? process.env.HOME;
   if (homeDirectory === undefined || !isAbsolute(homeDirectory)) return null;
-  const projectRoot = join(homeDirectory, "Movies", "Transmute");
+  const canonicalRoot = join(homeDirectory, "Movies", "Atet");
+  const predecessorRoot = join(homeDirectory, "Movies", "Transmute");
+  const [hasCanonicalRoot, hasPredecessorRoot] = await Promise.all([
+    physicalDirectoryExists(canonicalRoot),
+    physicalDirectoryExists(predecessorRoot),
+  ]);
+  if (hasCanonicalRoot && hasPredecessorRoot) {
+    throw new Error("Both Movies/Atet and Movies/Transmute exist. Select one with ATET_REPOSITORY_ROOT before Atet writes project state.");
+  }
+  if (hasPredecessorRoot) return await realpath(predecessorRoot);
+  const projectRoot = canonicalRoot;
   await mkdir(projectRoot, { mode: 0o700, recursive: true });
   const details = await lstat(projectRoot);
   if (details.isSymbolicLink() || !details.isDirectory()) {
-    throw new Error("Transmute workspace must be a physical directory.");
+    throw new Error("Atet workspace must be a physical directory.");
   }
   return await realpath(projectRoot);
 }
@@ -82,7 +110,11 @@ async function maybeRunRecordingDaemon(arguments_: readonly string[]): Promise<b
   if (repositoryRoot === null) throw new Error("Recording daemon requires a configured repository.");
   const helper = await executableFromEnvironment(valueAfter(arguments_, "--helper"));
   const artifactRoot = resolve(valueAfter(arguments_, "--artifact-root"));
-  if (artifactRoot !== join(repositoryRoot, "artifacts", "transmute", "recordings")) {
+  const selectedArtifactRoot = await resolveRecordingArtifactDirectory(
+    repositoryRoot,
+    "artifacts/atet/recordings",
+  );
+  if (artifactRoot !== selectedArtifactRoot) {
     throw new Error("Recording daemon artifact root is outside the configured repository location.");
   }
   await runRecordingDaemon({ artifactRoot, helperExecutable: helper });
@@ -667,7 +699,7 @@ async function runGateway(): Promise<void> {
   process.once("SIGTERM", onSignal);
   try {
     const captureHelper = await executableFromEnvironment(
-      process.env.TRANSMUTE_CAPTURE_HELPER,
+      renamedEnvironmentValue(process.env, "ATET_CAPTURE_HELPER"),
     );
     const repositoryRoot = await resolveRuntimeRepositoryRoot();
     if (lifecycleController.signal.aborted) return;

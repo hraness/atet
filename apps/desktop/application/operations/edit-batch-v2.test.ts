@@ -246,7 +246,7 @@ function metadataEditWith(
 describe("project edit batch v2", () => {
   test("rejects duplicate state transitions during pure derivation", () => {
     const registry = createApplicationOperationRegistry();
-    const context = executionContext("/tmp/transmute-edit-batch-v2-schema");
+    const context = executionContext("/tmp/atet-edit-batch-v2-schema");
     expect(registry.execute(context, {
       input: {
         ordered: [{
@@ -289,7 +289,7 @@ describe("project edit batch v2", () => {
 
   test("applies replacement and transient camera/zoom transitions atomically", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-edit-batch-v2-camera-"),
+      join(tmpdir(), "atet-edit-batch-v2-camera-"),
     );
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);
@@ -461,7 +461,7 @@ describe("project edit batch v2", () => {
 
   test("fails closed without a metadata binding, then commits the bound manifest", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-edit-batch-v2-metadata-"),
+      join(tmpdir(), "atet-edit-batch-v2-metadata-"),
     );
     try {
       const fixture = await createOperationRecordingProjectFixture(
@@ -520,7 +520,7 @@ describe("project edit batch v2", () => {
 
   test("rejects manifest drift without publishing a partial plan", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-edit-batch-v2-drift-"),
+      join(tmpdir(), "atet-edit-batch-v2-drift-"),
     );
     try {
       const fixture = await createOperationRecordingProjectFixture(
@@ -648,7 +648,7 @@ describe("project edit batch v2", () => {
 
     for (const testCase of cases) {
       const repositoryRoot = await mkdtemp(
-        join(tmpdir(), "transmute-edit-batch-v2-capability-"),
+        join(tmpdir(), "atet-edit-batch-v2-capability-"),
       );
       try {
         const fixture = await createOperationRecordingProjectFixture(
@@ -689,7 +689,7 @@ describe("project edit batch v2", () => {
 
   test("clears metadata effects without loading a recording manifest", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-edit-batch-v2-clear-metadata-"),
+      join(tmpdir(), "atet-edit-batch-v2-clear-metadata-"),
     );
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);
@@ -722,7 +722,7 @@ describe("project edit batch v2", () => {
 
   test("keeps persisted v1 derive and commit operations runnable", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-edit-batch-v1-compatibility-"),
+      join(tmpdir(), "atet-edit-batch-v1-compatibility-"),
     );
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);

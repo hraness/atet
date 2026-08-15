@@ -47,7 +47,7 @@ private final class BoundedEventFile: @unchecked Sendable {
         self.relativePath = relativePath
         self.eventKinds = eventKinds
         handle = try session.createExclusiveFile(relativePath)
-        queue = DispatchQueue(label: "com.hraness.transmute.capture.metadata.\(relativePath)")
+        queue = DispatchQueue(label: "com.hraness.atet.capture.metadata.\(relativePath)")
     }
 
     @discardableResult
@@ -189,7 +189,7 @@ final class MetadataCoordinator: @unchecked Sendable {
     private let stateLock = NSLock()
     private let eventEmissionLock = NSLock()
     private let pollingQueue = DispatchQueue(
-        label: "com.hraness.transmute.capture.metadata.polling"
+        label: "com.hraness.atet.capture.metadata.polling"
     )
     private let eventTapThreadReady = DispatchSemaphore(value: 0)
     private let eventTapThreadFinished = DispatchSemaphore(value: 0)
@@ -492,7 +492,7 @@ final class MetadataCoordinator: @unchecked Sendable {
             self.eventTapRunLoop = nil
             self.stateLock.unlock()
         }
-        thread.name = "transmute-capture-input-events"
+        thread.name = "atet-capture-input-events"
         thread.qualityOfService = .userInteractive
         thread.start()
         let ready = eventTapThreadReady.wait(

@@ -82,12 +82,25 @@ const MAX_ARCHIVE_BYTES = 4 * 1_024 * 1_024
 const MAX_TOOL_BYTES = 16 * 1_024 * 1_024
 const FILE_CHUNK_BYTES = 64 * 1_024
 
+function renamedEnvironmentValue(canonical: `ATET_${string}`): string | undefined {
+  const predecessor = canonical.replace(/^ATET_/u, "TRANSMUTE_")
+  const current = process.env[canonical]
+  const legacy = process.env[predecessor]
+  if (current !== undefined && legacy !== undefined && current !== legacy) {
+    throw new VectorizeError(
+      "invalid_input",
+      `${canonical} and ${predecessor} disagree; remove one or set both to the same value.`,
+    )
+  }
+  return current ?? legacy
+}
+
 export async function ensureVTracer(
   deadline: VectorizeDeadline,
   privateDirectory: string,
   cacheDirectory?: string,
 ): Promise<VTracerTool> {
-  const override = process.env.TRANSMUTE_VTRACER_PATH
+  const override = renamedEnvironmentValue("ATET_VTRACER_PATH")
   if (override !== undefined) {
     return copyAndInspectVTracer(
       resolve(override),
@@ -130,13 +143,13 @@ export async function ensureVTracer(
 }
 
 function defaultCacheDirectory(): string {
-  const explicit = process.env.TRANSMUTE_CACHE_DIR
+  const explicit = renamedEnvironmentValue("ATET_CACHE_DIR")
   if (explicit !== undefined && explicit.trim() !== "") return explicit
   if (process.platform === "win32") {
-    return join(process.env.LOCALAPPDATA ?? homedir(), "transmute")
+    return join(process.env.LOCALAPPDATA ?? homedir(), "atet")
   }
-  if (process.platform === "darwin") return join(homedir(), "Library", "Caches", "transmute")
-  return join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "transmute")
+  if (process.platform === "darwin") return join(homedir(), "Library", "Caches", "atet")
+  return join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "atet")
 }
 
 async function installOfficialVTracer(
@@ -484,7 +497,7 @@ async function downloadBounded(
   const timer = setTimeout(() => controller.abort(), deadline.remainingMs())
   try {
     const response = await fetch(url, {
-      headers: { "user-agent": "hraness-transmute-vectorizer" },
+      headers: { "user-agent": "hraness-atet-vectorizer" },
       redirect: "follow",
       signal: controller.signal,
     })

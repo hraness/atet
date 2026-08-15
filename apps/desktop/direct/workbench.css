@@ -136,7 +136,7 @@
   text-decoration: none;
 }
 
-.direct-actions .transmute-button__control {
+.direct-actions .atet-button__control {
   font: 0.7rem/1 var(--font-mono);
 }
 
@@ -150,13 +150,13 @@
   margin: 0 auto;
   border: 1px solid #45453f;
   border-radius: 0.85rem;
-  background: var(--transmute-bg);
+  background: var(--atet-bg);
   box-shadow: 0 2rem 6rem rgb(0 0 0 / 40%);
 }
 
 .direct-frame-only {
   min-height: 100vh;
-  background: var(--transmute-bg);
+  background: var(--atet-bg);
 }
 
 .fixture-content {

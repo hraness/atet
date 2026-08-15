@@ -98,9 +98,13 @@ export {
   type WorkflowDefinitionOptions,
 } from "./define-workflow.js"
 export {
+  AtetCodeError,
   TransmuteCodeError,
+  asAtetCodeError,
   asTransmuteCodeError,
+  atetCodeErrorMessage,
   transmuteCodeErrorMessage,
+  type AtetCodeErrorCode,
   type TransmuteCodeErrorCode,
 } from "./errors.js"
 export type { OperationNodeOptions } from "./graph-builder.js"
@@ -110,6 +114,7 @@ export {
   type PortableWorkflowFragment,
 } from "./portable-builder.js"
 export {
+  PUBLIC_ATET_WORKFLOW_PROJECTION,
   PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,

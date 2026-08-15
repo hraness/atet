@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/hraness/transmute/v0.8.0/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/atet/v2.0.0/schema/diagram.schema.json",
   "version": 1,
   "name": "semantic-flow",
   "canvas": {
@@ -20,12 +20,12 @@
       "tone": "purple"
     },
     {
-      "id": "transmute",
+      "id": "atet",
       "type": "rect",
       "width": 220,
       "height": 168,
       "radius": 28,
-      "label": "Transmute",
+      "label": "Atet",
       "tone": "blue"
     },
     {
@@ -39,13 +39,13 @@
   ],
   "edges": [
     {
-      "id": "prompt-transmute",
+      "id": "prompt-atet",
       "from": "prompt",
-      "to": "transmute"
+      "to": "atet"
     },
     {
-      "id": "transmute-artifact",
-      "from": "transmute",
+      "id": "atet-artifact",
+      "from": "atet",
       "to": "artifact"
     }
   ]

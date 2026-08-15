@@ -1,0 +1,247 @@
+// @bun
+import {
+  atetOperationHostResourceClaims,
+  executeAtetOperationWithLease,
+  isAtetOperationCode,
+  isTransmuteOperationCode,
+  parseAtetOperationInput
+} from "./index-65by8228.js";
+import {
+  createDefaultHostResourceCoordinator
+} from "./index-64bhbap5.js";
+
+// src/workflow.ts
+var workflowIdPattern = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/u;
+var workflowStepIdPattern = /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/u;
+var defaultMaximumSteps = 64;
+var hardMaximumSteps = 256;
+
+class AtetWorkflowError extends Error {
+  code;
+  completedSteps;
+  failedStep;
+  constructor(code, message, options = {}) {
+    super(`[${code}] ${message}`, { cause: options.cause });
+    this.name = "AtetWorkflowError";
+    this.code = code;
+    this.completedSteps = Object.freeze([...options.completedSteps ?? []].sort((left, right) => left.index - right.index));
+    if (options.failedStep !== undefined) {
+      this.failedStep = Object.freeze({ ...options.failedStep });
+    }
+  }
+}
+function workflowError(code, message) {
+  throw new AtetWorkflowError(code, message);
+}
+function validateWorkflowId(id) {
+  if (typeof id !== "string" || id.length < 1 || id.length > 80 || !workflowIdPattern.test(id)) {
+    workflowError("INVALID_WORKFLOW", "Workflow id must be 1 through 80 lowercase letters, numbers, dots, underscores, or hyphens.");
+  }
+}
+function validateStepId(id, completedSteps = []) {
+  if (typeof id !== "string" || id.length < 1 || id.length > 80 || !workflowStepIdPattern.test(id)) {
+    throw new AtetWorkflowError("INVALID_WORKFLOW_STEP", "Step id must be 1 through 80 letters, numbers, dots, underscores, colons, or hyphens.", { completedSteps });
+  }
+}
+function defineAtetWorkflow(options) {
+  if (typeof options !== "object" || options === null) {
+    workflowError("INVALID_WORKFLOW", "Workflow definition must be an object.");
+  }
+  validateWorkflowId(options.id);
+  if (!Number.isSafeInteger(options.version) || options.version < 1) {
+    workflowError("INVALID_WORKFLOW", "Workflow version must be a positive safe integer.");
+  }
+  if (typeof options.parseInput !== "function" || typeof options.run !== "function") {
+    workflowError("INVALID_WORKFLOW", "Workflow definition requires parseInput and run functions.");
+  }
+  return Object.freeze({
+    id: options.id,
+    version: options.version,
+    parseInput: options.parseInput,
+    run: options.run
+  });
+}
+function maximumSteps(value) {
+  const resolved = value ?? defaultMaximumSteps;
+  if (!Number.isSafeInteger(resolved) || resolved < 1 || resolved > hardMaximumSteps) {
+    workflowError("INVALID_WORKFLOW", `maximumSteps must be an integer from 1 through ${hardMaximumSteps}.`);
+  }
+  return resolved;
+}
+function aborted(completedSteps, cause) {
+  return new AtetWorkflowError("WORKFLOW_ABORTED", "Workflow execution was aborted.", { cause, completedSteps });
+}
+async function runAtetWorkflow(definition, value, options = {}) {
+  const normalized = defineAtetWorkflow(definition);
+  const limit = maximumSteps(options.maximumSteps);
+  const signal = options.signal ?? options.dependencies?.signal ?? new AbortController().signal;
+  const invoked = new Set;
+  const completed = [];
+  const dispatched = [];
+  let acceptingOperations = true;
+  let nextIndex = 0;
+  if (signal.aborted)
+    throw aborted(completed);
+  let input;
+  try {
+    input = normalized.parseInput(value);
+  } catch (cause) {
+    throw new AtetWorkflowError("INVALID_WORKFLOW_INPUT", "Workflow input did not satisfy its parser.", { cause });
+  }
+  const executor = options.executor ?? ((code, operationInput, context2) => executeAtetOperationWithLease(code, operationInput, context2.hostResourceLease, options.dependencies));
+  const hostResourceCoordinator = options.hostResourceCoordinator ?? options.dependencies?.hostResourceCoordinator ?? createDefaultHostResourceCoordinator();
+  const waitTimeoutMilliseconds = options.waitTimeoutMilliseconds ?? options.dependencies?.waitTimeoutMilliseconds;
+  async function dispatchOperation(id, code, operationInput) {
+    if (signal.aborted)
+      throw aborted(completed);
+    validateStepId(id, completed);
+    if (!isAtetOperationCode(code)) {
+      throw new AtetWorkflowError("INVALID_WORKFLOW_STEP", `Workflow step ${id} names an unknown Atet operation.`, { completedSteps: completed });
+    }
+    if (invoked.has(id)) {
+      throw new AtetWorkflowError("INVALID_WORKFLOW_STEP", `Duplicate workflow step id: ${id}.`, { completedSteps: completed });
+    }
+    if (nextIndex >= limit) {
+      throw new AtetWorkflowError("INVALID_WORKFLOW_STEP", `Workflow exceeds its ${String(limit)}-step limit.`, { completedSteps: completed });
+    }
+    const index = nextIndex;
+    nextIndex += 1;
+    invoked.add(id);
+    let normalizedInput;
+    try {
+      normalizedInput = parseAtetOperationInput(code, operationInput);
+    } catch (cause) {
+      throw new AtetWorkflowError("INVALID_WORKFLOW_STEP", `Workflow step ${id} has invalid input for ${code}.`, { cause, completedSteps: completed });
+    }
+    try {
+      const result = await hostResourceCoordinator.withLease(atetOperationHostResourceClaims(code), async (hostResourceLease) => await executor(code, normalizedInput, {
+        hostResourceLease,
+        signal,
+        stepId: id
+      }), {
+        signal,
+        ...waitTimeoutMilliseconds === undefined ? {} : { waitTimeoutMilliseconds }
+      });
+      completed.push(Object.freeze({ id, index, operation: code }));
+      if (signal.aborted)
+        throw aborted(completed);
+      return result;
+    } catch (cause) {
+      if (cause instanceof AtetWorkflowError && cause.code === "WORKFLOW_ABORTED") {
+        throw cause;
+      }
+      if (signal.aborted)
+        throw aborted(completed, cause);
+      throw new AtetWorkflowError("WORKFLOW_STEP_FAILED", `Workflow step ${id} (${code}) failed.`, {
+        cause,
+        completedSteps: completed,
+        failedStep: { id, operation: code }
+      });
+    }
+  }
+  const context = Object.freeze({
+    signal,
+    operation(id, code, operationInput) {
+      if (!acceptingOperations) {
+        const closed = Promise.reject(new AtetWorkflowError("INVALID_WORKFLOW_STEP", "Workflow operations cannot start after authored workflow code has settled.", { completedSteps: completed }));
+        closed.catch(() => {
+          return;
+        });
+        return closed;
+      }
+      const operation = dispatchOperation(id, code, operationInput);
+      dispatched.push(operation);
+      operation.catch(() => {
+        return;
+      });
+      return operation;
+    }
+  });
+  let output;
+  let runFailed = false;
+  let runFailure;
+  try {
+    output = await normalized.run(context, input);
+  } catch (cause) {
+    runFailed = true;
+    runFailure = cause;
+  } finally {
+    acceptingOperations = false;
+  }
+  const operationResults = await Promise.allSettled(dispatched);
+  if (signal.aborted)
+    throw aborted(completed, runFailed ? runFailure : undefined);
+  if (runFailed) {
+    if (runFailure instanceof AtetWorkflowError)
+      throw runFailure;
+    throw new AtetWorkflowError("WORKFLOW_FAILED", `Workflow ${normalized.id} failed in authored code.`, { cause: runFailure, completedSteps: completed });
+  }
+  const operationFailure = operationResults.find((result) => result.status === "rejected");
+  if (operationFailure !== undefined) {
+    const cause = operationFailure.reason;
+    if (cause instanceof AtetWorkflowError)
+      throw cause;
+    throw new AtetWorkflowError("WORKFLOW_STEP_FAILED", "A dispatched workflow operation failed.", { cause, completedSteps: completed });
+  }
+  return Object.freeze({
+    workflow: Object.freeze({ id: normalized.id, version: normalized.version }),
+    output,
+    steps: Object.freeze([...completed].sort((left, right) => left.index - right.index))
+  });
+}
+function atetCodeFromTransmute(code) {
+  if (!isTransmuteOperationCode(code)) {
+    throw new AtetWorkflowError("INVALID_WORKFLOW_STEP", "Deprecated Transmute workflows accept only exact v1 operation identifiers.");
+  }
+  return code.replace(/^transmute\./u, "atet.");
+}
+function transmuteCodeFromAtet(code) {
+  return code.replace(/^atet\./u, "transmute.");
+}
+function defineTransmuteWorkflow(options) {
+  if (typeof options !== "object" || options === null) {
+    workflowError("INVALID_WORKFLOW", "Workflow definition must be an object.");
+  }
+  validateWorkflowId(options.id);
+  if (!Number.isSafeInteger(options.version) || options.version < 1) {
+    workflowError("INVALID_WORKFLOW", "Workflow version must be a positive safe integer.");
+  }
+  if (typeof options.parseInput !== "function" || typeof options.run !== "function") {
+    workflowError("INVALID_WORKFLOW", "Workflow definition requires parseInput and run functions.");
+  }
+  return Object.freeze({
+    id: options.id,
+    version: options.version,
+    parseInput: options.parseInput,
+    run: options.run
+  });
+}
+async function runTransmuteWorkflow(definition, value, options = {}) {
+  const legacy = defineTransmuteWorkflow(definition);
+  const canonical = defineAtetWorkflow({
+    id: legacy.id,
+    version: legacy.version,
+    parseInput: legacy.parseInput,
+    run(context, input) {
+      const legacyContext = Object.freeze({
+        signal: context.signal,
+        operation(id, code, operationInput) {
+          return context.operation(id, atetCodeFromTransmute(code), operationInput);
+        }
+      });
+      return legacy.run(legacyContext, input);
+    }
+  });
+  const legacyExecutor = options.executor;
+  const executor = legacyExecutor === undefined ? undefined : async (code, operationInput, context) => await legacyExecutor(transmuteCodeFromAtet(code), operationInput, context);
+  return await runAtetWorkflow(canonical, value, {
+    ...options.dependencies === undefined ? {} : { dependencies: options.dependencies },
+    ...executor === undefined ? {} : { executor },
+    ...options.hostResourceCoordinator === undefined ? {} : { hostResourceCoordinator: options.hostResourceCoordinator },
+    ...options.maximumSteps === undefined ? {} : { maximumSteps: options.maximumSteps },
+    ...options.signal === undefined ? {} : { signal: options.signal },
+    ...options.waitTimeoutMilliseconds === undefined ? {} : { waitTimeoutMilliseconds: options.waitTimeoutMilliseconds }
+  });
+}
+
+export { AtetWorkflowError, defineAtetWorkflow, runAtetWorkflow, defineTransmuteWorkflow, runTransmuteWorkflow };

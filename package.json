@@ -1,7 +1,7 @@
 {
-  "name": "@hraness/transmute",
-  "version": "1.0.0",
-  "description": "An open-source visual-media SDK and local Bun runtime for images, diagrams, animation, and video.",
+  "name": "@hraness/atet",
+  "version": "2.0.0",
+  "description": "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
@@ -54,17 +54,25 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hraness/transmute.git"
+    "url": "git+https://github.com/hraness/atet.git"
   },
-  "homepage": "https://transmute.rocks/",
+  "homepage": "https://atet.sh/",
   "bugs": {
-    "url": "https://github.com/hraness/transmute/issues"
+    "url": "https://github.com/hraness/atet/issues"
   },
   "keywords": [
+    "atet",
     "visual-media",
+    "creative-tools",
+    "typescript",
+    "bun",
+    "cli",
+    "local-first",
     "image-generation",
+    "image-vectorization",
     "diagram",
     "animation",
+    "animated-loops",
     "video",
     "threejs",
     "tldraw",
@@ -128,7 +136,8 @@
     }
   },
   "bin": {
-    "transmute": "./apps/desktop/dist/cli/main.js"
+    "atet": "./apps/desktop/dist/cli/main.js",
+    "transmute": "./apps/desktop/dist/cli/transmute.js"
   },
   "main": "./dist/index.js",
   "types": "./src/index.ts",
@@ -181,9 +190,9 @@
     "build": "bun run build:sdk && bun run build:desktop && bun run build:web",
     "build:sdk": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/index.ts ./src/cli.ts ./src/code/index.ts ./src/code/advanced.ts ./src/generate.ts ./src/host-resources.ts ./src/operations.ts ./src/workflow.ts ./src/vectorize/worker.ts --outdir ./dist --root ./src --target bun --format esm --splitting --packages external",
     "build:desktop": "bun run build:desktop:cli && bun run build:desktop:frontend && bun run build:desktop:runtime",
-    "build:desktop:cli": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./apps/desktop/dist/cli\", { recursive: true, force: true })' && bun build --target=bun --minify --sourcemap=none --packages external --external @hraness/transmute/cli apps/desktop/cli/main.ts --outdir apps/desktop/dist/cli",
+    "build:desktop:cli": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./apps/desktop/dist/cli\", { recursive: true, force: true })' && bun build --target=bun --minify --sourcemap=none --packages external --external @hraness/atet/cli apps/desktop/cli/main.ts --outdir apps/desktop/dist/cli && bun build --target=bun --minify --sourcemap=none --packages external --external '*main.js' apps/desktop/cli/transmute.ts --outdir apps/desktop/dist/cli",
     "build:desktop:frontend": "vite build --config apps/desktop/frontend/vite.config.ts && bun run check:desktop:direct-boundary",
-    "build:desktop:runtime": "bun build --compile --minify --sourcemap=none apps/desktop/runtime/src/main.ts --outfile apps/desktop/runtime/dist/transmute-gateway && bun run check:desktop:direct-boundary",
+    "build:desktop:runtime": "bun build --compile --minify --sourcemap=none apps/desktop/runtime/src/main.ts --outfile apps/desktop/runtime/dist/atet-gateway && bun run check:desktop:direct-boundary",
     "build:web": "bun run --cwd apps/web build",
     "dev:frontend": "vite --config apps/desktop/frontend/vite.config.ts",
     "dev:desktop": "bun run build:desktop:runtime && bun run ./apps/desktop/runtime/run-native.ts dev",
@@ -203,10 +212,10 @@
     "start:desktop:macos": "bun run build:desktop:capture:macos && bun run build:desktop:analysis:macos && bun run build:desktop:runtime && bun run ./apps/desktop/runtime/run-native.ts run",
     "package:desktop:macos": "bun run build:desktop:capture:macos && bun run build:desktop:analysis:macos && bun run build:desktop:frontend && bun run build:desktop:runtime && bun run ./apps/desktop/runtime/run-zig.ts build package -Dplatform=macos -Dpackage-target=macos && bun run ./apps/desktop/runtime/package-macos.ts",
     "build:cli:macos": "bun run ./apps/desktop/cli/build-compiled.ts",
-    "test:cli:compiled:macos": "bun run build:cli:macos && TRANSMUTE_RUN_COMPILED_CLI_SMOKE=1 bun test ./apps/desktop/cli/compiled-portable-surface.macos.test.ts",
+    "test:cli:compiled:macos": "bun run build:cli:macos && ATET_RUN_COMPILED_CLI_SMOKE=1 bun test ./apps/desktop/cli/compiled-portable-surface.macos.test.ts",
     "test:html-overlay": "bun test ./apps/desktop/html-overlay ./apps/desktop/application/html-overlay-browser-runtime.test.ts ./apps/desktop/application/html-overlay-integrity.test.ts ./apps/desktop/application/operations/media/html-overlay.test.ts ./apps/desktop/cli/html-overlay-renderer.security.test.ts ./apps/desktop/cli/html-overlay-snapshot-scavenger.test.ts ./apps/desktop/cli/html-overlay-renderer.macos.test.ts",
-    "test:html-overlay:browser:macos": "TRANSMUTE_RUN_HTML_OVERLAY_RENDERER_SMOKE=1 bun test ./apps/desktop/cli/html-overlay-renderer.macos.test.ts",
-    "test:html-overlay:operation:macos": "TRANSMUTE_RUN_HTML_OVERLAY_OPERATION_SMOKE=1 bun test ./apps/desktop/application/operations/media/html-overlay.test.ts",
+    "test:html-overlay:browser:macos": "ATET_RUN_HTML_OVERLAY_RENDERER_SMOKE=1 bun test ./apps/desktop/cli/html-overlay-renderer.macos.test.ts",
+    "test:html-overlay:operation:macos": "ATET_RUN_HTML_OVERLAY_OPERATION_SMOKE=1 bun test ./apps/desktop/application/operations/media/html-overlay.test.ts",
     "verify:html-overlay:macos": "bun run test:html-overlay:browser:macos && bun run test:html-overlay:operation:macos",
     "test:capture:hardware:macos": "bun test ./apps/desktop/capture/hardware-smoke.macos.test.ts",
     "doctor:macos": "native doctor --manifest apps/desktop/app.zon --strict",
@@ -221,7 +230,7 @@
     "check:sdk": "bun run typecheck:sdk && bun run lint:sdk && bun run build:sdk && bun run test:sdk && bun run check:release-workflows && bun run check:schema && bun run check:skill",
     "check:desktop": "bun run typecheck:desktop && bun run lint:desktop && bun run test:desktop && bun run build:desktop",
     "check:web": "bun run --cwd apps/web check",
-    "check": "bun run check:standalone && bun run check:sdk && bun run check:desktop && bun run check:web && bun run test:package",
+    "check": "bun run check:standalone && bun run check:sdk && bun run check:desktop && bun run check:web && bun run check:standalone && bun run test:package",
     "prepack": "bun run check"
   },
   "dependencies": {

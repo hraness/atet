@@ -60,7 +60,7 @@ function application(
 
 describe("exact application capability bindings", () => {
   test("rejects a capability whose identity differs from the requested name", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-capability-name-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-capability-name-"));
     try {
       const executable = join(root, "ffprobe-fixture");
       await writeFile(executable, "#!/bin/sh\nexit 0\n", { mode: 0o700 });
@@ -88,7 +88,7 @@ describe("exact application capability bindings", () => {
   });
 
   test("executes the descriptor-pinned bytes across a rename-over at launch", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-capability-pin-race-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-capability-pin-race-"));
     try {
       const executable = join(root, "ffmpeg-fixture");
       const replacement = join(root, "ffmpeg-replacement");
@@ -154,7 +154,7 @@ describe("exact application capability bindings", () => {
   });
 
   test("rejects same-version executable replacement before process launch", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-exact-capability-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-exact-capability-"));
     try {
       const executable = join(root, "ffmpeg-fixture");
       await writeFile(executable, "#!/bin/sh\nexit 0\n", { mode: 0o700 });

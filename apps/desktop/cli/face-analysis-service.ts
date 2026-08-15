@@ -19,6 +19,7 @@ import {
 } from "../contracts";
 import {
   associateFaceDetections,
+  canonicalAtetPersistenceDocument,
   canonicalJson,
   canonicalJsonSha256,
   saveAnalysisArtifact,
@@ -525,14 +526,14 @@ export async function analyzeProjectFaces(
     inputDigest: canonicalJsonSha256({
       analyzer: {
         helperVersion: firstRun.backend.helperVersion,
-        protocolKind: "transmute.face-analysis",
+        protocolKind: "atet.face-analysis",
         schemaVersion: 1,
       },
       backend: mappedBackend,
       config,
       subject: selected.subject,
     }),
-    kind: "transmute.face-analysis",
+    kind: "atet.face-analysis",
     privacy: {
       biometricIdentification: "not-performed",
       execution: "local-only",
@@ -543,7 +544,7 @@ export async function analyzeProjectFaces(
     schemaVersion: 1,
     subject: selected.subject,
     tool: AnalysisToolSchema.parse({
-      name: "transmute-face-analyzer",
+      name: "atet-face-analyzer",
       profile: "apple-vision-face-rectangles-v1",
       version: firstRun.backend.helperVersion,
     }),
@@ -690,11 +691,13 @@ export async function analyzeAndPersistProjectFaces(
     project: options.project.project,
     updatedAt: analyzed.analysis.createdAt,
   });
-  await saveVideoProject(options.project.fileSystem, update.project);
+  const project = canonicalAtetPersistenceDocument(update.project);
+  await saveVideoProject(options.project.fileSystem, project);
   return {
     ...analyzed,
     analysisPath: published.analysisPath,
     ...update,
+    project,
   };
 }
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const FACE_ANALYZER_KIND = "transmute.face-analysis" as const;
+export const FACE_ANALYZER_KIND = "atet.face-analysis" as const;
 export const LEGACY_FACE_ANALYZER_KIND = "studio.face-analysis" as const;
 export const FACE_ANALYZER_SCHEMA_VERSION = 1 as const;
 export const MAXIMUM_FACE_ANALYZER_LINE_BYTES = 1_048_576;

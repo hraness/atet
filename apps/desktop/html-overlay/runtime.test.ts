@@ -56,21 +56,23 @@ describe("injected HTML overlay browser runtime", () => {
     };
     const context: {
       document: { getAnimations(): FakeAnimation[] };
+      AtetOverlay?: PublicOverlayApi;
       TransmuteOverlay?: PublicOverlayApi;
     } = {
       document: { getAnimations: () => [documentAnimation] },
     };
     const { canvas, source, timing } = runtimeFixture();
     const host = runInNewContext(source, context) as HostController;
-    const overlay = context.TransmuteOverlay;
+    const overlay = context.AtetOverlay;
     expect(overlay).toBeDefined();
-    if (overlay === undefined) throw new Error("Runtime did not install TransmuteOverlay.");
+    if (overlay === undefined) throw new Error("Runtime did not install AtetOverlay.");
     expect(Object.isFrozen(overlay)).toBe(true);
+    expect(context.AtetOverlay).toBe(overlay);
     expect(context.TransmuteOverlay).toBe(overlay);
     expect(Object.hasOwn(overlay, "renderFrame")).toBe(false);
     expect(Object.isFrozen(overlay.parameters)).toBe(true);
     expect(overlay.asset("logo"))
-      .toBe(`/.transmute-overlay/assets/${"a".repeat(64)}/images/logo.png`);
+      .toBe(`/.atet-overlay/assets/${"a".repeat(64)}/images/logo.png`);
     expect(() => overlay.asset("missing")).toThrow("not declared");
 
     let releaseReady: (() => void) | undefined;
@@ -106,16 +108,16 @@ describe("injected HTML overlay browser runtime", () => {
     const context: {
       document: { getAnimations(): FakeAnimation[] };
       performance: { now(): number; timeOrigin: number };
-      TransmuteOverlay?: PublicOverlayApi;
+      AtetOverlay?: PublicOverlayApi;
     } = {
       document: { getAnimations: () => [] },
       performance: { now: () => -1, timeOrigin: -1 },
     };
     const { canvas, source, timing } = runtimeFixture();
     const host = runInNewContext(source, context) as HostController;
-    const overlay = context.TransmuteOverlay;
-    if (overlay === undefined) throw new Error("Runtime did not install TransmuteOverlay.");
-    expect(context.TransmuteOverlay).toBe(overlay);
+    const overlay = context.AtetOverlay;
+    if (overlay === undefined) throw new Error("Runtime did not install AtetOverlay.");
+    expect(context.AtetOverlay).toBe(overlay);
 
     const expected = createHtmlOverlayRandom(42);
     expect([overlay.random(), overlay.random(), overlay.random()])
@@ -132,7 +134,7 @@ describe("injected HTML overlay browser runtime", () => {
     const context: {
       document: { getAnimations(): FakeAnimation[] };
       performance: { now(): number; timeOrigin: number };
-      TransmuteOverlay?: PublicOverlayApi;
+      AtetOverlay?: PublicOverlayApi;
     } = {
       document: { getAnimations: () => [] },
       performance: { now: () => -1, timeOrigin: -1 },
@@ -142,19 +144,19 @@ describe("injected HTML overlay browser runtime", () => {
     const host = runInContext(source, sandbox) as HostController;
     runInContext(`
       globalThis.readinessEvents = [];
-      TransmuteOverlay.ready(new Promise(resolve => {
+      AtetOverlay.ready(new Promise(resolve => {
         setTimeout(() => {
           readinessEvents.push("timer:" + Date.now());
           resolve();
         }, 1);
       }));
-      TransmuteOverlay.ready(new Promise(resolve => {
+      AtetOverlay.ready(new Promise(resolve => {
         requestAnimationFrame(timeMs => {
           readinessEvents.push("raf:" + timeMs);
           resolve();
         });
       }));
-      TransmuteOverlay.onFrame(frame => {
+      AtetOverlay.onFrame(frame => {
         readinessEvents.push(
           "frame:" + frame.timeMs + ":" + Date.now() + ":" + performance.now()
         );

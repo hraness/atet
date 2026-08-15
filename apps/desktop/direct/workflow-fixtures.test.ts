@@ -6,14 +6,14 @@ import {
   createWorkflowEvidence,
 } from "./workflow-fixtures";
 
-describe("Transmute Direct workflow fixture", () => {
+describe("Atet Direct workflow fixture", () => {
   test("binds its browser-safe discovery snapshot to the production registry", () => {
     const operationKinds = new Set<string>(
       DIRECT_WORKFLOW_OPERATION_DISCOVERY.map(({ kind }) => kind),
     );
     const productionDiscovery = createApplicationOperationRegistry({
       nextAnalysisId: () => "analysis_direct01",
-      toolVersion: "transmute-direct",
+      toolVersion: "atet-direct",
     }).list().filter(({ kind }) => operationKinds.has(kind));
 
     expect(productionDiscovery).toEqual([...DIRECT_WORKFLOW_OPERATION_DISCOVERY]);
@@ -42,11 +42,11 @@ describe("Transmute Direct workflow fixture", () => {
     });
     expect(evidence.durableRun).toMatchObject({
       graphPlanPath:
-        "artifacts/transmute/private/workflow-runs/run_direct_workflow/graph-plan.json",
+        "artifacts/atet/private/workflow-runs/run_direct_workflow/graph-plan.json",
       outputsPath:
-        "artifacts/transmute/private/workflow-runs/run_direct_workflow/outputs.json",
+        "artifacts/atet/private/workflow-runs/run_direct_workflow/outputs.json",
       summaryPath:
-        "artifacts/transmute/private/workflow-runs/run_direct_workflow/summary.json",
+        "artifacts/atet/private/workflow-runs/run_direct_workflow/summary.json",
     });
     const completedOutputs = evidence.runs[1]?.summary.outputs;
     if (completedOutputs === undefined) {

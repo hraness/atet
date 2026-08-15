@@ -135,6 +135,6 @@ export function resolveZigExecutable(
   }
 
   throw new Error(
-    "Zig 0.16.0 is required for Transmute macOS development. Install it with `brew install zig`, set NATIVE_SDK_ZIG to an absolute Zig executable, or run `bun x native build apps/desktop --yes` once to install Native SDK's managed toolchain.",
+    "Zig 0.16.0 is required for Atet macOS development. Install it with `brew install zig`, set NATIVE_SDK_ZIG to an absolute Zig executable, or run `bun x native build apps/desktop --yes` once to install Native SDK's managed toolchain.",
   );
 }

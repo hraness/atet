@@ -15,6 +15,7 @@ import {
 } from "../contracts";
 import {
   analyzeMusic,
+  canonicalAtetPersistenceDocument,
   canonicalJson,
   canonicalJsonSha256,
   saveAnalysisArtifact,
@@ -351,7 +352,7 @@ export async function analyzeProjectMusic(
 
   const config = validateMusicConfig(options.config ?? DEFAULT_MUSIC_ANALYSIS_CONFIG);
   const tool = AnalysisToolSchema.parse({
-    name: "transmute-music-analyzer",
+    name: "atet-music-analyzer",
     profile: "mono-pcm-spectral-v1",
     version: options.toolVersion,
   });
@@ -422,10 +423,12 @@ export async function analyzeAndPersistProjectMusic(
     project: options.project.project,
     updatedAt: analyzed.analysis.createdAt,
   });
-  await saveVideoProject(options.project.fileSystem, update.project);
+  const project = canonicalAtetPersistenceDocument(update.project);
+  await saveVideoProject(options.project.fileSystem, project);
   return {
     analysis: analyzed.analysis,
     analysisPath: published.analysisPath,
     ...update,
+    project,
   };
 }

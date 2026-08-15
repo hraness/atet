@@ -252,7 +252,7 @@ async function runPhaseTransition(
   readonly plan: ProjectEditPlanV1;
 }> {
   const repositoryRoot = await mkdtemp(
-    join(tmpdir(), `transmute-v${version}-phase-parity-`),
+    join(tmpdir(), `atet-v${version}-phase-parity-`),
   );
   try {
     const fixture = await createOperationProjectFixture(repositoryRoot);
@@ -345,7 +345,7 @@ describe("project edit batch v3 normalization phases", () => {
 
   test("rejects stale project structure before applying either v2 or v3 edits", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-edit-batch-stale-structure-"),
+      join(tmpdir(), "atet-edit-batch-stale-structure-"),
     );
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);

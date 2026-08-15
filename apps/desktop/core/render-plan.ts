@@ -425,7 +425,7 @@ export function compileRenderPlan(
       typedText: plan.effects.typedText,
       typingSpans,
     },
-    kind: "transmute.render-plan",
+    kind: "atet.render-plan",
     output: {
       durationUs: timeMap.durationUs,
       frameRate: options.frameRate,

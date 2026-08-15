@@ -1,8 +1,8 @@
 .{
-    .id = "com.hraness.transmute",
-    .name = "transmute",
-    .display_name = "Transmute",
-    .version = "1.0.0",
+    .id = "com.hraness.atet",
+    .name = "atet",
+    .display_name = "Atet",
+    .version = "2.0.0",
     .icons = .{"assets/icon.png"},
     .platforms = .{"macos"},
     .permissions = .{},
@@ -10,11 +10,11 @@
     .bridge = .{
         .commands = .{
             .{
-                .name = "transmute.runtime.snapshot",
+                .name = "atet.runtime.snapshot",
                 .origins = .{"zero://app"},
             },
             .{
-                .name = "transmute.runtime.dispatch",
+                .name = "atet.runtime.dispatch",
                 .origins = .{"zero://app"},
             },
         },
@@ -39,6 +39,6 @@
     .web_engine = "system",
     .cef = .{ .dir = "third_party/cef/macos", .auto_install = false },
     .windows = .{
-        .{ .label = "main", .title = "Transmute", .width = 760, .height = 760, .restore_state = true },
+        .{ .label = "main", .title = "Atet", .width = 760, .height = 760, .restore_state = true },
     },
 }

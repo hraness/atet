@@ -4,148 +4,280 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#151515" media="(prefers-color-scheme: dark)">
-    <meta name="description" content="Transmute is an open-source system for turning ideas and raw assets into images, diagrams, animated loops, and video.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://transmute.rocks/">
-    <meta property="og:title" content="Transmute — visual media workflows in code">
-    <meta property="og:description" content="Open-source visual media workflows for images, diagrams, animated loops, and video.">
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="Transmute — visual media workflows in code">
-    <meta name="twitter:description" content="Open-source visual media workflows for images, diagrams, animated loops, and video.">
-    <link rel="canonical" href="https://transmute.rocks/">
+    <meta name="theme-color" content="#fff4da" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#090a12" media="(prefers-color-scheme: dark)">
+    <title>Atet: code-first visual media from source to final</title>
+    <meta name="description" content="Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.">
+    <meta name="application-name" content="Atet">
+    <meta name="generator" content="Bun 1.3.14">
+    <meta name="keywords" content="visual media, TypeScript SDK, Bun CLI, AI image generation, diagrams, animation, video, local-first, creative coding, Vercel AI Gateway">
+    <link rel="canonical" href="https://atet.sh/">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css">
-    <script src="/theme.js" defer></script>
-    <title>Transmute — visual media workflows in code</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="stylesheet" href="{{CSS_ASSET}}">
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Atet">
+    <meta property="og:title" content="Atet: code-first visual media from source to final">
+    <meta property="og:description" content="Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.">
+    <meta property="og:url" content="https://atet.sh/">
+    <meta property="og:image" content="https://atet.sh/og.png">
+    <meta property="og:image:alt" content="Atet, visual media moved from source to final, beside an abstract solar disk and barque path">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Atet: code-first visual media from source to final">
+    <meta name="twitter:description" content="Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.">
+    <meta name="twitter:image" content="https://atet.sh/og.png">
+    <meta name="twitter:image:alt" content="Atet, visual media moved from source to final, beside an abstract solar disk and barque path">
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@id": "https://atet.sh/#website",
+            "@type": "WebSite",
+            "name": "Atet",
+            "description": "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.",
+            "url": "https://atet.sh/"
+          },
+          {
+            "@id": "https://atet.sh/#webpage",
+            "@type": "WebPage",
+            "name": "Atet: code-first visual media from source to final",
+            "description": "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.",
+            "isPartOf": { "@id": "https://atet.sh/#website" },
+            "mainEntity": { "@id": "https://atet.sh/#software" },
+            "url": "https://atet.sh/"
+          },
+          {
+            "@id": "https://atet.sh/#software",
+            "@type": "SoftwareApplication",
+            "name": "Atet",
+            "applicationCategory": "DeveloperApplication",
+            "description": "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.",
+            "featureList": [
+              "Image generation and vectorization",
+              "Editable diagram sources and fixed derivatives",
+              "Deterministic animated loops",
+              "Multi-format video composition",
+              "Immutable projects with exact artifact reuse"
+            ],
+            "installUrl": "https://atet.sh/#install",
+            "isAccessibleForFree": true,
+            "license": "https://opensource.org/license/mit",
+            "offers": {
+              "@type": "Offer",
+              "availability": "https://schema.org/InStock",
+              "price": 0,
+              "priceCurrency": "USD"
+            },
+            "operatingSystem": ["macOS", "Linux", "Windows"],
+            "sameAs": ["https://github.com/hraness/atet"],
+            "softwareRequirements": "Bun 1.3.14",
+            "softwareVersion": "2.0.0",
+            "url": "https://atet.sh/"
+          },
+          {
+            "@id": "https://atet.sh/#source",
+            "@type": "SoftwareSourceCode",
+            "name": "Atet source code",
+            "codeRepository": "https://github.com/hraness/atet",
+            "license": "https://opensource.org/license/mit",
+            "programmingLanguage": {
+              "@type": "ComputerLanguage",
+              "name": "TypeScript"
+            },
+            "runtimePlatform": "Bun 1.3.14",
+            "targetProduct": { "@id": "https://atet.sh/#software" },
+            "version": "2.0.0"
+          }
+        ]
+      }
+    </script>
+    <script src="{{THEME_ASSET}}" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header">
-      <div class="shell header-inner">
-        <a class="wordmark" href="/" aria-label="Transmute home">Transmute</a>
-        <a href="https://github.com/hraness/transmute">GitHub</a>
-      </div>
+    <header class="topbar">
+      <a aria-label="Atet home" class="wordmark" href="/">ATET</a>
+      <nav aria-label="Primary">
+        <a href="#outputs">Outputs</a>
+        <a href="#system">System</a>
+        <a href="#install">Install</a>
+        <a class="nav-github" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
     </header>
 
-    <main class="shell" id="main" tabindex="-1">
-      <article>
-        <h1>Transmute</h1>
-        <p class="intro">
-          Transmute is an open-source system for turning an idea, sketch,
-          recording, or raw asset into a finished visual. Use it as a TypeScript
-          SDK in a Bun script, as a local media host, or through the desktop shell
-          when a workflow needs screen, camera, or microphone capture.
-        </p>
+    <main id="main" tabindex="-1">
+      <section aria-labelledby="hero-title" class="hero">
+        <div aria-hidden="true" class="solar-field">
+          <span class="solar-orbit orbit-a"></span>
+          <span class="solar-orbit orbit-b"></span>
+          <span class="solar-disk"></span>
+          <span class="solar-barque"></span>
+          <span class="solar-wake wake-a"></span>
+          <span class="solar-wake wake-b"></span>
+        </div>
+        <div class="hero-content">
+          <p class="eyebrow">Open-source visual media workflows in code</p>
+          <h1 id="hero-title">Atet</h1>
+          <p class="hero-statement">Move visual media from source to final.</p>
+          <p class="hero-explainer">
+            Generate images, build editable diagrams, author animated loops, and
+            compose video from one typed project. Atet runs through a TypeScript
+            SDK, a Bun CLI, and a local runtime that keeps the work inspectable.
+          </p>
+          <p class="name-note">
+            <span>Name</span> Atet draws on Ra's solar barque as an abstract
+            metaphor for passage and transformation: sources enter one vessel,
+            move through explicit operations, and arrive as exact outputs.
+          </p>
+          <div class="action-row">
+            <a class="button button-primary" href="#install">Install Atet</a>
+            <a class="button button-secondary" href="https://github.com/hraness/atet">View on GitHub <span aria-hidden="true">↗</span></a>
+            <a class="button button-quiet" href="#outputs">Explore outputs</a>
+          </div>
+          <ul aria-label="Project facts" class="proof-list">
+            <li>Free and open source</li>
+            <li>Local-first runtime</li>
+            <li>Bring your own Gateway access</li>
+            <li>CLI + TypeScript SDK</li>
+          </ul>
+        </div>
+      </section>
 
-        <section aria-labelledby="outputs">
-          <h2 id="outputs">Outputs</h2>
-          <dl class="output-list">
+      <div class="page">
+        <section aria-labelledby="outputs" class="section output-section">
+          <div class="section-heading">
+            <p class="eyebrow">Four output families</p>
+            <h2 id="outputs">Choose the form. Keep the source.</h2>
+            <p>Every fixed export remains connected to the project and operations that produced it.</p>
+          </div>
+          <dl class="output-grid">
             <div>
-              <dt>Images</dt>
-              <dd>
-                Generate through Vercel AI Gateway, vectorize raster references,
-                or render stills with code. Reference-led treatments can bind an
-                input image to reviewed Three.js geometry, materials, lighting,
-                and camera decisions, including metallic logo product renders.
-              </dd>
+              <dt><span aria-hidden="true">01</span> Images</dt>
+              <dd>Generate through Vercel AI Gateway, vectorize references, or render stills with code.</dd>
             </div>
             <div>
-              <dt>Diagrams</dt>
-              <dd>
-                Build a checked, editable tldraw source with explicit layout and
-                styling. Render SVG or PNG derivatives when a fixed asset is
-                needed without trapping the diagram in that export.
-              </dd>
+              <dt><span aria-hidden="true">02</span> Diagrams</dt>
+              <dd>Build checked, editable tldraw sources and render SVG or PNG derivatives when delivery needs a fixed asset.</dd>
             </div>
             <div>
-              <dt>Animated loops</dt>
-              <dd>
-                Author deterministic HTML, CSS, SVG, Canvas, WebGL, Three.js, or
-                shader scenes. Render finite loops with explicit timing and an
-                optional transparent background for reuse in another composition.
-              </dd>
+              <dt><span aria-hidden="true">03</span> Animated loops</dt>
+              <dd>Author deterministic HTML, CSS, SVG, Canvas, WebGL, Three.js, or shader scenes with explicit timing.</dd>
             </div>
             <div>
-              <dt>Video</dt>
-              <dd>
-                Compose recordings, images, diagrams, loops, audio, transcripts,
-                captions, and overlays. Derive clean and captioned exports for
-                16:9, 9:16, 1:1, 4:5, or a custom target from the same edit.
-              </dd>
+              <dt><span aria-hidden="true">04</span> Video</dt>
+              <dd>Compose recordings, images, diagrams, loops, audio, captions, and overlays into every required aspect ratio.</dd>
             </div>
           </dl>
         </section>
 
-        <section aria-labelledby="project">
-          <h2 id="project">One project</h2>
-          <p>
-            A project is an immutable graph of sources, operations, and artifacts.
-            Captions, crops, aspect ratios, quality tiers, and delivery formats are
-            independent variants of one edit, not copies that drift apart. The SDK
-            defines and validates that graph. The local host schedules durable media
-            work and recovery. The desktop shell adds native capture and permissions;
-            it does not introduce another workflow engine.
-          </p>
+        <section aria-labelledby="system" class="section journey-section">
+          <div class="section-heading section-heading-wide">
+            <p class="eyebrow">One project</p>
+            <h2 id="system">Many variants. One exact journey.</h2>
+            <p>
+              Captions, crops, aspect ratios, quality tiers, and delivery formats
+              are variants of one immutable project graph, not copies that drift.
+            </p>
+          </div>
+          <ol aria-label="Atet project flow" class="journey">
+            <li><span>01</span><div><h3>Sources</h3><p>Ideas, recordings, sketches, media, text, and code enter with exact revisions.</p></div></li>
+            <li><span>02</span><div><h3>Project graph</h3><p>Typed operations connect immutable inputs to bounded outputs.</p></div></li>
+            <li><span>03</span><div><h3>Candidates</h3><p>Independent revisions branch from one frozen base.</p></div></li>
+            <li><span>04</span><div><h3>Renders</h3><p>Fast previews inform selection; final quality stays explicit.</p></div></li>
+            <li><span>05</span><div><h3>Delivery</h3><p>Each artifact carries the identity needed to verify and reuse it.</p></div></li>
+          </ol>
         </section>
 
-        <section aria-labelledby="identity">
-          <h2 id="identity">Identity and reuse</h2>
-          <p>
-            Each derivation is identified by its exact inputs, source revision,
-            operation, renderer, toolchain, and output profile. A verified artifact
-            with the same identity can be adopted instead of rendered again. A
-            meaningful change creates a new identity, so caching never guesses that
-            two different runs are equivalent and partial results remain reusable.
-          </p>
+        <section aria-labelledby="contracts-title" class="section contracts-section">
+          <div class="section-heading section-heading-wide">
+            <p class="eyebrow">Performance without hidden state</p>
+            <h2 id="contracts-title">Iteration stays fast because identity stays exact.</h2>
+          </div>
+          <div class="contract-grid">
+            <section aria-labelledby="cache-title" class="contract-card">
+              <h3 id="cache-title">Cache by proof</h3>
+              <p>A verified artifact with the same inputs, source revision, operation, renderer, toolchain, and output profile can be adopted. A meaningful change creates a new identity.</p>
+            </section>
+            <section aria-labelledby="candidate-title" class="contract-card">
+              <h3 id="candidate-title">Fork candidates safely</h3>
+              <p>Agents render independent candidates without sharing mutable files. Selection is explicit, and stale promotion fails closed while preserving every branch.</p>
+            </section>
+            <section aria-labelledby="preview-title" class="contract-card">
+              <h3 id="preview-title">Preview the whole piece</h3>
+              <p>The default preview keeps complete duration while reducing spatial quality and selecting a faster encoder recipe.</p>
+            </section>
+            <section aria-labelledby="final-title" class="contract-card">
+              <h3 id="final-title">Render final on purpose</h3>
+              <p>Independent work runs in parallel within one machine ceiling. Expensive video encodes serialize by default, and partial verified results remain reusable.</p>
+            </section>
+          </div>
         </section>
 
-        <section aria-labelledby="iteration">
-          <h2 id="iteration">Parallel iteration</h2>
-          <p>
-            Agents can fork independent candidates from one frozen project revision,
-            render each candidate, and compare them without sharing mutable files.
-            Selection and promotion are explicit. If the project changed underneath
-            a candidate, promotion fails closed and preserves every branch instead of
-            silently merging conflicting editorial work.
-          </p>
+        <section aria-labelledby="boundary-title" class="section boundary-section">
+          <div class="section-heading">
+            <p class="eyebrow">One system, three boundaries</p>
+            <h2 id="boundary-title">Use the smallest surface the work needs.</h2>
+          </div>
+          <dl class="boundary-list">
+            <div><dt>TypeScript SDK</dt><dd>Define, validate, compile, and run typed visual graphs inside a Bun script or agent host.</dd></div>
+            <div><dt>Local host</dt><dd>Schedule durable media work, enforce resource ceilings, recover runs, and publish verified artifacts.</dd></div>
+            <div><dt>Desktop shell</dt><dd>Add screen, camera, and microphone capture plus native permissions without creating another workflow engine.</dd></div>
+          </dl>
         </section>
 
-        <section aria-labelledby="rendering">
-          <h2 id="rendering">Preview and final render</h2>
-          <p>
-            The default preview keeps the complete duration while lowering spatial
-            quality and choosing a faster encoder recipe. Final quality is an
-            explicit render after selection. A machine-level scheduler keeps ready
-            work inside one resource ceiling, runs independent work in parallel when
-            it fits, and serializes expensive video encodes by default so FFmpeg does
-            not compete with itself.
-          </p>
+        <section aria-labelledby="install" class="section install-section">
+          <div class="install-copy">
+            <p class="eyebrow">Local by default</p>
+            <h2 id="install">Bring Atet to the work.</h2>
+            <p>
+              Atet has no hosted account or browser generation service. The local
+              SDK and CLI read <code>AI_GATEWAY_API_KEY</code> or Vercel's
+              short-lived <code>VERCEL_OIDC_TOKEN</code>. This site never receives
+              either credential.
+            </p>
+            <p>
+              Local media stays local unless a workflow explicitly sends a bounded
+              input to a generation provider.
+            </p>
+            <a class="text-link" href="https://github.com/hraness/atet">Read the source <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="command-stack">
+            <div class="command-panel">
+              <div class="command-label"><span>Install</span><span>v2.0.0</span></div>
+              <pre><code>bun add --global github:hraness/atet#v2.0.0
+atet doctor
+atet image generate "a sunlit geometric vessel"</code></pre>
+            </div>
+            <aside class="gateway-card">
+              <p class="command-label">Use linked Vercel access for one command</p>
+              <pre><code>vercel link
+vercel env run -- atet image generate "…"</code></pre>
+            </aside>
+          </div>
         </section>
 
-        <section aria-labelledby="gateway">
-          <h2 id="gateway">Bring your own Gateway access</h2>
-          <p>
-            Transmute has no hosted account or browser generation service. Local SDK
-            and CLI processes read <code>AI_GATEWAY_API_KEY</code> or Vercel's
-            short-lived <code>VERCEL_OIDC_TOKEN</code>. With a linked Vercel project,
-            inject the environment for one command without writing a credential into
-            the project:
-          </p>
-          <pre><code>vercel link
-vercel env run -- bun run render.ts</code></pre>
-          <p>
-            Local media stays local unless a workflow explicitly sends a bounded
-            input to a generation provider. The website never receives a Gateway
-            credential.
-          </p>
+        <section aria-labelledby="cta-title" class="section final-cta">
+          <div>
+            <p class="eyebrow">Source in. Final out.</p>
+            <h2 id="cta-title">Set the work in motion.</h2>
+          </div>
+          <div class="action-row">
+            <a class="button button-primary" href="#install">Install Atet</a>
+            <a class="button button-secondary" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
+          </div>
         </section>
-      </article>
+      </div>
     </main>
 
     <footer class="site-footer">
-      <div class="shell footer-inner">
+      <div class="footer-inner">
         <a class="hraness-brand" href="https://hraness.com" aria-label="hraness">
           <svg aria-hidden="true" class="hraness-mark" focusable="false" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
             <path d="M372 141a116 116 0 1 1-232 0 116 116 0 1 1 232 0Zm-14 0a102 102 0 1 0-204 0 102 102 0 1 0 204 0Zm-8 0a94 94 0 1 1-188 0 94 94 0 1 1 188 0Z" fill="currentColor" fill-rule="evenodd"/>
@@ -156,6 +288,7 @@ vercel env run -- bun run render.ts</code></pre>
           </svg>
           <span>hraness</span>
         </a>
+        <p class="footer-note">Atet 2.0.0 · MIT · Local-first visual media.</p>
         <fieldset class="appearance" aria-label="Appearance">
           <legend>Appearance</legend>
           <button type="button" data-theme-choice="light">Light</button>

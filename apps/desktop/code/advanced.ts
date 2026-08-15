@@ -1,13 +1,17 @@
 export * from "./public";
 export {
+  PORTABLE_ATET_OPERATION_CONTRACTS,
+  PORTABLE_ATET_OPERATION_KINDS,
   PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
   PORTABLE_TRANSMUTE_OPERATION_KINDS,
+  PUBLIC_ATET_WORKFLOW_PROJECTION,
   PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
   PortableWorkflowBuilder,
   compileWorkflowGraph,
   createGraphHash,
+  createAtetCodeHost,
   createTransmuteCodeHost,
   createWorkflowCompilationHash,
   createWorkflowGraphHash,
@@ -18,15 +22,19 @@ export {
   runBuiltWorkflow,
   runWorkflow,
   type CompiledWorkflowGraph,
+  type PortableAtetOperationInputMap,
+  type PortableAtetOperationKind,
+  type PortableAtetOperationResultMap,
   type PortableTransmuteOperationInputMap,
   type PortableTransmuteOperationKind,
   type PortableTransmuteOperationResultMap,
   type PortableWorkflowFragment,
   type RunBuiltWorkflowOptions,
+  type AtetCodeHost,
   type TransmuteCodeHost,
   type WorkflowRegistryProjection,
   type WorkflowRunResult,
-} from "@hraness/transmute/code/advanced";
+} from "@hraness/atet/code/advanced";
 export {
   DEFAULT_GRAPH_COMPILER_LIMITS,
   EMPTY_STATIC_BINDINGS,

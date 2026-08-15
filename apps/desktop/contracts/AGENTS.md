@@ -20,6 +20,6 @@
 - Keep face evidence local-only and geometry-only: normalized boxes and continuity track IDs are allowed; identity, embeddings, names, crops, and thumbnails are not.
 - Model overlay source differences explicitly for image, SVG, GIF, video, and emoji assets; do not create optional-field bags that admit contradictory playback settings.
 - Keep bridge payloads bounded. Detailed frame, window, cursor, and typing metadata belongs in bundle JSONL files, not renderer events.
-- Reuse `SceneDescriptionSchema` and the selected-frame upload policy from `@hraness/transmute/scene`; persisted analysis contracts must not drift from the local provider boundary.
+- Reuse `SceneDescriptionSchema` and the selected-frame upload policy from `@hraness/atet/scene`; persisted analysis contracts must not drift from the local provider boundary.
 - Model local audio effects and color grades as strict versioned transforms with bounded numeric controls, explicit ordering, output profiles, and no arbitrary FFmpeg expressions.
 - Keep artistic dither in the ordered look graph and codec/output dither in renderer policy; they solve different problems and must not be conflated.

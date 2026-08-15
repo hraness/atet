@@ -33,7 +33,7 @@ const PackageTarget = enum {
 };
 
 const default_native_sdk_path = "../../node_modules/@native-sdk/cli";
-const app_exe_name = "transmute";
+const app_exe_name = "atet";
 const minimum_macos_version = "15.0";
 const minimum_macos_flag = "-mmacosx-version-min=" ++ minimum_macos_version;
 
@@ -67,7 +67,7 @@ pub fn build(b: *std.Build) void {
         @panic("-Dplatform=macos requires a macOS target");
     }
     if (selected_platform == .macos and target.result.cpu.arch != .aarch64) {
-        @panic("Transmute currently packages pinned Apple Silicon runtimes and requires a macOS arm64 target");
+        @panic("Atet currently packages pinned Apple Silicon runtimes and requires a macOS arm64 target");
     }
     if (selected_platform == .linux and target.result.os.tag != .linux) {
         @panic("-Dplatform=linux requires a Linux target");
@@ -189,7 +189,7 @@ pub fn build(b: *std.Build) void {
         "--optimize",
         package_optimize_name,
         "--output",
-        b.fmt("zig-out/package/{s}-1.0.0-{s}-{s}{s}", .{ app_exe_name, @tagName(package_target), package_optimize_name, packageSuffix(package_target) }),
+        b.fmt("zig-out/package/{s}-2.0.0-{s}-{s}{s}", .{ app_exe_name, @tagName(package_target), package_optimize_name, packageSuffix(package_target) }),
         "--binary",
     });
     // The CLI resolves SDK-owned package inputs (the vendored WebView2

@@ -1,4 +1,4 @@
-# Visual communication rules
+# Atet visual communication rules
 
 Use these rules to turn supplied content into a diagram without adding content.
 

@@ -9,7 +9,7 @@ import {
   createDefaultHostResourceCoordinator,
   createHostResourceCoordinator,
   createProcessLocalHostResourceCoordinator,
-  defaultTransmuteHostResourceProfile,
+  defaultAtetHostResourceProfile,
   HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
   normalizeHostResourceClaims,
   normalizeHostResourceProfile,
@@ -75,7 +75,7 @@ async function temporaryStateRoot(): Promise<Readonly<{
   parent: string
   stateRoot: string
 }>> {
-  const parent = await mkdtemp(join(tmpdir(), "transmute-host-resources-"))
+  const parent = await mkdtemp(join(tmpdir(), "atet-host-resources-"))
   return { parent, stateRoot: join(parent, "state") }
 }
 
@@ -124,7 +124,7 @@ const testPosixShell = process.platform === "darwin" || process.platform === "li
   ? test
   : test.skip
 
-describe("Transmute host-resource profiles", () => {
+describe("Atet host-resource profiles", () => {
   test("process-local validation always rejects through the Promise contract", async () => {
     const coordinator = createProcessLocalHostResourceCoordinator({
       profile: profile({ cpu: 1 }),
@@ -186,7 +186,9 @@ describe("Transmute host-resource profiles", () => {
   })
 
   test("reserves one logical processor on two-vCPU hosts", () => {
-    expect(defaultTransmuteHostResourceProfile(2).capacities).toContainEqual({
+    const profile = defaultAtetHostResourceProfile(2)
+    expect(profile.id).toBe("transmute.host-resources/v1")
+    expect(profile.capacities).toContainEqual({
       resource: "cpu",
       limit: 1,
     })
@@ -194,7 +196,7 @@ describe("Transmute host-resource profiles", () => {
 
   test("keeps video encodes independently serialized by default", () => {
     expect(HOST_RESOURCE_MAX_WAIT_MILLISECONDS).toBe(86_400_000)
-    const defaults = defaultTransmuteHostResourceProfile(12)
+    const defaults = defaultAtetHostResourceProfile(12)
     expect(defaults.capacities).toContainEqual({
       resource: "video-encode",
       limit: 1,
@@ -253,7 +255,7 @@ describe("Transmute host-resource profiles", () => {
       "/bin/sh",
       "-c",
       "ulimit -n 64 2>/dev/null || true; exec \"$1\" -e \"$2\"",
-      "transmute-host-resource-test",
+      "atet-host-resource-test",
       process.execPath,
       childProgram,
     ], {
@@ -275,7 +277,7 @@ describe("Transmute host-resource profiles", () => {
   })
 })
 
-describeMachineHostResources("machine-global Transmute host-resource coordination", () => {
+describeMachineHostResources("machine-global Atet host-resource coordination", () => {
   test("desynchronizes ticket retries within adaptive bounds and aborts a parked wait", async () => {
     const temporary = await temporaryStateRoot()
     const sharedProfile = profile({ cpu: 1 })
@@ -717,13 +719,13 @@ describeMachineHostResources("machine-global Transmute host-resource coordinatio
     const program = [
       `import { createHostResourceCoordinator } from ${JSON.stringify(moduleUrl)}`,
       `const profile = ${JSON.stringify(sharedProfile)}`,
-      "const coordinator = createHostResourceCoordinator({ profile, stateRoot: process.env.TRANSMUTE_TEST_STATE_ROOT, pollIntervalMilliseconds: 2, waitTimeoutMilliseconds: 2000 })",
+      "const coordinator = createHostResourceCoordinator({ profile, stateRoot: process.env.ATET_TEST_STATE_ROOT, pollIntervalMilliseconds: 2, waitTimeoutMilliseconds: 2000 })",
       "await coordinator.withLease([{ resource: 'cpu', amount: 1 }], async () => { console.log('ready'); await new Promise(() => {}) })",
     ].join(";")
     const child = Bun.spawn([process.execPath, "-e", program], {
       env: {
         ...process.env,
-        TRANSMUTE_TEST_STATE_ROOT: temporary.stateRoot,
+        ATET_TEST_STATE_ROOT: temporary.stateRoot,
       },
       stderr: "pipe",
       stdout: "pipe",

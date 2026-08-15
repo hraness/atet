@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { DesktopEventSchema } from "../../contracts";
 
-export const runtimeSnapshotCommand = "transmute.runtime.snapshot" as const;
-export const runtimeDispatchCommand = "transmute.runtime.dispatch" as const;
+export const runtimeSnapshotCommand = "atet.runtime.snapshot" as const;
+export const runtimeDispatchCommand = "atet.runtime.dispatch" as const;
 export const MAX_HOST_LINE_BYTES = 64 * 1024;
 export const MAX_PENDING_HOST_REQUESTS = 16;
 

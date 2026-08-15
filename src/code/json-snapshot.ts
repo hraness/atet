@@ -1,5 +1,5 @@
 import type { JsonValue } from "./contracts.js"
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 import { jsonStringUtf8ByteLength } from "./json-utf8.js"
 import { createSha256HexHasher } from "./sha256.js"
 
@@ -119,7 +119,7 @@ function invalidJson(
   message: string,
   details?: Readonly<Record<string, unknown>>,
 ): never {
-  throw new TransmuteCodeError("invalid-data", message, details)
+  throw new AtetCodeError("invalid-data", message, details)
 }
 
 function positiveLimit(value: number, name: string): number {
@@ -339,8 +339,8 @@ export function captureJsonStructure(
       }
     }
   } catch (error) {
-    if (error instanceof TransmuteCodeError) throw error
-    throw new TransmuteCodeError(
+    if (error instanceof AtetCodeError) throw error
+    throw new AtetCodeError(
       "invalid-data",
       `${name} could not be safely inspected.`,
       { cause: error instanceof Error ? error.message : String(error) },
@@ -669,8 +669,8 @@ function captureBoundedJson(
       })
     }
   } catch (error) {
-    if (error instanceof TransmuteCodeError) throw error
-    throw new TransmuteCodeError(
+    if (error instanceof AtetCodeError) throw error
+    throw new AtetCodeError(
       "invalid-data",
       `${name} could not be safely inspected.`,
       { cause: error instanceof Error ? error.message : String(error) },
@@ -887,8 +887,8 @@ export function deepFreezeJson<Value>(value: Value): Value {
       }
     }
   } catch (error) {
-    if (error instanceof TransmuteCodeError) throw error
-    throw new TransmuteCodeError(
+    if (error instanceof AtetCodeError) throw error
+    throw new AtetCodeError(
       "invalid-data",
       "JSON snapshot could not be safely inspected.",
       { cause: error instanceof Error ? error.message : String(error) },

@@ -1,11 +1,11 @@
 ---
-name: transmute
-description: Create or update concise diagrams from a literal user prompt, keep checked source, generate light/dark exports, provide editable tldraw interchange, convert caller-owned raster artwork to bounded SVG, generate images directly through Vercel AI Gateway, or guide reviewed reference-image workflows for Three.js scenes and metallic logo treatments. Use for diagrams, flowcharts, maps, visual explanations, `.tldr` files, image-to-SVG conversion, image generation, low-poly or transparent 3D motion, metallic brand-symbol renders, semantic Transmute operations, or typed Bun workflows.
+name: atet
+description: Create or update concise diagrams from a literal user prompt, keep checked source, generate light/dark exports, provide editable tldraw interchange, convert caller-owned raster artwork to bounded SVG, generate images directly through Vercel AI Gateway, or guide reviewed reference-image workflows for Three.js scenes and metallic logo treatments. Use for diagrams, flowcharts, maps, visual explanations, `.tldr` files, image-to-SVG conversion, image generation, low-poly or transparent 3D motion, metallic brand-symbol renders, semantic Atet operations, or typed Bun workflows.
 ---
 
 # Create clear diagrams
 
-Use the installed `transmute` CLI as the deterministic adapter. Keep the authored
+Use the installed `atet` CLI as the deterministic adapter. Keep the authored
 `.diagram.json` source; treat `.light.svg`, `.dark.svg`, `.light.png`,
 `.dark.png`, and `.tldr` as replaceable exports.
 
@@ -25,7 +25,7 @@ Treat the user's prompt as the complete content specification.
 
 ## Find the source
 
-1. Read local repository instructions and look for `transmute.config.*`.
+1. Read local repository instructions and look for `atet.config.*`.
 2. Search for an existing same-subject `.diagram.json` before creating one.
 3. Update that source rather than editing generated images or creating a
    duplicate.
@@ -89,11 +89,11 @@ Use a coordinate-free `stack` layout for one horizontal or vertical sequence:
 
 ## Author and render
 
-Use the public schema URL or run `transmute diagram init` for a starter:
+Use the public schema URL or run `atet diagram init` for a starter:
 
 ```sh
-transmute diagram check diagrams/<slug>.diagram.json --strict
-transmute diagram render diagrams/<slug>.diagram.json
+atet diagram check diagrams/<slug>.diagram.json --strict
+atet diagram render diagrams/<slug>.diagram.json
 ```
 
 The render command overwrites the consistent same-stem exports. Inspect both
@@ -108,14 +108,14 @@ stack.
 ## Provide a Vercel AI Gateway credential
 
 Prefer a process-local environment variable. Never place a key on argv, write
-it into a project file, print it, or ask Transmute to persist it:
+it into a project file, print it, or ask Atet to persist it:
 
 ```sh
 export AI_GATEWAY_API_KEY='<value>'
 ```
 
 When the workspace is linked and the user is authenticated with Vercel, prefer
-`vercel env run -- <command>`. Transmute reads `AI_GATEWAY_API_KEY` first and
+`vercel env run -- <command>`. Atet reads `AI_GATEWAY_API_KEY` first and
 `VERCEL_OIDC_TOKEN` second. It has no product account, OAuth, database, or local
 credential store.
 
@@ -125,7 +125,7 @@ When the user explicitly asks for raster generation, preserve their
 prompt rather than enriching it:
 
 ```sh
-vercel env run -- transmute image generate \
+vercel env run -- atet image generate \
   '<literal prompt>' --output path/to/image.webp
 ```
 
@@ -167,7 +167,7 @@ When the user asks to convert caller-owned raster artwork to SVG, keep the
 raster as the source and treat the SVG as a replaceable derivative:
 
 ```sh
-transmute image vectorize path/to/input.png --output path/to/input.svg --json
+atet image vectorize path/to/input.png --output path/to/input.svg --json
 ```
 
 - Do not provide a credential for vectorization. The conversion is local and
@@ -183,7 +183,7 @@ transmute image vectorize path/to/input.png --output path/to/input.svg --json
   that an unfamiliar symbol communicates the intended concept.
 
 VTracer downloads from its checksum-pinned official release on first use. Use
-`TRANSMUTE_VTRACER_PATH` only for a compatible local 0.6.4 binary; Transmute still
+`ATET_VTRACER_PATH` only for a compatible local 0.6.4 binary; Atet still
 records its hash. Never add an upscaling model, embedded raster fallback, or
 commercial font to make a trace pass.
 
@@ -193,9 +193,9 @@ unbounded temporary output file.
 
 ## Use a connected tool server narrowly
 
-When Transmute MCP is connected, preserve the dedicated `check_diagram` and
-`render_diagram` tools for simple compatibility calls. Use `search_transmute`
-to discover the fixed semantic registry and `execute_transmute` with one exact
+When Atet MCP is connected, preserve the dedicated `check_diagram` and
+`render_diagram` tools for simple compatibility calls. Use `search_atet`
+to discover the fixed semantic registry and `execute_atet` with one exact
 returned code and typed JSON. Continue to edit checked diagram source directly;
 no tool creates or rewrites source.
 
@@ -208,9 +208,9 @@ no tool creates or rewrites source.
 - MCP mode deliberately uses built-in themes and icons and never executes
   workspace config. Use the CLI outside MCP when a trusted local config is
   required.
-- `transmute.image.vectorize` accepts root-relative input/output paths, requires
+- `atet.image.vectorize` accepts root-relative input/output paths, requires
   no login, and keeps raster bytes local.
-- `transmute.image.generate` requires a root-relative `.webp` output path,
+- `atet.image.generate` requires a root-relative `.webp` output path,
   atomically writes the bounded image, and returns only redacted file/request
   metadata. Use only the two registry model IDs and do not retry it.
 - Never pass source code, shell text, dynamic-import text, remote URLs, or
@@ -219,8 +219,8 @@ no tool creates or rewrites source.
 Without MCP, the equivalent machine-readable CLI surface is:
 
 ```sh
-transmute code search '<terms>' --limit 4
-transmute code execute <exact-operation-code> --input '<strict JSON object>'
+atet code search '<terms>' --limit 4
+atet code execute <exact-operation-code> --input '<strict JSON object>'
 ```
 
 ## Use tldraw deliberately
@@ -230,10 +230,10 @@ tldraw SDK or desktop app to create. Open it in tldraw Offline when a person
 wants direct canvas editing:
 
 ```sh
-transmute canvas open diagrams/<slug>.tldr
+atet canvas open diagrams/<slug>.tldr
 ```
 
-If the optional app is absent, `transmute canvas install` resolves the current
+If the optional app is absent, `atet canvas install` resolves the current
 official release, verifies its published SHA-256 digest, and launches the
 platform installer. The app imports `.tldr` as an unsaved document; save it
 there to create its newer native `.tldraw` bundle. Never rewrite a native
@@ -241,8 +241,8 @@ there to create its newer native `.tldraw` bundle. Never rewrite a native
 
 ## Verify
 
-1. Run `transmute diagram check <source> --strict`.
-2. Run `transmute diagram render <source>`.
+1. Run `atet diagram check <source> --strict`.
+2. Run `atet diagram render <source>`.
 3. Confirm all five artifacts exist beside the source or in the requested
    output directory.
 4. Inspect light and dark output at actual size.

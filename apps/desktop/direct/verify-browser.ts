@@ -21,12 +21,12 @@ import {
   readDirectBrowserContract,
   type DirectBrowserContract,
 } from "./browser-verification";
-import { transmuteDirect, transmuteScenarioCatalog } from "./scenarios";
+import { atetDirect, atetScenarioCatalog } from "./scenarios";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:5174";
-const TRANSMUTE_DIRECT_DOCUMENT_MARKERS = Object.freeze([
-  'data-transmute-surface="product"',
-  "<title>Transmute Direct</title>",
+const ATET_DIRECT_DOCUMENT_MARKERS = Object.freeze([
+  'data-atet-surface="product"',
+  "<title>Atet Direct</title>",
 ]);
 const LOG_LIMIT = 12_000;
 const SERVER_PROBE_TIMEOUT_MS = 1_500;
@@ -39,7 +39,7 @@ const STABLE_PROBE_EXPRESSION = `(() => {
     && snapshot.activity.active === 0
     && Object.values(snapshot.pending).every((value) => value === 0);
   if (!quiet) {
-    window.__transmuteDirectVerifierQuiet = undefined;
+    window.__atetDirectVerifierQuiet = undefined;
     return false;
   }
   const key = [
@@ -52,9 +52,9 @@ const STABLE_PROBE_EXPRESSION = `(() => {
     JSON.stringify(snapshot.violations),
     JSON.stringify(snapshot.remainingWork),
   ].join(":");
-  const previous = window.__transmuteDirectVerifierQuiet;
+  const previous = window.__atetDirectVerifierQuiet;
   if (previous?.key !== key) {
-    window.__transmuteDirectVerifierQuiet = { key, since: Date.now() };
+    window.__atetDirectVerifierQuiet = { key, since: Date.now() };
     return false;
   }
   return Date.now() - previous.since >= 150;
@@ -142,7 +142,7 @@ interface ScenarioVerification {
 const scenarios = [
   {
     action: "start",
-    expectedText: ["Ready to record", "Start recording", "artifacts/transmute/recordings/"],
+    expectedText: ["Ready to record", "Start recording", "artifacts/atet/recordings/"],
     id: "idle-ready",
     viewport: { height: 720, width: 480 },
   },
@@ -155,8 +155,8 @@ const scenarios = [
   {
     action: "lifecycle",
     expectedText: [
-      "Built-in display · Transmute Display",
-      "Mac system audio · Transmute microphone",
+      "Built-in display · Atet Display",
+      "Mac system audio · Atet microphone",
       "FaceTime HD Camera",
       "freeze",
       "silence",
@@ -171,7 +171,7 @@ const scenarios = [
   },
   {
     action: "none",
-    expectedText: ["2 displays", "Built-in display · Transmute Display", "window", "zoom"],
+    expectedText: ["2 displays", "Built-in display · Atet Display", "window", "zoom"],
     id: "multiple-displays",
     viewport: { height: 720, width: 480 },
   },
@@ -194,7 +194,7 @@ const scenarios = [
   },
   {
     action: "none",
-    expectedText: ["Recording saved", "artifacts/transmute/recordings/rec_demo0001", "00:42"],
+    expectedText: ["Recording saved", "artifacts/atet/recordings/rec_demo0001", "00:42"],
     id: "stop-finalized",
     viewport: { height: 720, width: 480 },
   },
@@ -267,12 +267,12 @@ const scenarios = [
       "Exact-node replay completed",
       "Exact recovery grant",
       "one-attempt",
-      "transmute runs resume run_direct_workflow --replay-ambiguous-code curate",
+      "atet runs resume run_direct_workflow --replay-ambiguous-code curate",
       "Durable run files",
       "exact graph and output digests",
-      "artifacts/transmute/private/workflow-runs/run_direct_workflow/graph-plan.json",
-      "artifacts/transmute/private/workflow-runs/run_direct_workflow/summary.json",
-      "artifacts/transmute/private/workflow-runs/run_direct_workflow/outputs.json",
+      "artifacts/atet/private/workflow-runs/run_direct_workflow/graph-plan.json",
+      "artifacts/atet/private/workflow-runs/run_direct_workflow/summary.json",
+      "artifacts/atet/private/workflow-runs/run_direct_workflow/outputs.json",
     ],
     id: "code-mode-workflow",
     viewport: { height: 900, width: 1_120 },
@@ -294,7 +294,7 @@ const scenarios = [
   },
 ] as const satisfies readonly BrowserScenario[];
 
-export const transmuteBrowserScenarioIds = Object.freeze(
+export const atetBrowserScenarioIds = Object.freeze(
   scenarios.map(({ id }) => id),
 );
 
@@ -475,7 +475,7 @@ function parseData<Value>(schema: z.ZodType<Value>, input: unknown, label: strin
 
 function createBrowser(repositoryRoot: string) {
   const binary = join(repositoryRoot, "apps/desktop/node_modules/.bin/agent-browser");
-  const session = `transmute-${String(process.pid)}-${randomUUID().slice(0, 6)}`;
+  const session = `atet-${String(process.pid)}-${randomUUID().slice(0, 6)}`;
   const environment = {
     ...process.env,
     AGENT_BROWSER_DEFAULT_TIMEOUT: "35000",
@@ -518,7 +518,7 @@ async function evaluate(browser: Browser, expression: string): Promise<unknown> 
 }
 
 async function joinStableProbe(browser: Browser): Promise<void> {
-  await evaluate(browser, "window.__transmuteDirectVerifierQuiet = undefined");
+  await evaluate(browser, "window.__atetDirectVerifierQuiet = undefined");
   await browser.run(["wait", "--fn", STABLE_PROBE_EXPRESSION]);
 }
 
@@ -567,13 +567,13 @@ async function readProbe(browser: Browser): Promise<ProbeSnapshot> {
     remainingWork: parseData(
       remainingWorkSchema,
       parsed.value.remainingWork,
-      "Transmute remaining work",
+      "Atet remaining work",
     ),
   });
 }
 
-export function parseTransmuteDefinitionCoverage(input: unknown) {
-  return parseDefinitionCoverageSnapshot(input, transmuteDirect);
+export function parseAtetDefinitionCoverage(input: unknown) {
+  return parseDefinitionCoverageSnapshot(input, atetDirect);
 }
 
 async function bodyText(browser: Browser): Promise<string> {
@@ -724,7 +724,7 @@ async function verifyScenario(options: {
   await browser.run(["network", "requests", "--clear"]);
   await browser.run(["open", url]);
   await waitForDirectBridge(browser, definition.id);
-  const authoredScenario = transmuteScenarioCatalog.resolve(definition.id);
+  const authoredScenario = atetScenarioCatalog.resolve(definition.id);
   if (!authoredScenario.ok) throw new Error(authoredScenario.error.message);
   const contract = await readDirectBrowserContract({
     evaluate: (expression) => evaluate(browser, expression),
@@ -821,11 +821,11 @@ async function verifyScenario(options: {
   };
 }
 
-export type TransmuteDirectServerProbe = "other" | "transmute" | "unreachable";
+export type AtetDirectServerProbe = "other" | "atet" | "unreachable";
 
-export async function probeTransmuteDirectServer(
+export async function probeAtetDirectServer(
   baseUrl: string,
-): Promise<TransmuteDirectServerProbe> {
+): Promise<AtetDirectServerProbe> {
   try {
     const response = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(SERVER_PROBE_TIMEOUT_MS) });
     if (!response.ok) {
@@ -833,8 +833,8 @@ export async function probeTransmuteDirectServer(
       return "other";
     }
     const document = await response.text();
-    return TRANSMUTE_DIRECT_DOCUMENT_MARKERS.every(marker => document.includes(marker))
-      ? "transmute"
+    return ATET_DIRECT_DOCUMENT_MARKERS.every(marker => document.includes(marker))
+      ? "atet"
       : "other";
   } catch {
     return "unreachable";
@@ -879,7 +879,7 @@ async function availableLocalBaseUrl(baseUrl: string): Promise<string> {
     }
   }
   throw new Error(
-    `Could not find a free local Transmute Direct port after ${String(startingPort)}.`,
+    `Could not find a free local Atet Direct port after ${String(startingPort)}.`,
   );
 }
 
@@ -928,14 +928,14 @@ async function acquireServer(
   repositoryRoot: string,
   requestedBaseUrl: string,
 ): Promise<AcquiredServer> {
-  const initialProbe = await probeTransmuteDirectServer(requestedBaseUrl);
+  const initialProbe = await probeAtetDirectServer(requestedBaseUrl);
   const canStartLocally = canAutomaticallyStartServer(requestedBaseUrl);
   if (!canStartLocally) {
-    if (initialProbe === "transmute") {
+    if (initialProbe === "atet") {
       return { baseUrl: requestedBaseUrl, server: null, source: "reused" };
     }
     const reason = initialProbe === "other"
-      ? "the reachable server is not Transmute Direct"
+      ? "the reachable server is not Atet Direct"
       : "no server is reachable";
     throw new Error(
       `${reason} at ${requestedBaseUrl}; automatic startup is local HTTP only.`,
@@ -949,7 +949,7 @@ async function acquireServer(
     const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
     while (Date.now() < deadline) {
       if (server.process.exitCode !== null) throw new Error(`Direct server exited: ${await server.output}`);
-      if (await probeTransmuteDirectServer(baseUrl) === "transmute") {
+      if (await probeAtetDirectServer(baseUrl) === "atet") {
         return { baseUrl, server, source: "started" };
       }
       await Bun.sleep(200);
@@ -973,7 +973,7 @@ async function writeManifest(path: string, value: unknown): Promise<void> {
 }
 
 async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<string> {
-  const artifactRoot = join(repositoryRoot, "artifacts/transmute/direct");
+  const artifactRoot = join(repositoryRoot, "artifacts/atet/direct");
   const generatedAt = new Date().toISOString();
   const runDirectory = join(artifactRoot, `${generatedAt.replaceAll(/[^0-9A-Za-z]/gu, "-")}-${String(process.pid)}`);
   await mkdir(runDirectory, { recursive: true });
@@ -997,7 +997,7 @@ async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<st
       evidence.push(verified.evidence);
       sessionManifests.push(verified.manifest);
     }
-    const parsedCoverage = parseTransmuteDefinitionCoverage(
+    const parsedCoverage = parseAtetDefinitionCoverage(
       bindDirectScenarioCatalog(sessionManifests),
     );
     if (!parsedCoverage.ok) {
@@ -1005,8 +1005,8 @@ async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<st
     }
     coverage = parsedCoverage.value.entries;
     const auditFailures = scenarioAuditFailures(
-      transmuteScenarioCatalog.list().map(({ id }) => id),
-      transmuteBrowserScenarioIds,
+      atetScenarioCatalog.list().map(({ id }) => id),
+      atetBrowserScenarioIds,
       evidence.map(({ id }) => id),
       coverage,
     );
@@ -1034,7 +1034,7 @@ async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<st
   if (failure !== null || cleanupFailures.length > 0) {
     throw new AggregateError(
       failure === null ? cleanupFailures : [failure, ...cleanupFailures],
-      `Transmute browser verification failed: ${renderUnknown(failure ?? cleanupFailures[0])}`,
+      `Atet browser verification failed: ${renderUnknown(failure ?? cleanupFailures[0])}`,
     );
   }
 
@@ -1051,7 +1051,7 @@ async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<st
       scenarios: entry.scenarios,
     })),
     generatedAt,
-    product: "transmute",
+    product: "atet",
     scenarios: evidence,
     server: acquiredServer.source,
   });
@@ -1063,7 +1063,7 @@ function usage(): string {
     "Usage: bun run direct/verify-browser.ts [--base-url URL]",
     "",
     `Default URL: ${DEFAULT_BASE_URL}`,
-    "Reuses a reachable server or starts and stops Transmute's isolated Vite lab.",
+    "Reuses a reachable server or starts and stops Atet's isolated Vite lab.",
   ].join("\n");
 }
 
@@ -1075,7 +1075,7 @@ async function main(): Promise<void> {
   }
   const repositoryRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
   const manifest = await run(repositoryRoot, arguments_.baseUrl);
-  console.log(`Transmute Direct browser verification passed. Manifest: ${manifest}`);
+  console.log(`Atet Direct browser verification passed. Manifest: ${manifest}`);
 }
 
 if (import.meta.main) await main();

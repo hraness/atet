@@ -4,11 +4,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   createFixedGatewayFetch,
-  generateTransmuteImage,
-  generateTransmuteImageFile,
-  transmuteGatewayApiBaseUrl,
-  transmuteGatewayCredentialStatus,
-  type TransmuteGenerateDependencies,
+  generateAtetImage,
+  generateAtetImageFile,
+  atetGatewayApiBaseUrl,
+  atetGatewayCredentialStatus,
+  type AtetGenerateDependencies,
 } from "./generate.ts"
 
 const webp = Uint8Array.from([
@@ -19,7 +19,7 @@ const webp = Uint8Array.from([
 function runtime(
   inspect?: (settings: Readonly<Record<string, unknown>>) => void,
   generationId = "gen_123",
-): NonNullable<TransmuteGenerateDependencies["loadRuntime"]> {
+): NonNullable<AtetGenerateDependencies["loadRuntime"]> {
   return async () => ({
     createGateway(settings) {
       inspect?.(settings)
@@ -39,7 +39,7 @@ function runtime(
 describe("Vercel AI Gateway image generation", () => {
   test("prefers the explicit Gateway key, never returns it, and requests zero retries", async () => {
     const seen: Readonly<Record<string, unknown>>[] = []
-    const result = await generateTransmuteImage(
+    const result = await generateAtetImage(
       { model: "openai/gpt-image-1.5", prompt: "one cobalt circle" },
       {
         environment: {
@@ -51,7 +51,7 @@ describe("Vercel AI Gateway image generation", () => {
     )
     expect(seen[0]).toMatchObject({
       apiKey: "gateway-key-value",
-      baseURL: transmuteGatewayApiBaseUrl,
+      baseURL: atetGatewayApiBaseUrl,
     })
     expect(seen[1]).toMatchObject({ maxRetries: 0, n: 1 })
     expect((globalThis as typeof globalThis & {
@@ -69,7 +69,7 @@ describe("Vercel AI Gateway image generation", () => {
 
   test("accepts Vercel OIDC from vercel env run without persisting it", async () => {
     let token = ""
-    await generateTransmuteImage(
+    await generateAtetImage(
       { model: "recraft/recraft-v4.1-utility", prompt: "metallic mark" },
       {
         environment: { VERCEL_OIDC_TOKEN: "oidc-test-token-0001" },
@@ -79,14 +79,14 @@ describe("Vercel AI Gateway image generation", () => {
       },
     )
     expect(token).toBe("oidc-test-token-0001")
-    expect(transmuteGatewayCredentialStatus({
+    expect(atetGatewayCredentialStatus({
       VERCEL_OIDC_TOKEN: "oidc-test-token-0001",
     })).toEqual({ available: true, source: "VERCEL_OIDC_TOKEN" })
   })
 
   test("fails before loading a provider when no environment credential exists", async () => {
     let loaded = false
-    await expect(generateTransmuteImage(
+    await expect(generateAtetImage(
       { model: "openai/gpt-image-1.5", prompt: "no credential" },
       {
         environment: {},
@@ -97,7 +97,7 @@ describe("Vercel AI Gateway image generation", () => {
       },
     )).rejects.toThrow("[AUTHENTICATION_REQUIRED]")
     expect(loaded).toBe(false)
-    expect(transmuteGatewayCredentialStatus({})).toEqual({
+    expect(atetGatewayCredentialStatus({})).toEqual({
       available: false,
       source: null,
     })
@@ -105,7 +105,7 @@ describe("Vercel AI Gateway image generation", () => {
 
   test("fails closed on an invalid explicit key instead of falling back to OIDC", async () => {
     let loaded = false
-    await expect(generateTransmuteImage(
+    await expect(generateAtetImage(
       { model: "openai/gpt-image-1.5", prompt: "invalid key" },
       {
         environment: {
@@ -118,7 +118,7 @@ describe("Vercel AI Gateway image generation", () => {
         },
       },
     )).rejects.toThrow("[AUTHENTICATION_REQUIRED]")
-    expect(() => transmuteGatewayCredentialStatus({
+    expect(() => atetGatewayCredentialStatus({
       AI_GATEWAY_API_KEY: " malformed key ",
       VERCEL_OIDC_TOKEN: "valid-oidc-token-value",
     })).toThrow("[AUTHENTICATION_REQUIRED]")
@@ -132,7 +132,7 @@ describe("Vercel AI Gateway image generation", () => {
     let createGatewayCalls = 0
     let generateImageCalls = 0
 
-    await expect(generateTransmuteImage(
+    await expect(generateAtetImage(
       {
         model: "openai/gpt-image-1.5",
         prompt: "cancel before loading",
@@ -161,10 +161,10 @@ describe("Vercel AI Gateway image generation", () => {
   })
 
   test("writes a validated image atomically and returns a content receipt", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-gateway-image-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-gateway-image-"))
     const outputPath = join(root, "generated.webp")
     try {
-      const result = await generateTransmuteImageFile(
+      const result = await generateAtetImageFile(
         {
           model: "openai/gpt-image-1.5",
           outputPath,
@@ -190,12 +190,12 @@ describe("Vercel AI Gateway image generation", () => {
   })
 
   test("refuses to replace an existing generated image", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-gateway-no-clobber-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-gateway-no-clobber-"))
     const outputPath = join(root, "generated.webp")
     const original = new TextEncoder().encode("caller-owned")
     try {
       await Bun.write(outputPath, original)
-      await expect(generateTransmuteImageFile(
+      await expect(generateAtetImageFile(
         {
           model: "openai/gpt-image-1.5",
           outputPath,
@@ -214,11 +214,11 @@ describe("Vercel AI Gateway image generation", () => {
   })
 
   test("allows exactly one concurrent writer to publish an output", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-gateway-race-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-gateway-race-"))
     const outputPath = join(root, "generated.webp")
     try {
       const results = await Promise.allSettled([1, 2].map(async index =>
-        await generateTransmuteImageFile(
+        await generateAtetImageFile(
           {
             model: "openai/gpt-image-1.5",
             outputPath,
@@ -239,7 +239,7 @@ describe("Vercel AI Gateway image generation", () => {
   })
 
   test("rejects invalid media bytes and a suffix that disagrees with the response", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-gateway-invalid-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-gateway-invalid-"))
     try {
       const invalidRuntime = async () => ({
         createGateway: () => ({ imageModel: (modelId: string) => modelId }),
@@ -250,7 +250,7 @@ describe("Vercel AI Gateway image generation", () => {
           }],
         }),
       })
-      await expect(generateTransmuteImageFile(
+      await expect(generateAtetImageFile(
         {
           model: "openai/gpt-image-1.5",
           outputPath: join(root, "invalid.webp"),
@@ -261,7 +261,7 @@ describe("Vercel AI Gateway image generation", () => {
           loadRuntime: invalidRuntime,
         },
       )).rejects.toThrow("[GENERATION_INVALID_RESPONSE]")
-      await expect(generateTransmuteImageFile(
+      await expect(generateAtetImageFile(
         {
           model: "openai/gpt-image-1.5",
           outputPath: join(root, "mismatch.png"),
@@ -289,13 +289,13 @@ describe("Vercel AI Gateway image generation", () => {
       },
       maximumResponseBytes: 16,
     })
-    await fixed(`${transmuteGatewayApiBaseUrl}/images`, { redirect: "follow" })
+    await fixed(`${atetGatewayApiBaseUrl}/images`, { redirect: "follow" })
     await expect(fixed("https://attacker.example/collect"))
       .rejects.toThrow("[GENERATION_FAILED]")
     await expect(fixed("https://ai-gateway.vercel.sh/v4/other"))
       .rejects.toThrow("[GENERATION_FAILED]")
     expect(calls).toBe(1)
-    expect(forwarded).toEqual([`${transmuteGatewayApiBaseUrl}/images`])
+    expect(forwarded).toEqual([`${atetGatewayApiBaseUrl}/images`])
   })
 
   test("forwards only the canonical URL that passed Gateway validation", async () => {
@@ -305,7 +305,7 @@ describe("Vercel AI Gateway image generation", () => {
       toString() {
         coercions += 1
         return coercions === 1
-          ? `${transmuteGatewayApiBaseUrl}/images`
+          ? `${atetGatewayApiBaseUrl}/images`
           : "https://attacker.example/collect"
       },
     }
@@ -320,14 +320,14 @@ describe("Vercel AI Gateway image generation", () => {
     await fixed(mutableInput as unknown as string)
 
     expect(coercions).toBe(1)
-    expect(forwarded).toBe(`${transmuteGatewayApiBaseUrl}/images`)
+    expect(forwarded).toBe(`${atetGatewayApiBaseUrl}/images`)
   })
 
   test("does not retry or expose provider failure details", async () => {
     let calls = 0
     let caught: unknown
     try {
-      await generateTransmuteImage(
+      await generateAtetImage(
         { model: "openai/gpt-image-1.5", prompt: "no retry" },
         {
           environment: { AI_GATEWAY_API_KEY: "gateway-secret-value" },
@@ -353,7 +353,7 @@ describe("Vercel AI Gateway image generation", () => {
   test("settles at the hard deadline when the provider ignores its abort signal", async () => {
     let observedSignal: AbortSignal | undefined
     const startedAt = performance.now()
-    await expect(generateTransmuteImage(
+    await expect(generateAtetImage(
       {
         model: "openai/gpt-image-1.5",
         prompt: "bounded generation",
@@ -381,7 +381,7 @@ describe("Vercel AI Gateway image generation", () => {
     const dispatched = new Promise<void>(resolve => {
       markDispatched = resolve
     })
-    const generation = generateTransmuteImage(
+    const generation = generateAtetImage(
       {
         model: "openai/gpt-image-1.5",
         prompt: "cancelled generation",
@@ -413,7 +413,7 @@ describe("Vercel AI Gateway image generation", () => {
     const runtimeLoaded = new Promise<void>(resolve => {
       releaseRuntime = resolve
     })
-    const generation = generateTransmuteImage(
+    const generation = generateAtetImage(
       {
         model: "openai/gpt-image-1.5",
         prompt: "cancel before dispatch",

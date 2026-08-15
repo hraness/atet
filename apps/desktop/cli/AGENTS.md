@@ -1,7 +1,7 @@
-<!-- kb:context scopes/projects-transmute-apps-desktop-cli--76f717380019 -->
+<!-- kb:context scopes/projects-atet-apps-desktop-cli--76f717380019 -->
 # Contents
 
-- `main.ts` and command modules – the `transmute` executable across recording/project reads, diagrams, vectorization, ingest, analysis, edits, rendering, Gateway generation, assets, and diagnostics.
+- `main.ts` and command modules – the `atet` executable across recording/project reads, diagrams, vectorization, ingest, analysis, edits, rendering, Gateway generation, assets, and diagnostics.
 - `html-overlay-renderer.ts` – deterministic transparent rendering from a freshly verified, recursively immutable Chrome-runtime tree with declared routes, full execution-integrity evidence, and bounded lease-based orphan quarantine.
 - `portable-surface.ts` – routing to the canonical headless diagram/file-image parser plus non-overwriting HTML scaffolds and the project image-generation alias.
 - `build-compiled.ts`, `compiled-bootstrap.ts`, and `native-media-runtime.macos.ts` – the copied-binary-tested macOS CLI build, private native-asset bootstrap, and exact embedded Sharp/libvips bridge.
@@ -24,5 +24,5 @@
 - Require `--allow-cloud-upload` for image/video and `--allow-cloud-audio-upload` for transcription. Each local input is one physical non-symlink file within bounds; never enumerate siblings. Public references require catalog permission and credential-free HTTPS with no fragments, local/private targets, or unsafe redirects.
 - Validate live model kind and inputs before paid dispatch. Forward bounded settings/options exactly but reject `gateway.models` and duplicate sample counts. Persist option digest/namespaces only. Set `maxRetries` to zero, publish a pre-dispatch receipt, and never automatically resubmit ambiguity.
 - Publish outputs below the ignored generated root with hashes, lengths, catalog/model revision, settings, input digests, warnings, fulfillment counts, and next commands. Bound downloads, redirects, media types, and no-replace publication. Preserve paid bytes that fail decode but emit no import command.
-- Build FFmpeg effects only from typed presets with digest-pinned inputs and fresh outputs; reverify after render. Surface output-without-receipt orphans as conflicts. Import scene contracts and provider-neutral types from `@hraness/transmute/scene`, never CLI-local copies.
+- Build FFmpeg effects only from typed presets with digest-pinned inputs and fresh outputs; reverify after render. Surface output-without-receipt orphans as conflicts. Import scene contracts and provider-neutral types from `@hraness/atet/scene`, never CLI-local copies.
 - Route in-process CLI tests through `run-cli-test-helper.ts`. Give mutation-lock concurrency cases distinct profiles per invocation; machine-global admission behavior belongs in dedicated host-resource tests.

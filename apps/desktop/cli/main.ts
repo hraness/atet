@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { parseCliArgs } from "./args";
 import { runCli } from "./commands";
 import { asCliError, CliError, EXIT_CODE } from "./errors";
@@ -11,6 +11,7 @@ import {
   runPortableSurface,
 } from "./portable-surface";
 import { RecordingDaemonClient, runRecordingDaemon } from "./recording-daemon";
+import { renamedEnvironmentValue } from "./renamed-environment";
 
 function valueAfter(argv: readonly string[], name: string): string {
   const index = argv.indexOf(name);
@@ -72,8 +73,8 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     return await runCli(unifiedArgv, { io: processIo });
   }
   const paths = await resolveRepositoryPaths(processIo.cwd(), processIo.env);
-  const helperExecutable = processIo.env.TRANSMUTE_CAPTURE_HELPER
-    ?? join(paths.desktopRoot, "capture", "dist", "transmute-capture");
+  const helperExecutable = renamedEnvironmentValue(processIo.env, "ATET_CAPTURE_HELPER")
+    ?? join(paths.desktopRoot, "capture", "dist", "atet-capture");
   const recordingController = new RecordingDaemonClient({
     artifactRoot: paths.artifactRoot,
     daemonCommand: daemonCommand(),
@@ -87,12 +88,33 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   });
 }
 
+export function isLegacyTransmuteInvocation(
+  candidates: readonly string[] = [process.argv[0] ?? "", process.argv[1] ?? "", process.execPath],
+): boolean {
+  return candidates.some((candidate) => basename(candidate).replace(/\.exe$/iu, "") === "transmute");
+}
+
+export function writeLegacyTransmuteInvocationWarning(
+  candidates: readonly string[],
+  write: (message: string) => void,
+): boolean {
+  if (!isLegacyTransmuteInvocation(candidates)) return false;
+  write("transmute is deprecated; use atet.\n");
+  return true;
+}
+
 export async function runMainEntrypoint(): Promise<void> {
+  if (process.argv[2] !== "__record_daemon") {
+    writeLegacyTransmuteInvocationWarning(
+      [process.argv[0] ?? "", process.argv[1] ?? "", process.execPath],
+      message => process.stderr.write(message),
+    );
+  }
   try {
     process.exitCode = await main();
   } catch (error) {
     const failure = asCliError(error);
-    process.stderr.write(`transmute: ${failure.message}\n`);
+    process.stderr.write(`atet: ${failure.message}\n`);
     process.exitCode = EXIT_CODE[failure.code];
   }
 }

@@ -7,7 +7,7 @@ export function assertAppleSiliconMacosCompiledCliHost(
 ): void {
   if (platform !== "darwin" || architecture !== "arm64") {
     throw new Error(
-      `The copied Transmute CLI is an Apple Silicon macOS artifact; received ${platform}/${architecture}.`,
+      `The copied Atet CLI is an Apple Silicon macOS artifact; received ${platform}/${architecture}.`,
     );
   }
 }
@@ -23,7 +23,7 @@ if (import.meta.main) {
     "sharp-darwin-arm64-0.35.3.node",
   );
   const result = await Bun.build({
-    compile: { outfile: resolve(import.meta.dir, "..", "dist", "transmute") },
+    compile: { outfile: resolve(import.meta.dir, "..", "dist", "atet") },
     entrypoints: [resolve(import.meta.dir, "compiled-bootstrap.ts")],
     minify: true,
     naming: { asset: "[name].[ext]" },
@@ -32,10 +32,10 @@ if (import.meta.main) {
       setup(build) {
         build.onResolve(
           { filter: /^@img\/sharp-darwin-arm64\/sharp\.node$/u },
-          () => ({ namespace: "transmute-native", path: "sharp.node" }),
+          () => ({ namespace: "atet-native", path: "sharp.node" }),
         );
         build.onLoad(
-          { filter: /^sharp\.node$/u, namespace: "transmute-native" },
+          { filter: /^sharp\.node$/u, namespace: "atet-native" },
           () => ({
             contents: `module.exports = require(${JSON.stringify(sharpAddon)});`,
             loader: "js",
@@ -54,7 +54,7 @@ if (import.meta.main) {
             return {
               contents: source.replace(
                 declaration,
-                'let sharp = globalThis[Symbol.for("transmute.sharp-darwin-arm64-addon/v1")];',
+                'let sharp = globalThis[Symbol.for("atet.sharp-darwin-arm64-addon/v1")];',
               ),
               loader: "js",
             };

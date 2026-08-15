@@ -306,7 +306,7 @@ describe("recording control serialization", () => {
 test.skipIf(process.platform === "win32")(
   "a fragmented socket request is dispatched once even when another line follows",
   async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "transmute-control-test-"));
+    const temporary = await mkdtemp(join(tmpdir(), "atet-control-test-"));
     const socketPath = join(temporary, "control.sock");
     let dispatchCount = 0;
     const dispatch = (request: ControlRequest): Promise<ControlResponse> => {
@@ -355,7 +355,7 @@ test.skipIf(process.platform === "win32")(
   "serializes a bounded fallback before claiming an oversized response",
   async () => {
     const temporary = await mkdtemp(
-      join(tmpdir(), "transmute-control-response-fallback-test-"),
+      join(tmpdir(), "atet-control-response-fallback-test-"),
     );
     const socketPath = join(temporary, "control.sock");
     const server = createServer((socket) =>
@@ -416,7 +416,7 @@ test.skipIf(process.platform === "win32")(
 test.skipIf(process.platform === "win32")(
   "preserves process and focus scoping across the recording daemon boundary",
   async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "transmute-control-scope-test-"));
+    const temporary = await mkdtemp(join(tmpdir(), "atet-control-scope-test-"));
     const socketPath = join(temporary, "control.sock");
     const focusIdentity = {
       fieldId: "public-field",
@@ -507,7 +507,7 @@ test.skipIf(process.platform === "win32")(
 test.skipIf(process.platform === "win32")(
   "preserves non-reusable recovery disposition across the daemon client boundary",
   async () => {
-    const artifactRoot = await mkdtemp(join(tmpdir(), "transmute-control-recovery-test-"));
+    const artifactRoot = await mkdtemp(join(tmpdir(), "atet-control-recovery-test-"));
     const socketPath = join(artifactRoot, ".recording-control.sock");
     const server = createServer((socket) =>
       handleRecordingControlSocket(
@@ -633,7 +633,7 @@ for (const [name, messageBytes, poisonDetails] of [
     `bounds ${name} native failures without losing recovery or admitting a queued start`,
     async () => {
       const artifactRoot = await mkdtemp(
-        join(tmpdir(), "transmute-control-bounded-recovery-test-"),
+        join(tmpdir(), "atet-control-bounded-recovery-test-"),
       );
       const socketPath = join(artifactRoot, ".recording-control.sock");
       const controller = new GatedRecoveryFailureController(
@@ -724,7 +724,7 @@ for (const [name, messageBytes, poisonDetails] of [
 test.skipIf(process.platform === "win32")(
   "recovers stale control state when a live PID has been reused but its socket is absent",
   async () => {
-    const artifactRoot = await mkdtemp(join(tmpdir(), "transmute-stale-control-test-"));
+    const artifactRoot = await mkdtemp(join(tmpdir(), "atet-stale-control-test-"));
     const now = new Date("2026-07-22T12:00:00.000Z");
     try {
       await writeFile(join(artifactRoot, ".recording-control.json"), `${JSON.stringify({

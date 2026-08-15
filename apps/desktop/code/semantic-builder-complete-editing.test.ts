@@ -119,9 +119,9 @@ describe("complete semantic edit transaction", () => {
       operation: { kind: "derive.edit-batch", version: 3 },
     });
     expect(batchNode?.inputSchemaId)
-      .toBe("studio.operation.derive.edit-batch.input/v3");
+      .toBe("atet.operation.derive.edit-batch.input/v3");
     expect(batchNode?.outputSchemaId)
-      .toBe("studio.operation.derive.edit-batch.output/v3");
+      .toBe("atet.operation.derive.edit-batch.output/v3");
     expect(batchNode?.dependencies).toEqual([
       "auto-zooms",
       "inactivity",
@@ -179,7 +179,7 @@ describe("complete semantic edit transaction", () => {
       operation: { kind: "project.commit-edits", version: 3 },
     });
     expect(commitNode?.inputSchemaId)
-      .toBe("studio.operation.project.commit-edits.input/v3");
+      .toBe("atet.operation.project.commit-edits.input/v3");
     expect(commitNode?.dependencies).toEqual(["complete-edits", "project"]);
     expect(
       plan.graph.nodes.filter(node => (
@@ -280,7 +280,7 @@ describe("complete semantic edit transaction", () => {
     expect(helpers[0]?.build(WorkflowBuilder.create(registry)).serialized)
       .toMatchObject({
         $ref: {
-          schemaId: "studio.operation.derive.edit-batch.output/v3",
+          schemaId: "atet.operation.derive.edit-batch.output/v3",
         },
       });
     expect(() => cameraPush({
@@ -375,7 +375,7 @@ describe("complete semantic edit transaction", () => {
       operation: { kind: "derive.edit-batch", version: 3 },
     });
     expect(nodes.get("manual-zoom")?.inputSchemaId)
-      .toBe("studio.operation.derive.edit-batch.input/v3");
+      .toBe("atet.operation.derive.edit-batch.input/v3");
     expect(nodes.get("manual-zoom")?.input).toMatchObject({
       ordered: [{
         kind: "add-manual-zooms",
@@ -389,7 +389,7 @@ describe("complete semantic edit transaction", () => {
       operation: { kind: "project.commit-edits", version: 3 },
     });
     expect(nodes.get("commit")?.inputSchemaId)
-      .toBe("studio.operation.project.commit-edits.input/v3");
+      .toBe("atet.operation.project.commit-edits.input/v3");
     expect(nodes.get("commit")?.dependencies).toEqual([
       "manual-zoom",
       "project",

@@ -24,6 +24,7 @@ import {
   type ProjectCaptionOutput,
 } from "./project-captions";
 import { createDefaultProjectEditPlan } from "./project-plan";
+import { loadAnalysisArtifact } from "./storage";
 import { buildProjectOutputTimeMap } from "./project-time";
 
 const NOW = "2026-07-31T12:00:00.000Z";
@@ -71,7 +72,7 @@ function captionFixture(options: CaptionFixtureOptions): {
       codec: "pcm_s16le",
       container: "wav",
       fileRange: { endUs: options.durationUs, startUs: 0 },
-      path: "artifacts/transmute/projects/project_caption0001/dialogue.wav",
+      path: "artifacts/atet/projects/project_caption0001/dialogue.wav",
       sha256: MEDIA_SHA256,
       streamIndex: 0,
     }],
@@ -87,7 +88,7 @@ function captionFixture(options: CaptionFixtureOptions): {
     createdAt: NOW,
     durationUs: options.durationUs,
     inputDigest: ANALYSIS_INPUT_SHA256,
-    kind: "transmute.speech-analysis",
+    kind: "atet.speech-analysis",
     result: options.noSpeech
       ? {
           detectedLanguage: "en",
@@ -139,7 +140,7 @@ function captionFixture(options: CaptionFixtureOptions): {
       createdAt: analysis.createdAt,
       fillerCount: analysis.result.status === "transcribed" ? analysis.result.fillers.length : 0,
       kind: "speech",
-      path: "artifacts/transmute/projects/project_caption0001/analysis/speech.json",
+      path: "artifacts/atet/projects/project_caption0001/analysis/speech.json",
       sha256: sha256Hex(`${canonicalJson(analysis)}\n`),
       streamId: analysis.subject.streamId,
       wordCount: analysis.result.status === "transcribed" ? analysis.result.words.length : 0,
@@ -160,7 +161,7 @@ function captionFixture(options: CaptionFixtureOptions): {
     }],
     createdAt: NOW,
     currentEditPlanPath: null,
-    kind: "transmute.video-project",
+    kind: "atet.video-project",
     name: "Caption test project",
     placements: [{
       assetId: "asset_caption0001",
@@ -220,6 +221,34 @@ function compile(fixture: ReturnType<typeof captionFixture>) {
 }
 
 describe("project caption timing", () => {
+  test("verifies and consumes a predecessor speech artifact without rewriting its hashed identity", async () => {
+    const fixture = captionFixture({
+      durationUs: 1_000_000,
+      words: [{ endUs: 500_000, startUs: 100_000, text: "Light" }],
+    });
+    const predecessor = SpeechAnalysisV1Schema.parse({
+      ...fixture.analysis,
+      kind: "transmute.speech-analysis",
+    });
+    const contents = `${canonicalJson(predecessor)}\n`;
+    const loaded = SpeechAnalysisV1Schema.parse(await loadAnalysisArtifact({
+      readText: async () => contents,
+      writeTextAtomic: async () => {
+        throw new Error("The immutable predecessor fixture must not be rewritten.");
+      },
+    }, "analysis/speech.json"));
+    const project = VideoProjectV1Schema.parse({
+      ...fixture.project,
+      analyses: fixture.project.analyses.map(reference => ({
+        ...reference,
+        sha256: sha256Hex(contents),
+      })),
+    });
+
+    expect(loaded.kind).toBe("transmute.speech-analysis");
+    expect(compile({ ...fixture, analysis: loaded, project })[0]?.lines).toEqual(["Light"]);
+  });
+
   test("maps words through a project cut and speed change", () => {
     const fixture = captionFixture({
       durationUs: 6_000_000,

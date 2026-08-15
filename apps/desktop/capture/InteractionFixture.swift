@@ -5,9 +5,9 @@ import Darwin
 import Foundation
 
 private let interactionFixtureProtocolVersion = 1
-private let interactionFixturePublicFieldIdPrefix = "transmute-fixture-public-"
-private let interactionFixtureSecureFieldId = "transmute-fixture-secure"
-private let interactionFixtureNeutralTargetId = "transmute-fixture-neutral"
+private let interactionFixturePublicFieldIdPrefix = "atet-fixture-public-"
+private let interactionFixtureSecureFieldId = "atet-fixture-secure"
+private let interactionFixtureNeutralTargetId = "atet-fixture-neutral"
 private let maximumInteractionFixtureCommands = 8
 private let fixtureFocusTimeoutSeconds = 3.0
 private let fixtureValueTimeoutSeconds = 2.0
@@ -202,7 +202,7 @@ private final class FixtureEmitter: @unchecked Sendable {
     }
 
     func diagnostic(_ message: String) {
-        let line = "transmute-capture fixture: \(bounded(message, maximumUTF8Bytes: 8_192))\n"
+        let line = "atet-capture fixture: \(bounded(message, maximumUTF8Bytes: 8_192))\n"
         try? FileHandle.standardError.write(contentsOf: Data(line.utf8))
     }
 }
@@ -258,7 +258,7 @@ private final class InteractionFixtureRuntime {
         self.fixtureId = fixtureId
         emitter = FixtureEmitter(fixtureId: fixtureId)
         publicFieldId = "\(interactionFixturePublicFieldIdPrefix)\(fixtureId)"
-        windowTitle = "Transmute Interaction Fixture · \(fixtureId)"
+        windowTitle = "Atet Interaction Fixture · \(fixtureId)"
     }
 
     func run() -> Int32 {
@@ -325,7 +325,7 @@ private final class InteractionFixtureRuntime {
         publicInput.setAccessibilityIdentifier(publicFieldId)
         publicInput.stringValue = ""
 
-        // Transmute must prove its own AX-secure redaction rather than depending
+        // Atet must prove its own AX-secure redaction rather than depending
         // on macOS Secure Event Input, which disables the event tap under
         // test. This ordinary field advertises the exact secure AX subrole,
         // accepts only the fixed "s" canary, renders it invisibly, and is

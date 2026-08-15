@@ -25,22 +25,25 @@ import {
 import { throwIfAborted } from "../shared";
 
 /**
- * Increment this ABI whenever Transmute's project-render implementation can
+ * Increment this ABI whenever Atet's project-render implementation can
  * change encoded output without changing the render plan or encoder recipe.
  */
-export const TRANSMUTE_PROJECT_RENDERER_ABI =
-  "transmute-project-renderer-abi-v1" as const;
+export const ATET_PROJECT_RENDERER_ABI =
+  "atet-project-renderer-abi-v1" as const;
 
 export const CandidateProjectRendererAbiSchema = z.string()
   .min(1)
   .max(80)
-  .regex(/^transmute-project-renderer-abi-v[1-9][0-9]*$/u);
+  .regex(/^atet-project-renderer-abi-v[1-9][0-9]*$/u);
 
 const CandidateRenderDerivationBodyV1Schema = z.strictObject({
   binding: ProjectRenderToolchainSchema,
   candidateRevision: CreativeCandidateRevisionReferenceV1Schema,
   encoderRecipe: ProjectRenderEncoderRecipeSchema,
-  kind: z.literal("transmute.candidate-render-derivation"),
+  kind: z.union([
+    z.literal("atet.candidate-render-derivation"),
+    z.literal("transmute.candidate-render-derivation"),
+  ]),
   maximumBytes: ProjectRenderOutputRequestSchema.shape.maximumBytes,
   plan: ProjectRenderPlanReferenceSchema,
   rendererAbi: CandidateProjectRendererAbiSchema,
@@ -191,12 +194,12 @@ function validateCandidateRenderRelationships(
 export function assertCurrentCandidateProjectRendererAbi(
   rendererAbi: string,
 ): void {
-  if (rendererAbi !== TRANSMUTE_PROJECT_RENDERER_ABI) {
+  if (rendererAbi !== ATET_PROJECT_RENDERER_ABI) {
     throw new ApplicationError(
       "incompatible",
-      "Candidate renderer ABI differs from the current Transmute project renderer.",
+      "Candidate renderer ABI differs from the current Atet project renderer.",
       {
-        currentRendererAbi: TRANSMUTE_PROJECT_RENDERER_ABI,
+        currentRendererAbi: ATET_PROJECT_RENDERER_ABI,
         rendererAbi,
       },
     );
@@ -223,7 +226,7 @@ export function createCandidateRenderDerivationV1(
   const body = CandidateRenderDerivationBodyV1Schema.parse({
     ...exact,
     encoderRecipe,
-    kind: "transmute.candidate-render-derivation",
+    kind: "atet.candidate-render-derivation",
     schemaVersion: 1,
   });
   return CandidateRenderDerivationV1Schema.parse({
@@ -264,7 +267,7 @@ export function bindCandidateRenderOutputInput(
   const exact = BindCandidateRenderOutputInputSchema.parse({
     ...requested,
     binding,
-    rendererAbi: TRANSMUTE_PROJECT_RENDERER_ABI,
+    rendererAbi: ATET_PROJECT_RENDERER_ABI,
   });
   validateCandidateRenderRelationships(exact);
   return exact;
@@ -272,7 +275,7 @@ export function bindCandidateRenderOutputInput(
 
 export const bindCandidateRenderOutputOperationDefinition = {
   inputSchema: BindCandidateRenderOutputInputSchema,
-  inputSchemaId: "studio.operation.render.bind-candidate-output.input/v1",
+  inputSchemaId: "atet.operation.render.bind-candidate-output.input/v1",
   kind: "render.bind-candidate-output",
   lifecycle: {
     kind: "pure",
@@ -293,7 +296,7 @@ export const bindCandidateRenderOutputOperationDefinition = {
     },
   },
   outputSchema: CandidateProjectRenderInputSchema,
-  outputSchemaId: "studio.operation.render.bind-candidate-output.output/v1",
+  outputSchemaId: "atet.operation.render.bind-candidate-output.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,

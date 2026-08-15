@@ -33,12 +33,23 @@ import { typecheckWorkflowSnapshot } from "./source-typecheck";
 import { captureWorkerProcessStartIdentity } from "./worker-process-identity";
 
 export const WORKFLOW_ALLOWED_BARE_IMPORTS = Object.freeze([
+  "@hraness/atet/local/code",
+  "@hraness/atet/local/code/advanced",
+  "@hraness/atet/local/code/workflows",
+  "@hraness/atet/local/html-overlay",
   "@hraness/transmute/local/code",
   "@hraness/transmute/local/code/advanced",
   "@hraness/transmute/local/code/workflows",
   "@hraness/transmute/local/html-overlay",
   "zod",
 ]);
+
+const PREDECESSOR_BARE_IMPORT_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  "@hraness/transmute/local/code": "@hraness/atet/local/code",
+  "@hraness/transmute/local/code/advanced": "@hraness/atet/local/code/advanced",
+  "@hraness/transmute/local/code/workflows": "@hraness/atet/local/code/workflows",
+  "@hraness/transmute/local/html-overlay": "@hraness/atet/local/html-overlay",
+});
 
 const SOURCE_EXTENSIONS = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
@@ -76,7 +87,7 @@ if (!Number.isSafeInteger(maximumBundleBytes) || maximumBundleBytes < 1) {
   throw new Error("Workflow bundler output byte limit is invalid.");
 }
 const plugin = {
-  name: "transmute-workflow-allowlisted-imports",
+  name: "atet-workflow-allowlisted-imports",
   setup(build) {
     for (const [specifier, path] of Object.entries(request.aliases)) {
       const escaped = specifier.replace(/[|\\{}()[\]^$+*?.-]/g, "\\$&");
@@ -885,7 +896,10 @@ async function bareImportAliases(
   for (const specifier of imports) {
     if (specifier === "bun" || specifier.startsWith("node:")) continue;
     try {
-      const resolvedPath = await Bun.resolve(specifier, resolutionRoot);
+      const resolvedPath = await Bun.resolve(
+        PREDECESSOR_BARE_IMPORT_ALIASES[specifier] ?? specifier,
+        resolutionRoot,
+      );
       aliases[specifier] = resolvedPath;
     } catch (error) {
       throw new ApplicationError(
@@ -953,7 +967,7 @@ async function buildWorkflowBundle(
   // The runtime identity records this Bun, so bundling must not silently
   // switch to a different PATH-resolved executable.
   const bunExecutable = process.execPath;
-  const directory = await mkdtemp(join(tmpdir(), "transmute-workflow-bundle-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-workflow-bundle-"));
   await chmod(directory, 0o700);
   const requestPath = join(directory, "request.json");
   const outputPath = join(directory, "workflow.bundle.js");
@@ -1436,8 +1450,8 @@ async function scanSourceGraph(options: {
     }
     for (const specifier of semanticImports) staticSpecifiers.add(specifier);
     for (const specifier of staticSpecifiers) {
-      if (specifier.includes("@hraness/transmute/local/code/testing")) {
-        throw new ApplicationError("unsupported-plan", "Production workflows cannot import @hraness/transmute/local/code/testing.");
+      if (specifier.includes("@hraness/atet/local/code/testing")) {
+        throw new ApplicationError("unsupported-plan", "Production workflows cannot import @hraness/atet/local/code/testing.");
       }
       if (!specifier.startsWith(".") && !isAbsolute(specifier)) {
         if (!allowedBareImport(specifier, options.allowedBareImports)) {

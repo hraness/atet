@@ -64,7 +64,7 @@ const focus = RecordingEventV1Schema.parse({
 
 describe("project automatic zoom operation", () => {
   test("binds immutable recording and sync identities before mapping metadata", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-auto-zoom-operation-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-auto-zoom-operation-"));
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);
       const manifest = testManifest();
@@ -91,7 +91,7 @@ describe("project automatic zoom operation", () => {
       const recordingDirectory = join(
         repositoryRoot,
         "artifacts",
-        "transmute",
+        "atet",
         "recordings",
         manifest.recordingId,
       );

@@ -249,7 +249,7 @@ final class CaptureDisplayInterruptionMonitor: @unchecked Sendable {
             captureActiveDisplayIdentifiers()
         },
         queue: DispatchQueue = DispatchQueue(
-            label: "com.hraness.transmute.capture.display-interruptions",
+            label: "com.hraness.atet.capture.display-interruptions",
             qos: .userInitiated
         )
     ) {

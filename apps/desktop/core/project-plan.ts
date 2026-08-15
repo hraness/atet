@@ -240,7 +240,7 @@ export function createDefaultProjectEditPlan(
       typedText: { enabled: false },
     },
     keep: [{ startUs: 0, endUs: project.timeline.durationUs }],
-    kind: "transmute.project-edit-plan",
+    kind: "atet.project-edit-plan",
     overlays: [],
     planId,
     projectId: project.projectId,

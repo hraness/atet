@@ -7,9 +7,9 @@ const runtime_host = @import("runtime_host.zig");
 
 pub const panic = std.debug.FullPanic(native_sdk.debug.capturePanic);
 
-const app_slug = "transmute";
-const display_name = "Transmute";
-const bundle_id = "com.hraness.transmute";
+const app_slug = "atet";
+const display_name = "Atet";
+const bundle_id = "com.hraness.atet";
 
 const App = struct {
     env_map: *std.process.Environ.Map,
@@ -73,8 +73,8 @@ pub fn main(init: std.process.Init) !void {
 }
 
 test "application identity is stable" {
-    try std.testing.expectEqualStrings("transmute", app_slug);
-    try std.testing.expectEqualStrings("Transmute", display_name);
-    try std.testing.expectEqualStrings("com.hraness.transmute", bundle_id);
+    try std.testing.expectEqualStrings("atet", app_slug);
+    try std.testing.expectEqualStrings("Atet", display_name);
+    try std.testing.expectEqualStrings("com.hraness.atet", bundle_id);
     try std.testing.expectEqualStrings("15.0", build_options.minimum_macos_version);
 }

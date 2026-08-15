@@ -514,7 +514,7 @@ test("capture harness rejects malformed source before platform discovery", async
 
 test("capture harness bounds output and kills a termination-ignoring descendant", async () => {
   if (process.platform !== "darwin") return;
-  const receiptDirectory = await mkdtemp(join(tmpdir(), "transmute-capture-descendant-receipt-"));
+  const receiptDirectory = await mkdtemp(join(tmpdir(), "atet-capture-descendant-receipt-"));
   const pidReceiptPath = join(receiptDirectory, "descendant.pid");
   let descendantProcessIdentifier: number | undefined;
   const startedAt = performance.now();
@@ -540,7 +540,7 @@ test("capture harness bounds output and kills a termination-ignoring descendant"
 
 test("capture harness cleans descendants after a successful parent exit", async () => {
   if (process.platform !== "darwin") return;
-  const receiptDirectory = await mkdtemp(join(tmpdir(), "transmute-capture-success-receipt-"));
+  const receiptDirectory = await mkdtemp(join(tmpdir(), "atet-capture-success-receipt-"));
   const pidReceiptPath = join(receiptDirectory, "descendant.pid");
   let descendantProcessIdentifier: number | undefined;
   try {

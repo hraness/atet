@@ -5,18 +5,18 @@ import {
   externalOrFailedRequests,
   normalizeBaseUrl,
   parseArguments,
-  parseTransmuteDefinitionCoverage,
-  probeTransmuteDirectServer,
+  parseAtetDefinitionCoverage,
+  probeAtetDirectServer,
   responsiveLayoutFailures,
   scenarioAuditFailures,
-  transmuteBrowserScenarioIds,
+  atetBrowserScenarioIds,
   visibleTextContains,
   waitForDirectBridge,
 } from "./verify-browser";
-import { transmuteScenarioCatalog } from "./scenarios";
-import { createTransmuteDirectSession } from "./session";
+import { atetScenarioCatalog } from "./scenarios";
+import { createAtetDirectSession } from "./session";
 
-describe("Transmute browser verifier", () => {
+describe("Atet browser verifier", () => {
   test("parses a safe local base URL and rejects authority/path tricks", () => {
     expect(parseArguments([])).toEqual({ baseUrl: "http://127.0.0.1:5174", kind: "run" });
     expect(parseArguments(["--base-url", "http://localhost:6000"])).toEqual({
@@ -30,12 +30,12 @@ describe("Transmute browser verifier", () => {
     expect(canAutomaticallyStartServer("https://example.com")).toBe(false);
   });
 
-  test("distinguishes Transmute Direct from another reachable local workbench", async () => {
-    const transmute = Bun.serve({
+  test("distinguishes Atet Direct from another reachable local workbench", async () => {
+    const atet = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
       fetch: () => new Response(
-        '<html data-transmute-surface="product"><head><title>Transmute Direct</title></head></html>',
+        '<html data-atet-surface="product"><head><title>Atet Direct</title></head></html>',
       ),
     });
     const other = Bun.serve({
@@ -46,12 +46,12 @@ describe("Transmute browser verifier", () => {
       ),
     });
     try {
-      expect(await probeTransmuteDirectServer(`http://127.0.0.1:${String(transmute.port)}`))
-        .toBe("transmute");
-      expect(await probeTransmuteDirectServer(`http://127.0.0.1:${String(other.port)}`))
+      expect(await probeAtetDirectServer(`http://127.0.0.1:${String(atet.port)}`))
+        .toBe("atet");
+      expect(await probeAtetDirectServer(`http://127.0.0.1:${String(other.port)}`))
         .toBe("other");
     } finally {
-      await Promise.all([transmute.stop(true), other.stop(true)]);
+      await Promise.all([atet.stop(true), other.stop(true)]);
     }
   });
 
@@ -124,8 +124,8 @@ describe("Transmute browser verifier", () => {
     ]);
   });
 
-  test("defines browser evidence for every authored Transmute scenario", () => {
-    const created = createTransmuteDirectSession({
+  test("defines browser evidence for every authored Atet scenario", () => {
+    const created = createAtetDirectSession({
       kind: "scenario",
       scenario: "idle-ready",
     });
@@ -133,20 +133,20 @@ describe("Transmute browser verifier", () => {
     const session = created.value;
 
     expect(scenarioAuditFailures(
-      transmuteScenarioCatalog.list().map(({ id }) => id),
-      transmuteBrowserScenarioIds,
-      transmuteBrowserScenarioIds,
+      atetScenarioCatalog.list().map(({ id }) => id),
+      atetBrowserScenarioIds,
+      atetBrowserScenarioIds,
       session.coverage.entries,
     )).toEqual([]);
     session.dispose();
   });
 
-  test("rejects valid coverage that drifted from the authored Transmute definition", () => {
-    const created = createTransmuteDirectSession({ kind: "scenario", scenario: "idle-ready" });
+  test("rejects valid coverage that drifted from the authored Atet definition", () => {
+    const created = createAtetDirectSession({ kind: "scenario", scenario: "idle-ready" });
     if (!created.ok) throw new Error(created.error.message);
     const session = created.value;
     const first = session.coverage.entries[0];
-    if (first === undefined) throw new Error("Transmute coverage is empty.");
+    if (first === undefined) throw new Error("Atet coverage is empty.");
     const driftedCoverage: readonly unknown[] = [
       {
         ...session.coverage,
@@ -159,12 +159,12 @@ describe("Transmute browser verifier", () => {
       { ...session.coverage, entries: session.coverage.entries.slice(1) },
     ];
 
-    expect(parseTransmuteDefinitionCoverage(session.coverage)).toEqual({
+    expect(parseAtetDefinitionCoverage(session.coverage)).toEqual({
       ok: true,
       value: session.coverage,
     });
     for (const drifted of driftedCoverage) {
-      expect(parseTransmuteDefinitionCoverage(drifted)).toMatchObject({
+      expect(parseAtetDefinitionCoverage(drifted)).toMatchObject({
         ok: false,
         error: { code: "coverage-mismatch" },
       });

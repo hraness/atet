@@ -18,7 +18,7 @@ export const ChapteredDemoInputSchema = z.strictObject({
 export const chapteredDemo = defineWorkflow({
   id: "chaptered-demo",
   inputSchema: ChapteredDemoInputSchema,
-  inputSchemaId: "studio.workflow.chaptered-demo.input/v3",
+  inputSchemaId: "atet.workflow.chaptered-demo.input/v3",
   version: 3,
   build(workflow, input) {
     const snapshot = workflow.project.snapshot("project", input.project);

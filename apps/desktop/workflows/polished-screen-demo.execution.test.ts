@@ -146,7 +146,7 @@ const REAL_WORKFLOW_NOW = new Date("2026-07-23T16:00:00.000Z");
 const REAL_CAPTURE_OPTIONS = {
   camera: { kind: "disabled" },
   displays: { kind: "all" },
-  excludedBundleIdentifiers: ["com.hraness.transmute"],
+  excludedBundleIdentifiers: ["com.hraness.atet"],
   interactionEventProcessIdentifier: null,
   metadata: true,
   microphone: { kind: "disabled" },
@@ -391,7 +391,7 @@ function faceAnalysis(
       fixture: "polished-screen-demo",
       subject,
     }),
-    kind: "studio.face-analysis",
+    kind: "atet.face-analysis",
     privacy: {
       biometricIdentification: "not-performed",
       execution: "local-only",
@@ -425,7 +425,7 @@ function faceAnalysis(
     schemaVersion: 1,
     subject,
     tool: {
-      name: "transmute-face-analyzer",
+      name: "atet-face-analyzer",
       profile: "offline-boxes",
       version: "workflow-fixture",
     },
@@ -620,7 +620,7 @@ describe("polished screen demo durable execution", () => {
     const repositoryRoot = await mkdtemp(
       join(
         await realpath(tmpdir()),
-        "transmute-polished-demo-execution-",
+        "atet-polished-demo-execution-",
       ),
     );
     try {
@@ -847,7 +847,7 @@ describe("polished screen demo durable execution", () => {
       const repositoryRoot = await mkdtemp(
         join(
           await realpath(tmpdir()),
-          "transmute-polished-demo-real-media-",
+          "atet-polished-demo-real-media-",
         ),
       );
       const runner = new BunProcessRunner();
@@ -856,7 +856,7 @@ describe("polished screen demo durable execution", () => {
         const recordingRoot = join(
           repositoryRoot,
           "artifacts",
-          "transmute",
+          "atet",
           "recordings",
         );
         const recordingId = "rec_polishedreal01";
@@ -978,7 +978,7 @@ describe("polished screen demo durable execution", () => {
           helperVersion: CAPTURE_HELPER_VERSION,
           now: () => OPERATION_TEST_LATER,
           recordingId,
-          toolVersion: "transmute-golden-path",
+          toolVersion: "atet-golden-path",
           verifier: new CaptureMediaVerifier({
             ffprobe,
             runner,
@@ -1093,7 +1093,7 @@ describe("polished screen demo durable execution", () => {
           projectRoot: join(
             repositoryRoot,
             "artifacts",
-            "transmute",
+            "atet",
             "projects",
           ),
           recording,
@@ -1134,7 +1134,7 @@ describe("polished screen demo durable execution", () => {
           desktopRoot,
           {
             ...process.env,
-            TRANSMUTE_FACE_ANALYZER: faceAnalyzer.path,
+            ATET_FACE_ANALYZER: faceAnalyzer.path,
           },
         );
         for (const name of ["face-analyzer", "ffmpeg", "ffprobe"] as const) {
@@ -1170,7 +1170,7 @@ describe("polished screen demo durable execution", () => {
           runner,
         } satisfies ApplicationContext;
         const registry = createApplicationOperationRegistry({
-          toolVersion: "transmute-golden-path",
+          toolVersion: "atet-golden-path",
         });
         const workflow = builtInWorkflow("polished-screen-demo");
         if (workflow === undefined) {

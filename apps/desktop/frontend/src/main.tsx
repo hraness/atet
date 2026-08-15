@@ -6,10 +6,10 @@ import "./index.css";
 import { detectRuntimeBridge } from "./runtime-bridge";
 
 const root = document.querySelector<HTMLDivElement>("#root");
-if (root === null) throw new Error("Transmute root element is missing.");
+if (root === null) throw new Error("Atet root element is missing.");
 
-document.documentElement.setAttribute("data-transmute-surface", "product");
-document.body.setAttribute("data-transmute-surface", "product");
+document.documentElement.setAttribute("data-atet-surface", "product");
+document.body.setAttribute("data-atet-surface", "product");
 
 createRoot(root).render(
   <StrictMode>

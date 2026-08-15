@@ -1,15 +1,15 @@
 import {
-  PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
-  PORTABLE_TRANSMUTE_OPERATION_KINDS,
+  PORTABLE_ATET_OPERATION_CONTRACTS,
+  PORTABLE_ATET_OPERATION_KINDS,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
-  type PortableTransmuteOperationKind,
-} from "@hraness/transmute/code/advanced";
+  type PortableAtetOperationKind,
+} from "@hraness/atet/code/advanced";
 import {
-  executeTransmuteOperation,
-  executeTransmuteOperationWithLease,
-  parseTransmuteOperationInput,
-  type TransmuteOperationDependencies,
-} from "@hraness/transmute/operations";
+  executeAtetOperation,
+  executeAtetOperationWithLease,
+  parseAtetOperationInput,
+  type AtetOperationDependencies,
+} from "@hraness/atet/operations";
 import { createHash } from "node:crypto";
 import { constants, type BigIntStats, type Stats } from "node:fs";
 import {
@@ -47,38 +47,38 @@ import type {
   OperationExecutionContext,
   OperationLifecycle,
 } from "../operation";
-import { MAXIMUM_DIAGRAM_SOURCE_BYTES } from "./transmute-visuals";
+import { MAXIMUM_DIAGRAM_SOURCE_BYTES } from "./atet-visuals";
 import { bindRepositoryMedia } from "./media/shared";
 
 type PortableOperationContract =
-  typeof PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[PortableTransmuteOperationKind];
+  typeof PORTABLE_ATET_OPERATION_CONTRACTS[PortableAtetOperationKind];
 
 const portableOperationContracts = Object.freeze(
-  PORTABLE_TRANSMUTE_OPERATION_KINDS.map(
-    kind => PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[kind],
+  PORTABLE_ATET_OPERATION_KINDS.map(
+    kind => PORTABLE_ATET_OPERATION_CONTRACTS[kind],
   ),
 );
 
 const PORTABLE_OPERATION_COUNT = 4;
 
 type PortableExecutor = (
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   input: unknown,
-  dependencies?: TransmuteOperationDependencies,
+  dependencies?: AtetOperationDependencies,
 ) => Promise<unknown>;
 
 type PortableLeasedExecutor = (
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   input: unknown,
   lease: ApplicationHostResourceLease,
-  dependencies?: TransmuteOperationDependencies,
+  dependencies?: AtetOperationDependencies,
 ) => Promise<unknown>;
 
-export interface TransmutePortableOperationDependencies {
+export interface AtetPortableOperationDependencies {
   readonly execute?: PortableExecutor;
   readonly executeWithLease?: PortableLeasedExecutor;
   readonly parseInput?: (
-    kind: PortableTransmuteOperationKind,
+    kind: PortableAtetOperationKind,
     input: unknown,
   ) => unknown;
 }
@@ -133,7 +133,7 @@ function inputRecord(value: unknown): Readonly<Record<string, unknown>> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new ApplicationError(
       "invalid-data",
-      "Portable Transmute operation input must be an object.",
+      "Portable Atet operation input must be an object.",
     );
   }
   return value as Readonly<Record<string, unknown>>;
@@ -141,17 +141,17 @@ function inputRecord(value: unknown): Readonly<Record<string, unknown>> {
 
 function resolvePortableOperationPaths(
   repositoryRoot: string,
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   value: unknown,
 ): Readonly<Record<string, unknown>> {
   const input = inputRecord(value);
   switch (kind) {
-    case "transmute.diagram.check":
+    case "atet.diagram.check":
       return {
         ...input,
         path: resolvePortablePath(repositoryRoot, input.path, "path"),
       };
-    case "transmute.diagram.render":
+    case "atet.diagram.render":
       return {
         ...input,
         path: resolvePortablePath(repositoryRoot, input.path, "path"),
@@ -165,7 +165,7 @@ function resolvePortableOperationPaths(
               ),
             }),
       };
-    case "transmute.image.vectorize":
+    case "atet.image.vectorize":
       return {
         ...input,
         inputPath: resolvePortablePath(
@@ -179,7 +179,7 @@ function resolvePortableOperationPaths(
           "outputPath",
         ),
       };
-    case "transmute.image.generate":
+    case "atet.image.generate":
       return {
         ...input,
         outputPath: resolvePortablePath(
@@ -194,7 +194,7 @@ function resolvePortableOperationPaths(
 const PORTABLE_INPUT_SNAPSHOT_ROOT = "portable-operation-inputs/v1";
 const PORTABLE_OUTPUT_LEASE_ROOT = "portable-output-publication-leases";
 const MAXIMUM_VECTOR_SOURCE_BYTES =
-  PORTABLE_TRANSMUTE_OPERATION_CONTRACTS["transmute.image.vectorize"]
+  PORTABLE_ATET_OPERATION_CONTRACTS["atet.image.vectorize"]
     .policy.maxInputBytes;
 const portableOutputLeaseTails = new Map<string, Promise<void>>();
 
@@ -272,16 +272,16 @@ function noEntry(error: unknown): boolean {
 }
 
 function portableOutputTarget(
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   input: Readonly<Record<string, unknown>>,
 ): string | undefined {
-  if (kind === "transmute.diagram.render") {
+  if (kind === "atet.diagram.render") {
     if (typeof input.outDirectory === "string") return input.outDirectory;
     return typeof input.path === "string" ? dirname(input.path) : undefined;
   }
   if (
-    kind === "transmute.image.generate"
-    || kind === "transmute.image.vectorize"
+    kind === "atet.image.generate"
+    || kind === "atet.image.vectorize"
   ) {
     return typeof input.outputPath === "string" ? input.outputPath : undefined;
   }
@@ -340,7 +340,7 @@ async function canonicalPhysicalOutputTarget(
 }
 
 async function canonicalizePortableOutputTarget(
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   input: Readonly<Record<string, unknown>>,
   repositoryRoot?: string,
 ): Promise<Readonly<Record<string, unknown>>> {
@@ -348,7 +348,7 @@ async function canonicalizePortableOutputTarget(
   if (target === undefined) return input;
   const canonical = await canonicalPhysicalOutputTarget(
     target,
-    kind === "transmute.diagram.render",
+    kind === "atet.diagram.render",
   );
   if (
     repositoryRoot !== undefined
@@ -359,27 +359,27 @@ async function canonicalizePortableOutputTarget(
       "Repository-relative portable output resolved outside the physical repository root.",
     );
   }
-  return kind === "transmute.diagram.render"
+  return kind === "atet.diagram.render"
     ? { ...input, outDirectory: canonical }
     : { ...input, outputPath: canonical };
 }
 
 function portableOutputIsRepositoryRelative(
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   input: Readonly<Record<string, unknown>>,
 ): boolean {
   const target = portableOutputTarget(kind, input);
   return target !== undefined && !isAbsolute(target);
 }
 
-export function transmutePortableOutputPublicationParent(
-  kind: PortableTransmuteOperationKind,
+export function atetPortableOutputPublicationParent(
+  kind: PortableAtetOperationKind,
   inputValue: unknown,
 ): string | undefined {
   const input = inputRecord(inputValue);
   const target = portableOutputTarget(kind, input);
   if (target === undefined) return undefined;
-  const parent = kind === "transmute.diagram.render"
+  const parent = kind === "atet.diagram.render"
     ? target
     : dirname(target);
   return normalize(parent).normalize("NFC").toLowerCase();
@@ -410,7 +410,7 @@ async function portableOutputLeaseDirectory(
     PORTABLE_OUTPUT_LEASE_ROOT,
   );
   const key = sha256Hex(
-    `transmute.portable-output-publication-lease/v1\0${publicationParent}`,
+    `atet.portable-output-publication-lease/v1\0${publicationParent}`,
   );
   return await ensurePhysicalPrivateDirectoryWithin(leaseRoot, key);
 }
@@ -446,7 +446,7 @@ async function withPortableOutputPublicationLease<Value>(
   );
   return await withPortableOutputQueue(directory, async () =>
     await withMutationLock(directory, {
-      command: "workflow:transmute-portable",
+      command: "workflow:atet-portable",
       label: publicationParent.slice(0, 512),
       now: application.clock.now,
     }, execute));
@@ -615,14 +615,14 @@ async function snapshotPortableSource(
 
 async function assertPortableSnapshotIntegrity(
   application: ApplicationContext,
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   input: Readonly<Record<string, unknown>>,
   signal: AbortSignal,
 ): Promise<PortableSnapshotIdentity | undefined> {
-  const source = kind === "transmute.diagram.check"
-    || kind === "transmute.diagram.render"
+  const source = kind === "atet.diagram.check"
+    || kind === "atet.diagram.render"
     ? input.path
-    : kind === "transmute.image.vectorize"
+    : kind === "atet.image.vectorize"
       ? input.inputPath
       : undefined;
   if (typeof source !== "string") return undefined;
@@ -698,7 +698,7 @@ async function assertPortableSnapshotIntegrity(
     );
   }
 
-  const sourceKind = kind === "transmute.image.vectorize"
+  const sourceKind = kind === "atet.image.vectorize"
     ? "vector"
     : "diagram";
   const expectedSuffix = sourceKind === "diagram" ? ".diagram.json" : ".image";
@@ -807,7 +807,7 @@ async function hashOpenSnapshot(
 
 async function openPinnedPortableSnapshot(
   application: ApplicationContext,
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   input: Readonly<Record<string, unknown>>,
   signal: AbortSignal,
 ): Promise<PinnedPortableSnapshot | undefined> {
@@ -851,10 +851,10 @@ async function openPinnedPortableSnapshot(
       );
     }
     const descriptorPath = `/dev/fd/${String(handle.fd)}`;
-    const processPath = kind === "transmute.image.vectorize"
+    const processPath = kind === "atet.image.vectorize"
       ? "/dev/fd/3"
       : descriptorPath;
-    const pinnedInput = kind === "transmute.image.vectorize"
+    const pinnedInput = kind === "atet.image.vectorize"
       ? { ...input, inputPath: processPath }
       : { ...input, path: processPath };
     return {
@@ -890,12 +890,12 @@ async function openPinnedPortableSnapshot(
 }
 
 function restorePlannedDiagramSource(
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   output: unknown,
   plannedInput: Readonly<Record<string, unknown>>,
 ): unknown {
   if (
-    kind !== "transmute.diagram.render"
+    kind !== "atet.diagram.render"
     || typeof output !== "object"
     || output === null
     || Array.isArray(output)
@@ -919,13 +919,13 @@ function restorePlannedDiagramSource(
  * Resolves portable v2 paths and pins every mutable source to an immutable,
  * content-addressed private file before the scheduler hashes its exact input.
  */
-export async function bindTransmutePortableOperationInputV2(
+export async function bindAtetPortableOperationInputV2(
   application: ApplicationContext,
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   inputValue: unknown,
   signal: AbortSignal = new AbortController().signal,
 ): Promise<unknown> {
-  const contract = PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[kind];
+  const contract = PORTABLE_ATET_OPERATION_CONTRACTS[kind];
   const input = contract.inputSchema.parse(inputValue);
   const repositoryBoundOutput = portableOutputIsRepositoryRelative(
     kind,
@@ -941,7 +941,7 @@ export async function bindTransmutePortableOperationInputV2(
     repositoryBoundOutput ? application.paths.repositoryRoot : undefined,
   );
   switch (kind) {
-    case "transmute.diagram.check":
+    case "atet.diagram.check":
       return contract.inputSchema.parse({
         ...resolved,
         path: await snapshotPortableSource(
@@ -952,7 +952,7 @@ export async function bindTransmutePortableOperationInputV2(
           signal,
         ),
       });
-    case "transmute.diagram.render": {
+    case "atet.diagram.render": {
       const sourcePath = String(resolved.path);
       return contract.inputSchema.parse({
         ...resolved,
@@ -969,7 +969,7 @@ export async function bindTransmutePortableOperationInputV2(
         ),
       });
     }
-    case "transmute.image.vectorize":
+    case "atet.image.vectorize":
       return contract.inputSchema.parse({
         ...resolved,
         inputPath: await snapshotPortableSource(
@@ -980,7 +980,7 @@ export async function bindTransmutePortableOperationInputV2(
           signal,
         ),
       });
-    case "transmute.image.generate":
+    case "atet.image.generate":
       return contract.inputSchema.parse(resolved);
   }
 }
@@ -1009,9 +1009,9 @@ function hasImmutablePolicy(value: {
 }
 
 function assertPortableProjectionIntegrity(): void {
-  const contractKinds = Object.keys(PORTABLE_TRANSMUTE_OPERATION_CONTRACTS)
+  const contractKinds = Object.keys(PORTABLE_ATET_OPERATION_CONTRACTS)
     .sort((left, right) => left.localeCompare(right));
-  const portableKinds = [...PORTABLE_TRANSMUTE_OPERATION_KINDS]
+  const portableKinds = [...PORTABLE_ATET_OPERATION_KINDS]
     .sort((left, right) => left.localeCompare(right));
   const discoveries = portableOperationContracts
     .map(contractDiscovery)
@@ -1019,9 +1019,9 @@ function assertPortableProjectionIntegrity(): void {
       left.kind.localeCompare(right.kind) || left.version - right.version
     ));
   if (
-    PORTABLE_TRANSMUTE_OPERATION_KINDS.length !== PORTABLE_OPERATION_COUNT
+    PORTABLE_ATET_OPERATION_KINDS.length !== PORTABLE_OPERATION_COUNT
     || !isDeepStrictEqual(contractKinds, portableKinds)
-    || !Object.isFrozen(PORTABLE_TRANSMUTE_OPERATION_CONTRACTS)
+    || !Object.isFrozen(PORTABLE_ATET_OPERATION_CONTRACTS)
     || !Object.isFrozen(PUBLIC_WORKFLOW_REGISTRY_PROJECTION)
     || !Object.isFrozen(PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery)
     || portableOperationContracts.some(contract => (
@@ -1039,7 +1039,7 @@ function assertPortableProjectionIntegrity(): void {
   ) {
     throw new ApplicationError(
       "incompatible",
-      "The shared portable Transmute contracts drifted from their public workflow projection.",
+      "The shared portable Atet contracts drifted from their public workflow projection.",
     );
   }
 }
@@ -1048,7 +1048,7 @@ async function executePortableOperation(
   context: OperationExecutionContext,
   contract: PortableOperationContract,
   input: unknown,
-  dependencies: TransmutePortableOperationDependencies,
+  dependencies: AtetPortableOperationDependencies,
 ): Promise<unknown> {
   const schemaInput = contract.inputSchema.parse(input);
   const pathResolvedInput = resolvePortableOperationPaths(
@@ -1097,7 +1097,7 @@ async function executePortableOperation(
     );
     try {
       const executionInput = pinned?.input ?? resolvedInput;
-      const parsedInput = (dependencies.parseInput ?? parseTransmuteOperationInput)(
+      const parsedInput = (dependencies.parseInput ?? parseAtetOperationInput)(
         contract.kind,
         executionInput,
       );
@@ -1107,19 +1107,19 @@ async function executePortableOperation(
       ].filter((descriptor, index, descriptors) => (
         descriptors.indexOf(descriptor) === index
       ));
-      const executionDependencies: TransmuteOperationDependencies = {
+      const executionDependencies: AtetOperationDependencies = {
         signal: context.abortSignal,
         ...(inheritedFileDescriptors.length === 0
           ? {}
           : { inheritedFileDescriptors }),
       };
       const output = context.application.hostResourceLease === undefined
-        ? await (dependencies.execute ?? executeTransmuteOperation)(
+        ? await (dependencies.execute ?? executeAtetOperation)(
             contract.kind,
             parsedInput,
             executionDependencies,
           )
-        : await (dependencies.executeWithLease ?? executeTransmuteOperationWithLease)(
+        : await (dependencies.executeWithLease ?? executeAtetOperationWithLease)(
             contract.kind,
             parsedInput,
             context.application.hostResourceLease,
@@ -1135,7 +1135,7 @@ async function executePortableOperation(
       await pinned?.close();
     }
   };
-  const publicationParent = transmutePortableOutputPublicationParent(
+  const publicationParent = atetPortableOutputPublicationParent(
     contract.kind,
     resolvedInput,
   );
@@ -1150,7 +1150,7 @@ async function executePortableOperation(
 
 function createPortableLifecycle(
   contract: PortableOperationContract,
-  dependencies: TransmutePortableOperationDependencies,
+  dependencies: AtetPortableOperationDependencies,
 ): OperationLifecycle<unknown, unknown> {
   const execute = async (
     context: OperationExecutionContext,
@@ -1167,8 +1167,8 @@ function createPortableLifecycle(
   };
 }
 
-export function createTransmutePortableOperationDefinitions(
-  dependencies: TransmutePortableOperationDependencies = {},
+export function createAtetPortableOperationDefinitions(
+  dependencies: AtetPortableOperationDependencies = {},
 ): readonly OperationDefinition[] {
   assertPortableProjectionIntegrity();
   return Object.freeze(portableOperationContracts.map(contract => ({
@@ -1184,5 +1184,5 @@ export function createTransmutePortableOperationDefinitions(
   })));
 }
 
-export const transmutePortableOperationDefinitions =
-  createTransmutePortableOperationDefinitions();
+export const atetPortableOperationDefinitions =
+  createAtetPortableOperationDefinitions();

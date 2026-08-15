@@ -42,7 +42,10 @@ import {
   HtmlOverlayExecutionIntegritySchema,
   createHtmlOverlayExecutionBundle,
 } from "../../html-overlay-integrity";
-import type { OperationDefinition } from "../../operation";
+import {
+  ATET_APPLICATION_TOOL_VERSION,
+  type OperationDefinition,
+} from "../../operation";
 import { writeOperationCompletionCheckpoint } from "../../operation-completion-checkpoint";
 import { openLeasedProjectSnapshot } from "../../project-publication-lease";
 import { assertProjectGeneration } from "../../project-store";
@@ -133,14 +136,15 @@ export const HtmlOverlayReceiptSchema = z.strictObject({
   artifact: MediaArtifactReferenceSchema,
   browserVersion: z.string().min(1).max(512),
   createdAt: z.string().datetime({ offset: true }),
-  // Optional only so persisted v1 Transmute receipts remain readable after the
-  // product rename. Every new Transmute render publishes this evidence.
+  // Optional only so persisted v1 Atet receipts remain readable after the
+  // product rename. Every new Atet render publishes this evidence.
   executionIntegrity: HtmlOverlayExecutionIntegritySchema.optional(),
   exactInputSha256: Sha256Schema,
   ffmpegVersion: z.string().min(1).max(512),
   ffprobeVersion: z.string().min(1).max(512),
   frameCount: z.number().int().safe().positive(),
   kind: z.union([
+    z.literal("atet.html-overlay-preparation-receipt"),
     z.literal("transmute.html-overlay-preparation-receipt"),
     z.literal("studio.html-overlay-preparation-receipt"),
   ]),
@@ -415,10 +419,10 @@ export function createHtmlOverlayOperationDefinition(
   const probe = dependencies.probe ?? probeVisualMediaSummary;
   const bindBrowserRuntime = dependencies.bindBrowserRuntime
     ?? bindHtmlOverlayBrowserRuntime;
-  const toolVersion = dependencies.toolVersion ?? "transmute-1.0.0";
+  const toolVersion = dependencies.toolVersion ?? ATET_APPLICATION_TOOL_VERSION;
   return {
     inputSchema: HtmlOverlayInputSchema,
-    inputSchemaId: "studio.operation.media.html-overlay.input/v1",
+    inputSchemaId: "atet.operation.media.html-overlay.input/v1",
     kind: "media.html-overlay",
     lifecycle: {
       kind: "local-artifact",
@@ -444,7 +448,7 @@ export function createHtmlOverlayOperationDefinition(
         if (renderer === undefined) {
           throw new ApplicationError(
             "unavailable",
-            "This Transmute host does not provide an HTML-overlay browser renderer.",
+            "This Atet host does not provide an HTML-overlay browser renderer.",
           );
         }
         const snapshot = await openLeasedProjectSnapshot(
@@ -505,7 +509,7 @@ export function createHtmlOverlayOperationDefinition(
         const authoring = HtmlOverlayAuthoringInputSchema.parse({
           canvas: boundInput.canvas,
           html,
-          kind: "transmute.html-overlay",
+          kind: "atet.html-overlay",
           libraries: boundInput.libraries,
           parameters: boundInput.parameters,
           resources: resources.map(resource => ({
@@ -627,7 +631,7 @@ export function createHtmlOverlayOperationDefinition(
             snapshot.openProject.directory.path,
             {
               command: ffmpegCommand,
-              generator: "transmute-html-overlay",
+              generator: "atet-html-overlay",
               generatorVersion: toolVersion,
               path: outputPath,
               sourceSha256,
@@ -722,7 +726,7 @@ export function createHtmlOverlayOperationDefinition(
             ffmpegVersion: mediaCapabilityVersion(bindings, "ffmpeg"),
             ffprobeVersion: mediaCapabilityVersion(bindings, "ffprobe"),
             frameCount: rendered.frameCount,
-            kind: "transmute.html-overlay-preparation-receipt",
+            kind: "atet.html-overlay-preparation-receipt",
             libraryLocks,
             libraryLocksSha256: canonicalJsonSha256(libraryLocks),
             operationSha256: canonicalJsonSha256(operation),
@@ -743,9 +747,9 @@ export function createHtmlOverlayOperationDefinition(
             receipt,
           });
           await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId: "studio.operation.media.html-overlay.input/v1",
+            inputSchemaId: "atet.operation.media.html-overlay.input/v1",
             kind: "media.html-overlay",
-            outputSchemaId: "studio.operation.media.html-overlay.output/v1",
+            outputSchemaId: "atet.operation.media.html-overlay.output/v1",
             version: 1,
           }, output);
           return output;
@@ -756,7 +760,7 @@ export function createHtmlOverlayOperationDefinition(
       },
     },
     outputSchema: MediaOverlayOutputSchema,
-    outputSchemaId: "studio.operation.media.html-overlay.output/v1",
+    outputSchemaId: "atet.operation.media.html-overlay.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

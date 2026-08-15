@@ -23,4 +23,4 @@ export * from "./render/bind-candidate-output";
 export * from "./render/project-plan";
 export * from "./render/project";
 export * from "./render/materialize-selection";
-export * from "./transmute-visuals";
+export * from "./atet-visuals";

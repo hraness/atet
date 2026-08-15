@@ -30,18 +30,18 @@ function schemaWithReadonlyOutput<Output>(
   return schema as z.ZodType<Output>
 }
 
-export type TransmuteImageModel = string
+export type AtetImageModel = string
 
-export interface TransmuteDiagramCheckInput {
+export interface AtetDiagramCheckInput {
   readonly path: string
 }
 
-export interface TransmuteDiagramRenderInput extends TransmuteDiagramCheckInput {
+export interface AtetDiagramRenderInput extends AtetDiagramCheckInput {
   readonly outDirectory?: string
   readonly scale?: number
 }
 
-export interface TransmuteImageVectorizeInput {
+export interface AtetImageVectorizeInput {
   readonly alphaCutoff?: number
   readonly duotone?: readonly [string, string]
   readonly inputPath: string
@@ -49,24 +49,24 @@ export interface TransmuteImageVectorizeInput {
   readonly timeoutMs?: number
 }
 
-export interface TransmuteImageGenerateInput {
-  readonly model: TransmuteImageModel
+export interface AtetImageGenerateInput {
+  readonly model: AtetImageModel
   readonly outputPath: string
   readonly prompt: string
 }
 
-export interface TransmuteLintFinding {
+export interface AtetLintFinding {
   readonly code: string
   readonly message: string
   readonly shapeIds: readonly string[]
 }
 
-export interface TransmuteDiagramCheckOutput {
+export interface AtetDiagramCheckOutput {
   readonly configPath: null
-  readonly findings: readonly TransmuteLintFinding[]
+  readonly findings: readonly AtetLintFinding[]
 }
 
-export interface TransmuteRenderArtifacts {
+export interface AtetRenderArtifacts {
   readonly darkPng: string
   readonly darkSvg: string
   readonly lightPng: string
@@ -75,13 +75,13 @@ export interface TransmuteRenderArtifacts {
   readonly tldr: string
 }
 
-export interface TransmuteDiagramRenderOutput {
-  readonly artifacts: TransmuteRenderArtifacts
+export interface AtetDiagramRenderOutput {
+  readonly artifacts: AtetRenderArtifacts
   readonly configPath: null
-  readonly findings: readonly TransmuteLintFinding[]
+  readonly findings: readonly AtetLintFinding[]
 }
 
-export interface TransmuteVectorizeQualityReceipt {
+export interface AtetVectorizeQualityReceipt {
   readonly alphaRmse: number
   readonly colorRmse: number
   readonly outsideAlphaRatio: number
@@ -90,7 +90,7 @@ export interface TransmuteVectorizeQualityReceipt {
   readonly supportRecall: number
 }
 
-export interface TransmuteVectorizeProvenance {
+export interface AtetVectorizeProvenance {
   readonly arch: string
   readonly platform: string
   readonly sharp: string
@@ -101,7 +101,7 @@ export interface TransmuteVectorizeProvenance {
   readonly vtracerVersion: string
 }
 
-export interface TransmuteVectorizeReceipt {
+export interface AtetVectorizeReceipt {
   readonly alphaCutoff: number
   readonly bytes: number
   readonly candidatesEvaluated: number
@@ -111,8 +111,8 @@ export interface TransmuteVectorizeReceipt {
   readonly outputMode: "color" | "duotone"
   readonly pathCount: number
   readonly profile: "balanced" | "detailed" | "photo"
-  readonly provenance: TransmuteVectorizeProvenance
-  readonly quality: TransmuteVectorizeQualityReceipt
+  readonly provenance: AtetVectorizeProvenance
+  readonly quality: AtetVectorizeQualityReceipt
   readonly receiptVersion: 1
   readonly representation: "color-paths" | "alpha-mask"
   readonly sourceSha256: string
@@ -120,15 +120,15 @@ export interface TransmuteVectorizeReceipt {
   readonly width: number
 }
 
-export interface TransmuteImageVectorizeOutput {
+export interface AtetImageVectorizeOutput {
   readonly outputPath: string
-  readonly receipt: TransmuteVectorizeReceipt
+  readonly receipt: AtetVectorizeReceipt
 }
 
-export interface TransmuteImageGenerateOutput {
+export interface AtetImageGenerateOutput {
   readonly bytes: number
   readonly mediaType: "image/jpeg" | "image/png" | "image/webp"
-  readonly model: TransmuteImageModel
+  readonly model: AtetImageModel
   readonly outputPath: string
   readonly provider: "vercel-ai-gateway"
   readonly requestId: string
@@ -136,25 +136,25 @@ export interface TransmuteImageGenerateOutput {
   readonly warnings: readonly string[]
 }
 
-export const TransmuteImageModelSchema = z.string()
+export const AtetImageModelSchema = z.string()
   .min(3)
   .max(256)
-  .regex(/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/iu) satisfies z.ZodType<TransmuteImageModel>
+  .regex(/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/iu) satisfies z.ZodType<AtetImageModel>
 
-export const TransmuteDiagramCheckInputSchema = z.strictObject({
+export const AtetDiagramCheckInputSchema = z.strictObject({
   path: BoundedPathSchema,
-}) satisfies z.ZodType<TransmuteDiagramCheckInput>
+}) satisfies z.ZodType<AtetDiagramCheckInput>
 
-export const TransmuteDiagramRenderInputSchema = schemaWithReadonlyOutput<
-  TransmuteDiagramRenderInput
+export const AtetDiagramRenderInputSchema = schemaWithReadonlyOutput<
+  AtetDiagramRenderInput
 >(z.strictObject({
   outDirectory: BoundedPathSchema.optional(),
   path: BoundedPathSchema,
   scale: z.number().finite().positive().max(4).optional(),
 }))
 
-export const TransmuteImageVectorizeInputSchema = schemaWithReadonlyOutput<
-  TransmuteImageVectorizeInput
+export const AtetImageVectorizeInputSchema = schemaWithReadonlyOutput<
+  AtetImageVectorizeInput
 >(z.strictObject({
   alphaCutoff: z.number().int().min(1).max(64).optional(),
   duotone: z.tuple([
@@ -189,10 +189,10 @@ const PromptSchema = z.string().superRefine((value, context) => {
   }
 })
 
-export const TransmuteImageGenerateInputSchema = schemaWithReadonlyOutput<
-  TransmuteImageGenerateInput
+export const AtetImageGenerateInputSchema = schemaWithReadonlyOutput<
+  AtetImageGenerateInput
 >(z.strictObject({
-  model: TransmuteImageModelSchema,
+  model: AtetImageModelSchema,
   outputPath: BoundedPathSchema.refine(
     value => /\.(?:jpe?g|png|webp)$/iu.test(value),
     "Generated image output paths must end in .png, .jpg, .jpeg, or .webp.",
@@ -200,42 +200,42 @@ export const TransmuteImageGenerateInputSchema = schemaWithReadonlyOutput<
   prompt: PromptSchema,
 }))
 
-export const TransmuteLintFindingSchema = z.strictObject({
+export const AtetLintFindingSchema = z.strictObject({
   code: z.string().min(1).max(160),
   message: z.string().min(1).max(4_096),
   shapeIds: z.array(z.string().min(1).max(256)).max(4_096),
-}) satisfies z.ZodType<TransmuteLintFinding>
+}) satisfies z.ZodType<AtetLintFinding>
 
-export const TransmuteDiagramCheckOutputSchema = z.strictObject({
+export const AtetDiagramCheckOutputSchema = z.strictObject({
   configPath: z.null(),
-  findings: z.array(TransmuteLintFindingSchema).max(4_096),
-}) satisfies z.ZodType<TransmuteDiagramCheckOutput>
+  findings: z.array(AtetLintFindingSchema).max(4_096),
+}) satisfies z.ZodType<AtetDiagramCheckOutput>
 
-export const TransmuteRenderArtifactsSchema = z.strictObject({
+export const AtetRenderArtifactsSchema = z.strictObject({
   darkPng: BoundedPathSchema,
   darkSvg: BoundedPathSchema,
   lightPng: BoundedPathSchema,
   lightSvg: BoundedPathSchema,
   spec: BoundedPathSchema,
   tldr: BoundedPathSchema,
-}) satisfies z.ZodType<TransmuteRenderArtifacts>
+}) satisfies z.ZodType<AtetRenderArtifacts>
 
-export const TransmuteDiagramRenderOutputSchema = z.strictObject({
-  artifacts: TransmuteRenderArtifactsSchema,
+export const AtetDiagramRenderOutputSchema = z.strictObject({
+  artifacts: AtetRenderArtifactsSchema,
   configPath: z.null(),
-  findings: z.array(TransmuteLintFindingSchema).max(4_096),
-}) satisfies z.ZodType<TransmuteDiagramRenderOutput>
+  findings: z.array(AtetLintFindingSchema).max(4_096),
+}) satisfies z.ZodType<AtetDiagramRenderOutput>
 
-export const TransmuteVectorizeQualityReceiptSchema = z.strictObject({
+export const AtetVectorizeQualityReceiptSchema = z.strictObject({
   alphaRmse: z.number().finite().nonnegative(),
   colorRmse: z.number().finite().nonnegative(),
   outsideAlphaRatio: z.number().finite().min(0).max(1),
   sampleHeight: PositiveSafeIntegerSchema,
   sampleWidth: PositiveSafeIntegerSchema,
   supportRecall: z.number().finite().min(0).max(1),
-}) satisfies z.ZodType<TransmuteVectorizeQualityReceipt>
+}) satisfies z.ZodType<AtetVectorizeQualityReceipt>
 
-export const TransmuteVectorizeProvenanceSchema = z.strictObject({
+export const AtetVectorizeProvenanceSchema = z.strictObject({
   arch: BoundedVersionStringSchema,
   platform: BoundedVersionStringSchema,
   sharp: BoundedVersionStringSchema,
@@ -247,9 +247,9 @@ export const TransmuteVectorizeProvenanceSchema = z.strictObject({
   vtracerSha256: Sha256Schema,
   vtracerSource: z.enum(["official-release", "override"]),
   vtracerVersion: BoundedVersionStringSchema,
-}) satisfies z.ZodType<TransmuteVectorizeProvenance>
+}) satisfies z.ZodType<AtetVectorizeProvenance>
 
-export const TransmuteVectorizeReceiptSchema = z.strictObject({
+export const AtetVectorizeReceiptSchema = z.strictObject({
   alphaCutoff: z.number().int().min(1).max(64),
   bytes: NonnegativeSafeIntegerSchema.max(MAX_VECTOR_OUTPUT_BYTES),
   candidatesEvaluated: PositiveSafeIntegerSchema,
@@ -259,24 +259,24 @@ export const TransmuteVectorizeReceiptSchema = z.strictObject({
   outputMode: z.enum(["color", "duotone"]),
   pathCount: NonnegativeSafeIntegerSchema.max(12_000),
   profile: z.enum(["balanced", "detailed", "photo"]),
-  provenance: TransmuteVectorizeProvenanceSchema,
-  quality: TransmuteVectorizeQualityReceiptSchema,
+  provenance: AtetVectorizeProvenanceSchema,
+  quality: AtetVectorizeQualityReceiptSchema,
   receiptVersion: z.literal(1),
   representation: z.enum(["color-paths", "alpha-mask"]),
   sourceSha256: Sha256Schema,
   svgSha256: Sha256Schema,
   width: PositiveSafeIntegerSchema.max(4_096),
-}) satisfies z.ZodType<TransmuteVectorizeReceipt>
+}) satisfies z.ZodType<AtetVectorizeReceipt>
 
-export const TransmuteImageVectorizeOutputSchema = z.strictObject({
+export const AtetImageVectorizeOutputSchema = z.strictObject({
   outputPath: BoundedPathSchema,
-  receipt: TransmuteVectorizeReceiptSchema,
-}) satisfies z.ZodType<TransmuteImageVectorizeOutput>
+  receipt: AtetVectorizeReceiptSchema,
+}) satisfies z.ZodType<AtetImageVectorizeOutput>
 
-export const TransmuteImageGenerateOutputSchema = z.strictObject({
+export const AtetImageGenerateOutputSchema = z.strictObject({
   bytes: PositiveSafeIntegerSchema.max(MAX_GENERATED_IMAGE_BYTES),
   mediaType: z.enum(["image/jpeg", "image/png", "image/webp"]),
-  model: TransmuteImageModelSchema,
+  model: AtetImageModelSchema,
   outputPath: BoundedPathSchema,
   provider: z.literal("vercel-ai-gateway"),
   requestId: z.string()
@@ -288,41 +288,41 @@ export const TransmuteImageGenerateOutputSchema = z.strictObject({
     ),
   sha256: Sha256Schema,
   warnings: z.array(z.string().min(1).max(256)).max(100),
-}) satisfies z.ZodType<TransmuteImageGenerateOutput>
+}) satisfies z.ZodType<AtetImageGenerateOutput>
 
-export interface PortableTransmuteOperationInputMap {
-  readonly "transmute.diagram.check": TransmuteDiagramCheckInput
-  readonly "transmute.diagram.render": TransmuteDiagramRenderInput
-  readonly "transmute.image.generate": TransmuteImageGenerateInput
-  readonly "transmute.image.vectorize": TransmuteImageVectorizeInput
+export interface PortableAtetOperationInputMap {
+  readonly "atet.diagram.check": AtetDiagramCheckInput
+  readonly "atet.diagram.render": AtetDiagramRenderInput
+  readonly "atet.image.generate": AtetImageGenerateInput
+  readonly "atet.image.vectorize": AtetImageVectorizeInput
 }
 
-export interface PortableTransmuteOperationResultMap {
-  readonly "transmute.diagram.check": TransmuteDiagramCheckOutput
-  readonly "transmute.diagram.render": TransmuteDiagramRenderOutput
-  readonly "transmute.image.generate": TransmuteImageGenerateOutput
-  readonly "transmute.image.vectorize": TransmuteImageVectorizeOutput
+export interface PortableAtetOperationResultMap {
+  readonly "atet.diagram.check": AtetDiagramCheckOutput
+  readonly "atet.diagram.render": AtetDiagramRenderOutput
+  readonly "atet.image.generate": AtetImageGenerateOutput
+  readonly "atet.image.vectorize": AtetImageVectorizeOutput
 }
 
-export const PORTABLE_TRANSMUTE_OPERATION_KINDS = Object.freeze([
-  "transmute.diagram.check",
-  "transmute.diagram.render",
-  "transmute.image.generate",
-  "transmute.image.vectorize",
+export const PORTABLE_ATET_OPERATION_KINDS = Object.freeze([
+  "atet.diagram.check",
+  "atet.diagram.render",
+  "atet.image.generate",
+  "atet.image.vectorize",
 ] as const)
-export type PortableTransmuteOperationKind =
-  typeof PORTABLE_TRANSMUTE_OPERATION_KINDS[number]
+export type PortableAtetOperationKind =
+  typeof PORTABLE_ATET_OPERATION_KINDS[number]
 
-export interface PortableTransmuteOperationContract<
-  Kind extends PortableTransmuteOperationKind,
+export interface PortableAtetOperationContract<
+  Kind extends PortableAtetOperationKind,
 > extends OperationContract<
-    PortableTransmuteOperationInputMap[Kind],
-    PortableTransmuteOperationResultMap[Kind]
+    PortableAtetOperationInputMap[Kind],
+    PortableAtetOperationResultMap[Kind]
   > {
-  readonly inputSchema: z.ZodType<PortableTransmuteOperationInputMap[Kind]>
+  readonly inputSchema: z.ZodType<PortableAtetOperationInputMap[Kind]>
   readonly kind: Kind
   readonly lifecycle: OperationLifecycleKind
-  readonly outputSchema: z.ZodType<PortableTransmuteOperationResultMap[Kind]>
+  readonly outputSchema: z.ZodType<PortableAtetOperationResultMap[Kind]>
   readonly policy: OperationPolicy
   readonly version: 2
 }
@@ -333,20 +333,20 @@ function freezePolicy(policy: OperationPolicy): OperationPolicy {
   return Object.freeze({ ...policy, preparation, resources })
 }
 
-function portableContract<Kind extends PortableTransmuteOperationKind>(
-  contract: PortableTransmuteOperationContract<Kind>,
-): PortableTransmuteOperationContract<Kind> {
+function portableContract<Kind extends PortableAtetOperationKind>(
+  contract: PortableAtetOperationContract<Kind>,
+): PortableAtetOperationContract<Kind> {
   return Object.freeze({ ...contract, policy: freezePolicy(contract.policy) })
 }
 
-export const PORTABLE_TRANSMUTE_OPERATION_CONTRACTS = Object.freeze({
-  "transmute.diagram.check": portableContract({
-    inputSchema: TransmuteDiagramCheckInputSchema,
-    inputSchemaId: "transmute.operation.diagram.check.input/v2",
-    kind: "transmute.diagram.check",
+export const PORTABLE_ATET_OPERATION_CONTRACTS = Object.freeze({
+  "atet.diagram.check": portableContract({
+    inputSchema: AtetDiagramCheckInputSchema,
+    inputSchemaId: "atet.operation.diagram.check.input/v2",
+    kind: "atet.diagram.check",
     lifecycle: "pure",
-    outputSchema: TransmuteDiagramCheckOutputSchema,
-    outputSchemaId: "transmute.operation.diagram.check.output/v2",
+    outputSchema: AtetDiagramCheckOutputSchema,
+    outputSchemaId: "atet.operation.diagram.check.output/v2",
     policy: {
       cache: "content-addressed",
       cancellable: false,
@@ -364,13 +364,13 @@ export const PORTABLE_TRANSMUTE_OPERATION_CONTRACTS = Object.freeze({
     },
     version: 2,
   }),
-  "transmute.diagram.render": portableContract({
-    inputSchema: TransmuteDiagramRenderInputSchema,
-    inputSchemaId: "transmute.operation.diagram.render.input/v2",
-    kind: "transmute.diagram.render",
+  "atet.diagram.render": portableContract({
+    inputSchema: AtetDiagramRenderInputSchema,
+    inputSchemaId: "atet.operation.diagram.render.input/v2",
+    kind: "atet.diagram.render",
     lifecycle: "local-artifact",
-    outputSchema: TransmuteDiagramRenderOutputSchema,
-    outputSchemaId: "transmute.operation.diagram.render.output/v2",
+    outputSchema: AtetDiagramRenderOutputSchema,
+    outputSchemaId: "atet.operation.diagram.render.output/v2",
     policy: {
       cache: "none",
       cancellable: false,
@@ -388,13 +388,13 @@ export const PORTABLE_TRANSMUTE_OPERATION_CONTRACTS = Object.freeze({
     },
     version: 2,
   }),
-  "transmute.image.generate": portableContract({
-    inputSchema: TransmuteImageGenerateInputSchema,
-    inputSchemaId: "transmute.operation.image.generate.input/v2",
-    kind: "transmute.image.generate",
+  "atet.image.generate": portableContract({
+    inputSchema: AtetImageGenerateInputSchema,
+    inputSchemaId: "atet.operation.image.generate.input/v2",
+    kind: "atet.image.generate",
     lifecycle: "paid-dispatch",
-    outputSchema: TransmuteImageGenerateOutputSchema,
-    outputSchemaId: "transmute.operation.image.generate.output/v2",
+    outputSchema: AtetImageGenerateOutputSchema,
+    outputSchemaId: "atet.operation.image.generate.output/v2",
     policy: {
       cache: "exact-run",
       cancellable: false,
@@ -413,13 +413,13 @@ export const PORTABLE_TRANSMUTE_OPERATION_CONTRACTS = Object.freeze({
     },
     version: 2,
   }),
-  "transmute.image.vectorize": portableContract({
-    inputSchema: TransmuteImageVectorizeInputSchema,
-    inputSchemaId: "transmute.operation.image.vectorize.input/v2",
-    kind: "transmute.image.vectorize",
+  "atet.image.vectorize": portableContract({
+    inputSchema: AtetImageVectorizeInputSchema,
+    inputSchemaId: "atet.operation.image.vectorize.input/v2",
+    kind: "atet.image.vectorize",
     lifecycle: "local-artifact",
-    outputSchema: TransmuteImageVectorizeOutputSchema,
-    outputSchemaId: "transmute.operation.image.vectorize.output/v2",
+    outputSchema: AtetImageVectorizeOutputSchema,
+    outputSchemaId: "atet.operation.image.vectorize.output/v2",
     policy: {
       cache: "none",
       cancellable: false,
@@ -438,8 +438,96 @@ export const PORTABLE_TRANSMUTE_OPERATION_CONTRACTS = Object.freeze({
     version: 2,
   }),
 }) satisfies {
-  readonly [Kind in PortableTransmuteOperationKind]: PortableTransmuteOperationContract<Kind>
+  readonly [Kind in PortableAtetOperationKind]: PortableAtetOperationContract<Kind>
 }
+
+export function isPortableAtetOperationKind(
+  value: string,
+): value is PortableAtetOperationKind {
+  return PORTABLE_ATET_OPERATION_KINDS.includes(
+    value as PortableAtetOperationKind,
+  )
+}
+
+/** Deprecated Transmute type aliases preserve source compatibility. */
+export type TransmuteImageModel = AtetImageModel
+export type TransmuteDiagramCheckInput = AtetDiagramCheckInput
+export type TransmuteDiagramRenderInput = AtetDiagramRenderInput
+export type TransmuteImageVectorizeInput = AtetImageVectorizeInput
+export type TransmuteImageGenerateInput = AtetImageGenerateInput
+export type TransmuteLintFinding = AtetLintFinding
+export type TransmuteDiagramCheckOutput = AtetDiagramCheckOutput
+export type TransmuteRenderArtifacts = AtetRenderArtifacts
+export type TransmuteDiagramRenderOutput = AtetDiagramRenderOutput
+export type TransmuteVectorizeQualityReceipt = AtetVectorizeQualityReceipt
+export type TransmuteVectorizeProvenance = AtetVectorizeProvenance
+export type TransmuteVectorizeReceipt = AtetVectorizeReceipt
+export type TransmuteImageVectorizeOutput = AtetImageVectorizeOutput
+export type TransmuteImageGenerateOutput = AtetImageGenerateOutput
+
+export const TransmuteImageModelSchema = AtetImageModelSchema
+export const TransmuteDiagramCheckInputSchema = AtetDiagramCheckInputSchema
+export const TransmuteDiagramRenderInputSchema = AtetDiagramRenderInputSchema
+export const TransmuteImageVectorizeInputSchema = AtetImageVectorizeInputSchema
+export const TransmuteImageGenerateInputSchema = AtetImageGenerateInputSchema
+export const TransmuteLintFindingSchema = AtetLintFindingSchema
+export const TransmuteDiagramCheckOutputSchema = AtetDiagramCheckOutputSchema
+export const TransmuteRenderArtifactsSchema = AtetRenderArtifactsSchema
+export const TransmuteDiagramRenderOutputSchema = AtetDiagramRenderOutputSchema
+export const TransmuteVectorizeQualityReceiptSchema = AtetVectorizeQualityReceiptSchema
+export const TransmuteVectorizeProvenanceSchema = AtetVectorizeProvenanceSchema
+export const TransmuteVectorizeReceiptSchema = AtetVectorizeReceiptSchema
+export const TransmuteImageVectorizeOutputSchema = AtetImageVectorizeOutputSchema
+export const TransmuteImageGenerateOutputSchema = AtetImageGenerateOutputSchema
+
+export const PORTABLE_TRANSMUTE_OPERATION_KINDS = Object.freeze([
+  "transmute.diagram.check",
+  "transmute.diagram.render",
+  "transmute.image.generate",
+  "transmute.image.vectorize",
+] as const)
+export type PortableTransmuteOperationKind =
+  typeof PORTABLE_TRANSMUTE_OPERATION_KINDS[number]
+
+export interface PortableTransmuteOperationInputMap {
+  readonly "transmute.diagram.check": AtetDiagramCheckInput
+  readonly "transmute.diagram.render": AtetDiagramRenderInput
+  readonly "transmute.image.generate": AtetImageGenerateInput
+  readonly "transmute.image.vectorize": AtetImageVectorizeInput
+}
+
+export interface PortableTransmuteOperationResultMap {
+  readonly "transmute.diagram.check": AtetDiagramCheckOutput
+  readonly "transmute.diagram.render": AtetDiagramRenderOutput
+  readonly "transmute.image.generate": AtetImageGenerateOutput
+  readonly "transmute.image.vectorize": AtetImageVectorizeOutput
+}
+
+export type PortableTransmuteOperationContract<
+  Kind extends PortableTransmuteOperationKind,
+> = Omit<
+  PortableAtetOperationContract<PortableAtetOperationKind>,
+  "inputSchemaId" | "kind" | "outputSchemaId"
+> & {
+  readonly inputSchemaId: string
+  readonly kind: Kind
+  readonly outputSchemaId: string
+}
+
+export const PORTABLE_TRANSMUTE_OPERATION_CONTRACTS = Object.freeze(
+  Object.fromEntries(PORTABLE_TRANSMUTE_OPERATION_KINDS.map(kind => {
+    const canonical = kind.replace(/^transmute\./u, "atet.") as PortableAtetOperationKind
+    const contract = PORTABLE_ATET_OPERATION_CONTRACTS[canonical]
+    return [kind, Object.freeze({
+      ...contract,
+      inputSchemaId: contract.inputSchemaId.replace(/^atet\./u, "transmute."),
+      kind,
+      outputSchemaId: contract.outputSchemaId.replace(/^atet\./u, "transmute."),
+    })]
+  })),
+) as Readonly<{
+  readonly [Kind in PortableTransmuteOperationKind]: PortableTransmuteOperationContract<Kind>
+}>
 
 export function isPortableTransmuteOperationKind(
   value: string,

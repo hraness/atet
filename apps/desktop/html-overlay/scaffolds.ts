@@ -76,7 +76,7 @@ const PLAIN_SCAFFOLD = documentShell(
       }
     </style>`,
   `      const label = document.querySelector(".label");
-      TransmuteOverlay.onFrame(({ progress }) => {
+      AtetOverlay.onFrame(({ progress }) => {
         const reveal = Math.min(1, progress * 8);
         label.style.opacity = String(reveal);
         label.style.transform = \`scale(\${0.94 + reveal * 0.06})\`;
@@ -103,7 +103,7 @@ const MOTION_SCAFFOLD = documentShell(
   `      import { animate } from "motion";
 
       const card = document.querySelector(".card");
-      TransmuteOverlay.trackAnimation(animate(
+      AtetOverlay.trackAnimation(animate(
         card,
         {
           opacity: [0, 1, 1, 0],
@@ -114,7 +114,7 @@ const MOTION_SCAFFOLD = documentShell(
             "translateY(-24px) scale(.98)",
           ],
         },
-        { duration: TransmuteOverlay.durationMs / 1000, ease: "linear" },
+        { duration: AtetOverlay.durationMs / 1000, ease: "linear" },
       ));`,
   serializeHtmlOverlayImportMap(["motion"]),
 );
@@ -155,14 +155,14 @@ const PAPER_SCAFFOLD = documentShell(
           u_rotation: 0,
           u_scale: 1,
           u_swirl: 0.35,
-          u_worldHeight: TransmuteOverlay.height,
-          u_worldWidth: TransmuteOverlay.width,
+          u_worldHeight: AtetOverlay.height,
+          u_worldWidth: AtetOverlay.width,
         },
         { alpha: true, premultipliedAlpha: false },
         0,
       );
 
-      TransmuteOverlay.onFrame(({ timeMs }) => shader.setFrame(timeMs));`,
+      AtetOverlay.onFrame(({ timeMs }) => shader.setFrame(timeMs));`,
   serializeHtmlOverlayImportMap(["@paper-design/shaders"]),
 );
 
@@ -179,7 +179,7 @@ const THREE_SCAFFOLD = documentShell(
   `      import * as THREE from "three";
 
       // Keep this scene seek-stable: derive motion from progress/timeMs and use
-      // TransmuteOverlay.randomFor(key), never requestAnimationFrame or mutable RNG.
+      // AtetOverlay.randomFor(key), never requestAnimationFrame or mutable RNG.
       const MAX_DRAW_CALLS = 64;
       const MAX_TRIANGLES = 200_000;
       const canvas = document.querySelector(".scene");
@@ -197,13 +197,13 @@ const THREE_SCAFFOLD = documentShell(
       // The authoring canvas owns preview/final supersampling. Use 1x for
       // iteration and raise deviceScaleFactor only for a selected final render.
       renderer.setPixelRatio(devicePixelRatio);
-      renderer.setSize(TransmuteOverlay.width, TransmuteOverlay.height, false);
+      renderer.setSize(AtetOverlay.width, AtetOverlay.height, false);
       renderer.setClearColor(0x000000, 0);
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(
         42,
-        TransmuteOverlay.width / TransmuteOverlay.height,
+        AtetOverlay.width / AtetOverlay.height,
         0.1,
         100,
       );
@@ -276,7 +276,7 @@ const THREE_SCAFFOLD = documentShell(
         return { direction, home, part };
       });
       const numberParameter = (name, fallback, minimum, maximum) => {
-        const value = TransmuteOverlay.parameters[name];
+        const value = AtetOverlay.parameters[name];
         return typeof value === "number" && Number.isFinite(value)
           ? THREE.MathUtils.clamp(value, minimum, maximum)
           : fallback;
@@ -289,9 +289,9 @@ const THREE_SCAFFOLD = documentShell(
         event.preventDefault();
         throw new Error("The Three.js rendering context was lost.");
       });
-      TransmuteOverlay.ready(renderer.compileAsync(scene, camera));
+      AtetOverlay.ready(renderer.compileAsync(scene, camera));
 
-      TransmuteOverlay.onFrame(({ progress }) => {
+      AtetOverlay.onFrame(({ progress }) => {
         const phase = progress * Math.PI * 2;
         subject.rotation.set(
           Math.sin(phase) * 0.08,
@@ -387,7 +387,7 @@ export function createHtmlOverlayScaffold(kind: HtmlOverlayScaffoldKind): string
 /**
  * Binds one exact image to the general Three.js starter as code-generation
  * provenance. The author edits the returned document's createSubject()
- * function after inspecting that image; Transmute never evaluates model text.
+ * function after inspecting that image; Atet never evaluates model text.
  */
 export function createThreeReferenceScaffoldInput<TArtifact, TMediaType>(
   artifact: TArtifact,

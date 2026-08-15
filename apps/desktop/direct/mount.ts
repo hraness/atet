@@ -2,43 +2,43 @@ import type { DirectSessionActivation } from "@hraness/direct/testing";
 import { installDirectBrowser } from "@hraness/direct/web";
 
 import {
-  createTransmuteDirectSession,
-  type TransmuteDirectSession,
+  createAtetDirectSession,
+  type AtetDirectSession,
 } from "./session";
 
-export type TransmutePagehideRegistration = (
+export type AtetPagehideRegistration = (
   listener: () => undefined,
 ) => () => undefined;
 
-export interface TransmuteDirectMountOptions {
-  readonly registerPagehide: TransmutePagehideRegistration;
+export interface AtetDirectMountOptions {
+  readonly registerPagehide: AtetPagehideRegistration;
   readonly target?: object;
 }
 
-export interface MountedTransmuteDirect {
+export interface MountedAtetDirect {
   readonly dispose: () => undefined;
-  readonly session: TransmuteDirectSession;
+  readonly session: AtetDirectSession;
 }
 
-export type TransmuteDirectMountErrorCode =
+export type AtetDirectMountErrorCode =
   | "activation-failed"
   | "browser-install-failed"
   | "pagehide-registration-failed";
 
-export type TransmuteDirectMountResult =
-  | Readonly<{ ok: true; value: MountedTransmuteDirect }>
+export type AtetDirectMountResult =
+  | Readonly<{ ok: true; value: MountedAtetDirect }>
   | Readonly<{
     ok: false;
     error: Readonly<{
-      code: TransmuteDirectMountErrorCode;
+      code: AtetDirectMountErrorCode;
       message: string;
     }>;
   }>;
 
 function failure(
-  code: TransmuteDirectMountErrorCode,
+  code: AtetDirectMountErrorCode,
   message: string,
-): TransmuteDirectMountResult {
+): AtetDirectMountResult {
   return Object.freeze({
     ok: false,
     error: Object.freeze({ code, message }),
@@ -56,11 +56,11 @@ function renderReason(reason: unknown): string {
 }
 
 /** Install containment and page lifecycle ownership before React can run product effects. */
-export function mountTransmuteDirect(
+export function mountAtetDirect(
   activation: DirectSessionActivation,
-  options: TransmuteDirectMountOptions,
-): TransmuteDirectMountResult {
-  const created = createTransmuteDirectSession(activation);
+  options: AtetDirectMountOptions,
+): AtetDirectMountResult {
+  const created = createAtetDirectSession(activation);
   if (!created.ok) return failure("activation-failed", created.error.message);
   const session = created.value;
 

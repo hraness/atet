@@ -508,7 +508,7 @@ export function analyzeMusic(input: AnalyzeMusicInput): MusicAnalysisV1 {
     durationUs,
     inputDigest: input.inputDigest,
     keyRegions: detectKeyRegions(features, musicRegions, input.config.tempoWindowUs),
-    kind: "transmute.music-analysis",
+    kind: "atet.music-analysis",
     musicRegions,
     schemaVersion: 1,
     subject: input.subject,

@@ -6,7 +6,7 @@ import {
   HostResourceError,
   type HostResourceCoordinator,
   type HostResourceLease,
-} from "@hraness/transmute/host-resources";
+} from "@hraness/atet/host-resources";
 
 import { ApplicationError, asApplicationError } from "../application/errors";
 import type { ApplicationContext } from "../application/context";
@@ -269,7 +269,7 @@ export interface DurableWorkflowSchedulerOptions {
   /**
    * One machine-scoped physical admission authority. Local scheduler limits
    * remain a fast conservative prefilter; this coordinator is authoritative
-   * across independent Transmute processes.
+   * across independent Atet processes.
    */
   readonly hostResourceCoordinator: HostResourceCoordinator;
   readonly hostLimits?: SchedulerHostLimits;
@@ -611,6 +611,8 @@ function normalizePolicy(policy: WorkflowNodePolicy): WorkflowNodePolicy {
 function normalizeDiscovery(discovery: OperationDiscovery): OperationDiscovery {
   return {
     ...discovery,
+    inputSchemaId: discovery.inputSchemaId.replace(/^(?:studio|transmute)\./u, "atet."),
+    outputSchemaId: discovery.outputSchemaId.replace(/^(?:studio|transmute)\./u, "atet."),
     policy: OperationPolicySchema.parse(normalizePolicy(discovery.policy)),
   };
 }

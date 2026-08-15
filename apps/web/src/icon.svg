@@ -1,4 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#171717"/>
-  <path d="M13 15h38v9H37v26H27V24H13z" fill="#fff"/>
+  <defs>
+    <linearGradient id="sun" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#fff3c2"/>
+      <stop offset="0.45" stop-color="#f6b94a"/>
+      <stop offset="1" stop-color="#e97835"/>
+    </linearGradient>
+    <linearGradient id="wake" x1="0" x2="1">
+      <stop offset="0" stop-color="#e97835"/>
+      <stop offset="1" stop-color="#f6b94a"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#090a12"/>
+  <circle cx="35" cy="23" r="10" fill="url(#sun)"/>
+  <path d="M9 33c8 12 17 17 27 17 9 0 16-5 20-18-1 18-8 25-21 25-12 0-21-8-26-24Z" fill="#16162a" stroke="url(#wake)" stroke-linejoin="round" stroke-width="2.4"/>
+  <path d="M8 45c13 6 29 7 48-1" fill="none" stroke="#f6b94a" stroke-linecap="round" stroke-width="1.8"/>
+  <circle cx="12" cy="44" r="1.5" fill="#fff3d6"/>
 </svg>

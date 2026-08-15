@@ -24,7 +24,7 @@ import {
 describe("generic immutable project edit revisions", () => {
   test("binds independent output geometries without moving the current plan", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-freeze-revision-"),
+      join(tmpdir(), "atet-freeze-revision-"),
     );
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);
@@ -89,7 +89,7 @@ describe("generic immutable project edit revisions", () => {
 
   test("rejects project drift after a commit instead of freezing a later edit state", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-freeze-commit-drift-"),
+      join(tmpdir(), "atet-freeze-commit-drift-"),
     );
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);

@@ -44,7 +44,7 @@ const browserRuntime: HtmlOverlayBrowserRuntimeBinding = {
 const authoring = HtmlOverlayAuthoringInputSchema.parse({
   canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
   html: createHtmlOverlayScaffold("plain"),
-  kind: "transmute.html-overlay",
+  kind: "atet.html-overlay",
   libraries: [],
   parameters: { title: "Integrity" },
   resources: [{

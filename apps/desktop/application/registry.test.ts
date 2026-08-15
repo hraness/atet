@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import {
-  PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
-  PORTABLE_TRANSMUTE_OPERATION_KINDS,
+  PORTABLE_ATET_OPERATION_CONTRACTS,
+  PORTABLE_ATET_OPERATION_KINDS,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
-} from "@hraness/transmute/code/advanced";
+} from "@hraness/atet/code/advanced";
 
 import { createApplicationOperationRegistry } from "./default-registry";
 import { ApplicationError } from "./errors";
+import { ATET_APPLICATION_TOOL_VERSION } from "./operation";
 import { OperationRegistry } from "./registry";
 import type { OperationDefinition } from "./operation";
 
@@ -85,10 +86,16 @@ describe("operation registry", () => {
     const descriptions = registry.list().map(operation => (
       registry.describe(operation.kind, operation.version)
     ));
+    expect(ATET_APPLICATION_TOOL_VERSION).toBe("atet-2.0.0");
+    expect(JSON.stringify(registry.list())).not.toMatch(/studio|transmute/u);
+    expect(registry.list().every(operation => (
+      operation.inputSchemaId.startsWith("atet.operation.")
+      && operation.outputSchemaId.startsWith("atet.operation.")
+    ))).toBe(true);
     expect(descriptions).toHaveLength(49);
     const portableKinds = new Set<string>(
-      PORTABLE_TRANSMUTE_OPERATION_KINDS.map(
-        kind => PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[kind].kind,
+      PORTABLE_ATET_OPERATION_KINDS.map(
+        kind => PORTABLE_ATET_OPERATION_CONTRACTS[kind].kind,
       ),
     );
     const portableProjection = registry.list().filter(operation => (
@@ -101,12 +108,12 @@ describe("operation registry", () => {
     expect(registry.list().filter(operation => (
       operation.version === 1 && portableKinds.has(operation.kind)
     )).map(operation => operation.kind)).toEqual([
-      "transmute.diagram.check",
-      "transmute.diagram.render",
-      "transmute.image.vectorize",
+      "atet.diagram.check",
+      "atet.diagram.render",
+      "atet.image.vectorize",
     ]);
-    expect(registry.describe("transmute.image.generate", 2).version).toBe(2);
-    expect(() => registry.describe("transmute.image.generate", 1))
+    expect(registry.describe("atet.image.generate", 2).version).toBe(2);
+    expect(() => registry.describe("atet.image.generate", 1))
       .toThrow(ApplicationError);
     expect(registry.list().filter(operation => (
       operation.kind.startsWith("iteration.")

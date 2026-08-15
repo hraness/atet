@@ -35,7 +35,7 @@ async function fixture(): Promise<{
   readonly resource: string;
   readonly root: string;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "transmute-browser-runtime-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-browser-runtime-"));
   roots.push(root);
   const bundle = join(root, "Fixture.app");
   const executable = join(bundle, "Contents", "MacOS", "Fixture");
@@ -134,7 +134,7 @@ describe("complete HTML-overlay browser runtime binding", () => {
   });
 
   test("rejects a standalone or wrapper executable as an incomplete browser runtime", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-browser-wrapper-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-browser-wrapper-"));
     roots.push(root);
     const executable = join(root, "browser-wrapper");
     const bytes = Buffer.from("#!/bin/sh\nexec /Applications/Other.app/Contents/MacOS/Other\n");
@@ -151,7 +151,7 @@ describe("complete HTML-overlay browser runtime binding", () => {
   });
 
   test("rejects an app-shaped shell wrapper without trusted native provenance", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-browser-shaped-wrapper-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-browser-shaped-wrapper-"));
     roots.push(root);
     const executable = join(root, "Fake.app", "Contents", "MacOS", "Fake");
     const bytes = Buffer.from("#!/bin/sh\nexec /Applications/Other.app/Contents/MacOS/Other\n");

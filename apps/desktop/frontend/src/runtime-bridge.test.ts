@@ -79,7 +79,7 @@ describe("runtime bridge", () => {
       },
       state: {
         recordingId: "rec_active001",
-        recordingPath: "artifacts/transmute/recordings/rec_active001",
+        recordingPath: "artifacts/atet/recordings/rec_active001",
         sourceTimeUs: 5_000_000,
         state: "paused",
       },

@@ -10,14 +10,14 @@ import {
   canonicalJsonSha256,
   sha256Hex,
 } from "./canonical-json.js"
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 import { jsonStringUtf8ByteLength, utf8ByteLength } from "./json-utf8.js"
 
-function canonicalError(value: unknown): TransmuteCodeError {
+function canonicalError(value: unknown): AtetCodeError {
   try {
     canonicalJson(value)
   } catch (error) {
-    if (error instanceof TransmuteCodeError) return error
+    if (error instanceof AtetCodeError) return error
     throw error
   }
   throw new Error("Expected canonical JSON to reject the value.")
@@ -77,7 +77,7 @@ describe("portable canonical JSON", () => {
   })
 
   test("keeps the native digest identical to the portable fallback", () => {
-    const input = "transmute\0portable SHA-256 \ud83c\udfa8"
+    const input = "atet\0portable SHA-256 \ud83c\udfa8"
     expect(sha256Hex(input)).toBe(bytesToHex(
       sha256(new TextEncoder().encode(input)),
     ))
@@ -92,7 +92,7 @@ describe("portable canonical JSON", () => {
 
     expect(canonicalError(oneHole).code).toBe("invalid-data")
     expect(canonicalError(twoHoles).code).toBe("invalid-data")
-    expect(() => canonicalJson([undefined])).toThrow(TransmuteCodeError)
+    expect(() => canonicalJson([undefined])).toThrow(AtetCodeError)
   })
 
   test("ignores named array properties like the released SDK and rejects cycles", () => {

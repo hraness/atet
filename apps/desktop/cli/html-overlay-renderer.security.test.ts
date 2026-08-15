@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 async function setup() {
-  const root = await mkdtemp(join(tmpdir(), "transmute-browser-snapshot-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-browser-snapshot-"));
   roots.push(root);
   const source = join(root, "fixture-browser");
   const original = Buffer.from("#!/bin/sh\nexit 0\n");
@@ -51,7 +51,7 @@ async function setup() {
     authoring: HtmlOverlayAuthoringInputSchema.parse({
       canvas: { deviceScaleFactor: 1, height: 18, width: 32 },
       html: createHtmlOverlayScaffold("plain"),
-      kind: "transmute.html-overlay",
+      kind: "atet.html-overlay",
       libraries: [],
       parameters: {},
       resources: [],
@@ -88,15 +88,15 @@ describe("private HTML-overlay browser runtime launch", () => {
     let launched: LaunchOptions | undefined;
     let launchedBytes: Buffer | undefined;
     let closeCalls = 0;
-    const previousSecret = process.env.TRANSMUTE_BROWSER_SENTINEL_SECRET;
+    const previousSecret = process.env.ATET_BROWSER_SENTINEL_SECRET;
     const previousProxy = process.env.HTTPS_PROXY;
-    process.env.TRANSMUTE_BROWSER_SENTINEL_SECRET = "must-not-enter-browser";
+    process.env.ATET_BROWSER_SENTINEL_SECRET = "must-not-enter-browser";
     process.env.HTTPS_PROXY = "https://ambient-proxy.invalid";
     const renderer = new PlaywrightHtmlOverlayRenderer({
       cacheRoot: item.cache,
       launch: async options => {
         launched = options;
-        expect(options.env?.TRANSMUTE_BROWSER_SENTINEL_SECRET).toBeUndefined();
+        expect(options.env?.ATET_BROWSER_SENTINEL_SECRET).toBeUndefined();
         expect(options.env?.HTTPS_PROXY).toBeUndefined();
         expect(Object.keys(options.env ?? {}).sort()).toEqual([
           "HOME",
@@ -130,9 +130,9 @@ describe("private HTML-overlay browser runtime launch", () => {
       }, new AbortController().signal)).rejects.toThrow(/browser rendering failed/u);
     } finally {
       if (previousSecret === undefined) {
-        delete process.env.TRANSMUTE_BROWSER_SENTINEL_SECRET;
+        delete process.env.ATET_BROWSER_SENTINEL_SECRET;
       } else {
-        process.env.TRANSMUTE_BROWSER_SENTINEL_SECRET = previousSecret;
+        process.env.ATET_BROWSER_SENTINEL_SECRET = previousSecret;
       }
       if (previousProxy === undefined) {
         delete process.env.HTTPS_PROXY;
@@ -212,7 +212,7 @@ describe("private HTML-overlay browser runtime launch", () => {
   });
 
   test("restored bundle resource and symlink substitutions remain detectable", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-browser-bundle-snapshot-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-browser-bundle-snapshot-"));
     roots.push(root);
     const bundle = join(root, "Fixture.app");
     const executable = join(bundle, "Contents", "MacOS", "Fixture");
@@ -270,7 +270,7 @@ describe("private HTML-overlay browser runtime launch", () => {
   });
 
   test("whole app-root swap and restore cannot erase container pathname evidence", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-browser-root-snapshot-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-browser-root-snapshot-"));
     roots.push(root);
     const bundle = join(root, "Fixture.app");
     const executable = join(bundle, "Contents", "MacOS", "Fixture");
@@ -388,7 +388,7 @@ describe("private HTML-overlay browser runtime launch", () => {
       }, new AbortController().signal);
       expect(rendering).rejects.toThrow(/browser rendering failed/u);
       await rendering.catch(() => undefined);
-      expect(launchedPath.startsWith("/private/tmp/.transmute-browser-runtime-"))
+      expect(launchedPath.startsWith("/private/tmp/.atet-browser-runtime-"))
         .toBe(true);
       expect(observedMaliciousExecutable).toBe(false);
       expect(newContextCalls).toBe(0);
@@ -396,7 +396,7 @@ describe("private HTML-overlay browser runtime launch", () => {
   );
 
   test("cancellation during snapshot copying stops before launch and removes the private tree", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-browser-cancel-snapshot-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-browser-cancel-snapshot-"));
     roots.push(root);
     const bundle = join(root, "Fixture.app");
     const executable = join(bundle, "Contents", "MacOS", "Fixture");
@@ -425,7 +425,7 @@ describe("private HTML-overlay browser runtime launch", () => {
     const frames = join(root, "frames");
     const cache = join(root, "cache");
     const snapshotAnchor = process.platform === "darwin" ? "/private/tmp" : cache;
-    const snapshotPrefix = ".transmute-browser-runtime-";
+    const snapshotPrefix = ".atet-browser-runtime-";
     const beforeSnapshots = new Set(
       (await readdir(snapshotAnchor).catch(() => [] as string[]))
         .filter(name => name.startsWith(snapshotPrefix)),
@@ -487,7 +487,7 @@ function itemAuthoring() {
   return HtmlOverlayAuthoringInputSchema.parse({
     canvas: { deviceScaleFactor: 1, height: 18, width: 32 },
     html: createHtmlOverlayScaffold("plain"),
-    kind: "transmute.html-overlay",
+    kind: "atet.html-overlay",
     libraries: [],
     parameters: {},
     resources: [],

@@ -19,7 +19,7 @@ bun run check:web
 
 Parser, layout, operation, protocol, configuration, or scheduler changes need deterministic examples. Add a property test for a law, round trip, ordering rule, or arbitrary-input boundary. A shrunk property failure should become a named regression.
 
-Keep the portable declarative graph SDK canonical in `src/code/`. The complete local host extends that fixed model under `apps/desktop/`; it does not maintain a competing graph contract. Public local-host entrypoints use `@hraness/transmute/local/*`.
+Keep the portable declarative graph SDK canonical in `src/code/`. The complete local host extends that fixed model under `apps/desktop/`; it does not maintain a competing graph contract. Public local-host entrypoints use `@hraness/atet/local/*`.
 
 Generation uses Vercel AI Gateway directly. Do not add an account service, session store, custom OAuth flow, hosted proxy, billing dependency, or browser credential field. Tests must use inert credentials and controlled transports.
 

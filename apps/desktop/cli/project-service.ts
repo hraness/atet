@@ -274,7 +274,7 @@ export async function createProjectFromRecording(options: CreateProjectOptions):
     assets: [asset],
     createdAt: timestamp,
     currentEditPlanPath: CURRENT_PROJECT_EDIT_PLAN_PATH,
-    kind: "transmute.video-project",
+    kind: "atet.video-project",
     name: options.name?.trim() || `Recording ${options.recording.manifest.recordingId}`,
     placements: [placement],
     projectId,
@@ -463,12 +463,12 @@ export async function addAssetToProject(
   });
   const priorPlan = await loadCurrentProjectPlan(open);
   const nextPlan = rebaseProjectEditPlan(open.project, nextProject, priorPlan, timestamp);
-  await commitProjectStateTransaction({
+  const persisted = await commitProjectStateTransaction({
     after: { plan: nextPlan, project: nextProject },
     before: { plan: priorPlan, project: open.project },
     fileSystem: open.fileSystem,
   });
-  return { placement, plan: nextPlan, project: nextProject };
+  return { placement, plan: persisted.plan, project: persisted.project };
 }
 
 function importedAssetContentIdentity(asset: ProjectAssetV1): string | null {

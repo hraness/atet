@@ -23,7 +23,7 @@ import {
 describe("scene analysis operation", () => {
   test("persists bounded scene ranges and sample reasons in its typed output", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-scene-operation-"),
+      join(tmpdir(), "atet-scene-operation-"),
     );
     try {
       const fixture = await createOperationProjectFixture(repositoryRoot);

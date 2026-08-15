@@ -20,17 +20,18 @@ afterEach(async () => {
 
 describe("workflow runtime identity", () => {
   test("binds the Bun configuration with the allowlisted dependency closure bundled", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-runtime-identity-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-runtime-identity-"));
     temporaryDirectories.push(root);
     await writeFile(
       join(root, "workflow.ts"),
-      "import { seconds } from '@hraness/transmute/local/code'; export default seconds(1);\n",
+      "import { seconds } from '@hraness/atet/local/code'; export default seconds(1);\n",
     );
     const bundle = await bundleWorkflowSource({ allowedRoot: root, entryPath: "workflow.ts" });
     const first = await createWorkflowRuntimeIdentity({ bundle });
     const second = await createWorkflowRuntimeIdentity({ bundle });
 
     expect(first).toEqual(second);
+    expect(first.applicationBuild).toMatch(/^atet\/[a-f0-9]{64}$/u);
     expect(first.externals).toMatchObject({
       kind: "deny-all",
       modules: [],
@@ -40,7 +41,7 @@ describe("workflow runtime identity", () => {
   });
 
   test("changes when a selected native capability is replaced", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-host-runtime-identity-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-host-runtime-identity-"));
     temporaryDirectories.push(root);
     const executable = join(root, "face-analyzer");
     await writeFile(executable, "native helper v1\n", { mode: 0o700 });
@@ -79,6 +80,7 @@ describe("workflow runtime identity", () => {
       },
     } satisfies ApplicationContext;
     const first = await createHostApplicationBuildIdentity(application);
+    expect(first).toMatch(/^atet\/[a-f0-9]{64}$/u);
     await writeFile(executable, "native helper v2\n", { mode: 0o700 });
     const second = await createHostApplicationBuildIdentity(application);
     expect(first).not.toBe(second);

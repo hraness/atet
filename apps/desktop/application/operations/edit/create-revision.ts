@@ -107,7 +107,7 @@ function assertDraftMatchesSnapshot(
 
 export const createProjectEditRevisionOperationDefinition = {
   inputSchema: CreateProjectEditRevisionInputSchema,
-  inputSchemaId: "studio.operation.edit.create-revision.input/v1",
+  inputSchemaId: "atet.operation.edit.create-revision.input/v1",
   kind: "edit.create-revision",
   lifecycle: {
     kind: "local-artifact",
@@ -205,7 +205,7 @@ export const createProjectEditRevisionOperationDefinition = {
         aspect: input.draft.provenance.parameters.aspect,
         baseGeneration: input.draft.provenance.baseGeneration,
         derivationSha256: input.draft.derivationSha256,
-        kind: "transmute.project-edit-revision-reference",
+        kind: "atet.project-edit-revision-reference",
         outputGeometrySha256,
         pixelHeight: input.draft.pixelHeight,
         pixelWidth: input.draft.pixelWidth,
@@ -220,7 +220,7 @@ export const createProjectEditRevisionOperationDefinition = {
     },
   },
   outputSchema: ProjectEditRevisionReferenceSchema,
-  outputSchemaId: "studio.operation.edit.create-revision.output/v1",
+  outputSchemaId: "atet.operation.edit.create-revision.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,

@@ -102,7 +102,7 @@ function project() {
     assets: [cameraAsset()],
     createdAt: NOW,
     currentEditPlanPath: "edits/current.json",
-    kind: "transmute.video-project",
+    kind: "atet.video-project",
     name: "Performance",
     placements: [cameraPlacement()],
     projectId: "project_example001",
@@ -114,7 +114,7 @@ function project() {
 }
 
 describe("video-project stream and placement integrity", () => {
-  test("reads the Transmute project identity for compatibility", () => {
+  test("reads the Atet project identity for compatibility", () => {
     const parsed = VideoProjectV1Schema.parse({
       ...project(),
       kind: "studio.video-project",

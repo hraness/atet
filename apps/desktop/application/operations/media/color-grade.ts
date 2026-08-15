@@ -56,6 +56,7 @@ export const MediaColorGradeReceiptSchema = z.strictObject({
   filterGraph: z.string().min(1).max(256 * 1024),
   input: MediaArtifactReferenceSchema,
   kind: z.union([
+    z.literal("atet.local-media-transform-receipt"),
     z.literal("transmute.local-media-transform-receipt"),
     z.literal("studio.local-media-transform-receipt"),
   ]),
@@ -225,7 +226,7 @@ export function createMediaColorGradeOperationDefinition(
     }).renderColor(options));
   return {
     inputSchema: MediaColorGradeInputSchema,
-    inputSchemaId: "studio.operation.media.color-grade.input/v1",
+    inputSchemaId: "atet.operation.media.color-grade.input/v1",
     kind: "media.color-grade",
     lifecycle: {
       kind: "local-artifact",
@@ -318,7 +319,7 @@ export function createMediaColorGradeOperationDefinition(
             ),
             filterGraph: rendered.filterGraph,
             input: boundInput.input,
-            kind: "transmute.local-media-transform-receipt",
+            kind: "atet.local-media-transform-receipt",
             operation: "color-grade",
             output: {
               ...published.artifact,
@@ -343,10 +344,10 @@ export function createMediaColorGradeOperationDefinition(
           });
           await writeOperationCompletionCheckpoint(context, {
             inputSchemaId:
-              "studio.operation.media.color-grade.input/v1",
+              "atet.operation.media.color-grade.input/v1",
             kind: "media.color-grade",
             outputSchemaId:
-              "studio.operation.media.color-grade.output/v1",
+              "atet.operation.media.color-grade.output/v1",
             version: 1,
           }, output);
           return output;
@@ -356,7 +357,7 @@ export function createMediaColorGradeOperationDefinition(
       },
     },
     outputSchema: MediaColorGradeOutputSchema,
-    outputSchemaId: "studio.operation.media.color-grade.output/v1",
+    outputSchemaId: "atet.operation.media.color-grade.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

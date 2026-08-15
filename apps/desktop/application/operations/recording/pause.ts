@@ -20,14 +20,14 @@ export const recordingPauseOperationDefinition: OperationDefinition<
   RecordingPauseOutput
 > = {
   inputSchema: RecordingPauseInputSchema,
-  inputSchemaId: "studio.operation.recording.pause.input/v1",
+  inputSchemaId: "atet.operation.recording.pause.input/v1",
   kind: "recording.pause",
   lifecycle: {
     kind: "live-control",
     execute: async context => await executeRecordingControl(context, "pause"),
   },
   outputSchema: RecordingPauseOutputSchema,
-  outputSchemaId: "studio.operation.recording.pause.output/v1",
+  outputSchemaId: "atet.operation.recording.pause.output/v1",
   policy: recordingTransitionPolicy,
   summarize: output => summarizeRecordingControl("recording.pause", output),
   version: 1,

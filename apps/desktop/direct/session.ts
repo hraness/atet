@@ -5,28 +5,28 @@ import {
 } from "@hraness/direct/testing";
 
 import {
-  transmuteDirect,
-  type TransmuteDirectRoute,
+  atetDirect,
+  type AtetDirectRoute,
 } from "./scenarios";
 import {
-  createTransmuteDirectTransport,
-  type TransmuteDirectTransportHarness,
+  createAtetDirectTransport,
+  type AtetDirectTransportHarness,
 } from "./transport";
-import type { TransmuteDirectWorld } from "./world";
+import type { AtetDirectWorld } from "./world";
 
-export type TransmuteDirectSession = DirectSession<
-  TransmuteDirectWorld,
-  TransmuteDirectRoute,
-  TransmuteDirectTransportHarness
+export type AtetDirectSession = DirectSession<
+  AtetDirectWorld,
+  AtetDirectRoute,
+  AtetDirectTransportHarness
 >;
 
 /** Open the definition-owned deterministic session used by the recorder workbench. */
-export function createTransmuteDirectSession(activation: DirectSessionActivation) {
+export function createAtetDirectSession(activation: DirectSessionActivation) {
   return createDirectSession({
-    definition: transmuteDirect,
+    definition: atetDirect,
     activation,
-    create: (context): TransmuteDirectTransportHarness => {
-      const harness = createTransmuteDirectTransport(context.world, {
+    create: (context): AtetDirectTransportHarness => {
+      const harness = createAtetDirectTransport(context.world, {
         activity: context.activity,
         signal: context.signal,
       });

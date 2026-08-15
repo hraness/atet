@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const SCENE_AI_SDK_VERSION = "7.0.52";
 export const SCENE_UPLOAD_POLICY = "selected-derived-frames-only";
-export const SCENE_PROMPT_VERSION = "transmute-scene-description-v1";
+export const SCENE_PROMPT_VERSION = "atet-scene-description-v1";
 export const SCENE_PROMPT_SHA256 =
   "0ba9e16303b88fadacab66485c98c4287a03e97461042aa764da76ae46512982";
 export const SCENE_SYSTEM_PROMPT = `You describe selected frames from screen recordings for a video-editing agent.

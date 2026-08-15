@@ -4,7 +4,9 @@ import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  canonicalJson,
   createNodeBundleFileSystem,
+  hashEditPlan,
   loadEditPlan,
   saveRecordingManifest,
 } from "../core";
@@ -120,12 +122,12 @@ async function rejected(promise: Promise<unknown>): Promise<unknown> {
 }
 
 async function recordingFixture(): Promise<RecordingFixture> {
-  const root = await mkdtemp(join(tmpdir(), "transmute-mutation-lock-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-mutation-lock-"));
   const paths: RepositoryPaths = {
-    artifactRoot: join(root, "artifacts", "transmute", "recordings"),
-    desktopRoot: join(root, "projects", "transmute", "apps", "desktop"),
-    privateRoot: join(root, "artifacts", "transmute", "private"),
-    projectRoot: join(root, "artifacts", "transmute", "projects"),
+    artifactRoot: join(root, "artifacts", "atet", "recordings"),
+    desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
+    privateRoot: join(root, "artifacts", "atet", "private"),
+    projectRoot: join(root, "artifacts", "atet", "projects"),
     repositoryRoot: root,
   };
   const recordingDirectory = join(paths.artifactRoot, "rec_example001");
@@ -146,13 +148,36 @@ function overlayArguments(source: string): readonly string[] {
 }
 
 describe("exclusive bundle mutation lock", () => {
+  test("first mutation of a predecessor recording plan receipts the saved Atet bytes", async () => {
+    const fixture = await recordingFixture();
+    try {
+      const fileSystem = createNodeBundleFileSystem(fixture.recordingDirectory);
+      const current = await loadEditPlan(fileSystem, CURRENT_EDIT_PLAN_PATH);
+      await writeFile(
+        join(fixture.recordingDirectory, CURRENT_EDIT_PLAN_PATH),
+        `${canonicalJson({ ...current, kind: "studio.edit-plan" })}\n`,
+      );
+
+      const result = await execute(fixture.paths, [
+        "edit", "rec_example001", "cut", "--from", "4s", "--to", "5s", "--json",
+      ]);
+      expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+      const receipt = JSON.parse(result.stdout) as { readonly planHash: string };
+      const saved = await loadEditPlan(fileSystem, CURRENT_EDIT_PLAN_PATH);
+      expect(saved.kind).toBe("atet.edit-plan");
+      expect(receipt.planHash).toBe(hashEditPlan(saved));
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
   test("uses the same conflict boundary for project edits", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-project-mutation-lock-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-project-mutation-lock-"));
     const paths: RepositoryPaths = {
-      artifactRoot: join(root, "artifacts", "transmute", "recordings"),
-      desktopRoot: join(root, "projects", "transmute", "apps", "desktop"),
-      privateRoot: join(root, "artifacts", "transmute", "private"),
-      projectRoot: join(root, "artifacts", "transmute", "projects"),
+      artifactRoot: join(root, "artifacts", "atet", "recordings"),
+      desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
+      privateRoot: join(root, "artifacts", "atet", "private"),
+      projectRoot: join(root, "artifacts", "atet", "projects"),
       repositoryRoot: root,
     };
     const directory = join(paths.projectRoot, "project_lock001");
@@ -245,7 +270,7 @@ describe("exclusive bundle mutation lock", () => {
   });
 
   test("publishes only a complete owner and cleans proven-abandoned acquisition temps", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "transmute-published-lock-"));
+    const directory = await mkdtemp(join(tmpdir(), "atet-published-lock-"));
     const abandonedName = `${MUTATION_LOCK_TEMP_PREFIX}00000000-0000-4000-8000-000000000099.tmp`;
     const abandoned = join(directory, abandonedName);
     try {
@@ -275,7 +300,7 @@ describe("exclusive bundle mutation lock", () => {
 
   test("recovers old zero-byte and partial legacy acquisition artifacts only when proven unheld", async () => {
     for (const [name, contents] of [["empty", ""], ["partial", "{\"acquiredAt\":"]] as const) {
-      const directory = await mkdtemp(join(tmpdir(), `transmute-${name}-legacy-lock-`));
+      const directory = await mkdtemp(join(tmpdir(), `atet-${name}-legacy-lock-`));
       try {
         await writeFile(join(directory, MUTATION_LOCK_FILE), contents, { mode: 0o600 });
         let entered = false;
@@ -298,7 +323,7 @@ describe("exclusive bundle mutation lock", () => {
   });
 
   test("keeps an old partial owner fail-closed when it may still be open", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "transmute-open-partial-lock-"));
+    const directory = await mkdtemp(join(tmpdir(), "atet-open-partial-lock-"));
     const path = join(directory, MUTATION_LOCK_FILE);
     const contents = "{\"acquiredAt\":";
     try {
@@ -318,7 +343,7 @@ describe("exclusive bundle mutation lock", () => {
   });
 
   test("keeps symlink and non-file lock artifacts fail-closed", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "transmute-unsafe-lock-"));
+    const directory = await mkdtemp(join(tmpdir(), "atet-unsafe-lock-"));
     const path = join(directory, MUTATION_LOCK_FILE);
     const target = join(directory, "target");
     const options = {
@@ -346,7 +371,7 @@ describe("exclusive bundle mutation lock", () => {
   });
 
   test("reclaims only an old same-host owner that is proven dead", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "transmute-stale-lock-"));
+    const directory = await mkdtemp(join(tmpdir(), "atet-stale-lock-"));
     try {
       await writeFile(join(directory, MUTATION_LOCK_FILE), `${JSON.stringify({
         acquiredAt: "2026-07-22T17:00:00.000Z",
@@ -375,7 +400,7 @@ describe("exclusive bundle mutation lock", () => {
   });
 
   test("never reclaims a live owner merely because the operation is long", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "transmute-live-lock-"));
+    const directory = await mkdtemp(join(tmpdir(), "atet-live-lock-"));
     const lockPath = join(directory, MUTATION_LOCK_FILE);
     try {
       const contents = `${JSON.stringify({

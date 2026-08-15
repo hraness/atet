@@ -3,22 +3,22 @@ import { defineDirect } from "@hraness/direct";
 import {
   ALL_INPUT_SOURCES,
   AUTHORIZED_PERMISSIONS,
-  TRANSMUTE_DIRECT_TIME_MS,
-  createTransmuteDirectWorld,
+  ATET_DIRECT_TIME_MS,
+  createAtetDirectWorld,
   fixtureIdleSnapshot,
   fixturePausedSnapshot,
   fixtureRecordingSnapshot,
-  parseTransmuteDirectWorld,
+  parseAtetDirectWorld,
   runtimeSnapshot,
 } from "./world";
 
-export type TransmuteDirectRoute = "/";
-export type TransmuteDirectViewport = "compact" | "wide";
+export type AtetDirectRoute = "/";
+export type AtetDirectViewport = "compact" | "wide";
 
-export interface TransmuteScenarioMetadata {
+export interface AtetScenarioMetadata {
   readonly focus: "analysis" | "capture" | "overlays" | "project" | "workflow";
   readonly group: "Analysis" | "Capture" | "Editing" | "Permissions" | "Recovery" | "Workflows";
-  readonly viewport: TransmuteDirectViewport;
+  readonly viewport: AtetDirectViewport;
 }
 
 const recording = fixtureRecordingSnapshot();
@@ -99,7 +99,7 @@ const scenarioInputs = [
     id: "idle-ready",
     route: "/",
     title: "Ready to record",
-    world: createTransmuteDirectWorld({
+    world: createAtetDirectWorld({
       initial: idle,
       transitions: [{ command: "start", outcome: { kind: "success", snapshot: recording } }],
     }),
@@ -109,7 +109,7 @@ const scenarioInputs = [
     id: "permission-prompt",
     route: "/",
     title: "Permission prompts",
-    world: createTransmuteDirectWorld({
+    world: createAtetDirectWorld({
       initial: permissionPrompt,
       transitions: [{
         command: "start",
@@ -128,7 +128,7 @@ const scenarioInputs = [
     id: "permission-denied",
     route: "/",
     title: "Optional inputs denied",
-    world: createTransmuteDirectWorld({
+    world: createAtetDirectWorld({
       initial: permissionDenied,
       transitions: [{
         command: "start",
@@ -147,7 +147,7 @@ const scenarioInputs = [
     id: "all-input-recording",
     route: "/",
     title: "All-input recording",
-    world: createTransmuteDirectWorld({
+    world: createAtetDirectWorld({
       initial: recording,
       transitions: [
         { command: "pause", outcome: { kind: "success", snapshot: paused } },
@@ -161,14 +161,14 @@ const scenarioInputs = [
     id: "multiple-displays",
     route: "/",
     title: "Extended displays",
-    world: createTransmuteDirectWorld({ initial: recording, transitions: [] }),
+    world: createAtetDirectWorld({ initial: recording, transitions: [] }),
   },
   {
     description: "Pause closes a segment, resume opens another, and source time remains monotonic.",
     id: "pause-resume",
     route: "/",
     title: "Paused segment",
-    world: createTransmuteDirectWorld({
+    world: createAtetDirectWorld({
       initial: paused,
       transitions: [
         { command: "resume", outcome: { kind: "success", snapshot: fixtureRecordingSnapshot(18_000_000) } },
@@ -182,7 +182,7 @@ const scenarioInputs = [
     id: "partial-source-failure",
     route: "/",
     title: "Camera disconnected",
-    world: createTransmuteDirectWorld({
+    world: createAtetDirectWorld({
       initial: recording,
       pushes: [{
         after: "initial-snapshot",
@@ -208,14 +208,14 @@ const scenarioInputs = [
     id: "stop-finalized",
     route: "/",
     title: "Recording finalized",
-    world: createTransmuteDirectWorld({ initial: finalized, transitions: [] }),
+    world: createAtetDirectWorld({ initial: finalized, transitions: [] }),
   },
   {
     description: "A settled capture failure can recover through a new production start action.",
     id: "failed-recovery",
     route: "/",
     title: "Failed then recovered",
-    world: createTransmuteDirectWorld({
+    world: createAtetDirectWorld({
       initial: failed,
       transitions: [{ command: "start", outcome: { kind: "success", snapshot: recording } }],
     }),
@@ -225,28 +225,28 @@ const scenarioInputs = [
     id: "multi-asset-project",
     route: "/",
     title: "Synchronized multi-angle project",
-    world: createTransmuteDirectWorld({ initial: finalized, transitions: [] }),
+    world: createAtetDirectWorld({ initial: finalized, transitions: [] }),
   },
   {
     description: "Local boundaries, compact scene descriptions, music structure, and filler safety stay inspectable without external execution.",
     id: "agent-analysis-ledger",
     route: "/",
     title: "Agent analysis ledger",
-    world: createTransmuteDirectWorld({ initial: finalized, transitions: [] }),
+    world: createAtetDirectWorld({ initial: finalized, transitions: [] }),
   },
   {
     description: "A compiled code workflow exposes exact waves, parallel analysis, trusted computation, durable failure, scoped replay, and graph-bound run outputs.",
     id: "code-mode-workflow",
     route: "/",
     title: "Agent code-mode workflow",
-    world: createTransmuteDirectWorld({ initial: finalized, transitions: [] }),
+    world: createAtetDirectWorld({ initial: finalized, transitions: [] }),
   },
   {
     description: "Image, SVG, GIF, video, and emoji layers expose composition, animation, playback, and audio controls.",
     id: "overlay-compositor",
     route: "/",
     title: "Overlay compositor controls",
-    world: createTransmuteDirectWorld({ initial: finalized, transitions: [] }),
+    world: createAtetDirectWorld({ initial: finalized, transitions: [] }),
   },
 ] as const;
 
@@ -283,17 +283,17 @@ const coverage = [
   { claim: "Packaged Zig bridge, signatures, and resources require direct binary evidence.", key: "native.bundle.direct", mode: "direct", scenarios: [] },
 ] as const;
 
-export const transmuteDirect = defineDirect({
+export const atetDirect = defineDirect({
   coverage,
   defaultScenario: "idle-ready",
-  parseWorld: parseTransmuteDirectWorld,
+  parseWorld: parseAtetDirectWorld,
   scenarios: scenarioInputs,
 });
 
-export const transmuteScenarioCatalog = transmuteDirect.scenarios;
-export const transmuteCoverageCatalog = transmuteDirect.coverage;
+export const atetScenarioCatalog = atetDirect.scenarios;
+export const atetCoverageCatalog = atetDirect.coverage;
 
-export const transmuteScenarioMetadata: Readonly<Record<string, TransmuteScenarioMetadata>> = Object.freeze({
+export const atetScenarioMetadata: Readonly<Record<string, AtetScenarioMetadata>> = Object.freeze({
   "agent-analysis-ledger": { focus: "analysis", group: "Analysis", viewport: "wide" },
   "all-input-recording": { focus: "capture", group: "Capture", viewport: "wide" },
   "code-mode-workflow": { focus: "workflow", group: "Workflows", viewport: "wide" },
@@ -309,4 +309,4 @@ export const transmuteScenarioMetadata: Readonly<Record<string, TransmuteScenari
   "stop-finalized": { focus: "capture", group: "Editing", viewport: "compact" },
 });
 
-export const TRANSMUTE_DIRECT_NOW_MS = TRANSMUTE_DIRECT_TIME_MS;
+export const ATET_DIRECT_NOW_MS = ATET_DIRECT_TIME_MS;

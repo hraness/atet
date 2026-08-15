@@ -1,12 +1,12 @@
 import {
   buildWorkflow,
   compileWorkflowGraph,
-  createTransmuteCodeHost,
+  createAtetCodeHost,
   defineWorkflow,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
   runBuiltWorkflow,
-} from "@hraness/transmute/code"
-import { executeTransmuteOperation } from "@hraness/transmute/operations"
+} from "@hraness/atet/code"
+import { executeAtetOperation } from "@hraness/atet/operations"
 import { z } from "zod"
 
 const DeclarativeWorkflowInputSchema = z.strictObject({
@@ -17,7 +17,7 @@ const DeclarativeWorkflowInputSchema = z.strictObject({
 export const declarativeCheckedRenderWorkflow = defineWorkflow({
   id: "declarative-checked-render",
   inputSchema: DeclarativeWorkflowInputSchema,
-  inputSchemaId: "transmute.example.declarative-checked-render.input/v1",
+  inputSchemaId: "atet.example.declarative-checked-render.input/v1",
   version: 1,
   build(builder, input) {
     const checked = builder.diagram.check("check-source", {
@@ -58,8 +58,8 @@ if (import.meta.main) {
   const planned = compileWorkflowGraph({
     graph: built.graph,
   })
-  const host = createTransmuteCodeHost({
-    execute: async request => await executeTransmuteOperation(
+  const host = createAtetCodeHost({
+    execute: async request => await executeAtetOperation(
       request.kind,
       request.input,
     ),

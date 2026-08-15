@@ -27,13 +27,16 @@ import {
   type WorkflowDefinition,
 } from "./define-workflow.js"
 import {
-  TransmuteCodeError,
-  transmuteCodeErrorMessage,
-  type TransmuteCodeErrorCode,
+  AtetCodeError,
+  atetCodeErrorMessage,
+  type AtetCodeErrorCode,
 } from "./errors.js"
 import {
-  PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
-  isPortableTransmuteOperationKind,
+  PORTABLE_ATET_OPERATION_CONTRACTS,
+  isPortableAtetOperationKind,
+  type PortableAtetOperationInputMap,
+  type PortableAtetOperationKind,
+  type PortableAtetOperationResultMap,
   type PortableTransmuteOperationInputMap,
   type PortableTransmuteOperationKind,
   type PortableTransmuteOperationResultMap,
@@ -46,7 +49,7 @@ import {
 } from "./json-snapshot.js"
 
 export const WORKFLOW_NODE_RECEIPT_VERSION =
-  "transmute-workflow-node-receipt-v1" as const
+  "atet-workflow-node-receipt-v1" as const
 export const WORKFLOW_NODE_RECEIPT_HASH_DOMAIN =
   "transmute.workflow.node-receipt/v1" as const
 export const MAX_WORKFLOW_RESULT_BYTES = 96 * 1024 * 1024
@@ -54,66 +57,66 @@ export const MAX_WORKFLOW_RESULT_BYTES = 96 * 1024 * 1024
 export const MAX_WORKFLOW_RESULT_DEPTH = 320
 export const MAX_WORKFLOW_RESULT_VALUES = 1_300_000
 
-export interface TransmuteCodeExecutionRequest<
-  Kind extends PortableTransmuteOperationKind = PortableTransmuteOperationKind,
+export interface AtetCodeExecutionRequest<
+  Kind extends PortableAtetOperationKind = PortableAtetOperationKind,
 > {
-  readonly input: PortableTransmuteOperationInputMap[Kind]
+  readonly input: PortableAtetOperationInputMap[Kind]
   readonly kind: Kind
   readonly nodeKey: string
   readonly version: 2
 }
 
-export interface TransmuteCodeExecutionContext {
+export interface AtetCodeExecutionContext {
   readonly signal: AbortSignal
 }
 
-export type TransmuteCodeExecutor = <Kind extends PortableTransmuteOperationKind>(
-  request: TransmuteCodeExecutionRequest<Kind>,
-  context: TransmuteCodeExecutionContext,
-) => Promise<PortableTransmuteOperationResultMap[Kind]>
+export type AtetCodeExecutor = <Kind extends PortableAtetOperationKind>(
+  request: AtetCodeExecutionRequest<Kind>,
+  context: AtetCodeExecutionContext,
+) => Promise<PortableAtetOperationResultMap[Kind]>
 
-export interface TransmuteCodeAdmissionRequest {
-  readonly kind: PortableTransmuteOperationKind
+export interface AtetCodeAdmissionRequest {
+  readonly kind: PortableAtetOperationKind
   readonly nodeKey: string
   readonly policy: OperationPolicy
   readonly version: 2
 }
 
-export type TransmuteCodeAdmission = <Result>(
-  request: TransmuteCodeAdmissionRequest,
+export type AtetCodeAdmission = <Result>(
+  request: AtetCodeAdmissionRequest,
   execute: () => Promise<Result>,
-  context: TransmuteCodeExecutionContext,
+  context: AtetCodeExecutionContext,
 ) => Promise<Result>
 
-export interface TransmuteCodeHost {
-  readonly admit?: TransmuteCodeAdmission
-  readonly execute: TransmuteCodeExecutor
+export interface AtetCodeHost {
+  readonly admit?: AtetCodeAdmission
+  readonly execute: AtetCodeExecutor
 }
 
-export interface CreateTransmuteCodeHostOptions {
-  readonly admit?: TransmuteCodeAdmission
-  readonly execute: TransmuteCodeExecutor
+export interface CreateAtetCodeHostOptions {
+  readonly admit?: AtetCodeAdmission
+  readonly execute: AtetCodeExecutor
 }
 
-export function createTransmuteCodeHost(
-  options: CreateTransmuteCodeHostOptions,
-): TransmuteCodeHost {
+export function createAtetCodeHost(
+  options: CreateAtetCodeHostOptions,
+): AtetCodeHost {
   if (typeof options !== "object" || options === null) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
-      "A Transmute Code host must be an object.",
+      "An Atet Code host must be an object.",
     )
   }
   if (typeof options.execute !== "function") {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
-      "A Transmute Code host requires an execute function.",
+      "An Atet Code host requires an execute function.",
     )
   }
   if (options.admit !== undefined && typeof options.admit !== "function") {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
-      "A Transmute Code host admit value must be a function when provided.",
+      "An Atet Code host admit value must be a function when provided.",
     )
   }
   return Object.freeze({
@@ -125,7 +128,7 @@ export function createTransmuteCodeHost(
 export interface WorkflowNodeReceipt {
   readonly index: number
   readonly inputSha256: string
-  readonly kind: PortableTransmuteOperationKind
+  readonly kind: PortableAtetOperationKind
   readonly nodeKey: string
   readonly outputSha256: string
   readonly receiptSha256: string
@@ -134,18 +137,18 @@ export interface WorkflowNodeReceipt {
 }
 
 export interface FailedWorkflowNode {
-  readonly kind: PortableTransmuteOperationKind
+  readonly kind: PortableAtetOperationKind
   readonly nodeKey: string
   readonly version: 2
 }
 
-export class TransmuteWorkflowRunError extends TransmuteCodeError {
+export class AtetWorkflowRunError extends AtetCodeError {
   readonly completedReceipts: readonly WorkflowNodeReceipt[]
   readonly failedNode: FailedWorkflowNode | undefined
   readonly runCause: unknown
 
   constructor(
-    code: TransmuteCodeErrorCode,
+    code: AtetCodeErrorCode,
     message: string,
     options: {
       readonly cause: unknown
@@ -161,7 +164,7 @@ export class TransmuteWorkflowRunError extends TransmuteCodeError {
       completedReceiptCount: completedReceipts.length,
       ...(failedNode === undefined ? {} : { failedNode }),
     })
-    this.name = "TransmuteWorkflowRunError"
+    this.name = "AtetWorkflowRunError"
     this.completedReceipts = completedReceipts
     this.failedNode = failedNode
     this.runCause = options.cause
@@ -184,7 +187,7 @@ export interface WorkflowRunResult<Output = JsonValue> {
 }
 
 export interface RunBuiltWorkflowOptions {
-  readonly host: TransmuteCodeHost
+  readonly host: AtetCodeHost
   readonly limits?: Partial<GraphCompilerLimits>
   readonly signal?: AbortSignal
 }
@@ -202,7 +205,7 @@ function projectedValue(
 ): JsonValue {
   let current = values.get(reference.$ref.nodeKey)
   if (current === undefined) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "internal",
       `Workflow reference producer ${reference.$ref.nodeKey} has not completed.`,
       { nodeKey: reference.$ref.nodeKey },
@@ -211,7 +214,7 @@ function projectedValue(
   for (const segment of reference.$ref.path ?? []) {
     if (typeof segment === "number") {
       if (!Array.isArray(current) || segment >= current.length) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           `Workflow reference ${reference.$ref.nodeKey} has an invalid array projection.`,
           { nodeKey: reference.$ref.nodeKey, segment },
@@ -226,7 +229,7 @@ function projectedValue(
         || Array.isArray(current)
         || !Object.hasOwn(current, segment)
       ) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           `Workflow reference ${reference.$ref.nodeKey} has an invalid object projection.`,
           { nodeKey: reference.$ref.nodeKey, segment },
@@ -235,7 +238,7 @@ function projectedValue(
       current = (current as Readonly<Record<string, JsonValue>>)[segment]
     }
     if (current === undefined) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `Workflow reference ${reference.$ref.nodeKey} projected an undefined value.`,
         { nodeKey: reference.$ref.nodeKey, segment },
@@ -260,7 +263,7 @@ function resolveValue(
     for (const key of Object.keys(record).sort()) {
       const item = record[key]
       if (item === undefined) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "internal",
           `Compiled workflow value ${key} is undefined.`,
         )
@@ -275,7 +278,7 @@ function resolveValue(
 function createNodeReceipt(
   index: number,
   nodeKey: string,
-  kind: PortableTransmuteOperationKind,
+  kind: PortableAtetOperationKind,
   inputSha256: string,
   outputSha256: string,
 ): WorkflowNodeReceipt {
@@ -303,13 +306,13 @@ function publicOperationNode(
   readonly executor: {
     readonly kind: "operation"
     readonly operation: {
-      readonly kind: PortableTransmuteOperationKind
+      readonly kind: PortableAtetOperationKind
       readonly version: 2
     }
   }
 } {
   if (isComputeGraphNode(node)) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "unsupported-plan",
       `The public projection does not support trusted compute at node ${node.key}.`,
       {
@@ -320,7 +323,7 @@ function publicOperationNode(
     )
   }
   if (!isOperationGraphNode(node)) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "unsupported-plan",
       `The public projection does not support the executor at node ${node.key}.`,
       { nodeKey: node.key, projectionId: PUBLIC_WORKFLOW_REGISTRY_PROJECTION.id },
@@ -329,9 +332,9 @@ function publicOperationNode(
   const operation = node.executor.operation
   if (
     operation.version !== 2
-    || !isPortableTransmuteOperationKind(operation.kind)
+    || !isPortableAtetOperationKind(operation.kind)
   ) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "unsupported-plan",
       `Unsupported operation: ${operation.kind}@${String(operation.version)}`,
       {
@@ -346,7 +349,7 @@ function publicOperationNode(
 
 function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) {
-    throw new TransmuteCodeError("cancelled", "Workflow execution was cancelled.")
+    throw new AtetCodeError("cancelled", "Workflow execution was cancelled.")
   }
 }
 
@@ -356,18 +359,18 @@ function workflowNodeFailure(
     readonly executor: {
       readonly kind: "operation"
       readonly operation: {
-        readonly kind: PortableTransmuteOperationKind
+        readonly kind: PortableAtetOperationKind
         readonly version: 2
       }
     }
   },
   completedReceipts: readonly WorkflowNodeReceipt[],
-): TransmuteWorkflowRunError {
-  const code = error instanceof TransmuteCodeError ? error.code : "subprocess"
-  return new TransmuteWorkflowRunError(
+): AtetWorkflowRunError {
+  const code = error instanceof AtetCodeError ? error.code : "subprocess"
+  return new AtetWorkflowRunError(
     code,
     `Workflow node ${node.key} (${node.executor.operation.kind}@2) failed: `
-      + transmuteCodeErrorMessage(error),
+      + atetCodeErrorMessage(error),
     {
       cause: error,
       completedReceipts,
@@ -384,33 +387,33 @@ function workflowRunFailure(
   error: unknown,
   message: string,
   completedReceipts: readonly WorkflowNodeReceipt[],
-): TransmuteWorkflowRunError {
-  const code = error instanceof TransmuteCodeError ? error.code : "internal"
-  return new TransmuteWorkflowRunError(code, message, {
+): AtetWorkflowRunError {
+  const code = error instanceof AtetCodeError ? error.code : "internal"
+  return new AtetWorkflowRunError(code, message, {
     cause: error,
     completedReceipts,
   })
 }
 
 async function executePublicNode(
-  host: TransmuteCodeHost,
+  host: AtetCodeHost,
   node: AuthoredGraphNodeV1 & {
     readonly executor: {
       readonly kind: "operation"
       readonly operation: {
-        readonly kind: PortableTransmuteOperationKind
+        readonly kind: PortableAtetOperationKind
         readonly version: 2
       }
     }
   },
   values: ReadonlyMap<string, JsonValue>,
-  context: TransmuteCodeExecutionContext,
+  context: AtetCodeExecutionContext,
 ): Promise<{
   readonly input: BoundedJsonSnapshot
   readonly output: BoundedJsonSnapshot
 }> {
   const { kind } = node.executor.operation
-  const contract = PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[kind]
+  const contract = PORTABLE_ATET_OPERATION_CONTRACTS[kind]
   const resolvedInput = resolveValue(node.input, values)
   const rawInput = createBoundedJsonValueSnapshot(
     resolvedInput,
@@ -421,14 +424,14 @@ async function executePublicNode(
     contract.inputSchema as z.ZodType<unknown>,
     rawInput.value,
     `${kind} input at node ${node.key}`,
-  ) as PortableTransmuteOperationInputMap[typeof kind]
+  ) as PortableAtetOperationInputMap[typeof kind]
   const boundedInput = createBoundedJsonSnapshot(
     parsedInput,
     contract.policy.maxInputBytes,
     `${kind} input at node ${node.key}`,
   )
-  const request: TransmuteCodeExecutionRequest<typeof kind> = Object.freeze({
-    input: boundedInput.value as unknown as PortableTransmuteOperationInputMap[
+  const request: AtetCodeExecutionRequest<typeof kind> = Object.freeze({
+    input: boundedInput.value as unknown as PortableAtetOperationInputMap[
       typeof kind
     ],
     kind,
@@ -480,7 +483,7 @@ export async function runBuiltWorkflow<
     projection: PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
   })
   for (const node of compilation.graph.nodes) publicOperationNode(node)
-  const host = createTransmuteCodeHost(options.host)
+  const host = createAtetCodeHost(options.host)
   const context = Object.freeze({
     signal: options.signal ?? new AbortController().signal,
   })
@@ -493,7 +496,7 @@ export async function runBuiltWorkflow<
     const outcomes = await Promise.all(wave.map(async (nodeKey) => {
       const node = nodes.get(nodeKey)
       if (node === undefined) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "internal",
           `Compiled workflow topology lost node ${nodeKey}.`,
           { nodeKey },
@@ -532,7 +535,7 @@ export async function runBuiltWorkflow<
       throw workflowNodeFailure(failure.error, failure.node, receipts)
     }
     if (context.signal.aborted) {
-      const cause = new TransmuteCodeError(
+      const cause = new AtetCodeError(
         "cancelled",
         "Workflow execution was cancelled.",
       )
@@ -557,7 +560,7 @@ export async function runBuiltWorkflow<
   } catch (error) {
     throw workflowRunFailure(
       error,
-      `Workflow output resolution failed: ${transmuteCodeErrorMessage(error)}`,
+      `Workflow output resolution failed: ${atetCodeErrorMessage(error)}`,
       receipts,
     )
   }
@@ -578,3 +581,91 @@ export async function runWorkflow<
 ): Promise<WorkflowRunResult<ResolvedWorkflowOutput<Output>>> {
   return await runBuiltWorkflow(buildWorkflow(definition, input), options)
 }
+
+/** Deprecated Transmute inputs preserve the v1 TypeScript surface. */
+export type TransmuteCodeExecutionRequest<
+  Kind extends PortableTransmuteOperationKind = PortableTransmuteOperationKind,
+> = Readonly<{
+  input: PortableTransmuteOperationInputMap[Kind]
+  kind: Kind
+  nodeKey: string
+  version: 2
+}>
+export type TransmuteCodeExecutionContext = AtetCodeExecutionContext
+export type TransmuteCodeExecutor = <Kind extends PortableTransmuteOperationKind>(
+  request: TransmuteCodeExecutionRequest<Kind>,
+  context: TransmuteCodeExecutionContext,
+) => Promise<PortableTransmuteOperationResultMap[Kind]>
+export interface TransmuteCodeAdmissionRequest {
+  readonly kind: PortableTransmuteOperationKind
+  readonly nodeKey: string
+  readonly policy: OperationPolicy
+  readonly version: 2
+}
+export type TransmuteCodeAdmission = <Result>(
+  request: TransmuteCodeAdmissionRequest,
+  execute: () => Promise<Result>,
+  context: TransmuteCodeExecutionContext,
+) => Promise<Result>
+export type TransmuteCodeHost = AtetCodeHost
+export interface CreateTransmuteCodeHostOptions {
+  readonly admit?: TransmuteCodeAdmission
+  readonly execute: TransmuteCodeExecutor
+}
+
+function transmuteKindFromAtet(
+  kind: PortableAtetOperationKind,
+): PortableTransmuteOperationKind {
+  return kind.replace(/^atet\./u, "transmute.") as PortableTransmuteOperationKind
+}
+
+/**
+ * @deprecated Use {@link createAtetCodeHost}. The adapter accepts exact v1
+ * request identifiers while the workflow graph and receipts remain Atet.
+ */
+export function createTransmuteCodeHost(
+  options: CreateTransmuteCodeHostOptions,
+): AtetCodeHost {
+  if (typeof options !== "object" || options === null) {
+    throw new AtetCodeError(
+      "invalid-data",
+      "A Transmute Code host must be an object.",
+    )
+  }
+  const legacyExecute = options.execute
+  const legacyAdmit = options.admit
+  if (typeof legacyExecute !== "function") {
+    throw new AtetCodeError(
+      "invalid-data",
+      "A Transmute Code host requires an execute function.",
+    )
+  }
+  if (legacyAdmit !== undefined && typeof legacyAdmit !== "function") {
+    throw new AtetCodeError(
+      "invalid-data",
+      "A Transmute Code host admit value must be a function when provided.",
+    )
+  }
+  const execute: AtetCodeExecutor = (async (request, context) => {
+    const legacyKind = transmuteKindFromAtet(request.kind)
+    return await legacyExecute({
+      input: request.input,
+      kind: legacyKind,
+      nodeKey: request.nodeKey,
+      version: 2,
+    }, context)
+  }) as AtetCodeExecutor
+  const admit: AtetCodeAdmission | undefined = legacyAdmit === undefined
+    ? undefined
+    : (async (request, dispatch, context) => await legacyAdmit({
+        kind: transmuteKindFromAtet(request.kind),
+        nodeKey: request.nodeKey,
+        policy: request.policy,
+        version: 2,
+      }, dispatch, context)) as AtetCodeAdmission
+  return createAtetCodeHost({
+    ...(admit === undefined ? {} : { admit }),
+    execute,
+  })
+}
+export { AtetWorkflowRunError as TransmuteWorkflowRunError }

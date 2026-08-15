@@ -24,6 +24,7 @@ import { canonicalJson } from "../core/canonical-json";
 import {
   AuthoredWorkflowGraphV1Schema,
   JsonValueSchema,
+  normalizeAuthoredWorkflowGraph,
   type JsonValue,
 } from "./contracts";
 import {
@@ -1360,11 +1361,11 @@ function assertExpectedBuild(
   expectedInput: Pick<CodeWorkerBuildResult, "graph" | "input">,
 ): void {
   const actual = WorkerBuiltWorkflowSchema.parse({
-    graph: actualInput.graph,
+    graph: normalizeAuthoredWorkflowGraph(actualInput.graph),
     input: actualInput.input,
   });
   const expected = WorkerBuiltWorkflowSchema.parse({
-    graph: expectedInput.graph,
+    graph: normalizeAuthoredWorkflowGraph(expectedInput.graph),
     input: expectedInput.input,
   });
   if (canonicalJson(actual) !== canonicalJson(expected)) {
@@ -1522,7 +1523,7 @@ export async function startCodeWorker(
     .digest("hex");
   const temporaryParent = resolve(options.temporaryRoot ?? tmpdir());
   await mkdir(temporaryParent, { mode: 0o700, recursive: true });
-  const directory = await mkdtemp(join(temporaryParent, "transmute-code-worker-"));
+  const directory = await mkdtemp(join(temporaryParent, "atet-code-worker-"));
   const protocolDirectory = await mkdtemp(join(tmpdir(), "iw-"));
   const socketPath = join(protocolDirectory, "s");
   let child: ChildProcess | undefined;

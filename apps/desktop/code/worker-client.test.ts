@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { z } from "zod";
-import { createHostResourceCoordinator } from "@hraness/transmute/host-resources";
+import { createHostResourceCoordinator } from "@hraness/atet/host-resources";
 
 import { OperationRegistry } from "../application/registry";
 import type { OperationDefinition } from "../application/operation";
@@ -43,7 +43,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 async function temporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-code-client-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-code-client-"));
   temporaryDirectories.push(directory);
   return directory;
 }
@@ -210,7 +210,7 @@ async function writeRuntimeMismatchWorker(
       bundleSha256: argument("--sha256"),
       generation: 1,
       kind: "hello",
-      protocol: "studio.code-worker/v5",
+      protocol: "atet.code-worker/v5",
       workerEntrySha256,
     }));
     const header = Buffer.alloc(4);
@@ -301,7 +301,7 @@ describe("trusted code worker client", () => {
     const root = await temporaryDirectory();
     await writeFile(join(root, "workflow.ts"), `
       import { z } from "zod";
-      import { defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineWorkflow } from "@hraness/atet/local/code";
       console.log("trusted top-level diagnostic");
       export default defineWorkflow({
         id: "worker-fixture",
@@ -342,8 +342,8 @@ describe("trusted code worker client", () => {
     });
     expect(built.diagnostics.stdout).toContain("trusted top-level diagnostic");
     expect(built.diagnostics.stderr).toContain("trusted build diagnostic");
-    expect(built.diagnostics.stdout).not.toContain("studio.code-worker/v5:diagnostics");
-    expect(built.diagnostics.stderr).not.toContain("studio.code-worker/v5:diagnostics");
+    expect(built.diagnostics.stdout).not.toContain("atet.code-worker/v5:diagnostics");
+    expect(built.diagnostics.stderr).not.toContain("atet.code-worker/v5:diagnostics");
   });
 
   for (const mismatch of ["bunVersion", "bunRevision"] as const) {
@@ -358,7 +358,7 @@ describe("trusted code worker client", () => {
         workerEntryPath,
       })).rejects.toThrow("runtime attestation mismatch");
       expect((await readdir(root)).filter(name => (
-        name.startsWith("transmute-code-worker-")
+        name.startsWith("atet-code-worker-")
       ))).toEqual([]);
     });
   }
@@ -377,7 +377,7 @@ describe("trusted code worker client", () => {
       workerEntryPath,
     })).rejects.toThrow("entry-byte attestation mismatch");
     expect((await readdir(root)).filter(name => (
-      name.startsWith("transmute-code-worker-")
+      name.startsWith("atet-code-worker-")
     ))).toEqual([]);
   });
 
@@ -385,7 +385,7 @@ describe("trusted code worker client", () => {
     const root = await temporaryDirectory();
     await writeFile(join(root, "workflow.ts"), `
       import { z } from "zod";
-      import { defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineWorkflow } from "@hraness/atet/local/code";
       export default defineWorkflow({
         id: "worker-transformed-input",
         version: 1,
@@ -451,7 +451,7 @@ describe("trusted code worker client", () => {
     const root = await temporaryDirectory();
     await writeFile(join(root, "workflow.ts"), `
       import { z } from "zod";
-      import { defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineWorkflow } from "@hraness/atet/local/code";
       console.log("x".repeat(2048));
       export default defineWorkflow({
         id: "worker-noisy",
@@ -480,7 +480,7 @@ describe("trusted code worker client", () => {
     const root = await temporaryDirectory();
     await writeFile(join(root, "workflow.ts"), `
       import { z } from "zod";
-      import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
 
       const decorate = defineCompute({
         key: "fixture.decorate",
@@ -545,7 +545,7 @@ describe("trusted code worker client", () => {
     const root = await temporaryDirectory();
     await writeFile(join(root, "workflow.ts"), `
       import { z } from "zod";
-      import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
 
       const oversized = defineCompute({
         key: "fixture.oversized",
@@ -596,7 +596,7 @@ describe("trusted code worker client", () => {
     const root = await temporaryDirectory();
     await writeFile(join(root, "workflow.ts"), `
       import { z } from "zod";
-      import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
 
       const cleanExit = defineCompute({
         key: "fixture.clean-exit",
@@ -650,7 +650,7 @@ describe("trusted code worker client", () => {
     await writeFile(join(root, "workflow.ts"), `
       import { writeFileSync } from "node:fs";
       import { z } from "zod";
-      import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
 
       const blocked = defineCompute({
         key: "fixture.blocked",
@@ -720,7 +720,7 @@ describe("trusted code worker client", () => {
     await writeFile(join(root, "workflow.ts"), `
       import { writeFileSync } from "node:fs";
       import { z } from "zod";
-      import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
 
       const sequenced = defineCompute({
         key: "fixture.queued-cancel",
@@ -800,7 +800,7 @@ describe("trusted code worker client", () => {
     const root = await temporaryDirectory();
     await writeFile(join(root, "workflow.ts"), `
       import { z } from "zod";
-      import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
       const identity = defineCompute({
         key: "fixture.close-race",
         inputSchemaId: "test.compute.close-race-input/v1",
@@ -845,7 +845,7 @@ describe("trusted code worker client", () => {
     await writeFile(join(root, "workflow.ts"), `
       import { appendFileSync } from "node:fs";
       import { z } from "zod";
-      import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
 
       const marker = ${JSON.stringify(marker)};
       appendFileSync(marker, JSON.stringify({ kind: "load", pid: process.pid }) + "\\n");
@@ -950,7 +950,7 @@ describe("trusted code worker client", () => {
     expect(active).toBe(0);
     expect(maximumActive).toBe(MAX_CODE_WORKER_POOL_SIZE);
     expect((await readdir(root)).filter(name => (
-      name.startsWith("transmute-code-worker-")
+      name.startsWith("atet-code-worker-")
     ))).toEqual([]);
   }, 15_000);
 
@@ -958,7 +958,7 @@ describe("trusted code worker client", () => {
     const root = await temporaryDirectory();
     await writeFile(join(root, "workflow.ts"), `
       import { z } from "zod";
-      import { defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineWorkflow } from "@hraness/atet/local/code";
 
       const loadedPid = process.pid;
       export default defineWorkflow({
@@ -1011,7 +1011,7 @@ describe("trusted code worker client", () => {
       expect.stringContaining("different workflow graph"),
     );
     expect((await readdir(root)).filter(name => (
-      name.startsWith("transmute-code-worker-")
+      name.startsWith("atet-code-worker-")
     ))).toEqual([]);
   }, 15_000);
 
@@ -1019,7 +1019,7 @@ describe("trusted code worker client", () => {
     const root = await temporaryDirectory();
     await writeFile(join(root, "workflow.ts"), `
       import { z } from "zod";
-      import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
       const identity = defineCompute({
         key: "fixture.retirement-join",
         inputSchemaId: "test.compute.retirement-join-input/v1",
@@ -1109,7 +1109,7 @@ describe("trusted code worker client", () => {
       const root = await temporaryDirectory();
       await writeFile(join(root, "preparation-release.ts"), `
         import { z } from "zod";
-        import { defineWorkflow } from "@hraness/transmute/local/code";
+        import { defineWorkflow } from "@hraness/atet/local/code";
         export default defineWorkflow({
           id: "preparation-release",
           version: 1,
@@ -1174,7 +1174,7 @@ describe("trusted code worker client", () => {
       const root = await temporaryDirectory();
       await writeFile(join(root, "guardian-startup-cancel.ts"), `
         import { z } from "zod";
-        import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+        import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
         const identity = defineCompute({
           key: "fixture.guardian-startup-cancel",
           inputSchemaId: "test.compute.guardian-startup-cancel-input/v1",
@@ -1271,7 +1271,7 @@ exec ${JSON.stringify(process.execPath)} "$@"
       await writeFile(join(root, "guardian-failure.ts"), `
         import { writeFileSync } from "node:fs";
         import { z } from "zod";
-        import { defineWorkflow } from "@hraness/transmute/local/code";
+        import { defineWorkflow } from "@hraness/atet/local/code";
         writeFileSync(${JSON.stringify(evaluatedMarker)}, "evaluated");
         export default defineWorkflow({
           id: "guardian-failure",
@@ -1327,7 +1327,7 @@ exec ${JSON.stringify(process.execPath)} "$@"
       await writeFile(workflowPath, `
         import { writeFileSync } from "node:fs";
         import { z } from "zod";
-        import { defineWorkflow } from "@hraness/transmute/local/code";
+        import { defineWorkflow } from "@hraness/atet/local/code";
 
         writeFileSync(${JSON.stringify(startedPath)}, String(process.pid));
         while (true) { /* synchronous authored module evaluation */ }
@@ -1474,7 +1474,7 @@ exec ${JSON.stringify(process.execPath)} "$@"
       } as const;
       await writeFile(workflowPath, `
         import { z } from "zod";
-        import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+        import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
 
         const spin = defineCompute({
           key: "fixture.guardian-spin",
@@ -1653,7 +1653,7 @@ exec ${JSON.stringify(process.execPath)} "$@"
       } as const;
       await writeFile(workflowPath, `
         import { z } from "zod";
-        import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+        import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
         const identity = defineCompute({
           key: "fixture.failed-retirement",
           inputSchemaId: "test.compute.failed-retirement-input/v1",
@@ -1842,7 +1842,7 @@ exec ${JSON.stringify(process.execPath)} "$@"
     const root = await temporaryDirectory();
     await writeFile(join(root, "workflow.ts"), `
       import { z } from "zod";
-      import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+      import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
 
       const isolated = defineCompute({
         key: "fixture.pool-isolated",

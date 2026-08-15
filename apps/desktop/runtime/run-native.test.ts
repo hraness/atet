@@ -12,11 +12,11 @@ afterEach(async () => {
 });
 
 async function developmentFixture(): Promise<{ desktop: string; repository: string }> {
-  const root = await mkdtemp(join(tmpdir(), "transmute-native-resources-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-native-resources-"));
   temporaryDirectories.push(root);
   const desktop = join(root, "apps", "desktop");
-  const gateway = join(desktop, "runtime", "dist", "transmute-gateway");
-  const helper = join(desktop, "capture", "dist", "transmute-capture");
+  const gateway = join(desktop, "runtime", "dist", "atet-gateway");
+  const helper = join(desktop, "capture", "dist", "atet-capture");
   await Promise.all([
     mkdir(join(desktop, "runtime", "dist"), { recursive: true }),
     mkdir(join(desktop, "capture", "dist"), { recursive: true }),
@@ -31,17 +31,17 @@ async function developmentFixture(): Promise<{ desktop: string; repository: stri
   return { desktop, repository: await realpath(root) };
 }
 
-test("development resource discovery anchors both sidecars to one Transmute checkout", async () => {
+test("development resource discovery anchors both sidecars to one Atet checkout", async () => {
   const fixture = await developmentFixture();
   const resources = resolveDevelopmentRuntimeResources(fixture.desktop);
   expect(resources.repositoryRoot).toBe(fixture.repository);
-  expect(resources.gateway).toBe(await realpath(join(fixture.desktop, "runtime", "dist", "transmute-gateway")));
-  expect(resources.captureHelper).toBe(await realpath(join(fixture.desktop, "capture", "dist", "transmute-capture")));
+  expect(resources.gateway).toBe(await realpath(join(fixture.desktop, "runtime", "dist", "atet-gateway")));
+  expect(resources.captureHelper).toBe(await realpath(join(fixture.desktop, "capture", "dist", "atet-capture")));
   expect(findRepositoryRoot(join(fixture.desktop, "runtime", "dist"))).toBe(fixture.repository);
 });
 
 test("development resource discovery fails closed when either sidecar is absent", async () => {
   const fixture = await developmentFixture();
-  await rm(join(fixture.desktop, "capture", "dist", "transmute-capture"));
+  await rm(join(fixture.desktop, "capture", "dist", "atet-capture"));
   expect(() => resolveDevelopmentRuntimeResources(fixture.desktop)).toThrow(/capture helper is missing/u);
 });

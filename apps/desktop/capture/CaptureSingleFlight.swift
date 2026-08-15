@@ -39,7 +39,7 @@ typealias CaptureCleanupFailClosedAction =
 
 let captureExit70AfterCleanupFailure: CaptureCleanupFailClosedAction = {
     incident in
-    let message = "transmute-capture fatal [\(incident.kind.rawValue)] \(incident.subject): \(incident.detail)\n"
+    let message = "atet-capture fatal [\(incident.kind.rawValue)] \(incident.subject): \(incident.detail)\n"
     let diagnostic = Data(message.utf8.prefix(1_024))
     let existingFlags = fcntl(STDERR_FILENO, F_GETFL)
     if existingFlags >= 0 {

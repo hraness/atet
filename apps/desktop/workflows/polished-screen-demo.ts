@@ -24,7 +24,7 @@ export const PolishedScreenDemoInputSchema = z.strictObject({
 export const polishedScreenDemo = defineWorkflow({
   id: "polished-screen-demo",
   inputSchema: PolishedScreenDemoInputSchema,
-  inputSchemaId: "studio.workflow.polished-screen-demo.input/v4",
+  inputSchemaId: "atet.workflow.polished-screen-demo.input/v4",
   version: 4,
   build(workflow, input) {
     const project = workflow.project.snapshot("project", input.project);

@@ -3,8 +3,8 @@ import { SCENARIO_QUERY_KEY } from "@hraness/direct";
 import type { DirectBrowserBridge } from "@hraness/direct/web";
 
 import {
-  mountTransmuteDirect,
-  type TransmutePagehideRegistration,
+  mountAtetDirect,
+  type AtetPagehideRegistration,
 } from "./mount";
 
 const hostFetch = globalThis.fetch;
@@ -17,7 +17,7 @@ function pagehideHarness() {
   let listener: (() => undefined) | null = null;
   let registrations = 0;
   let removals = 0;
-  const registerPagehide: TransmutePagehideRegistration = (next) => {
+  const registerPagehide: AtetPagehideRegistration = (next) => {
     listener = next;
     registrations += 1;
     return (): undefined => {
@@ -35,11 +35,11 @@ function pagehideHarness() {
   };
 }
 
-describe("Transmute Direct mount", () => {
+describe("Atet Direct mount", () => {
   test("installs bridge, firewall, and idempotent page lifecycle ownership", async () => {
     const target: Record<string, unknown> = {};
     const pagehide = pagehideHarness();
-    const mounted = mountTransmuteDirect(
+    const mounted = mountAtetDirect(
       { kind: "scenario", scenario: "idle-ready" },
       { registerPagehide: pagehide.registerPagehide, target },
     );
@@ -66,7 +66,7 @@ describe("Transmute Direct mount", () => {
   test("an invalid query installs no browser or page lifecycle state", () => {
     const target: Record<string, unknown> = {};
     const pagehide = pagehideHarness();
-    const mounted = mountTransmuteDirect({
+    const mounted = mountAtetDirect({
       kind: "query",
       source: `?${SCENARIO_QUERY_KEY}=missing-recorder-world`,
     }, { registerPagehide: pagehide.registerPagehide, target });
@@ -84,7 +84,7 @@ describe("Transmute Direct mount", () => {
       },
     });
     const pagehide = pagehideHarness();
-    const mounted = mountTransmuteDirect(
+    const mounted = mountAtetDirect(
       { kind: "scenario", scenario: "idle-ready" },
       { registerPagehide: pagehide.registerPagehide, target },
     );

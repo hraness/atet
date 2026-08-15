@@ -58,7 +58,7 @@ import { applyMetadataEffects } from "./renderer";
 
 const MAXIMUM_SVG_CACHE_MANIFEST_BYTES = 64 * 1_024;
 const MAXIMUM_SVG_DERIVATIVE_BYTES = 512 * 1_024 * 1_024;
-const SVG_RASTER_RECIPE_VERSION = "transmute-rsvg-convert-v1";
+const SVG_RASTER_RECIPE_VERSION = "atet-rsvg-convert-v1";
 
 const SvgCacheManifestSchema = z.strictObject({
   derivative: z.strictObject({
@@ -67,6 +67,7 @@ const SvgCacheManifestSchema = z.strictObject({
     sha256: z.string().regex(/^[a-f0-9]{64}$/u),
   }),
   kind: z.union([
+    z.literal("atet.svg-raster-cache"),
     z.literal("transmute.svg-raster-cache"),
     z.literal("studio.svg-raster-cache"),
   ]),
@@ -284,7 +285,7 @@ async function createSvgDerivative(
     }
     const manifest = SvgCacheManifestSchema.parse({
       derivative: { bytes: generated.bytes, path: derivativeName, sha256: generated.sha256 },
-      kind: "transmute.svg-raster-cache",
+      kind: "atet.svg-raster-cache",
       recipe,
       recipeSha256,
       schemaVersion: 2,

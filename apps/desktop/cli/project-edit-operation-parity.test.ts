@@ -136,8 +136,8 @@ function recordingLayerProject(project: VideoProjectV1): VideoProjectV1 {
 for (const scenario of SCENARIOS) {
   test(`project edit ${scenario.operation} matches direct application operations`, async () => {
     const [cliRoot, directRoot] = await Promise.all([
-      mkdtemp(join(tmpdir(), `transmute-cli-${scenario.operation}-`)),
-      mkdtemp(join(tmpdir(), `transmute-direct-${scenario.operation}-`)),
+      mkdtemp(join(tmpdir(), `atet-cli-${scenario.operation}-`)),
+      mkdtemp(join(tmpdir(), `atet-direct-${scenario.operation}-`)),
     ]);
     try {
       const [cliFixture, directFixture] = await Promise.all([
@@ -226,8 +226,8 @@ for (const scenario of SCENARIOS) {
 
 test("project zoom add and remove match host-bound v3 application operations", async () => {
   const [cliRoot, directRoot] = await Promise.all([
-    mkdtemp(join(tmpdir(), "transmute-cli-zoom-")),
-    mkdtemp(join(tmpdir(), "transmute-direct-zoom-")),
+    mkdtemp(join(tmpdir(), "atet-cli-zoom-")),
+    mkdtemp(join(tmpdir(), "atet-direct-zoom-")),
   ]);
   try {
     const [cliFixture, directFixture] = await Promise.all([

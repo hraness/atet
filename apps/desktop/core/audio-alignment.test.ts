@@ -64,7 +64,7 @@ describe("audio alignment", () => {
   test("uses a positive lag when the target feature occurs later", () => {
     const reference = signal(700);
     const result = analyzeAudioAlignment(input(reference, shifted(reference, 25)));
-    expect(result.kind).toBe("transmute.audio-alignment-analysis");
+    expect(result.kind).toBe("atet.audio-alignment-analysis");
 
     expect(result.result.status).toBe("matched");
     if (result.result.status !== "matched") throw new Error("Expected a matched alignment.");

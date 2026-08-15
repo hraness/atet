@@ -21,10 +21,10 @@ export function Button({
   ...props
 }: ButtonProps) {
   return (
-    <span className={["transmute-button", className].filter(Boolean).join(" ")}>
+    <span className={["atet-button", className].filter(Boolean).join(" ")}>
       <button
         {...props}
-        className="transmute-button__control"
+        className="atet-button__control"
         data-size={size}
         data-variant={variant}
         disabled={isDisabled}
@@ -52,8 +52,8 @@ export interface SearchFieldProps extends Omit<InputHTMLAttributes<HTMLInputElem
 
 export function SearchField({ className, label, onChange, size, surface, ...props }: SearchFieldProps) {
   return (
-    <label className={["transmute-search", className].filter(Boolean).join(" ")} data-size={size} data-surface={surface}>
-      <span className="transmute-search__label">{label}</span>
+    <label className={["atet-search", className].filter(Boolean).join(" ")} data-size={size} data-surface={surface}>
+      <span className="atet-search__label">{label}</span>
       <input {...props} aria-label={label} onChange={(event) => onChange(event.currentTarget.value)} type="search" />
     </label>
   );

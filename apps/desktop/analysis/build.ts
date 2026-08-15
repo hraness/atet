@@ -5,11 +5,11 @@ import { join } from "node:path";
 const analysisDirectory = import.meta.dir;
 const outputDirectory = join(analysisDirectory, "dist");
 const cacheDirectory = join(outputDirectory, "cache");
-const helperIdentifier = "com.hraness.transmute.face-analyzer";
+const helperIdentifier = "com.hraness.atet.face-analyzer";
 const deploymentTarget = "15.0";
-const buildRecipeVersion = "transmute-face-analyzer-build-v1";
+const buildRecipeVersion = "atet-face-analyzer-build-v1";
 
-export const faceAnalyzerExecutablePath = join(outputDirectory, "transmute-face-analyzer");
+export const faceAnalyzerExecutablePath = join(outputDirectory, "atet-face-analyzer");
 
 const frameworks = [
   "Foundation",
@@ -179,7 +179,7 @@ async function signFaceAnalyzer(path: string): Promise<void> {
 
 async function installStableExecutable(cachedExecutable: string): Promise<void> {
   await mkdir(outputDirectory, { recursive: true, mode: 0o700 });
-  const temporary = join(outputDirectory, `.transmute-face-analyzer.${process.pid}.${crypto.randomUUID()}.tmp`);
+  const temporary = join(outputDirectory, `.atet-face-analyzer.${process.pid}.${crypto.randomUUID()}.tmp`);
   try {
     await copyFile(cachedExecutable, temporary);
     await chmod(temporary, 0o755);
@@ -212,7 +212,7 @@ export async function buildFaceAnalyzer(): Promise<FaceAnalyzerBuildResult> {
   const sources = await swiftSources();
   const hash = await sourceHash(toolchain, sources);
   const hashedDirectory = join(cacheDirectory, hash);
-  const cachedExecutable = join(hashedDirectory, "transmute-face-analyzer");
+  const cachedExecutable = join(hashedDirectory, "atet-face-analyzer");
   await mkdir(hashedDirectory, { recursive: true, mode: 0o700 });
 
   let cached = false;
@@ -225,7 +225,7 @@ export async function buildFaceAnalyzer(): Promise<FaceAnalyzerBuildResult> {
   }
 
   if (!cached) {
-    const temporary = join(hashedDirectory, `.transmute-face-analyzer.${process.pid}.${crypto.randomUUID()}.tmp`);
+    const temporary = join(hashedDirectory, `.atet-face-analyzer.${process.pid}.${crypto.randomUUID()}.tmp`);
     try {
       await runCompiler(
         [

@@ -2,20 +2,21 @@ import { describe, expect, test } from "bun:test"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { transmuteImageModels } from "./generate.ts"
+import { atetImageModels } from "./generate.ts"
 import type {
   HostResourceClaim,
   HostResourceCoordinator,
   HostResourceLease,
 } from "./host-resources.ts"
 import {
-  executeTransmuteOperation,
+  executeAtetOperation,
+  executeAtetOperationWithLease,
   executeTransmuteOperationWithLease,
-  transmuteOperationCodes,
-  transmuteOperationRegistry,
-  parseTransmuteOperationInput,
-  searchTransmuteOperations,
-  withTransmuteOperationHostAdmission,
+  atetOperationCodes,
+  atetOperationRegistry,
+  parseAtetOperationInput,
+  searchAtetOperations,
+  withAtetOperationHostAdmission,
 } from "./operations.ts"
 
 function recordingCoordinator(record: {
@@ -23,7 +24,7 @@ function recordingCoordinator(record: {
   claims: HostResourceClaim[][]
 }, inheritedFileDescriptor = 73): HostResourceCoordinator {
   const profile = {
-    id: "transmute.test-host/v1",
+    id: "atet.test-host/v1",
     capacities: [],
   } as const
   return {
@@ -45,14 +46,14 @@ function recordingCoordinator(record: {
   }
 }
 
-describe("canonical Transmute operations", () => {
+describe("canonical Atet operations", () => {
   test("publishes four exact semantic codes in stable order", () => {
-    expect(transmuteOperationRegistry.map(({ code }) => code)).toEqual(
-      [...transmuteOperationCodes],
+    expect(atetOperationRegistry.map(({ code }) => code)).toEqual(
+      [...atetOperationCodes],
     )
     expect(
-      transmuteOperationRegistry.find(
-        ({ code }) => code === "transmute.image.generate",
+      atetOperationRegistry.find(
+        ({ code }) => code === "atet.image.generate",
       ),
     ).toMatchObject({
       execution: "gateway",
@@ -67,39 +68,39 @@ describe("canonical Transmute operations", () => {
       },
     })
     expect(
-      transmuteOperationRegistry.find(
-        ({ code }) => code === "transmute.image.vectorize",
+      atetOperationRegistry.find(
+        ({ code }) => code === "atet.image.vectorize",
       ),
     ).toMatchObject({
       execution: "local",
       authentication: "none",
     })
     expect(
-      transmuteOperationRegistry.map(({ code, resources }) => ({ code, resources })),
+      atetOperationRegistry.map(({ code, resources }) => ({ code, resources })),
     ).toEqual([
       {
-        code: "transmute.diagram.check",
+        code: "atet.diagram.check",
         resources: [
           { resource: "cpu", amount: 1 },
           { resource: "local-io", amount: 1 },
         ],
       },
       {
-        code: "transmute.diagram.render",
+        code: "atet.diagram.render",
         resources: [
           { resource: "cpu", amount: 1 },
           { resource: "local-io", amount: 1 },
         ],
       },
       {
-        code: "transmute.image.vectorize",
+        code: "atet.image.vectorize",
         resources: [
           { resource: "cpu", amount: 1 },
           { resource: "local-io", amount: 1 },
         ],
       },
       {
-        code: "transmute.image.generate",
+        code: "atet.image.generate",
         resources: [
           { resource: "local-io", amount: 1 },
           { resource: "network", amount: 1 },
@@ -107,40 +108,40 @@ describe("canonical Transmute operations", () => {
         ],
       },
     ])
-    expect(Object.isFrozen(transmuteOperationRegistry[0]?.resources)).toBe(true)
+    expect(Object.isFrozen(atetOperationRegistry[0]?.resources)).toBe(true)
   })
 
   test("searches bounded semantic metadata without fuzzy execution", () => {
-    expect(searchTransmuteOperations("diagram").map(({ code }) => code)).toEqual([
-      "transmute.diagram.check",
-      "transmute.diagram.render",
+    expect(searchAtetOperations("diagram").map(({ code }) => code)).toEqual([
+      "atet.diagram.check",
+      "atet.diagram.render",
     ])
-    expect(searchTransmuteOperations("gateway image", 1).map(({ code }) => code))
-      .toEqual(["transmute.image.generate"])
-    expect(() => searchTransmuteOperations("\0")).toThrow("[INVALID_SEARCH]")
+    expect(searchAtetOperations("gateway image", 1).map(({ code }) => code))
+      .toEqual(["atet.image.generate"])
+    expect(() => searchAtetOperations("\0")).toThrow("[INVALID_SEARCH]")
   })
 
   test("rejects unknown fields and source text instead of evaluating it", () => {
     expect(() =>
-      parseTransmuteOperationInput("transmute.diagram.check", {
+      parseAtetOperationInput("atet.diagram.check", {
         path: "flow.diagram.json",
         source: "await Bun.write('/tmp/executed', 'yes')",
       }),
     ).toThrow("[INVALID_OPERATION_INPUT]")
     expect(() =>
-      parseTransmuteOperationInput("transmute.image.generate", {
+      parseAtetOperationInput("atet.image.generate", {
         model: "other/provider-model",
         prompt: "anything",
       }),
     ).toThrow("[INVALID_OPERATION_INPUT]")
     expect(() =>
-      parseTransmuteOperationInput("transmute.image.generate", {
-        model: transmuteImageModels[0],
+      parseAtetOperationInput("atet.image.generate", {
+        model: atetImageModels[0],
         prompt: "anything",
       }),
     ).toThrow("outputPath")
     expect(() =>
-      parseTransmuteOperationInput("transmute.image.vectorize", {
+      parseAtetOperationInput("atet.image.vectorize", {
         inputPath: "input.png",
         outputPath: "output.png",
       }),
@@ -148,7 +149,7 @@ describe("canonical Transmute operations", () => {
   })
 
   test("executes a fixed local diagram adapter by exact code", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-operation-check-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-operation-check-"))
     try {
       const path = join(root, "flow.diagram.json")
       const marker = join(root, "config-executed")
@@ -171,12 +172,12 @@ describe("canonical Transmute operations", () => {
         }),
       )
       await writeFile(
-        join(root, "transmute.config.ts"),
+        join(root, "atet.config.ts"),
         `await Bun.write(${JSON.stringify(marker)}, "executed"); export default {}\n`,
       )
       const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-      const result = await executeTransmuteOperation(
-        "transmute.diagram.check",
+      const result = await executeAtetOperation(
+        "atet.diagram.check",
         { path },
         { hostResourceCoordinator: recordingCoordinator(admission) },
       )
@@ -199,8 +200,8 @@ describe("canonical Transmute operations", () => {
     const networkInputs: string[] = []
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
     await expect(
-      executeTransmuteOperation(
-        "transmute.image.vectorize",
+      executeAtetOperation(
+        "atet.image.vectorize",
         {
           inputPath: "/private/caller-owned.png",
           outputPath: "/private/caller-owned.svg",
@@ -223,8 +224,8 @@ describe("canonical Transmute operations", () => {
 
   test("exposes callback-scoped inherited authority for custom direct surfaces", async () => {
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-    const descriptor = await withTransmuteOperationHostAdmission(
-      "transmute.image.vectorize",
+    const descriptor = await withAtetOperationHostAdmission(
+      "atet.image.vectorize",
       lease => lease.inheritedFileDescriptor,
       { hostResourceCoordinator: recordingCoordinator(admission, 91) },
     )
@@ -237,7 +238,7 @@ describe("canonical Transmute operations", () => {
   })
 
   test("requires inherited authority to cover every operation-owned claim", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-operation-lease-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-operation-lease-"))
     let assertions = 0
     const profile = {
       capacities: [
@@ -245,7 +246,7 @@ describe("canonical Transmute operations", () => {
         { limit: 4, resource: "local-io" },
         { limit: 4, resource: "network" },
       ],
-      id: "transmute.operation-lease-test/v1",
+      id: "atet.operation-lease-test/v1",
     } as const
     const lease = (claims: readonly HostResourceClaim[]): HostResourceLease => ({
       assertOwned: () => {
@@ -266,18 +267,18 @@ describe("canonical Transmute operations", () => {
         shapes: [],
         version: 1,
       }))
-      await expect(executeTransmuteOperationWithLease(
-        "transmute.diagram.check",
+      await expect(executeAtetOperationWithLease(
+        "atet.diagram.check",
         { path },
         lease([{ amount: 1, resource: "network" }]),
       )).rejects.toThrow("does not cover cpu:1, local-io:1")
-      await expect(executeTransmuteOperationWithLease(
-        "transmute.diagram.check",
+      await expect(executeAtetOperationWithLease(
+        "atet.diagram.check",
         { path },
         lease([{ amount: 1, resource: "cpu" }]),
       )).rejects.toThrow("does not cover local-io:1")
-      await expect(executeTransmuteOperationWithLease(
-        "transmute.diagram.check",
+      await expect(executeAtetOperationWithLease(
+        "atet.diagram.check",
         { path },
         lease([
           { amount: 2, resource: "cpu" },
@@ -286,8 +287,8 @@ describe("canonical Transmute operations", () => {
         ]),
       )).rejects.toThrow("contains invalid claims")
 
-      const checked = await executeTransmuteOperationWithLease(
-        "transmute.diagram.check",
+      const checked = await executeAtetOperationWithLease(
+        "atet.diagram.check",
         { path },
         lease([
           { amount: 2, resource: "cpu" },
@@ -296,7 +297,17 @@ describe("canonical Transmute operations", () => {
         ]),
       )
       expect(checked.configPath).toBeNull()
-      expect(assertions).toBe(4)
+
+      const predecessorChecked = await executeTransmuteOperationWithLease(
+        "transmute.diagram.check",
+        { path },
+        lease([
+          { amount: 1, resource: "cpu" },
+          { amount: 1, resource: "local-io" },
+        ]),
+      )
+      expect(predecessorChecked.configPath).toBeNull()
+      expect(assertions).toBe(5)
     } finally {
       await rm(root, { force: true, recursive: true })
     }

@@ -197,7 +197,7 @@ test("rejects rebasing an analysis-derived edit across a changed placement sync 
     EditPlanIdSchema.parse("plan_stalerebase01"),
     NOW,
   );
-  expect(base.kind).toBe("transmute.project-edit-plan");
+  expect(base.kind).toBe("atet.project-edit-plan");
   const plan = ProjectEditPlanV1Schema.parse({
     ...base,
     derivations: [{
@@ -297,7 +297,7 @@ test("rejects retaining a filler cut when another audible placement is enabled o
 test("independently verifies the composition hash on persisted project render plans", () => {
   const project = syncedProject();
   const render = compileProjectRenderPlan(project, editedPlan(project));
-  expect(render.kind).toBe("transmute.project-render-plan");
+  expect(render.kind).toBe("atet.project-render-plan");
   expect(assertProjectRenderPlanComposition(render)).toEqual(render);
   expect(() => assertProjectRenderPlanComposition({
     ...render,

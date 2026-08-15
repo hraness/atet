@@ -15,10 +15,68 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { sha256Hex } from "./canonical-json";
-import { createNodeBundleFileSystem } from "./storage";
+import { operationTestProject } from "../application/operations/test-support";
+import { testManifest } from "./test-support";
+import {
+  createNodeBundleFileSystem,
+  loadRecordingManifest,
+  loadVideoProject,
+  saveRecordingManifest,
+  saveVideoProject,
+} from "./storage";
+
+test("mutable bundle persistence preserves predecessor reads and writes canonical Atet", async () => {
+  const files = new Map<string, string>();
+  const fileSystem = {
+    readText: async (path: string) => {
+      const value = files.get(path);
+      if (value === undefined) throw new Error(`Missing fixture file: ${path}`);
+      return value;
+    },
+    writeTextAtomic: async (path: string, contents: string) => {
+      files.set(path, contents);
+    },
+  };
+  const recording = testManifest();
+  const project = operationTestProject();
+  files.set("manifest.json", `${JSON.stringify({
+    ...recording,
+    kind: "transmute.recording-bundle",
+    tool: { ...recording.tool, name: "transmute" },
+  })}\n`);
+  files.set("project.json", `${JSON.stringify({
+    ...project,
+    kind: "transmute.video-project",
+  })}\n`);
+
+  const loadedRecording = await loadRecordingManifest(fileSystem);
+  const loadedProject = await loadVideoProject(fileSystem);
+  expect({
+    kind: loadedRecording.kind,
+    tool: loadedRecording.tool.name,
+  }).toEqual({ kind: "transmute.recording-bundle", tool: "transmute" });
+  expect(loadedProject.kind).toBe("transmute.video-project");
+
+  await saveRecordingManifest(fileSystem, {
+    ...loadedRecording,
+    kind: "studio.recording-bundle",
+    tool: { ...loadedRecording.tool, name: "studio" },
+  });
+  await saveVideoProject(fileSystem, {
+    ...loadedProject,
+    kind: "studio.video-project",
+  });
+  expect(JSON.parse(files.get("manifest.json")!)).toMatchObject({
+    kind: "atet.recording-bundle",
+    tool: { name: "atet" },
+  });
+  expect(JSON.parse(files.get("project.json")!)).toMatchObject({
+    kind: "atet.video-project",
+  });
+});
 
 test.skipIf(process.platform === "win32")("bundle storage rejects symlink leaves and redirected parent directories", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-storage-path-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-storage-path-test-"));
   const bundle = join(temporary, "bundle");
   const outside = join(temporary, "outside");
   try {
@@ -51,13 +109,13 @@ test.skipIf(process.platform === "win32")("bundle storage rejects symlink leaves
 });
 
 test.skipIf(process.platform === "win32")("bundle inspection retries one hard-link cleanup and rejects repeated instability", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-storage-inspection-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-storage-inspection-test-"));
   const bundle = join(temporary, "bundle");
   try {
     await mkdir(bundle);
     const destination = join(bundle, "published.mp4");
-    const firstStage = join(bundle, ".transmute-copy-first.tmp");
-    const secondStage = join(bundle, ".transmute-copy-second.tmp");
+    const firstStage = join(bundle, ".atet-copy-first.tmp");
+    const secondStage = join(bundle, ".atet-copy-second.tmp");
     const source = "verified delivery bytes";
     await writeFile(destination, source);
     await Promise.all([
@@ -124,12 +182,12 @@ test.skipIf(process.platform === "win32")("bundle inspection retries one hard-li
 });
 
 test.skipIf(process.platform === "win32")("bundle inspection rejects a destination unlinked during hard-link cleanup", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-storage-unlink-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-storage-unlink-test-"));
   const bundle = join(temporary, "bundle");
   try {
     await mkdir(bundle);
     const destination = join(bundle, "published.mp4");
-    const stage = join(bundle, ".transmute-copy-stage.tmp");
+    const stage = join(bundle, ".atet-copy-stage.tmp");
     const source = "verified delivery bytes";
     await writeFile(destination, source);
     await link(destination, stage);
@@ -152,12 +210,12 @@ test.skipIf(process.platform === "win32")("bundle inspection rejects a destinati
 });
 
 test.skipIf(process.platform === "win32")("bundle inspection rejects a different-inode destination replacement", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-storage-replacement-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-storage-replacement-test-"));
   const bundle = join(temporary, "bundle");
   try {
     await mkdir(bundle);
     const destination = join(bundle, "published.mp4");
-    const stage = join(bundle, ".transmute-copy-stage.tmp");
+    const stage = join(bundle, ".atet-copy-stage.tmp");
     const source = "verified delivery bytes";
     const replacement = "replacement delivery bytes";
     await writeFile(destination, source);
@@ -190,7 +248,7 @@ test.skipIf(process.platform === "win32")("bundle inspection rejects a different
 });
 
 test("immutable bundle copies publish atomically and preserve no-replace recovery", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-storage-copy-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-storage-copy-test-"));
   const bundle = join(temporary, "bundle");
   try {
     await mkdir(bundle);
@@ -234,7 +292,7 @@ test("immutable bundle copies publish atomically and preserve no-replace recover
       "utf8",
     )).toBe(source);
     expect((await readdir(join(bundle, "renders/deliveries"))).some(
-      name => name.startsWith(".transmute-copy-"),
+      name => name.startsWith(".atet-copy-"),
     )).toBe(false);
 
     const wrong = { ...expected, sha256: "f".repeat(64) };
@@ -246,14 +304,14 @@ test("immutable bundle copies publish atomically and preserve no-replace recover
     expect(lstat(join(bundle, "renders/deliveries/failed.mp4")))
       .rejects.toMatchObject({ code: "ENOENT" });
     expect((await readdir(join(bundle, "renders/deliveries"))).some(
-      name => name.startsWith(".transmute-copy-"),
+      name => name.startsWith(".atet-copy-"),
     )).toBe(false);
 
     // Model a process killed after writing only its private staging inode.
     // An unpublished partial copy must not reserve or expose the final path.
     const interruptedStage = join(
       bundle,
-      "renders/deliveries/.transmute-copy-00000000-0000-4000-8000-000000000000.tmp",
+      "renders/deliveries/.atet-copy-00000000-0000-4000-8000-000000000000.tmp",
     );
     await writeFile(interruptedStage, "partial copy", { mode: 0o600 });
     expect(lstat(join(bundle, "renders/deliveries/recovered.mp4")))

@@ -32,7 +32,7 @@ export type BindCandidateRevisionOutput = z.infer<
 
 export const bindCandidateRevisionOperationDefinition = {
   inputSchema: BindCandidateRevisionInputSchema,
-  inputSchemaId: "studio.operation.edit.bind-candidate-revision.input/v1",
+  inputSchemaId: "atet.operation.edit.bind-candidate-revision.input/v1",
   kind: "edit.bind-candidate-revision",
   lifecycle: {
     kind: "pure",
@@ -47,7 +47,7 @@ export const bindCandidateRevisionOperationDefinition = {
         revision: {
           artifact: input.revision.artifact,
           baseGeneration: input.revision.base.generation,
-          kind: "transmute.project-edit-revision-reference",
+          kind: "atet.project-edit-revision-reference",
           outputGeometrySha256,
           pixelHeight: input.pixelHeight,
           pixelWidth: input.pixelWidth,
@@ -63,7 +63,7 @@ export const bindCandidateRevisionOperationDefinition = {
     },
   },
   outputSchema: BindCandidateRevisionOutputSchema,
-  outputSchemaId: "studio.operation.edit.bind-candidate-revision.output/v1",
+  outputSchemaId: "atet.operation.edit.bind-candidate-revision.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,

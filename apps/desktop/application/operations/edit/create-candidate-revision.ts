@@ -219,7 +219,7 @@ export async function bindCreateCandidateRevisionInput(
 
 export const createCandidateRevisionOperationDefinition = {
   inputSchema: CreateCandidateRevisionInputSchema,
-  inputSchemaId: "studio.operation.edit.create-candidate-revision.input/v1",
+  inputSchemaId: "atet.operation.edit.create-candidate-revision.input/v1",
   kind: "edit.create-candidate-revision",
   lifecycle: {
     kind: "local-artifact",
@@ -331,7 +331,7 @@ export const createCandidateRevisionOperationDefinition = {
         bindingsSha256,
         candidate: input.candidate,
         derivationSha256,
-        kind: "transmute.creative-candidate-revision-reference",
+        kind: "atet.creative-candidate-revision-reference",
         planId: nextPlan.planId,
         projectEditPlanSha256: revision.projectEditPlanSha256,
         projectId: input.base.projectId,
@@ -344,7 +344,7 @@ export const createCandidateRevisionOperationDefinition = {
     },
   },
   outputSchema: CreateCandidateRevisionOutputSchema,
-  outputSchemaId: "studio.operation.edit.create-candidate-revision.output/v1",
+  outputSchemaId: "atet.operation.edit.create-candidate-revision.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,

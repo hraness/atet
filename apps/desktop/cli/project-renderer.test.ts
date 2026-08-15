@@ -145,11 +145,11 @@ function renderPlan(input: Partial<ProjectRenderPlanV1> = {}): ProjectRenderPlan
 }
 
 test("uses explicit preview and final encoder recipes without changing v1 compatibility", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-render-tier-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-tier-"));
   try {
     const requestedProjectDirectory = join(
       repositoryRoot,
-      "artifacts/transmute/projects/project_integrity01",
+      "artifacts/atet/projects/project_integrity01",
     );
     await mkdir(join(requestedProjectDirectory, "renders"), { recursive: true });
     const projectDirectory = await realpath(requestedProjectDirectory);
@@ -196,11 +196,11 @@ test("uses explicit preview and final encoder recipes without changing v1 compat
 });
 
 test("reuses one SVG sprite input across independently timed caption crops", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-caption-sprite-renderer-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-caption-sprite-renderer-"));
   try {
     const requestedProjectDirectory = join(
       repositoryRoot,
-      "artifacts/transmute/projects/project_captionsprite",
+      "artifacts/atet/projects/project_captionsprite",
     );
     await Promise.all([
       mkdir(join(requestedProjectDirectory, "assets"), { recursive: true }),
@@ -285,9 +285,9 @@ test("reuses one SVG sprite input across independently timed caption crops", asy
 });
 
 test("builds project overlays for image, SVG, emoji, looping GIF, and audible frozen video", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-overlay-test-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-overlay-test-"));
   try {
-    const requestedProjectDirectory = join(repositoryRoot, "artifacts/transmute/projects/project_overlaytest");
+    const requestedProjectDirectory = join(repositoryRoot, "artifacts/atet/projects/project_overlaytest");
     await mkdir(join(requestedProjectDirectory, "renders"), { recursive: true });
     const assetDirectory = join(requestedProjectDirectory, "assets");
     await mkdir(assetDirectory, { recursive: true });
@@ -340,7 +340,7 @@ test("builds project overlays for image, SVG, emoji, looping GIF, and audible fr
         asset: importedAsset("assets/emoji.png", "image/png"),
         kind: "emoji",
         provider: "brand-catalog",
-        selector: { kind: "name", value: "transmute" },
+        selector: { kind: "name", value: "atet" },
       }),
       fit: "contain",
       size: { height: 96, kind: "pixels", width: 96 },
@@ -434,11 +434,11 @@ test.skipIf(FFMPEG === null || FFPROBE === null || RSVG_CONVERT === null)(
   "executes image, SVG, emoji, animated GIF, and audible video overlays with FFmpeg",
   async () => {
     if (FFMPEG === null || FFPROBE === null || RSVG_CONVERT === null) return;
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-overlay-exec-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-overlay-exec-"));
     try {
       const requestedProjectDirectory = join(
         repositoryRoot,
-        "artifacts/transmute/projects/project_overlayexec",
+        "artifacts/atet/projects/project_overlayexec",
       );
       const assetDirectory = join(requestedProjectDirectory, "assets");
       await Promise.all([
@@ -545,7 +545,7 @@ test.skipIf(FFMPEG === null || FFPROBE === null || RSVG_CONVERT === null)(
           asset: imported("assets/emoji.png", "emoji.png", "image/png", emojiIntegrity),
           kind: "emoji",
           provider: "brand-catalog",
-          selector: { kind: "name", value: "transmute" },
+          selector: { kind: "name", value: "atet" },
         }),
         placed("overlay_exec_gif01", 3, 96, {
           asset: imported("assets/motion.gif", "motion.gif", "image/gif", gifIntegrity),
@@ -672,9 +672,9 @@ test.skipIf(FFMPEG === null || FFPROBE === null || RSVG_CONVERT === null)(
 );
 
 test("buffers project overlay loops only when playback crosses the source end", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-overlay-loop-test-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-overlay-loop-test-"));
   try {
-    const requestedProjectDirectory = join(repositoryRoot, "artifacts/transmute/projects/project_overlayloop");
+    const requestedProjectDirectory = join(repositoryRoot, "artifacts/atet/projects/project_overlayloop");
     const assetDirectory = join(requestedProjectDirectory, "assets");
     await Promise.all([
       mkdir(assetDirectory, { recursive: true }),
@@ -769,9 +769,9 @@ test("buffers project overlay loops only when playback crosses the source end", 
 });
 
 test("ducks only project primary audio when an earlier overlay is already mixed", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-overlay-duck-test-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-overlay-duck-test-"));
   try {
-    const requestedProjectDirectory = join(repositoryRoot, "artifacts/transmute/projects/project_overlayduck");
+    const requestedProjectDirectory = join(repositoryRoot, "artifacts/atet/projects/project_overlayduck");
     const assetDirectory = join(requestedProjectDirectory, "assets");
     await Promise.all([
       mkdir(assetDirectory, { recursive: true }),
@@ -845,9 +845,9 @@ test("ducks only project primary audio when an earlier overlay is already mixed"
 });
 
 test("uses the strongest active target instead of multiplying overlapping project ducks", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-overlapping-ducks-test-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-overlapping-ducks-test-"));
   try {
-    const requestedProjectDirectory = join(repositoryRoot, "artifacts/transmute/projects/project_multiduck01");
+    const requestedProjectDirectory = join(repositoryRoot, "artifacts/atet/projects/project_multiduck01");
     const assetDirectory = join(requestedProjectDirectory, "assets");
     await Promise.all([
       mkdir(assetDirectory, { recursive: true }),
@@ -905,9 +905,9 @@ test("uses the strongest active target instead of multiplying overlapping projec
 });
 
 test("rejects tampered project media and overlay inputs before constructing FFmpeg inputs", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-integrity-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-integrity-"));
   try {
-    const requestedProjectDirectory = join(repositoryRoot, "artifacts/transmute/projects/project_integrity01");
+    const requestedProjectDirectory = join(repositoryRoot, "artifacts/atet/projects/project_integrity01");
     await Promise.all([
       mkdir(join(requestedProjectDirectory, "assets"), { recursive: true }),
       mkdir(join(requestedProjectDirectory, "renders"), { recursive: true }),
@@ -1023,9 +1023,9 @@ test("rejects tampered project media and overlay inputs before constructing FFmp
 });
 
 test("binds SVG cache entries to the probed renderer version and regenerates stale derivatives", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-svg-cache-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-svg-cache-"));
   try {
-    const requestedProjectDirectory = join(repositoryRoot, "artifacts/transmute/projects/project_integrity01");
+    const requestedProjectDirectory = join(repositoryRoot, "artifacts/atet/projects/project_integrity01");
     await Promise.all([
       mkdir(join(requestedProjectDirectory, "assets"), { recursive: true }),
       mkdir(join(requestedProjectDirectory, "renders"), { recursive: true }),
@@ -1089,7 +1089,7 @@ test("binds SVG cache entries to the probed renderer version and regenerates sta
     expect(manifest.recipe).toMatchObject({
       rendererVersion: "rsvg-convert version 2.58.0",
       source: { sha256: sourceIntegrity.sha256 },
-      version: "transmute-rsvg-convert-v1",
+      version: "atet-rsvg-convert-v1",
     });
 
     await buildProjectFfmpegInvocation(plan, {
@@ -1112,9 +1112,9 @@ test("binds SVG cache entries to the probed renderer version and regenerates sta
 });
 
 test("fades only true audio discontinuities, not internal speed or anchor slice joins", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-audio-joins-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-audio-joins-"));
   try {
-    const requestedProjectDirectory = join(repositoryRoot, "artifacts/transmute/projects/project_integrity01");
+    const requestedProjectDirectory = join(repositoryRoot, "artifacts/atet/projects/project_integrity01");
     await Promise.all([
       mkdir(join(requestedProjectDirectory, "renders"), { recursive: true }),
       mkdir(join(repositoryRoot, "media"), { recursive: true }),
@@ -1187,9 +1187,9 @@ test("fades only true audio discontinuities, not internal speed or anchor slice 
 
 test.skipIf(FFMPEG === null)("keeps project speed through zoom cadence normalization", async () => {
   if (FFMPEG === null) return;
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-zoom-speed-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-zoom-speed-"));
   try {
-    const projectDirectory = join(repositoryRoot, "artifacts/transmute/projects/project_zoomspeed1");
+    const projectDirectory = join(repositoryRoot, "artifacts/atet/projects/project_zoomspeed1");
     const mediaDirectory = join(repositoryRoot, "media");
     await Promise.all([
       mkdir(join(projectDirectory, "renders"), { recursive: true }),
@@ -1300,9 +1300,9 @@ test.skipIf(FFMPEG === null)("keeps project speed through zoom cadence normaliza
 
 test.skipIf(FFMPEG === null)("renders log-zoom camera paths with CSS cubic-bezier timing", async () => {
   if (FFMPEG === null) return;
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-camera-path-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-camera-path-"));
   try {
-    const projectDirectory = join(repositoryRoot, "artifacts/transmute/projects/project_camerapath");
+    const projectDirectory = join(repositoryRoot, "artifacts/atet/projects/project_camerapath");
     const mediaDirectory = join(repositoryRoot, "media");
     await Promise.all([
       mkdir(join(projectDirectory, "renders"), { recursive: true }),
@@ -1411,9 +1411,9 @@ test.skipIf(FFMPEG === null || RSVG_CONVERT === null)(
   "executes a synchronized two-angle project with audio and a project-local SVG overlay",
   async () => {
     if (FFMPEG === null || RSVG_CONVERT === null) return;
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-render-exec-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-render-exec-"));
     try {
-      const projectDirectory = join(repositoryRoot, "artifacts/transmute/projects/project_execute01");
+      const projectDirectory = join(repositoryRoot, "artifacts/atet/projects/project_execute01");
       const mediaDirectory = join(repositoryRoot, "media");
       await Promise.all([
         mkdir(join(projectDirectory, "assets"), { recursive: true }),

@@ -129,7 +129,7 @@ export const CaptureOptionsSchema = z.strictObject({
   typedText: z.boolean().default(false),
   typedTextFocusIdentities: TypedTextFocusIdentitiesSchema.nullable()
     .default(null),
-  excludedBundleIdentifiers: z.array(z.string().min(1).max(256)).max(16).default(["com.hraness.transmute"]),
+  excludedBundleIdentifiers: z.array(z.string().min(1).max(256)).max(16).default(["com.hraness.atet"]),
 });
 
 const ConfigureRequestSchema = z.strictObject({
