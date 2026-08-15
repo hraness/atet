@@ -8,11 +8,11 @@ import type {
   VectorizeOptions,
   VectorizeReceipt,
   VectorizeResult,
-} from "@hraness/transmute";
+} from "@hraness/atet";
 import {
   createProcessLocalHostResourceCoordinator,
   type HostResourceCoordinator,
-} from "@hraness/transmute/host-resources";
+} from "@hraness/atet/host-resources";
 
 import type { OperationExecutionContext } from "../operation";
 import { writeOperationCompletionCheckpoint } from "../operation-completion-checkpoint";
@@ -27,20 +27,20 @@ import {
   publishContentAddressedReceipt,
 } from "./media/shared";
 import {
-  BoundTransmuteDiagramRenderInputSchema,
-  BoundTransmuteImageVectorizeInputSchema,
-  TransmuteDiagramCheckInputSchema,
-  TransmuteDiagramCheckOutputSchema,
-  TransmuteDiagramRenderInputSchema,
-  TransmuteDiagramRenderOutputSchema,
-  TransmuteImageVectorizeInputSchema,
-  TransmuteImageVectorizeOutputSchema,
-  TransmuteImageVectorizeReceiptSchema,
-  bindTransmuteVisualOperationInput,
-  createTransmuteDiagramCheckOperationDefinition,
-  createTransmuteDiagramRenderOperationDefinition,
-  createTransmuteImageVectorizeOperationDefinition,
-} from "./transmute-visuals";
+  BoundAtetDiagramRenderInputSchema,
+  BoundAtetImageVectorizeInputSchema,
+  AtetDiagramCheckInputSchema,
+  AtetDiagramCheckOutputSchema,
+  AtetDiagramRenderInputSchema,
+  AtetDiagramRenderOutputSchema,
+  AtetImageVectorizeInputSchema,
+  AtetImageVectorizeOutputSchema,
+  AtetImageVectorizeReceiptSchema,
+  bindAtetVisualOperationInput,
+  createAtetDiagramCheckOperationDefinition,
+  createAtetDiagramRenderOperationDefinition,
+  createAtetImageVectorizeOperationDefinition,
+} from "./atet-visuals";
 
 const roots: string[] = [];
 const RASTER_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
@@ -113,7 +113,7 @@ async function fixture(): Promise<Readonly<{
   rasterPath: string;
   root: string;
 }>> {
-  const root = await mkdtemp(join(tmpdir(), "transmute-visual-operation-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-visual-operation-"));
   roots.push(root);
   const inputDirectory = join(root, "scraps");
   await mkdir(inputDirectory, { recursive: true });
@@ -158,7 +158,7 @@ async function recoveryContext(
   };
 }
 
-describe("unified Transmute visual operations", () => {
+describe("unified Atet visual operations", () => {
   test("reuses one capacity-one scheduler lease for default diagram operations", async () => {
     const testFixture = await fixture();
     const processCoordinator = createProcessLocalHostResourceCoordinator({
@@ -167,7 +167,7 @@ describe("unified Transmute visual operations", () => {
           { limit: 1, resource: "cpu" },
           { limit: 1, resource: "local-io" },
         ],
-        id: `transmute.visual-operation-test/${sha256(testFixture.root).slice(0, 16)}`,
+        id: `atet.visual-operation-test/${sha256(testFixture.root).slice(0, 16)}`,
       },
       waitTimeoutMilliseconds: 100,
     });
@@ -181,14 +181,14 @@ describe("unified Transmute visual operations", () => {
       },
     };
     const registry = new OperationRegistry();
-    registry.register(createTransmuteDiagramCheckOperationDefinition({
+    registry.register(createAtetDiagramCheckOperationDefinition({
       hostResourceCoordinator: coordinator,
     }));
-    registry.register(createTransmuteDiagramRenderOperationDefinition({
+    registry.register(createAtetDiagramRenderOperationDefinition({
       hostResourceCoordinator: coordinator,
     }));
     const execute = async (
-      kind: "transmute.diagram.check" | "transmute.diagram.render",
+      kind: "atet.diagram.check" | "atet.diagram.render",
     ) => await coordinator.withLease([
       { amount: 1, resource: "cpu" },
       { amount: 1, resource: "local-io" },
@@ -211,10 +211,10 @@ describe("unified Transmute visual operations", () => {
       version: 1,
     }), { waitTimeoutMilliseconds: 100 });
 
-    expect((await execute("transmute.diagram.check")).summary.kind)
-      .toBe("transmute.diagram.check");
-    expect((await execute("transmute.diagram.render")).summary.kind)
-      .toBe("transmute.diagram.render");
+    expect((await execute("atet.diagram.check")).summary.kind)
+      .toBe("atet.diagram.check");
+    expect((await execute("atet.diagram.render")).summary.kind)
+      .toBe("atet.diagram.render");
     expect(admissions).toBe(2);
   });
 
@@ -224,22 +224,22 @@ describe("unified Transmute visual operations", () => {
       path: "scraps/input.bin",
       sha256: "a".repeat(64),
     };
-    expect(TransmuteDiagramCheckInputSchema.parse({ path: exact }).path)
+    expect(AtetDiagramCheckInputSchema.parse({ path: exact }).path)
       .toEqual(exact);
-    expect(TransmuteDiagramRenderInputSchema.parse({ path: "scraps/diagram.json" }))
+    expect(AtetDiagramRenderInputSchema.parse({ path: "scraps/diagram.json" }))
       .toEqual({ path: "scraps/diagram.json" });
-    expect(TransmuteImageVectorizeInputSchema.parse({ inputPath: exact }).inputPath)
+    expect(AtetImageVectorizeInputSchema.parse({ inputPath: exact }).inputPath)
       .toEqual(exact);
-    expect(TransmuteDiagramRenderInputSchema.safeParse({
+    expect(AtetDiagramRenderInputSchema.safeParse({
       path: { bytes: 4, path: exact.path, sha256: "short" },
     }).success).toBe(false);
   });
 
   test("rejects an integrity-bound diagram when its bytes change before execution", async () => {
     const testFixture = await fixture();
-    const exactInput = await bindTransmuteVisualOperationInput(
+    const exactInput = await bindAtetVisualOperationInput(
       testFixture.context.application,
-      "transmute.diagram.check",
+      "atet.diagram.check",
       { path: testFixture.diagramPath },
       testFixture.context.abortSignal,
     );
@@ -248,13 +248,13 @@ describe("unified Transmute visual operations", () => {
       '{"version":1,"name":"changed","canvas":{"width":10,"height":10},"shapes":[],"edges":[]}\n',
     );
     const registry = new OperationRegistry();
-    registry.register(createTransmuteDiagramCheckOperationDefinition({
+    registry.register(createAtetDiagramCheckOperationDefinition({
       checkDiagram: () => Promise.resolve({ findings: [] }),
     }));
 
     expect(registry.execute(testFixture.context, {
       input: exactInput,
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 1,
     })).rejects.toThrow(
       "Media no longer matches its integrity-bound workflow input.",
@@ -267,7 +267,7 @@ describe("unified Transmute visual operations", () => {
     let checkedPath: string | undefined;
     let checkedSource: string | undefined;
     const registry = new OperationRegistry();
-    registry.register(createTransmuteDiagramCheckOperationDefinition({
+    registry.register(createAtetDiagramCheckOperationDefinition({
       checkDiagram: async path => {
         checkedPath = path;
         try {
@@ -283,11 +283,11 @@ describe("unified Transmute visual operations", () => {
       },
     }));
 
-    const output = TransmuteDiagramCheckOutputSchema.parse((await registry.execute(
+    const output = AtetDiagramCheckOutputSchema.parse((await registry.execute(
       testFixture.context,
       {
         input: { path: testFixture.diagramPath },
-        kind: "transmute.diagram.check",
+        kind: "atet.diagram.check",
         version: 1,
       },
     )).output);
@@ -302,7 +302,7 @@ describe("unified Transmute visual operations", () => {
     const sourcePath = join(testFixture.root, testFixture.diagramPath);
     let renderedSource: string | undefined;
     const registry = new OperationRegistry();
-    registry.register(createTransmuteDiagramRenderOperationDefinition({
+    registry.register(createAtetDiagramRenderOperationDefinition({
       renderDiagram: async input => {
         try {
           await writeFile(
@@ -333,11 +333,11 @@ describe("unified Transmute visual operations", () => {
       },
     }));
 
-    const output = TransmuteDiagramRenderOutputSchema.parse((await registry.execute(
+    const output = AtetDiagramRenderOutputSchema.parse((await registry.execute(
       testFixture.context,
       {
         input: { path: testFixture.diagramPath },
-        kind: "transmute.diagram.render",
+        kind: "atet.diagram.render",
         version: 1,
       },
     )).output);
@@ -355,7 +355,7 @@ describe("unified Transmute visual operations", () => {
     const sourcePath = join(testFixture.root, testFixture.diagramPath);
     let renderedSource: string | undefined;
     const registry = new OperationRegistry();
-    registry.register(createTransmuteDiagramRenderOperationDefinition({
+    registry.register(createAtetDiagramRenderOperationDefinition({
       renderDiagram: async input => {
         await writeFile(
           sourcePath,
@@ -384,7 +384,7 @@ describe("unified Transmute visual operations", () => {
 
     const error = await registry.execute(testFixture.context, {
       input: { path: testFixture.diagramPath },
-      kind: "transmute.diagram.render",
+      kind: "atet.diagram.render",
       version: 1,
     }).catch((caught: unknown) => caught);
     expect(String(error)).toContain(
@@ -396,7 +396,7 @@ describe("unified Transmute visual operations", () => {
   test("checks a portable diagram through its integrity-bound application input", async () => {
     const testFixture = await fixture();
     const registry = new OperationRegistry();
-    registry.register(createTransmuteDiagramCheckOperationDefinition({
+    registry.register(createAtetDiagramCheckOperationDefinition({
       checkDiagram: () => Promise.resolve({
         findings: [{ code: "empty", message: "Diagram is intentionally empty.", shapeIds: [] }],
       }),
@@ -404,11 +404,11 @@ describe("unified Transmute visual operations", () => {
 
     const result = await registry.execute(testFixture.context, {
       input: { path: testFixture.diagramPath },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 1,
     });
 
-    expect(result.summary.kind).toBe("transmute.diagram.check");
+    expect(result.summary.kind).toBe("atet.diagram.check");
     expect(result.output).toMatchObject({
       findings: [{ code: "empty" }],
       source: { path: testFixture.diagramPath },
@@ -418,7 +418,7 @@ describe("unified Transmute visual operations", () => {
   test("publishes every diagram derivative by content hash and exposes composable media references", async () => {
     const testFixture = await fixture();
     const registry = new OperationRegistry();
-    registry.register(createTransmuteDiagramRenderOperationDefinition({
+    registry.register(createAtetDiagramRenderOperationDefinition({
       renderDiagram: async input => {
         await mkdir(input.outDirectory, { recursive: true });
         const artifacts = {
@@ -442,16 +442,16 @@ describe("unified Transmute visual operations", () => {
 
     const result = await registry.execute(testFixture.context, {
       input: { path: testFixture.diagramPath, scale: 2 },
-      kind: "transmute.diagram.render",
+      kind: "atet.diagram.render",
       version: 1,
     });
-    const output = TransmuteDiagramRenderOutputSchema.parse(result.output);
+    const output = AtetDiagramRenderOutputSchema.parse(result.output);
 
     expect(Object.values(output.artifacts).every(artifact => (
-      artifact.path.startsWith("artifacts/transmute/generated/media-operations/outputs/")
+      artifact.path.startsWith("artifacts/atet/generated/media-operations/outputs/")
     ))).toBe(true);
     expect(output.receipt.path).toStartWith(
-      "artifacts/transmute/generated/media-operations/receipts/",
+      "artifacts/atet/generated/media-operations/receipts/",
     );
     expect(MediaIngestInputSchema.parse({
       project: "project_visual01",
@@ -473,7 +473,7 @@ describe("unified Transmute visual operations", () => {
       "diagram_recovery",
     );
     const registry = new OperationRegistry();
-    registry.register(createTransmuteDiagramRenderOperationDefinition({
+    registry.register(createAtetDiagramRenderOperationDefinition({
       renderDiagram: async input => {
         await mkdir(input.outDirectory, { recursive: true });
         const artifacts = {
@@ -501,19 +501,19 @@ describe("unified Transmute visual operations", () => {
         };
       },
     }));
-    const exactInput = BoundTransmuteDiagramRenderInputSchema.parse(
-      await bindTransmuteVisualOperationInput(
+    const exactInput = BoundAtetDiagramRenderInputSchema.parse(
+      await bindAtetVisualOperationInput(
         context.application,
-        "transmute.diagram.render",
+        "atet.diagram.render",
         { path: testFixture.diagramPath, scale: 2 },
         context.abortSignal,
       ),
     );
-    const output = TransmuteDiagramRenderOutputSchema.parse((await registry.execute(
+    const output = AtetDiagramRenderOutputSchema.parse((await registry.execute(
       context,
       {
         input: exactInput,
-        kind: "transmute.diagram.render",
+        kind: "atet.diagram.render",
         version: 1,
       },
     )).output);
@@ -522,11 +522,11 @@ describe("unified Transmute visual operations", () => {
       beforePublication: () => Promise.resolve(),
       exactInput,
       identity: {
-        inputSchemaId: "transmute.operation.diagram.render.input/v1",
-        kind: "transmute.diagram.render" as const,
+        inputSchemaId: "atet.operation.diagram.render.input/v1",
+        kind: "atet.diagram.render" as const,
         nodeKey: context.workflow.nodeKey,
         nodePlanSha256: context.workflow.nodePlanSha256,
-        outputSchemaId: "transmute.operation.diagram.render.output/v1",
+        outputSchemaId: "atet.operation.diagram.render.output/v1",
         runId: context.workflow.runId,
         version: 1,
       },
@@ -575,7 +575,7 @@ describe("unified Transmute visual operations", () => {
     const registry = new OperationRegistry();
     let leaseChecks = 0;
     let inheritedFileDescriptors: readonly number[] | undefined;
-    registry.register(createTransmuteImageVectorizeOperationDefinition({
+    registry.register(createAtetImageVectorizeOperationDefinition({
       vectorize: async (_path: string, options: VectorizeOptions) => {
         inheritedFileDescriptors = options.inheritedFileDescriptors;
         return await vectorizeFixture(options);
@@ -596,22 +596,22 @@ describe("unified Transmute visual operations", () => {
           inheritedFileDescriptors: [42],
           profile: {
             capacities: [],
-            id: "transmute-visuals-test",
+            id: "atet-visuals-test",
           },
-          ticket: "transmute-visuals-test-ticket",
+          ticket: "atet-visuals-test-ticket",
         },
       },
     }, {
       input: { inputPath: testFixture.rasterPath },
-      kind: "transmute.image.vectorize",
+      kind: "atet.image.vectorize",
       version: 1,
     });
-    const output = TransmuteImageVectorizeOutputSchema.parse(result.output);
+    const output = AtetImageVectorizeOutputSchema.parse(result.output);
 
     expect(leaseChecks).toBe(1);
     expect(inheritedFileDescriptors).toEqual([42]);
     expect(output.artifact.path).toMatch(
-      /^artifacts\/transmute\/generated\/media-operations\/outputs\/[a-f0-9]{64}\.svg$/u,
+      /^artifacts\/atet\/generated\/media-operations\/outputs\/[a-f0-9]{64}\.svg$/u,
     );
     expect(output.vectorizer).toMatchObject({ pathCount: 1, receiptVersion: 1 });
     expect(MediaOverlayInputSchema.parse({
@@ -629,25 +629,25 @@ describe("unified Transmute visual operations", () => {
       "vectorize_recovery",
     );
     const registry = new OperationRegistry();
-    registry.register(createTransmuteImageVectorizeOperationDefinition({
+    registry.register(createAtetImageVectorizeOperationDefinition({
       vectorize: async (_path, options) => await vectorizeFixture(
         options,
         { alphaCutoff: 1 },
       ),
     }));
-    const exactInput = BoundTransmuteImageVectorizeInputSchema.parse(
-      await bindTransmuteVisualOperationInput(
+    const exactInput = BoundAtetImageVectorizeInputSchema.parse(
+      await bindAtetVisualOperationInput(
         context.application,
-        "transmute.image.vectorize",
+        "atet.image.vectorize",
         { alphaCutoff: 8, inputPath: testFixture.rasterPath },
         context.abortSignal,
       ),
     );
-    const output = TransmuteImageVectorizeOutputSchema.parse((await registry.execute(
+    const output = AtetImageVectorizeOutputSchema.parse((await registry.execute(
       context,
       {
         input: exactInput,
-        kind: "transmute.image.vectorize",
+        kind: "atet.image.vectorize",
         version: 1,
       },
     )).output);
@@ -657,11 +657,11 @@ describe("unified Transmute visual operations", () => {
       beforePublication: () => Promise.resolve(),
       exactInput,
       identity: {
-        inputSchemaId: "transmute.operation.image.vectorize.input/v1",
-        kind: "transmute.image.vectorize" as const,
+        inputSchemaId: "atet.operation.image.vectorize.input/v1",
+        kind: "atet.image.vectorize" as const,
         nodeKey: context.workflow.nodeKey,
         nodePlanSha256: context.workflow.nodePlanSha256,
-        outputSchemaId: "transmute.operation.image.vectorize.output/v1",
+        outputSchemaId: "atet.operation.image.vectorize.output/v1",
         runId: context.workflow.runId,
         version: 1,
       },
@@ -694,27 +694,27 @@ describe("unified Transmute visual operations", () => {
       const workspace = await createMediaOperationWorkspace(mismatchContext);
       const receipt = await publishContentAddressedReceipt({
         context: mismatchContext,
-        receipt: TransmuteImageVectorizeReceiptSchema.parse({
+        receipt: AtetImageVectorizeReceiptSchema.parse({
           artifact: output.artifact,
           createdAt: mismatchContext.application.clock.now().toISOString(),
           exactInputSha256: canonicalJsonSha256(exactInput),
-          kind: "transmute.visual-artifact-receipt",
-          operation: "transmute.image.vectorize",
+          kind: "atet.visual-artifact-receipt",
+          operation: "atet.image.vectorize",
           schemaVersion: 1,
           source: output.source,
           vectorizer,
         }),
         workspace,
       });
-      const mismatchedOutput = TransmuteImageVectorizeOutputSchema.parse({
+      const mismatchedOutput = AtetImageVectorizeOutputSchema.parse({
         ...output,
         receipt,
         vectorizer,
       });
       await writeOperationCompletionCheckpoint(mismatchContext, {
-        inputSchemaId: "transmute.operation.image.vectorize.input/v1",
-        kind: "transmute.image.vectorize",
-        outputSchemaId: "transmute.operation.image.vectorize.output/v1",
+        inputSchemaId: "atet.operation.image.vectorize.input/v1",
+        kind: "atet.image.vectorize",
+        outputSchemaId: "atet.operation.image.vectorize.output/v1",
         version: 1,
       }, mismatchedOutput);
       expect(await reconcileLocalVerifiedReceiptOperation(
@@ -774,13 +774,13 @@ describe("unified Transmute visual operations", () => {
     for (const testCase of cases) {
       const testFixture = await fixture();
       const registry = new OperationRegistry();
-      registry.register(createTransmuteImageVectorizeOperationDefinition({
+      registry.register(createAtetImageVectorizeOperationDefinition({
         vectorize: async (_path, options) =>
           await vectorizeFixture(options, testCase.overrides),
       }));
       const error = await registry.execute(testFixture.context, {
         input: { inputPath: testFixture.rasterPath },
-        kind: "transmute.image.vectorize",
+        kind: "atet.image.vectorize",
         version: 1,
       }).catch((caught: unknown) => caught);
       expect(String(error)).toContain(testCase.expected);

@@ -105,6 +105,7 @@ export const VideoEffectSchema = z.discriminatedUnion("kind", [
 export const VideoLookV1Schema = z.strictObject({
   effects: z.array(VideoEffectSchema).min(1).max(16),
   kind: z.union([
+    z.literal("atet.video-look"),
     z.literal("transmute.video-look"),
     z.literal("studio.video-look"),
   ]),

@@ -39,7 +39,7 @@ function application(root: string): ApplicationContext {
 
 describe("output publication lease", () => {
   test("serializes the same output without coupling distinct outputs", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-output-lease-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-output-lease-"));
     const context = application(root);
     const events: string[] = [];
     let releaseFirst!: () => void;
@@ -88,7 +88,7 @@ describe("output publication lease", () => {
   });
 
   test("rejects paths outside renders and prepositioned lease symlinks", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-output-lease-path-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-output-lease-path-"));
     const context = application(root);
     try {
       expect(withOutputPublicationLease(context, {

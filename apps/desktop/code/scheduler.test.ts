@@ -10,7 +10,7 @@ import {
   HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
   type HostResourceClaim,
   type HostResourceCoordinator,
-} from "@hraness/transmute/host-resources";
+} from "@hraness/atet/host-resources";
 
 import type { ApplicationContext } from "../application/context";
 import { ApplicationError } from "../application/errors";
@@ -149,7 +149,7 @@ async function settleWithin<Value>(
 }
 
 async function temporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(await realpath(tmpdir()), "transmute-scheduler-"));
+  const directory = await mkdtemp(join(await realpath(tmpdir()), "atet-scheduler-"));
   temporaryDirectories.push(directory);
   return directory;
 }

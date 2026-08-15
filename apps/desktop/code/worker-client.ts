@@ -1522,7 +1522,7 @@ export async function startCodeWorker(
     .digest("hex");
   const temporaryParent = resolve(options.temporaryRoot ?? tmpdir());
   await mkdir(temporaryParent, { mode: 0o700, recursive: true });
-  const directory = await mkdtemp(join(temporaryParent, "transmute-code-worker-"));
+  const directory = await mkdtemp(join(temporaryParent, "atet-code-worker-"));
   const protocolDirectory = await mkdtemp(join(tmpdir(), "iw-"));
   const socketPath = join(protocolDirectory, "s");
   let child: ChildProcess | undefined;

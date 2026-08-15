@@ -169,7 +169,7 @@ describe("built-in workflow catalog", () => {
       base,
       candidateCount: 2,
       candidateSetSha256: "d".repeat(64),
-      kind: "transmute.variant-matrix-reference",
+      kind: "atet.variant-matrix-reference",
       matrixSha256,
       schemaVersion: 1,
     });
@@ -654,7 +654,7 @@ describe("built-in workflow catalog", () => {
     const workflow = defineWorkflow({
       id: "common-variant-compatibility",
       inputSchema: z.strictObject({ project: z.string() }),
-      inputSchemaId: "transmute.workflow.common-variant-compatibility.input/v1",
+      inputSchemaId: "atet.workflow.common-variant-compatibility.input/v1",
       version: 1,
       build(builder, input) {
         const project = builder.project.snapshot("project", input.project);
@@ -733,7 +733,7 @@ describe("built-in workflow catalog", () => {
       inputSchema: z.strictObject({
         project: z.string(),
       }),
-      inputSchemaId: "transmute.workflow.caption-only-matrix.input/v1",
+      inputSchemaId: "atet.workflow.caption-only-matrix.input/v1",
       version: 1,
       build(builder, input) {
         const project = builder.project.snapshot("project", input.project);

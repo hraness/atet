@@ -42,7 +42,7 @@ const bundle = {
 } satisfies WorkflowBundleIdentity;
 
 const runtime = {
-  applicationBuild: "transmute-compiler-test",
+  applicationBuild: "atet-compiler-test",
   bunRevision: "compiler-test-revision",
   bunVersion: "1.3.14",
   bundlerConfigurationSha256: ZERO_HASH,
@@ -290,13 +290,13 @@ describe("workflow graph compiler", () => {
     });
   });
 
-  test("derives the Transmute family for visual media operations", () => {
+  test("derives the Atet family for visual media operations", () => {
     const registry = new OperationRegistry();
     register(
       registry,
-      "transmute.diagram.check",
-      "test.transmute-diagram-check-input/v1",
-      "test.transmute-diagram-check-output/v1",
+      "atet.diagram.check",
+      "test.atet-diagram-check-input/v1",
+      "test.atet-diagram-check-output/v1",
       policy({
         cancellable: false,
         effect: "local-read",
@@ -308,12 +308,12 @@ describe("workflow graph compiler", () => {
     const builder = WorkflowGraphBuilder.create(registry);
     const checked = builder.operationByKind("check", {
       input: { path: "fixtures/system.diagram.json" },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 1,
     });
     const graph = builder.build({
-      id: "transmute-visual-compiler",
-      inputSchemaId: "test.transmute-visual-compiler-input/v1",
+      id: "atet-visual-compiler",
+      inputSchemaId: "test.atet-visual-compiler-input/v1",
       version: 1,
     }, { checked });
 
@@ -327,8 +327,8 @@ describe("workflow graph compiler", () => {
 
     expect(plan.envelope).toMatchObject({
       effects: ["local-read"],
-      operationFamilies: ["transmute"],
-      operationKinds: ["transmute.diagram.check"],
+      operationFamilies: ["atet"],
+      operationKinds: ["atet.diagram.check"],
       preparation: ["local-media"],
       resources: [{ amount: 1, resource: "local-io" }],
     });

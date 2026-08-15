@@ -29,7 +29,7 @@ import type { ProcessRunner, RunOptions, RunResult } from "./io";
 const CAPTURE_OPTIONS: CaptureOptions = {
   camera: { kind: "default" },
   displays: { kind: "all" },
-  excludedBundleIdentifiers: ["com.hraness.transmute"],
+  excludedBundleIdentifiers: ["com.hraness.atet"],
   interactionEventProcessIdentifier: null,
   metadata: true,
   microphone: { kind: "default" },
@@ -377,7 +377,7 @@ async function assertCaptureSyncPublicationRejected(
     readonly segment: ReturnType<typeof segment>;
   },
 ): Promise<void> {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-bundle-sync-rejection-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-sync-rejection-test-"));
   const recordingRoot = join(temporary, "rec_sync_rejection");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,
@@ -515,7 +515,7 @@ test("rejects stopped publication while preserving measured duration-drift evide
 });
 
 test("replaces preflight permissions and selected sources with post-request evidence", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-bundle-environment-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-environment-test-"));
   const recordingRoot = join(temporary, "rec_environment001");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,
@@ -554,8 +554,8 @@ test("replaces preflight permissions and selected sources with post-request evid
     await writer.setCaptureEnvironment(freshPermissions, selectedSources);
 
     const manifest = await loadRecordingManifest(createNodeBundleFileSystem(recordingRoot));
-    expect(manifest.kind).toBe("transmute.recording-bundle");
-    expect(manifest.tool.name).toBe("transmute");
+    expect(manifest.kind).toBe("atet.recording-bundle");
+    expect(manifest.tool.name).toBe("atet");
     expect(manifest.permissions).toEqual(freshPermissions);
     expect(manifest.sources).toEqual(selectedSources);
   } finally {
@@ -564,7 +564,7 @@ test("replaces preflight permissions and selected sources with post-request evid
 });
 
 test("persists completion interruption evidence without leaking available inventory", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-bundle-interruption-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-interruption-test-"));
   const recordingRoot = join(temporary, "rec_interruption001");
   const availableSources = {
     ...SOURCES,
@@ -639,7 +639,7 @@ test("persists completion interruption evidence without leaking available invent
 });
 
 test("preserves an interrupted completion frontier without admitting partially verified media", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-bundle-rejected-segment-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-rejected-segment-test-"));
   const recordingRoot = join(temporary, "rec_rejected_segment001");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,
@@ -740,7 +740,7 @@ test("preserves an interrupted completion frontier without admitting partially v
 });
 
 test("records one failed prepared-start interruption before fatal settlement", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-bundle-failure-interruption-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-failure-interruption-test-"));
   const recordingRoot = join(temporary, "rec_failure_interruption001");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,
@@ -799,7 +799,7 @@ test("records one failed prepared-start interruption before fatal settlement", a
 });
 
 test("resume preserves historical displays and one stable primary across hot-plugging", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-bundle-resume-sources-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-resume-sources-test-"));
   const recordingRoot = join(temporary, "rec_resume_sources001");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,
@@ -878,7 +878,7 @@ test("resume preserves historical displays and one stable primary across hot-plu
 });
 
 test("finalizes two displays, shared audio, camera, metadata, and pause/resume segments", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-bundle-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-test-"));
   const recordingRoot = join(temporary, "rec_bundle001");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,

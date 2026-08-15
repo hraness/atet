@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { z } from "zod";
-import { createHostResourceCoordinator } from "@hraness/transmute/host-resources";
+import { createHostResourceCoordinator } from "@hraness/atet/host-resources";
 
 import type { ApplicationContext } from "../application/context";
 import { ApplicationError } from "../application/errors";
@@ -30,13 +30,13 @@ import {
 
 const BENCHMARK_DELAY_MILLISECONDS = 220;
 const BENCHMARK_REPORT_VERSION =
-  "transmute-code-concurrency-benchmark-report/v1" as const;
+  "atet-code-concurrency-benchmark-report/v1" as const;
 const BRANCH_ELAPSED_RATIO_CEILING = 0.65;
 export const CONCURRENCY_BENCHMARK_HOST_RESOURCE_PROFILE = Object.freeze({
   capacities: Object.freeze([
     Object.freeze({ limit: 4, resource: "cpu" }),
   ]),
-  id: "transmute.concurrency-benchmark/v1",
+  id: "atet.concurrency-benchmark/v1",
 });
 const PAIR_OVERLAP_DELAY_FRACTION_FLOOR = 0.65;
 const SHA256_ZERO = "0".repeat(64);
@@ -519,7 +519,7 @@ function maximumRootPairOverlap(
 
 export async function runConcurrencyBenchmark(): Promise<ConcurrencyBenchmarkResult> {
   const root = await mkdtemp(
-    join(await realpath(tmpdir()), "transmute-concurrency-benchmark-"),
+    join(await realpath(tmpdir()), "atet-concurrency-benchmark-"),
   );
   const spansByRun = new Map<string, MutableBenchmarkSpan[]>();
   const rendezvousByRun = new Map<string, BenchmarkRendezvous>();
@@ -649,7 +649,7 @@ function benchmarkUsage(): string {
     "run store, operation registry, and durable scheduler with jobs=1 and jobs=4.",
     "Writes a versioned JSON report to stdout; --compact emits one line.",
     "",
-    "From the repository root: bun run benchmark:transmute:code-concurrency",
+    "From the repository root: bun run benchmark:atet:code-concurrency",
   ].join("\n");
 }
 

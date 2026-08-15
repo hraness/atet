@@ -9,7 +9,7 @@ import {
   type HostResourceClaim,
   type HostResourceCoordinator,
   type HostResourceLease,
-} from "@hraness/transmute/host-resources";
+} from "@hraness/atet/host-resources";
 import {
   AnalyzerEvidenceV1Schema,
   AlignmentCandidateIdSchema,
@@ -145,6 +145,7 @@ import {
   resolveSafePath,
   type RepositoryPaths,
 } from "./paths";
+import { renamedEnvironmentValue } from "./renamed-environment";
 import { withMutationLock } from "./mutation-lock";
 import {
   commitProjectStateTransaction,
@@ -178,7 +179,7 @@ import {
 } from "./project-inactivity-service";
 import { resolveAnimatedPlaybackWindow } from "./overlay-playback";
 import { analyzeProjectScenes } from "./scene-analysis-service";
-import type { SceneDescriptionProvider } from "@hraness/transmute/scene";
+import type { SceneDescriptionProvider } from "@hraness/atet/scene";
 import { parseCliTime } from "./time";
 import {
   DEFAULT_FACE_ANALYSIS_CONFIG,
@@ -253,9 +254,9 @@ import {
   ProjectEditBatchSchema,
   ProjectEditBatchV3Schema,
   ProjectEditCommitReceiptSchema,
-  TransmuteDiagramCheckOutputSchema,
-  TransmuteDiagramRenderOutputSchema,
-  TransmuteImageVectorizeOutputSchema,
+  AtetDiagramCheckOutputSchema,
+  AtetDiagramRenderOutputSchema,
+  AtetImageVectorizeOutputSchema,
   type ApplicationContext,
   type OperationExecutionContext,
 } from "../application";
@@ -290,7 +291,7 @@ import {
   workflowRunStore,
 } from "./workflow-runs";
 
-export const TRANSMUTE_VERSION = "1.0.0";
+export const ATET_VERSION = "1.0.0";
 
 // Legacy direct renders predate per-target output contracts. Keep them
 // bounded generously enough for long-form production while preventing one
@@ -395,7 +396,7 @@ function contextWithApplicationHostResourceLease(
   if (inheritedFileDescriptors.length > 16) {
     throw new CliError(
       "unavailable",
-      "A direct Transmute subprocess cannot inherit more than 16 file descriptors.",
+      "A direct Atet subprocess cannot inherit more than 16 file descriptors.",
     );
   }
   const combinedLease: NonNullable<ApplicationContext["hostResourceLease"]> =
@@ -442,7 +443,7 @@ function contextWithApplicationHostResourceLease(
         if (subprocessDescriptors.length > 16) {
           throw new CliError(
             "unavailable",
-            "A direct Transmute subprocess cannot inherit more than 16 file descriptors.",
+            "A direct Atet subprocess cannot inherit more than 16 file descriptors.",
           );
         }
         return await context.runner.run(argv, {
@@ -1340,7 +1341,7 @@ async function analyzeInactivity(
   const evidence = AnalyzerEvidenceV1Schema.parse({
     audio,
     displays,
-    kind: "transmute.analyzer-evidence",
+    kind: "atet.analyzer-evidence",
     schemaVersion: 1,
     sourceDurationUs: recording.manifest.timeline.durationUs,
     tool: { name: "ffmpeg-freezedetect-silencedetect", version: ffmpegVersion.slice(0, 128) },
@@ -1669,7 +1670,7 @@ async function handleRender(
         `${canonicalJson(RecordingRenderReceiptV1Schema.parse({
           createdAt: context.io.now().toISOString(),
           display: resolved.renderPlan.composition.baseDisplay,
-          kind: "transmute.recording-render-receipt",
+          kind: "atet.recording-render-receipt",
           output: { ...integrity, path: outputRelative },
           plan: { path: artifactPath, sha256: resolvedPlanHash },
           recordingId: recording.manifest.recordingId,
@@ -2038,7 +2039,7 @@ async function projectMetadataContext(
   if (asset?.source.kind !== "recording") {
     throw new CliError(
       "conflict",
-      `Placement ${placement.placementId} is not backed by a Transmute recording with window and input metadata.`,
+      `Placement ${placement.placementId} is not backed by a Atet recording with window and input metadata.`,
     );
   }
   const recording = await openRecording(context.paths.artifactRoot, asset.source.recordingId);
@@ -2386,7 +2387,7 @@ async function handleProjectRender(
         sidecarPath,
         `${canonicalJson(ProjectRenderReceiptV1Schema.parse({
           createdAt: context.io.now().toISOString(),
-          kind: "transmute.project-render-receipt",
+          kind: "atet.project-render-receipt",
           output: { ...integrity, path: outputRelative },
           plan: { path: planArtifactPath, sha256: planDocumentSha256 },
           projectId: project.project.projectId,
@@ -2573,7 +2574,7 @@ async function handleAlignAnalyze(
     referenceEnvelope,
     target: target.subject,
     targetEnvelope,
-    tool: { name: "transmute-audio-aligner", profile: "envelope-correlation-v1", version: TRANSMUTE_VERSION },
+    tool: { name: "atet-audio-aligner", profile: "envelope-correlation-v1", version: ATET_VERSION },
   }));
   const analysisPath = projectAnalysisPath("alignment", analysis.analysisId);
   await saveAnalysisArtifact(project.fileSystem, analysis, analysisPath);
@@ -2862,7 +2863,7 @@ async function handleMusicAnalysis(
     repositoryRoot: context.paths.repositoryRoot,
     runner: context.runner,
     source: command.source,
-    toolVersion: TRANSMUTE_VERSION,
+    toolVersion: ATET_VERSION,
   });
   const tempoChanges = persisted.analysis.tempoRegions.filter(region => region.changeFromPrevious !== null).length;
   const keyChanges = persisted.analysis.keyRegions.filter(region => region.changeConfidence !== null).length;
@@ -2891,13 +2892,13 @@ async function handleSpeechAnalysis(
   const project = await openProject(context.paths.projectRoot, command.project);
   const ffmpeg = await requireRequestedCapability(context, "ffmpeg");
   const configuredExecutable = command.whisper
-    ?? context.io.env.TRANSMUTE_WHISPER_CPP;
+    ?? renamedEnvironmentValue(context.io.env, "ATET_WHISPER_CPP");
   const executable = configuredExecutable
     ?? await requireRequestedCapability(context, "whisper-cpp");
   const modelPathInput = command.model
-    ?? context.io.env.TRANSMUTE_WHISPER_MODEL;
+    ?? renamedEnvironmentValue(context.io.env, "ATET_WHISPER_MODEL");
   if (modelPathInput === undefined) {
-    throw new CliError("usage", "Speech analysis requires --model <whisper-model-path> or TRANSMUTE_WHISPER_MODEL.");
+    throw new CliError("usage", "Speech analysis requires --model <whisper-model-path> or ATET_WHISPER_MODEL.");
   }
   let modelPath: string;
   try {
@@ -2973,7 +2974,9 @@ async function loadSpeechReferenceForProject(
 ) {
   const artifact = await loadAnalysisArtifact(project.fileSystem, reference.path);
   if (
-    (artifact.kind !== "transmute.speech-analysis" && artifact.kind !== "studio.speech-analysis")
+    (artifact.kind !== "atet.speech-analysis"
+      && artifact.kind !== "transmute.speech-analysis"
+      && artifact.kind !== "studio.speech-analysis")
     || artifact.analysisId !== reference.analysisId
   ) {
     throw new CliError("invalid-data", `Speech analysis sidecar does not match ${reference.analysisId}.`);
@@ -3109,7 +3112,11 @@ async function projectMusicProtectionRanges(
         continue;
       }
       const value = await loadAnalysisArtifact(project.fileSystem, reference.path);
-      if (value.kind !== "transmute.music-analysis" && value.kind !== "studio.music-analysis") {
+      if (
+        value.kind !== "atet.music-analysis"
+        && value.kind !== "transmute.music-analysis"
+        && value.kind !== "studio.music-analysis"
+      ) {
         throw new CliError("invalid-data", `Music sidecar does not match ${reference.analysisId}.`);
       }
       const analysis = MusicAnalysisV1Schema.parse(value);
@@ -4167,7 +4174,7 @@ async function resolveGeneratedOutputPaths(
   requested: string | undefined,
   defaultExtension: string,
 ): Promise<GeneratedOutputPaths> {
-  const generatedRoot = join(paths.repositoryRoot, "artifacts", "transmute", "generated");
+  const generatedRoot = join(dirname(paths.artifactRoot), "generated");
   await ensurePrivateDirectory(generatedRoot);
   if (requested === undefined) {
     const jobDirectory = await ensurePhysicalPrivateDirectoryWithin(
@@ -4180,7 +4187,10 @@ async function resolveGeneratedOutputPaths(
     };
   }
   if (requested.trim() === "" || isAbsolute(requested)) {
-    throw new CliError("unsafe-path", "--output must be a nonempty path relative to artifacts/transmute/generated.");
+    throw new CliError(
+      "unsafe-path",
+      `--output must be a nonempty path relative to ${displayPath(paths.repositoryRoot, generatedRoot)}.`,
+    );
   }
   const outputPath = await resolveSafePath(generatedRoot, requested);
   const relativeParent = relative(generatedRoot, dirname(outputPath));
@@ -4189,7 +4199,7 @@ async function resolveGeneratedOutputPaths(
   }
   return {
     outputPath,
-    receiptPath: `${outputPath}.transmute.json`,
+    receiptPath: `${outputPath}.atet.json`,
   };
 }
 
@@ -4246,7 +4256,7 @@ async function publishGeneratedReceipt(
   receiptPath: string,
   receipt: unknown,
 ): Promise<void> {
-  const generatedRoot = join(paths.repositoryRoot, "artifacts", "transmute", "generated");
+  const generatedRoot = join(paths.repositoryRoot, "artifacts", "atet", "generated");
   if (!isWithin(generatedRoot, receiptPath) || receiptPath === generatedRoot) {
     throw new CliError("unsafe-path", "Generated receipt escaped the repository artifact boundary.");
   }
@@ -4652,7 +4662,7 @@ async function createGatewayJobTracker(
   const generatedRoot = join(
     context.paths.repositoryRoot,
     "artifacts",
-    "transmute",
+    "atet",
     "generated",
   );
   await ensurePrivateDirectory(generatedRoot);
@@ -4670,10 +4680,10 @@ async function createGatewayJobTracker(
     clientMaxRetries: 0,
     createdAt: context.io.now().toISOString(),
     jobId,
-    kind: "transmute.gateway-media-job",
+    kind: "atet.gateway-media-job",
     model: input.model,
     gatewayProviderFailover: "may-attempt-multiple-providers",
-    noTransmuteRetry: true,
+    noAtetRetry: true,
     operation: input.operation,
     request: input.request,
     requestSha256: sha256Hex(canonicalJson(input.request)),
@@ -4735,7 +4745,7 @@ async function createGatewayJobTracker(
       await persist("dispatched", {
         chargeMayHaveOccurred: true,
         dispatchedAt: event.startedAt,
-        interruptionSemantics: "A nonterminal dispatched job is ambiguous and must not be retried by Transmute; AI Gateway may have attempted multiple providers internally.",
+        interruptionSemantics: "A nonterminal dispatched job is ambiguous and must not be retried by Atet; AI Gateway may have attempted multiple providers internally.",
       });
     },
     displayPath: display,
@@ -4787,7 +4797,7 @@ async function createGatewayServiceForContext(
   const generatedRoot = join(
     context.paths.repositoryRoot,
     "artifacts",
-    "transmute",
+    "atet",
     "generated",
   );
   await ensurePrivateDirectory(generatedRoot);
@@ -4850,7 +4860,7 @@ async function executeTrackedGatewayOperation<Result>(
         ...(failure.details === undefined ? {} : failure.details),
         jobPath: tracker.displayPath,
         jobState: state,
-        noTransmuteRetry: true,
+        noAtetRetry: true,
       },
     );
   }
@@ -4885,7 +4895,7 @@ async function executeTrackedGatewayOperation<Result>(
         ...failure.details,
         jobPath: tracker.displayPath,
         jobState: state,
-        noTransmuteRetry: true,
+        noAtetRetry: true,
       },
     );
   }
@@ -4907,7 +4917,7 @@ async function executeTrackedGatewayOperation<Result>(
         ),
         jobPath: tracker.displayPath,
         jobState: tracker.state(),
-        noTransmuteRetry: true,
+        noAtetRetry: true,
       },
     );
   }
@@ -5462,7 +5472,7 @@ async function handleMediaAudio(
   const transform = {
     audioStreamIndex: command.audioStreamIndex,
     effects: audioEffectsForCommand(command),
-    kind: "transmute.audio-effects-transform",
+    kind: "atet.audio-effects-transform",
     output: audioOutputProfile(output.outputPath, videoStreams[0]?.index),
     schemaVersion: 1,
   } as const;
@@ -5512,7 +5522,7 @@ async function handleMediaAudio(
       output.receiptPath,
     );
     const nextCommands = {
-      addToProject: `transmute project add <project> ${shellArgument(outputDisplay)} --role ${hasVideo ? "b-roll" : "dialogue"}`,
+      addToProject: `atet project add <project> ${shellArgument(outputDisplay)} --role ${hasVideo ? "b-roll" : "dialogue"}`,
     };
     const receipt = {
       createdAt: context.io.now().toISOString(),
@@ -5523,7 +5533,7 @@ async function handleMediaAudio(
         path: displayPath(context.paths.repositoryRoot, inputPath),
         sha256: before.sha256,
       },
-      kind: "transmute.local-media-transform-receipt",
+      kind: "atet.local-media-transform-receipt",
       nextCommands,
       operation: "audio-effects",
       output: {
@@ -5610,7 +5620,7 @@ async function handleMediaColor(
   const transform = {
     grade,
     inputStreamIndex: selectedVideoStream.index,
-    kind: "transmute.color-grade-transform",
+    kind: "atet.color-grade-transform",
     outputProfile: colorOutputProfile(output.outputPath),
     schemaVersion: 1,
     videoStreamIndex: command.videoStreamIndex,
@@ -5661,7 +5671,7 @@ async function handleMediaColor(
       output.receiptPath,
     );
     const nextCommands = {
-      addToProject: `transmute project add <project> ${shellArgument(outputDisplay)} --role b-roll`,
+      addToProject: `atet project add <project> ${shellArgument(outputDisplay)} --role b-roll`,
     };
     const receipt = {
       createdAt: context.io.now().toISOString(),
@@ -5672,7 +5682,7 @@ async function handleMediaColor(
         path: displayPath(context.paths.repositoryRoot, inputPath),
         sha256: before.sha256,
       },
-      kind: "transmute.local-media-transform-receipt",
+      kind: "atet.local-media-transform-receipt",
       nextCommands,
       operation: "color-grade",
       output: {
@@ -5752,10 +5762,10 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
         application: applicationContext(context),
       }, {
         input: { path: command.path },
-        kind: "transmute.diagram.check",
+        kind: "atet.diagram.check",
         version: 1,
       });
-      const output = TransmuteDiagramCheckOutputSchema.parse(result.output);
+      const output = AtetDiagramCheckOutputSchema.parse(result.output);
       writeValue(context.io, command.json, output, () => [
         `checked ${output.source.path} sha256=${output.source.sha256}`,
         ...output.findings.map(finding => (
@@ -5775,10 +5785,10 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
           path: command.path,
           ...(command.scale === undefined ? {} : { scale: command.scale }),
         },
-        kind: "transmute.diagram.render",
+        kind: "atet.diagram.render",
         version: 1,
       });
-      const output = TransmuteDiagramRenderOutputSchema.parse(result.output);
+      const output = AtetDiagramRenderOutputSchema.parse(result.output);
       writeValue(context.io, command.json, output, () => [
         `rendered ${output.source.path} findings=${String(output.findings.length)}`,
         `light-png ${output.artifacts.lightPng.path}`,
@@ -5802,10 +5812,10 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
           ...(command.duotone === undefined ? {} : { duotone: command.duotone }),
           ...(command.timeoutMs === undefined ? {} : { timeoutMs: command.timeoutMs }),
         },
-        kind: "transmute.image.vectorize",
+        kind: "atet.image.vectorize",
         version: 1,
       });
-      const output = TransmuteImageVectorizeOutputSchema.parse(result.output);
+      const output = AtetImageVectorizeOutputSchema.parse(result.output);
       writeValue(context.io, command.json, output, () => [
         `vectorized ${output.source.path} -> ${output.artifact.path}`,
         `sha256 ${output.artifact.sha256} paths=${String(output.vectorizer.pathCount)}`,
@@ -6100,7 +6110,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
           ...details.nodes
             .filter(node => node.status === "ambiguous-code")
             .map(node => (
-              `replay transmute runs resume ${details.summary.runId} `
+              `replay atet runs resume ${details.summary.runId} `
               + `--replay-ambiguous-code ${node.nodeKey}`
             )),
         ].join("\n"),
@@ -6151,7 +6161,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
         grant,
         () => [
           `approved ${grant.kind} ${command.nodeKey} ${command.planHash}`,
-          `next transmute runs resume ${command.runId}`,
+          `next atet runs resume ${command.runId}`,
         ].join("\n"),
       );
       return;
@@ -6599,7 +6609,7 @@ async function resolveMutationTarget(
     return {
       command: mutationCommandName(command),
       directory: stateRoot,
-      label: "Transmute local state",
+      label: "Atet local state",
       scope: "private",
     };
   }
@@ -6608,7 +6618,7 @@ async function resolveMutationTarget(
     return {
       command: mutationCommandName(command),
       directory: paths.privateRoot,
-      label: "Transmute repository-private media state",
+      label: "Atet repository-private media state",
       scope: "private",
     };
   }
@@ -6644,7 +6654,7 @@ export async function runCli(argv: readonly string[], dependencies: CliDependenc
       return 0;
     }
     if (command.kind === "version") {
-      writeLine(io, dependencies.version ?? TRANSMUTE_VERSION);
+      writeLine(io, dependencies.version ?? ATET_VERSION);
       return 0;
     }
     if (command.kind === "complete") {
@@ -6719,7 +6729,7 @@ export async function runCli(argv: readonly string[], dependencies: CliDependenc
       sceneProviderFactory: dependencies.sceneProviderFactory
         ?? (options => createGatewaySceneProvider(options)),
       sleep: dependencies.sleep ?? (async milliseconds => await Bun.sleep(milliseconds)),
-      version: dependencies.version ?? TRANSMUTE_VERSION,
+      version: dependencies.version ?? ATET_VERSION,
     };
     const mutationTarget = await resolveMutationTarget(paths, stateRoot, command);
     await withCommandHostResources(context, command, async admittedContext => {
@@ -6745,7 +6755,7 @@ export async function runCli(argv: readonly string[], dependencies: CliDependenc
       },
     };
     if (jsonRequested) io.stderr(`${JSON.stringify(payload)}\n`);
-    else io.stderr(`transmute: ${failure.message}\n`);
+    else io.stderr(`atet: ${failure.message}\n`);
     return EXIT_CODE[failure.code];
   }
 }

@@ -343,7 +343,7 @@ async function projectMetadata(
     if (asset?.source.kind !== "recording") {
       throw new ApplicationError(
         "conflict",
-        `Placement ${placement.placementId} is not backed by a Transmute recording with window and input metadata.`,
+        `Placement ${placement.placementId} is not backed by a Atet recording with window and input metadata.`,
       );
     }
     const recording = await openRecording(artifactRoot, asset.source.recordingId);
@@ -547,7 +547,7 @@ function projectRenderPlanDocument(
   reference: RenderableProjectEditRevisionReference,
 ): ProjectRenderPlanDocument {
   return ProjectRenderPlanDocumentSchema.parse({
-    kind: "transmute.project-render-plan-document",
+    kind: "atet.project-render-plan-document",
     outputGeometrySha256: reference.outputGeometrySha256,
     plan: assertProjectRenderPlanComposition(plan),
     projectEditPlanSha256: revision.projectEditPlanSha256,
@@ -634,7 +634,7 @@ async function publishProjectRenderPlan(
       ...artifact,
       path: `renders/plans/${artifact.sha256}.json`,
     },
-    kind: "transmute.project-render-plan-reference",
+    kind: "atet.project-render-plan-reference",
     outputGeometrySha256: revision.reference.outputGeometrySha256,
     planSha256: plan.planSha256,
     projectEditPlanSha256: revision.document.projectEditPlanSha256,

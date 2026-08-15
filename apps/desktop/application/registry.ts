@@ -36,6 +36,37 @@ function registryKey(kind: string, version: number): string {
   return `${kind}@${String(version)}`;
 }
 
+function canonicalOperationKind(kind: string): string | null {
+  switch (kind) {
+    case "transmute.diagram.check": return "atet.diagram.check";
+    case "transmute.diagram.render": return "atet.diagram.render";
+    case "transmute.image.generate": return "atet.image.generate";
+    case "transmute.image.vectorize": return "atet.image.vectorize";
+    default: return null;
+  }
+}
+
+function predecessorAlias(kind: string, operation: RegisteredOperation): RegisteredOperation {
+  const discovery = Object.freeze({
+    ...operation.discovery,
+    inputSchemaId: operation.discovery.inputSchemaId.replace(/^atet\./u, "transmute."),
+    kind,
+    outputSchemaId: operation.discovery.outputSchemaId.replace(/^atet\./u, "transmute."),
+  }) as OperationDiscovery;
+  return Object.freeze({
+    discovery,
+    describe: () => ({ ...operation.describe(), ...discovery }),
+    execute: async (context: OperationExecutionContext, input: unknown) => {
+      const result = await operation.execute(context, input);
+      return {
+        ...result,
+        kind,
+        summary: { ...result.summary, kind },
+      } as OperationResult;
+    },
+  });
+}
+
 function validatePolicy(policy: OperationPolicy): void {
   if (!Number.isSafeInteger(policy.maxDurationMs) || policy.maxDurationMs < 1) {
     throw new ApplicationError("invalid-data", "Operation duration limit must be a positive safe integer.");
@@ -142,6 +173,13 @@ export class OperationRegistry {
 
   get(kind: string, version: number): RegisteredOperation {
     const operation = this.#operations.get(registryKey(kind, version));
+    if (operation === undefined) {
+      const canonical = canonicalOperationKind(kind);
+      const canonicalOperation = canonical === null
+        ? undefined
+        : this.#operations.get(registryKey(canonical, version));
+      if (canonicalOperation !== undefined) return predecessorAlias(kind, canonicalOperation);
+    }
     if (operation === undefined) {
       throw new ApplicationError("unsupported-plan", `Unsupported operation: ${kind}@${String(version)}`);
     }

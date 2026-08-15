@@ -57,7 +57,7 @@ test("parses manual zoom transition timing and emoji overlay providers", () => {
 
   const overlay = parseCliArgs([
     "edit", "rec_example001", "overlay", "add",
-    "--kind", "emoji", "--source", "transmute", "--provider", "brand-catalog",
+    "--kind", "emoji", "--source", "atet", "--provider", "brand-catalog",
     "--from", "1s", "--to", "4s", "--easing", "spring",
   ]);
   expect(overlay).toMatchObject({
@@ -66,7 +66,7 @@ test("parses manual zoom transition timing and emoji overlay providers", () => {
   });
 
   expect(parseCliArgs([
-    "assets", "emoji", "resolve", "transmute", "--provider", "brand-catalog",
+    "assets", "emoji", "resolve", "atet", "--provider", "brand-catalog",
   ])).toMatchObject({ kind: "emoji-resolve", provider: "brand-catalog", variant: undefined });
 });
 
@@ -252,7 +252,7 @@ test("help and version do not require repository discovery", async () => {
 
   stdout = "";
   expect(await runCli(["help", "record"], { io })).toBe(0);
-  expect(stdout).toContain("transmute record");
+  expect(stdout).toContain("atet record");
   expect(stderr).toBe("");
 });
 

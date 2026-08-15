@@ -78,10 +78,10 @@ function cameraRecordingManifest(): RecordingManifestV1 {
 }
 
 async function recordingFixture(repositoryRoot: string): Promise<OpenRecording> {
-  const recordingRoot = join(repositoryRoot, "artifacts", "transmute", "recordings", "rec_example001");
+  const recordingRoot = join(repositoryRoot, "artifacts", "atet", "recordings", "rec_example001");
   await mkdir(recordingRoot, { recursive: true });
   await saveRecordingManifest(createNodeBundleFileSystem(recordingRoot), cameraRecordingManifest());
-  return await openRecording(join(repositoryRoot, "artifacts", "transmute", "recordings"), "rec_example001");
+  return await openRecording(join(repositoryRoot, "artifacts", "atet", "recordings"), "rec_example001");
 }
 
 function importedCameraAsset(timestamp = LATER.toISOString()) {
@@ -110,7 +110,7 @@ function importedCameraAsset(timestamp = LATER.toISOString()) {
         codec: "h264",
         container: "mov",
         fileRange: { endUs: 4_000_000, startUs: 0 },
-        path: "artifacts/transmute/projects/project_multicam1/imports/second-angle.mov",
+        path: "artifacts/atet/projects/project_multicam1/imports/second-angle.mov",
         sha256: HASH,
         streamIndex: 0,
       }],
@@ -127,7 +127,7 @@ function importedCameraAsset(timestamp = LATER.toISOString()) {
         codec: "aac",
         container: "mov",
         fileRange: { endUs: 4_000_000, startUs: 0 },
-        path: "artifacts/transmute/projects/project_multicam1/imports/second-angle.mov",
+        path: "artifacts/atet/projects/project_multicam1/imports/second-angle.mov",
         sha256: HASH,
         streamIndex: 1,
       }],
@@ -138,10 +138,10 @@ function importedCameraAsset(timestamp = LATER.toISOString()) {
 
 describe("project creation from recording bundles", () => {
   test("persists every co-clocked screen, camera, and audio stream with an identity placement", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-service-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-service-"));
     try {
       const recording = await recordingFixture(repositoryRoot);
-      const projectRoot = join(repositoryRoot, "artifacts", "transmute", "projects");
+      const projectRoot = join(repositoryRoot, "artifacts", "atet", "projects");
       const created = await createProjectFromRecording({
         id: "project_multicam1",
         name: "Multi-angle demo",
@@ -152,7 +152,7 @@ describe("project creation from recording bundles", () => {
       });
 
       expect(String(created.project.projectId)).toBe("project_multicam1");
-      expect(created.project.kind).toBe("transmute.video-project");
+      expect(created.project.kind).toBe("atet.video-project");
       expect(created.project.name).toBe("Multi-angle demo");
       expect(created.project.assets).toHaveLength(1);
       const asset = created.project.assets[0]!;
@@ -166,11 +166,11 @@ describe("project creation from recording bundles", () => {
       expect(new Set(asset.streams.map(stream => stream.streamId)).size).toBe(5);
       expect(asset.streams.flatMap(stream => stream.segments.map(segment => segment.path)))
         .toEqual([
-          "artifacts/transmute/recordings/rec_example001/media/segment-1.mp4",
-          "artifacts/transmute/recordings/rec_example001/media/segment-left.mp4",
-          "artifacts/transmute/recordings/rec_example001/media/segment-1.mp4",
-          "artifacts/transmute/recordings/rec_example001/media/segment-1.mp4",
-          "artifacts/transmute/recordings/rec_example001/media/camera.mov",
+          "artifacts/atet/recordings/rec_example001/media/segment-1.mp4",
+          "artifacts/atet/recordings/rec_example001/media/segment-left.mp4",
+          "artifacts/atet/recordings/rec_example001/media/segment-1.mp4",
+          "artifacts/atet/recordings/rec_example001/media/segment-1.mp4",
+          "artifacts/atet/recordings/rec_example001/media/camera.mov",
         ]);
       expect(asset.streams.find(({ role }) => role === "camera")?.segments[0]?.fileRange).toEqual({
         endUs: 10_250_000,
@@ -208,10 +208,10 @@ describe("project creation from recording bundles", () => {
   });
 
   test("rejects active recordings and recording paths outside the declared repository", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-boundary-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-boundary-"));
     try {
       const recording = await recordingFixture(repositoryRoot);
-      const projectRoot = join(repositoryRoot, "artifacts", "transmute", "projects");
+      const projectRoot = join(repositoryRoot, "artifacts", "atet", "projects");
       const active: OpenRecording = {
         ...recording,
         manifest: RecordingManifestV1Schema.parse({ ...recording.manifest, state: "recording" }),
@@ -242,9 +242,9 @@ describe("project creation from recording bundles", () => {
 });
 
 test("adds imported media as an explicitly unverified placement and rebases the full-tail plan", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-add-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-add-"));
   try {
-    const projectRoot = join(repositoryRoot, "artifacts", "transmute", "projects");
+    const projectRoot = join(repositoryRoot, "artifacts", "atet", "projects");
     const created = await createProjectFromRecording({
       id: "project_multicam1",
       now: NOW,
@@ -280,9 +280,9 @@ test("adds imported media as an explicitly unverified placement and rebases the 
 });
 
 test("keeps every video stream disabled when an imported asset has an audio-only role", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-audio-role-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-audio-role-"));
   try {
-    const projectRoot = join(repositoryRoot, "artifacts", "transmute", "projects");
+    const projectRoot = join(repositoryRoot, "artifacts", "atet", "projects");
     const created = await createProjectFromRecording({
       id: "project_audiorole1",
       now: NOW,
@@ -318,9 +318,9 @@ test("keeps every video stream disabled when an imported asset has an audio-only
 });
 
 test("reuses content-identical imported assets across invocation timestamps", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-project-reimport-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-reimport-"));
   try {
-    const projectRoot = join(repositoryRoot, "artifacts", "transmute", "projects");
+    const projectRoot = join(repositoryRoot, "artifacts", "atet", "projects");
     const created = await createProjectFromRecording({
       id: "project_multicam1",
       now: NOW,

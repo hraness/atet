@@ -214,7 +214,7 @@ function bootIdentity(): string {
       `Code-worker process identity is unsupported on ${process.platform}.`,
     );
   }
-  cachedBootIdentity = digestIdentity("transmute-worker-boot", source);
+  cachedBootIdentity = digestIdentity("atet-worker-boot", source);
   return cachedBootIdentity;
 }
 
@@ -405,7 +405,7 @@ function identityFor(
   rawStartIdentity: string,
 ): string {
   return digestIdentity(
-    "transmute-worker-process-start",
+    "atet-worker-process-start",
     `${bootIdentity()}\0${String(processId)}\0${rawStartIdentity}`,
   );
 }

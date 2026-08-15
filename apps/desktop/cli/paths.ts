@@ -34,20 +34,45 @@ export async function discoverRepositoryRoot(start: string): Promise<string> {
   }
   throw new CliError(
     "not-found",
-    `Could not find a Transmute checkout from ${resolve(start)} (expected package.json and apps/desktop).`,
+    `Could not find a Atet checkout from ${resolve(start)} (expected package.json and apps/desktop).`,
   );
 }
 
-export function defaultArtifactRoot(repositoryRoot: string): string {
-  return join(repositoryRoot, "artifacts", "transmute", "recordings");
+export type ArtifactNamespace = "atet" | "transmute";
+
+export function defaultArtifactRoot(
+  repositoryRoot: string,
+  namespace: ArtifactNamespace = "atet",
+): string {
+  return join(repositoryRoot, "artifacts", namespace, "recordings");
 }
 
-function defaultProjectRoot(repositoryRoot: string): string {
-  return join(repositoryRoot, "artifacts", "transmute", "projects");
+function defaultProjectRoot(repositoryRoot: string, namespace: ArtifactNamespace): string {
+  return join(repositoryRoot, "artifacts", namespace, "projects");
 }
 
-function defaultPrivateRoot(repositoryRoot: string): string {
-  return join(repositoryRoot, "artifacts", "transmute", "private");
+function defaultPrivateRoot(repositoryRoot: string, namespace: ArtifactNamespace): string {
+  return join(repositoryRoot, "artifacts", namespace, "private");
+}
+
+function renamedPathEnvironmentValue(
+  env: Readonly<Record<string, string | undefined>>,
+  canonical: string,
+  predecessor: string,
+): string | undefined {
+  const current = env[canonical];
+  const legacy = env[predecessor];
+  if (
+    current !== undefined
+    && legacy !== undefined
+    && resolve(current) !== resolve(legacy)
+  ) {
+    throw new CliError(
+      "unsafe-path",
+      `${canonical} and ${predecessor} disagree; remove one or set both to the same path.`,
+    );
+  }
+  return current ?? legacy;
 }
 
 /** Shared local state coordinates resource admission across checkouts. */
@@ -213,26 +238,54 @@ export async function resolveRepositoryPaths(
   installedFrom: string = import.meta.dir,
 ): Promise<RepositoryPaths> {
   const toolRoot = await discoverRepositoryRoot(installedFrom);
-  const repositoryRootInput = env.TRANSMUTE_REPOSITORY_ROOT;
+  const repositoryRootInput = renamedPathEnvironmentValue(
+    env,
+    "ATET_REPOSITORY_ROOT",
+    "TRANSMUTE_REPOSITORY_ROOT",
+  );
   const requestedRoot = resolve(repositoryRootInput ?? cwd);
   if (!await isDirectory(requestedRoot)) {
-    throw new CliError("not-found", `Transmute project root is not a directory: ${requestedRoot}`);
+    throw new CliError("not-found", `Atet project root is not a directory: ${requestedRoot}`);
   }
   const repositoryRoot = await realpath(requestedRoot);
-  const requiredArtifactRoot = defaultArtifactRoot(repositoryRoot);
-  const configuredArtifactRoot = env.TRANSMUTE_ARTIFACT_ROOT;
+  const [hasAtetArtifacts, hasTransmuteArtifacts] = await Promise.all([
+    isDirectory(join(repositoryRoot, "artifacts", "atet")),
+    isDirectory(join(repositoryRoot, "artifacts", "transmute")),
+  ]);
+  if (hasAtetArtifacts && hasTransmuteArtifacts) {
+    throw new CliError(
+      "unsafe-path",
+      "Both artifacts/atet and artifacts/transmute exist. Resolve the namespace conflict before Atet writes artifacts.",
+    );
+  }
+  const artifactNamespace: ArtifactNamespace = hasTransmuteArtifacts ? "transmute" : "atet";
+  const requiredArtifactRoot = defaultArtifactRoot(repositoryRoot, artifactNamespace);
+  const configuredArtifactRoot = renamedPathEnvironmentValue(
+    env,
+    "ATET_ARTIFACT_ROOT",
+    "TRANSMUTE_ARTIFACT_ROOT",
+  );
   if (
     configuredArtifactRoot !== undefined
     && resolve(configuredArtifactRoot) !== resolve(requiredArtifactRoot)
   ) {
     throw new CliError(
       "unsafe-path",
-      `TRANSMUTE_ARTIFACT_ROOT must remain ${requiredArtifactRoot}; external recording roots are forbidden.`,
+      `ATET_ARTIFACT_ROOT must remain ${requiredArtifactRoot}; external recording roots are forbidden.`,
     );
   }
-  const artifactRoot = await ensurePhysicalPrivateDirectoryWithin(repositoryRoot, "artifacts/transmute/recordings");
-  const projectRoot = await ensurePhysicalPrivateDirectoryWithin(repositoryRoot, relative(repositoryRoot, defaultProjectRoot(repositoryRoot)));
-  const privateRoot = await ensurePhysicalPrivateDirectoryWithin(repositoryRoot, relative(repositoryRoot, defaultPrivateRoot(repositoryRoot)));
+  const artifactRoot = await ensurePhysicalPrivateDirectoryWithin(
+    repositoryRoot,
+    `artifacts/${artifactNamespace}/recordings`,
+  );
+  const projectRoot = await ensurePhysicalPrivateDirectoryWithin(
+    repositoryRoot,
+    relative(repositoryRoot, defaultProjectRoot(repositoryRoot, artifactNamespace)),
+  );
+  const privateRoot = await ensurePhysicalPrivateDirectoryWithin(
+    repositoryRoot,
+    relative(repositoryRoot, defaultPrivateRoot(repositoryRoot, artifactNamespace)),
+  );
   await Promise.all([
     ensurePrivateDirectory(artifactRoot),
     ensurePrivateDirectory(projectRoot),

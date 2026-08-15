@@ -1,18 +1,18 @@
 import {
-  TransmuteCodeError,
-  asTransmuteCodeError,
-  transmuteCodeErrorMessage,
-  type TransmuteCodeErrorCode,
-} from "@hraness/transmute/code/advanced";
+  AtetCodeError,
+  asAtetCodeError,
+  atetCodeErrorMessage,
+  type AtetCodeErrorCode,
+} from "@hraness/atet/code/advanced";
 
-export type ApplicationErrorCode = TransmuteCodeErrorCode;
-export type ApplicationError = TransmuteCodeError;
+export type ApplicationErrorCode = AtetCodeErrorCode;
+export type ApplicationError = AtetCodeError;
 
 /** The complete local host and portable SDK share one error identity. */
-export const ApplicationError = TransmuteCodeError;
+export const ApplicationError = AtetCodeError;
 
-export const errorMessage = transmuteCodeErrorMessage;
+export const errorMessage = atetCodeErrorMessage;
 
 export function asApplicationError(error: unknown): ApplicationError {
-  return asTransmuteCodeError(error);
+  return asAtetCodeError(error);
 }

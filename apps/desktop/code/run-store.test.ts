@@ -54,7 +54,7 @@ const temporaryDirectories: string[] = [];
 const HEX = "0".repeat(64);
 
 async function temporaryDirectory(): Promise<string> {
-  const directory = await realpath(await mkdtemp(join(tmpdir(), "transmute-run-store-")));
+  const directory = await realpath(await mkdtemp(join(tmpdir(), "atet-run-store-")));
   temporaryDirectories.push(directory);
   return directory;
 }

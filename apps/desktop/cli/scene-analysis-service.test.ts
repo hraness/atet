@@ -8,7 +8,7 @@ import { VideoProjectV1Schema, type VideoProjectV1 } from "../contracts";
 import type {
   SceneDescriptionProvider,
   SceneProviderRequest,
-} from "@hraness/transmute/scene";
+} from "@hraness/atet/scene";
 import { BunProcessRunner, type ProcessRunner, type RunResult } from "./io";
 import {
   SCENE_EXTRACTION_CONCURRENCY,
@@ -362,8 +362,8 @@ describe("scene analysis service", () => {
   });
 
   test("plans locally by default and uploads only bounded derived JPEG samples when executed", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-scenes-"));
-    const projectDirectory = join(repositoryRoot, "artifacts", "transmute", "projects", "project_scenefixture");
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-scenes-"));
+    const projectDirectory = join(repositoryRoot, "artifacts", "atet", "projects", "project_scenefixture");
     const mediaDirectory = join(repositoryRoot, "imports");
     await Promise.all([mkdir(projectDirectory, { recursive: true }), mkdir(mediaDirectory, { recursive: true })]);
     const media = join(mediaDirectory, "screen.mov");
@@ -412,7 +412,7 @@ describe("scene analysis service", () => {
       });
       expect(executed.kind).toBe("complete");
       if (executed.kind !== "complete") throw new Error("Expected completed scene analysis.");
-      expect(executed.analysis.kind).toBe("transmute.scene-analysis");
+      expect(executed.analysis.kind).toBe("atet.scene-analysis");
       expect(executed.analysis.scenes).toHaveLength(2);
       expect(executed.analysis.batches.every(batch => batch.state === "complete")).toBe(true);
       expect(executed.analysis.samples).toHaveLength(6);
@@ -537,8 +537,8 @@ describe("scene analysis service", () => {
 
   test.skipIf(FFMPEG === null)("extracts the actual final PTS from a sparse VFR source", async () => {
     if (FFMPEG === null) throw new Error("FFmpeg unexpectedly unavailable.");
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-scenes-vfr-"));
-    const projectDirectory = join(repositoryRoot, "artifacts", "transmute", "projects", "project_scenefixture");
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-scenes-vfr-"));
+    const projectDirectory = join(repositoryRoot, "artifacts", "atet", "projects", "project_scenefixture");
     const mediaDirectory = join(repositoryRoot, "imports");
     await Promise.all([mkdir(projectDirectory, { recursive: true }), mkdir(mediaDirectory, { recursive: true })]);
     const media = join(mediaDirectory, "sparse-vfr.mp4");
@@ -629,8 +629,8 @@ describe("scene analysis service", () => {
 
   test.skipIf(FFMPEG === null)("selects the closest predecessor from a dense CFR fallback window", async () => {
     if (FFMPEG === null) throw new Error("FFmpeg unexpectedly unavailable.");
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-scenes-cfr-"));
-    const projectDirectory = join(repositoryRoot, "artifacts", "transmute", "projects", "project_scenefixture");
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-scenes-cfr-"));
+    const projectDirectory = join(repositoryRoot, "artifacts", "atet", "projects", "project_scenefixture");
     const mediaDirectory = join(repositoryRoot, "imports");
     await Promise.all([mkdir(projectDirectory, { recursive: true }), mkdir(mediaDirectory, { recursive: true })]);
     const media = join(mediaDirectory, "dense-cfr.mp4");
@@ -683,8 +683,8 @@ describe("scene analysis service", () => {
 
   test.skipIf(FFMPEG === null)("normalizes a non-zero native media origin before mapping PTS", async () => {
     if (FFMPEG === null) throw new Error("FFmpeg unexpectedly unavailable.");
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-scenes-origin-"));
-    const projectDirectory = join(repositoryRoot, "artifacts", "transmute", "projects", "project_scenefixture");
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-scenes-origin-"));
+    const projectDirectory = join(repositoryRoot, "artifacts", "atet", "projects", "project_scenefixture");
     const mediaDirectory = join(repositoryRoot, "imports");
     await Promise.all([mkdir(projectDirectory, { recursive: true }), mkdir(mediaDirectory, { recursive: true })]);
     const media = join(mediaDirectory, "nonzero-origin.mp4");
@@ -748,8 +748,8 @@ describe("scene analysis service", () => {
   });
 
   test.skipIf(process.platform === "win32")("rejects a redirected scene-frame ancestor before extraction", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-scenes-symlink-"));
-    const projectDirectory = join(repositoryRoot, "artifacts", "transmute", "projects", "project_scenefixture");
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-scenes-symlink-"));
+    const projectDirectory = join(repositoryRoot, "artifacts", "atet", "projects", "project_scenefixture");
     const mediaDirectory = join(repositoryRoot, "imports");
     const outside = join(repositoryRoot, "outside");
     await Promise.all([

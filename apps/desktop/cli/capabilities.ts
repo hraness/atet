@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { assertSupportedHtmlOverlayBrowserExecutablePath } from "../application/html-overlay-browser-runtime";
 import type { ApplicationCapabilityName } from "../application/context";
 import type { ProcessRunner } from "./io";
+import { renamedEnvironmentValue } from "./renamed-environment";
 
 export type CapabilityName = ApplicationCapabilityName;
 
@@ -96,21 +97,21 @@ export function capabilityCandidates(
   env: Readonly<Record<string, string | undefined>>,
 ): readonly ProbeDefinition[] {
   const captureCandidates = [
-    env.TRANSMUTE_CAPTURE_HELPER,
-    "transmute-capture",
-    join(desktopRoot, "capture", "dist", "transmute-capture"),
-    join(desktopRoot, "capture", ".build", "release", "transmute-capture"),
-    join(desktopRoot, "capture", ".build", "debug", "transmute-capture"),
-    join(desktopRoot, "dist", "transmute-capture"),
+    renamedEnvironmentValue(env, "ATET_CAPTURE_HELPER"),
+    "atet-capture",
+    join(desktopRoot, "capture", "dist", "atet-capture"),
+    join(desktopRoot, "capture", ".build", "release", "atet-capture"),
+    join(desktopRoot, "capture", ".build", "debug", "atet-capture"),
+    join(desktopRoot, "dist", "atet-capture"),
   ].filter((candidate): candidate is string => candidate !== undefined && candidate !== "");
   const faceAnalyzerCandidates = [
-    env.TRANSMUTE_FACE_ANALYZER,
-    "transmute-face-analyzer",
-    join(desktopRoot, "analysis", "dist", "transmute-face-analyzer"),
-    join(desktopRoot, "dist", "transmute-face-analyzer"),
+    renamedEnvironmentValue(env, "ATET_FACE_ANALYZER"),
+    "atet-face-analyzer",
+    join(desktopRoot, "analysis", "dist", "atet-face-analyzer"),
+    join(desktopRoot, "dist", "atet-face-analyzer"),
   ].filter((candidate): candidate is string => candidate !== undefined && candidate !== "");
   const htmlBrowserCandidates = [
-    env.TRANSMUTE_HTML_BROWSER,
+    renamedEnvironmentValue(env, "ATET_HTML_BROWSER"),
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   ].filter((candidate): candidate is string => candidate !== undefined && candidate !== "");
   return [
@@ -136,7 +137,7 @@ export function capabilityCandidates(
     },
     {
       candidates: [
-        env.TRANSMUTE_WHISPER_CPP,
+        renamedEnvironmentValue(env, "ATET_WHISPER_CPP"),
         "whisper-cli",
         "whisper-cpp",
         "/opt/homebrew/bin/whisper-cli",

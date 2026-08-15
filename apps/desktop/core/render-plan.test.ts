@@ -28,7 +28,7 @@ test("selects one display composition and retains shared-container stream identi
     pixelHeight: 1080,
     pixelWidth: 1920,
   });
-  expect(render.kind).toBe("transmute.render-plan");
+  expect(render.kind).toBe("atet.render-plan");
   expect(render.composition.baseDisplay.displayId).toBe("display-primary");
   expect(render.sourceSegments.map(({ trackId }) => String(trackId))).toEqual([
     "track_display01",

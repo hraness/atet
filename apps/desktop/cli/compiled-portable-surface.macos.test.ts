@@ -12,7 +12,7 @@ import { join, resolve } from "node:path";
 import { afterEach, expect, test } from "bun:test";
 
 const RUN_COMPILED_SMOKE =
-  process.env.TRANSMUTE_RUN_COMPILED_CLI_SMOKE === "1";
+  process.env.ATET_RUN_COMPILED_CLI_SMOKE === "1";
 const roots: string[] = [];
 
 afterEach(async () => {
@@ -37,7 +37,7 @@ async function run(
   ]);
   if (exitCode !== 0) {
     throw new Error(
-      `Compiled Transmute command failed (${String(exitCode)}): ${argv.join(" ")}\n${stderr}`,
+      `Compiled Atet command failed (${String(exitCode)}): ${argv.join(" ")}\n${stderr}`,
     );
   }
   return stdout;
@@ -46,10 +46,10 @@ async function run(
 test.skipIf(!RUN_COMPILED_SMOKE)(
   "ships diagram native rendering and the isolated vectorizer worker inside one portable binary",
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-compiled-cli-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-compiled-cli-"));
     roots.push(root);
-    const executable = join(root, "transmute");
-    await copyFile(resolve(import.meta.dir, "..", "dist", "transmute"), executable);
+    const executable = join(root, "atet");
+    await copyFile(resolve(import.meta.dir, "..", "dist", "atet"), executable);
     await chmod(executable, 0o755);
 
     await run(executable, ["diagram", "init", "smoke.diagram.json"], root);

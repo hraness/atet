@@ -205,7 +205,7 @@ export const createProjectEditRevisionOperationDefinition = {
         aspect: input.draft.provenance.parameters.aspect,
         baseGeneration: input.draft.provenance.baseGeneration,
         derivationSha256: input.draft.derivationSha256,
-        kind: "transmute.project-edit-revision-reference",
+        kind: "atet.project-edit-revision-reference",
         outputGeometrySha256,
         pixelHeight: input.draft.pixelHeight,
         pixelWidth: input.draft.pixelWidth,

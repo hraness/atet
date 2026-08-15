@@ -5,7 +5,7 @@ import {
   SCENE_PROMPT_VERSION,
   SCENE_UPLOAD_POLICY,
   type SceneProviderRequest,
-} from "@hraness/transmute/scene";
+} from "@hraness/atet/scene";
 
 import {
   createGatewaySceneProvider,

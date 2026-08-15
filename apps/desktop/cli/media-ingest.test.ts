@@ -189,10 +189,10 @@ describe("project media probe parsing", () => {
 });
 
 test("imports external media once by content hash and models every probed stream", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-media-ingest-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-media-ingest-"));
   try {
     const requestedRepositoryRoot = join(temporary, "repository");
-    const projectDirectory = join(requestedRepositoryRoot, "artifacts", "transmute", "projects", "project_ingest01");
+    const projectDirectory = join(requestedRepositoryRoot, "artifacts", "atet", "projects", "project_ingest01");
     const source = join(temporary, "external", "Camera Take.MOV");
     const sourceAlias = join(temporary, "external", "same bytes.bin");
     await Promise.all([
@@ -285,13 +285,13 @@ test("imports external media once by content hash and models every probed stream
 });
 
 test("syncs staged media before publication and directory entries after publication and cleanup", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-media-durability-order-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-media-durability-order-"));
   try {
     const requestedRepositoryRoot = join(temporary, "repository");
     const requestedProjectDirectory = join(
       requestedRepositoryRoot,
       "artifacts",
-      "transmute",
+      "atet",
       "projects",
       "project_durable01",
     );
@@ -365,13 +365,13 @@ test("syncs staged media before publication and directory entries after publicat
 });
 
 test("does not publish media when syncing the staged inode fails", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-media-durability-failure-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-media-durability-failure-"));
   try {
     const requestedRepositoryRoot = join(temporary, "repository");
     const requestedProjectDirectory = join(
       requestedRepositoryRoot,
       "artifacts",
-      "transmute",
+      "atet",
       "projects",
       "project_syncfail1",
     );
@@ -423,10 +423,10 @@ test.skipIf(FFMPEG === null || FFPROBE === null)(
   "probes and ingests a real VP9 and short-Opus WebM without inflating audio coverage",
   async () => {
     if (FFMPEG === null || FFPROBE === null) return;
-    const temporary = await mkdtemp(join(tmpdir(), "transmute-webm-ingest-"));
+    const temporary = await mkdtemp(join(tmpdir(), "atet-webm-ingest-"));
     try {
       const repositoryRoot = join(temporary, "repository");
-      const projectDirectory = join(repositoryRoot, "artifacts", "transmute", "projects", "project_webmprobe");
+      const projectDirectory = join(repositoryRoot, "artifacts", "atet", "projects", "project_webmprobe");
       const source = join(temporary, "short-audio.webm");
       await mkdir(projectDirectory, { recursive: true });
       const runner = new BunProcessRunner();
@@ -484,10 +484,10 @@ test.skipIf(FFMPEG === null || FFPROBE === null)(
 );
 
 test("rejects symlink inputs and symlinked import directories", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-media-symlink-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-media-symlink-"));
   try {
     const requestedRepositoryRoot = join(temporary, "repository");
-    const projectDirectory = join(requestedRepositoryRoot, "artifacts", "transmute", "projects", "project_symlink01");
+    const projectDirectory = join(requestedRepositoryRoot, "artifacts", "atet", "projects", "project_symlink01");
     const source = join(temporary, "source.mov");
     const sourceLink = join(temporary, "source-link.mov");
     await mkdir(projectDirectory, { recursive: true });
@@ -530,7 +530,7 @@ test("rejects symlink inputs and symlinked import directories", async () => {
 });
 
 test("rejects a project directory outside the declared repository before staging or probing", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-media-project-boundary-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-media-project-boundary-"));
   try {
     const repositoryRoot = join(temporary, "repository");
     const projectDirectory = join(temporary, "outside-project");
@@ -562,10 +562,10 @@ test("rejects a project directory outside the declared repository before staging
 });
 
 test("detects corruption at an existing content-addressed destination", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-media-collision-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-media-collision-"));
   try {
     const requestedRepositoryRoot = join(temporary, "repository");
-    const projectDirectory = join(requestedRepositoryRoot, "artifacts", "transmute", "projects", "project_collision1");
+    const projectDirectory = join(requestedRepositoryRoot, "artifacts", "atet", "projects", "project_collision1");
     const source = join(temporary, "audio.wav");
     await mkdir(projectDirectory, { recursive: true });
     const repositoryRoot = await realpath(requestedRepositoryRoot);
@@ -595,10 +595,10 @@ test("detects corruption at an existing content-addressed destination", async ()
 });
 
 test("rejects a symlink prepositioned at a content-addressed destination", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-media-destination-link-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-media-destination-link-"));
   try {
     const requestedRepositoryRoot = join(temporary, "repository");
-    const projectDirectory = join(requestedRepositoryRoot, "artifacts", "transmute", "projects", "project_destlink1");
+    const projectDirectory = join(requestedRepositoryRoot, "artifacts", "atet", "projects", "project_destlink1");
     const imports = join(projectDirectory, "imports");
     const source = join(temporary, "audio.wav");
     await mkdir(imports, { recursive: true });
@@ -627,10 +627,10 @@ test("rejects a symlink prepositioned at a content-addressed destination", async
 });
 
 test("removes staged imports after a failed probe without touching an existing content-addressed file", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-media-probe-failure-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-media-probe-failure-"));
   try {
     const requestedRepositoryRoot = join(temporary, "repository");
-    const projectDirectory = join(requestedRepositoryRoot, "artifacts", "transmute", "projects", "project_probe_fail1");
+    const projectDirectory = join(requestedRepositoryRoot, "artifacts", "atet", "projects", "project_probe_fail1");
     const imports = join(projectDirectory, "imports");
     const source = join(temporary, "audio.wav");
     await mkdir(imports, { recursive: true });

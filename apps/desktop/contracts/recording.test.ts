@@ -132,15 +132,15 @@ describe("recording bundle manifest", () => {
 
     const canonical = RecordingManifestSchema.parse({
       ...legacy,
-      kind: "transmute.recording-bundle",
-      tool: { ...legacy.tool, name: "transmute" },
+      kind: "atet.recording-bundle",
+      tool: { ...legacy.tool, name: "atet" },
     });
-    expect(canonical.kind).toBe("transmute.recording-bundle");
-    expect(canonical.tool.name).toBe("transmute");
+    expect(canonical.kind).toBe("atet.recording-bundle");
+    expect(canonical.tool.name).toBe("atet");
 
     expect(() => RecordingManifestSchema.parse({
       ...legacy,
-      kind: "transmute.recording-bundle",
+      kind: "atet.recording-bundle",
     })).toThrow(/same product identity/u);
   });
 

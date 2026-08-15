@@ -53,7 +53,7 @@ const maximumAdmissionBackoffMultiplier = 8
 /** Largest supported explicit admission wait for any host-resource lease. */
 export const HOST_RESOURCE_MAX_WAIT_MILLISECONDS = 24 * 60 * 60_000
 
-export const transmuteHostResourceNames = Object.freeze([
+export const atetHostResourceNames = Object.freeze([
   "cpu",
   "local-io",
   "ffmpeg",
@@ -66,8 +66,8 @@ export const transmuteHostResourceNames = Object.freeze([
   "capture-device",
 ] as const)
 
-export type TransmuteHostResourceName =
-  (typeof transmuteHostResourceNames)[number]
+export type AtetHostResourceName =
+  (typeof atetHostResourceNames)[number]
 
 export interface HostResourceCapacity {
   readonly resource: string
@@ -283,7 +283,7 @@ export function normalizeHostResourceClaims(
   return deepFreeze(claims)
 }
 
-export function defaultTransmuteHostResourceProfile(
+export function defaultAtetHostResourceProfile(
   hostParallelism = availableParallelism(),
 ): HostResourceProfile {
   if (!boundedPositiveInteger(hostParallelism, maximumResourceAmount)) {
@@ -294,6 +294,9 @@ export function defaultTransmuteHostResourceProfile(
   }
   const reserve = hostParallelism >= 6 ? 2 : hostParallelism >= 2 ? 1 : 0
   return normalizeHostResourceProfile({
+    // This identifier and state directory are a machine-global coordination
+    // boundary. Keep them shared with Transmute so mixed-version processes
+    // cannot independently over-admit the same host.
     id: "transmute.host-resources/v1",
     capacities: [
       { resource: "cpu", limit: Math.max(1, hostParallelism - reserve) },
@@ -310,7 +313,7 @@ export function defaultTransmuteHostResourceProfile(
   })
 }
 
-export function defaultTransmuteHostResourceStateRoot(
+export function defaultAtetHostResourceStateRoot(
   platform: NodeJS.Platform = process.platform,
   environment: Readonly<NodeJS.ProcessEnv> = process.env,
   userHome = homedir(),
@@ -318,7 +321,7 @@ export function defaultTransmuteHostResourceStateRoot(
   if (!isHostResourcePlatformSupported(platform)) {
     throw new HostResourceError(
       "UNSUPPORTED_PLATFORM",
-      "Transmute host-resource coordination requires Darwin or Linux.",
+      "Atet host-resource coordination requires Darwin or Linux.",
     )
   }
   if (platform === "darwin") {
@@ -338,6 +341,15 @@ export function defaultTransmuteHostResourceStateRoot(
     : join(userHome, ".local", "state")
   return join(stateHome, "transmute", "host-resources-v1")
 }
+
+/** @deprecated Use Atet names; these aliases retain the shared coordinator. */
+export const transmuteHostResourceNames = atetHostResourceNames
+/** @deprecated Use {@link AtetHostResourceName}. */
+export type TransmuteHostResourceName = AtetHostResourceName
+/** @deprecated Use {@link defaultAtetHostResourceProfile}. */
+export const defaultTransmuteHostResourceProfile = defaultAtetHostResourceProfile
+/** @deprecated Use {@link defaultAtetHostResourceStateRoot}. */
+export const defaultTransmuteHostResourceStateRoot = defaultAtetHostResourceStateRoot
 
 function canonicalProfile(profile: HostResourceProfile): string {
   return JSON.stringify(profile)
@@ -658,7 +670,7 @@ function assertMatchingProfile(
   if (canonicalProfile(state.profile) === canonicalProfile(profile)) return
   throw new HostResourceError(
     "PROFILE_MISMATCH",
-    "The machine-global Transmute host-resource profile does not match this process.",
+    "The machine-global Atet host-resource profile does not match this process.",
   )
 }
 
@@ -1323,14 +1335,14 @@ function resolveCoordinatorOptions(
   if (!isHostResourcePlatformSupported(process.platform)) {
     throw new HostResourceError(
       "UNSUPPORTED_PLATFORM",
-      "Transmute host-resource coordination requires Darwin or Linux.",
+      "Atet host-resource coordination requires Darwin or Linux.",
     )
   }
   const profile = normalizeHostResourceProfile(
-    options.profile ?? defaultTransmuteHostResourceProfile(),
+    options.profile ?? defaultAtetHostResourceProfile(),
   )
   const stateRoot = options.stateRoot
-    ?? defaultTransmuteHostResourceStateRoot()
+    ?? defaultAtetHostResourceStateRoot()
   if (
     typeof stateRoot !== "string"
     || !isAbsolute(stateRoot)
@@ -1501,7 +1513,7 @@ export function createProcessLocalHostResourceCoordinator(
   coordinatorOptions: Omit<HostResourceCoordinatorOptions, "stateRoot"> = {},
 ): HostResourceCoordinator {
   const profile = normalizeHostResourceProfile(
-    coordinatorOptions.profile ?? defaultTransmuteHostResourceProfile(),
+    coordinatorOptions.profile ?? defaultAtetHostResourceProfile(),
   )
   const defaultWait = duration(
     coordinatorOptions.waitTimeoutMilliseconds,

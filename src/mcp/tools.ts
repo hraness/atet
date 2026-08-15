@@ -1,23 +1,23 @@
 import { rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { TransmuteCloudError } from "../cloud-errors.js"
+import { AtetCloudError } from "../cloud-errors.js"
 import {
-  generateTransmuteImageFile,
-  type TransmuteGenerateDependencies,
+  generateAtetImageFile,
+  type AtetGenerateDependencies,
 } from "../generate.js"
 import { builtInIcons } from "../icons.js"
 import { lintDiagram } from "../lint.js"
 import {
-  TransmuteOperationError,
-  transmuteOperationCodes,
-  parseTransmuteOperationInput,
-  searchTransmuteOperations,
-  withTransmuteOperationHostAdmission,
-  type CheckTransmuteOperationInput,
-  type GenerateTransmuteOperationInput,
-  type TransmuteOperationCode,
-  type RenderTransmuteOperationInput,
-  type VectorizeTransmuteOperationInput,
+  AtetOperationError,
+  atetOperationCodes,
+  parseAtetOperationInput,
+  searchAtetOperations,
+  withAtetOperationHostAdmission,
+  type CheckAtetOperationInput,
+  type GenerateAtetOperationInput,
+  type AtetOperationCode,
+  type RenderAtetOperationInput,
+  type VectorizeAtetOperationInput,
 } from "../operations.js"
 import {
   createDefaultHostResourceCoordinator,
@@ -77,12 +77,12 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value)
 }
 
-export const transmuteMcpTools: readonly McpToolDefinition[] = deepFreeze([
+export const atetMcpTools: readonly McpToolDefinition[] = deepFreeze([
   {
     name: "check_diagram",
     title: "Check diagram",
     description:
-      "Parse and lint one root-relative Transmute diagram source without changing files. Uses only built-in icons and themes.",
+      "Parse and lint one root-relative Atet diagram source without changing files. Uses only built-in icons and themes.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -134,7 +134,7 @@ export const transmuteMcpTools: readonly McpToolDefinition[] = deepFreeze([
     name: "render_diagram",
     title: "Render diagram",
     description:
-      "Render one root-relative Transmute diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
+      "Render one root-relative Atet diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -208,10 +208,10 @@ export const transmuteMcpTools: readonly McpToolDefinition[] = deepFreeze([
     },
   },
   {
-    name: "search_transmute",
-    title: "Search Transmute operations",
+    name: "search_atet",
+    title: "Search Atet operations",
     description:
-      "Search the fixed semantic Transmute operation registry by bounded text. This never executes code or changes files.",
+      "Search the fixed semantic Atet operation registry by bounded text. This never executes code or changes files.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -253,7 +253,7 @@ export const transmuteMcpTools: readonly McpToolDefinition[] = deepFreeze([
       },
     },
     annotations: {
-      title: "Search Transmute operations",
+      title: "Search Atet operations",
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
@@ -261,8 +261,8 @@ export const transmuteMcpTools: readonly McpToolDefinition[] = deepFreeze([
     },
   },
   {
-    name: "execute_transmute",
-    title: "Execute Transmute operation",
+    name: "execute_atet",
+    title: "Execute Atet operation",
     description:
       "Execute one exact operation code with typed JSON input. Never accepts or evaluates source code. Local paths remain confined to the configured workspace root.",
     inputSchema: {
@@ -272,7 +272,7 @@ export const transmuteMcpTools: readonly McpToolDefinition[] = deepFreeze([
       properties: {
         operation: {
           type: "string",
-          enum: transmuteOperationCodes,
+          enum: atetOperationCodes,
         },
         input: {
           type: "object",
@@ -287,12 +287,12 @@ export const transmuteMcpTools: readonly McpToolDefinition[] = deepFreeze([
       required: ["ok", "operation", "result"],
       properties: {
         ok: { const: true },
-        operation: { type: "string", enum: transmuteOperationCodes },
+        operation: { type: "string", enum: atetOperationCodes },
         result: { type: "object" },
       },
     },
     annotations: {
-      title: "Execute Transmute operation",
+      title: "Execute Atet operation",
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: false,
@@ -328,7 +328,7 @@ interface ParsedSearchArguments {
 }
 
 interface ParsedExecuteArguments {
-  readonly operation: TransmuteOperationCode
+  readonly operation: AtetOperationCode
   readonly input: unknown
 }
 
@@ -438,7 +438,7 @@ function parseSearchArguments(value: unknown): ParsedSearchArguments {
   }
   rejectUnknownKeys(value, new Set(["query", "limit"]))
   const query = value.query ?? ""
-  const limit = value.limit ?? transmuteOperationCodes.length
+  const limit = value.limit ?? atetOperationCodes.length
   if (
     typeof query !== "string" ||
     query.length > 200 ||
@@ -462,16 +462,16 @@ function parseExecuteArguments(value: unknown): ParsedExecuteArguments {
   rejectUnknownKeys(value, new Set(["operation", "input"]))
   if (
     typeof value.operation !== "string" ||
-    !transmuteOperationCodes.includes(value.operation as TransmuteOperationCode) ||
+    !atetOperationCodes.includes(value.operation as AtetOperationCode) ||
     !isRecord(value.input)
   ) {
     throw new ToolFailure(
       "INVALID_ARGUMENTS",
-      "operation must be an exact Transmute operation code and input must be an object.",
+      "operation must be an exact Atet operation code and input must be an object.",
     )
   }
   return {
-    operation: value.operation as TransmuteOperationCode,
+    operation: value.operation as AtetOperationCode,
     input: value.input,
   }
 }
@@ -584,13 +584,13 @@ function failureResult(error: unknown): McpToolResult {
   } else if (error instanceof WorkspaceBoundaryError) {
     code = error.code
     message = safeFragment(error.message, 320)
-  } else if (error instanceof TransmuteCloudError) {
+  } else if (error instanceof AtetCloudError) {
     code = error.code
     message = safeFragment(
       error.message.replace(/^\[[A-Z_]+\]\s*/u, ""),
       320,
     )
-  } else if (error instanceof TransmuteOperationError) {
+  } else if (error instanceof AtetOperationError) {
     code = error.code
     message = safeFragment(
       error.message.replace(/^\[[A-Z_]+\]\s*/u, ""),
@@ -636,7 +636,7 @@ async function atomicOverwrite(
 ): Promise<void> {
   const temporaryPath = join(
     dirname(filePath),
-    `.${crypto.randomUUID()}.transmute-mcp.tmp`,
+    `.${crypto.randomUUID()}.atet-mcp.tmp`,
   )
   try {
     await writeFile(temporaryPath, data, { flag: "wx" })
@@ -680,15 +680,15 @@ async function loadDiagram(
   return { source, spec }
 }
 
-export class TransmuteMcpToolRuntime {
+export class AtetMcpToolRuntime {
   readonly boundary: WorkspaceBoundary
-  readonly generateDependencies: TransmuteGenerateDependencies
+  readonly generateDependencies: AtetGenerateDependencies
   readonly hostResourceCoordinator: HostResourceCoordinator
   private renderQueue: Promise<void> = Promise.resolve()
 
   private constructor(
     boundary: WorkspaceBoundary,
-    generateDependencies: TransmuteGenerateDependencies,
+    generateDependencies: AtetGenerateDependencies,
     hostResourceCoordinator: HostResourceCoordinator,
   ) {
     this.boundary = boundary
@@ -698,10 +698,10 @@ export class TransmuteMcpToolRuntime {
 
   static async create(
     rootDirectory: string,
-    generateDependencies: TransmuteGenerateDependencies = {},
+    generateDependencies: AtetGenerateDependencies = {},
     hostResourceCoordinator?: HostResourceCoordinator,
-  ): Promise<TransmuteMcpToolRuntime> {
-    return new TransmuteMcpToolRuntime(
+  ): Promise<AtetMcpToolRuntime> {
+    return new AtetMcpToolRuntime(
       await WorkspaceBoundary.create(rootDirectory),
       generateDependencies,
       hostResourceCoordinator ?? createDefaultHostResourceCoordinator(),
@@ -709,10 +709,10 @@ export class TransmuteMcpToolRuntime {
   }
 
   private async withHostAdmission<T>(
-    operation: TransmuteOperationCode,
+    operation: AtetOperationCode,
     callback: (lease: HostResourceLease) => T | Promise<T>,
   ): Promise<T> {
-    return await withTransmuteOperationHostAdmission(operation, callback, {
+    return await withAtetOperationHostAdmission(operation, callback, {
       hostResourceCoordinator: this.hostResourceCoordinator,
     })
   }
@@ -731,7 +731,7 @@ export class TransmuteMcpToolRuntime {
       if (name === "check_diagram") {
         const options = parseCheckArguments(argumentsValue)
         return await this.withHostAdmission(
-          "transmute.diagram.check",
+          "atet.diagram.check",
           async () => await this.check(options),
         )
       }
@@ -739,23 +739,23 @@ export class TransmuteMcpToolRuntime {
         const options = parseRenderArguments(argumentsValue)
         return await this.enqueueRender(async () => (
           await this.withHostAdmission(
-            "transmute.diagram.render",
+            "atet.diagram.render",
             async () => await this.render(options),
           )
         ))
       }
-      if (name === "search_transmute") {
+      if (name === "search_atet") {
         const options = parseSearchArguments(argumentsValue)
-        const operations = searchTransmuteOperations(
+        const operations = searchAtetOperations(
           options.query,
           options.limit,
         )
         return successResult(
-          `Found ${operations.length} Transmute operation${operations.length === 1 ? "" : "s"}.`,
+          `Found ${operations.length} Atet operation${operations.length === 1 ? "" : "s"}.`,
           { ok: true, operations },
         )
       }
-      if (name === "execute_transmute") {
+      if (name === "execute_atet") {
         const options = parseExecuteArguments(argumentsValue)
         return await this.execute(options)
       }
@@ -766,7 +766,7 @@ export class TransmuteMcpToolRuntime {
   }
 
   private wrapSemanticResult(
-    operation: TransmuteOperationCode,
+    operation: AtetOperationCode,
     result: McpToolResult,
   ): McpToolResult {
     if (result.isError === true) return result
@@ -783,11 +783,11 @@ export class TransmuteMcpToolRuntime {
   private async execute(
     options: ParsedExecuteArguments,
   ): Promise<McpToolResult> {
-    if (options.operation === "transmute.diagram.check") {
-      const input = parseTransmuteOperationInput(
+    if (options.operation === "atet.diagram.check") {
+      const input = parseAtetOperationInput(
         options.operation,
         options.input,
-      ) as CheckTransmuteOperationInput
+      ) as CheckAtetOperationInput
       return this.wrapSemanticResult(
         options.operation,
         await this.withHostAdmission(
@@ -796,11 +796,11 @@ export class TransmuteMcpToolRuntime {
         ),
       )
     }
-    if (options.operation === "transmute.diagram.render") {
-      const input = parseTransmuteOperationInput(
+    if (options.operation === "atet.diagram.render") {
+      const input = parseAtetOperationInput(
         options.operation,
         options.input,
-      ) as RenderTransmuteOperationInput
+      ) as RenderAtetOperationInput
       return this.enqueueRender(async () => await this.withHostAdmission(
         options.operation,
         async () => this.wrapSemanticResult(
@@ -815,11 +815,11 @@ export class TransmuteMcpToolRuntime {
         ),
       ))
     }
-    if (options.operation === "transmute.image.vectorize") {
-      const input = parseTransmuteOperationInput(
+    if (options.operation === "atet.image.vectorize") {
+      const input = parseAtetOperationInput(
         options.operation,
         options.input,
-      ) as VectorizeTransmuteOperationInput
+      ) as VectorizeAtetOperationInput
       return this.enqueueRender(async () => await this.withHostAdmission(
         options.operation,
         async (lease) => {
@@ -855,12 +855,12 @@ export class TransmuteMcpToolRuntime {
       ))
     }
     return await this.withHostAdmission(options.operation, async () => {
-      const input = parseTransmuteOperationInput(
+      const input = parseAtetOperationInput(
         options.operation,
         options.input,
-      ) as GenerateTransmuteOperationInput
+      ) as GenerateAtetOperationInput
       const output = await this.boundary.prepareOutputFile(input.outputPath)
-      const generated = await generateTransmuteImageFile(
+      const generated = await generateAtetImageFile(
         { ...input, outputPath: output.absolutePath },
         this.generateDependencies,
       )

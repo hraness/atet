@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { PORTABLE_TRANSMUTE_OPERATION_CONTRACTS } from "@hraness/transmute/code/advanced";
+import { PORTABLE_ATET_OPERATION_CONTRACTS } from "@hraness/atet/code/advanced";
 import {
   lstat,
   mkdtemp,
@@ -18,10 +18,10 @@ import { ApplicationError } from "../errors";
 import type { OperationExecutionContext } from "../operation";
 import { OperationRegistry } from "../registry";
 import { operationApplicationContext } from "./test-support";
-import { createTransmutePortableOperationDefinitions } from "./transmute-portable";
+import { createAtetPortableOperationDefinitions } from "./atet-portable";
 
 const diagramCheckContract =
-  PORTABLE_TRANSMUTE_OPERATION_CONTRACTS["transmute.diagram.check"];
+  PORTABLE_ATET_OPERATION_CONTRACTS["atet.diagram.check"];
 
 function application(
   hostResourceLease?: ApplicationHostResourceLease,
@@ -59,11 +59,11 @@ function executionContext(
 
 function registryWith(
   dependencies: Parameters<
-    typeof createTransmutePortableOperationDefinitions
+    typeof createAtetPortableOperationDefinitions
   >[0],
 ): OperationRegistry {
   const registry = new OperationRegistry();
-  for (const definition of createTransmutePortableOperationDefinitions(
+  for (const definition of createAtetPortableOperationDefinitions(
     dependencies,
   )) {
     registry.register(definition);
@@ -80,7 +80,7 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
   throw new Error("Expected the operation to reject.");
 }
 
-describe("portable Transmute application operations", () => {
+describe("portable Atet application operations", () => {
   test("parses paths and delegates exactly once beneath an inherited host lease", async () => {
     let directExecutions = 0;
     let leasedExecutions = 0;
@@ -93,7 +93,7 @@ describe("portable Transmute application operations", () => {
       claims: diagramCheckContract.policy.resources,
       inheritedFileDescriptor: 73,
       inheritedFileDescriptors: [71, 73],
-      profile: { capacities: [], id: "transmute.test-portable/v1" },
+      profile: { capacities: [], id: "atet.test-portable/v1" },
       ticket: "1",
     };
     const registry = registryWith({
@@ -116,14 +116,14 @@ describe("portable Transmute application operations", () => {
 
     const result = await registry.execute(executionContext(application(lease)), {
       input: { path: "diagrams/flow.diagram.json" },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 2,
     });
 
     expect(result.output).toEqual({ configPath: null, findings: [] });
     expect(result.summary).toEqual({
       fields: {},
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
     });
     expect(parseCalls).toBe(1);
     expect(directExecutions).toBe(0);
@@ -147,14 +147,14 @@ describe("portable Transmute application operations", () => {
 
     expect(await rejection(registry.execute(executionContext(application()), {
       input: { path: "flow.diagram.json" },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 2,
     }))).toBeInstanceOf(Error);
     expect(executions).toBe(1);
 
     expect(await rejection(registry.execute(executionContext(application()), {
       input: { path: 42 },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 2,
     }))).toBeInstanceOf(Error);
     expect(executions).toBe(1);
@@ -174,20 +174,20 @@ describe("portable Transmute application operations", () => {
     for (const path of ["../outside.diagram.json", "https://example.com/a.json"]) {
       expect(await rejection(registry.execute(context, {
         input: { path },
-        kind: "transmute.diagram.check",
+        kind: "atet.diagram.check",
         version: 2,
       }))).toBeInstanceOf(ApplicationError);
     }
     expect(await rejection(registry.execute(context, {
       input: { path: "bad\0.diagram.json" },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 2,
     }))).toBeInstanceOf(Error);
     expect(delegated).toEqual([]);
 
     await registry.execute(context, {
       input: { path: "/caller/flow.diagram.json" },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 2,
     });
     expect(delegated).toEqual([{ path: "/caller/flow.diagram.json" }]);
@@ -203,14 +203,14 @@ describe("portable Transmute application operations", () => {
     });
     expect(await rejection(registry.execute(executionContext(application()), {
       input: { path: "flow.diagram.json" },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 1,
     }))).toBeInstanceOf(ApplicationError);
     expect(executions).toBe(0);
   });
 
   test("serializes portable writers across the shared machine-state mutation lease", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-portable-output-lease-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-portable-output-lease-"));
     let releaseFirst!: () => void;
     const firstGate = new Promise<void>(resolve => { releaseFirst = resolve; });
     let markFirstEntered!: () => void;
@@ -250,7 +250,7 @@ describe("portable Transmute application operations", () => {
           outDirectory: physicalRoot,
           path: join(physicalRoot, "flow.diagram.json"),
         },
-        kind: "transmute.diagram.render" as const,
+        kind: "atet.diagram.render" as const,
         version: 2,
       };
       const first = registry.execute(context, request);
@@ -266,14 +266,14 @@ describe("portable Transmute application operations", () => {
         machineStateRoot,
         "portable-output-publication-leases",
         leaseRoot,
-        ".transmute-mutation.lock",
+        ".atet-mutation.lock",
       ))).isFile()).toBe(true);
 
       const childMarker = join(root, "child-executed");
       const childSource = `
         import { join } from "node:path";
-        import { createTransmutePortableOperationDefinitions } from ${JSON.stringify(
-          new URL("./transmute-portable.ts", import.meta.url).href,
+        import { createAtetPortableOperationDefinitions } from ${JSON.stringify(
+          new URL("./atet-portable.ts", import.meta.url).href,
         )};
         import { OperationRegistry } from ${JSON.stringify(
           new URL("../registry.ts", import.meta.url).href,
@@ -294,16 +294,16 @@ describe("portable Transmute application operations", () => {
           },
           machineStateRoot,
           paths: {
-            artifactRoot: join(root, "artifacts", "transmute", "recordings"),
-            desktopRoot: join(root, "projects", "transmute", "apps", "desktop"),
+            artifactRoot: join(root, "artifacts", "atet", "recordings"),
+            desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
             privateRoot: join(root, "other-worktree-private"),
-            projectRoot: join(root, "artifacts", "transmute", "projects"),
+            projectRoot: join(root, "artifacts", "atet", "projects"),
             repositoryRoot: root,
           },
           runner: { run: () => Promise.resolve({ exitCode: 0, stderr: "", stdout: "" }) },
         };
         const registry = new OperationRegistry();
-        for (const definition of createTransmutePortableOperationDefinitions({
+        for (const definition of createAtetPortableOperationDefinitions({
           execute: async () => {
             await Bun.write(marker, "executed");
             return {
@@ -330,7 +330,7 @@ describe("portable Transmute application operations", () => {
               outDirectory: outputRoot,
               path: join(outputRoot, "flow.diagram.json"),
             },
-            kind: "transmute.diagram.render",
+            kind: "atet.diagram.render",
             version: 2,
           });
           console.log(JSON.stringify({ code: "executed" }));

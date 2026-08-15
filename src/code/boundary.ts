@@ -1,6 +1,6 @@
 import type { z } from "zod"
 
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 
 export function parseCodeBoundary<Output>(
   schema: z.ZodType<Output>,
@@ -9,7 +9,7 @@ export function parseCodeBoundary<Output>(
 ): Output {
   const result = schema.safeParse(input)
   if (!result.success) {
-    throw new TransmuteCodeError("invalid-data", `Invalid ${name}.`, {
+    throw new AtetCodeError("invalid-data", `Invalid ${name}.`, {
       issues: result.error.issues.map(issue => ({
         code: issue.code,
         message: issue.message,

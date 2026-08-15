@@ -351,7 +351,7 @@ export async function analyzeProjectMusic(
 
   const config = validateMusicConfig(options.config ?? DEFAULT_MUSIC_ANALYSIS_CONFIG);
   const tool = AnalysisToolSchema.parse({
-    name: "transmute-music-analyzer",
+    name: "atet-music-analyzer",
     profile: "mono-pcm-spectral-v1",
     version: options.toolVersion,
   });

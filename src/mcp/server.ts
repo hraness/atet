@@ -1,4 +1,4 @@
-import { transmuteMcpTools, TransmuteMcpToolRuntime } from "./tools.js"
+import { atetMcpTools, AtetMcpToolRuntime } from "./tools.js"
 import type {
   JsonRpcId,
   JsonRpcResponse,
@@ -6,8 +6,8 @@ import type {
   McpServerOptions,
 } from "./types.js"
 
-export const transmuteMcpProtocolVersion = "2025-11-25"
-export const transmuteMcpServerName = "hraness-transmute"
+export const atetMcpProtocolVersion = "2025-11-25"
+export const atetMcpServerName = "hraness-atet"
 
 const maximumMessageBytes = 1024 * 1024
 
@@ -96,12 +96,12 @@ function parseToolCall(
   }
 }
 
-class TransmuteMcpSession {
-  readonly runtime: TransmuteMcpToolRuntime
+class AtetMcpSession {
+  readonly runtime: AtetMcpToolRuntime
   readonly serverVersion: string
   state: LifecycleState = "new"
 
-  constructor(runtime: TransmuteMcpToolRuntime, serverVersion: string) {
+  constructor(runtime: AtetMcpToolRuntime, serverVersion: string) {
     this.runtime = runtime
     this.serverVersion = serverVersion
   }
@@ -131,16 +131,16 @@ class TransmuteMcpSession {
       }
       this.state = "initializing"
       return success(id, {
-        protocolVersion: transmuteMcpProtocolVersion,
+        protocolVersion: atetMcpProtocolVersion,
         capabilities: {
           tools: { listChanged: false },
         },
         serverInfo: {
-          name: transmuteMcpServerName,
+          name: atetMcpServerName,
           version: this.serverVersion,
         },
         instructions:
-          "Use the compatibility check_diagram/render_diagram tools or search_transmute followed by execute_transmute with an exact registry code and typed JSON. Local paths are root-relative; source code is never accepted or evaluated.",
+          "Use the compatibility check_diagram/render_diagram tools or search_atet followed by execute_atet with an exact registry code and typed JSON. Local paths are root-relative; source code is never accepted or evaluated.",
       })
     }
 
@@ -155,12 +155,12 @@ class TransmuteMcpSession {
       ) {
         return failure(id, -32602, "Invalid tools/list parameters")
       }
-      return success(id, { tools: transmuteMcpTools })
+      return success(id, { tools: atetMcpTools })
     }
     if (request.method === "tools/call") {
       try {
         const toolCall = parseToolCall(request.params)
-        if (!transmuteMcpTools.some((tool) => tool.name === toolCall.name)) {
+        if (!atetMcpTools.some((tool) => tool.name === toolCall.name)) {
           return failure(id, -32602, "Unknown tool")
         }
         return success(
@@ -197,7 +197,7 @@ async function emitResponse(
 
 async function processLine(
   line: Uint8Array,
-  session: TransmuteMcpSession,
+  session: AtetMcpSession,
   writeLine: (line: string) => void | Promise<void>,
 ): Promise<void> {
   if (line.byteLength === 0) return
@@ -225,11 +225,11 @@ async function processLine(
 export async function runMcpServer(
   options: McpServerOptions = {},
 ): Promise<void> {
-  const runtime = await TransmuteMcpToolRuntime.create(
+  const runtime = await AtetMcpToolRuntime.create(
     options.rootDirectory ?? process.cwd(),
     options.generateDependencies,
   )
-  const session = new TransmuteMcpSession(
+  const session = new AtetMcpSession(
     runtime,
     options.serverVersion ?? "1.0.0",
   )

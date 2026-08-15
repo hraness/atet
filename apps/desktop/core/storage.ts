@@ -42,7 +42,7 @@ export const RECORDING_MANIFEST_PATH = "manifest.json";
 export const VIDEO_PROJECT_PATH = "project.json";
 export const CURRENT_PROJECT_EDIT_PLAN_PATH = "edits/current.json";
 const MAXIMUM_STRUCTURED_FILE_BYTES = 256 * 1024 * 1024;
-const IMMUTABLE_COPY_TEMP_PREFIX = ".transmute-copy-";
+const IMMUTABLE_COPY_TEMP_PREFIX = ".atet-copy-";
 
 export interface BundleFileSystem {
   /**

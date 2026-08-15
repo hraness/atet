@@ -124,7 +124,7 @@ export async function executeAtomicRender(options: {
     }
     temporaryDirectory = await realpath(options.stagingDirectory);
   }
-  const temporary = join(temporaryDirectory, `.transmute-render-${randomUUID()}.tmp${extension}`);
+  const temporary = join(temporaryDirectory, `.atet-render-${randomUUID()}.tmp${extension}`);
   let output: AtomicRenderOutput | undefined;
   try {
     const argv = [...options.argv] as [string, ...string[]];

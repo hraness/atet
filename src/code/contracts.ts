@@ -5,7 +5,8 @@ export const WORKFLOW_REF_VERSION = "studio-workflow-ref-v1" as const
 export const GRAPH_ABI = "studio-workflow-graph-abi-v2" as const
 export const REQUIREMENT_ENVELOPE_VERSION = "studio-requirement-envelope-v2" as const
 export const TRUSTED_COMPUTE_VERSION = 1 as const
-export const WORKFLOW_COMPILATION_VERSION = "transmute-workflow-compilation-v1" as const
+export const WORKFLOW_COMPILATION_VERSION = "atet-workflow-compilation-v1" as const
+export const LEGACY_WORKFLOW_COMPILATION_VERSION = "transmute-workflow-compilation-v1" as const
 
 export const MAX_SERIALIZED_GRAPH_NODES = 4_096
 export const MAX_SERIALIZED_NODE_DEPENDENCIES = 4_096
@@ -464,7 +465,10 @@ export const CompiledWorkflowGraphSchema = z.strictObject({
   projection: WorkflowRegistryProjectionSchema,
   topologicalWaves: z.array(z.array(NodeKeySchema).min(1))
     .max(MAX_SERIALIZED_GRAPH_NODES),
-  version: z.literal(WORKFLOW_COMPILATION_VERSION),
+  version: z.union([
+    z.literal(WORKFLOW_COMPILATION_VERSION),
+    z.literal(LEGACY_WORKFLOW_COMPILATION_VERSION),
+  ]),
 }) satisfies z.ZodType<CompiledWorkflowGraph>
 export interface CompiledWorkflowGraph {
   readonly compilationSha256: string
@@ -474,7 +478,9 @@ export interface CompiledWorkflowGraph {
   readonly limits: GraphCompilerLimits
   readonly projection: WorkflowRegistryProjection
   readonly topologicalWaves: readonly (readonly string[])[]
-  readonly version: typeof WORKFLOW_COMPILATION_VERSION
+  readonly version:
+    | typeof WORKFLOW_COMPILATION_VERSION
+    | typeof LEGACY_WORKFLOW_COMPILATION_VERSION
 }
 
 export interface OperationContract<Input, Output> {

@@ -391,7 +391,7 @@ export async function analyzeProjectInactivity(
     durationUs: options.project.project.timeline.durationUs,
     inputDigest,
     interactions: reference.interactions,
-    kind: "transmute.project-inactivity-analysis",
+    kind: "atet.project-inactivity-analysis",
     projectId: options.project.project.projectId,
     projectStructureSha256,
     referenceRecording: reference.referenceRecording,

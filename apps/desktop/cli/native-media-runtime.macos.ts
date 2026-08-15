@@ -3,5 +3,5 @@
 import sharpAddon from "@img/sharp-darwin-arm64/sharp.node";
 
 (globalThis as Record<symbol, unknown>)[
-  Symbol.for("transmute.sharp-darwin-arm64-addon/v1")
+  Symbol.for("atet.sharp-darwin-arm64-addon/v1")
 ] = sharpAddon;

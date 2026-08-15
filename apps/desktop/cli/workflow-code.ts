@@ -429,7 +429,7 @@ function workflowTemplate(path: string): string {
   const id = workflowIdForPath(path);
   const defaultOutput = `renders/${id}/final.mp4`;
   return `import { z } from "zod";
-import { defineWorkflow } from "@hraness/transmute/local/code";
+import { defineWorkflow } from "@hraness/atet/local/code";
 
 const EvenDimensionSchema = z.number()
   .int()
@@ -471,7 +471,7 @@ const InputSchema = z.strictObject({
 export default defineWorkflow({
   id: ${JSON.stringify(id)},
   inputSchema: InputSchema,
-  inputSchemaId: ${JSON.stringify(`transmute.workflow.${id}.input/v1`)},
+  inputSchemaId: ${JSON.stringify(`atet.workflow.${id}.input/v1`)},
   version: 1,
   build(workflow, input) {
     const project = workflow.project.snapshot("project", input.project);

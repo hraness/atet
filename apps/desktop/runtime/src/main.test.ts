@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 
-import { TRANSMUTE_DESKTOP_PROTOCOL_VERSION } from "../../contracts";
+import { ATET_DESKTOP_PROTOCOL_VERSION } from "../../contracts";
 import {
   HostResponseSchema,
   MAX_HOST_LINE_BYTES,
@@ -49,18 +49,18 @@ afterEach(async () => {
 });
 
 async function fixture(): Promise<{ readonly executable: string; readonly home: string; readonly runtime: string }> {
-  const home = await mkdtemp(join(tmpdir(), "transmute-runtime-home-"));
+  const home = await mkdtemp(join(tmpdir(), "atet-runtime-home-"));
   temporaryDirectories.push(home);
   const runtime = join(home, "packaged", "Contents", "Resources", "runtime");
   await mkdir(join(runtime, "bin"), { recursive: true });
-  const executable = join(runtime, "bin", "transmute-gateway");
+  const executable = join(runtime, "bin", "atet-gateway");
   await writeFile(executable, "gateway\n");
   return { executable, home: await realpath(home), runtime };
 }
 
 function hostRequest(id: string, payload: unknown = {}): string {
   return JSON.stringify({
-    command: "transmute.runtime.snapshot",
+    command: "atet.runtime.snapshot",
     id,
     payload,
   });
@@ -115,9 +115,9 @@ test("packaged gateway creates user-owned state independent of its bundle locati
     executablePath: executable,
     homeDirectory: home,
   });
-  const movedExecutable = join(home, "relocated", "Renamed.app", "Contents", "Resources", "runtime", "bin", "transmute-gateway");
+  const movedExecutable = join(home, "relocated", "Renamed.app", "Contents", "Resources", "runtime", "bin", "atet-gateway");
 
-  expect(first).toBe(join(home, "Movies", "Transmute"));
+  expect(first).toBe(join(home, "Movies", "Atet"));
   expect(await resolveRuntimeRepositoryRoot({
     environmentValue: "",
     executablePath: movedExecutable,
@@ -134,7 +134,7 @@ test("runtime workspace selection rejects relative configuration and symlink def
   const target = join(home, "target");
   await mkdir(target);
   await mkdir(join(home, "Movies"));
-  await symlink(target, join(home, "Movies", "Transmute"));
+  await symlink(target, join(home, "Movies", "Atet"));
   expect(resolveRuntimeRepositoryRoot({ environmentValue: "", homeDirectory: home }))
     .rejects.toThrow(/physical directory/u);
 });
@@ -467,7 +467,7 @@ test("an output failure interrupts an idle input read and closes the iterator an
         void inputReadStarted.promise.then(() => emit({
           commandId: "command_abcdefgh",
           kind: "command-settled",
-          protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+          protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
           status: "succeeded",
         }));
         return Promise.resolve();
@@ -503,7 +503,7 @@ test("synchronous service events fail closed at the fixed output ceiling", async
           emit({
             commandId: "command_abcdefgh",
             kind: "command-settled",
-            protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+            protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
             status: "succeeded",
           });
         }

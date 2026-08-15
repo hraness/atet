@@ -378,7 +378,7 @@ async function assertMetadataEffectsAvailable(
   if (asset?.source.kind !== "recording") {
     throw new ApplicationError(
       "conflict",
-      `Metadata placement ${placementId} is not backed by a Transmute recording.`,
+      `Metadata placement ${placementId} is not backed by a Atet recording.`,
     );
   }
   let manifest: Awaited<ReturnType<typeof openRecording>>["manifest"];
@@ -660,7 +660,7 @@ async function resolveManualZoomBinding(
   if (asset?.source.kind !== "recording") {
     throw new ApplicationError(
       "conflict",
-      `Zoom placement ${placementId} is not backed by a Transmute recording.`,
+      `Zoom placement ${placementId} is not backed by a Atet recording.`,
     );
   }
   let recording: ManualZoomRecordingEvidence;

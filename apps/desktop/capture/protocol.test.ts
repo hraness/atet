@@ -27,7 +27,7 @@ const permissions = {
 const options = {
   camera: { deviceId: "camera-1", kind: "device" },
   displays: { displayIds: ["1"], kind: "selected" },
-  excludedBundleIdentifiers: ["com.hraness.transmute"],
+  excludedBundleIdentifiers: ["com.hraness.atet"],
   interactionEventProcessIdentifier: null,
   metadata: true,
   microphone: { deviceId: "mic-1", kind: "device" },
@@ -38,11 +38,11 @@ const options = {
 } as const;
 
 const typedTextFocusIdentity = {
-  fieldId: "transmute-fixture-public-01234567-89ab-4cde-8fab-0123456789ab",
+  fieldId: "atet-fixture-public-01234567-89ab-4cde-8fab-0123456789ab",
   processId: 42,
   windowId: "9001",
   windowTitle:
-    "Transmute Interaction Fixture · 01234567-89ab-4cde-8fab-0123456789ab",
+    "Atet Interaction Fixture · 01234567-89ab-4cde-8fab-0123456789ab",
 } as const;
 
 const sources = {
@@ -97,7 +97,7 @@ describe("capture helper request protocol", () => {
       command: "configure",
       protocolVersion: CAPTURE_PROTOCOL_VERSION,
       requestId: "request-1",
-      sessionDirectory: "/tmp/transmute-project/artifacts/transmute/recordings/rec_00000001",
+      sessionDirectory: "/tmp/atet-project/artifacts/atet/recordings/rec_00000001",
     }));
     expect(request.command).toBe("configure");
     if (request.command !== "configure") throw new Error("Expected configure request.");
@@ -125,7 +125,7 @@ describe("capture helper request protocol", () => {
       options,
       protocolVersion: CAPTURE_PROTOCOL_VERSION,
       requestId: "request-selected",
-      sessionDirectory: "/tmp/transmute-project/artifacts/transmute/recordings/rec_selected",
+      sessionDirectory: "/tmp/atet-project/artifacts/atet/recordings/rec_selected",
     }));
     expect(selected.command === "configure" ? selected.options : null).toMatchObject({
       camera: { deviceId: "camera-1", kind: "device" },
@@ -140,7 +140,7 @@ describe("capture helper request protocol", () => {
       },
       protocolVersion: CAPTURE_PROTOCOL_VERSION,
       requestId: "request-duplicate",
-      sessionDirectory: "/tmp/transmute-project/artifacts/transmute/recordings/rec_duplicate",
+      sessionDirectory: "/tmp/atet-project/artifacts/atet/recordings/rec_duplicate",
     }))).toThrow(/unique/u);
     expect(() => parseCaptureRequestLine(JSON.stringify({
       command: "configure",
@@ -153,7 +153,7 @@ describe("capture helper request protocol", () => {
       },
       protocolVersion: CAPTURE_PROTOCOL_VERSION,
       requestId: "request-too-many",
-      sessionDirectory: "/tmp/transmute-project/artifacts/transmute/recordings/rec_too_many",
+      sessionDirectory: "/tmp/atet-project/artifacts/atet/recordings/rec_too_many",
     }))).toThrow();
   });
 
@@ -167,7 +167,7 @@ describe("capture helper request protocol", () => {
       },
       protocolVersion: CAPTURE_PROTOCOL_VERSION,
       requestId: "request-1",
-      sessionDirectory: "/tmp/transmute-project/artifacts/transmute/recordings/rec_00000001",
+      sessionDirectory: "/tmp/atet-project/artifacts/atet/recordings/rec_00000001",
     }));
     expect(request.command === "configure"
       ? request.options?.typedTextFocusIdentities
@@ -195,7 +195,7 @@ describe("capture helper request protocol", () => {
         protocolVersion: CAPTURE_PROTOCOL_VERSION,
         requestId: `missing-${key}`,
         sessionDirectory:
-          "/tmp/transmute-project/artifacts/transmute/recordings/rec_00000001",
+          "/tmp/atet-project/artifacts/atet/recordings/rec_00000001",
       }))).toThrow();
     }
     expect(() => parseCaptureRequestLine(JSON.stringify({
@@ -212,7 +212,7 @@ describe("capture helper request protocol", () => {
       },
       protocolVersion: CAPTURE_PROTOCOL_VERSION,
       requestId: "request-1",
-      sessionDirectory: "/tmp/transmute-project/artifacts/transmute/recordings/rec_00000001",
+      sessionDirectory: "/tmp/atet-project/artifacts/atet/recordings/rec_00000001",
     }))).toThrow();
     expect(() => parseCaptureRequestLine(JSON.stringify({
       command: "configure",
@@ -225,7 +225,7 @@ describe("capture helper request protocol", () => {
       },
       protocolVersion: CAPTURE_PROTOCOL_VERSION,
       requestId: "request-1",
-      sessionDirectory: "/tmp/transmute-project/artifacts/transmute/recordings/rec_00000001",
+      sessionDirectory: "/tmp/atet-project/artifacts/atet/recordings/rec_00000001",
     }))).toThrow();
     expect(() => parseCaptureRequestLine(JSON.stringify({
       command: "configure",
@@ -239,7 +239,7 @@ describe("capture helper request protocol", () => {
       protocolVersion: CAPTURE_PROTOCOL_VERSION,
       requestId: "duplicate-focus",
       sessionDirectory:
-        "/tmp/transmute-project/artifacts/transmute/recordings/rec_00000001",
+        "/tmp/atet-project/artifacts/atet/recordings/rec_00000001",
     }))).toThrow();
     expect(() => parseCaptureRequestLine(JSON.stringify({
       command: "configure",
@@ -249,7 +249,7 @@ describe("capture helper request protocol", () => {
       protocolVersion: CAPTURE_PROTOCOL_VERSION,
       requestId: "invalid-process",
       sessionDirectory:
-        "/tmp/transmute-project/artifacts/transmute/recordings/rec_00000001",
+        "/tmp/atet-project/artifacts/atet/recordings/rec_00000001",
     }))).toThrow();
   });
 
@@ -264,7 +264,7 @@ describe("capture helper request protocol", () => {
         protocolVersion: CAPTURE_PROTOCOL_VERSION,
         requestId: "utf8-bounds",
         sessionDirectory:
-          "/tmp/transmute-project/artifacts/transmute/recordings/rec_00000001",
+          "/tmp/atet-project/artifacts/atet/recordings/rec_00000001",
       }),
     );
     expect(() => configure({

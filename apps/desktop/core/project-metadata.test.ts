@@ -51,7 +51,7 @@ function metadataProject(): VideoProjectV1 {
           codec: "h264",
           container: "mp4",
           fileRange: { endUs: 10_000_000, startUs: 0 },
-          path: "artifacts/transmute/recordings/rec_example001/media/segment-1.mp4",
+          path: "artifacts/atet/recordings/rec_example001/media/segment-1.mp4",
           sha256: HASH,
           streamIndex: 0,
         }],
@@ -122,7 +122,7 @@ function ambiguousMetadataProject(): VideoProjectV1 {
                 label: "Ambiguous primary display",
                 segments: video.segments.map(segment => ({
                   ...segment,
-                  path: "artifacts/transmute/recordings/rec_example001/media/segment-left.mp4",
+                  path: "artifacts/atet/recordings/rec_example001/media/segment-left.mp4",
                 })),
                 streamId: "stream_display02",
               },

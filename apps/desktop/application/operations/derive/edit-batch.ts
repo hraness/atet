@@ -153,6 +153,7 @@ export const ProjectEditBatchInputSchema = z.strictObject({
 
 const ProjectEditBatchBodySchema = z.strictObject({
   kind: z.union([
+    z.literal("atet.project-edit-batch"),
     z.literal("transmute.project-edit-batch"),
     z.literal("studio.project-edit-batch"),
   ]),
@@ -191,7 +192,7 @@ export function deriveProjectEditBatch(
   orderedInput: readonly OrderedProjectEdit[],
 ): ProjectEditBatch {
   const body = ProjectEditBatchBodySchema.parse({
-    kind: "transmute.project-edit-batch",
+    kind: "atet.project-edit-batch",
     ordered: orderedInput,
     schemaVersion: 1,
   });
@@ -546,6 +547,7 @@ export const ProjectEditBatchInputV2Schema = z.strictObject({
 
 const ProjectEditBatchBodyV2Schema = z.strictObject({
   kind: z.union([
+    z.literal("atet.project-edit-batch"),
     z.literal("transmute.project-edit-batch"),
     z.literal("studio.project-edit-batch"),
   ]),
@@ -593,7 +595,7 @@ export function deriveProjectEditBatchV2(
   orderedInput: readonly OrderedProjectEditV2[],
 ): ProjectEditBatchV2 {
   const body = ProjectEditBatchBodyV2Schema.parse({
-    kind: "transmute.project-edit-batch",
+    kind: "atet.project-edit-batch",
     ordered: orderedInput,
     schemaVersion: 2,
   });
@@ -849,6 +851,7 @@ export const ProjectEditBatchInputV3Schema = z.strictObject({
 
 const ProjectEditBatchBodyV3Schema = z.strictObject({
   kind: z.union([
+    z.literal("atet.project-edit-batch"),
     z.literal("transmute.project-edit-batch"),
     z.literal("studio.project-edit-batch"),
   ]),
@@ -911,7 +914,7 @@ export function deriveProjectEditBatchV3(
   orderedInput: readonly OrderedProjectEditV3[],
 ): ProjectEditBatchV3 {
   const body = ProjectEditBatchBodyV3Schema.parse({
-    kind: "transmute.project-edit-batch",
+    kind: "atet.project-edit-batch",
     ordered: orderedInput,
     schemaVersion: 3,
   });

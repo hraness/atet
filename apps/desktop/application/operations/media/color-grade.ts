@@ -56,6 +56,7 @@ export const MediaColorGradeReceiptSchema = z.strictObject({
   filterGraph: z.string().min(1).max(256 * 1024),
   input: MediaArtifactReferenceSchema,
   kind: z.union([
+    z.literal("atet.local-media-transform-receipt"),
     z.literal("transmute.local-media-transform-receipt"),
     z.literal("studio.local-media-transform-receipt"),
   ]),
@@ -318,7 +319,7 @@ export function createMediaColorGradeOperationDefinition(
             ),
             filterGraph: rendered.filterGraph,
             input: boundInput.input,
-            kind: "transmute.local-media-transform-receipt",
+            kind: "atet.local-media-transform-receipt",
             operation: "color-grade",
             output: {
               ...published.artifact,

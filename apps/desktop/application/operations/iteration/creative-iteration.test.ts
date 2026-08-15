@@ -55,7 +55,7 @@ import {
 } from "../render/materialize-selection";
 import {
   CandidateRenderDerivationV1Schema,
-  TRANSMUTE_PROJECT_RENDERER_ABI,
+  ATET_PROJECT_RENDERER_ABI,
   bindCandidateRenderOutputOperationDefinition,
   candidateRenderDerivationSha256,
   candidateRenderOutputPath,
@@ -116,7 +116,7 @@ function candidateRenderPlanReference(
       path: `renders/plans/${artifactSha256}.json`,
       sha256: artifactSha256,
     },
-    kind: "transmute.project-render-plan-reference",
+    kind: "atet.project-render-plan-reference",
     outputGeometrySha256: revision.outputGeometrySha256,
     planSha256: canonicalJsonSha256({ discriminator, kind: "edit-plan" }),
     projectEditPlanSha256: revision.projectEditPlanSha256,
@@ -141,7 +141,7 @@ function deferred() {
 
 async function fixture() {
   const repositoryRoot = await mkdtemp(
-    join(tmpdir(), "transmute-creative-iteration-"),
+    join(tmpdir(), "atet-creative-iteration-"),
   );
   const project = await createOperationProjectFixture(repositoryRoot);
   const application = operationApplicationContext(repositoryRoot);
@@ -372,7 +372,7 @@ describe("creative iteration", () => {
               candidateRevision: persisted.revision,
               maximumBytes: 2 * 1024 * 1024 * 1024,
               plan: landscapePlan,
-              rendererAbi: TRANSMUTE_PROJECT_RENDERER_ABI,
+              rendererAbi: ATET_PROJECT_RENDERER_ABI,
               revision: landscape,
               syncPolicy: "require-verified",
               target: {
@@ -400,7 +400,7 @@ describe("creative iteration", () => {
         kind: exact.derivation.kind,
         maximumBytes: exact.derivation.maximumBytes,
         plan: exact.derivation.plan,
-        rendererAbi: "transmute-project-renderer-abi-v2",
+        rendererAbi: "atet-project-renderer-abi-v2",
         revision: exact.derivation.revision,
         schemaVersion: exact.derivation.schemaVersion,
         syncPolicy: exact.derivation.syncPolicy,
@@ -832,7 +832,7 @@ describe("creative iteration", () => {
       );
       const output = ProjectRenderOutputReferenceSchema.parse({
         bytes: new TextEncoder().encode(sourceContents).byteLength,
-        kind: "transmute.project-render-output-reference",
+        kind: "atet.project-render-output-reference",
         path: sourcePath,
         planArtifactSha256: "1".repeat(64),
         projectId: input.project.project.projectId,
@@ -855,7 +855,7 @@ describe("creative iteration", () => {
           path: `renders/plans/${output.planArtifactSha256}.json`,
           sha256: output.planArtifactSha256,
         },
-        kind: "transmute.project-render-plan-reference" as const,
+        kind: "atet.project-render-plan-reference" as const,
         outputGeometrySha256: bound.revision.outputGeometrySha256,
         planSha256: "4".repeat(64),
         projectEditPlanSha256: revision.revision.projectEditPlanSha256,
@@ -901,7 +901,7 @@ describe("creative iteration", () => {
       );
       const receipt = ProjectRenderReceiptReferenceSchema.parse({
         bytes: new TextEncoder().encode(receiptContents).byteLength,
-        kind: "transmute.project-render-receipt-reference",
+        kind: "atet.project-render-receipt-reference",
         nodePlanSha256,
         outputSha256: output.sha256,
         path: receiptPath,

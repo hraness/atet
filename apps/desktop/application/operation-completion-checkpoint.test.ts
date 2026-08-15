@@ -27,7 +27,7 @@ afterEach(async () => {
 });
 
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "transmute-operation-checkpoint-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-operation-checkpoint-"));
   roots.push(root);
   const application = operationApplicationContext(root);
   const workspaceDirectory = join(
@@ -85,7 +85,7 @@ describe("operation completion checkpoints", () => {
     });
     expect(checkpoint?.output).toEqual(output);
     expect(checkpoint?.outputSha256).toMatch(/^[a-f0-9]{64}$/u);
-    expect(checkpoint?.kind).toBe("transmute.workflow-operation-completion");
+    expect(checkpoint?.kind).toBe("atet.workflow-operation-completion");
     expect(value.publicationChecks()).toBe(1);
 
     await writeOperationCompletionCheckpoint(value.context, {
@@ -101,7 +101,7 @@ describe("operation completion checkpoints", () => {
       OPERATION_COMPLETION_CHECKPOINT_FILE,
     );
     const legacySource = (await readFile(path, "utf8")).replace(
-      "transmute.workflow-operation-completion",
+      "atet.workflow-operation-completion",
       "studio.workflow-operation-completion",
     );
     await writeFile(path, legacySource, { mode: 0o600 });

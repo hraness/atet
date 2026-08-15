@@ -380,7 +380,7 @@ export function analyzeAudioAlignment(input: AnalyzeAudioAlignmentInput): AudioA
     config: input.config,
     createdAt: input.createdAt,
     inputDigest: input.inputDigest,
-    kind: "transmute.audio-alignment-analysis" as const,
+    kind: "atet.audio-alignment-analysis" as const,
     reference: input.reference,
     schemaVersion: 1 as const,
     target: input.target,

@@ -12,7 +12,7 @@ import {
   SceneProviderError,
   type SceneDescriptionProvider,
   type SceneProviderResult,
-} from "@hraness/transmute/scene";
+} from "@hraness/atet/scene";
 
 import {
   AnalysisSubjectSchema,
@@ -109,7 +109,7 @@ export function resolveVideoAnalysisSubject(
     integritySha256: canonicalJsonSha256({
       assetDurationUs: asset.durationUs,
       stream,
-      version: "transmute-video-analysis-subject-v1",
+      version: "atet-video-analysis-subject-v1",
     }),
     streamId: stream.streamId,
   });
@@ -529,18 +529,18 @@ async function extractFrame(options: {
       "-filter_complex", [
         `[0:${segment.streamIndex}]`,
         `trim=start=${seconds(selectedFileTimeUs)}:end=${seconds(selectionFileEndUs)},`,
-        "settb=expr=1/1000000,showinfo,split=2[transmute_scene_jpeg_source][transmute_scene_gray_source];",
-        "[transmute_scene_jpeg_source]",
+        "settb=expr=1/1000000,showinfo,split=2[atet_scene_jpeg_source][atet_scene_gray_source];",
+        "[atet_scene_jpeg_source]",
         "scale=w='min(960,iw)':h=-2:force_original_aspect_ratio=decrease,",
-        "format=yuvj420p[transmute_scene_jpeg];",
-        "[transmute_scene_gray_source]",
-        "scale=9:8:flags=area,format=gray[transmute_scene_gray]",
+        "format=yuvj420p[atet_scene_jpeg];",
+        "[atet_scene_gray_source]",
+        "scale=9:8:flags=area,format=gray[atet_scene_gray]",
       ].join(""),
-      "-map", "[transmute_scene_jpeg]",
+      "-map", "[atet_scene_jpeg]",
       "-frames:v", "1",
       "-pix_fmt", "yuvj420p",
       "-q:v", "6", "-f", "image2", temporaryJpeg,
-      "-map", "[transmute_scene_gray]",
+      "-map", "[atet_scene_gray]",
       "-frames:v", "1",
       "-pix_fmt", "gray", "-f", "rawvideo", temporaryGray,
     ], { maxOutputBytes: 1_000_000 });
@@ -859,7 +859,7 @@ export async function analyzeProjectScenes(
     createdAt: options.createdAt,
     durationUs: resolved.asset.durationUs,
     inputDigest: resolved.subject.integritySha256,
-    kind: "transmute.scene-analysis",
+    kind: "atet.scene-analysis",
     model: {
       aiSdkVersion: SCENE_AI_SDK_VERSION,
       gateway: "vercel-ai-gateway",

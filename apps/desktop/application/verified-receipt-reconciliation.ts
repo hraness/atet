@@ -85,12 +85,12 @@ import {
   MAXIMUM_DIAGRAM_ARTIFACT_BYTES,
   MAXIMUM_DIAGRAM_SOURCE_BYTES,
   MAXIMUM_VECTOR_ARTIFACT_BYTES,
-  BoundTransmuteDiagramRenderInputSchema,
-  BoundTransmuteImageVectorizeInputSchema,
-  TransmuteDiagramRenderOutputSchema,
-  TransmuteDiagramRenderReceiptSchema,
-  TransmuteImageVectorizeOutputSchema,
-  TransmuteImageVectorizeReceiptSchema,
+  BoundAtetDiagramRenderInputSchema,
+  BoundAtetImageVectorizeInputSchema,
+  AtetDiagramRenderOutputSchema,
+  AtetDiagramRenderReceiptSchema,
+  AtetImageVectorizeOutputSchema,
+  AtetImageVectorizeReceiptSchema,
 } from "./operations";
 import {
   MAXIMUM_MEDIA_EFFECT_INPUT_BYTES,
@@ -112,8 +112,8 @@ export const LOCAL_VERIFIED_RECEIPT_OPERATION_KINDS = Object.freeze([
   "media.html-overlay",
   "media.ingest",
   "media.overlay",
-  "transmute.diagram.render",
-  "transmute.image.vectorize",
+  "atet.diagram.render",
+  "atet.image.vectorize",
 ] as const satisfies readonly OperationKind[]);
 
 type LocalVerifiedReceiptOperationKind =
@@ -1227,15 +1227,15 @@ async function recoverMediaColorGrade(
   };
 }
 
-async function recoverTransmuteDiagramRender(
+async function recoverAtetDiagramRender(
   application: ApplicationContext,
   exactInput: unknown,
   outputValue: unknown,
   signal: AbortSignal,
 ): Promise<VerifiedReceiptReconciliation> {
   throwIfReconciliationAborted(signal);
-  const input = BoundTransmuteDiagramRenderInputSchema.parse(exactInput);
-  const output = TransmuteDiagramRenderOutputSchema.parse(outputValue);
+  const input = BoundAtetDiagramRenderInputSchema.parse(exactInput);
+  const output = AtetDiagramRenderOutputSchema.parse(outputValue);
   const source = await bindRepositoryMedia(
     application,
     input.path,
@@ -1257,7 +1257,7 @@ async function recoverTransmuteDiagramRender(
   const receipt = await readCanonicalReceipt(
     application,
     output.receipt,
-    TransmuteDiagramRenderReceiptSchema,
+    AtetDiagramRenderReceiptSchema,
     signal,
   );
   if (
@@ -1298,15 +1298,15 @@ async function recoverTransmuteDiagramRender(
   };
 }
 
-async function recoverTransmuteImageVectorize(
+async function recoverAtetImageVectorize(
   application: ApplicationContext,
   exactInput: unknown,
   outputValue: unknown,
   signal: AbortSignal,
 ): Promise<VerifiedReceiptReconciliation> {
   throwIfReconciliationAborted(signal);
-  const input = BoundTransmuteImageVectorizeInputSchema.parse(exactInput);
-  const output = TransmuteImageVectorizeOutputSchema.parse(outputValue);
+  const input = BoundAtetImageVectorizeInputSchema.parse(exactInput);
+  const output = AtetImageVectorizeOutputSchema.parse(outputValue);
   const source = await bindRepositoryMedia(
     application,
     input.inputPath,
@@ -1341,7 +1341,7 @@ async function recoverTransmuteImageVectorize(
   const receipt = await readCanonicalReceipt(
     application,
     output.receipt,
-    TransmuteImageVectorizeReceiptSchema,
+    AtetImageVectorizeReceiptSchema,
     signal,
   );
   if (receipt.exactInputSha256 !== canonicalJsonSha256(input)) {
@@ -1447,22 +1447,22 @@ async function recoverCheckpointMedia(
   }
 }
 
-async function recoverCheckpointTransmuteVisual(
+async function recoverCheckpointAtetVisual(
   application: ApplicationContext,
   request: VerifiedReceiptReconciliationRequest,
-  kind: Extract<LocalVerifiedReceiptOperationKind, `transmute.${string}`>,
+  kind: Extract<LocalVerifiedReceiptOperationKind, `atet.${string}`>,
   output: unknown,
 ): Promise<VerifiedReceiptReconciliation> {
   switch (kind) {
-    case "transmute.diagram.render":
-      return await recoverTransmuteDiagramRender(
+    case "atet.diagram.render":
+      return await recoverAtetDiagramRender(
         application,
         request.exactInput,
         output,
         request.abortSignal,
       );
-    case "transmute.image.vectorize":
-      return await recoverTransmuteImageVectorize(
+    case "atet.image.vectorize":
+      return await recoverAtetImageVectorize(
         application,
         request.exactInput,
         output,
@@ -1486,11 +1486,11 @@ function isLocalAnalysisKind(
     || kind === "analysis.project-inactivity";
 }
 
-function isLocalTransmuteVisualKind(
+function isLocalAtetVisualKind(
   kind: LocalVerifiedReceiptOperationKind,
-): kind is Extract<LocalVerifiedReceiptOperationKind, `transmute.${string}`> {
-  return kind === "transmute.diagram.render"
-    || kind === "transmute.image.vectorize";
+): kind is Extract<LocalVerifiedReceiptOperationKind, `atet.${string}`> {
+  return kind === "atet.diagram.render"
+    || kind === "atet.image.vectorize";
 }
 
 export async function reconcileLocalVerifiedReceiptOperation(
@@ -1537,8 +1537,8 @@ export async function reconcileLocalVerifiedReceiptOperation(
       // the private completion point. Orphans are safe to leave and retry.
       return { kind: "retry" };
     }
-    if (isLocalTransmuteVisualKind(kind)) {
-      return await recoverCheckpointTransmuteVisual(
+    if (isLocalAtetVisualKind(kind)) {
+      return await recoverCheckpointAtetVisual(
         application,
         request,
         kind,

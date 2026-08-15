@@ -131,7 +131,7 @@ export const freezeProjectEditRevisionOperationDefinition = {
           sha256: artifactSha256,
         },
         baseGeneration: publicationSnapshot.generation,
-        kind: "transmute.project-edit-revision-reference",
+        kind: "atet.project-edit-revision-reference",
         outputGeometrySha256,
         pixelHeight: input.pixelHeight,
         pixelWidth: input.pixelWidth,

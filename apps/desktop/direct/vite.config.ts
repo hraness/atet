@@ -15,12 +15,12 @@ const NODE_BUILTIN_SPECIFIERS = new Set(
 
 function rejectNodeBuiltins(): Plugin {
   return {
-    name: "transmute-direct-browser-only",
+    name: "atet-direct-browser-only",
     enforce: "pre",
     resolveId(source, importer) {
       if (importer !== undefined && NODE_BUILTIN_SPECIFIERS.has(source)) {
         this.error(
-          `Transmute Direct browser module ${JSON.stringify(importer)} imports Node builtin ${JSON.stringify(source)}.`,
+          `Atet Direct browser module ${JSON.stringify(importer)} imports Node builtin ${JSON.stringify(source)}.`,
         );
       }
       return null;

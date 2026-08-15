@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  createTransmuteDirectWorld,
+  createAtetDirectWorld,
   fixtureIdleSnapshot,
   fullEditEvidence,
   fullProjectEvidence,
-  parseTransmuteDirectWorld,
+  parseAtetDirectWorld,
 } from "./world";
 
-describe("Transmute Direct world", () => {
+describe("Atet Direct world", () => {
   test("contains token-efficient evidence for every requested edit surface", () => {
-    const world = createTransmuteDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
+    const world = createAtetDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
 
     expect(world.version).toBe(6);
     expect(world.runtime.initial.sources).toEqual({
@@ -174,26 +174,26 @@ describe("Transmute Direct world", () => {
   });
 
   test("rejects inverted evidence ranges and repeated overlay kinds", () => {
-    const inverted = createTransmuteDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
+    const inverted = createAtetDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
     inverted.editEvidence.analyzer[0]!.endUs = inverted.editEvidence.analyzer[0]!.startUs;
-    expect(() => parseTransmuteDirectWorld(inverted)).toThrow("positive duration");
+    expect(() => parseAtetDirectWorld(inverted)).toThrow("positive duration");
 
     const evidence = fullEditEvidence();
     evidence.overlays[1]!.kind = evidence.overlays[0]!.kind;
-    expect(() => createTransmuteDirectWorld(
+    expect(() => createAtetDirectWorld(
       { initial: fixtureIdleSnapshot(false), transitions: [] },
       evidence,
     )).toThrow("at most once");
   });
 
   test("rejects project evidence that loses sync, camera, privacy, or local-execution provenance", () => {
-    const invalidAlignment = createTransmuteDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
+    const invalidAlignment = createAtetDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
     invalidAlignment.projectEvidence.acceptedAlignments[0]!.candidateId = "candidate_missing1";
-    expect(() => parseTransmuteDirectWorld(invalidAlignment)).toThrow("Accepted alignment evidence");
+    expect(() => parseAtetDirectWorld(invalidAlignment)).toThrow("Accepted alignment evidence");
 
     const externalScene = fullProjectEvidence();
     externalScene.scenes[0]!.usage.uploadedImages = 1;
-    expect(() => createTransmuteDirectWorld(
+    expect(() => createAtetDirectWorld(
       { initial: fixtureIdleSnapshot(false), transitions: [] },
       fullEditEvidence(),
       externalScene,
@@ -205,7 +205,7 @@ describe("Transmute Direct world", () => {
       "cameraMoveId",
       "camera_other0001",
     );
-    expect(() => createTransmuteDirectWorld(
+    expect(() => createAtetDirectWorld(
       { initial: fixtureIdleSnapshot(false), transitions: [] },
       fullEditEvidence(),
       mismatchedCameraReceipt,
@@ -217,7 +217,7 @@ describe("Transmute Direct world", () => {
       "biometricIdentification",
       "performed",
     );
-    expect(() => createTransmuteDirectWorld(
+    expect(() => createAtetDirectWorld(
       { initial: fixtureIdleSnapshot(false), transitions: [] },
       fullEditEvidence(),
       biometricFaceEvidence,

@@ -1828,7 +1828,7 @@ struct CaptureHelper {
         }
         if arguments.count == 2, arguments[0] == "--interaction-fixture" {
             guard let fixtureId = InteractionFixture.canonicalIdentifier(arguments[1]) else {
-                let usage = "usage: transmute-capture [--version|--json|--interaction-fixture <canonical-uuid>]\n"
+                let usage = "usage: atet-capture [--version|--json|--interaction-fixture <canonical-uuid>]\n"
                 try? FileHandle.standardError.write(contentsOf: Data(usage.utf8))
                 Darwin.exit(64)
             }
@@ -1837,7 +1837,7 @@ struct CaptureHelper {
             return
         }
         if !arguments.isEmpty {
-            let usage = "usage: transmute-capture [--version|--json|--interaction-fixture <canonical-uuid>]\n"
+            let usage = "usage: atet-capture [--version|--json|--interaction-fixture <canonical-uuid>]\n"
             try? FileHandle.standardError.write(contentsOf: Data(usage.utf8))
             Darwin.exit(64)
         }

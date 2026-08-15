@@ -32,7 +32,7 @@ import {
   type WorkflowRegistryProjection,
 } from "./contracts.js"
 import { parseCodeBoundary } from "./boundary.js"
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 import { deepFreezeJson } from "./json-snapshot.js"
 import { boundedOperationDiscoveryList } from "./projection.js"
 
@@ -80,7 +80,7 @@ interface EncodingBudget {
 
 function consumeAuthoringValue(budget: EncodingBudget): void {
   if (budget.consumed >= budget.maximum) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `Workflow authoring values exceed the ${String(MAX_AUTHORING_VALUES)} value limit.`,
     )
@@ -101,7 +101,7 @@ function requireAuthoringCapacity(
   additional: number,
 ): void {
   if (additional > budget.maximum - budget.consumed) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `Workflow authoring values exceed the ${String(MAX_AUTHORING_VALUES)} value limit.`,
     )
@@ -117,7 +117,7 @@ function encodingBudget(state: BuilderState): EncodingBudget {
 
 function requireStateCapacity(state: BuilderState, additional: number): void {
   if (additional > MAX_AUTHORING_VALUES - state.authoredValues) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `Workflow authoring values exceed the ${String(MAX_AUTHORING_VALUES)} value limit.`,
     )
@@ -162,7 +162,7 @@ function rejectEnumerableSymbols(
     symbol => (Reflect.get(descriptors, symbol) as PropertyDescriptor | undefined)
       ?.enumerable === true,
   )) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `${name} cannot contain enumerable symbol properties.`,
     )
@@ -199,7 +199,7 @@ function encodeInputValue(
   budget: EncodingBudget,
 ): GraphInputValue {
   if (depth > MAX_AUTHORING_VALUE_DEPTH) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `Workflow input nesting exceeds ${String(MAX_AUTHORING_VALUE_DEPTH)} levels.`,
     )
@@ -212,7 +212,7 @@ function encodeInputValue(
   }
   consumeAuthoringValue(budget)
   if (typeof input === "object" && input !== null && WORKFLOW_REF_BRAND in input) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Use a typed Ref value created by this workflow graph builder.",
     )
@@ -222,7 +222,7 @@ function encodeInputValue(
   }
   if (typeof input === "number") {
     if (!Number.isFinite(input)) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         "Workflow node input numbers must be finite.",
       )
@@ -230,13 +230,13 @@ function encodeInputValue(
     return Object.is(input, -0) ? 0 : input
   }
   if (typeof input !== "object") {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `Workflow node input cannot contain ${typeof input} values.`,
     )
   }
   if (ancestors.has(input)) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow node input cannot contain cycles.",
     )
@@ -254,7 +254,7 @@ function encodeInputValue(
         keys.length !== length
         || keys.some((key, index) => key !== String(index))
       ) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           "Workflow node input arrays must be dense and cannot have named properties.",
         )
@@ -267,7 +267,7 @@ function encodeInputValue(
           || descriptor.get !== undefined
           || descriptor.set !== undefined
         ) {
-          throw new TransmuteCodeError(
+          throw new AtetCodeError(
             "invalid-data",
             "Workflow node input arrays must contain plain data elements.",
           )
@@ -284,13 +284,13 @@ function encodeInputValue(
       return encoded
     }
     if (!isPlainRecord(input)) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         "Workflow node input accepts only JSON values and typed workflow references.",
       )
     }
     if (Object.hasOwn(input, "$ref")) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         "Use a typed Ref value instead of constructing the reserved $ref field.",
       )
@@ -304,7 +304,7 @@ function encodeInputValue(
     const encoded: Record<string, GraphInputValue> = {}
     for (const key of keys) {
       if (key === "__proto__") {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           "Workflow inputs cannot contain the reserved __proto__ object key.",
         )
@@ -315,7 +315,7 @@ function encodeInputValue(
         || descriptor.get !== undefined
         || descriptor.set !== undefined
       ) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           "Workflow node input properties must be plain data properties.",
         )
@@ -354,7 +354,7 @@ function encodeControlDependencies(
   const dependencies = new Set<string>()
   const appendReference = (reference: unknown): void => {
     if (!isOwnedRef(reference, state)) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         "Operation control dependencies must be typed Ref values created by this workflow graph builder.",
       )
@@ -367,7 +367,7 @@ function encodeControlDependencies(
   }
   const length = after.length
   if (length > MAX_SERIALIZED_NODE_DEPENDENCIES) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `Operation control dependencies cannot exceed ${String(MAX_SERIALIZED_NODE_DEPENDENCIES)} entries.`,
     )
@@ -380,7 +380,7 @@ function encodeControlDependencies(
     keys.length !== length
     || keys.some((key, index) => key !== String(index))
   ) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Operation control dependencies must be a dense array without named properties.",
     )
@@ -392,7 +392,7 @@ function encodeControlDependencies(
       || descriptor.get !== undefined
       || descriptor.set !== undefined
     ) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         "Operation control dependencies must contain plain data elements.",
       )
@@ -418,7 +418,7 @@ function encodeOutputValue(
   budget: EncodingBudget,
 ): WorkflowOutputBinding {
   if (depth > MAX_AUTHORING_VALUE_DEPTH) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `Workflow output nesting exceeds ${String(MAX_AUTHORING_VALUE_DEPTH)} levels.`,
     )
@@ -430,13 +430,13 @@ function encodeOutputValue(
   }
   consumeAuthoringValue(budget)
   if (typeof output !== "object" || output === null) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow outputs must contain only typed references, arrays, and named objects.",
     )
   }
   if (ancestors.has(output)) {
-    throw new TransmuteCodeError("invalid-data", "Workflow outputs cannot contain cycles.")
+    throw new AtetCodeError("invalid-data", "Workflow outputs cannot contain cycles.")
   }
   ancestors.add(output)
   try {
@@ -451,7 +451,7 @@ function encodeOutputValue(
         keys.length !== length
         || keys.some((key, index) => key !== String(index))
       ) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           "Workflow output arrays must be dense and cannot have named properties.",
         )
@@ -464,7 +464,7 @@ function encodeOutputValue(
           || descriptor.get !== undefined
           || descriptor.set !== undefined
         ) {
-          throw new TransmuteCodeError(
+          throw new AtetCodeError(
             "invalid-data",
             "Workflow output arrays must contain plain data elements.",
           )
@@ -480,13 +480,13 @@ function encodeOutputValue(
       return encoded
     }
     if (!isPlainRecord(output)) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         "Workflow outputs accept only typed references, arrays, and plain objects.",
       )
     }
     if (Object.hasOwn(output, "$ref")) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         "Use a typed Ref value instead of constructing the reserved $ref field.",
       )
@@ -500,7 +500,7 @@ function encodeOutputValue(
     const encoded: Record<string, WorkflowOutputBinding> = {}
     for (const key of keys) {
       if (key === "__proto__") {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           "Workflow outputs cannot contain the reserved __proto__ object key.",
         )
@@ -511,7 +511,7 @@ function encodeOutputValue(
         || descriptor.get !== undefined
         || descriptor.set !== undefined
       ) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           "Workflow output properties must be plain data properties.",
         )
@@ -537,7 +537,7 @@ function createReference<Output>(
   path: readonly (number | string)[] = [],
 ): Ref<Output> {
   if (path.length > MAX_SERIALIZED_REF_PATH_SEGMENTS) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `Workflow reference paths cannot exceed ${String(MAX_SERIALIZED_REF_PATH_SEGMENTS)} segments.`,
     )
@@ -552,20 +552,20 @@ function createReference<Output>(
   } satisfies SerializedRefV1)
   const reference = Object.freeze({
     [WORKFLOW_REF_BRAND]: (): Output => {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "internal",
         "A workflow reference type marker is not executable.",
       )
     },
     at: (index: number) => {
       if (!Number.isSafeInteger(index) || index < 0) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           "Workflow reference array indexes must be nonnegative safe integers.",
         )
       }
       if (path.length >= MAX_SERIALIZED_REF_PATH_SEGMENTS) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           `Workflow reference paths cannot exceed ${String(MAX_SERIALIZED_REF_PATH_SEGMENTS)} segments.`,
         )
@@ -576,13 +576,13 @@ function createReference<Output>(
     },
     select: <Key extends Extract<keyof Output, string>>(key: Key): Ref<Output[Key]> => {
       if (typeof key !== "string" || key.length < 1 || key.length > 128) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           "Workflow reference field names must contain 1–128 characters.",
         )
       }
       if (path.length >= MAX_SERIALIZED_REF_PATH_SEGMENTS) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "invalid-data",
           `Workflow reference paths cannot exceed ${String(MAX_SERIALIZED_REF_PATH_SEGMENTS)} segments.`,
         )
@@ -605,7 +605,7 @@ function createState(provider: OperationDiscoveryProvider): BuilderState {
     )
     const key = discoveryKey(item.kind, item.version)
     if (discovery.has(key)) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "conflict",
         `Duplicate operation discovery entry: ${key}`,
         { kind: item.kind, version: item.version },
@@ -628,7 +628,7 @@ export function defineWorkflowFragment<Input, Output>(
   build: (builder: WorkflowGraphBuilder, input: Input) => Output,
 ): WorkflowFragment<Input, Output> {
   if (typeof build !== "function") {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow fragments require a build function.",
     )
@@ -643,7 +643,7 @@ export function operationContract<Input, Output>(
 ): OperationContract<Input, Output> {
   const discovery = createState(provider).discovery.get(discoveryKey(kind, version))
   if (discovery === undefined) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "unsupported-plan",
       `Unsupported operation: ${kind}@${String(version)}`,
       { kind, version },
@@ -706,7 +706,7 @@ export class WorkflowGraphBuilder {
       discoveryKey(request.kind, request.version),
     )
     if (discovery === undefined) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "unsupported-plan",
         `Unsupported operation: ${request.kind}@${String(request.version)}`,
         { kind: request.kind, version: request.version },
@@ -732,7 +732,7 @@ export class WorkflowGraphBuilder {
       || definition === null
       || definition[TRUSTED_COMPUTE_BRAND] !== true
     ) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         "Compute nodes require a definition created by defineCompute().",
       )
@@ -748,7 +748,7 @@ export class WorkflowGraphBuilder {
     )
     const existing = this.#state.computes.get(compute.key)
     if (existing !== undefined && existing !== definition) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "conflict",
         `Duplicate trusted compute key: ${compute.key}`,
         { key: compute.key },
@@ -824,14 +824,14 @@ export class WorkflowGraphBuilder {
     )
     const key = [...this.#namespace, keySegment].join("/")
     if (this.#state.nodes.has(key)) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "conflict",
         `Duplicate workflow node key: ${key}`,
         { nodeKey: key },
       )
     }
     if (this.#state.nodes.size >= MAX_SERIALIZED_GRAPH_NODES) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `Workflow nodes cannot exceed ${String(MAX_SERIALIZED_GRAPH_NODES)} entries.`,
       )
@@ -853,7 +853,7 @@ export class WorkflowGraphBuilder {
     const key = this.#nodeKey(keyInput)
     const discovery = this.#state.discovery.get(discoveryKey(request.kind, request.version))
     if (discovery === undefined) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "unsupported-plan",
         `Unsupported operation: ${request.kind}@${String(request.version)}`,
         { kind: request.kind, version: request.version },
@@ -863,7 +863,7 @@ export class WorkflowGraphBuilder {
       request.inputSchemaId !== discovery.inputSchemaId
       || request.outputSchemaId !== discovery.outputSchemaId
     ) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `Operation contract schema mismatch for ${request.kind}@${String(request.version)}.`,
         {

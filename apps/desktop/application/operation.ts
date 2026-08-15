@@ -37,10 +37,10 @@ export const OPERATION_KINDS = [
   "recording.pause",
   "recording.resume",
   "recording.stop",
-  "transmute.diagram.check",
-  "transmute.diagram.render",
-  "transmute.image.vectorize",
-  "transmute.image.generate",
+  "atet.diagram.check",
+  "atet.diagram.render",
+  "atet.image.vectorize",
+  "atet.image.generate",
 ] as const;
 
 export type OperationKind = typeof OPERATION_KINDS[number];

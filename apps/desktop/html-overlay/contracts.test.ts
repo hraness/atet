@@ -19,7 +19,7 @@ function authoringInput() {
   return {
     canvas: { deviceScaleFactor: 1, height: 720, width: 1_280 },
     html: "<!doctype html><div>Overlay</div>",
-    kind: "transmute.html-overlay",
+    kind: "atet.html-overlay",
     libraries: ["three", "motion"],
     parameters: { accent: "#765cff", count: 3 },
     resources: [
@@ -66,7 +66,7 @@ describe("HTML overlay authoring contracts", () => {
     expect(HtmlOverlayAuthoringInputSchema.parse({
       ...authoringInput(),
       kind: "studio.html-overlay",
-    }).kind).toBe("transmute.html-overlay");
+    }).kind).toBe("atet.html-overlay");
 
     const input = authoringInput();
     const minimal = {
@@ -147,7 +147,7 @@ describe("HTML overlay authoring contracts", () => {
 });
 
 describe("HTML overlay absolute frames", () => {
-  test("derives and validates the exact Transmute-owned frame clock", () => {
+  test("derives and validates the exact Atet-owned frame clock", () => {
     const canvas = { deviceScaleFactor: 1, height: 720, width: 1_280 };
     const timing = { durationUs: 1_000_000, fps: 30 };
     expect(htmlOverlayFrameCount(timing)).toBe(30);

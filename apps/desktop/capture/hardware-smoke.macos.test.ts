@@ -174,7 +174,7 @@ function requireAuthorized(
   throw new Error(
     `Hardware smoke requires pre-authorized permissions before start: ${
       missing.map((name) => `${name}=${probe.permissions[name]}`).join(", ")
-    }. Run Transmute interactively to grant them.`,
+    }. Run Atet interactively to grant them.`,
   );
 }
 

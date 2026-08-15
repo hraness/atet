@@ -397,7 +397,7 @@ describe("Gateway media catalog", () => {
   });
 
   test("persists and reloads a validated snapshot without trusting a corrupt file", async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "transmute-gateway-catalog-"));
+    const temporary = await mkdtemp(join(tmpdir(), "atet-gateway-catalog-"));
     try {
       const store = createFileGatewayMediaCatalogSnapshotStore(
         join(temporary, "private", "catalog.json"),
@@ -405,7 +405,7 @@ describe("Gateway media catalog", () => {
       const snapshot = parseGatewayMediaCatalog(catalogFixture(), {
         fetchedAt: FETCHED_AT,
       });
-      expect(snapshot.kind).toBe("transmute.gateway-media-catalog");
+      expect(snapshot.kind).toBe("atet.gateway-media-catalog");
       await store.write(snapshot);
       expect(parseGatewayMediaCatalogSnapshot(await store.read())).toEqual(snapshot);
       const legacy = parseGatewayMediaCatalogSnapshot({

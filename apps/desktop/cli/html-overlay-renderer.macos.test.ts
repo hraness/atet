@@ -28,7 +28,7 @@ import { PlaywrightHtmlOverlayRenderer } from "./html-overlay-renderer";
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const RUN_RENDERER_SMOKE =
-  process.env.TRANSMUTE_RUN_HTML_OVERLAY_RENDERER_SMOKE === "1";
+  process.env.ATET_RUN_HTML_OVERLAY_RENDERER_SMOKE === "1";
 const RENDERER_SMOKE_UNAVAILABLE =
   !RUN_RENDERER_SMOKE
   || process.platform !== "darwin"
@@ -201,7 +201,7 @@ async function render(root: string): Promise<readonly Buffer[]> {
   const authoring = HtmlOverlayAuthoringInputSchema.parse({
     canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
     html: createHtmlOverlayScaffold("plain"),
-    kind: "transmute.html-overlay",
+    kind: "atet.html-overlay",
     libraries: [],
     parameters: {},
     resources: [],
@@ -228,8 +228,8 @@ async function render(root: string): Promise<readonly Buffer[]> {
 test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
   "renders deterministic transparent frames with the runtime installed before author code",
   async () => {
-    const firstRoot = await mkdtemp(join(tmpdir(), "transmute-html-renderer-a-"));
-    const secondRoot = await mkdtemp(join(tmpdir(), "transmute-html-renderer-b-"));
+    const firstRoot = await mkdtemp(join(tmpdir(), "atet-html-renderer-a-"));
+    const secondRoot = await mkdtemp(join(tmpdir(), "atet-html-renderer-b-"));
     roots.push(firstRoot, secondRoot);
     const [first, second] = await Promise.all([
       render(firstRoot),
@@ -250,7 +250,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
 );
 
 test.skipIf(
-  process.env.TRANSMUTE_RUN_HTML_OVERLAY_LIBRARY_SMOKE !== "1"
+  process.env.ATET_RUN_HTML_OVERLAY_LIBRARY_SMOKE !== "1"
   || process.platform !== "darwin"
   || !await Bun.file(CHROME).exists()
 )(
@@ -278,7 +278,7 @@ test.skipIf(
     canvas: document.querySelector("#scene"),
     premultipliedAlpha: false,
   });
-  renderer.setSize(TransmuteOverlay.width, TransmuteOverlay.height, false);
+  renderer.setSize(AtetOverlay.width, AtetOverlay.height, false);
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
@@ -286,16 +286,16 @@ test.skipIf(
   camera.position.z = 2;
   const material = new THREE.MeshBasicMaterial();
   scene.add(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material));
-  TransmuteOverlay.ready(
+  AtetOverlay.ready(
     new THREE.TextureLoader()
-      .loadAsync(TransmuteOverlay.asset("generated-image"))
+      .loadAsync(AtetOverlay.asset("generated-image"))
       .then((texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
         material.map = texture;
         material.needsUpdate = true;
       }),
   );
-  TransmuteOverlay.onFrame(() => renderer.render(scene, camera));
+  AtetOverlay.onFrame(() => renderer.render(scene, camera));
 </script>`;
 
     const renderOnce = async (root: string): Promise<Buffer> => {
@@ -309,7 +309,7 @@ test.skipIf(
       const authoring = HtmlOverlayAuthoringInputSchema.parse({
         canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
         html,
-        kind: "transmute.html-overlay",
+        kind: "atet.html-overlay",
         libraries: ["three"],
         parameters: {},
         resources: [resource],
@@ -330,10 +330,10 @@ test.skipIf(
     };
 
     const first = await renderOnce(
-      await mkdtemp(join(tmpdir(), "transmute-html-three-texture-a-")),
+      await mkdtemp(join(tmpdir(), "atet-html-three-texture-a-")),
     );
     const second = await renderOnce(
-      await mkdtemp(join(tmpdir(), "transmute-html-three-texture-b-")),
+      await mkdtemp(join(tmpdir(), "atet-html-three-texture-b-")),
     );
     expect(digest(first)).toBe(digest(second));
     expect(first[25]).toBe(6);
@@ -350,7 +350,7 @@ test.skipIf(
 test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
   "rejects undeclared browser requests before publishing a frame sequence",
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-renderer-blocked-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-renderer-blocked-"));
     roots.push(root);
     const frames = join(root, "frames");
     await mkdir(frames, { mode: 0o700 });
@@ -366,7 +366,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
         '<!doctype html><img src="https://example.com/undeclared.png" alt="">',
         "<script>window.open('https://example.com/undeclared-popup')</script>",
       ].join(""),
-      kind: "transmute.html-overlay",
+      kind: "atet.html-overlay",
       libraries: [],
       parameters: {},
       resources: [],
@@ -387,7 +387,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
 test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
   "parses authored HTML structure without treating comments as host elements",
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-renderer-parser-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-renderer-parser-"));
     roots.push(root);
     const frames = join(root, "frames");
     await mkdir(frames, { mode: 0o700 });
@@ -403,14 +403,14 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
 <div id="proof"></div>
 <script>
   if (document.querySelectorAll('script[type="importmap"]').length !== 1) {
-    throw new Error("Transmute must install exactly one import map.");
+    throw new Error("Atet must install exactly one import map.");
   }
-  TransmuteOverlay.onFrame(() => {
+  AtetOverlay.onFrame(() => {
     document.querySelector("#proof").style.cssText =
       "position:absolute;inset:0;background:#6d5dfc";
   });
 </script>`,
-      kind: "transmute.html-overlay",
+      kind: "atet.html-overlay",
       libraries: [],
       parameters: {},
       resources: [],
@@ -435,9 +435,9 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
 );
 
 test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
-  "loads an integrity-bound declared PNG through TransmuteOverlay.asset",
+  "loads an integrity-bound declared PNG through AtetOverlay.asset",
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-renderer-png-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-renderer-png-"));
     roots.push(root);
     const frames = join(root, "frames");
     await mkdir(frames, { mode: 0o700 });
@@ -460,14 +460,14 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
 <img id="declared" alt="" style="width:100%;height:100%;image-rendering:pixelated">
 <script>
   const image = document.querySelector("#declared");
-  image.src = TransmuteOverlay.asset("declared-pixel");
-  TransmuteOverlay.ready(image.decode().then(() => {
+  image.src = AtetOverlay.asset("declared-pixel");
+  AtetOverlay.ready(image.decode().then(() => {
     if (image.naturalWidth !== 1 || image.naturalHeight !== 1) {
       throw new Error("declared PNG dimensions changed");
     }
   }));
 </script>`,
-      kind: "transmute.html-overlay",
+      kind: "atet.html-overlay",
       libraries: [],
       parameters: {},
       resources: [resource],
@@ -501,7 +501,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
 test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
   "publishes no partial frame directory when a later frame fails",
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-renderer-partial-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-renderer-partial-"));
     roots.push(root);
     const frames = join(root, "frames");
     await mkdir(frames, { mode: 0o700 });
@@ -511,11 +511,11 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
     const authoring = HtmlOverlayAuthoringInputSchema.parse({
       canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
       html: `<!doctype html><script>
-TransmuteOverlay.onFrame(({ frame }) => {
+AtetOverlay.onFrame(({ frame }) => {
   if (frame === 1) throw new Error("the second frame failed");
 });
 </script>`,
-      kind: "transmute.html-overlay",
+      kind: "atet.html-overlay",
       libraries: [],
       parameters: {},
       resources: [],
@@ -593,7 +593,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
   } catch {
     objectUrlDenied = 1;
   }
-  TransmuteOverlay.onFrame(({ timeMs }) => {
+  AtetOverlay.onFrame(({ timeMs }) => {
     const uuidValue = [...uuid].reduce((total, character) => total + character.charCodeAt(0), 0);
     const timeValue = Math.floor(
       Date.now()
@@ -618,7 +618,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
       + ")";
   });
 </script>`,
-        kind: "transmute.html-overlay",
+        kind: "atet.html-overlay",
         libraries: [],
         parameters: {},
         resources: [],
@@ -635,8 +635,8 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
       return await readFile(join(frames, "frames", "frame-00000000.png"));
     };
 
-    const firstRoot = await mkdtemp(join(tmpdir(), "transmute-html-ambient-a-"));
-    const secondRoot = await mkdtemp(join(tmpdir(), "transmute-html-ambient-b-"));
+    const firstRoot = await mkdtemp(join(tmpdir(), "atet-html-ambient-a-"));
+    const secondRoot = await mkdtemp(join(tmpdir(), "atet-html-ambient-b-"));
     roots.push(firstRoot, secondRoot);
     const [first, second] = await Promise.all([
       renderAmbient(firstRoot),
@@ -650,7 +650,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
 test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
   "bounds never-settling author readiness and closes the browser",
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-renderer-timeout-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-renderer-timeout-"));
     roots.push(root);
     const frames = join(root, "frames");
     await mkdir(frames, { mode: 0o700 });
@@ -661,8 +661,8 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
     });
     const authoring = HtmlOverlayAuthoringInputSchema.parse({
       canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
-      html: "<!doctype html><script>TransmuteOverlay.ready(new Promise(() => {}))</script>",
-      kind: "transmute.html-overlay",
+      html: "<!doctype html><script>AtetOverlay.ready(new Promise(() => {}))</script>",
+      kind: "atet.html-overlay",
       libraries: [],
       parameters: {},
       resources: [],
@@ -683,7 +683,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
 test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
   "does not launch after cancellation and closes a launch that settles late",
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-renderer-abort-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-renderer-abort-"));
     roots.push(root);
     const frames = join(root, "frames");
     await mkdir(frames, { mode: 0o700 });
@@ -720,7 +720,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
     const authoring = HtmlOverlayAuthoringInputSchema.parse({
       canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
       html: createHtmlOverlayScaffold("plain"),
-      kind: "transmute.html-overlay",
+      kind: "atet.html-overlay",
       libraries: [],
       parameters: {},
       resources: [],
@@ -772,7 +772,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
 test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
   "rejects a signed whole-app-root swap even when owner flags and bytes are restored",
   async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-root-swap-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-root-swap-"));
     roots.push(root);
     const frames = join(root, "frames");
     await mkdir(frames, { mode: 0o700 });
@@ -818,7 +818,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
     const authoring = HtmlOverlayAuthoringInputSchema.parse({
       canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
       html: createHtmlOverlayScaffold("plain"),
-      kind: "transmute.html-overlay",
+      kind: "atet.html-overlay",
       libraries: [],
       parameters: {},
       resources: [],
@@ -843,7 +843,7 @@ test.skipIf(RENDERER_SMOKE_UNAVAILABLE)(
 );
 
 test.skipIf(
-  process.env.TRANSMUTE_RUN_HTML_OVERLAY_LIBRARY_SMOKE !== "1"
+  process.env.ATET_RUN_HTML_OVERLAY_LIBRARY_SMOKE !== "1"
   || process.platform !== "darwin"
   || !await Bun.file(CHROME).exists()
 )(
@@ -858,14 +858,14 @@ test.skipIf(
       { kind: "three", libraries: ["three"] },
     ];
     for (const item of cases) {
-      const root = await mkdtemp(join(tmpdir(), `transmute-html-${item.kind}-`));
+      const root = await mkdtemp(join(tmpdir(), `atet-html-${item.kind}-`));
       roots.push(root);
       const frames = join(root, "frames");
       await mkdir(frames, { mode: 0o700 });
       const authoring = HtmlOverlayAuthoringInputSchema.parse({
         canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
         html: createHtmlOverlayScaffold(item.kind),
-        kind: "transmute.html-overlay",
+        kind: "atet.html-overlay",
         libraries: item.libraries,
         parameters: {},
         resources: [],

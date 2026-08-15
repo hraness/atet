@@ -7,10 +7,10 @@ import { join } from "node:path";
 
 import embeddedLibvips from "@img/sharp-libvips-darwin-arm64/binary" with { type: "file" };
 
-const NATIVE_ROOT_ENV = "TRANSMUTE_COMPILED_NATIVE_ROOT";
+const NATIVE_ROOT_ENV = "ATET_COMPILED_NATIVE_ROOT";
 
 async function runChildWithNativeRuntime(): Promise<void> {
-  const nativeRoot = join(tmpdir(), `transmute-native-${randomUUID()}`);
+  const nativeRoot = join(tmpdir(), `atet-native-${randomUUID()}`);
   const addonTemporaryRoot = join(nativeRoot, "tmp");
   const libvipsDirectory = join(
     nativeRoot,

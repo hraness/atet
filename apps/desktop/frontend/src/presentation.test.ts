@@ -21,11 +21,11 @@ describe("recorder presentation", () => {
   test("exposes only legal controls for each authoritative state", () => {
     const cases: readonly [CaptureRuntimeState, readonly RecorderAction[]][] = [
       [CaptureRuntimeStateSchema.parse({ lastRecording: null, state: "idle" }), ["start"]],
-      [CaptureRuntimeStateSchema.parse({ commandId: "command_start001", recordingPath: "artifacts/transmute/recordings/rec_pending01", state: "starting" }), []],
-      [CaptureRuntimeStateSchema.parse({ recordingId: "rec_active001", recordingPath: "artifacts/transmute/recordings/rec_active001", sourceTimeUs: 5, state: "recording" }), ["pause", "stop"]],
-      [CaptureRuntimeStateSchema.parse({ recordingId: "rec_active001", recordingPath: "artifacts/transmute/recordings/rec_active001", sourceTimeUs: 5, state: "paused" }), ["resume", "stop"]],
-      [CaptureRuntimeStateSchema.parse({ commandId: "command_stop0001", recordingId: "rec_active001", recordingPath: "artifacts/transmute/recordings/rec_active001", sourceTimeUs: 5, state: "stopping" }), []],
-      [CaptureRuntimeStateSchema.parse({ code: "capture-session-failed", message: "raw", recordingId: "rec_active001", recordingPath: "artifacts/transmute/recordings/rec_active001", sourceTimeUs: 5, state: "failed" }), ["start"]],
+      [CaptureRuntimeStateSchema.parse({ commandId: "command_start001", recordingPath: "artifacts/atet/recordings/rec_pending01", state: "starting" }), []],
+      [CaptureRuntimeStateSchema.parse({ recordingId: "rec_active001", recordingPath: "artifacts/atet/recordings/rec_active001", sourceTimeUs: 5, state: "recording" }), ["pause", "stop"]],
+      [CaptureRuntimeStateSchema.parse({ recordingId: "rec_active001", recordingPath: "artifacts/atet/recordings/rec_active001", sourceTimeUs: 5, state: "paused" }), ["resume", "stop"]],
+      [CaptureRuntimeStateSchema.parse({ commandId: "command_stop0001", recordingId: "rec_active001", recordingPath: "artifacts/atet/recordings/rec_active001", sourceTimeUs: 5, state: "stopping" }), []],
+      [CaptureRuntimeStateSchema.parse({ code: "capture-session-failed", message: "raw", recordingId: "rec_active001", recordingPath: "artifacts/atet/recordings/rec_active001", sourceTimeUs: 5, state: "failed" }), ["start"]],
       [CaptureRuntimeStateSchema.parse({ code: "repository-not-configured", message: "raw", recordingId: null, recordingPath: null, sourceTimeUs: null, state: "failed" }), []],
     ];
     for (const [state, actions] of cases) expect(presentationForState(state).allowedActions).toEqual(actions);
@@ -84,7 +84,7 @@ describe("recorder presentation", () => {
       allowedActions: ["resume", "stop"],
       elapsedUs: 3_000_000,
       label: "Camera disconnected — segment saved; resume when ready",
-      path: "artifacts/transmute/recordings/rec_active001",
+      path: "artifacts/atet/recordings/rec_active001",
       tone: "pending",
     });
     const label = presentationForSnapshot(snapshot).label;
@@ -129,7 +129,7 @@ describe("recorder presentation", () => {
         code: "screen-recording-failed",
         message: "/private/native/diagnostic should stay hidden",
         recordingId: "rec_active001",
-        recordingPath: "artifacts/transmute/recordings/rec_active001",
+        recordingPath: "artifacts/atet/recordings/rec_active001",
         sourceTimeUs: 2_000_000,
         state: "failed",
       },
@@ -178,7 +178,7 @@ describe("recorder presentation", () => {
 
     expect(presentationForSnapshot(snapshot)).toMatchObject({
       allowedActions: [],
-      label: "Transmute needs a configured Transmute checkout",
+      label: "Atet needs a configured Atet checkout",
     });
     expect(presentationForSnapshot(snapshot).label).not.toContain("/private/");
     const systemAudioFailure = CaptureRuntimeSnapshotSchema.parse({
@@ -187,7 +187,7 @@ describe("recorder presentation", () => {
         code: "system-audio-track-missing",
         message: "Missing track in /private/recording/display-1.mov.",
         recordingId: "rec_active001",
-        recordingPath: "artifacts/transmute/recordings/rec_active001",
+        recordingPath: "artifacts/atet/recordings/rec_active001",
         sourceTimeUs: 2_000_000,
         state: "failed",
       },
@@ -209,7 +209,7 @@ describe("recorder presentation", () => {
     });
     expect(presentationForSnapshot(incompleteRecovery)).toMatchObject({
       allowedActions: [],
-      label: "Recording recovery incomplete — restart Transmute to record again",
+      label: "Recording recovery incomplete — restart Atet to record again",
     });
     expect(presentationForSnapshot(incompleteRecovery).label)
       .not.toContain("/private/");
@@ -258,7 +258,7 @@ function interruptedSnapshot(
     },
     state: {
       recordingId: "rec_active001",
-      recordingPath: "artifacts/transmute/recordings/rec_active001",
+      recordingPath: "artifacts/atet/recordings/rec_active001",
       sourceTimeUs: 3_000_000,
       state: "paused",
     },

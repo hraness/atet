@@ -265,9 +265,9 @@ async function createFixture(): Promise<{
   readonly projectDirectory: string;
   readonly repositoryRoot: string;
 }> {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-face-service-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-face-service-"));
   const mediaDirectory = join(repositoryRoot, "imports");
-  const projectDirectory = join(repositoryRoot, "artifacts", "transmute", "projects", "project_facefixture");
+  const projectDirectory = join(repositoryRoot, "artifacts", "atet", "projects", "project_facefixture");
   await mkdir(mediaDirectory, { recursive: true });
   await mkdir(projectDirectory, { recursive: true });
   const firstMedia = join(mediaDirectory, "first.mov");
@@ -402,7 +402,7 @@ describe("face analysis service", () => {
         streamId: "stream_facefixture",
         trackCount: 1,
       });
-      expect(result.analysis.kind).toBe("transmute.face-analysis");
+      expect(result.analysis.kind).toBe("atet.face-analysis");
       expect(result.analysis.results.map(frame => frame.assetTimeUs)).toEqual([
         0,
         500_000,

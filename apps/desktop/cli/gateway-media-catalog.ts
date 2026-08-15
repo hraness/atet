@@ -63,7 +63,10 @@ export interface GatewayCatalogValidators {
 
 export interface GatewayMediaCatalogSnapshot {
   readonly fetchedAt: string;
-  readonly kind: "transmute.gateway-media-catalog" | "studio.gateway-media-catalog";
+  readonly kind:
+    | "atet.gateway-media-catalog"
+    | "transmute.gateway-media-catalog"
+    | "studio.gateway-media-catalog";
   readonly models: readonly GatewayMediaModel[];
   readonly schemaVersion: 1;
   readonly snapshotId: `sha256:${string}`;
@@ -368,7 +371,7 @@ export function parseGatewayMediaCatalog(
   const validators = parseValidators(timestamps.validators);
   return {
     fetchedAt,
-    kind: "transmute.gateway-media-catalog",
+    kind: "atet.gateway-media-catalog",
     models,
     schemaVersion: 1,
     snapshotId: snapshotDigest(models),
@@ -400,7 +403,8 @@ export function parseGatewayMediaCatalogSnapshot(
   if (
     !isRecord(value)
     || (
-      value.kind !== "transmute.gateway-media-catalog"
+      value.kind !== "atet.gateway-media-catalog"
+      && value.kind !== "transmute.gateway-media-catalog"
       && value.kind !== "studio.gateway-media-catalog"
     )
     || value.schemaVersion !== 1

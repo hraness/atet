@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { defaultTransmuteHostResourceProfile } from "@hraness/transmute/host-resources";
+import { defaultAtetHostResourceProfile } from "@hraness/atet/host-resources";
 
 import {
   CONCURRENCY_BENCHMARK_FIXTURE,
@@ -13,9 +13,9 @@ describe("code-mode concurrency benchmark", () => {
   test("isolates timer admission from production low-core headroom", () => {
     expect(CONCURRENCY_BENCHMARK_HOST_RESOURCE_PROFILE).toEqual({
       capacities: [{ limit: 4, resource: "cpu" }],
-      id: "transmute.concurrency-benchmark/v1",
+      id: "atet.concurrency-benchmark/v1",
     });
-    expect(defaultTransmuteHostResourceProfile(2).capacities).toContainEqual({
+    expect(defaultAtetHostResourceProfile(2).capacities).toContainEqual({
       limit: 1,
       resource: "cpu",
     });
@@ -61,7 +61,7 @@ describe("code-mode concurrency benchmark", () => {
         scheduler: "DurableWorkflowScheduler",
         sequentialJobs: 1,
       },
-      version: "transmute-code-concurrency-benchmark-report/v1",
+      version: "atet-code-concurrency-benchmark-report/v1",
       verdict: {
         materialParallelism: true,
         thresholds: {
@@ -72,7 +72,7 @@ describe("code-mode concurrency benchmark", () => {
       },
     });
     process.stdout.write(
-      `[transmute concurrency] ${JSON.stringify(report.measurements)}\n`,
+      `[atet concurrency] ${JSON.stringify(report.measurements)}\n`,
     );
   }, 30_000);
 });

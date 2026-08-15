@@ -133,7 +133,7 @@ function generationReference(
 }
 
 test("commits a structural project and edit-plan generation together", async () => {
-  const root = await mkdtemp(join(tmpdir(), "transmute-project-transaction-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-"));
   try {
     const fileSystem = createNodeBundleFileSystem(root);
     const beforeProject = fixtureProject();
@@ -167,7 +167,7 @@ test("commits a structural project and edit-plan generation together", async () 
       await fileSystem.readText(PROJECT_STATE_TRANSACTION_PATH),
     ) as unknown)).toMatchObject({
       active: "after",
-      kind: "transmute.project-state-transaction",
+      kind: "atet.project-state-transaction",
       phase: "settled",
     });
     expect(ProjectStateTransactionV1Schema.parse({
@@ -181,7 +181,7 @@ test("commits a structural project and edit-plan generation together", async () 
 });
 
 test("restores the prior generation when publication fails before commit-ready", async () => {
-  const root = await mkdtemp(join(tmpdir(), "transmute-project-transaction-failure-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-failure-"));
   try {
     const physical = createNodeBundleFileSystem(root);
     const beforeProject = fixtureProject();
@@ -236,7 +236,7 @@ test("restores the prior generation when publication fails before commit-ready",
 });
 
 test("marks a failed commit-ready settlement as ambiguous and preserves roll-forward evidence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "transmute-project-transaction-ambiguous-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-ambiguous-"));
   try {
     const physical = createNodeBundleFileSystem(root);
     const beforeProject = fixtureProject();
@@ -289,7 +289,7 @@ test("marks a failed commit-ready settlement as ambiguous and preserves roll-for
 });
 
 test("rolls an interrupted prepare generation back before readers can proceed", async () => {
-  const root = await mkdtemp(join(tmpdir(), "transmute-project-transaction-recover-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-recover-"));
   try {
     const fileSystem = createNodeBundleFileSystem(root);
     const transactionId = "transaction_22222222222222222222222222222222";
@@ -312,7 +312,7 @@ test("rolls an interrupted prepare generation back before readers can proceed", 
     await fileSystem.writeTextAtomic(PROJECT_STATE_TRANSACTION_PATH, `${canonicalJson(ProjectStateTransactionV1Schema.parse({
       after,
       before,
-      kind: "transmute.project-state-transaction",
+      kind: "atet.project-state-transaction",
       phase: "prepare",
       projectId: beforeProject.projectId,
       schemaVersion: 1,
@@ -331,7 +331,7 @@ test("rolls an interrupted prepare generation back before readers can proceed", 
 });
 
 test("rolls a commit-ready generation forward and rejects tampered recovery evidence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "transmute-project-transaction-forward-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-forward-"));
   try {
     const fileSystem = createNodeBundleFileSystem(root);
     const transactionId = "transaction_33333333333333333333333333333333";
@@ -354,7 +354,7 @@ test("rolls a commit-ready generation forward and rejects tampered recovery evid
     await fileSystem.writeTextAtomic(PROJECT_STATE_TRANSACTION_PATH, `${canonicalJson(ProjectStateTransactionV1Schema.parse({
       after,
       before,
-      kind: "transmute.project-state-transaction",
+      kind: "atet.project-state-transaction",
       phase: "commit-ready",
       projectId: beforeProject.projectId,
       schemaVersion: 1,
@@ -370,7 +370,7 @@ test("rolls a commit-ready generation forward and rejects tampered recovery evid
     await fileSystem.writeTextAtomic(PROJECT_STATE_TRANSACTION_PATH, `${canonicalJson(ProjectStateTransactionV1Schema.parse({
       after,
       before,
-      kind: "transmute.project-state-transaction",
+      kind: "atet.project-state-transaction",
       phase: "commit-ready",
       projectId: beforeProject.projectId,
       schemaVersion: 1,
@@ -385,13 +385,13 @@ test("rolls a commit-ready generation forward and rejects tampered recovery evid
 });
 
 test("a locked project mutation recovers an interrupted generation before dispatch", async () => {
-  const root = await mkdtemp(join(tmpdir(), "transmute-project-transaction-cli-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-cli-"));
   try {
     const paths: RepositoryPaths = {
-      artifactRoot: join(root, "artifacts", "transmute", "recordings"),
-      desktopRoot: join(root, "projects", "transmute", "apps", "desktop"),
-      privateRoot: join(root, "artifacts", "transmute", "private"),
-      projectRoot: join(root, "artifacts", "transmute", "projects"),
+      artifactRoot: join(root, "artifacts", "atet", "recordings"),
+      desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
+      privateRoot: join(root, "artifacts", "atet", "private"),
+      projectRoot: join(root, "artifacts", "atet", "projects"),
       repositoryRoot: root,
     };
     const directory = join(paths.projectRoot, "project_fixture01");
@@ -417,7 +417,7 @@ test("a locked project mutation recovers an interrupted generation before dispat
     await fileSystem.writeTextAtomic(PROJECT_STATE_TRANSACTION_PATH, `${canonicalJson(ProjectStateTransactionV1Schema.parse({
       after,
       before,
-      kind: "transmute.project-state-transaction",
+      kind: "atet.project-state-transaction",
       phase: "prepare",
       projectId: beforeProject.projectId,
       schemaVersion: 1,

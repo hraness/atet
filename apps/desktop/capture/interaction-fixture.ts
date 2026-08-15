@@ -7,7 +7,7 @@ import {
 
 export const INTERACTION_FIXTURE_PROTOCOL_VERSION = 1 as const;
 export const INTERACTION_FIXTURE_PUBLIC_FIELD_ID_PREFIX =
-  "transmute-fixture-public-" as const;
+  "atet-fixture-public-" as const;
 export const INTERACTION_FIXTURE_TIMEOUT_MS = 15_000;
 
 const MAXIMUM_FIXTURE_LINE_BYTES = 64 * 1024;
@@ -137,7 +137,7 @@ export type InteractionFixtureReceipt = Readonly<
 type FixtureEvent = Readonly<z.infer<typeof FixtureEventSchema>>;
 
 export function interactionFixtureWindowTitle(fixtureId: string): string {
-  return `Transmute Interaction Fixture · ${FixtureIdSchema.parse(fixtureId)}`;
+  return `Atet Interaction Fixture · ${FixtureIdSchema.parse(fixtureId)}`;
 }
 
 export function interactionFixturePublicFieldId(fixtureId: string): string {

@@ -20,7 +20,7 @@ function builtHelper(): ReturnType<typeof buildCaptureHelper> {
 describe("capture helper build boundary", () => {
   test("exports one stable ignored runtime path without running the compiler on import", () => {
     expect(resolveCaptureHelperPath()).toBe(captureHelperExecutablePath);
-    expect(captureHelperExecutablePath).toEndWith("/capture/dist/transmute-capture");
+    expect(captureHelperExecutablePath).toEndWith("/capture/dist/atet-capture");
   });
 
   test("embeds privacy metadata and signs the stable helper identity without requesting capture", async () => {
@@ -32,7 +32,7 @@ describe("capture helper build boundary", () => {
   test("a configure attempt creates private session directories without starting capture", async () => {
     if (process.platform !== "darwin") return;
     const { path } = await builtHelper();
-    const session = await mkdtemp(join(tmpdir(), "transmute-capture-security-"));
+    const session = await mkdtemp(join(tmpdir(), "atet-capture-security-"));
     try {
       const child = Bun.spawn([path], { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
       const configure = {
@@ -40,7 +40,7 @@ describe("capture helper build boundary", () => {
         options: {
           camera: { kind: "disabled" },
           displays: { kind: "all" },
-          excludedBundleIdentifiers: ["com.hraness.transmute"],
+          excludedBundleIdentifiers: ["com.hraness.atet"],
           metadata: false,
           microphone: { kind: "disabled" },
           strictSources: false,
@@ -96,7 +96,7 @@ describe("capture helper build boundary", () => {
   test("configure rejects a session root reached through a symlink", async () => {
     if (process.platform !== "darwin") return;
     const { path } = await builtHelper();
-    const container = await mkdtemp(join(tmpdir(), "transmute-capture-symlink-"));
+    const container = await mkdtemp(join(tmpdir(), "atet-capture-symlink-"));
     const target = join(container, "target");
     const alias = join(container, "alias");
     try {

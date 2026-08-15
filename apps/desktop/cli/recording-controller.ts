@@ -1321,7 +1321,7 @@ export class CaptureHelperRecordingController implements RecordingController {
       displays: options.displays.kind === "all"
         ? { kind: "all" }
         : { displayIds: [...options.displays.displayIds], kind: "selected" },
-      excludedBundleIdentifiers: ["com.hraness.transmute"],
+      excludedBundleIdentifiers: ["com.hraness.atet"],
       interactionEventProcessIdentifier:
         options.interactionEventProcessIdentifier ?? null,
       metadata: true,

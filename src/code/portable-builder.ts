@@ -10,15 +10,15 @@ import {
   type OperationNodeOptions,
 } from "./graph-builder.js"
 import {
-  PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
-  type TransmuteDiagramCheckInput,
-  type TransmuteDiagramCheckOutput,
-  type TransmuteDiagramRenderInput,
-  type TransmuteDiagramRenderOutput,
-  type TransmuteImageGenerateInput,
-  type TransmuteImageGenerateOutput,
-  type TransmuteImageVectorizeInput,
-  type TransmuteImageVectorizeOutput,
+  PORTABLE_ATET_OPERATION_CONTRACTS,
+  type AtetDiagramCheckInput,
+  type AtetDiagramCheckOutput,
+  type AtetDiagramRenderInput,
+  type AtetDiagramRenderOutput,
+  type AtetImageGenerateInput,
+  type AtetImageGenerateOutput,
+  type AtetImageVectorizeInput,
+  type AtetImageVectorizeOutput,
 } from "./public-operations.js"
 import { PUBLIC_WORKFLOW_REGISTRY_PROJECTION } from "./projection.js"
 
@@ -38,27 +38,27 @@ export class PortableWorkflowBuilder {
   readonly diagram: Readonly<{
     check: (
       key: string,
-      input: OperationInputValue<TransmuteDiagramCheckInput>,
+      input: OperationInputValue<AtetDiagramCheckInput>,
       options?: OperationNodeOptions,
-    ) => Ref<TransmuteDiagramCheckOutput>
+    ) => Ref<AtetDiagramCheckOutput>
     render: (
       key: string,
-      input: OperationInputValue<TransmuteDiagramRenderInput>,
+      input: OperationInputValue<AtetDiagramRenderInput>,
       options?: OperationNodeOptions,
-    ) => Ref<TransmuteDiagramRenderOutput>
+    ) => Ref<AtetDiagramRenderOutput>
   }>
 
   readonly image: Readonly<{
     generate: (
       key: string,
-      input: OperationInputValue<TransmuteImageGenerateInput>,
+      input: OperationInputValue<AtetImageGenerateInput>,
       options?: OperationNodeOptions,
-    ) => Ref<TransmuteImageGenerateOutput>
+    ) => Ref<AtetImageGenerateOutput>
     vectorize: (
       key: string,
-      input: OperationInputValue<TransmuteImageVectorizeInput>,
+      input: OperationInputValue<AtetImageVectorizeInput>,
       options?: OperationNodeOptions,
-    ) => Ref<TransmuteImageVectorizeOutput>
+    ) => Ref<AtetImageVectorizeOutput>
   }>
 
   private constructor(builder: WorkflowGraphBuilder) {
@@ -66,21 +66,21 @@ export class PortableWorkflowBuilder {
     this.diagram = Object.freeze({
       check: (
         key: string,
-        input: OperationInputValue<TransmuteDiagramCheckInput>,
+        input: OperationInputValue<AtetDiagramCheckInput>,
         options: OperationNodeOptions = {},
       ) => this.#builder.operation(
         key,
-        PORTABLE_TRANSMUTE_OPERATION_CONTRACTS["transmute.diagram.check"],
+        PORTABLE_ATET_OPERATION_CONTRACTS["atet.diagram.check"],
         input,
         options,
       ),
       render: (
         key: string,
-        input: OperationInputValue<TransmuteDiagramRenderInput>,
+        input: OperationInputValue<AtetDiagramRenderInput>,
         options: OperationNodeOptions = {},
       ) => this.#builder.operation(
         key,
-        PORTABLE_TRANSMUTE_OPERATION_CONTRACTS["transmute.diagram.render"],
+        PORTABLE_ATET_OPERATION_CONTRACTS["atet.diagram.render"],
         input,
         options,
       ),
@@ -88,21 +88,21 @@ export class PortableWorkflowBuilder {
     this.image = Object.freeze({
       generate: (
         key: string,
-        input: OperationInputValue<TransmuteImageGenerateInput>,
+        input: OperationInputValue<AtetImageGenerateInput>,
         options: OperationNodeOptions = {},
       ) => this.#builder.operation(
         key,
-        PORTABLE_TRANSMUTE_OPERATION_CONTRACTS["transmute.image.generate"],
+        PORTABLE_ATET_OPERATION_CONTRACTS["atet.image.generate"],
         input,
         options,
       ),
       vectorize: (
         key: string,
-        input: OperationInputValue<TransmuteImageVectorizeInput>,
+        input: OperationInputValue<AtetImageVectorizeInput>,
         options: OperationNodeOptions = {},
       ) => this.#builder.operation(
         key,
-        PORTABLE_TRANSMUTE_OPERATION_CONTRACTS["transmute.image.vectorize"],
+        PORTABLE_ATET_OPERATION_CONTRACTS["atet.image.vectorize"],
         input,
         options,
       ),

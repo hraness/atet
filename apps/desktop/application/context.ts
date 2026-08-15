@@ -1,4 +1,4 @@
-import type { HostResourceLease } from "@hraness/transmute/host-resources";
+import type { HostResourceLease } from "@hraness/atet/host-resources";
 
 import type { ApplicationGatewayPort } from "./gateway-port";
 import type { HtmlOverlayRenderer } from "./html-overlay-renderer";

@@ -5,7 +5,7 @@ import {
   type BuiltWorkflow,
   defineWorkflow,
 } from "./define-workflow.js"
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 import { WorkflowGraphBuilder } from "./graph-builder.js"
 import {
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
@@ -13,17 +13,17 @@ import {
   createWorkflowRegistryProjection,
 } from "./projection.js"
 import {
-  createTransmuteCodeHost,
+  createAtetCodeHost,
   runBuiltWorkflow,
   runWorkflow,
-  TransmuteWorkflowRunError,
+  AtetWorkflowRunError,
 } from "./runtime.js"
 import type {
   OperationDiscovery,
   WorkflowOutputValue,
 } from "./contracts.js"
 import type {
-  PortableTransmuteOperationResultMap,
+  PortableAtetOperationResultMap,
 } from "./public-operations.js"
 
 const desktopOnlyDiscovery = {
@@ -46,9 +46,9 @@ const desktopOnlyDiscovery = {
   version: 1,
 } as const satisfies OperationDiscovery
 
-const FIXTURE_RESULTS: PortableTransmuteOperationResultMap = {
-  "transmute.diagram.check": { configPath: null, findings: [] },
-  "transmute.diagram.render": {
+const FIXTURE_RESULTS: PortableAtetOperationResultMap = {
+  "atet.diagram.check": { configPath: null, findings: [] },
+  "atet.diagram.render": {
     artifacts: {
       darkPng: "/tmp/system.dark.png",
       darkSvg: "/tmp/system.dark.svg",
@@ -60,7 +60,7 @@ const FIXTURE_RESULTS: PortableTransmuteOperationResultMap = {
     configPath: null,
     findings: [],
   },
-  "transmute.image.generate": {
+  "atet.image.generate": {
     bytes: 100,
     mediaType: "image/webp",
     model: "openai/gpt-image-1.5",
@@ -70,7 +70,7 @@ const FIXTURE_RESULTS: PortableTransmuteOperationResultMap = {
     sha256: "a".repeat(64),
     warnings: [],
   },
-  "transmute.image.vectorize": {
+  "atet.image.vectorize": {
     outputPath: "/tmp/vector.svg",
     receipt: {
       alphaCutoff: 16,
@@ -111,14 +111,14 @@ const FIXTURE_RESULTS: PortableTransmuteOperationResultMap = {
 
 async function capturedRunError(
   promise: Promise<unknown>,
-): Promise<TransmuteWorkflowRunError> {
+): Promise<AtetWorkflowRunError> {
   try {
     await promise
   } catch (error) {
-    if (error instanceof TransmuteWorkflowRunError) return error
+    if (error instanceof AtetWorkflowRunError) return error
     throw error
   }
-  throw new Error("Expected TransmuteWorkflowRunError")
+  throw new Error("Expected AtetWorkflowRunError")
 }
 
 describe("portable ephemeral workflow runtime", () => {
@@ -134,10 +134,10 @@ describe("portable ephemeral workflow runtime", () => {
       },
       id: "nested-runtime-output",
       inputSchema: z.strictObject({}),
-      inputSchemaId: "transmute.workflow.nested-runtime-output.input/v1",
+      inputSchemaId: "atet.workflow.nested-runtime-output.input/v1",
       version: 1,
     })
-    const host = createTransmuteCodeHost({
+    const host = createAtetCodeHost({
       execute: request => Promise.resolve(FIXTURE_RESULTS[request.kind]),
     })
 
@@ -146,20 +146,20 @@ describe("portable ephemeral workflow runtime", () => {
     for (let depth = 0; depth < 120; depth += 1) {
       cursor = (cursor as Readonly<Record<string, unknown>>).nested
     }
-    expect(cursor).toEqual(FIXTURE_RESULTS["transmute.diagram.check"])
+    expect(cursor).toEqual(FIXTURE_RESULTS["atet.diagram.check"])
     expect(Object.isFrozen(result.output)).toBe(true)
     expect(Object.isFrozen(cursor)).toBe(true)
   })
 
   test("compiles every node before host admission or execution", async () => {
     const desktopProjection = createWorkflowRegistryProjection(
-      "transmute.workflow.registry.desktop-test/v1",
+      "atet.workflow.registry.desktop-test/v1",
       [...PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery, desktopOnlyDiscovery],
     )
     const builder = WorkflowGraphBuilder.create(desktopProjection)
     const checked = builder.operationByKind("check", {
       input: { path: "diagram.json" },
-      kind: "transmute.diagram.check",
+      kind: "atet.diagram.check",
       version: 2,
     })
     builder.operationByKind("start", {
@@ -174,7 +174,7 @@ describe("portable ephemeral workflow runtime", () => {
     }, { checked })
     let admissions = 0
     let executions = 0
-    const host = createTransmuteCodeHost({
+    const host = createAtetCodeHost({
       admit: async (_request, execute) => {
         admissions += 1
         return await execute()
@@ -195,11 +195,11 @@ describe("portable ephemeral workflow runtime", () => {
     } catch (error) {
       caught = error
     }
-    if (!(caught instanceof TransmuteCodeError)) {
-      throw new Error("Expected TransmuteCodeError")
+    if (!(caught instanceof AtetCodeError)) {
+      throw new Error("Expected AtetCodeError")
     }
     const error = caught
-    expect(error).toBeInstanceOf(TransmuteCodeError)
+    expect(error).toBeInstanceOf(AtetCodeError)
     expect(error.code).toBe("unsupported-plan")
     expect(error.details).toMatchObject({
       kind: "recording.start",
@@ -226,11 +226,11 @@ describe("portable ephemeral workflow runtime", () => {
       },
       id: "runtime-checked-render",
       inputSchema: z.strictObject({ path: z.string().min(1) }),
-      inputSchemaId: "transmute.workflow.runtime-checked-render.input/v1",
+      inputSchemaId: "atet.workflow.runtime-checked-render.input/v1",
       version: 1,
     })
     let admissions = 0
-    const host = createTransmuteCodeHost({
+    const host = createAtetCodeHost({
       admit: async (_request, execute) => {
         admissions += 1
         return await execute()
@@ -272,7 +272,7 @@ describe("portable ephemeral workflow runtime", () => {
       },
       id: "parallel-wave",
       inputSchema: z.strictObject({ path: z.string().min(1) }),
-      inputSchemaId: "transmute.workflow.parallel-wave.input/v1",
+      inputSchemaId: "atet.workflow.parallel-wave.input/v1",
       version: 1,
     })
     let active = 0
@@ -283,7 +283,7 @@ describe("portable ephemeral workflow runtime", () => {
       releaseChecks = resolve
     })
     const completions: string[] = []
-    const host = createTransmuteCodeHost({
+    const host = createAtetCodeHost({
       admit: async (_request, execute) => {
         active += 1
         maximumActive = Math.max(maximumActive, active)
@@ -294,7 +294,7 @@ describe("portable ephemeral workflow runtime", () => {
         }
       },
       execute: async (request) => {
-        if (request.kind === "transmute.diagram.check") {
+        if (request.kind === "atet.diagram.check") {
           checksStarted += 1
           if (checksStarted === 2) releaseChecks?.()
           await bothChecksStarted
@@ -331,12 +331,12 @@ describe("portable ephemeral workflow runtime", () => {
       },
       id: "failed-second-node",
       inputSchema: z.strictObject({ path: z.string().min(1) }),
-      inputSchemaId: "transmute.workflow.failed-second-node.input/v1",
+      inputSchemaId: "atet.workflow.failed-second-node.input/v1",
       version: 1,
     })
     const failure = new Error("render fixture failed")
-    const host = createTransmuteCodeHost({
-      execute: request => request.kind === "transmute.diagram.render"
+    const host = createAtetCodeHost({
+      execute: request => request.kind === "atet.diagram.render"
         ? Promise.reject(failure)
         : Promise.resolve(FIXTURE_RESULTS[request.kind]),
     })
@@ -347,7 +347,7 @@ describe("portable ephemeral workflow runtime", () => {
     expect(error.code).toBe("subprocess")
     expect(error.runCause).toBe(failure)
     expect(error.failedNode).toEqual({
-      kind: "transmute.diagram.render",
+      kind: "atet.diagram.render",
       nodeKey: "render",
       version: 2,
     })
@@ -367,13 +367,13 @@ describe("portable ephemeral workflow runtime", () => {
       },
       id: "post-dispatch-cancellation",
       inputSchema: z.strictObject({ path: z.string().min(1) }),
-      inputSchemaId: "transmute.workflow.post-dispatch-cancellation.input/v1",
+      inputSchemaId: "atet.workflow.post-dispatch-cancellation.input/v1",
       version: 1,
     })
     const controller = new AbortController()
-    const host = createTransmuteCodeHost({
+    const host = createAtetCodeHost({
       execute: (request) => {
-        if (request.kind === "transmute.diagram.render") controller.abort()
+        if (request.kind === "atet.diagram.render") controller.abort()
         return Promise.resolve(FIXTURE_RESULTS[request.kind])
       },
     })
@@ -389,7 +389,7 @@ describe("portable ephemeral workflow runtime", () => {
       "check",
       "render",
     ])
-    expect(error.runCause).toBeInstanceOf(TransmuteCodeError)
+    expect(error.runCause).toBeInstanceOf(AtetCodeError)
   })
 
   test("retains every completed receipt when final output projection fails", async () => {
@@ -400,10 +400,10 @@ describe("portable ephemeral workflow runtime", () => {
       },
       id: "invalid-final-projection",
       inputSchema: z.strictObject({ path: z.string().min(1) }),
-      inputSchemaId: "transmute.workflow.invalid-final-projection.input/v1",
+      inputSchemaId: "atet.workflow.invalid-final-projection.input/v1",
       version: 1,
     })
-    const host = createTransmuteCodeHost({
+    const host = createAtetCodeHost({
       execute: request => Promise.resolve(FIXTURE_RESULTS[request.kind]),
     })
 
@@ -417,7 +417,7 @@ describe("portable ephemeral workflow runtime", () => {
     expect(error.completedReceipts.map(receipt => receipt.nodeKey)).toEqual([
       "check",
     ])
-    expect(error.runCause).toBeInstanceOf(TransmuteCodeError)
+    expect(error.runCause).toBeInstanceOf(AtetCodeError)
     expect(error.message).toContain("Workflow output resolution failed")
   })
 })

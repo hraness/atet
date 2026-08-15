@@ -121,7 +121,7 @@ async function repositoryFixture(): Promise<Readonly<{
   root: string;
 }>> {
   const root = await realpath(
-    await mkdtemp(join(tmpdir(), "transmute-gateway-application-port-")),
+    await mkdtemp(join(tmpdir(), "atet-gateway-application-port-")),
   );
   const application = operationApplicationContext(root, { now: NOW });
   await mkdir(application.paths.privateRoot, {
@@ -153,7 +153,7 @@ async function bundle(
   const directory = join(
     application.paths.repositoryRoot,
     "artifacts",
-    "transmute",
+    "atet",
     "generated",
     "gateway-test",
     String(sequence),
@@ -622,7 +622,7 @@ describe("Gateway application port", () => {
   test("consumes verified bytes without reopening a swapped parent path", async () => {
     const fixture = await repositoryFixture();
     const outside = await realpath(
-      await mkdtemp(join(tmpdir(), "transmute-gateway-parent-swap-")),
+      await mkdtemp(join(tmpdir(), "atet-gateway-parent-swap-")),
     );
     const mediaDirectory = join(fixture.root, "fixtures");
     const externalDirectory = join(outside, "external");

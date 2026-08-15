@@ -74,17 +74,17 @@ export const HTML_OVERLAY_RENDERER_CONTRACT = Object.freeze({
     "default-src 'none'",
     "base-uri 'none'",
     "connect-src 'none'",
-    "font-src https://transmute-overlay.invalid data:",
+    "font-src https://atet-overlay.invalid data:",
     "form-action 'none'",
     "frame-src 'none'",
-    "img-src https://transmute-overlay.invalid data:",
-    "media-src https://transmute-overlay.invalid data:",
+    "img-src https://atet-overlay.invalid data:",
+    "media-src https://atet-overlay.invalid data:",
     "object-src 'none'",
-    "script-src 'unsafe-inline' https://transmute-overlay.invalid",
+    "script-src 'unsafe-inline' https://atet-overlay.invalid",
     "style-src 'unsafe-inline'",
     "worker-src 'none'",
   ]),
-  documentUrl: "https://transmute-overlay.invalid/transmute-overlay/document",
+  documentUrl: "https://atet-overlay.invalid/atet-overlay/document",
   environment: Object.freeze({
     fixed: Object.freeze({
       LANG: "en_US.UTF-8",
@@ -118,7 +118,7 @@ export const HTML_OVERLAY_RENDERER_CONTRACT = Object.freeze({
     headless: true,
   }),
   routing: Object.freeze({
-    allowedOrigin: "https://transmute-overlay.invalid",
+    allowedOrigin: "https://atet-overlay.invalid",
     declaredResourcesOnly: true,
     remoteNetworkDenied: true,
   }),
@@ -153,7 +153,7 @@ function leafSha256(key: string, value: unknown): string {
 
 function merkleRoot(leaves: readonly Readonly<{ key: string; sha256: string }>[]): string {
   let level = leaves.map(leaf => sha256([
-    "transmute.html-overlay-integrity-node/v1",
+    "atet.html-overlay-integrity-node/v1",
     "leaf",
     leaf.key,
     leaf.sha256,
@@ -164,7 +164,7 @@ function merkleRoot(leaves: readonly Readonly<{ key: string; sha256: string }>[]
       const left = level[index]!;
       const right = level[index + 1] ?? left;
       next.push(sha256([
-        "transmute.html-overlay-integrity-node/v1",
+        "atet.html-overlay-integrity-node/v1",
         "branch",
         left,
         right,

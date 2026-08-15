@@ -1,10 +1,10 @@
-# Transmute desktop and CLI
+# Atet desktop and CLI
 
-Transmute captures synchronized raw inputs into repository-local bundles, combines independent camera and audio takes on one typed project clock, then applies non-destructive edits through the `transmute` CLI. The CLI is the product surface for agents. The macOS window remains only start, pause, resume, stop, and input status.
+Atet captures synchronized raw inputs into repository-local bundles, combines independent camera and audio takes on one typed project clock, then applies non-destructive edits through the `atet` CLI. The CLI is the product surface for agents. The macOS window remains only start, pause, resume, stop, and input status.
 
 ## Recording bundles
 
-The default root is `artifacts/transmute/recordings/`, resolved from the Transmute checkout. `artifacts/` is gitignored and excluded from Vercel uploads. Transmute never falls back to an external data directory.
+The default root is `artifacts/atet/recordings/`, resolved from the Atet checkout. `artifacts/` is gitignored and excluded from Vercel uploads. Atet never falls back to an external data directory.
 
 ```text
 rec_<id>/
@@ -31,7 +31,7 @@ Cursor, click, key activity, focused-input bounds, window geometry, display topo
 
 ## Multi-asset projects
 
-Projects live under the equally gitignored `artifacts/transmute/projects/` root. Generated images, videos, speech, transcripts, local effects, and immutable invocation receipts live under `artifacts/transmute/generated/`. A project owns references to immutable recording tracks and content-addressed imported media, not rewritten raw files.
+Projects live under the equally gitignored `artifacts/atet/projects/` root. Generated images, videos, speech, transcripts, local effects, and immutable invocation receipts live under `artifacts/atet/generated/`. A project owns references to immutable recording tracks and content-addressed imported media, not rewritten raw files.
 
 ```text
 project_<id>/
@@ -63,78 +63,78 @@ Run commands from the repository root:
 
 ```sh
 # Capture and inspect one synchronized recording.
-transmute doctor
-transmute record start
-transmute record start \
+atet doctor
+atet record start
+atet record start \
   --display <display-id> \
   --camera-device <camera-id> \
   --microphone-device <microphone-id>
-transmute record pause
-transmute record resume
-transmute record stop
-transmute recordings list --json
-transmute inspect <recording>
-transmute events <recording> --kind click --around 12.5s --jsonl
-transmute render plan <recording> --display primary --json
-transmute render run <recording> --output renders/final.mp4
+atet record pause
+atet record resume
+atet record stop
+atet recordings list --json
+atet inspect <recording>
+atet events <recording> --kind click --around 12.5s --jsonl
+atet render plan <recording> --display primary --json
+atet render run <recording> --output renders/final.mp4
 
 # Build and align a multi-angle project.
-transmute projects create --from-recording <recording> --name 'Transmute take'
-transmute project add <project> camera-a.mov --role camera
-transmute project add <project> field-recorder.wav --role portable-audio
-transmute align analyze <project> --reference <asset:audio-stream> --target <asset:audio-stream> --apply
-transmute project inspect <project> --json
+atet projects create --from-recording <recording> --name 'Atet take'
+atet project add <project> camera-a.mov --role camera
+atet project add <project> field-recorder.wav --role portable-audio
+atet align analyze <project> --reference <asset:audio-stream> --target <asset:audio-stream> --apply
+atet project inspect <project> --json
 
 # Discover and run every current Vercel AI Gateway media model.
-transmute ai models list --type image --json
-transmute ai models list --type video --json
-transmute ai models show google/veo-3.1-generate-001 --json
-AI_GATEWAY_API_KEY="$AI_GATEWAY_API_KEY" transmute ai models list --type image
-transmute ai image generate --model openai/gpt-image-1.5 --prompt 'minimal chapter card'
-transmute ai image generate --model google/gemini-3.1-flash-image \
+atet ai models list --type image --json
+atet ai models list --type video --json
+atet ai models show google/veo-3.1-generate-001 --json
+AI_GATEWAY_API_KEY="$AI_GATEWAY_API_KEY" atet ai models list --type image
+atet ai image generate --model openai/gpt-image-1.5 --prompt 'minimal chapter card'
+atet ai image generate --model google/gemini-3.1-flash-image \
   --prompt 'revise this composition' --image reference.png --allow-cloud-upload
-transmute ai video generate --model google/veo-3.1-generate-001 \
+atet ai video generate --model google/veo-3.1-generate-001 \
   --prompt-file shot.txt --frame first=opening.png --frame last=closing.png \
   --duration 8 --resolution 1080p --generate-audio true --allow-cloud-upload
-transmute ai video generate --model alibaba/wan-v2.7-r2v \
+atet ai video generate --model alibaba/wan-v2.7-r2v \
   --prompt 'continue the camera move' \
   --reference 'https://cdn.example/source.mp4' \
-  --provider-options artifacts/transmute/private/wan-reference.json --allow-cloud-upload
-transmute ai speech generate --model xai/grok-tts --text-file narration.txt --voice eve
-transmute ai transcribe interview.wav --model openai/whisper-1 \
+  --provider-options artifacts/atet/private/wan-reference.json --allow-cloud-upload
+atet ai speech generate --model xai/grok-tts --text-file narration.txt --voice eve
+atet ai transcribe interview.wav --model openai/whisper-1 \
   --allow-cloud-audio-upload --format all
 
 # Create non-destructive local derivatives.
-transmute media audio interview.wav --denoise --compressor --volume-db -2
-transmute media audio screen.mp4 --delay-ms 160 --reverb room
-transmute media color screen.mp4 --preset cinematic --temperature 0.08
+atet media audio interview.wav --denoise --compressor --volume-db -2
+atet media audio screen.mp4 --delay-ms 160 --reverb room
+atet media color screen.mp4 --preset cinematic --temperature 0.08
 
 # Structure local media evidence.
-transmute analyze inactivity <project> --min-duration 3s --handle cut
-transmute analyze inactivity <project> --min-duration 3s --handle cut --apply
-transmute analyze music <project> --source <asset:audio-stream> --window 20s
-transmute analyze faces <project> --source <asset:video-stream>
-transmute faces list <project> <face-analysis-id> --min-duration 750ms
-transmute analyze scenes <project> --source <asset:video-stream>
-AI_GATEWAY_API_KEY=… transmute doctor
-transmute analyze scenes <project> --source <asset:video-stream> --execute --allow-cloud-upload
-transmute analyze speech <project> --source <asset:audio-stream> --model /path/to/ggml-model.bin
-transmute fillers list <project> <speech-analysis-id> --auto-only
-transmute fillers apply <project> <speech-analysis-id> <candidate-id>
+atet analyze inactivity <project> --min-duration 3s --handle cut
+atet analyze inactivity <project> --min-duration 3s --handle cut --apply
+atet analyze music <project> --source <asset:audio-stream> --window 20s
+atet analyze faces <project> --source <asset:video-stream>
+atet faces list <project> <face-analysis-id> --min-duration 750ms
+atet analyze scenes <project> --source <asset:video-stream>
+AI_GATEWAY_API_KEY=… atet doctor
+atet analyze scenes <project> --source <asset:video-stream> --execute --allow-cloud-upload
+atet analyze speech <project> --source <asset:audio-stream> --model /path/to/ggml-model.bin
+atet fillers list <project> <speech-analysis-id> --auto-only
+atet fillers apply <project> <speech-analysis-id> <candidate-id>
 
 # Project-wide edits and output.
-transmute project edit <project> cut 8s 11.2s
-transmute project edit <project> speed 20s 35s 1.5
-transmute project edit <project> camera push --placement <id> --stream <id> --from 4s --to 6s --center 0.68,0.42 --end-zoom 1.8
-transmute project edit <project> camera reframe --placement <id> --stream <id> --from 10s --to 14s --from-frame 0.5,0.5,1 --to-frame 0.67,0.45,2
-transmute project edit <project> camera path --placement <id> --stream <id> --keyframe 0s,0.5,0.5,1 --keyframe 2s,0.65,0.42,1.4 --keyframe 5s,0.4,0.5,2
-transmute project edit <project> camera follow-faces --placement <id> --analysis <face-analysis-id> --from 20s --to 35s --select largest
-transmute project edit <project> zoom --from 12s --to 16s --target focused-input --source-placement <recording-placement>
-transmute project edit <project> cursor on --click-highlight true --source-placement <recording-placement>
-transmute project edit <project> typed-text on --idle-timeout 900ms --source-placement <recording-placement>
-transmute project edit <project> overlay add --kind gif --source reaction.gif --from 4s --to 9s --loop
-transmute project render plan <project> --json
-transmute project render run <project> --output renders/final.mp4
+atet project edit <project> cut 8s 11.2s
+atet project edit <project> speed 20s 35s 1.5
+atet project edit <project> camera push --placement <id> --stream <id> --from 4s --to 6s --center 0.68,0.42 --end-zoom 1.8
+atet project edit <project> camera reframe --placement <id> --stream <id> --from 10s --to 14s --from-frame 0.5,0.5,1 --to-frame 0.67,0.45,2
+atet project edit <project> camera path --placement <id> --stream <id> --keyframe 0s,0.5,0.5,1 --keyframe 2s,0.65,0.42,1.4 --keyframe 5s,0.4,0.5,2
+atet project edit <project> camera follow-faces --placement <id> --analysis <face-analysis-id> --from 20s --to 35s --select largest
+atet project edit <project> zoom --from 12s --to 16s --target focused-input --source-placement <recording-placement>
+atet project edit <project> cursor on --click-highlight true --source-placement <recording-placement>
+atet project edit <project> typed-text on --idle-timeout 900ms --source-placement <recording-placement>
+atet project edit <project> overlay add --kind gif --source reaction.gif --from 4s --to 9s --loop
+atet project render plan <project> --json
+atet project render run <project> --output renders/final.mp4
 ```
 
 `record start` defaults to every connected display, system audio, the default
@@ -154,21 +154,21 @@ The surface is progressively disclosed:
 
 | Need | Surface |
 | --- | --- |
-| One edit or analysis | Existing `transmute` command |
-| A common complete recipe | `transmute workflows ...` |
-| A project-specific composition | `@hraness/transmute/local/code` semantic builder |
+| One edit or analysis | Existing `atet` command |
+| A common complete recipe | `atet workflows ...` |
+| A project-specific composition | `@hraness/atet/local/code` semantic builder |
 | A reusable operation set | A namespaced TypeScript workflow fragment |
 | A new privileged capability | A reviewed application operation and registry entry |
 
 Discover the installed vocabulary and the six reusable recipes:
 
 ```sh
-transmute operations list --json
-transmute operations show render.project@2 --json
-transmute workflows list --json
-transmute workflows show polished-screen-demo --json
-transmute workflows show creative-iteration --json
-transmute workflows show creative-selection --json
+atet operations list --json
+atet operations show render.project@2 --json
+atet workflows list --json
+atet workflows show polished-screen-demo --json
+atet workflows show creative-iteration --json
+atet workflows show creative-selection --json
 ```
 
 List output stays compact; `operations show <kind>[@<version>] --json`
@@ -187,27 +187,27 @@ Running with an expected custom-code plan hash fails if source, input,
 registry, Bun revision, worker implementation, selected native-helper bytes,
 or a bound subject changed.
 
-The exact predecessor imports `@hraness/transmute/local/code`,
-`@hraness/transmute/local/code/advanced`, `@hraness/transmute/local/code/workflows`, and
-`@hraness/transmute/local/html-overlay` remain read-only aliases to those Transmute
-implementations so persisted Transmute workflows still load. Templates,
-documentation, and newly authored bundles emit only `@hraness/transmute/local/*`.
+The exact predecessor imports `@hraness/atet/local/code`,
+`@hraness/atet/local/code/advanced`, `@hraness/atet/local/code/workflows`, and
+`@hraness/atet/local/html-overlay` remain read-only aliases to those Atet
+implementations so persisted Atet workflows still load. Templates,
+documentation, and newly authored bundles emit only `@hraness/atet/local/*`.
 
 ```sh
 # A built-in workflow: independent analyses join at one checked edit commit,
 # then a face-derived camera path becomes the immutable render revision.
-transmute workflows plan polished-screen-demo \
-  --input artifacts/transmute/private/polished-input.json --json
-transmute workflows run polished-screen-demo \
-  --input artifacts/transmute/private/polished-input.json --jobs 4 --jsonl
+atet workflows plan polished-screen-demo \
+  --input artifacts/atet/private/polished-input.json --json
+atet workflows run polished-screen-demo \
+  --input artifacts/atet/private/polished-input.json --jobs 4 --jsonl
 
 # A custom workflow starts from a non-overwriting typed template.
-transmute code init artifacts/transmute/private/workflows/my-demo.ts
-transmute code check artifacts/transmute/private/workflows/my-demo.ts --json
-transmute code plan artifacts/transmute/private/workflows/my-demo.ts \
-  --input artifacts/transmute/private/my-demo-input.json --json
-transmute code run artifacts/transmute/private/workflows/my-demo.ts \
-  --input artifacts/transmute/private/my-demo-input.json \
+atet code init artifacts/atet/private/workflows/my-demo.ts
+atet code check artifacts/atet/private/workflows/my-demo.ts --json
+atet code plan artifacts/atet/private/workflows/my-demo.ts \
+  --input artifacts/atet/private/my-demo-input.json --json
+atet code run artifacts/atet/private/workflows/my-demo.ts \
+  --input artifacts/atet/private/my-demo-input.json \
   --plan <graph-plan-sha256> --jobs 4 --jsonl
 ```
 
@@ -232,11 +232,11 @@ Workflow construction is declarative: a method returns a typed `Ref<T>`, and emb
 
 ```ts
 import { z } from "zod";
-import { defineWorkflow } from "@hraness/transmute/local/code";
+import { defineWorkflow } from "@hraness/atet/local/code";
 import {
   renderFrozenProject,
   resolveWorkflowRenderOptions,
-} from "@hraness/transmute/local/code/workflows";
+} from "@hraness/atet/local/code/workflows";
 
 const Input = z.strictObject({
   project: z.string(),
@@ -282,7 +282,7 @@ geometry branches remain explicit in the graph. V2 render nodes reserve the
 shared bounded CPU and FFmpeg pools plus one exclusive video-encode slot. Every
 other FFmpeg operation also reserves the complete pools until its recipe binds
 and proves a smaller execution-wide thread budget. On
-macOS and Linux, that admission state is machine-global across Transmute
+macOS and Linux, that admission state is machine-global across Atet
 processes and Git worktrees, so encodes from parallel agents cannot contend
 with one another. Other ready work remains eligible when its declared
 resources fit.
@@ -342,7 +342,7 @@ change leaves every candidate intact and rejects the promotion.
 Candidate preview outputs use a stable full derivation identity. An exact run
 can adopt the original immutable output and verified receipt before any FFmpeg
 preparation; a changed revision, plan, target, encoder recipe, byte policy,
-sync policy, Transmute renderer ABI, or probed toolchain receives a distinct
+sync policy, Atet renderer ABI, or probed toolchain receives a distinct
 path. This specialized
 reuse does not claim that unrelated render operations share a generic cache.
 
@@ -410,7 +410,7 @@ versions:
 ```ts
 import {
   polishedInteractionEffects,
-} from "@hraness/transmute/local/code";
+} from "@hraness/atet/local/code";
 
 const autoZooms = workflow.analysis.projectAutoZooms("auto-zooms", {
   project,
@@ -437,7 +437,7 @@ then binds the stopped manifest and accepted placement synchronization before
 publishing:
 
 ```ts
-import { manualZoom } from "@hraness/transmute/local/code";
+import { manualZoom } from "@hraness/atet/local/code";
 
 const focus = manualZoom({
   placementId: "placement_screen01",
@@ -488,29 +488,29 @@ uploading frames. Its node output contains the complete bounded scene ranges,
 requested sample times, and sample reasons, while the ordinary completion
 summary keeps only the plan digest and counts. Return the needed fields as
 workflow outputs, or inspect the persisted evidence with
-`transmute runs show <run-id> --nodes all --json`. Gateway scene descriptions
-remain an explicit local `transmute analyze scenes ... --execute
+`atet runs show <run-id> --nodes all --json`. Gateway scene descriptions
+remain an explicit local `atet analyze scenes ... --execute
 --allow-cloud-upload` action.
 
 The scheduler runs dependency-ready nodes concurrently while obeying the stricter of `--jobs`, the four-worker hard cap, and host resource pools for FFmpeg, Vision, local I/O, paid calls, output publication, project publication, and capture. Parallel analyses bind an append-only project edit basis, so one sibling may publish while another is paused without authorizing structural or prior-evidence drift. Mutable edits join into one ordered recoverable project transaction. Rendering first freezes the complete project and edit documents into an immutable geometry-bound revision, resolves an exact tool, media, and recording-metadata-bound plan, and publishes video plus receipt through an output-specific lease and durable precommit. Landscape, square, and portrait branches therefore remain independent.
 
-Every run is durable under `artifacts/transmute/private/workflow-runs/<run-id>/`. Inspect it with `runs list` and `runs show`; use `runs resume`, `runs approve`, or `runs cancel` when the bounded summary provides that next action. A normal resume reconstructs unfinished host operations from the persisted graph without evaluating the workflow bundle. Exact canonical analysis orphans and output-only render commits are adopted only through their run-bound recovery evidence. An interrupted arbitrary compute callback becomes `ambiguous-code` and requires an exact node-specific replay acknowledgement. Attached cancellation first aborts that callback's real signal, then force-retires an uncooperative worker after a bounded grace period. A paid request uses an exact request ID and durable dispatch journal; an unknown post-dispatch outcome is never submitted again automatically. Live recording actions reconcile against the same controller used by the desktop app and are never automatically replayed.
+Every run is durable under `artifacts/atet/private/workflow-runs/<run-id>/`. Inspect it with `runs list` and `runs show`; use `runs resume`, `runs approve`, or `runs cancel` when the bounded summary provides that next action. A normal resume reconstructs unfinished host operations from the persisted graph without evaluating the workflow bundle. Exact canonical analysis orphans and output-only render commits are adopted only through their run-bound recovery evidence. An interrupted arbitrary compute callback becomes `ambiguous-code` and requires an exact node-specific replay acknowledgement. Attached cancellation first aborts that callback's real signal, then force-retires an uncooperative worker after a bounded grace period. A paid request uses an exact request ID and durable dispatch journal; an unknown post-dispatch outcome is never submitted again automatically. Live recording actions reconcile against the same controller used by the desktop app and are never automatically replayed.
 
-Custom code mode is trusted code, not a sandbox. Module top-level code and explicitly replayed compute callbacks run as the current user and can use ambient filesystem, process and network authority. Transmute keeps its own credentials and privileged handles out of the worker, but it cannot contain malicious repository code. Review custom source before `code check`, `code plan`, or `code run`.
+Custom code mode is trusted code, not a sandbox. Module top-level code and explicitly replayed compute callbacks run as the current user and can use ambient filesystem, process and network authority. Atet keeps its own credentials and privileged handles out of the worker, but it cannot contain malicious repository code. Review custom source before `code check`, `code plan`, or `code run`.
 
 ### Gateway media
 
-`transmute ai models` reads Vercel AI Gateway's public live catalog rather than a checked model allowlist. It includes image-model endpoints, image-generating language models, video, speech, and transcription. The cache uses conditional requests, a canonical revision, and stale-last-good fallback; `models show` preserves raw capabilities and exposes common settings plus the non-conflicting provider-option vocabulary known to this release. Batch and streaming transcription operations are labeled separately; the batch command rejects streaming-only models before credential access or dispatch. A bounded JSON object supplied with `--provider-options` remains the forward-compatible escape hatch for new service-owned fields. Gateway `models` fallback configuration is deliberately rejected because every paid model must be independently catalog-validated and durably accounted. Provider-specific sample-count fields are also rejected; use `--count` with `--max-per-call` at least as large so one Transmute job maps to one AI SDK call.
+`atet ai models` reads Vercel AI Gateway's public live catalog rather than a checked model allowlist. It includes image-model endpoints, image-generating language models, video, speech, and transcription. The cache uses conditional requests, a canonical revision, and stale-last-good fallback; `models show` preserves raw capabilities and exposes common settings plus the non-conflicting provider-option vocabulary known to this release. Batch and streaming transcription operations are labeled separately; the batch command rejects streaming-only models before credential access or dispatch. A bounded JSON object supplied with `--provider-options` remains the forward-compatible escape hatch for new service-owned fields. Gateway `models` fallback configuration is deliberately rejected because every paid model must be independently catalog-validated and durably accounted. Provider-specific sample-count fields are also rejected; use `--count` with `--max-per-call` at least as large so one Atet job maps to one AI SDK call.
 
-Transmute reads Vercel AI Gateway credentials from `AI_GATEWAY_API_KEY`, falling back to the `VERCEL_OIDC_TOKEN` injected by `vercel env run`. It never persists, prints, forwards to subprocesses, or accepts either value through argv.
+Atet reads Vercel AI Gateway credentials from `AI_GATEWAY_API_KEY`, falling back to the `VERCEL_OIDC_TOKEN` injected by `vercel env run`. It never persists, prints, forwards to subprocesses, or accepts either value through argv.
 
-Every paid invocation validates its live model kind, prompt, options, and all local files before dispatch. Reference images/videos require `--allow-cloud-upload`; transcription audio requires the separate `--allow-cloud-audio-upload`. Consent is per invocation. Transmute resolves only each explicitly named physical file, bounds its bytes and media type, and records its SHA-256 without enumerating adjacent bundle files. The same image/video flags accept credential-free public HTTPS sources when the live catalog permits `url` or does not declare a source restriction; a catalog that explicitly lists only other source forms fails locally. Use the URL directly when its path has a recognized extension, or `<media-type>=<https-url>` when it does not. URLs with credentials, fragments, local hostnames, or private literal addresses fail locally. Remote bytes and intrinsic geometry remain provider-validated; durable state stores only a URL digest and declared media type, never the URL itself. Direct URL arguments remain visible to shell and process history, so use only references safe for that exposure.
+Every paid invocation validates its live model kind, prompt, options, and all local files before dispatch. Reference images/videos require `--allow-cloud-upload`; transcription audio requires the separate `--allow-cloud-audio-upload`. Consent is per invocation. Atet resolves only each explicitly named physical file, bounds its bytes and media type, and records its SHA-256 without enumerating adjacent bundle files. The same image/video flags accept credential-free public HTTPS sources when the live catalog permits `url` or does not declare a source restriction; a catalog that explicitly lists only other source forms fails locally. Use the URL directly when its path has a recognized extension, or `<media-type>=<https-url>` when it does not. URLs with credentials, fragments, local hostnames, or private literal addresses fail locally. Remote bytes and intrinsic geometry remain provider-validated; durable state stores only a URL digest and declared media type, never the URL itself. Direct URL arguments remain visible to shell and process history, so use only references safe for that exposure.
 
-Image generation exposes prompt/edit images, mask, count, batch size, dimensions, aspect ratio, and seed. Video exposes every AI SDK media input and common parameter: primary image, first/last frames, image/audio/video references, count, batch size, aspect ratio, resolution (including provider values such as `1080p`), duration, FPS, seed, and generated audio. Illegal precedence combinations fail locally: frames cannot accompany generic references, and a primary image cannot accompany a first frame. `--provider-options` accepts a bounded nested vocabulary spanning Google Vertex/Veo, Kling, Alibaba Wan, ByteDance Seedance, xAI Grok, Gateway routing, image-provider, speech, and transcription parameters; fields that can change model selection or duplicate a paid sample count are rejected in favor of the validated first-class flags. Those options can include BYOK credentials, webhook secrets, or similarly sensitive values: keep the source JSON gitignored and mode `0600`. Transmute refuses a group- or world-accessible options file, forwards the parsed object for that invocation, and persists only its SHA-256 and namespace list—never the raw option values.
+Image generation exposes prompt/edit images, mask, count, batch size, dimensions, aspect ratio, and seed. Video exposes every AI SDK media input and common parameter: primary image, first/last frames, image/audio/video references, count, batch size, aspect ratio, resolution (including provider values such as `1080p`), duration, FPS, seed, and generated audio. Illegal precedence combinations fail locally: frames cannot accompany generic references, and a primary image cannot accompany a first frame. `--provider-options` accepts a bounded nested vocabulary spanning Google Vertex/Veo, Kling, Alibaba Wan, ByteDance Seedance, xAI Grok, Gateway routing, image-provider, speech, and transcription parameters; fields that can change model selection or duplicate a paid sample count are rejected in favor of the validated first-class flags. Those options can include BYOK credentials, webhook secrets, or similarly sensitive values: keep the source JSON gitignored and mode `0600`. Atet refuses a group- or world-accessible options file, forwards the parsed object for that invocation, and persists only its SHA-256 and namespace list—never the raw option values.
 
-Video is one long-lived Gateway SSE request; Gateway does not expose a resumable job/status API. Transmute writes a local pre-dispatch receipt, sets the AI SDK client's `maxRetries` to zero, and never resubmits an interrupted paid call. AI Gateway may still route or fail over that one request across multiple providers, so a single command can produce multiple provider attempts, and provider timeouts may still incur charges; receipts retain bounded generation/provider-attempt metadata when the SDK returns it, including on failures. An interrupted dispatched request remains visibly ambiguous. Retrying is always a new explicit command and may charge again. Successful media downloads reject private/local network targets, validate every redirect, share a per-request aggregate byte budget, and are preserved with privacy-safe warning hashes, catalog revision, normalized settings, input/output hashes, and explicit complete/partial/overproduced sample fulfillment. Transmute fully decodes self-describing generated media locally before emitting an exact project-add command. Failed decode keeps the paid bytes and a hash-only quarantine receipt but returns an error and emits no import command. Headerless `audio/pcm`, `audio/l16`, `audio/alaw`, `audio/basic`, and `audio/mulaw` speech remains saved and hashed but deliberately receives no project-add suggestion; convert it with explicit sample metadata first.
+Video is one long-lived Gateway SSE request; Gateway does not expose a resumable job/status API. Atet writes a local pre-dispatch receipt, sets the AI SDK client's `maxRetries` to zero, and never resubmits an interrupted paid call. AI Gateway may still route or fail over that one request across multiple providers, so a single command can produce multiple provider attempts, and provider timeouts may still incur charges; receipts retain bounded generation/provider-attempt metadata when the SDK returns it, including on failures. An interrupted dispatched request remains visibly ambiguous. Retrying is always a new explicit command and may charge again. Successful media downloads reject private/local network targets, validate every redirect, share a per-request aggregate byte budget, and are preserved with privacy-safe warning hashes, catalog revision, normalized settings, input/output hashes, and explicit complete/partial/overproduced sample fulfillment. Atet fully decodes self-describing generated media locally before emitting an exact project-add command. Failed decode keeps the paid bytes and a hash-only quarantine receipt but returns an error and emits no import command. Headerless `audio/pcm`, `audio/l16`, `audio/alaw`, `audio/basic`, and `audio/mulaw` speech remains saved and hashed but deliberately receives no project-add suggestion; convert it with explicit sample metadata first.
 
-`transmute media audio` and `transmute media color` never contact the network. Audio uses one documented deterministic order—denoise, compression, volume, delay, then deterministic multi-tap reverb—while omitting unrequested stages. Color combines seven common presets with brightness, contrast, saturation, gamma, temperature, tint, and hue. Both use bounded typed controls, checked FFmpeg argv, a verified descriptor-pinned input, fresh no-replace output publication, SHA-256 receipts, and leave the source unchanged. A path swap or in-place input mutation before publication fails closed without exposing the derived output. Output publication and receipt publication are sequential rather than one atomic pair: a process crash between them can leave an output without a receipt, and the next run reports a conflict so an agent can inspect and remove that orphan explicitly.
+`atet media audio` and `atet media color` never contact the network. Audio uses one documented deterministic order—denoise, compression, volume, delay, then deterministic multi-tap reverb—while omitting unrequested stages. Color combines seven common presets with brightness, contrast, saturation, gamma, temperature, tint, and hue. Both use bounded typed controls, checked FFmpeg argv, a verified descriptor-pinned input, fresh no-replace output publication, SHA-256 receipts, and leave the source unchanged. A path swap or in-place input mutation before publication fails closed without exposing the derived output. Output publication and receipt publication are sequential rather than one atomic pair: a process crash between them can leave an output without a receipt, and the next run reports a conflict so an agent can inspect and remove that orphan explicitly.
 
 Resolved render plans are stored by their full composition hash, including the selected display. Every successful recording or project render writes a strict receipt beside the video that points to the immutable plan and records the output path, byte count, and SHA-256. Failed encodes never relabel an older output, and a receipt-publication failure removes any stale receipt.
 
@@ -526,18 +526,18 @@ The CLI therefore returns outputs that can be passed directly to media ingest
 or overlay operations rather than copied through ambient temporary paths:
 
 ```sh
-transmute diagram init concepts/system-map.diagram.json
-transmute diagram check concepts/system-map.diagram.json --strict
-transmute diagram render concepts/system-map.diagram.json --scale 2
-transmute image vectorize artwork/mark.png \
+atet diagram init concepts/system-map.diagram.json
+atet diagram check concepts/system-map.diagram.json --strict
+atet diagram render concepts/system-map.diagram.json --scale 2
+atet image vectorize artwork/mark.png \
   --output artwork/mark.svg --duotone '#111827,#f9fafb' --alpha-cutoff 8 --json
-transmute html scaffold paper-shaders --output overlays/title.html
+atet html scaffold paper-shaders --output overlays/title.html
 ```
 
 Diagram rendering publishes light and dark SVG/PNG variants plus editable
 `.tldr` source. Vectorization publishes an inert bounded SVG and a quality
 receipt. Both bind the exact input bytes and publish by content hash under
-`artifacts/transmute/generated/`; repeated equivalent work reuses the same
+`artifacts/atet/generated/`; repeated equivalent work reuses the same
 artifact. PNG outputs can feed `media.ingest`, while SVG outputs already match
 the `media.overlay` artifact contract. This is the common interchange layer
 for stills, diagrams, animated loops, generated imagery, and final video.
@@ -549,7 +549,7 @@ declared local image into a transparent alpha-video layer. Start from the
 portable authoring package instead of hand-writing CDN tags:
 
 ```ts
-import { createHtmlOverlayScaffoldInput } from "@hraness/transmute/local/html-overlay";
+import { createHtmlOverlayScaffoldInput } from "@hraness/atet/local/html-overlay";
 
 const scaffold = createHtmlOverlayScaffoldInput("paper-shaders");
 const title = workflow.media.htmlOverlay("chapter-title", {
@@ -580,7 +580,7 @@ The Three.js starter defines the authoring contract.
 It has explicit sRGB output and ACES tone mapping, no shadows or postprocessing,
 automatic camera framing, reusable tracked GPU resources, shader precompilation,
 context-loss failure, and cleanup. Its default ceiling is 64 draw calls and
-200,000 triangles per frame. Motion comes only from the absolute Transmute frame
+200,000 triangles per frame. Motion comes only from the absolute Atet frame
 clock. `orbitTurns`, `zoom`, and `explode` are bounded parameters. Use a 1x
 `deviceScaleFactor` for full-length previews and raise it only for a selected
 final render.
@@ -592,7 +592,7 @@ before execution. The final workflow binds the exact reference artifact even
 when the image is not visible in the scene:
 
 ```ts
-import { createThreeReferenceScaffoldInput } from "@hraness/transmute/local/html-overlay";
+import { createThreeReferenceScaffoldInput } from "@hraness/atet/local/html-overlay";
 
 const generated = workflow.gateway.image("reference", imageOptions);
 const reference = generated.select("outputs").at(0);
@@ -613,7 +613,7 @@ const scene = workflow.media.htmlOverlay("reviewed-three-scene", {
 
 The reference is a normal generated output with exact bytes, media type, path,
 and SHA-256. HTML resource binding verifies those facts and rejects a declared
-media type that disagrees with the generated artifact. Transmute never accepts
+media type that disagrees with the generated artifact. Atet never accepts
 model-produced JavaScript as an executable operation input. Code Mode evaluates
 only the local workflow and scene source that the agent or user reviewed.
 
@@ -622,12 +622,12 @@ settle it before frame zero:
 
 ```js
 const texture = new THREE.TextureLoader()
-  .loadAsync(TransmuteOverlay.asset("reference-image"))
+  .loadAsync(AtetOverlay.asset("reference-image"))
   .then((loaded) => {
     loaded.colorSpace = THREE.SRGBColorSpace;
     return loaded;
   });
-TransmuteOverlay.ready(texture);
+AtetOverlay.ready(texture);
 ```
 
 Reference-led image treatments remain generated image derivatives in the same
@@ -636,7 +636,7 @@ shape authority and varies only the named brand, background color, and metal
 color:
 
 ```ts
-import { createMetallicLogoImageRequest } from "@hraness/transmute/local/code";
+import { createMetallicLogoImageRequest } from "@hraness/atet/local/code";
 
 const metallic = workflow.gateway.image("metallic-logo",
   createMetallicLogoImageRequest({
@@ -654,8 +654,8 @@ capability. For CLI use, save the output of `createMetallicLogoPrompt(...)` as
 reference-led request:
 
 ```sh
-transmute ai models show <reference-capable-model-id>
-transmute ai image generate \
+atet ai models show <reference-capable-model-id>
+atet ai image generate \
   --model <reference-capable-model-id> \
   --prompt-file metallic-logo-prompt.txt \
   --image reference-logo.png \
@@ -667,10 +667,10 @@ transmute ai image generate \
 Treat the output as a candidate until its silhouette, negative space,
 proportions, and any lettering match the reference.
 
-Author documents use the frozen `TransmuteOverlay` API:
+Author documents use the frozen `AtetOverlay` API:
 
 - `onFrame(({ frame, timeMs, deltaMs, progress, width, height }) => …)` updates
-  the document from Transmute's absolute frame clock.
+  the document from Atet's absolute frame clock.
 - `ready(promise)` holds frame zero for bounded asset or setup work, and
   `trackAnimation(controls)` lets the host seek Motion or Web Animations.
 - `asset(name)` returns the private URL of a declared resource;
@@ -693,13 +693,13 @@ launched native executable inside a supported Google Chrome app signed by
 Google's `EQHXZ8M8AV` team; PATH shims, shell wrappers, other Chromium
 distributions, and malformed app bundles are rejected.
 
-Transmute binds every sorted bundle path, entry kind, mode, file length and
+Atet binds every sorted bundle path, entry kind, mode, file length and
 hash, or internal symlink target. Abort-aware bounded reads copy the complete
 signed app bundle into a fresh mode-0700 snapshot while source-before,
 source-after, snapshot, and code-signature provenance checks bracket the copy.
 The browser snapshot is never placed beneath the caller-selected module cache
 or ambient `TMPDIR`. On macOS it is a unique direct child of validated physical,
-root-owned, sticky `/private/tmp`; Transmute binds that anchor's exact stable
+root-owned, sticky `/private/tmp`; Atet binds that anchor's exact stable
 metadata and watches the unique child basename. The verified app tree is then
 recursively user-immutable. After private mode-0700 `HOME` and `TMPDIR`
 siblings are created, Chrome launches only from that snapshot with a minimal
@@ -728,7 +728,7 @@ frame in that sequence; callers should submit a complete loop or overlay range
 rather than issuing one render request per frame.
 The injected Playwright launcher remains a trusted host adapter. The legacy
 `TransmuteOverlay` name remains a read-only alias solely so previously authored
-documents can still render; new documents use `TransmuteOverlay`.
+documents can still render; new documents use `AtetOverlay`.
 
 The prepared HTML result is the same overlay handle returned by image, SVG,
 GIF, video, and emoji preparation, so it joins `edits.addOverlays` and one
@@ -744,24 +744,24 @@ Project camera moves provide Ken Burns-style digital push-ins, pull-outs, and pa
 
 ```sh
 # Move from a centered 1x frame to the requested center and zoom.
-transmute project edit <project> camera push \
+atet project edit <project> camera push \
   --placement <id> --stream <id> --from 4s --to 6s \
   --center 0.68,0.42 --start-zoom 1 --end-zoom 1.8 --easing ease-in-out
 
 # Move between two explicit center-x,center-y,zoom poses.
-transmute project edit <project> camera reframe \
+atet project edit <project> camera reframe \
   --placement <id> --stream <id> --from 10s --to 14s \
   --from-frame 0.5,0.5,1 --to-frame 0.67,0.45,2 --easing ease-in-out
 
 # Author an arbitrary path; the first and last keyframes define its range.
-transmute project edit <project> camera path \
+atet project edit <project> camera path \
   --placement <id> --stream <id> \
   --keyframe 20s,0.5,0.5,1 \
   --keyframe 22s,0.68,0.4,1.5 \
   --keyframe 25s,0.42,0.52,2
 
-transmute project edit <project> camera show
-transmute project edit <project> camera remove <camera-move-id>
+atet project edit <project> camera show
+atet project edit <project> camera remove <camera-move-id>
 ```
 
 Zoom ranges from 1x through 10x, and each center must keep the viewport inside the prepared layer. Camera moves interpolate zoom in log space for symmetric push-ins and pull-outs. They are bound to the selected placement synchronization and prepared-layer geometry; changing either makes the move stale instead of silently retargeting it.
@@ -769,28 +769,28 @@ Zoom ranges from 1x through 10x, and each center must keep the viewport inside t
 On macOS 15 or newer, the offline Apple Vision analyzer can detect and track multiple faces in one immutable project video stream:
 
 ```sh
-transmute analyze faces <project> --source <asset:video-stream> \
+atet analyze faces <project> --source <asset:video-stream> \
   --backend vision --sample-fps 8 --min-confidence 0.6 \
   --max-track-gap 500ms --max-faces 32
 
-transmute faces list <project> <face-analysis-id> \
+atet faces list <project> <face-analysis-id> \
   --at 12s --min-duration 750ms --min-confidence 0.7 --limit 20
 ```
 
-`faces list` uses asset time. Face analysis is local-only, and normalized bounding boxes are the only stored visual evidence. Track IDs mean geometry continuity within that one analysis; Transmute performs no face recognition or biometric identification and stores no names, embeddings, crops, or thumbnails.
+`faces list` uses asset time. Face analysis is local-only, and normalized bounding boxes are the only stored visual evidence. Track IDs mean geometry continuity within that one analysis; Atet performs no face recognition or biometric identification and stores no names, embeddings, crops, or thumbnails.
 
 Apply that evidence as an ordinary, deterministic camera move by choosing the largest currently visible face, every active face, or one or more explicit tracks:
 
 ```sh
-transmute project edit <project> camera follow-faces \
+atet project edit <project> camera follow-faces \
   --placement <id> --analysis <face-analysis-id> --from 20s --to 35s \
   --select largest
 
-transmute project edit <project> camera follow-faces \
+atet project edit <project> camera follow-faces \
   --placement <id> --analysis <face-analysis-id> --from 20s --to 35s \
   --select all --framing group
 
-transmute project edit <project> camera follow-faces \
+atet project edit <project> camera follow-faces \
   --placement <id> --analysis <face-analysis-id> --from 20s --to 35s \
   --track <face-track-id> --track <another-face-track-id> \
   --require-all-selected --gap-policy hold
@@ -842,10 +842,10 @@ downloads and verifies every exact Motion, Paper Shaders, and Three.js lock.
 `test:html-overlay:operation:macos` runs the complete Chrome → PNG frames →
 FFmpeg qtrle/argb → project-ingest operation. The combined
 `verify:html-overlay:macos` requires Google Chrome, FFmpeg, and FFprobe at the
-paths reported by `transmute doctor`.
+paths reported by `atet doctor`.
 
 `build:cli` emits the current-host Bun bundle used by the portable workspace
-build. `build:cli:macos` emits `dist/transmute`, a copied-binary-tested Apple Silicon macOS
+build. `build:cli:macos` emits `dist/atet`, a copied-binary-tested Apple Silicon macOS
 CLI. It bundles the headless diagram renderer, the isolated VTracer worker, the
 exact Sharp native addon, and libvips; the bootstrap expands native media assets
 into a fresh private temporary runtime and removes them when the command exits.
@@ -863,7 +863,7 @@ does not build or probe the helper, inspect permissions, or create artifact
 directories:
 
 ```sh
-TRANSMUTE_CAPTURE_HARDWARE_CONFIRM=record-local-displays-and-selected-inputs \
+ATET_CAPTURE_HARDWARE_CONFIRM=record-local-displays-and-selected-inputs \
   bun run test:capture:hardware:macos
 ```
 
@@ -872,15 +872,15 @@ the two immutable segments. It leaves system audio, camera, microphone, and
 typed text disabled. Enable selected inputs explicitly:
 
 ```sh
-TRANSMUTE_CAPTURE_HARDWARE_CONFIRM=record-local-displays-and-selected-inputs \
-TRANSMUTE_CAPTURE_HARDWARE_SYSTEM_AUDIO=true \
-TRANSMUTE_CAPTURE_HARDWARE_CAMERA=true \
-TRANSMUTE_CAPTURE_HARDWARE_MICROPHONE=true \
-TRANSMUTE_CAPTURE_HARDWARE_MIN_DISPLAYS=2 \
+ATET_CAPTURE_HARDWARE_CONFIRM=record-local-displays-and-selected-inputs \
+ATET_CAPTURE_HARDWARE_SYSTEM_AUDIO=true \
+ATET_CAPTURE_HARDWARE_CAMERA=true \
+ATET_CAPTURE_HARDWARE_MICROPHONE=true \
+ATET_CAPTURE_HARDWARE_MIN_DISPLAYS=2 \
   bun run test:capture:hardware:macos
 ```
 
-Add `TRANSMUTE_CAPTURE_HARDWARE_INTERACTIONS=true` for the owned interaction
+Add `ATET_CAPTURE_HARDWARE_INTERACTIONS=true` for the owned interaction
 fixture. The fixture activates its nonce-titled window, performs one fixed
 public → secure → public exercise against its own fields, and remains open with
 neutral focus until capture stops. It can post only the built-in `a`, `s`, and
@@ -895,7 +895,7 @@ transitions, and one native `focused` window transition. With the default
 typed-text opt-out, the stopped bundle must contain no `typing.input` event and
 no key cadence from the secure phase.
 
-Set `TRANSMUTE_CAPTURE_HARDWARE_TYPED_TEXT=true` together with the interaction
+Set `ATET_CAPTURE_HARDWARE_TYPED_TEXT=true` together with the interaction
 profile to verify explicit typed-text capture. That profile accepts exactly the
 public `a` and `b` canaries in metadata; a native focus-identity allowlist binds
 text persistence to the fixture's nonce-derived field ID, PID, window ID, and
@@ -909,7 +909,7 @@ Recording, Input Monitoring, Accessibility, and window metadata must already be
 authorized; each selected optional input must also be authorized and present.
 An explicitly requested run fails before `start` when a prerequisite is
 missing, so it cannot open a surprise permission prompt. Grant permissions by
-running Transmute interactively first. Strict capture also creates and disables
+running Atet interactively first. Strict capture also creates and disables
 the listen-only input event tap before starting any media recorder, then waits
 for the tap's run-loop thread to confirm that it is enabled. Metadata writes
 display, focus, window, and cursor boundary snapshots only after that handshake
@@ -924,7 +924,7 @@ positioned Core Graphics record, not the first enumerated window owned by that
 process.
 
 The smoke writes to a unique directory below
-`artifacts/transmute/recordings/.hardware-smoke/`, verifies that Git ignores the
+`artifacts/atet/recordings/.hardware-smoke/`, verifies that Git ignores the
 directory, drives the real start/pause/resume/stop controller, probes every
 finalized media stream with FFprobe, and validates verified `capture-sync-v1`
 sample-clock measurements in the manifest. Controller-lifecycle and
@@ -943,10 +943,10 @@ observed secure-focus interval are checked directly against the parsed input
 events.
 
 Failed evidence is retained by default and its absolute path is printed. Set
-`TRANSMUTE_CAPTURE_HARDWARE_KEEP_ARTIFACTS=never` to remove every run or `always`
+`ATET_CAPTURE_HARDWARE_KEEP_ARTIFACTS=never` to remove every run or `always`
 to keep successful runs too. Optional-input values must be exactly `true` or
 `false`; the minimum-display value is bounded from 1 through 16.
 
 ## Direct
 
-`bun run direct:transmute` opens the deterministic recorder and project-evidence lab without native capture, FFmpeg, whisper.cpp, Python, or cloud calls. It exposes compact fixtures for multi-angle placement, alignment, music, scene boundaries/descriptions, speech fillers, synchronized edits, and all overlay kinds. Permission, analyzer, and project worlds are fixture evidence, not claims about live native execution. `bun run verify:transmute:direct` drives every declared browser scenario and writes agent-readable evidence.
+`bun run direct:atet` opens the deterministic recorder and project-evidence lab without native capture, FFmpeg, whisper.cpp, Python, or cloud calls. It exposes compact fixtures for multi-angle placement, alignment, music, scene boundaries/descriptions, speech fillers, synchronized edits, and all overlay kinds. Permission, analyzer, and project worlds are fixture evidence, not claims about live native execution. `bun run verify:atet:direct` drives every declared browser scenario and writes agent-readable evidence.

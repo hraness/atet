@@ -18,8 +18,8 @@ The generation prompt was:
 
 > Create a realistic, high-resolution horizontal 16:9 group portrait
 > containing exactly three fictional adults, all clearly visible from the
-> shoulders up and looking toward the camera, against a plain neutral transmute
-> backdrop. Use natural photorealistic photography, soft even frontal transmute
+> shoulders up and looking toward the camera, against a plain neutral atet
+> backdrop. Use natural photorealistic photography, soft even frontal atet
 > lighting, high facial detail, neutral expressions, separated faces, and
 > generous framing. Use diverse appearances. Include no occlusion, sunglasses,
 > hats, hands, objects, logos, text, watermark, duplicated features, cropped

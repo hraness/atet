@@ -104,19 +104,19 @@ function initializeNativeLocking(): NativeLocking {
       }
     }
     throw new Error(
-      "Transmute could not load host flock support"
+      "Atet could not load host flock support"
       + ` (${failures.join("; ")}).`,
     )
   }
   throw new Error(
-    `Transmute host-resource coordination is unsupported on ${process.platform}.`,
+    `Atet host-resource coordination is unsupported on ${process.platform}.`,
   )
 }
 
 function currentErrno(locking: NativeLocking): number {
   const pointer = locking.errnoLocation()
   if (pointer === null) {
-    throw new Error("Transmute could not read the host flock error.")
+    throw new Error("Atet could not read the host flock error.")
   }
   return locking.readInt32(pointer)
 }
@@ -125,15 +125,17 @@ function isBusyErrno(errno: number): boolean {
   return process.platform === "darwin" ? errno === 35 : errno === 11
 }
 
-export const transmuteHostResourcePlatforms = Object.freeze([
+export const atetHostResourcePlatforms = Object.freeze([
   "darwin",
   "linux",
 ] as const)
+/** @deprecated Use {@link atetHostResourcePlatforms}. */
+export const transmuteHostResourcePlatforms = atetHostResourcePlatforms
 
 export function isHostResourcePlatformSupported(
   platform: NodeJS.Platform,
-): platform is (typeof transmuteHostResourcePlatforms)[number] {
-  return transmuteHostResourcePlatforms.some((candidate) => candidate === platform)
+): platform is (typeof atetHostResourcePlatforms)[number] {
+  return atetHostResourcePlatforms.some((candidate) => candidate === platform)
 }
 
 export function tryLockHostResourceDescriptor(descriptor: number): boolean {
@@ -145,7 +147,7 @@ export function tryLockHostResourceDescriptor(descriptor: number): boolean {
     const errno = currentErrno(locking)
     if (errno === interruptedErrno) continue
     if (isBusyErrno(errno)) return false
-    throw new Error(`Transmute host-resource flock failed with errno ${errno}.`)
+    throw new Error(`Atet host-resource flock failed with errno ${errno}.`)
   }
 }
 
@@ -155,6 +157,6 @@ export function unlockHostResourceDescriptor(descriptor: number): void {
     if (locking.flock(descriptor, lockUnlock) === 0) return
     const errno = currentErrno(locking)
     if (errno === interruptedErrno) continue
-    throw new Error(`Transmute host-resource unlock failed with errno ${errno}.`)
+    throw new Error(`Atet host-resource unlock failed with errno ${errno}.`)
   }
 }

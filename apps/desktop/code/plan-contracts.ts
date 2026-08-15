@@ -10,11 +10,21 @@ import {
   OperationDiscoverySchema as PortableOperationDiscoverySchema,
   RequirementEnvelopeSchema,
   Sha256Schema,
-} from "@hraness/transmute/code/advanced";
+} from "@hraness/atet/code/advanced";
 
 import { OPERATION_KINDS } from "../application/operation";
 
-export const OperationKindSchema = z.enum(OPERATION_KINDS);
+const LEGACY_PORTABLE_OPERATION_KINDS = [
+  "transmute.diagram.check",
+  "transmute.diagram.render",
+  "transmute.image.generate",
+  "transmute.image.vectorize",
+] as const;
+
+export const OperationKindSchema = z.union([
+  z.enum(OPERATION_KINDS),
+  z.enum(LEGACY_PORTABLE_OPERATION_KINDS),
+]) as z.ZodType<typeof OPERATION_KINDS[number]>;
 
 /**
  * The portable graph accepts namespaced operation identities. A persisted
@@ -27,11 +37,16 @@ export const OperationDiscoverySchema = PortableOperationDiscoverySchema.extend(
 
 export type GraphOperationDiscovery = z.infer<typeof OperationDiscoverySchema>;
 
-export const GRAPH_PLAN_VERSION = "transmute-graph-plan-v2" as const;
-export const GRAPH_COMPILER_ABI = "transmute-workflow-compiler-v2" as const;
-export const GRAPH_SCHEDULER_ABI = "transmute-workflow-scheduler-v2" as const;
-export const CODE_WORKER_ABI = "transmute-code-worker-abi-v4" as const;
-export const STATIC_BINDINGS_VERSION = "transmute-static-bindings-v1" as const;
+export const GRAPH_PLAN_VERSION = "atet-graph-plan-v2" as const;
+export const GRAPH_COMPILER_ABI = "atet-workflow-compiler-v2" as const;
+export const GRAPH_SCHEDULER_ABI = "atet-workflow-scheduler-v2" as const;
+export const CODE_WORKER_ABI = "atet-code-worker-abi-v4" as const;
+export const STATIC_BINDINGS_VERSION = "atet-static-bindings-v1" as const;
+const LEGACY_GRAPH_PLAN_VERSION = "transmute-graph-plan-v2" as const;
+const LEGACY_GRAPH_COMPILER_ABI = "transmute-workflow-compiler-v2" as const;
+const LEGACY_GRAPH_SCHEDULER_ABI = "transmute-workflow-scheduler-v2" as const;
+const LEGACY_CODE_WORKER_ABI = "transmute-code-worker-abi-v4" as const;
+const LEGACY_STATIC_BINDINGS_VERSION = "transmute-static-bindings-v1" as const;
 
 export const OPERATION_FAMILIES = [
   "analysis",
@@ -44,7 +59,7 @@ export const OPERATION_FAMILIES = [
   "project",
   "recording",
   "render",
-  "transmute",
+  "atet",
 ] as const;
 
 export type OperationFamily = typeof OPERATION_FAMILIES[number];
@@ -76,11 +91,11 @@ export const WorkflowRuntimeIdentitySchema = z.strictObject({
   bundlerName: z.string().min(1).max(80),
   bundlerRevision: z.string().min(1).max(160),
   bundlerVersion: z.string().min(1).max(80),
-  compilerAbi: z.literal(GRAPH_COMPILER_ABI),
-  codeWorkerAbi: z.literal(CODE_WORKER_ABI),
+  compilerAbi: z.union([z.literal(GRAPH_COMPILER_ABI), z.literal(LEGACY_GRAPH_COMPILER_ABI)]),
+  codeWorkerAbi: z.union([z.literal(CODE_WORKER_ABI), z.literal(LEGACY_CODE_WORKER_ABI)]),
   externals: ExternalsPolicyIdentitySchema,
   graphAbi: z.literal(GRAPH_ABI),
-  schedulerAbi: z.literal(GRAPH_SCHEDULER_ABI),
+  schedulerAbi: z.union([z.literal(GRAPH_SCHEDULER_ABI), z.literal(LEGACY_GRAPH_SCHEDULER_ABI)]),
 });
 
 export type WorkflowRuntimeIdentity = z.infer<typeof WorkflowRuntimeIdentitySchema>;
@@ -117,7 +132,7 @@ export type CandidateDescriptor = z.infer<typeof CandidateDescriptorSchema>;
 export const StaticBindingsSchema = z.strictObject({
   candidates: z.array(CandidateDescriptorSchema).max(1_024),
   initialSubjects: z.array(InitialSubjectBindingSchema).max(16),
-  version: z.literal(STATIC_BINDINGS_VERSION),
+  version: z.union([z.literal(STATIC_BINDINGS_VERSION), z.literal(LEGACY_STATIC_BINDINGS_VERSION)]),
 });
 
 export type StaticBindings = z.infer<typeof StaticBindingsSchema>;
@@ -136,7 +151,7 @@ export const UnsignedGraphPlanV1Schema = z.strictObject({
   staticBindings: StaticBindingsSchema,
   topologicalWaves: z.array(z.array(NodeKeySchema).min(1))
     .max(MAX_SERIALIZED_GRAPH_NODES),
-  version: z.literal(GRAPH_PLAN_VERSION),
+  version: z.union([z.literal(GRAPH_PLAN_VERSION), z.literal(LEGACY_GRAPH_PLAN_VERSION)]),
   workflowInput: JsonValueSchema,
 });
 

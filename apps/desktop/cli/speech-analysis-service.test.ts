@@ -38,7 +38,7 @@ afterEach(async () => {
 });
 
 async function temporaryDirectory(): Promise<string> {
-  const path = await mkdtemp(join(tmpdir(), "transmute-speech-analysis-"));
+  const path = await mkdtemp(join(tmpdir(), "atet-speech-analysis-"));
   temporaryDirectories.push(path);
   return path;
 }
@@ -343,7 +343,7 @@ describe("local project speech analysis", () => {
     expect(runner.calls[0]?.join(" ")).toContain("[0:1]atrim");
     expect(runner.calls[1]?.[0]).toBe("/tools/whisper-cli");
     expect(result.musicAnalysisId).toBe("analysis_musicnew001");
-    expect(result.analysis.kind).toBe("transmute.speech-analysis");
+    expect(result.analysis.kind).toBe("atet.speech-analysis");
     expect(result.analysis.result.status).toBe("transcribed");
     if (result.analysis.result.status !== "transcribed") throw new Error("expected transcript");
     expect(result.analysis.result.fillers).toHaveLength(1);

@@ -50,6 +50,7 @@ export const MediaIngestReceiptSchema = z.strictObject({
   ffprobeVersion: z.string().min(1).max(256),
   input: MediaArtifactReferenceSchema,
   kind: z.union([
+    z.literal("atet.local-media-ingest-receipt"),
     z.literal("transmute.local-media-ingest-receipt"),
     z.literal("studio.local-media-ingest-receipt"),
   ]),
@@ -226,7 +227,7 @@ export function createMediaIngestOperationDefinition(
               "ffprobe",
             ),
             input: boundInput.source,
-            kind: "transmute.local-media-ingest-receipt",
+            kind: "atet.local-media-ingest-receipt",
             operation: "media.ingest",
             output: verifiedArtifact.artifact,
             projectGenerationSha256: snapshot.generation.generationSha256,

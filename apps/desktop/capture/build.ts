@@ -17,8 +17,8 @@ const captureDirectory = import.meta.dir;
 const outputDirectory = join(captureDirectory, "dist");
 const cacheDirectory = join(outputDirectory, "cache");
 const infoPlistPath = join(captureDirectory, "Info.plist");
-const captureHelperIdentifier = "com.hraness.transmute.capture";
-export const captureHelperExecutablePath = join(outputDirectory, "transmute-capture");
+const captureHelperIdentifier = "com.hraness.atet.capture";
+export const captureHelperExecutablePath = join(outputDirectory, "atet-capture");
 
 export function resolveCaptureHelperPath(): string {
   return captureHelperExecutablePath;
@@ -137,7 +137,7 @@ function embeddedPlistArguments(): string[] {
 
 async function sourceHash(toolchain: Toolchain, sources: readonly string[]): Promise<string> {
   const hash = createHash("sha256");
-  hash.update("transmute-capture-build-v2\0");
+  hash.update("atet-capture-build-v2\0");
   hash.update(toolchain.swiftCompiler);
   hash.update("\0");
   hash.update(toolchain.swiftVersion);
@@ -293,7 +293,7 @@ export async function runCaptureSegmentCloseGateHarness(
     throw new Error("Capture close-gate harness must be a bounded Swift @main source.");
   }
   const toolchain = await discoverCaptureToolchain();
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), "transmute-capture-close-gate-"));
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), "atet-capture-close-gate-"));
   const harnessPath = join(temporaryDirectory, "Harness.swift");
   const executablePath = join(temporaryDirectory, "capture-close-gate-harness");
   const productionSources = [
@@ -331,7 +331,7 @@ export async function runCaptureControllerFinalizationHarness(
     throw new Error("Capture finalization harness must be a bounded Swift @main source.");
   }
   const toolchain = await discoverCaptureToolchain();
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), "transmute-capture-finalization-"));
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), "atet-capture-finalization-"));
   const harnessPath = join(temporaryDirectory, "Harness.swift");
   const executablePath = join(temporaryDirectory, "capture-finalization-harness");
   const productionSources = [
@@ -442,7 +442,7 @@ export async function checkCaptureHelper(): Promise<BuildResult> {
 }
 
 async function installStableExecutable(cachedExecutable: string): Promise<void> {
-  const temporary = join(outputDirectory, `.transmute-capture.${process.pid}.${crypto.randomUUID()}.tmp`);
+  const temporary = join(outputDirectory, `.atet-capture.${process.pid}.${crypto.randomUUID()}.tmp`);
   try {
     await copyFile(cachedExecutable, temporary);
     await chmod(temporary, 0o755);
@@ -457,7 +457,7 @@ export async function buildCaptureHelper(): Promise<BuildResult> {
   const sources = await swiftSources();
   const hash = await sourceHash(toolchain, sources);
   const hashedDirectory = join(cacheDirectory, hash);
-  const cachedExecutable = join(hashedDirectory, "transmute-capture");
+  const cachedExecutable = join(hashedDirectory, "atet-capture");
   await mkdir(hashedDirectory, { recursive: true });
   let cached = true;
   try {
@@ -467,7 +467,7 @@ export async function buildCaptureHelper(): Promise<BuildResult> {
     cached = false;
   }
   if (!cached) {
-    const temporary = join(hashedDirectory, `.transmute-capture.${process.pid}.${crypto.randomUUID()}.tmp`);
+    const temporary = join(hashedDirectory, `.atet-capture.${process.pid}.${crypto.randomUUID()}.tmp`);
     try {
       await runCompiler(
         [

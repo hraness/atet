@@ -151,6 +151,7 @@ export const FaceFollowDerivationProvenanceSchema = z.strictObject({
 const FaceFollowRevisionDraftBodySchema = z.strictObject({
   cameraMove: ProjectCameraMoveSchema,
   kind: z.union([
+    z.literal("atet.face-follow-edit-revision-draft"),
     z.literal("transmute.face-follow-edit-revision-draft"),
     z.literal("studio.face-follow-edit-revision-draft"),
   ]),
@@ -408,7 +409,7 @@ export function createFollowFacesOperationDefinition(
         return FaceFollowRevisionDraftSchema.parse({
           cameraMove: planned.move,
           derivationSha256,
-          kind: "transmute.face-follow-edit-revision-draft",
+          kind: "atet.face-follow-edit-revision-draft",
           ...dimensions,
           plan,
           planSha256: hashProjectEditPlan(plan),

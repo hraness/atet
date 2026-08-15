@@ -32,7 +32,7 @@ export const TESTING_WORKFLOW_BUNDLE = Object.freeze({
 }) satisfies WorkflowBundleIdentity;
 
 export const TESTING_WORKFLOW_RUNTIME = Object.freeze({
-  applicationBuild: "transmute-testing",
+  applicationBuild: "atet-testing",
   bunRevision: "testing-revision",
   bunVersion: "1.3.14",
   bundlerConfigurationSha256: TEST_HASH,

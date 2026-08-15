@@ -1,9 +1,9 @@
 const std = @import("std");
 const native_sdk = @import("native_sdk");
 
-pub const snapshot_command = "transmute.runtime.snapshot";
-pub const dispatch_command = "transmute.runtime.dispatch";
-pub const renderer_event = "transmute.runtime.event";
+pub const snapshot_command = "atet.runtime.snapshot";
+pub const dispatch_command = "atet.runtime.dispatch";
+pub const renderer_event = "atet.runtime.event";
 
 const main_window_id: native_sdk.WindowId = 1;
 const max_pending_requests: usize = 64;
@@ -95,6 +95,7 @@ pub const RuntimePaths = struct {
 };
 
 pub const ResolvePathError = error{
+    ConflictingRenamedEnvironment,
     InvalidAbsolutePath,
     MissingDevelopmentRuntimeRoot,
 } || std.mem.Allocator.Error || std.process.ExecutablePathAllocError;
@@ -124,9 +125,9 @@ fn resolveRuntimePathsForExecutable(
 
     if (packaged_root) |root| return runtimePathsFromRoot(allocator, root, .{});
 
-    const gateway_override = options.gateway_path orelse parent.get("TRANSMUTE_GATEWAY_PATH");
-    const helper_override = options.capture_helper_path orelse parent.get("TRANSMUTE_CAPTURE_HELPER");
-    const face_analyzer_override = options.face_analyzer_path orelse parent.get("TRANSMUTE_FACE_ANALYZER");
+    const gateway_override = options.gateway_path orelse try renamedEnvironment(parent, "ATET_GATEWAY_PATH", "TRANSMUTE_GATEWAY_PATH");
+    const helper_override = options.capture_helper_path orelse try renamedEnvironment(parent, "ATET_CAPTURE_HELPER", "TRANSMUTE_CAPTURE_HELPER");
+    const face_analyzer_override = options.face_analyzer_path orelse try renamedEnvironment(parent, "ATET_FACE_ANALYZER", "TRANSMUTE_FACE_ANALYZER");
     const raw_runtime_root = options.runtime_root orelse root: {
         const gateway = gateway_override orelse return error.MissingDevelopmentRuntimeRoot;
         const bin_dir = std.fs.path.dirname(gateway) orelse return error.InvalidAbsolutePath;
@@ -137,6 +138,19 @@ fn resolveRuntimePathsForExecutable(
         .capture_helper_path = helper_override,
         .face_analyzer_path = face_analyzer_override,
     });
+}
+
+fn renamedEnvironment(
+    parent: *const std.process.Environ.Map,
+    canonical: []const u8,
+    predecessor: []const u8,
+) error{ConflictingRenamedEnvironment}!?[]const u8 {
+    const current = parent.get(canonical);
+    const legacy = parent.get(predecessor);
+    if (current != null and legacy != null and !std.mem.eql(u8, current.?, legacy.?)) {
+        return error.ConflictingRenamedEnvironment;
+    }
+    return current orelse legacy;
 }
 
 const ToolOverrides = struct {
@@ -157,19 +171,19 @@ fn runtimePathsFromRoot(
     paths.gateway_path = if (overrides.gateway_path) |path|
         try normalizedAbsolute(allocator, path)
     else
-        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "transmute-gateway" });
+        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "atet-gateway" });
     errdefer allocator.free(paths.gateway_path);
 
     paths.capture_helper_path = if (overrides.capture_helper_path) |path|
         try normalizedAbsolute(allocator, path)
     else
-        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "transmute-capture" });
+        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "atet-capture" });
     errdefer allocator.free(paths.capture_helper_path);
 
     paths.face_analyzer_path = if (overrides.face_analyzer_path) |path|
         try normalizedAbsolute(allocator, path)
     else
-        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "transmute-face-analyzer" });
+        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "atet-face-analyzer" });
     return paths;
 }
 
@@ -206,7 +220,6 @@ const inherited_environment_keys = [_][]const u8{
     "LANG",
     "LC_ALL",
     "TZ",
-    "TRANSMUTE_REPOSITORY_ROOT",
 };
 
 /// Constructs the gateway's complete environment instead of cloning the app's
@@ -216,19 +229,22 @@ pub fn buildSanitizedEnvironment(
     allocator: std.mem.Allocator,
     parent: *const std.process.Environ.Map,
     paths: *const RuntimePaths,
-) std.mem.Allocator.Error!std.process.Environ.Map {
+) (std.mem.Allocator.Error || error{ConflictingRenamedEnvironment})!std.process.Environ.Map {
     var environment: std.process.Environ.Map = .init(allocator);
     errdefer environment.deinit();
 
     for (inherited_environment_keys) |key| {
         if (parent.get(key)) |value| try environment.put(key, value);
     }
+    if (try renamedEnvironment(parent, "ATET_REPOSITORY_ROOT", "TRANSMUTE_REPOSITORY_ROOT")) |value| {
+        try environment.put("ATET_REPOSITORY_ROOT", value);
+    }
     if (environment.get("TMPDIR") == null) try environment.put("TMPDIR", "/tmp");
     if (environment.get("LANG") == null) try environment.put("LANG", "en_US.UTF-8");
 
-    try environment.put("TRANSMUTE_GATEWAY_PATH", paths.gateway_path);
-    try environment.put("TRANSMUTE_CAPTURE_HELPER", paths.capture_helper_path);
-    try environment.put("TRANSMUTE_FACE_ANALYZER", paths.face_analyzer_path);
+    try environment.put("ATET_GATEWAY_PATH", paths.gateway_path);
+    try environment.put("ATET_CAPTURE_HELPER", paths.capture_helper_path);
+    try environment.put("ATET_FACE_ANALYZER", paths.face_analyzer_path);
 
     const gateway_dir = std.fs.path.dirname(paths.gateway_path) orelse paths.runtime_root;
     const helper_dir = std.fs.path.dirname(paths.capture_helper_path) orelse paths.runtime_root;
@@ -927,51 +943,51 @@ fn respondError(
 test "packaged paths ignore development sidecar overrides" {
     var parent: std.process.Environ.Map = .init(std.testing.allocator);
     defer parent.deinit();
-    try parent.put("TRANSMUTE_GATEWAY_PATH", "/tmp/untrusted/transmute-gateway");
-    try parent.put("TRANSMUTE_CAPTURE_HELPER", "/tmp/untrusted/transmute-capture");
-    try parent.put("TRANSMUTE_FACE_ANALYZER", "/tmp/untrusted/transmute-face-analyzer");
+    try parent.put("ATET_GATEWAY_PATH", "/tmp/untrusted/atet-gateway");
+    try parent.put("ATET_CAPTURE_HELPER", "/tmp/untrusted/atet-capture");
+    try parent.put("ATET_FACE_ANALYZER", "/tmp/untrusted/atet-face-analyzer");
 
     var paths = try resolveRuntimePathsForExecutable(
         std.testing.allocator,
         &parent,
         .{
             .runtime_root = "/tmp/explicit/runtime",
-            .gateway_path = "/tmp/explicit/transmute-gateway",
-            .capture_helper_path = "/tmp/explicit/transmute-capture",
-            .face_analyzer_path = "/tmp/explicit/transmute-face-analyzer",
+            .gateway_path = "/tmp/explicit/atet-gateway",
+            .capture_helper_path = "/tmp/explicit/atet-capture",
+            .face_analyzer_path = "/tmp/explicit/atet-face-analyzer",
         },
-        "/Applications/Transmute.app/Contents/MacOS/transmute",
+        "/Applications/Atet.app/Contents/MacOS/atet",
     );
     defer paths.deinit(std.testing.allocator);
 
-    try std.testing.expectEqualStrings("/Applications/Transmute.app/Contents/Resources/runtime", paths.runtime_root);
-    try std.testing.expectEqualStrings("/Applications/Transmute.app/Contents/Resources/runtime/bin/transmute-gateway", paths.gateway_path);
-    try std.testing.expectEqualStrings("/Applications/Transmute.app/Contents/Resources/runtime/bin/transmute-capture", paths.capture_helper_path);
-    try std.testing.expectEqualStrings("/Applications/Transmute.app/Contents/Resources/runtime/bin/transmute-face-analyzer", paths.face_analyzer_path);
+    try std.testing.expectEqualStrings("/Applications/Atet.app/Contents/Resources/runtime", paths.runtime_root);
+    try std.testing.expectEqualStrings("/Applications/Atet.app/Contents/Resources/runtime/bin/atet-gateway", paths.gateway_path);
+    try std.testing.expectEqualStrings("/Applications/Atet.app/Contents/Resources/runtime/bin/atet-capture", paths.capture_helper_path);
+    try std.testing.expectEqualStrings("/Applications/Atet.app/Contents/Resources/runtime/bin/atet-face-analyzer", paths.face_analyzer_path);
 }
 
 test "development paths require and honor absolute sidecars" {
     var parent: std.process.Environ.Map = .init(std.testing.allocator);
     defer parent.deinit();
-    try parent.put("TRANSMUTE_GATEWAY_PATH", "/tmp/transmute-runtime/bin/transmute-gateway");
-    try parent.put("TRANSMUTE_CAPTURE_HELPER", "/tmp/transmute-capture");
-    try parent.put("TRANSMUTE_FACE_ANALYZER", "/tmp/transmute-face-analyzer");
+    try parent.put("ATET_GATEWAY_PATH", "/tmp/atet-runtime/bin/atet-gateway");
+    try parent.put("ATET_CAPTURE_HELPER", "/tmp/atet-capture");
+    try parent.put("ATET_FACE_ANALYZER", "/tmp/atet-face-analyzer");
 
     var paths = try resolveRuntimePathsForExecutable(
         std.testing.allocator,
         &parent,
         .{},
-        "/tmp/zig-cache/transmute",
+        "/tmp/zig-cache/atet",
     );
     defer paths.deinit(std.testing.allocator);
 
-    try std.testing.expectEqualStrings("/tmp/transmute-runtime", paths.runtime_root);
-    try std.testing.expectEqualStrings("/tmp/transmute-runtime/bin/transmute-gateway", paths.gateway_path);
-    try std.testing.expectEqualStrings("/tmp/transmute-capture", paths.capture_helper_path);
-    try std.testing.expectEqualStrings("/tmp/transmute-face-analyzer", paths.face_analyzer_path);
+    try std.testing.expectEqualStrings("/tmp/atet-runtime", paths.runtime_root);
+    try std.testing.expectEqualStrings("/tmp/atet-runtime/bin/atet-gateway", paths.gateway_path);
+    try std.testing.expectEqualStrings("/tmp/atet-capture", paths.capture_helper_path);
+    try std.testing.expectEqualStrings("/tmp/atet-face-analyzer", paths.face_analyzer_path);
     try std.testing.expectError(
         error.MissingDevelopmentRuntimeRoot,
-        resolveRuntimePathsForExecutable(std.testing.allocator, &.{}, .{}, "/tmp/zig-cache/transmute"),
+        resolveRuntimePathsForExecutable(std.testing.allocator, &.{}, .{}, "/tmp/zig-cache/atet"),
     );
 }
 
@@ -979,13 +995,13 @@ test "sanitized environment carries only trusted runtime configuration" {
     var parent: std.process.Environ.Map = .init(std.testing.allocator);
     defer parent.deinit();
     try parent.put("HOME", "/Users/example");
-    try parent.put("TRANSMUTE_REPOSITORY_ROOT", "/work/transmute-project");
+    try parent.put("ATET_REPOSITORY_ROOT", "/work/atet-project");
     try parent.put("OPENAI_API_KEY", "secret");
     try parent.put("HTTPS_PROXY", "http://proxy.invalid");
     try parent.put("DYLD_INSERT_LIBRARIES", "/tmp/evil.dylib");
     try parent.put("BUN_OPTIONS", "--preload=/tmp/evil.js");
 
-    var paths = try runtimePathsFromRoot(std.testing.allocator, "/opt/transmute/runtime", .{});
+    var paths = try runtimePathsFromRoot(std.testing.allocator, "/opt/atet/runtime", .{});
     defer paths.deinit(std.testing.allocator);
     var environment = try buildSanitizedEnvironment(std.testing.allocator, &parent, &paths);
     defer environment.deinit();
@@ -993,9 +1009,9 @@ test "sanitized environment carries only trusted runtime configuration" {
     try std.testing.expectEqualStrings("/Users/example", environment.get("HOME").?);
     try std.testing.expectEqualStrings("/tmp", environment.get("TMPDIR").?);
     try std.testing.expectEqualStrings("en_US.UTF-8", environment.get("LANG").?);
-    try std.testing.expectEqualStrings("/work/transmute-project", environment.get("TRANSMUTE_REPOSITORY_ROOT").?);
-    try std.testing.expectEqualStrings("/opt/transmute/runtime/bin/transmute-capture", environment.get("TRANSMUTE_CAPTURE_HELPER").?);
-    try std.testing.expectEqualStrings("/opt/transmute/runtime/bin/transmute-face-analyzer", environment.get("TRANSMUTE_FACE_ANALYZER").?);
+    try std.testing.expectEqualStrings("/work/atet-project", environment.get("ATET_REPOSITORY_ROOT").?);
+    try std.testing.expectEqualStrings("/opt/atet/runtime/bin/atet-capture", environment.get("ATET_CAPTURE_HELPER").?);
+    try std.testing.expectEqualStrings("/opt/atet/runtime/bin/atet-face-analyzer", environment.get("ATET_FACE_ANALYZER").?);
     try std.testing.expect(environment.get("OPENAI_API_KEY") == null);
     try std.testing.expect(environment.get("HTTPS_PROXY") == null);
     try std.testing.expect(environment.get("DYLD_INSERT_LIBRARIES") == null);
@@ -1015,11 +1031,11 @@ test "gateway codec preserves JSON values and exact command names" {
         std.testing.allocator,
         "bridge-42",
         snapshot_command,
-        "{\"protocol\":\"transmute.desktop\"}",
+        "{\"protocol\":\"atet.desktop\"}",
     );
     defer std.testing.allocator.free(encoded);
     try std.testing.expectEqualStrings(
-        "{\"id\":\"bridge-42\",\"command\":\"transmute.runtime.snapshot\",\"payload\":{\"protocol\":\"transmute.desktop\"}}\n",
+        "{\"id\":\"bridge-42\",\"command\":\"atet.runtime.snapshot\",\"payload\":{\"protocol\":\"atet.desktop\"}}\n",
         encoded,
     );
 }

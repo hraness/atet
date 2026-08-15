@@ -3,7 +3,7 @@ import {
   defineCompute,
   seconds,
   type DefineComputeOptions,
-} from "@hraness/transmute/code/advanced";
+} from "@hraness/atet/code/advanced";
 
 import { ApplicationError } from "../application/errors";
 import {

@@ -12,8 +12,8 @@ function permissionBits(mode: number): number {
 test.skipIf(process.platform === "win32")(
   "recording directories are 0700 and structured outputs are 0600",
   async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "transmute-permissions-test-"));
-    const recordingRoot = join(temporary, "artifacts", "transmute", "recordings", "rec_permissions01");
+    const temporary = await mkdtemp(join(tmpdir(), "atet-permissions-test-"));
+    const recordingRoot = join(temporary, "artifacts", "atet", "recordings", "rec_permissions01");
     try {
       await ensurePrivateDirectory(recordingRoot);
       expect(permissionBits((await stat(recordingRoot)).mode)).toBe(0o700);

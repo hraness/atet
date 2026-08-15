@@ -174,7 +174,7 @@ test("resolves presets, exact overrides, temperature balance, and hue into a col
 });
 
 test("publishes a fresh derived file atomically and never changes its source", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-media-effects-service-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-media-effects-service-"));
   try {
     const inputPath = join(directory, "source.wav");
     const outputPath = join(directory, "derived.wav");
@@ -209,7 +209,7 @@ test("publishes a fresh derived file atomically and never changes its source", a
 });
 
 test("refuses existing outputs before starting FFmpeg", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-media-effects-conflict-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-media-effects-conflict-"));
   try {
     const inputPath = join(directory, "source.wav");
     const outputPath = join(directory, "derived.wav");
@@ -233,7 +233,7 @@ test("refuses existing outputs before starting FFmpeg", async () => {
 });
 
 test("cleans temporary state and leaves no output when FFmpeg fails", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-media-effects-failure-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-media-effects-failure-"));
   try {
     const inputPath = join(directory, "source.wav");
     const outputPath = join(directory, "derived.wav");
@@ -256,7 +256,7 @@ test("cleans temporary state and leaves no output when FFmpeg fails", async () =
 });
 
 test("preserves a destination created while FFmpeg is rendering", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-media-effects-output-race-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-media-effects-output-race-"));
   try {
     const inputPath = join(directory, "source.wav");
     const outputPath = join(directory, "derived.wav");
@@ -280,14 +280,14 @@ test("preserves a destination created while FFmpeg is rendering", async () => {
     expect(failure).toMatchObject({ code: "conflict" });
     expect(await readFile(inputPath, "utf8")).toBe("immutable-source");
     expect(await readFile(outputPath, "utf8")).toBe("concurrent-writer");
-    expect((await readdir(directory)).filter(name => name.startsWith(".transmute-render-"))).toEqual([]);
+    expect((await readdir(directory)).filter(name => name.startsWith(".atet-render-"))).toEqual([]);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
 });
 
 test("rejects an input pathname swapped after its expected digest was recorded", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-media-effects-input-race-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-media-effects-input-race-"));
   try {
     const inputPath = join(directory, "source.wav");
     const originalPath = join(directory, "source-original.wav");
@@ -318,7 +318,7 @@ test("rejects an input pathname swapped after its expected digest was recorded",
 });
 
 test("keeps FFmpeg on the pinned descriptor and rejects an A to B to A pathname swap", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-media-effects-pinned-input-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-media-effects-pinned-input-"));
   try {
     const inputPath = join(directory, "source.wav");
     const heldPath = join(directory, "source-held.wav");
@@ -360,7 +360,7 @@ test("keeps FFmpeg on the pinned descriptor and rejects an A to B to A pathname 
 });
 
 test("does not publish output when the pinned inode changes during rendering", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-media-effects-input-mutation-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-media-effects-input-mutation-"));
   try {
     const inputPath = join(directory, "source.wav");
     const outputPath = join(directory, "derived.wav");
@@ -383,14 +383,14 @@ test("does not publish output when the pinned inode changes during rendering", a
 
     expect(failure).toMatchObject({ code: "conflict" });
     expect(await readFile(outputPath).catch(() => null)).toBeNull();
-    expect((await readdir(directory)).filter(name => name.startsWith(".transmute-render-"))).toEqual([]);
+    expect((await readdir(directory)).filter(name => name.startsWith(".atet-render-"))).toEqual([]);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
 });
 
 test("rejects an output that exceeds the configured byte ceiling", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-media-effects-output-limit-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-media-effects-output-limit-"));
   try {
     const outputPath = join(directory, "derived.wav");
     const runner: ProcessRunner = {
@@ -411,14 +411,14 @@ test("rejects an output that exceeds the configured byte ceiling", async () => {
 
     expect(failure).toMatchObject({ code: "invalid-data" });
     expect(await readFile(outputPath).catch(() => null)).toBeNull();
-    expect((await readdir(directory)).filter(name => name.startsWith(".transmute-render-"))).toEqual([]);
+    expect((await readdir(directory)).filter(name => name.startsWith(".atet-render-"))).toEqual([]);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
 });
 
 test.skipIf(FFMPEG === undefined)("executes the complete audio-effects graph with real FFmpeg", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-media-effects-ffmpeg-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-media-effects-ffmpeg-"));
   try {
     const inputPath = join(directory, "source.wav");
     const outputPath = join(directory, "derived.wav");
@@ -463,7 +463,7 @@ test.skipIf(FFMPEG === undefined)("executes the complete audio-effects graph wit
 });
 
 test.skipIf(FFMPEG === undefined)("executes temperature, tint, hue, and tonal controls with real FFmpeg", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-color-grade-ffmpeg-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-color-grade-ffmpeg-"));
   try {
     const inputPath = join(directory, "source.mkv");
     const outputPath = join(directory, "derived.mov");

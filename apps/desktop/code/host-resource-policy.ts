@@ -1,7 +1,7 @@
 import type {
   HostResourceClaim,
   HostResourceCoordinator,
-} from "@hraness/transmute/host-resources";
+} from "@hraness/atet/host-resources";
 
 import type {
   OperationResourceClaim,

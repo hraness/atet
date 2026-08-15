@@ -10,14 +10,14 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
-  transmuteImageModels,
+  atetImageModels,
 } from "../generate.ts"
 import type {
   HostResourceClaim,
   HostResourceCoordinator,
 } from "../host-resources.ts"
 import {
-  TransmuteMcpToolRuntime,
+  AtetMcpToolRuntime,
   mcpMaximumEdges,
   mcpMaximumReturnedFindings,
   mcpMaximumShapes,
@@ -29,7 +29,7 @@ function recordingCoordinator(record: {
   claims: HostResourceClaim[][]
 }, inheritedFileDescriptor = 97): HostResourceCoordinator {
   const profile = {
-    id: "transmute.mcp-test-host/v1",
+    id: "atet.mcp-test-host/v1",
     capacities: [],
   } as const
   return {
@@ -93,18 +93,18 @@ function source(options: { readonly width?: number; readonly height?: number } =
   })
 }
 
-describe("Transmute MCP tools", () => {
+describe("Atet MCP tools", () => {
   test("uses built-ins without discovering or executing workspace config", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-config-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-mcp-config-"))
     const marker = join(root, "config-executed")
     try {
       await writeFile(join(root, "agent-flow.diagram.json"), source())
       await writeFile(
-        join(root, "transmute.config.ts"),
+        join(root, "atet.config.ts"),
         `await Bun.write(${JSON.stringify(marker)}, "executed"); export default {}\n`,
       )
       const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-      const runtime = await TransmuteMcpToolRuntime.create(
+      const runtime = await AtetMcpToolRuntime.create(
         root,
         {},
         recordingCoordinator(admission),
@@ -129,10 +129,10 @@ describe("Transmute MCP tools", () => {
   })
 
   test("renders and safely replaces all five root-relative artifacts", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-render-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-mcp-render-"))
     try {
       await writeFile(join(root, "agent-flow.diagram.json"), source())
-      const runtime = await TransmuteMcpToolRuntime.create(root)
+      const runtime = await AtetMcpToolRuntime.create(root)
       const first = await runtime.call("render_diagram", {
         path: "agent-flow.diagram.json",
         out_dir: "out",
@@ -175,8 +175,8 @@ describe("Transmute MCP tools", () => {
   })
 
   test("rejects traversal, symlink escapes, unsupported suffixes, and render limits", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-boundary-"))
-    const outside = await mkdtemp(join(tmpdir(), "transmute-mcp-outside-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-mcp-boundary-"))
+    const outside = await mkdtemp(join(tmpdir(), "atet-mcp-outside-"))
     try {
       await writeFile(join(root, "large.diagram.json"), source({
         width: 5_000,
@@ -189,7 +189,7 @@ describe("Transmute MCP tools", () => {
       )
       await mkdir(join(outside, "writes"))
       await symlink(join(outside, "writes"), join(root, "outside-output"))
-      const runtime = await TransmuteMcpToolRuntime.create(root)
+      const runtime = await AtetMcpToolRuntime.create(root)
 
       const traversal = await runtime.call("check_diagram", {
         path: "../escape.diagram.json",
@@ -221,13 +221,13 @@ describe("Transmute MCP tools", () => {
   })
 
   test("rejects sources above one MiB before parsing", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-source-cap-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-mcp-source-cap-"))
     try {
       await writeFile(
         join(root, "oversized.diagram.json"),
         `{"padding":"${"x".repeat(1024 * 1024)}"}`,
       )
-      const runtime = await TransmuteMcpToolRuntime.create(root)
+      const runtime = await AtetMcpToolRuntime.create(root)
       const result = await runtime.call("check_diagram", {
         path: "oversized.diagram.json",
       })
@@ -238,7 +238,7 @@ describe("Transmute MCP tools", () => {
   })
 
   test("rejects diagrams above the MCP shape and edge complexity caps", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-complexity-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-mcp-complexity-"))
     try {
       await writeFile(
         join(root, "too-many-shapes.diagram.json"),
@@ -293,7 +293,7 @@ describe("Transmute MCP tools", () => {
           ),
         }),
       )
-      const runtime = await TransmuteMcpToolRuntime.create(root)
+      const runtime = await AtetMcpToolRuntime.create(root)
       const [tooManyShapes, tooManyEdges] = await Promise.all([
         runtime.call("check_diagram", {
           path: "too-many-shapes.diagram.json",
@@ -310,7 +310,7 @@ describe("Transmute MCP tools", () => {
   })
 
   test("rejects oversized raw arrays before semantic parsing", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-raw-complexity-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-mcp-raw-complexity-"))
     try {
       await writeFile(
         join(root, "malformed-dense.diagram.json"),
@@ -319,7 +319,7 @@ describe("Transmute MCP tools", () => {
           edges: Array.from({ length: 20_000 }, () => ({})),
         }),
       )
-      const runtime = await TransmuteMcpToolRuntime.create(root)
+      const runtime = await AtetMcpToolRuntime.create(root)
       const result = await runtime.call("check_diagram", {
         path: "malformed-dense.diagram.json",
       })
@@ -330,7 +330,7 @@ describe("Transmute MCP tools", () => {
   })
 
   test("bounds returned findings without duplicating them into prose", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-findings-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-mcp-findings-"))
     try {
       await writeFile(
         join(root, "dense.diagram.json"),
@@ -352,7 +352,7 @@ describe("Transmute MCP tools", () => {
           ),
         }),
       )
-      const runtime = await TransmuteMcpToolRuntime.create(root)
+      const runtime = await AtetMcpToolRuntime.create(root)
       const result = await runtime.call("check_diagram", {
         path: "dense.diagram.json",
       })
@@ -397,23 +397,23 @@ describe("Transmute MCP tools", () => {
   })
 
   test("searches the fixed registry and rejects source text in semantic execution", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-semantic-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-mcp-semantic-"))
     const marker = join(root, "executed")
     try {
       await writeFile(join(root, "flow.diagram.json"), source())
-      const runtime = await TransmuteMcpToolRuntime.create(root)
-      const search = await runtime.call("search_transmute", {
+      const runtime = await AtetMcpToolRuntime.create(root)
+      const search = await runtime.call("search_atet", {
         query: "diagram",
       })
       expect(search.structuredContent).toMatchObject({
         ok: true,
         operations: [
-          { code: "transmute.diagram.check" },
-          { code: "transmute.diagram.render" },
+          { code: "atet.diagram.check" },
+          { code: "atet.diagram.render" },
         ],
       })
-      const execute = await runtime.call("execute_transmute", {
-        operation: "transmute.diagram.check",
+      const execute = await runtime.call("execute_atet", {
+        operation: "atet.diagram.check",
         input: {
           path: "flow.diagram.json",
           source: `await Bun.write(${JSON.stringify(marker)}, "executed")`,
@@ -427,14 +427,14 @@ describe("Transmute MCP tools", () => {
   })
 
   test("executes direct Gateway generation to a confined file with metadata-only output", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-mcp-generate-"))
+    const root = await mkdtemp(join(tmpdir(), "atet-mcp-generate-"))
     const webp = Uint8Array.from([
       0x52, 0x49, 0x46, 0x46, 0x08, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
       0x56, 0x50, 0x38, 0x58,
     ])
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
     try {
-      const runtime = await TransmuteMcpToolRuntime.create(root, {
+      const runtime = await AtetMcpToolRuntime.create(root, {
         environment: { AI_GATEWAY_API_KEY: "mcp-gateway-key-1" },
         loadRuntime: async () => ({
           createGateway: settings => {
@@ -451,10 +451,10 @@ describe("Transmute MCP tools", () => {
           },
         }),
       }, recordingCoordinator(admission))
-      const result = await runtime.call("execute_transmute", {
-        operation: "transmute.image.generate",
+      const result = await runtime.call("execute_atet", {
+        operation: "atet.image.generate",
         input: {
-          model: transmuteImageModels[0],
+          model: atetImageModels[0],
           prompt: "one bounded image",
           outputPath: "generated/image.webp",
         },
@@ -468,10 +468,10 @@ describe("Transmute MCP tools", () => {
       expect(result.content).toHaveLength(1)
       expect(result.structuredContent).toMatchObject({
         ok: true,
-        operation: "transmute.image.generate",
+        operation: "atet.image.generate",
         result: {
           mediaType: "image/webp",
-          model: transmuteImageModels[0],
+          model: atetImageModels[0],
           outputPath: "generated/image.webp",
           provider: "vercel-ai-gateway",
           requestId: expect.stringMatching(/^sha256:[a-f0-9]{64}$/u),

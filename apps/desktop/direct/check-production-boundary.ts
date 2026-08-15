@@ -36,7 +36,7 @@ const EMITTED_MARKERS = Object.freeze([
   "Direct ready:",
 ]);
 
-export interface TransmuteProductionBoundaryResult {
+export interface AtetProductionBoundaryResult {
   readonly emitted: BundleBoundaryResult;
   readonly source: BundleBoundaryResult;
 }
@@ -77,18 +77,18 @@ async function scanExisting(
 async function assertManifestBoundary(packageManifestPath: string): Promise<void> {
   const manifest: unknown = await Bun.file(packageManifestPath).json();
   if (typeof manifest !== "object" || manifest === null || !("dependencies" in manifest)) {
-    throw new Error("Transmute package manifest is not an object with production dependencies.");
+    throw new Error("Atet package manifest is not an object with production dependencies.");
   }
   const dependencies = Reflect.get(manifest, "dependencies");
   if (typeof dependencies === "object" && dependencies !== null && "@hraness/direct" in dependencies) {
-    throw new Error("@hraness/direct cannot be a production dependency of Transmute.");
+    throw new Error("@hraness/direct cannot be a production dependency of Atet.");
   }
 }
 
-export async function checkTransmuteProductionBoundary(
+export async function checkAtetProductionBoundary(
   desktop = path.resolve(import.meta.dir, ".."),
   packageManifestPath = path.join(desktop, "..", "..", "package.json"),
-): Promise<TransmuteProductionBoundaryResult> {
+): Promise<AtetProductionBoundaryResult> {
   await assertManifestBoundary(packageManifestPath);
   const source = combineResults(await Promise.all([
     scanExisting(path.join(desktop, "frontend", "src"), SOURCE_MARKERS, ["**/*.ts", "**/*.tsx"]),
@@ -106,39 +106,39 @@ export async function checkTransmuteProductionBoundary(
   ]));
   const emitted = combineResults(await Promise.all([
     scanExisting(path.join(desktop, "frontend", "dist"), EMITTED_MARKERS, ["**/*"]),
-    scanExisting(path.join(desktop, "runtime", "dist"), EMITTED_MARKERS, ["transmute-gateway"]),
-    scanExisting(path.join(desktop, "dist"), EMITTED_MARKERS, ["transmute"]),
-    scanExisting(path.join(desktop, "capture", "dist"), EMITTED_MARKERS, ["transmute-capture"]),
-    scanExisting(path.join(desktop, "analysis", "dist"), EMITTED_MARKERS, ["transmute-face-analyzer"]),
-    scanExisting(path.join(desktop, "zig-out", "bin"), EMITTED_MARKERS, ["transmute"]),
+    scanExisting(path.join(desktop, "runtime", "dist"), EMITTED_MARKERS, ["atet-gateway"]),
+    scanExisting(path.join(desktop, "dist"), EMITTED_MARKERS, ["atet"]),
+    scanExisting(path.join(desktop, "capture", "dist"), EMITTED_MARKERS, ["atet-capture"]),
+    scanExisting(path.join(desktop, "analysis", "dist"), EMITTED_MARKERS, ["atet-face-analyzer"]),
+    scanExisting(path.join(desktop, "zig-out", "bin"), EMITTED_MARKERS, ["atet"]),
     scanExisting(path.join(desktop, "zig-out", "package"), EMITTED_MARKERS, [
-      "**/Contents/MacOS/transmute",
+      "**/Contents/MacOS/atet",
       "**/Contents/Resources/frontend/dist/**/*",
-      "**/Contents/Resources/runtime/bin/transmute-gateway",
-      "**/Contents/Resources/runtime/bin/transmute-capture",
-      "**/Contents/Resources/runtime/bin/transmute-face-analyzer",
+      "**/Contents/Resources/runtime/bin/atet-gateway",
+      "**/Contents/Resources/runtime/bin/atet-capture",
+      "**/Contents/Resources/runtime/bin/atet-face-analyzer",
     ]),
   ]));
 
   const violations = [...source.violations, ...emitted.violations];
   if (violations.length > 0) {
     throw new Error([
-      "Transmute production assets contain Direct markers:",
+      "Atet production assets contain Direct markers:",
       ...violations.map(({ file, markers }) => `${file}: ${markers.join(", ")}`),
     ].join("\n"));
   }
   if (source.scanned.length === 0) {
-    throw new Error("Transmute production boundary did not scan any source files.");
+    throw new Error("Atet production boundary did not scan any source files.");
   }
   if (emitted.scanned.length === 0) {
-    throw new Error("Transmute production boundary did not scan any emitted assets.");
+    throw new Error("Atet production boundary did not scan any emitted assets.");
   }
   return { emitted, source };
 }
 
 if (import.meta.main) {
-  const result = await checkTransmuteProductionBoundary();
+  const result = await checkAtetProductionBoundary();
   console.log(
-    `Transmute production boundary passed (${String(result.source.scanned.length)} source files, ${String(result.emitted.scanned.length)} emitted assets).`,
+    `Atet production boundary passed (${String(result.source.scanned.length)} source files, ${String(result.emitted.scanned.length)} emitted assets).`,
   );
 }

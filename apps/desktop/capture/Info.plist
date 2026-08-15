@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key>
-  <string>transmute-capture</string>
+  <string>atet-capture</string>
   <key>CFBundleIdentifier</key>
-  <string>com.hraness.transmute.capture</string>
+  <string>com.hraness.atet.capture</string>
   <key>CFBundleName</key>
-  <string>Transmute Capture</string>
+  <string>Atet Capture</string>
   <key>CFBundleShortVersionString</key>
   <string>1.0.0</string>
   <key>CFBundleVersion</key>
@@ -15,12 +15,12 @@
   <key>LSMinimumSystemVersion</key>
   <string>15.0</string>
   <key>NSAudioCaptureUsageDescription</key>
-  <string>Transmute records system audio as a separate editing source.</string>
+  <string>Atet records system audio as a separate editing source.</string>
   <key>NSCameraUsageDescription</key>
-  <string>Transmute records the selected camera as a separate editing source.</string>
+  <string>Atet records the selected camera as a separate editing source.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Transmute records the selected microphone as a separate editing source.</string>
+  <string>Atet records the selected microphone as a separate editing source.</string>
   <key>NSScreenCaptureUsageDescription</key>
-  <string>Transmute records each display as a separate editing source.</string>
+  <string>Atet records each display as a separate editing source.</string>
 </dict>
 </plist>

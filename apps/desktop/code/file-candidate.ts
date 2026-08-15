@@ -6,7 +6,7 @@ import {
 } from "../contracts";
 
 export const WORKFLOW_FILE_CANDIDATE_VERSION =
-  "transmute-workflow-file-candidate-v1" as const;
+  "atet-workflow-file-candidate-v1" as const;
 
 const CandidatePathSchema = RepositoryRelativePathSchema.and(
   z.string().max(256),

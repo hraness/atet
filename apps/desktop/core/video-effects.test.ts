@@ -36,8 +36,8 @@ test("expands the blue 16mm look into deterministic inspectable primitives", () 
   expect(compiled.lookHash).toBe(
     "178104f73c03fad9419e454d0b33db2ece5b3e38162d6eab0cff9f9ab33d6578",
   );
-  expect(compiled.compiler).toBe("transmute.ffmpeg-video-look");
-  expect(compiled.look.kind).toBe("transmute.video-look");
+  expect(compiled.compiler).toBe("atet.ffmpeg-video-look");
+  expect(compiled.look.kind).toBe("atet.video-look");
   expect(compiled.filterGraph).toContain("curves=interp=pchip");
   expect(compiled.filterGraph).toContain("noise=c0s=25:c1s=2:c2s=2");
   expect(compiled.filterGraph).toContain("all_mode=screen:all_opacity=0.136");

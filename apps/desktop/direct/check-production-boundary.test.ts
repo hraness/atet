@@ -3,11 +3,11 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { checkTransmuteProductionBoundary } from "./check-production-boundary";
+import { checkAtetProductionBoundary } from "./check-production-boundary";
 
 async function boundaryFailure(desktop: string): Promise<string> {
   try {
-    await checkTransmuteProductionBoundary(desktop, join(desktop, "package.json"));
+    await checkAtetProductionBoundary(desktop, join(desktop, "package.json"));
   } catch (reason: unknown) {
     return reason instanceof Error ? reason.message : String(reason);
   }
@@ -15,7 +15,7 @@ async function boundaryFailure(desktop: string): Promise<string> {
 }
 
 test("Direct stays outside every production source and emitted graph", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "transmute-boundary-clean-"));
+  const desktop = await mkdtemp(join(tmpdir(), "atet-boundary-clean-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -23,7 +23,7 @@ test("Direct stays outside every production source and emitted graph", async () 
     await writeFile(join(desktop, "frontend", "src", "main.ts"), "export const product = true;\n");
     await writeFile(join(desktop, "frontend", "dist", "app.js"), "export const product = true;\n");
 
-    const result = await checkTransmuteProductionBoundary(desktop, join(desktop, "package.json"));
+    const result = await checkAtetProductionBoundary(desktop, join(desktop, "package.json"));
     expect(result.source.scanned.length).toBeGreaterThan(0);
     expect(result.emitted.scanned.length).toBeGreaterThan(0);
     expect(result.source.violations).toEqual([]);
@@ -36,12 +36,12 @@ test("Direct stays outside every production source and emitted graph", async () 
 test("the browser workbench opts into the production surface contract", async () => {
   const document = await Bun.file(new URL("./index.html", import.meta.url)).text();
 
-  expect(document).toContain('<html lang="en" data-transmute-surface="product"');
-  expect(document).toContain('<body data-transmute-surface="product">');
+  expect(document).toContain('<html lang="en" data-atet-surface="product"');
+  expect(document).toContain('<body data-atet-surface="product">');
 });
 
 test("rejects a relative import that reaches the Direct workspace package", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "transmute-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "atet-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -58,7 +58,7 @@ test("rejects a relative import that reaches the Direct workspace package", asyn
 });
 
 test("rejects future Direct probe schemas from production output", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "transmute-probe-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "atet-probe-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -72,7 +72,7 @@ test("rejects future Direct probe schemas from production output", async () => {
 });
 
 test("rejects future Direct coverage schemas from production output", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "transmute-coverage-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "atet-coverage-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -86,7 +86,7 @@ test("rejects future Direct coverage schemas from production output", async () =
 });
 
 test("rejects future Direct session manifests from production output", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "transmute-manifest-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "atet-manifest-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -103,7 +103,7 @@ test("rejects future Direct session manifests from production output", async () 
 });
 
 test("scans the packaged capture helper at its runtime resource path", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "transmute-packaged-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "atet-packaged-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await writeFile(join(desktop, "package.json"), '{"dependencies":{}}\n');
@@ -112,22 +112,22 @@ test("scans the packaged capture helper at its runtime resource path", async () 
       desktop,
       "zig-out",
       "package",
-      "Transmute.app",
+      "Atet.app",
       "Contents",
       "Resources",
       "runtime",
       "bin",
     );
     await mkdir(packagedRuntime, { recursive: true });
-    await writeFile(join(packagedRuntime, "transmute-capture"), "jungle.direct\n");
-    expect(await boundaryFailure(desktop)).toContain("transmute-capture");
+    await writeFile(join(packagedRuntime, "atet-capture"), "jungle.direct\n");
+    expect(await boundaryFailure(desktop)).toContain("atet-capture");
   } finally {
     await rm(desktop, { force: true, recursive: true });
   }
 });
 
 test("scans the packaged face analyzer at its runtime resource path", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "transmute-packaged-face-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "atet-packaged-face-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await writeFile(join(desktop, "package.json"), '{"dependencies":{}}\n');
@@ -136,15 +136,15 @@ test("scans the packaged face analyzer at its runtime resource path", async () =
       desktop,
       "zig-out",
       "package",
-      "Transmute.app",
+      "Atet.app",
       "Contents",
       "Resources",
       "runtime",
       "bin",
     );
     await mkdir(packagedRuntime, { recursive: true });
-    await writeFile(join(packagedRuntime, "transmute-face-analyzer"), "jungle.direct\n");
-    expect(await boundaryFailure(desktop)).toContain("transmute-face-analyzer");
+    await writeFile(join(packagedRuntime, "atet-face-analyzer"), "jungle.direct\n");
+    expect(await boundaryFailure(desktop)).toContain("atet-face-analyzer");
   } finally {
     await rm(desktop, { force: true, recursive: true });
   }

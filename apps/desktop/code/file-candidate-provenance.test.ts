@@ -164,21 +164,21 @@ describe("workflow file candidate provenance", () => {
     }))).not.toThrow();
   });
 
-  test("applies file authority to every progressive Transmute visual source", () => {
+  test("applies file authority to every progressive Atet visual source", () => {
     const cases = [
       {
         input: { path: "fixtures/system.diagram.json" },
-        kind: "transmute.diagram.check",
+        kind: "atet.diagram.check",
         path: "fixtures/system.diagram.json",
       },
       {
         input: { path: "fixtures/render.diagram.json", scale: 2 },
-        kind: "transmute.diagram.render",
+        kind: "atet.diagram.render",
         path: "fixtures/render.diagram.json",
       },
       {
         input: { inputPath: "fixtures/sketch.png" },
-        kind: "transmute.image.vectorize",
+        kind: "atet.image.vectorize",
         path: "fixtures/sketch.png",
       },
     ] as const;
@@ -242,7 +242,7 @@ describe("workflow file candidate provenance", () => {
   });
 
   test("planner pins declared overlay bytes and accepts exact Gateway dependency output", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-overlay-provenance-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-overlay-provenance-"));
     try {
       const fixtureProject = await createOperationProjectFixture(root);
       const sourcePath = join(root, "fixtures", "title.png");
@@ -311,7 +311,7 @@ describe("workflow file candidate provenance", () => {
           planSha256: initial.generation.currentPlanSha256,
           projectSha256: initial.generation.projectSha256,
         }],
-        version: "transmute-static-bindings-v1",
+        version: "atet-static-bindings-v1",
       };
       const planner = createApplicationNodePlanner(
         operationApplicationContext(root, {
@@ -423,7 +423,7 @@ describe("workflow file candidate provenance", () => {
   });
 
   test("planner binds exact HTML documents and declared resources", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-html-overlay-provenance-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-html-overlay-provenance-"));
     try {
       const fixtureProject = await createOperationProjectFixture(root);
       const documentPath = join(root, "fixtures", "lower-third.html");
@@ -552,7 +552,7 @@ describe("workflow file candidate provenance", () => {
               planSha256: initial.generation.currentPlanSha256,
               projectSha256: initial.generation.projectSha256,
             }],
-            version: "transmute-static-bindings-v1",
+            version: "atet-static-bindings-v1",
           },
         },
         node,
@@ -633,7 +633,7 @@ describe("workflow file candidate provenance", () => {
               planSha256: initial.generation.currentPlanSha256,
               projectSha256: initial.generation.projectSha256,
             }],
-            version: "transmute-static-bindings-v1",
+            version: "atet-static-bindings-v1",
           },
         },
         node: gatewayOverlayNode,
@@ -779,27 +779,27 @@ describe("workflow file candidate provenance", () => {
       .toEqual(["fixtures/title-card.svg"]);
   });
 
-  test("planning declares every authored Transmute visual source", () => {
+  test("planning declares every authored Atet visual source", () => {
     const graph = fixture<AuthoredWorkflowGraphV1>({
       nodes: [
         {
           executor: {
             kind: "operation",
-            operation: { kind: "transmute.diagram.check", version: 1 },
+            operation: { kind: "atet.diagram.check", version: 1 },
           },
           input: { path: "fixtures/check.diagram.json" },
         },
         {
           executor: {
             kind: "operation",
-            operation: { kind: "transmute.diagram.render", version: 1 },
+            operation: { kind: "atet.diagram.render", version: 1 },
           },
           input: { path: "fixtures/render.diagram.json", scale: 2 },
         },
         {
           executor: {
             kind: "operation",
-            operation: { kind: "transmute.image.vectorize", version: 1 },
+            operation: { kind: "atet.image.vectorize", version: 1 },
           },
           input: { inputPath: "fixtures/sketch.png" },
         },

@@ -197,6 +197,7 @@ export const MediaOverlayReceiptSchema = z.strictObject({
   exactInputSha256: Sha256Schema,
   ffprobeVersion: z.string().min(1).max(256).nullable(),
   kind: z.union([
+    z.literal("atet.local-overlay-preparation-receipt"),
     z.literal("transmute.local-overlay-preparation-receipt"),
     z.literal("studio.local-overlay-preparation-receipt"),
   ]),
@@ -675,7 +676,7 @@ export function createMediaOverlayOperationDefinition(
             ffprobeVersion: names.length === 0
               ? null
               : mediaCapabilityVersion(bindings, "ffprobe"),
-            kind: "transmute.local-overlay-preparation-receipt",
+            kind: "atet.local-overlay-preparation-receipt",
             operationSha256: canonicalJsonSha256(operation),
             overlayId: operation.overlayId,
             projectGenerationSha256: snapshot.generation.generationSha256,

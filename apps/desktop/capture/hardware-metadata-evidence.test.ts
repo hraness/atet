@@ -40,8 +40,8 @@ const window = {
 const fixtureId = "01234567-89ab-4cde-8fab-0123456789ab";
 const fixturePublicFieldId = interactionFixturePublicFieldId(fixtureId);
 const fixtureWindow = {
-  applicationBundleId: "com.hraness.transmute.capture",
-  applicationName: "Transmute Capture",
+  applicationBundleId: "com.hraness.atet.capture",
+  applicationName: "Atet Capture",
   bounds: { height: 300, width: 520, x: 80, y: 80 },
   displayId: display.displayId,
   isFocused: true,

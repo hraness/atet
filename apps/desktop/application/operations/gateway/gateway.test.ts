@@ -37,7 +37,7 @@ const IMAGE_SOURCE = {
   bytes: 1_024,
   facts: { height: 1_080, width: 1_920 },
   mediaType: "image/png",
-  path: "artifacts/transmute/private/gateway/input.png",
+  path: "artifacts/atet/private/gateway/input.png",
   sha256: HASH_A,
 } as const;
 
@@ -45,7 +45,7 @@ const AUDIO_SOURCE = {
   bytes: 2_048,
   facts: { durationSeconds: 2.5 },
   mediaType: "audio/wav",
-  path: "artifacts/transmute/private/gateway/input.wav",
+  path: "artifacts/atet/private/gateway/input.wav",
   sha256: HASH_B,
 } as const;
 
@@ -73,12 +73,12 @@ function gatewayResult(
     outputs: [{
       bytes: 4_096,
       mediaType: mediaTypeFor(operation),
-      path: `artifacts/transmute/generated/gateway/${operation}/${HASH_A}`,
+      path: `artifacts/atet/generated/gateway/${operation}/${HASH_A}`,
       sha256: HASH_A,
     }],
     receipt: {
       bytes: 512,
-      path: `artifacts/transmute/generated/gateway/${operation}/${HASH_B}.json`,
+      path: `artifacts/atet/generated/gateway/${operation}/${HASH_B}.json`,
       sha256: HASH_B,
     },
     requestId: dispatch.requestId,
@@ -178,7 +178,7 @@ function executionContext(
             nodePlanSha256: NODE_PLAN_HASH,
             runId: "run_gateway01",
             workspaceDirectory:
-              `/private/repository/artifacts/transmute/private/runs/${nodeKey}`,
+              `/private/repository/artifacts/atet/private/runs/${nodeKey}`,
           },
         }),
   };
@@ -248,7 +248,7 @@ describe("Gateway application operations", () => {
         runId: "run_gateway01",
       });
       expect(result.receiptReference).toBe(
-        `artifacts/transmute/generated/gateway/${request.operation}/${HASH_B}.json`,
+        `artifacts/atet/generated/gateway/${request.operation}/${HASH_B}.json`,
       );
       expect(result.output).toMatchObject({
         model: request.input.model,
@@ -387,12 +387,12 @@ describe("Gateway application operations", () => {
       outputs: [{
         bytes: 4_096,
         mediaType: "video/mp4",
-        path: `artifacts/transmute/generated/gateway/image/${HASH_A}`,
+        path: `artifacts/atet/generated/gateway/image/${HASH_A}`,
         sha256: HASH_A,
       }],
       receipt: {
         bytes: 512,
-        path: `artifacts/transmute/generated/gateway/image/${HASH_B}.json`,
+        path: `artifacts/atet/generated/gateway/image/${HASH_B}.json`,
         sha256: HASH_B,
       },
       requestId: gatewayRequestId({

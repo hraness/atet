@@ -3,7 +3,7 @@ import {
   DEFAULT_GRAPH_COMPILER_LIMITS,
   compileWorkflowGraph,
   type ValidatedGraphTopology,
-} from "@hraness/transmute/code/advanced";
+} from "@hraness/atet/code/advanced";
 
 import { ApplicationError } from "../application/errors";
 import type { OperationRegistry } from "../application/registry";
@@ -33,7 +33,7 @@ export const GRAPH_PLAN_HASH_DOMAIN = "studio.workflow.graph-plan/v2" as const;
 export const REGISTRY_DISCOVERY_HASH_DOMAIN =
   "studio.workflow.registry-discovery/v1" as const;
 export const DESKTOP_WORKFLOW_REGISTRY_PROJECTION_ID =
-  "transmute.workflow.registry.desktop/v1" as const;
+  "atet.workflow.registry.desktop/v1" as const;
 
 const MAX_GRAPH_PLAN_CANONICAL_BYTES = 256 * 1024 * 1024;
 const MAX_GRAPH_PLAN_CANONICAL_DEPTH = 384;

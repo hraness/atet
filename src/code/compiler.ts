@@ -13,6 +13,7 @@ import {
   Sha256Schema,
   UNRESOLVED_REQUIREMENT_KINDS,
   WORKFLOW_COMPILATION_VERSION,
+  LEGACY_WORKFLOW_COMPILATION_VERSION,
   WORKFLOW_EFFECT_CLASSES,
   WORKFLOW_RESUME_CLASSES,
   isComputeGraphNode,
@@ -39,7 +40,7 @@ import {
   canonicalJsonSha256Prefixed,
 } from "./canonical-json.js"
 import { parseCodeBoundary } from "./boundary.js"
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 import {
   createBoundedJsonValueSnapshot,
   deepFreezeJson,
@@ -119,7 +120,7 @@ function invalidData(
   message: string,
   details?: Readonly<Record<string, unknown>>,
 ): never {
-  throw new TransmuteCodeError("invalid-data", message, details)
+  throw new AtetCodeError("invalid-data", message, details)
 }
 
 function deepFreeze<Value>(value: Value): Value {
@@ -423,7 +424,7 @@ function validateGraph(
         operationKey(identity.kind, identity.version),
       )
       if (operation === undefined) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "unsupported-plan",
           `Unsupported operation: ${operationKey(identity.kind, identity.version)}`,
           {
@@ -455,7 +456,7 @@ function validateGraph(
       policy = operation.policy
     } else if (isComputeGraphNode(node)) {
       if (!projection.trustedCompute) {
-        throw new TransmuteCodeError(
+        throw new AtetCodeError(
           "unsupported-plan",
           `Trusted compute is unsupported at node ${node.key}.`,
           {
@@ -467,7 +468,7 @@ function validateGraph(
       }
       policy = trustedComputePolicy(node.executor.compute)
     } else {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "internal",
         `Unknown node executor for ${node.key}.`,
       )
@@ -535,7 +536,7 @@ function validateGraph(
 function operationFamily(kind: OperationKind): string {
   const separator = kind.indexOf(".")
   if (separator < 1) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "internal",
       `Operation ${kind} has no namespace family.`,
       { kind },
@@ -571,7 +572,7 @@ function deriveRequirementEnvelope(validated: ValidatedGraph): RequirementEnvelo
   for (const node of validated.graph.nodes) {
     const policy = validated.policiesByNode.get(node.key)
     if (policy === undefined) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "internal",
         `Node ${node.key} lost its execution policy.`,
       )
@@ -672,7 +673,7 @@ function resolveProjection(
       || options.projectionId !== undefined
       || options.trustedCompute !== undefined
     ) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         "Compile with either a projection or a registry projection source, not both.",
       )
@@ -681,7 +682,7 @@ function resolveProjection(
   }
   if (options.registry !== undefined) {
     if (options.projectionId === undefined) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         "A registry projection source requires an explicit projection id.",
       )
@@ -693,7 +694,7 @@ function resolveProjection(
     )
   }
   if (options.projectionId !== undefined || options.trustedCompute !== undefined) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "A projection id or trusted-compute authority requires a registry projection source.",
     )
@@ -715,7 +716,10 @@ const ShallowCompiledWorkflowGraphSchema = z.strictObject({
   limits: RequiredCompilationComponentSchema,
   projection: RequiredCompilationComponentSchema,
   topologicalWaves: RequiredCompilationComponentSchema,
-  version: z.literal(WORKFLOW_COMPILATION_VERSION),
+  version: z.union([
+    z.literal(WORKFLOW_COMPILATION_VERSION),
+    z.literal(LEGACY_WORKFLOW_COMPILATION_VERSION),
+  ]),
 })
 
 function boundedCompilationInput(input: unknown, name: string): unknown {
@@ -795,7 +799,7 @@ export function parseCompiledWorkflowGraph(input: unknown): CompiledWorkflowGrap
   } = parsed
   const expected = workflowCompilationHashFromValidated(unsigned)
   if (parsedCompilationSha256 !== expected) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow compilation hash does not match its contents.",
       {
@@ -813,7 +817,7 @@ export function parseCompiledWorkflowGraph(input: unknown): CompiledWorkflowGrap
   // resolve to that exact authenticated identity, which avoids another full
   // canonical serialization while retaining the SHA-256 collision boundary.
   if (recompiled.compilationSha256 !== parsedCompilationSha256) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow compilation topology, requirements, or projection do not match the graph.",
     )

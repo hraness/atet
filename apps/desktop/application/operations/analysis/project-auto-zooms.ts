@@ -128,7 +128,7 @@ async function resolveSubject(
   if (asset?.source.kind !== "recording") {
     throw new ApplicationError(
       "conflict",
-      `Placement ${placement.placementId} is not backed by a Transmute recording.`,
+      `Placement ${placement.placementId} is not backed by a Atet recording.`,
     );
   }
   const recording = await openRecording(

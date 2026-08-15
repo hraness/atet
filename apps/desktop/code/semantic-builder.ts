@@ -870,7 +870,7 @@ export class WorkflowBuilder {
     ): ProjectSnapshotHandle => persistedSnapshotHandle(snapshot),
     baseline: (): CandidateProjectEditBatchV3 => {
       const body = {
-        kind: "transmute.project-edit-batch" as const,
+        kind: "atet.project-edit-batch" as const,
         ordered: [],
         schemaVersion: 3 as const,
       };

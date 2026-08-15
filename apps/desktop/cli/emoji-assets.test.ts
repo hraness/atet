@@ -26,21 +26,21 @@ test("reports the ignored local emoji-pack metadata paths", async () => {
 });
 
 test("searches and resolves checked brand-catalog emoji overlays", async () => {
-  const search = await searchEmojiAssets(REPOSITORY_ROOT, "transmute", 10, undefined, "brand-catalog");
+  const search = await searchEmojiAssets(REPOSITORY_ROOT, "atet", 10, undefined, "brand-catalog");
   expect(search).toHaveLength(1);
   expect(search[0]).toMatchObject({
     available: { color: false, duotone: true },
-    emoji: "🧬",
-    name: "transmute.rocks",
+    emoji: "☀️",
+    name: "atet.sh",
     provider: "brand-catalog",
   });
 
-  const resolved = await resolveEmojiAsset(REPOSITORY_ROOT, "transmute", undefined, "auto");
+  const resolved = await resolveEmojiAsset(REPOSITORY_ROOT, "atet", undefined, "auto");
   expect(resolved.provider).toBe("brand-catalog");
   expect(resolved.variant).toBe("duotone");
-  expect(resolved.path).toEndWith("/apps/desktop/assets/brand-emoji/transmute.rocks.svg");
+  expect(resolved.path).toEndWith("/apps/desktop/assets/brand-emoji/atet.sh.svg");
 
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-brand-emoji-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-brand-emoji-test-"));
   try {
     const ingested = await ingestEmojiAsset(join(temporary, "rec_emoji001"), resolved);
     expect(ingested.mediaType).toBe("image/svg+xml");
@@ -53,7 +53,7 @@ test("searches and resolves checked brand-catalog emoji overlays", async () => {
 test("reports an unavailable variant instead of substituting brand color assets", async () => {
   let failure: unknown;
   try {
-    await resolveEmojiAsset(REPOSITORY_ROOT, "brand:transmute.rocks", "color", "brand-catalog");
+    await resolveEmojiAsset(REPOSITORY_ROOT, "brand:atet.sh", "color", "brand-catalog");
   } catch (error) {
     failure = error;
   }

@@ -127,9 +127,9 @@ async function createFixture(): Promise<{
   readonly project: OpenProject;
   readonly repositoryRoot: string;
 }> {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-music-service-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-music-service-"));
   const mediaDirectory = join(repositoryRoot, "imports");
-  const projectDirectory = join(repositoryRoot, "artifacts", "transmute", "projects", "project_musicfixture");
+  const projectDirectory = join(repositoryRoot, "artifacts", "atet", "projects", "project_musicfixture");
   await mkdir(mediaDirectory, { recursive: true });
   await mkdir(projectDirectory, { recursive: true });
   const media = join(mediaDirectory, "take.mov");
@@ -182,7 +182,7 @@ async function cacheEntries(project: OpenProject): Promise<readonly string[]> {
 
 describe("bounded PCM reading", () => {
   test("streams finite little-endian floats without reading beyond its byte bound", async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "transmute-music-pcm-"));
+    const temporary = await mkdtemp(join(tmpdir(), "atet-music-pcm-"));
     const path = join(temporary, "audio.f32le");
     try {
       await writeFile(path, floatBytes([0, -0.5, 0.25, 1]));
@@ -197,7 +197,7 @@ describe("bounded PCM reading", () => {
   });
 
   test("rejects partial and non-finite float samples", async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "transmute-music-invalid-pcm-"));
+    const temporary = await mkdtemp(join(tmpdir(), "atet-music-invalid-pcm-"));
     const path = join(temporary, "audio.f32le");
     try {
       await writeFile(path, Uint8Array.from([1, 2, 3]));
@@ -223,7 +223,7 @@ test("persists a validated immutable music sidecar and compact project reference
       serviceOptions(fixture.project, fixture.repositoryRoot, runner),
     );
 
-    expect(result.analysis.kind).toBe("transmute.music-analysis");
+    expect(result.analysis.kind).toBe("atet.music-analysis");
     expect(result.analysis.durationUs).toBe(2_000_000);
     expect(result.analysis.musicRegions.length).toBeGreaterThan(0);
     expect(result.analysis.keyRegions.length).toBeGreaterThan(0);

@@ -34,19 +34,19 @@ export function findRepositoryRoot(start: string): string {
     if (candidate === filesystemRoot) break;
     candidate = dirname(candidate);
   }
-  throw new Error("Could not find the Transmute checkout containing Transmute.");
+  throw new Error("Could not find the Atet checkout containing Atet.");
 }
 
 export function resolveDevelopmentRuntimeResources(desktopRoot: string): DevelopmentRuntimeResources {
   const canonicalDesktopRoot = realpathSync(desktopRoot);
   return {
     captureHelper: executable(
-      resolve(canonicalDesktopRoot, "capture", "dist", "transmute-capture"),
-      "Transmute capture helper",
+      resolve(canonicalDesktopRoot, "capture", "dist", "atet-capture"),
+      "Atet capture helper",
     ),
     gateway: executable(
-      resolve(canonicalDesktopRoot, "runtime", "dist", "transmute-gateway"),
-      "Transmute gateway",
+      resolve(canonicalDesktopRoot, "runtime", "dist", "atet-gateway"),
+      "Atet gateway",
     ),
     repositoryRoot: findRepositoryRoot(canonicalDesktopRoot),
   };
@@ -67,9 +67,9 @@ async function main(): Promise<void> {
     cwd: desktopRoot,
     env: {
       ...process.env,
-      TRANSMUTE_CAPTURE_HELPER: resources.captureHelper,
-      TRANSMUTE_GATEWAY_PATH: resources.gateway,
-      TRANSMUTE_REPOSITORY_ROOT: resources.repositoryRoot,
+      ATET_CAPTURE_HELPER: resources.captureHelper,
+      ATET_GATEWAY_PATH: resources.gateway,
+      ATET_REPOSITORY_ROOT: resources.repositoryRoot,
     },
     stdin: "inherit",
     stdout: "inherit",

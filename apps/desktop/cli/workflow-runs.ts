@@ -7,7 +7,7 @@ import {
   HostResourceError,
   type HostResourceCoordinator,
   type HostResourceLease,
-} from "@hraness/transmute/host-resources";
+} from "@hraness/atet/host-resources";
 
 import type { ApplicationContext } from "../application/context";
 import { ApplicationError } from "../application/errors";
@@ -206,7 +206,7 @@ export interface WorkflowRunDetails {
 }
 
 function schedulerOwner(): string {
-  return `transmute-cli:${String(process.pid)}:${randomUUID()}`;
+  return `atet-cli:${String(process.pid)}:${randomUUID()}`;
 }
 
 function runId(): string {
@@ -311,7 +311,7 @@ function localCliAuthorization(): SchedulerAuthorization {
     authorizePreparation: request => Promise.resolve(
       localPreparationAllowed(request.policy),
     ),
-    grantedBy: "transmute-local-cli",
+    grantedBy: "atet-local-cli",
   };
 }
 
@@ -463,7 +463,7 @@ export async function approveWorkflowRun(options: {
     const common = {
       createdAt: new Date().toISOString(),
       graphPlanSha256: graphPlan.graphPlanSha256,
-      grantedBy: "transmute-local-cli",
+      grantedBy: "atet-local-cli",
       grantId: randomUUID(),
       nodeKey: options.nodeKey,
     } as const;
@@ -509,7 +509,7 @@ export async function cancelWorkflowRun(options: {
 }) {
   return await workflowRunStore(options.application).requestCancellation(
     options.runId,
-    "transmute-local-cli",
+    "atet-local-cli",
   );
 }
 
@@ -563,14 +563,14 @@ export function humanRunSummary(
       ? "--node-plan"
       : "--preparation-plan";
     lines.push(
-      `next transmute runs approve ${summary.runId} ${result.pause.nodeKey} ${option} ${result.pause.planSha256}`,
-      `then transmute runs resume ${summary.runId}`,
+      `next atet runs approve ${summary.runId} ${result.pause.nodeKey} ${option} ${result.pause.planSha256}`,
+      `then atet runs resume ${summary.runId}`,
     );
   } else if (
     summary.status !== "completed"
     && summary.status !== "cancelled"
   ) {
-    lines.push(`next transmute runs show ${summary.runId} --nodes failed`);
+    lines.push(`next atet runs show ${summary.runId} --nodes failed`);
   }
   return lines.join("\n");
 }

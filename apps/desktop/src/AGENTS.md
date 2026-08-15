@@ -1,6 +1,6 @@
 # Contents
 
-- `main.zig` – Transmute identity, frontend source, gateway lifecycle, bridge dispatcher, navigation policy, icon, and initial window.
+- `main.zig` – Atet identity, frontend source, gateway lifecycle, bridge dispatcher, navigation policy, icon, and initial window.
 - `runtime_host.zig` – asynchronous gateway process, bounded JSONL request/response transport, and UI-loop responder delivery.
 - `runner.zig` – pinned Native SDK lifecycle, logging, platform, and WebView integration.
 

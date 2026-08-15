@@ -71,11 +71,11 @@ const BROWSER_CLEANUP_TIMEOUT_MS = 30_000;
 const BROWSER_RUNTIME_FLAGS_TIMEOUT_MS = 60_000;
 const BROWSER_RUNTIME_FLAGS_MAXIMUM_OUTPUT_BYTES = 16 * 1024;
 const MACOS_BROWSER_RUNTIME_SNAPSHOT_ANCHOR = "/private/tmp";
-const BROWSER_RUNTIME_SNAPSHOT_PREFIX = ".transmute-browser-runtime-";
-const BROWSER_RUNTIME_SNAPSHOT_NAME = /^\.transmute-browser-runtime-[A-Za-z0-9]{6}$/u;
-const BROWSER_RUNTIME_SNAPSHOT_RECLAIM_PREFIX = ".transmute-browser-reclaim-";
-const BROWSER_RUNTIME_SNAPSHOT_RECLAIM_NAME = /^\.transmute-browser-reclaim-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
-const BROWSER_RUNTIME_SNAPSHOT_LEASE_FILE = ".transmute-runtime-lease.json";
+const BROWSER_RUNTIME_SNAPSHOT_PREFIX = ".atet-browser-runtime-";
+const BROWSER_RUNTIME_SNAPSHOT_NAME = /^\.atet-browser-runtime-[A-Za-z0-9]{6}$/u;
+const BROWSER_RUNTIME_SNAPSHOT_RECLAIM_PREFIX = ".atet-browser-reclaim-";
+const BROWSER_RUNTIME_SNAPSHOT_RECLAIM_NAME = /^\.atet-browser-reclaim-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
+const BROWSER_RUNTIME_SNAPSHOT_LEASE_FILE = ".atet-runtime-lease.json";
 const BROWSER_RUNTIME_SNAPSHOT_LEASE_MAXIMUM_BYTES = 4 * 1024;
 const BROWSER_RUNTIME_SNAPSHOT_STALE_AFTER_MS = 5 * 60_000;
 const BROWSER_RUNTIME_SNAPSHOT_MAXIMUM_SCAN_ENTRIES = 4_096;
@@ -295,7 +295,7 @@ async function assertPathAbsent(path: string, label: string): Promise<void> {
   }
   throw new ApplicationError(
     "conflict",
-    `${label} already exists; Transmute will not replace it.`,
+    `${label} already exists; Atet will not replace it.`,
   );
 }
 
@@ -1187,7 +1187,7 @@ async function markBrowserRuntimeSnapshotLeaseReleased(
   );
   const temporary = join(
     quarantine,
-    `.transmute-runtime-release-${randomUUID()}.tmp`,
+    `.atet-runtime-release-${randomUUID()}.tmp`,
   );
   const handle = await open(
     temporary,

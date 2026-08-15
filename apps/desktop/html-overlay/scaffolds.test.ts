@@ -23,7 +23,7 @@ describe("HTML overlay scaffolds", () => {
 
   test("plain DOM uses only the absolute frame callback", () => {
     const html = createHtmlOverlayScaffold("plain");
-    expect(html).toContain("TransmuteOverlay.onFrame");
+    expect(html).toContain("AtetOverlay.onFrame");
     expect(html).not.toContain('type="importmap"');
   });
 
@@ -49,8 +49,8 @@ describe("HTML overlay scaffolds", () => {
   test("Motion uses the locked bare import and tracked controls", () => {
     const html = createHtmlOverlayScaffold("motion");
     expect(html).toContain('from "motion"');
-    expect(html).toContain("TransmuteOverlay.trackAnimation");
-    expect(html).toContain("/.transmute-overlay/libraries/");
+    expect(html).toContain("AtetOverlay.trackAnimation");
+    expect(html).toContain("/.atet-overlay/libraries/");
     expect(html).not.toContain("motion/mini");
   });
 

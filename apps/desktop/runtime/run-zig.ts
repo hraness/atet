@@ -1,14 +1,15 @@
 import { resolve } from "node:path";
 
 import { resolveZigExecutable } from "./zig-toolchain";
+import { renamedEnvironmentValue } from "../cli/renamed-environment";
 
-const workerBudgetVariable = "TRANSMUTE_WORKER_BUDGET";
+const workerBudgetVariable = "ATET_WORKER_BUDGET";
 
 export function zigArgumentsWithWorkerBudget(
   arguments_: readonly string[],
   environment: Readonly<Record<string, string | undefined>> = process.env,
 ): readonly string[] {
-  const configured = environment[workerBudgetVariable];
+  const configured = renamedEnvironmentValue(environment, workerBudgetVariable);
   if (
     arguments_[0] !== "build"
     || configured === undefined

@@ -127,7 +127,7 @@ export function operationTestProject(): VideoProjectV1 {
 
 export async function createOperationProjectFixture(repositoryRoot: string) {
   const project = operationTestProject();
-  const projectRoot = join(repositoryRoot, "artifacts", "transmute", "projects");
+  const projectRoot = join(repositoryRoot, "artifacts", "atet", "projects");
   const projectDirectory = join(projectRoot, project.projectId);
   await mkdir(projectDirectory, { recursive: true });
   const fileSystem = createNodeBundleFileSystem(projectDirectory);
@@ -178,12 +178,12 @@ export async function createOperationRecordingProjectFixture(
   const project = VideoProjectV1Schema.parse(
     options.project?.(recordingProject) ?? recordingProject,
   );
-  const projectRoot = join(repositoryRoot, "artifacts", "transmute", "projects");
+  const projectRoot = join(repositoryRoot, "artifacts", "atet", "projects");
   const projectDirectory = join(projectRoot, project.projectId);
   const recordingRoot = join(
     repositoryRoot,
     "artifacts",
-    "transmute",
+    "atet",
     "recordings",
   );
   const recordingDirectory = join(recordingRoot, manifest.recordingId);
@@ -241,10 +241,10 @@ export function operationApplicationContext(
       ).getTime(),
     },
     paths: {
-      artifactRoot: join(repositoryRoot, "artifacts", "transmute", "recordings"),
-      desktopRoot: join(repositoryRoot, "projects", "transmute", "apps", "desktop"),
-      privateRoot: join(repositoryRoot, "artifacts", "transmute", "private"),
-      projectRoot: join(repositoryRoot, "artifacts", "transmute", "projects"),
+      artifactRoot: join(repositoryRoot, "artifacts", "atet", "recordings"),
+      desktopRoot: join(repositoryRoot, "projects", "atet", "apps", "desktop"),
+      privateRoot: join(repositoryRoot, "artifacts", "atet", "private"),
+      projectRoot: join(repositoryRoot, "artifacts", "atet", "projects"),
       repositoryRoot,
     },
     runner: {

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import {
   DesktopEventSchema,
   DesktopResponseSchema,
-  TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+  ATET_DESKTOP_PROTOCOL_VERSION,
   type CaptureDomainCommand,
   type DesktopEvent,
 } from "../../contracts";
@@ -92,7 +92,7 @@ afterEach(async () => {
 });
 
 async function repository(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "transmute-runtime-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-runtime-"));
   temporaryDirectories.push(root);
   await mkdir(join(root, "media"));
   return await realpath(root);
@@ -331,7 +331,7 @@ function request(requestId: string, command: CaptureDomainCommand) {
   return {
     payload: { command, kind: "dispatch" },
     protocol: "studio.desktop",
-    protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
     requestId,
   } as const;
 }
@@ -344,7 +344,7 @@ function startCommand(): CaptureDomainCommand {
       camera: { kind: "default" },
       displays: { kind: "all" },
       microphone: { kind: "default" },
-      recordingDirectory: "artifacts/transmute/recordings",
+      recordingDirectory: "artifacts/atet/recordings",
       systemAudio: true,
       typedText: "disabled",
       windowMetadata: "titles-and-bounds",
@@ -422,7 +422,7 @@ describe("recording runtime service", () => {
 
     const abortController = new AbortController();
     expect(await probeCaptureHelper(
-      "/tmp/transmute-capture",
+      "/tmp/atet-capture",
       runner,
       abortController.signal,
     )).toMatchObject({
@@ -431,7 +431,7 @@ describe("recording runtime service", () => {
       },
     });
     expect(calls).toEqual([{
-      argv: ["/tmp/transmute-capture", "--json"],
+      argv: ["/tmp/atet-capture", "--json"],
       options: {
         abortSignal: abortController.signal,
         env: { LANG: "en_US.UTF-8", PATH: "/usr/bin:/bin" },
@@ -452,7 +452,7 @@ describe("recording runtime service", () => {
       },
     };
 
-    expect(probeCaptureHelper("/tmp/transmute-capture", runner))
+    expect(probeCaptureHelper("/tmp/atet-capture", runner))
       .rejects.toThrow("capture helper capability probe failed");
   });
 
@@ -462,7 +462,7 @@ describe("recording runtime service", () => {
     let receivedSignal: AbortSignal | undefined;
     let probeCalls = 0;
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       helperProbe: (abortSignal) => {
         probeCalls += 1;
         receivedSignal = abortSignal;
@@ -521,7 +521,7 @@ describe("recording runtime service", () => {
     const events: DesktopEvent[] = [];
     const controllers: FakeController[] = [];
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => {
         const controller = new FakeController(artifactRoot);
         controllers.push(controller);
@@ -560,7 +560,7 @@ describe("recording runtime service", () => {
     for (const [index, command] of commands.entries()) {
       const response = DesktopResponseSchema.parse(await service.handle(
         request(`request_fixture00${index + 1}`, command),
-        "transmute.runtime.dispatch",
+        "atet.runtime.dispatch",
       ));
       expect(response.ok).toBe(true);
     }
@@ -622,7 +622,7 @@ describe("recording runtime service", () => {
       }],
     } satisfies CaptureSourceInventory;
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => {
         const controller = new FakeController(
           artifactRoot,
@@ -671,7 +671,7 @@ describe("recording runtime service", () => {
         kind: "selected" as const,
       },
       microphone: { deviceId: "microphone-usb", kind: "device" as const },
-      recordingDirectory: "artifacts/transmute/recordings" as const,
+      recordingDirectory: "artifacts/atet/recordings" as const,
       systemAudio: false,
       typedText: "disabled" as const,
       windowMetadata: "titles-and-bounds" as const,
@@ -682,7 +682,7 @@ describe("recording runtime service", () => {
         kind: "start",
         options: exactOptions,
       }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(selected.ok).toBe(true);
     if (!selected.ok) throw new Error("Expected newly connected sources to be accepted.");
@@ -719,7 +719,7 @@ describe("recording runtime service", () => {
     const controllers: FakeController[] = [];
     let probeCall = 0;
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => {
         const controller = new FakeController(artifactRoot);
         controllers.push(controller);
@@ -753,7 +753,7 @@ describe("recording runtime service", () => {
     await service.initialize();
     expect(DesktopResponseSchema.parse(await service.handle(
       request("request_active001", startCommand()),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     )).ok).toBe(true);
     expect(controllers).toHaveLength(1);
 
@@ -809,7 +809,7 @@ describe("recording runtime service", () => {
         commandId: "command_resume002",
         kind: "resume",
       }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(resumed.ok).toBe(true);
     if (!resumed.ok) throw new Error("Expected explicit resume to succeed.");
@@ -825,7 +825,7 @@ describe("recording runtime service", () => {
     const controllers: FakeController[] = [];
     const events: DesktopEvent[] = [];
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => {
         const controller = new FakeController(artifactRoot);
         controllers.push(controller);
@@ -860,7 +860,7 @@ describe("recording runtime service", () => {
     await service.initialize();
     expect(DesktopResponseSchema.parse(await service.handle(
       request("request_watch0001", startCommand()),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     )).ok).toBe(true);
     const controller = controllers[0];
     if (controller === undefined) throw new Error("Expected a controller.");
@@ -905,7 +905,7 @@ describe("recording runtime service", () => {
         commandId: "command_watch0002",
         kind: "resume",
       }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     );
     await Promise.resolve();
     expect(controller.resumeCalls).toBe(0);
@@ -918,7 +918,7 @@ describe("recording runtime service", () => {
         commandId: "command_watch0003",
         kind: "stop",
       }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     )).ok).toBe(true);
     await service.close();
     const statusCallsAfterClose = controller.statusCalls;
@@ -930,7 +930,7 @@ describe("recording runtime service", () => {
     const root = await repository();
     const controllers: FakeController[] = [];
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => {
         const controller = new FakeController(artifactRoot);
         controllers.push(controller);
@@ -961,7 +961,7 @@ describe("recording runtime service", () => {
     await service.initialize();
     expect(DesktopResponseSchema.parse(await service.handle(
       request("request_failure001", startCommand()),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     )).ok).toBe(true);
     expect(controllers).toHaveLength(1);
 
@@ -985,7 +985,7 @@ describe("recording runtime service", () => {
         commandId: "command_failure02",
         kind: "pause",
       }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
 
     expect(failed).toMatchObject({
@@ -1008,7 +1008,7 @@ describe("recording runtime service", () => {
     const events: DesktopEvent[] = [];
     let nextStartFailure: Error | null = null;
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => {
         const controller = new FakeController(artifactRoot);
         controller.startFailure = nextStartFailure;
@@ -1044,7 +1044,7 @@ describe("recording runtime service", () => {
     await service.initialize();
     expect(DesktopResponseSchema.parse(await service.handle(
       request("request_fatal0001", startCommand()),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     )).ok).toBe(true);
     const first = controllers[0];
     if (first === undefined) throw new Error("Expected the first controller.");
@@ -1091,7 +1091,7 @@ describe("recording runtime service", () => {
         commandId: "command_fatal0002",
         kind: "pause",
       }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(failedResponse).toMatchObject({
       error: {
@@ -1107,7 +1107,7 @@ describe("recording runtime service", () => {
         state: {
           code: "camera-device-disconnected",
           recordingId: "rec_fixture001",
-          recordingPath: "artifacts/transmute/recordings/rec_fixture001",
+          recordingPath: "artifacts/atet/recordings/rec_fixture001",
           sourceTimeUs: 1_500_000,
           state: "failed",
         },
@@ -1116,7 +1116,7 @@ describe("recording runtime service", () => {
     expect(fatalEvents[1]).toEqual({
       commandId: "command_fatal0002",
       kind: "command-settled",
-      protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
       status: "failed",
     });
     expect(JSON.stringify(fatalEvents)).not.toContain("/private/");
@@ -1129,7 +1129,7 @@ describe("recording runtime service", () => {
       },
       state: {
         recordingId: "rec_fixture001",
-        recordingPath: "artifacts/transmute/recordings/rec_fixture001",
+        recordingPath: "artifacts/atet/recordings/rec_fixture001",
         state: "failed",
       },
     });
@@ -1144,7 +1144,7 @@ describe("recording runtime service", () => {
           recordingRoot: join(
             root,
             "artifacts",
-            "transmute",
+            "atet",
             "recordings",
             "rec_restart001",
           ),
@@ -1153,7 +1153,7 @@ describe("recording runtime service", () => {
             logicalTimeUs: 0,
             permissions: recordingSnapshot(
               "recording",
-              join(root, "artifacts", "transmute", "recordings"),
+              join(root, "artifacts", "atet", "recordings"),
               0,
               {
                 availableSources: defaultCaptureSources,
@@ -1172,7 +1172,7 @@ describe("recording runtime service", () => {
         ...startCommand(),
         commandId: "command_fatal0003",
       }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(failedRestart).toMatchObject({
       error: {
@@ -1188,7 +1188,7 @@ describe("recording runtime service", () => {
         code: "capture-session-failed",
         recordingId: "rec_restart001",
         recordingPath:
-          "artifacts/transmute/recordings/rec_restart001",
+          "artifacts/atet/recordings/rec_restart001",
         sourceTimeUs: 0,
         state: "failed",
       },
@@ -1203,7 +1203,7 @@ describe("recording runtime service", () => {
         ...startCommand(),
         commandId: "command_fatal0004",
       }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(restarted.ok).toBe(true);
     if (!restarted.ok) throw new Error("Expected a successful recovery start.");
@@ -1218,7 +1218,7 @@ describe("recording runtime service", () => {
     const controllers: FakeController[] = [];
     const events: DesktopEvent[] = [];
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => {
         const controller = new FakeController(artifactRoot);
         controllers.push(controller);
@@ -1252,7 +1252,7 @@ describe("recording runtime service", () => {
     await service.initialize();
     expect(DesktopResponseSchema.parse(await service.handle(
       request("request_verify001", startCommand()),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     )).ok).toBe(true);
     const controller = controllers[0];
     if (controller === undefined) throw new Error("Expected a controller.");
@@ -1299,7 +1299,7 @@ describe("recording runtime service", () => {
         commandId: "command_verify002",
         kind: "pause",
       }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(response).toMatchObject({
       error: {
@@ -1317,7 +1317,7 @@ describe("recording runtime service", () => {
           code: "camera-recording-failed",
           message: "Camera recording failed. The recording stopped.",
           recordingId: "rec_fixture001",
-          recordingPath: "artifacts/transmute/recordings/rec_fixture001",
+          recordingPath: "artifacts/atet/recordings/rec_fixture001",
           sourceTimeUs: 1_200_000,
           state: "failed",
         },
@@ -1344,7 +1344,7 @@ describe("recording runtime service", () => {
         ...startCommand(),
         commandId: "command_verify003",
       }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(restarted.ok).toBeTrue();
     const second = controllers[1];
@@ -1384,7 +1384,7 @@ describe("recording runtime service", () => {
           commandId: "command_verify004",
           kind: "pause",
         }),
-        "transmute.runtime.dispatch",
+        "atet.runtime.dispatch",
       ),
     );
     expect(systemAudioResponse).toMatchObject({
@@ -1408,7 +1408,7 @@ describe("recording runtime service", () => {
           code: "system-audio-track-missing",
           message: "System audio was missing from the finalized recording.",
           recordingId: "rec_fixture001",
-          recordingPath: "artifacts/transmute/recordings/rec_fixture001",
+          recordingPath: "artifacts/atet/recordings/rec_fixture001",
           sourceTimeUs: 2_500_000,
           state: "failed",
         },
@@ -1432,7 +1432,7 @@ describe("recording runtime service", () => {
           ...startCommand(),
           commandId: "command_verify005",
         }),
-        "transmute.runtime.dispatch",
+        "atet.runtime.dispatch",
       ),
     );
     expect(restartedAfterSystemAudio.ok).toBeTrue();
@@ -1486,7 +1486,7 @@ describe("recording runtime service", () => {
           commandId: "command_verify006",
           kind: "pause",
         }),
-        "transmute.runtime.dispatch",
+        "atet.runtime.dispatch",
       ),
     );
     expect(wrappedSystemAudioResponse).toMatchObject({
@@ -1504,7 +1504,7 @@ describe("recording runtime service", () => {
         code: "capture-recovery-incomplete",
         message: "The recording stopped, but local recovery did not complete.",
         recordingId: "rec_fixture001",
-        recordingPath: "artifacts/transmute/recordings/rec_fixture001",
+        recordingPath: "artifacts/atet/recordings/rec_fixture001",
         sourceTimeUs: 3_750_000,
         state: "failed",
       },
@@ -1520,7 +1520,7 @@ describe("recording runtime service", () => {
           ...startCommand(),
           commandId: "command_verify007",
         }),
-        "transmute.runtime.dispatch",
+        "atet.runtime.dispatch",
       ),
     );
     expect(restartedAfterWrappedSystemAudio).toMatchObject({
@@ -1540,7 +1540,7 @@ describe("recording runtime service", () => {
     const controllers: FakeController[] = [];
     const events: DesktopEvent[] = [];
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => {
         const controller = new FakeController(artifactRoot);
         controllers.push(controller);
@@ -1575,7 +1575,7 @@ describe("recording runtime service", () => {
     await service.initialize();
     expect(DesktopResponseSchema.parse(await service.handle(
       request("request_nested001", startCommand()),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     )).ok).toBe(true);
     const controller = controllers[0];
     if (controller === undefined) throw new Error("Expected a controller.");
@@ -1644,7 +1644,7 @@ describe("recording runtime service", () => {
           code: "capture-recovery-incomplete",
           message: "The recording stopped, but local recovery did not complete.",
           recordingId: "rec_fixture001",
-          recordingPath: "artifacts/transmute/recordings/rec_fixture001",
+          recordingPath: "artifacts/atet/recordings/rec_fixture001",
           state: "failed",
         },
       },
@@ -1668,7 +1668,7 @@ describe("recording runtime service", () => {
       windowMetadata: "authorized",
     } as const;
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => new FakeController(artifactRoot),
       helperProbe: () => {
         probeCall += 1;
@@ -1731,7 +1731,7 @@ describe("recording runtime service", () => {
     const controllers: FakeController[] = [];
     let probeCall = 0;
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => {
         const controller = new FakeController(artifactRoot);
         controllers.push(controller);
@@ -1763,7 +1763,7 @@ describe("recording runtime service", () => {
     await service.initialize();
     const started = DesktopResponseSchema.parse(await service.handle(
       request("request_idleprobe1", startCommand()),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(started.ok).toBe(true);
     expect(controllers).toHaveLength(1);
@@ -1791,7 +1791,7 @@ describe("recording runtime service", () => {
     const controllers: FakeController[] = [];
     let probeCall = 0;
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => {
         const controller = new FakeController(artifactRoot);
         controllers.push(controller);
@@ -1824,7 +1824,7 @@ describe("recording runtime service", () => {
 
     const failed = DesktopResponseSchema.parse(await service.handle(
       request("request_refreshfail", startCommand()),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(failed).toMatchObject({
       error: {
@@ -1866,7 +1866,7 @@ describe("recording runtime service", () => {
       },
     } satisfies Awaited<ReturnType<HelperProbe>>;
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => new FakeController(artifactRoot),
       helperProbe: async () => {
         probeCall += 1;
@@ -1885,13 +1885,13 @@ describe("recording runtime service", () => {
 
     const starting = service.handle(
       request("request_blocked001", startCommand()),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     );
     await Promise.resolve();
     expect(probeCall).toBe(2);
     const concurrent = DesktopResponseSchema.parse(await service.handle(
       request("request_concurrent1", { commandId: "command_concurrent1", kind: "pause" }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(concurrent).toMatchObject({
       error: { code: "conflict", retryable: true },
@@ -1908,7 +1908,7 @@ describe("recording runtime service", () => {
     const root = await repository();
     const events: DesktopEvent[] = [];
     const service = new RecordingService({
-      captureHelper: "/tmp/transmute-capture",
+      captureHelper: "/tmp/atet-capture",
       controllerFactory: (artifactRoot) => new FakeController(artifactRoot),
       emit: (event) => {
         events.push(event);
@@ -1921,20 +1921,20 @@ describe("recording runtime service", () => {
 
     const mismatch = DesktopResponseSchema.parse(await service.handle(
       request("request_mismatch01", startCommand()),
-      "transmute.runtime.snapshot",
+      "atet.runtime.snapshot",
     ));
     expect(mismatch.ok).toBe(false);
     expect(events).toEqual([]);
 
     const failed = DesktopResponseSchema.parse(await service.handle(
       request("request_pausefail1", { commandId: "command_pausefail1", kind: "pause" }),
-      "transmute.runtime.dispatch",
+      "atet.runtime.dispatch",
     ));
     expect(failed.ok).toBe(false);
     expect(events).toEqual([{
       commandId: "command_pausefail1",
       kind: "command-settled",
-      protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
       status: "failed",
     }]);
   });

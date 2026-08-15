@@ -274,7 +274,7 @@ function analysis(): FaceAnalysisV1 {
       streamId: "stream_camera_video01",
     },
     tool: {
-      name: "transmute-face-analyzer",
+      name: "atet-face-analyzer",
       profile: "offline-boxes",
       version: "0.1.0",
     },

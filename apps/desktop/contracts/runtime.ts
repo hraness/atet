@@ -10,9 +10,10 @@ import {
   type ReadonlyInferred,
 } from "./recording";
 
-export const TRANSMUTE_DESKTOP_PROTOCOL = "transmute.desktop";
+export const ATET_DESKTOP_PROTOCOL = "atet.desktop";
+export const LEGACY_TRANSMUTE_DESKTOP_PROTOCOL = "transmute.desktop";
 export const LEGACY_STUDIO_DESKTOP_PROTOCOL = "studio.desktop";
-export const TRANSMUTE_DESKTOP_PROTOCOL_VERSION = 3;
+export const ATET_DESKTOP_PROTOCOL_VERSION = 3;
 
 const RuntimeRequestIdSchema = z.string().regex(/^request_[a-z0-9][a-z0-9_-]{7,63}$/u);
 const RuntimeCommandIdSchema = z.string().regex(/^command_[a-z0-9][a-z0-9_-]{7,63}$/u);
@@ -55,7 +56,7 @@ export const CaptureRuntimeSnapshotSchema = z.strictObject({
   availableSources: RuntimeSourceSummarySchema,
   lastInterruption: CaptureInterruptionSchema.nullable(),
   permissions: CapturePermissionsSchema,
-  protocolVersion: z.literal(TRANSMUTE_DESKTOP_PROTOCOL_VERSION),
+  protocolVersion: z.literal(ATET_DESKTOP_PROTOCOL_VERSION),
   sources: RuntimeSourceSummarySchema,
   state: CaptureRuntimeStateSchema,
   updatedAt: IsoTimestampSchema,
@@ -84,8 +85,11 @@ export const CaptureStartOptionsSchema = z.strictObject({
   displays: DisplaySelectionSchema,
   microphone: OptionalDeviceSelectionSchema,
   recordingDirectory: RepositoryRelativePathSchema.refine(
-    (path) => path === "artifacts/transmute/recordings" || path.startsWith("artifacts/transmute/recordings/"),
-    "Recordings must stay under artifacts/transmute/recordings/.",
+    (path) => path === "artifacts/atet/recordings"
+      || path.startsWith("artifacts/atet/recordings/")
+      || path === "artifacts/transmute/recordings"
+      || path.startsWith("artifacts/transmute/recordings/"),
+    "Recordings must stay under artifacts/atet/recordings/ or the legacy artifacts/transmute/recordings/ root.",
   ),
   systemAudio: z.boolean(),
   typedText: z.enum(["disabled", "enabled"]),
@@ -105,17 +109,18 @@ export const DesktopRequestSchema = z.strictObject({
     z.strictObject({ command: CaptureDomainCommandSchema, kind: z.literal("dispatch") }),
   ]),
   protocol: z.union([
-    z.literal(TRANSMUTE_DESKTOP_PROTOCOL),
+    z.literal(ATET_DESKTOP_PROTOCOL),
+    z.literal(LEGACY_TRANSMUTE_DESKTOP_PROTOCOL),
     z.literal(LEGACY_STUDIO_DESKTOP_PROTOCOL),
   ]),
-  protocolVersion: z.literal(TRANSMUTE_DESKTOP_PROTOCOL_VERSION),
+  protocolVersion: z.literal(ATET_DESKTOP_PROTOCOL_VERSION),
   requestId: RuntimeRequestIdSchema,
 });
 
 export const DesktopResponseSchema = z.discriminatedUnion("ok", [
   z.strictObject({
     ok: z.literal(true),
-    protocolVersion: z.literal(TRANSMUTE_DESKTOP_PROTOCOL_VERSION),
+    protocolVersion: z.literal(ATET_DESKTOP_PROTOCOL_VERSION),
     requestId: RuntimeRequestIdSchema,
     snapshot: CaptureRuntimeSnapshotSchema,
   }),
@@ -126,7 +131,7 @@ export const DesktopResponseSchema = z.discriminatedUnion("ok", [
       retryable: z.boolean(),
     }),
     ok: z.literal(false),
-    protocolVersion: z.literal(TRANSMUTE_DESKTOP_PROTOCOL_VERSION),
+    protocolVersion: z.literal(ATET_DESKTOP_PROTOCOL_VERSION),
     requestId: RuntimeRequestIdSchema,
   }),
 ]);
@@ -134,13 +139,13 @@ export const DesktopResponseSchema = z.discriminatedUnion("ok", [
 export const DesktopEventSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("snapshot-changed"),
-    protocolVersion: z.literal(TRANSMUTE_DESKTOP_PROTOCOL_VERSION),
+    protocolVersion: z.literal(ATET_DESKTOP_PROTOCOL_VERSION),
     snapshot: CaptureRuntimeSnapshotSchema,
   }),
   z.strictObject({
     commandId: RuntimeCommandIdSchema,
     kind: z.literal("command-settled"),
-    protocolVersion: z.literal(TRANSMUTE_DESKTOP_PROTOCOL_VERSION),
+    protocolVersion: z.literal(ATET_DESKTOP_PROTOCOL_VERSION),
     status: z.enum(["succeeded", "failed"]),
   }),
 ]);

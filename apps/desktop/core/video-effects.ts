@@ -113,7 +113,7 @@ export interface VideoLookFfmpegCompileOptions {
 }
 
 export interface CompiledVideoLook {
-  readonly compiler: "transmute.ffmpeg-video-look";
+  readonly compiler: "atet.ffmpeg-video-look";
   readonly compilerVersion: typeof COMPILER_VERSION;
   readonly filterGraph: string;
   readonly inputLabel: string;
@@ -312,7 +312,7 @@ export function createVideoLookPreset(
   const options = VideoLookPresetOptionsSchema.parse(optionsInput);
   return VideoLookV1Schema.parse({
     effects: createPresetEffects(preset, options.intensity, options.seed),
-    kind: "transmute.video-look",
+    kind: "atet.video-look",
     processingColorSpace: "bt709-display",
     schemaVersion: 1,
   });
@@ -322,7 +322,7 @@ export function createVideoLookPreset(
 export function createVideoLook(effects: readonly VideoEffectInput[]): VideoLookV1 {
   return VideoLookV1Schema.parse({
     effects,
-    kind: "transmute.video-look",
+    kind: "atet.video-look",
     processingColorSpace: "bt709-display",
     schemaVersion: 1,
   });
@@ -622,7 +622,7 @@ function compileEffect(
 
 /**
  * Compile a validated display-referred look into a numeric-only filter graph.
- * Input labels, filter names, and expressions are all owned by Transmute.
+ * Input labels, filter names, and expressions are all owned by Atet.
  */
 export function compileVideoLookToFfmpeg(
   lookInput: unknown,
@@ -648,7 +648,7 @@ export function compileVideoLookToFfmpeg(
     currentLabel = compileEffect(graph, required, currentLabel, effect, index);
   }
   return {
-    compiler: "transmute.ffmpeg-video-look",
+    compiler: "atet.ffmpeg-video-look",
     compilerVersion: COMPILER_VERSION,
     filterGraph: graph.join(";"),
     inputLabel,

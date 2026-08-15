@@ -72,6 +72,7 @@ const CreativeBaseV1BodySchema = z.strictObject({
   editBasis: ProjectEditBasisSchema,
   generation: ProjectGenerationHashesSchema,
   kind: z.union([
+    z.literal("atet.creative-base"),
     z.literal("transmute.creative-base"),
     z.literal("studio.creative-base"),
   ]),
@@ -178,7 +179,7 @@ export function createCreativeBaseV1(input: {
     currentPlan,
     editBasis: projectEditBasis(project, currentPlan),
     generation: hashProjectGeneration(project, currentPlan),
-    kind: "transmute.creative-base",
+    kind: "atet.creative-base",
     project,
     projectId: project.projectId,
     schemaVersion: 1,
@@ -335,6 +336,7 @@ export type CandidateRevisionHostBindingsV1 = z.infer<
  */
 export const CandidateProjectEditBatchV3Schema = z.strictObject({
   kind: z.union([
+    z.literal("atet.project-edit-batch"),
     z.literal("transmute.project-edit-batch"),
     z.literal("studio.project-edit-batch"),
   ]),
@@ -369,7 +371,7 @@ export type CandidateProjectEditBatchV3 = z.infer<
 
 export function createEmptyCandidateProjectEditBatchV3(): CandidateProjectEditBatchV3 {
   const body = {
-    kind: "transmute.project-edit-batch" as const,
+    kind: "atet.project-edit-batch" as const,
     ordered: [],
     schemaVersion: 3 as const,
   };
@@ -423,6 +425,7 @@ export const CreativeCandidateRevisionReferenceV1Schema = z.strictObject({
   candidate: CreativeCandidateIdentityV1Schema,
   derivationSha256: Sha256Schema,
   kind: z.union([
+    z.literal("atet.creative-candidate-revision-reference"),
     z.literal("transmute.creative-candidate-revision-reference"),
     z.literal("studio.creative-candidate-revision-reference"),
   ]),
@@ -499,6 +502,7 @@ const CreativeCandidateV1BodySchema = z.strictObject({
   bindings: CandidateRevisionHostBindingsV1Schema,
   candidate: CreativeCandidateIdentityV1Schema,
   kind: z.union([
+    z.literal("atet.creative-candidate"),
     z.literal("transmute.creative-candidate"),
     z.literal("studio.creative-candidate"),
   ]),
@@ -595,7 +599,7 @@ export function createCreativeCandidateV1(input: {
 }): CreativeCandidateV1 {
   const body = CreativeCandidateV1BodySchema.parse({
     ...input,
-    kind: "transmute.creative-candidate",
+    kind: "atet.creative-candidate",
     renders: [...input.renders]
       .sort((left, right) => left.name.localeCompare(right.name)),
     schemaVersion: 1,
@@ -624,6 +628,7 @@ export const CreativeCandidateReferenceV1Schema = z.strictObject({
   candidate: CreativeCandidateIdentityV1Schema,
   candidateSha256: Sha256Schema,
   kind: z.union([
+    z.literal("atet.creative-candidate-reference"),
     z.literal("transmute.creative-candidate-reference"),
     z.literal("studio.creative-candidate-reference"),
   ]),
@@ -697,7 +702,7 @@ export function creativeCandidateReferenceV1(input: {
     base: creativeBaseIdentityV1(candidate.base),
     candidate: candidate.candidate,
     candidateSha256: candidate.candidateSha256,
-    kind: "transmute.creative-candidate-reference",
+    kind: "atet.creative-candidate-reference",
     renderSetSha256: creativeCandidateRenderSetSha256(candidate.renders),
     revisionSha256: candidate.revision.revisionSha256,
     schemaVersion: 1,
@@ -728,6 +733,7 @@ const VariantMatrixV1BodySchema = z.strictObject({
   candidateSetSha256: Sha256Schema,
   candidates: z.array(CreativeCandidateReferenceV1Schema).min(1).max(16),
   kind: z.union([
+    z.literal("atet.variant-matrix"),
     z.literal("transmute.variant-matrix"),
     z.literal("studio.variant-matrix"),
   ]),
@@ -803,7 +809,7 @@ export function createVariantMatrixV1(input: {
     base: input.base,
     candidateSetSha256: variantCandidateSetSha256(candidates),
     candidates,
-    kind: "transmute.variant-matrix",
+    kind: "atet.variant-matrix",
     schemaVersion: 1,
   });
   return VariantMatrixV1Schema.parse({
@@ -829,6 +835,7 @@ export const VariantMatrixReferenceV1Schema = z.strictObject({
   candidateCount: z.number().int().safe().min(1).max(16),
   candidateSetSha256: Sha256Schema,
   kind: z.union([
+    z.literal("atet.variant-matrix-reference"),
     z.literal("transmute.variant-matrix-reference"),
     z.literal("studio.variant-matrix-reference"),
   ]),
@@ -861,7 +868,7 @@ export function variantMatrixReferenceV1(input: {
     base: matrix.base,
     candidateCount: matrix.candidates.length,
     candidateSetSha256: matrix.candidateSetSha256,
-    kind: "transmute.variant-matrix-reference",
+    kind: "atet.variant-matrix-reference",
     matrixSha256: matrix.matrixSha256,
     schemaVersion: 1,
   });
@@ -919,6 +926,7 @@ const VariantSelectionV1BodySchema = z.strictObject({
   chosen: CreativeCandidateReferenceV1Schema,
   evidence: VariantSelectionEvidenceV1Schema.optional(),
   kind: z.union([
+    z.literal("atet.variant-selection"),
     z.literal("transmute.variant-selection"),
     z.literal("studio.variant-selection"),
   ]),
@@ -1002,7 +1010,7 @@ export function createVariantSelectionV1(input: {
     base: input.matrix.base,
     chosen: input.chosen,
     ...(evidence === undefined ? {} : { evidence }),
-    kind: "transmute.variant-selection",
+    kind: "atet.variant-selection",
     matrix: input.matrix,
     result: {
       candidateSha256: candidate.candidateSha256,
@@ -1034,6 +1042,7 @@ export const VariantSelectionReferenceV1Schema = z.strictObject({
   chosenCandidateId: CreativeCandidateIdSchema,
   chosenCandidateSha256: Sha256Schema,
   kind: z.union([
+    z.literal("atet.variant-selection-reference"),
     z.literal("transmute.variant-selection-reference"),
     z.literal("studio.variant-selection-reference"),
   ]),
@@ -1068,7 +1077,7 @@ export function variantSelectionReferenceV1(input: {
     base: selection.base,
     chosenCandidateId: selection.chosen.candidate.candidateId,
     chosenCandidateSha256: selection.chosen.candidateSha256,
-    kind: "transmute.variant-selection-reference",
+    kind: "atet.variant-selection-reference",
     matrixSha256: selection.matrix.matrixSha256,
     revisionSha256: selection.result.revisionSha256,
     schemaVersion: 1,
@@ -1080,6 +1089,7 @@ const EditorialPromotionReceiptV1BodySchema = z.strictObject({
   base: CreativeBaseIdentityV1Schema,
   candidate: CreativeCandidateReferenceV1Schema,
   kind: z.union([
+    z.literal("atet.editorial-promotion-receipt"),
     z.literal("transmute.editorial-promotion-receipt"),
     z.literal("studio.editorial-promotion-receipt"),
   ]),
@@ -1160,7 +1170,7 @@ export function createEditorialPromotionReceiptV1(input: {
   const body = EditorialPromotionReceiptV1BodySchema.parse({
     base: input.base,
     candidate: input.candidate,
-    kind: "transmute.editorial-promotion-receipt",
+    kind: "atet.editorial-promotion-receipt",
     promotedBasis: projectEditBasis(frozenProject, promotedPlan),
     promotedPlanId: promotedPlan.planId,
     promotedPlanSha256: hashProjectEditPlan(promotedPlan),
@@ -1187,6 +1197,7 @@ export function editorialPromotionReceiptPath(input: {
 export const EditorialPromotionReceiptReferenceV1Schema = z.strictObject({
   artifact: CreativeImmutableArtifactSchema,
   kind: z.union([
+    z.literal("atet.editorial-promotion-receipt-reference"),
     z.literal("transmute.editorial-promotion-receipt-reference"),
     z.literal("studio.editorial-promotion-receipt-reference"),
   ]),
@@ -1221,7 +1232,7 @@ export function editorialPromotionReceiptReferenceV1(input: {
   const receipt = EditorialPromotionReceiptV1Schema.parse(input.receipt);
   return EditorialPromotionReceiptReferenceV1Schema.parse({
     artifact: input.artifact,
-    kind: "transmute.editorial-promotion-receipt-reference",
+    kind: "atet.editorial-promotion-receipt-reference",
     projectId: receipt.base.projectId,
     promotedPlanSha256: receipt.promotedPlanSha256,
     promotionSha256: receipt.promotionSha256,
@@ -1234,6 +1245,7 @@ const DeliveryMaterializationReceiptV1BodySchema = z.strictObject({
   candidate: CreativeCandidateReferenceV1Schema,
   destination: ProjectRenderOutputReferenceSchema,
   kind: z.union([
+    z.literal("atet.delivery-materialization-receipt"),
     z.literal("transmute.delivery-materialization-receipt"),
     z.literal("studio.delivery-materialization-receipt"),
   ]),
@@ -1319,7 +1331,7 @@ export function createDeliveryMaterializationReceiptV1(input: {
       ...source,
       path: ProjectRenderOutputPathSchema.parse(input.destinationPath),
     },
-    kind: "transmute.delivery-materialization-receipt",
+    kind: "atet.delivery-materialization-receipt",
     renderName: input.renderName,
     schemaVersion: 1,
     selection: input.selection,
@@ -1346,6 +1358,7 @@ export const DeliveryMaterializationReceiptReferenceV1Schema = z.strictObject({
   artifact: CreativeImmutableArtifactSchema,
   destination: ProjectRenderOutputReferenceSchema,
   kind: z.union([
+    z.literal("atet.delivery-materialization-receipt-reference"),
     z.literal("transmute.delivery-materialization-receipt-reference"),
     z.literal("studio.delivery-materialization-receipt-reference"),
   ]),
@@ -1377,7 +1390,7 @@ export function deliveryMaterializationReceiptReferenceV1(input: {
   return DeliveryMaterializationReceiptReferenceV1Schema.parse({
     artifact: input.artifact,
     destination: receipt.destination,
-    kind: "transmute.delivery-materialization-receipt-reference",
+    kind: "atet.delivery-materialization-receipt-reference",
     materializationSha256: receipt.materializationSha256,
     schemaVersion: 1,
     selectionSha256: receipt.selection.selectionSha256,

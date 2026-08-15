@@ -100,12 +100,12 @@ export function operationFileClaims(
     return optionalClaim(Reflect.get(input, "input"));
   }
   if (
-    operation === "transmute.diagram.check"
-    || operation === "transmute.diagram.render"
+    operation === "atet.diagram.check"
+    || operation === "atet.diagram.render"
   ) {
     return optionalPathClaim(Reflect.get(input, "path"));
   }
-  if (operation === "transmute.image.vectorize") {
+  if (operation === "atet.image.vectorize") {
     return optionalPathClaim(Reflect.get(input, "inputPath"));
   }
   if (operation === "gateway.image") {
@@ -253,7 +253,7 @@ export function collectDeclaredFileCandidates(
   if (!record(value)) return [];
   if (
     Reflect.get(value, "kind") === "file"
-    && Reflect.get(value, "version") === "transmute-workflow-file-candidate-v1"
+    && Reflect.get(value, "version") === "atet-workflow-file-candidate-v1"
   ) {
     return [declaredCandidate(WorkflowFileCandidateSchema.parse(value))];
   }

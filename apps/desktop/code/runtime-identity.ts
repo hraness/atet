@@ -140,7 +140,7 @@ async function computeApplicationBuildIdentity(options: {
   if (!isWithin(repositoryRoot, desktopRoot) || desktopRoot === repositoryRoot) {
     throw new ApplicationError(
       "unsafe-path",
-      "Transmute desktop sources must be inside the repository root.",
+      "Atet desktop sources must be inside the repository root.",
     );
   }
   const sources: Array<{ readonly logicalPath: string; readonly path: string }> = [];

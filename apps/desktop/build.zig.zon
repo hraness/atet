@@ -1,5 +1,5 @@
 .{
-    .name = .transmute,
+    .name = .atet,
     .fingerprint = 0xe9830fbee8664699,
     .version = "1.0.0",
     .minimum_zig_version = "0.16.0",

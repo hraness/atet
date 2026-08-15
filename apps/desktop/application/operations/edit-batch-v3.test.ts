@@ -216,7 +216,7 @@ function manualZoom(
 describe("project edit batch v3 manual zooms", () => {
   test("registers an additive v3 union without changing the v2 schema", async () => {
     const registry = createApplicationOperationRegistry();
-    const repositoryRoot = "/tmp/transmute-edit-batch-v3-schema";
+    const repositoryRoot = "/tmp/atet-edit-batch-v3-schema";
     const batch = await deriveV3(registry, repositoryRoot, [{
       kind: "add-manual-zooms",
       zooms: [manualZoom()],
@@ -247,7 +247,7 @@ describe("project edit batch v3 manual zooms", () => {
 
   test("host-binds default placement/display identity and commits persisted zooms", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-edit-batch-v3-manual-zoom-"),
+      join(tmpdir(), "atet-edit-batch-v3-manual-zoom-"),
     );
     try {
       const fixture = await createOperationRecordingProjectFixture(
@@ -378,7 +378,7 @@ describe("project edit batch v3 manual zooms", () => {
 
   test("requires one exact binding per zoom and rejects manifest drift atomically", async () => {
     const repositoryRoot = await mkdtemp(
-      join(tmpdir(), "transmute-edit-batch-v3-manual-zoom-drift-"),
+      join(tmpdir(), "atet-edit-batch-v3-manual-zoom-drift-"),
     );
     try {
       const fixture = await createOperationRecordingProjectFixture(
@@ -507,7 +507,7 @@ describe("project edit batch v3 manual zooms", () => {
   test("commits and renders a selected unique display despite unrelated secondary ambiguity", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-edit-batch-v3-unrelated-display-",
+      "atet-edit-batch-v3-unrelated-display-",
     ));
     try {
       const fixture = await createOperationRecordingProjectFixture(
@@ -591,7 +591,7 @@ describe("project edit batch v3 manual zooms", () => {
     }];
     for (const testCase of cases) {
       const repositoryRoot = await mkdtemp(
-        join(tmpdir(), "transmute-edit-batch-v3-manual-zoom-range-"),
+        join(tmpdir(), "atet-edit-batch-v3-manual-zoom-range-"),
       );
       try {
         const fixture = await createOperationRecordingProjectFixture(
@@ -785,7 +785,7 @@ describe("project edit batch v3 manual zooms", () => {
     }];
     for (const testCase of cases) {
       const repositoryRoot = await mkdtemp(
-        join(tmpdir(), "transmute-edit-batch-v3-manual-zoom-selector-"),
+        join(tmpdir(), "atet-edit-batch-v3-manual-zoom-selector-"),
       );
       try {
         const fixture = await createOperationRecordingProjectFixture(

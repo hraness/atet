@@ -53,7 +53,7 @@ function deferred() {
 }
 
 test("a leased snapshot queues behind publication and binds the completed generation", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-analysis-read-lease-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-analysis-read-lease-"));
   try {
     const fixture = await createOperationProjectFixture(repositoryRoot);
     const application = operationApplicationContext(repositoryRoot);
@@ -118,7 +118,7 @@ test("a leased snapshot queues behind publication and binds the completed genera
 });
 
 test("analysis publication rejects a structural project change", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-analysis-structure-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-analysis-structure-"));
   try {
     const fixture = await createOperationProjectFixture(repositoryRoot);
     const snapshot = await openProjectSnapshot(
@@ -148,7 +148,7 @@ test("analysis publication rejects a structural project change", async () => {
 });
 
 test("analysis publication rejects a current edit-plan change", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-analysis-plan-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-analysis-plan-"));
   try {
     const fixture = await createOperationProjectFixture(repositoryRoot);
     const snapshot = await openProjectSnapshot(
@@ -180,7 +180,7 @@ test("analysis publication rejects a current edit-plan change", async () => {
 });
 
 test("analysis publication preserves later sibling analyses under the original edit basis", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-analysis-sibling-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-analysis-sibling-"));
   try {
     const fixture = await createOperationProjectFixture(repositoryRoot);
     const snapshot = await openProjectSnapshot(
@@ -220,7 +220,7 @@ test("analysis publication preserves later sibling analyses under the original e
 });
 
 test("analysis publication preserves the original prior-reference commitment under the lease", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-analysis-prefix-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-analysis-prefix-"));
   try {
     const fixture = await createOperationProjectFixture(repositoryRoot);
     const prior = faceReference("analysis_priorreference01");
@@ -262,7 +262,7 @@ test("analysis publication preserves the original prior-reference commitment und
 });
 
 test("analysis publication revalidates the workflow fence inside the publication lease", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-analysis-fence-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-analysis-fence-"));
   try {
     const fixture = await createOperationProjectFixture(repositoryRoot);
     const snapshot = await openProjectSnapshot(
@@ -295,7 +295,7 @@ test("analysis publication revalidates the workflow fence inside the publication
 });
 
 test("analysis publication revalidates the workflow fence immediately before saving", async () => {
-  const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-analysis-final-fence-"));
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-analysis-final-fence-"));
   try {
     const fixture = await createOperationProjectFixture(repositoryRoot);
     const snapshot = await openProjectSnapshot(

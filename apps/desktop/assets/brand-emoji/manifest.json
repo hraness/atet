@@ -2,12 +2,12 @@
   "formatVersion": 1,
   "assets": [
     {
-      "bytes": 178,
-      "codePointID": "1f9ec",
-      "domain": "transmute.rocks",
-      "emoji": "🧬",
-      "path": "transmute.rocks.svg",
-      "sha256": "bba61dbf3128cd21638c793685ffb054f8b5fee92f98d35ee9c0328f8e0979af"
+      "bytes": 752,
+      "codePointID": "2600-fe0f",
+      "domain": "atet.sh",
+      "emoji": "☀️",
+      "path": "atet.sh.svg",
+      "sha256": "1637b9682552523470fc20c9be554d8d19ad96cfd5c8d9494344fb802dea92cb"
     }
   ]
 }

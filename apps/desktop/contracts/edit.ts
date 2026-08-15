@@ -498,6 +498,7 @@ export const EditPlanV1Schema = z.strictObject({
   }),
   keep: z.array(SourceIntervalSchema),
   kind: z.union([
+    z.literal("atet.edit-plan"),
     z.literal("transmute.edit-plan"),
     z.literal("studio.edit-plan"),
   ]),

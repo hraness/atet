@@ -40,7 +40,7 @@ function sha256(bytes: Uint8Array): string {
 }
 
 async function fixtureRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "transmute-overlay-operation-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-overlay-operation-"));
   roots.push(root);
   return root;
 }
@@ -89,7 +89,7 @@ describe("media.overlay application operation", () => {
     const root = await fixtureRoot();
     const fixture = await createOperationProjectFixture(root);
     const sourceBytes = Buffer.from("gateway image bytes");
-    const sourcePath = join(root, "artifacts", "transmute", "generated", "image.png");
+    const sourcePath = join(root, "artifacts", "atet", "generated", "image.png");
     await mkdir(join(sourcePath, ".."), { recursive: true });
     await writeFile(sourcePath, sourceBytes, { mode: 0o600 });
     const context = await operationContext(root, "overlay_first");
@@ -170,7 +170,7 @@ describe("media.overlay application operation", () => {
     const first = MediaOverlayOutputSchema.parse(firstResult.output);
     expect(JSON.parse(
       await readFile(join(root, first.receipt.path), "utf8"),
-    )).toMatchObject({ kind: "transmute.local-overlay-preparation-receipt" });
+    )).toMatchObject({ kind: "atet.local-overlay-preparation-receipt" });
     expect(first.operation).toMatchObject({
       intrinsicSize: { height: 720, width: 1_280 },
       range: { endUs: 4_000_000, startUs: 1_000_000 },
@@ -224,7 +224,7 @@ describe("media.overlay application operation", () => {
     const copiedSourcePath = join(
       root,
       "artifacts",
-      "transmute",
+      "atet",
       "generated",
       "copied-image.png",
     );
@@ -582,7 +582,7 @@ describe("media.overlay application operation", () => {
       source: {
         kind: "emoji",
         provider: "brand-catalog",
-        query: "transmute",
+        query: "atet",
         resolved: {
           artifact: {
             bytes: emojiBytes.byteLength,
@@ -591,7 +591,7 @@ describe("media.overlay application operation", () => {
           },
           id: "wrong",
           provider: "brand-catalog",
-          selector: { kind: "name", value: "transmute" },
+          selector: { kind: "name", value: "atet" },
           variant: "duotone",
         },
       },
@@ -600,8 +600,8 @@ describe("media.overlay application operation", () => {
         available: { color: true, duotone: true },
         emoji: "🌴",
         group: "brand",
-        id: "transmute",
-        name: "Transmute",
+        id: "atet",
+        name: "Atet",
         path: emojiPath,
         provider: "brand-catalog",
         sha256: sha256(emojiBytes),

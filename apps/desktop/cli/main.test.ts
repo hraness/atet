@@ -5,15 +5,17 @@ import { assertAppleSiliconMacosCompiledCliHost } from "./build-compiled";
 import {
   daemonCommandFor,
   isEmbeddedVectorizeWorkerInvocation,
+  isLegacyTransmuteInvocation,
+  writeLegacyTransmuteInvocationWarning,
 } from "./main";
 
 test("self-spawns source and compiled CLI entrypoints without shell interpolation", () => {
   expect(daemonCommandFor("/opt/homebrew/bin/bun", "/repo/cli/main.ts"))
     .toEqual(["/opt/homebrew/bin/bun", "/repo/cli/main.ts"]);
-  expect(daemonCommandFor("/repo/dist/transmute", "/$bunfs/root/cli/main.ts"))
-    .toEqual(["/repo/dist/transmute"]);
-  expect(daemonCommandFor("/repo/dist/transmute", "/repo/dist/transmute"))
-    .toEqual(["/repo/dist/transmute"]);
+  expect(daemonCommandFor("/repo/dist/atet", "/$bunfs/root/cli/main.ts"))
+    .toEqual(["/repo/dist/atet"]);
+  expect(daemonCommandFor("/repo/dist/atet", "/repo/dist/atet"))
+    .toEqual(["/repo/dist/atet"]);
 });
 
 test("accepts only the compiled bundle's exact internal vectorizer worker invocation", () => {
@@ -29,6 +31,27 @@ test("accepts only the compiled bundle's exact internal vectorizer worker invoca
     ["/$bunfs/root/vectorize/worker.js"],
     "/repo/cli/main.ts",
   )).toBe(false);
+});
+
+test("detects only an exact predecessor CLI invocation name", () => {
+  expect(isLegacyTransmuteInvocation(["/usr/local/bin/transmute"])).toBe(true);
+  expect(isLegacyTransmuteInvocation(["C:\\Tools\\transmute.exe"])).toBe(false);
+  expect(isLegacyTransmuteInvocation(["/repo/transmute-helper", "/usr/local/bin/atet"])).toBe(false);
+  expect(isLegacyTransmuteInvocation(["/usr/local/bin/atet"])).toBe(false);
+});
+
+test("writes one predecessor warning through stderr-only plumbing", () => {
+  const stderr: string[] = [];
+  expect(writeLegacyTransmuteInvocationWarning(
+    ["/usr/local/bin/transmute"],
+    message => stderr.push(message),
+  )).toBe(true);
+  expect(stderr).toEqual(["transmute is deprecated; use atet.\n"]);
+  expect(writeLegacyTransmuteInvocationWarning(
+    ["/usr/local/bin/atet"],
+    message => stderr.push(message),
+  )).toBe(false);
+  expect(stderr).toHaveLength(1);
 });
 
 test("keeps the copied native CLI behind its exact Apple Silicon macOS boundary", () => {
@@ -49,7 +72,7 @@ test("keeps portable and copied-native CLI builds as distinct manifest commands"
     }),
   }).parse(await Bun.file(new URL("../../../package.json", import.meta.url)).json());
   expect(scripts["build:desktop:cli"]).toBe(
-    "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./apps/desktop/dist/cli\", { recursive: true, force: true })' && bun build --target=bun --minify --sourcemap=none --packages external --external @hraness/transmute/cli apps/desktop/cli/main.ts --outdir apps/desktop/dist/cli",
+    "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./apps/desktop/dist/cli\", { recursive: true, force: true })' && bun build --target=bun --minify --sourcemap=none --packages external --external @hraness/atet/cli apps/desktop/cli/main.ts --outdir apps/desktop/dist/cli",
   );
   expect(scripts["build:cli:macos"]).toBe("bun run ./apps/desktop/cli/build-compiled.ts");
   expect(scripts["test:cli:compiled:macos"]).toStartWith("bun run build:cli:macos &&");

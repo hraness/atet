@@ -8,44 +8,44 @@ import {
   DesktopEventSchema,
   DesktopRequestSchema,
   DesktopResponseSchema,
-  TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+  ATET_DESKTOP_PROTOCOL_VERSION,
   type CaptureRuntimeSnapshot,
   type DesktopEvent,
   type DesktopRequest,
   type DesktopResponse,
 } from "../contracts";
 import {
-  TRANSMUTE_RUNTIME_DISPATCH_COMMAND,
-  TRANSMUTE_RUNTIME_EVENT,
-  TRANSMUTE_RUNTIME_SNAPSHOT_COMMAND,
+  ATET_RUNTIME_DISPATCH_COMMAND,
+  ATET_RUNTIME_EVENT,
+  ATET_RUNTIME_SNAPSHOT_COMMAND,
   type NativeRuntimeTransport,
 } from "../frontend/src/runtime-bridge";
-import { parseTransmuteDirectWorld, type TransmuteDirectWorld } from "./world";
+import { parseAtetDirectWorld, type AtetDirectWorld } from "./world";
 
-export interface TransmuteDirectInvocation {
+export interface AtetDirectInvocation {
   readonly command: string;
   readonly request: DesktopRequest;
 }
 
-export interface TransmuteDirectTransportSnapshot {
+export interface AtetDirectTransportSnapshot {
   readonly activityErrors: number;
   readonly blockedNetworkRequests: number;
   readonly disposed: boolean;
   readonly eventListeners: number;
-  readonly invocations: readonly TransmuteDirectInvocation[];
+  readonly invocations: readonly AtetDirectInvocation[];
   readonly protocolErrors: number;
   readonly remainingTransitions: number;
   readonly snapshot: CaptureRuntimeSnapshot;
 }
 
-export interface TransmuteDirectTransportHarness {
+export interface AtetDirectTransportHarness {
   readonly dispose: () => void;
-  readonly getSnapshot: () => TransmuteDirectTransportSnapshot;
+  readonly getSnapshot: () => AtetDirectTransportSnapshot;
   readonly recordBlockedNetworkRequest: () => void;
   readonly transport: NativeRuntimeTransport;
 }
 
-export interface TransmuteDirectTransportOptions {
+export interface AtetDirectTransportOptions {
   readonly activity: DirectActivityScope;
   readonly signal: AbortSignal;
 }
@@ -53,7 +53,7 @@ export interface TransmuteDirectTransportOptions {
 function successResponse(requestId: string, snapshot: CaptureRuntimeSnapshot): DesktopResponse {
   return DesktopResponseSchema.parse({
     ok: true,
-    protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
     requestId,
     snapshot,
   });
@@ -68,17 +68,17 @@ function errorResponse(
   return DesktopResponseSchema.parse({
     error: { code, message, retryable },
     ok: false,
-    protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
     requestId,
   });
 }
 
-class DeterministicTransmuteTransport {
+class DeterministicAtetTransport {
   readonly #activity: DirectActivityScope;
   readonly #signal: AbortSignal;
-  readonly #world: TransmuteDirectWorld;
+  readonly #world: AtetDirectWorld;
   readonly #listeners = new Set<(detail: unknown) => void>();
-  readonly #invocations: TransmuteDirectInvocation[] = [];
+  readonly #invocations: AtetDirectInvocation[] = [];
   readonly #leases = new Set<DirectActivityLease>();
   readonly #pushTimers = new Map<
     ReturnType<typeof setTimeout>,
@@ -92,10 +92,10 @@ class DeterministicTransmuteTransport {
   #blockedNetworkRequests = 0;
   #disposed = false;
 
-  constructor(world: TransmuteDirectWorld, options: TransmuteDirectTransportOptions) {
+  constructor(world: AtetDirectWorld, options: AtetDirectTransportOptions) {
     this.#activity = options.activity;
     this.#signal = options.signal;
-    this.#world = parseTransmuteDirectWorld(world);
+    this.#world = parseAtetDirectWorld(world);
     this.#current = structuredClone(this.#world.runtime.initial);
   }
 
@@ -120,13 +120,13 @@ class DeterministicTransmuteTransport {
         return Promise.reject(
           reason instanceof Error
             ? reason
-            : new Error("Transmute Direct transport invocation failed.", { cause: reason }),
+            : new Error("Atet Direct transport invocation failed.", { cause: reason }),
         );
       }
     },
     on: (name, listener) => {
       this.#assertActive();
-      if (name !== TRANSMUTE_RUNTIME_EVENT) {
+      if (name !== ATET_RUNTIME_EVENT) {
         throw new Error(`Direct received an unknown native event subscription: ${name}`);
       }
       this.#listeners.add(listener);
@@ -146,7 +146,7 @@ class DeterministicTransmuteTransport {
     for (const lease of [...this.#leases]) this.#releaseLease(lease);
   }
 
-  getSnapshot(): TransmuteDirectTransportSnapshot {
+  getSnapshot(): AtetDirectTransportSnapshot {
     return Object.freeze({
       activityErrors: this.#activityErrors,
       blockedNetworkRequests: this.#blockedNetworkRequests,
@@ -175,11 +175,11 @@ class DeterministicTransmuteTransport {
     const request = parsed.data;
     this.#invocations.push({ command, request: structuredClone(request) });
 
-    if (command === TRANSMUTE_RUNTIME_SNAPSHOT_COMMAND && request.payload.kind === "snapshot") {
+    if (command === ATET_RUNTIME_SNAPSHOT_COMMAND && request.payload.kind === "snapshot") {
       this.#schedulePushesAfterInitialSnapshot();
       return successResponse(request.requestId, this.#current);
     }
-    if (command === TRANSMUTE_RUNTIME_DISPATCH_COMMAND && request.payload.kind === "dispatch") {
+    if (command === ATET_RUNTIME_DISPATCH_COMMAND && request.payload.kind === "dispatch") {
       return this.#dispatch(request);
     }
     this.#protocolErrors += 1;
@@ -209,13 +209,13 @@ class DeterministicTransmuteTransport {
     this.#current = structuredClone(transition.outcome.snapshot);
     this.#emit({
       kind: "snapshot-changed",
-      protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
       snapshot: this.#current,
     });
     this.#emit({
       commandId: command.commandId,
       kind: "command-settled",
-      protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
       status: transition.outcome.kind === "success" ? "succeeded" : "failed",
     });
     return transition.outcome.kind === "success"
@@ -255,7 +255,7 @@ class DeterministicTransmuteTransport {
           this.#current = structuredClone(push.snapshot);
           this.#emit({
             kind: "snapshot-changed",
-            protocolVersion: TRANSMUTE_DESKTOP_PROTOCOL_VERSION,
+            protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
             snapshot: this.#current,
           });
         } catch {
@@ -279,16 +279,16 @@ class DeterministicTransmuteTransport {
 
   #assertActive(): void {
     if (this.#disposed || this.#signal.aborted) {
-      throw new Error("The Transmute Direct transport has been disposed.");
+      throw new Error("The Atet Direct transport has been disposed.");
     }
   }
 }
 
-export function createTransmuteDirectTransport(
-  world: TransmuteDirectWorld,
-  options: TransmuteDirectTransportOptions,
-): TransmuteDirectTransportHarness {
-  const implementation = new DeterministicTransmuteTransport(world, options);
+export function createAtetDirectTransport(
+  world: AtetDirectWorld,
+  options: AtetDirectTransportOptions,
+): AtetDirectTransportHarness {
+  const implementation = new DeterministicAtetTransport(world, options);
   return Object.freeze({
     dispose: () => implementation.dispose(),
     getSnapshot: () => implementation.getSnapshot(),

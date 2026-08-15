@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { createHostResourceCoordinator } from "@hraness/transmute/host-resources";
+import { createHostResourceCoordinator } from "@hraness/atet/host-resources";
 
 import {
   bundleWorkflowSource,
@@ -25,7 +25,7 @@ import { workerProcessStartIdentityStatus } from "./worker-process-identity";
 const temporaryDirectories: string[] = [];
 
 async function temporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "transmute-code-bundle-"));
+  const directory = await mkdtemp(join(tmpdir(), "atet-code-bundle-"));
   temporaryDirectories.push(directory);
   return directory;
 }
@@ -488,7 +488,7 @@ await coordinator.withLease(
     await writeFile(
       join(root, "workflow.ts"),
       `import { z } from "zod";
-import { defineWorkflow } from "@hraness/transmute/local/code";
+import { defineWorkflow } from "@hraness/atet/local/code";
 
 export default defineWorkflow({
   id: "invalid-recording",
@@ -525,7 +525,7 @@ export default defineWorkflow({
     await writeFile(
       join(root, "workflow.ts"),
       `import { z } from "zod";
-import { defineCompute, defineWorkflow } from "@hraness/transmute/local/code";
+import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
 
 const double = defineCompute({
   key: "test.double",
@@ -566,8 +566,8 @@ export default defineWorkflow({
   createHtmlOverlayScaffold,
   createThreeReferenceScaffoldInput,
   type HtmlOverlayScaffoldKind,
-} from "@hraness/transmute/local/html-overlay";
-import { createMetallicLogoImageRequest } from "@hraness/transmute/local/code";
+} from "@hraness/atet/local/html-overlay";
+import { createMetallicLogoImageRequest } from "@hraness/atet/local/code";
 
 const kinds = ["plain", "motion", "paper-shaders", "three"] as const satisfies readonly HtmlOverlayScaffoldKind[];
 const reference = {
@@ -622,7 +622,7 @@ export default {
     }
   }, 15_000);
 
-  test("bundles exact predecessor Transmute imports through canonical Transmute implementations", async () => {
+  test("bundles exact predecessor Transmute imports through canonical Atet implementations", async () => {
     const root = await temporaryDirectory();
     await writeFile(
       join(root, "workflow.ts"),
@@ -650,6 +650,7 @@ export default {
     expect(bundle.importedPaths).toEqual([await realpath(join(root, "workflow.ts"))]);
     const source = new TextDecoder().decode(bundle.bytes);
     expect(source).not.toContain("@hraness/transmute/local/");
+    expect(source).not.toContain("@hraness/atet/local/");
     expect(source).toContain("oneSecondUs");
   }, 15_000);
 
@@ -661,7 +662,7 @@ export default {
     await writeFile(join(root, "bare.ts"), "import x from 'not-allowed'; export default x;\n", { mode: 0o600 });
     expect(bundleWorkflowSource({ allowedRoot: root, entryPath: "bare.ts" })).rejects.toThrow("not allowlisted");
 
-    await writeFile(join(root, "testing.ts"), "import x from '@hraness/transmute/local/code/testing'; export default x;\n", { mode: 0o600 });
+    await writeFile(join(root, "testing.ts"), "import x from '@hraness/atet/local/code/testing'; export default x;\n", { mode: 0o600 });
     expect(bundleWorkflowSource({ allowedRoot: root, entryPath: "testing.ts" })).rejects.toThrow("cannot import");
 
     const outside = await temporaryDirectory();

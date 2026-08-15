@@ -1,4 +1,4 @@
-import type { TransmuteGenerateDependencies } from "../generate.js"
+import type { AtetGenerateDependencies } from "../generate.js"
 
 export type JsonRpcId = string | number
 export type JsonRpcResponseId = JsonRpcId | null
@@ -35,8 +35,8 @@ export interface McpToolDefinition {
   readonly name:
     | "check_diagram"
     | "render_diagram"
-    | "search_transmute"
-    | "execute_transmute"
+    | "search_atet"
+    | "execute_atet"
   readonly title: string
   readonly description: string
   readonly inputSchema: Readonly<Record<string, unknown>>
@@ -67,5 +67,5 @@ export interface McpServerOptions {
   readonly writeLine?: (line: string) => void | Promise<void>
   readonly serverVersion?: string
   /** Injectable Gateway runtime, environment, and fixed-origin fetch seams. */
-  readonly generateDependencies?: TransmuteGenerateDependencies
+  readonly generateDependencies?: AtetGenerateDependencies
 }

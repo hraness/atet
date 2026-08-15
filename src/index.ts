@@ -14,9 +14,9 @@ import {
   selectDesktopAsset,
 } from "./desktop.js"
 import {
-  generateTransmuteImage,
-  generateTransmuteImageFile,
-  transmuteGatewayCredentialStatus,
+  generateAtetImage,
+  generateAtetImageFile,
+  atetGatewayCredentialStatus,
 } from "./generate.js"
 import { builtInIcons } from "./icons.js"
 import {
@@ -27,15 +27,15 @@ import {
 } from "./layout.js"
 import { lintDiagram } from "./lint.js"
 import {
-  executeTransmuteOperation,
-  transmuteOperationRegistry,
-  searchTransmuteOperations,
+  executeAtetOperation,
+  atetOperationRegistry,
+  searchAtetOperations,
 } from "./operations.js"
 import {
-  transmuteMcpProtocolVersion,
-  transmuteMcpServerName,
-  transmuteMcpTools,
-  TransmuteMcpToolRuntime,
+  atetMcpProtocolVersion,
+  atetMcpServerName,
+  atetMcpTools,
+  AtetMcpToolRuntime,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
@@ -53,9 +53,9 @@ import { bundledSkillPath, installSkill } from "./skill-install.js"
 import { serializeTldr } from "./tldr.js"
 import { vectorizeImage } from "./vectorize/vectorize.js"
 import {
-  defineTransmuteWorkflow,
-  runTransmuteWorkflow,
-  TransmuteWorkflowError,
+  defineAtetWorkflow,
+  runAtetWorkflow,
+  AtetWorkflowError,
 } from "./workflow.js"
 
 export const diagramApi = Object.freeze({
@@ -67,15 +67,15 @@ export const diagramApi = Object.freeze({
   desktopStatus,
   DiagramValidationError,
   findDesktopApplication,
-  generateTransmuteImage,
-  generateTransmuteImageFile,
+  generateAtetImage,
+  generateAtetImageFile,
   getLatestDesktopRelease,
-  transmuteGatewayCredentialStatus,
-  transmuteMcpProtocolVersion,
-  transmuteMcpServerName,
-  transmuteMcpTools,
-  transmuteOperationRegistry,
-  TransmuteMcpToolRuntime,
+  atetGatewayCredentialStatus,
+  atetMcpProtocolVersion,
+  atetMcpServerName,
+  atetMcpTools,
+  atetOperationRegistry,
+  AtetMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
@@ -93,7 +93,7 @@ export const diagramApi = Object.freeze({
   resolveDiagramSource,
   resolveStackLayout,
   runMcpServer,
-  searchTransmuteOperations,
+  searchAtetOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
@@ -101,7 +101,7 @@ export const diagramApi = Object.freeze({
   vectorizeImage,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
-  executeTransmuteOperation,
+  executeAtetOperation,
 })
 
 export {
@@ -113,15 +113,15 @@ export {
   desktopStatus,
   DiagramValidationError,
   findDesktopApplication,
-  generateTransmuteImage,
-  generateTransmuteImageFile,
+  generateAtetImage,
+  generateAtetImageFile,
   getLatestDesktopRelease,
-  transmuteGatewayCredentialStatus,
-  transmuteMcpProtocolVersion,
-  transmuteMcpServerName,
-  transmuteMcpTools,
-  transmuteOperationRegistry,
-  TransmuteMcpToolRuntime,
+  atetGatewayCredentialStatus,
+  atetMcpProtocolVersion,
+  atetMcpServerName,
+  atetMcpTools,
+  atetOperationRegistry,
+  AtetMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
@@ -139,18 +139,18 @@ export {
   resolveEdge,
   resolveStackLayout,
   runMcpServer,
-  searchTransmuteOperations,
+  searchAtetOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
   StackLayoutError,
   vectorizeImage,
-  defineTransmuteWorkflow,
-  runTransmuteWorkflow,
-  TransmuteWorkflowError,
+  defineAtetWorkflow,
+  runAtetWorkflow,
+  AtetWorkflowError,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
-  executeTransmuteOperation,
+  executeAtetOperation,
 }
 export * from "./cloud-errors.js"
 export * from "./generate.js"

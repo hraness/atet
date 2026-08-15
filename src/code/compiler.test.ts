@@ -18,13 +18,13 @@ import {
   createWorkflowGraphHash,
   parseCompiledWorkflowGraph,
 } from "./compiler.js"
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 import { defineCompute } from "./define-workflow.js"
 import { WorkflowGraphBuilder } from "./graph-builder.js"
 import { PortableWorkflowBuilder } from "./portable-builder.js"
 import {
-  PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
-  TransmuteImageGenerateInputSchema,
+  PORTABLE_ATET_OPERATION_CONTRACTS,
+  AtetImageGenerateInputSchema,
 } from "./public-operations.js"
 import {
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
@@ -63,7 +63,7 @@ function graphFixture(): AuthoredWorkflowGraphV1 {
   )
   return builder.build({
     id: "checked-render",
-    inputSchemaId: "transmute.workflow.checked-render.input/v1",
+    inputSchemaId: "atet.workflow.checked-render.input/v1",
     version: 1,
   }, {
     artifacts: rendered.select("artifacts"),
@@ -71,49 +71,49 @@ function graphFixture(): AuthoredWorkflowGraphV1 {
   })
 }
 
-function captureCode(callback: () => unknown): TransmuteCodeError {
+function captureCode(callback: () => unknown): AtetCodeError {
   try {
     callback()
   } catch (error) {
-    if (error instanceof TransmuteCodeError) return error
+    if (error instanceof AtetCodeError) return error
     throw error
   }
-  throw new Error("Expected TransmuteCodeError")
+  throw new Error("Expected AtetCodeError")
 }
 
 describe("portable workflow compiler", () => {
   test("keeps public policy claims aligned with the closed semantic executor", () => {
-    expect(Object.fromEntries(Object.entries(PORTABLE_TRANSMUTE_OPERATION_CONTRACTS)
+    expect(Object.fromEntries(Object.entries(PORTABLE_ATET_OPERATION_CONTRACTS)
       .map(([kind, contract]) => [kind, contract.policy.resources])))
       .toEqual({
-        "transmute.diagram.check": [
+        "atet.diagram.check": [
           { amount: 1, resource: "cpu" },
           { amount: 1, resource: "local-io" },
         ],
-        "transmute.diagram.render": [
+        "atet.diagram.render": [
           { amount: 1, resource: "cpu" },
           { amount: 1, resource: "local-io" },
         ],
-        "transmute.image.generate": [
+        "atet.image.generate": [
           { amount: 1, resource: "local-io" },
           { amount: 1, resource: "network" },
           { amount: 1, resource: "paid-call" },
         ],
-        "transmute.image.vectorize": [
+        "atet.image.vectorize": [
           { amount: 1, resource: "cpu" },
           { amount: 1, resource: "local-io" },
         ],
       })
-    expect(PORTABLE_TRANSMUTE_OPERATION_CONTRACTS["transmute.diagram.render"].policy)
+    expect(PORTABLE_ATET_OPERATION_CONTRACTS["atet.diagram.render"].policy)
       .toMatchObject({ cache: "none", resume: "ambiguous-after-dispatch" })
-    expect(PORTABLE_TRANSMUTE_OPERATION_CONTRACTS["transmute.image.vectorize"].policy)
+    expect(PORTABLE_ATET_OPERATION_CONTRACTS["atet.image.vectorize"].policy)
       .toMatchObject({ cache: "none", resume: "ambiguous-after-dispatch" })
-    for (const contract of Object.values(PORTABLE_TRANSMUTE_OPERATION_CONTRACTS)) {
+    for (const contract of Object.values(PORTABLE_ATET_OPERATION_CONTRACTS)) {
       expect(() => z.toJSONSchema(contract.inputSchema)).not.toThrow()
       expect(() => z.toJSONSchema(contract.outputSchema)).not.toThrow()
     }
 
-    const oversizedBlankPrompt = TransmuteImageGenerateInputSchema.safeParse({
+    const oversizedBlankPrompt = AtetImageGenerateInputSchema.safeParse({
       model: "openai/gpt-image-1.5",
       outputPath: "render.webp",
       prompt: " ".repeat(32 * 1024 + 1),
@@ -134,20 +134,20 @@ describe("portable workflow compiler", () => {
         $ref: {
           nodeKey: "render",
           path: ["artifacts"],
-          schemaId: "transmute.operation.diagram.render.output/v2",
+          schemaId: "atet.operation.diagram.render.output/v2",
         },
         version: WORKFLOW_REF_VERSION,
       },
       checked: {
         $ref: {
           nodeKey: "check",
-          schemaId: "transmute.operation.diagram.check.output/v2",
+          schemaId: "atet.operation.diagram.check.output/v2",
         },
         version: WORKFLOW_REF_VERSION,
       },
     })
     expect(createWorkflowGraphHash(graph)).toBe(
-      "c6348ca6f5e8950bb84c5c19dcb7f6739d84c94daa6aeee409986407175cc212",
+      "10f02ada6cc042600ba9fd919873c5deb28901f51b59f442e9090775364ed0d4",
     )
 
     const reversed = { ...graph, nodes: [...graph.nodes].reverse() }
@@ -165,7 +165,7 @@ describe("portable workflow compiler", () => {
     )
     const graph = builder.build({
       id: "released-locale-order",
-      inputSchemaId: "transmute.workflow.released-locale-order.input/v1",
+      inputSchemaId: "atet.workflow.released-locale-order.input/v1",
       version: 1,
     }, { rendered })
     const compiled = compileWorkflowGraph({ graph })
@@ -175,7 +175,7 @@ describe("portable workflow compiler", () => {
     expect(graph.nodes.at(-1)?.dependencies).toEqual(["a_b", "a-b"])
     expect(compiled.topologicalWaves).toEqual([["a_b", "a-b"], ["z"]])
     expect(createWorkflowGraphHash(graph)).toBe(
-      "4d9c2d50188db97af783bf28b2d70d41f9f6fbb7eb12f7c9d92811ef472561de",
+      "3686e180d54f87a761dea6307df9dc50dd33f9a507e85330eccc32ae897d2bca",
     )
   })
 
@@ -183,7 +183,7 @@ describe("portable workflow compiler", () => {
     const graph = graphFixture()
     const publicCompilation = compileWorkflowGraph({ graph })
     const desktopProjection = createWorkflowRegistryProjection(
-      "transmute.workflow.registry.desktop-test/v1",
+      "atet.workflow.registry.desktop-test/v1",
       [...PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery, desktopOnlyDiscovery],
       { trustedCompute: true },
     )
@@ -215,7 +215,7 @@ describe("portable workflow compiler", () => {
       },
     )
     expect(() => createWorkflowRegistryProjection(
-      "transmute.workflow.registry.oversized-test/v1",
+      "atet.workflow.registry.oversized-test/v1",
       oversizedDiscovery,
     )).toThrow("cannot exceed")
     expect(enumeratedDiscovery).toBe(false)
@@ -228,7 +228,7 @@ describe("portable workflow compiler", () => {
       },
     })
     expect(() => createWorkflowRegistryProjection(
-      "transmute.workflow.registry.resource-bound-test/v1",
+      "atet.workflow.registry.resource-bound-test/v1",
       [{
         ...desktopOnlyDiscovery,
         kind: "test.resource-bound",
@@ -251,7 +251,7 @@ describe("portable workflow compiler", () => {
 
   test("rejects a local-host-only operation at the public compile boundary", () => {
     const projection = createWorkflowRegistryProjection(
-      "transmute.workflow.registry.desktop-test/v1",
+      "atet.workflow.registry.desktop-test/v1",
       [...PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery, desktopOnlyDiscovery],
     )
     const builder = WorkflowGraphBuilder.create(projection)
@@ -301,7 +301,7 @@ describe("portable workflow compiler", () => {
     })
 
     const trusted = createWorkflowRegistryProjection(
-      "transmute.workflow.registry.trusted-test/v1",
+      "atet.workflow.registry.trusted-test/v1",
       PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery,
       { trustedCompute: true },
     )
@@ -319,18 +319,18 @@ describe("portable workflow compiler", () => {
         path: {
           $ref: {
             nodeKey: "forged",
-            schemaId: "transmute.operation.diagram.check.output/v2",
+            schemaId: "atet.operation.diagram.check.output/v2",
           },
           version: WORKFLOW_REF_VERSION,
         },
       }])
-    }).toThrow(TransmuteCodeError)
+    }).toThrow(AtetCodeError)
 
     const cyclic: { path?: unknown } = {}
     cyclic.path = cyclic
     expect(() => {
       Reflect.apply(builder.diagram.check, undefined, ["cyclic", cyclic])
-    }).toThrow(TransmuteCodeError)
+    }).toThrow(AtetCodeError)
 
     let enumeratedWideInput = false
     const wideInput = new Proxy(new Array<unknown>(1_000_001), {
@@ -368,7 +368,7 @@ describe("portable workflow compiler", () => {
     Object.defineProperty(outputs, symbol, { enumerable: true, value: checked })
     expect(() => builder.build({
       id: "symbol-output",
-      inputSchemaId: "transmute.workflow.symbol-output.input/v1",
+      inputSchemaId: "atet.workflow.symbol-output.input/v1",
       version: 1,
     }, outputs)).toThrow("enumerable symbol")
   })
@@ -426,7 +426,7 @@ describe("portable workflow compiler", () => {
               path: {
                 $ref: {
                   nodeKey: "render",
-                  schemaId: "transmute.operation.diagram.render.output/v2",
+                  schemaId: "atet.operation.diagram.render.output/v2",
                 },
                 version: WORKFLOW_REF_VERSION,
               },
@@ -535,15 +535,15 @@ describe("portable workflow compiler", () => {
     expect(() => parseCompiledWorkflowGraph({
       ...compilation,
       unexpected: true,
-    })).toThrow(TransmuteCodeError)
+    })).toThrow(AtetCodeError)
     expect(() => createWorkflowCompilationHash({
       ...compilation,
       unexpected: true,
-    })).toThrow(TransmuteCodeError)
+    })).toThrow(AtetCodeError)
     const missingEnvelope: Record<string, unknown> = { ...compilation }
     Reflect.deleteProperty(missingEnvelope, "envelope")
     expect(() => parseCompiledWorkflowGraph(missingEnvelope))
-      .toThrow(TransmuteCodeError)
+      .toThrow(AtetCodeError)
 
     const inconsistentUnsigned = {
       envelope: { ...compilation.envelope, effects: [] },

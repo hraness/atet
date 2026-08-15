@@ -14,11 +14,11 @@ import {
   canonicalJsonSha256Prefixed,
 } from "./canonical-json.js"
 import { parseCodeBoundary } from "./boundary.js"
-import { TransmuteCodeError } from "./errors.js"
+import { AtetCodeError } from "./errors.js"
 import { createBoundedJsonValueSnapshot } from "./json-snapshot.js"
 import {
-  PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
-  PORTABLE_TRANSMUTE_OPERATION_KINDS,
+  PORTABLE_ATET_OPERATION_CONTRACTS,
+  PORTABLE_ATET_OPERATION_KINDS,
 } from "./public-operations.js"
 
 export const WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN =
@@ -62,11 +62,11 @@ export function boundedOperationDiscoveryList(
   name = "operation discovery list",
 ): readonly unknown[] {
   if (!Array.isArray(input)) {
-    throw new TransmuteCodeError("invalid-data", `${name} must be an array.`)
+    throw new AtetCodeError("invalid-data", `${name} must be an array.`)
   }
   const length = input.length
   if (length > MAX_OPERATION_DISCOVERY_ENTRIES) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `${name} cannot exceed ${String(MAX_OPERATION_DISCOVERY_ENTRIES)} entries.`,
     )
@@ -76,7 +76,7 @@ export function boundedOperationDiscoveryList(
     symbol => (Reflect.get(descriptors, symbol) as PropertyDescriptor | undefined)
       ?.enumerable === true,
   )) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `${name} cannot contain enumerable symbol properties.`,
     )
@@ -87,7 +87,7 @@ export function boundedOperationDiscoveryList(
     keys.length !== length
     || keys.some((key, index) => key !== String(index))
   ) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       `${name} must be dense and cannot have named properties.`,
     )
@@ -103,14 +103,14 @@ export function boundedOperationDiscoveryList(
       || descriptor.get !== undefined
       || descriptor.set !== undefined
     ) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `${name} must contain plain data elements.`,
       )
     }
     const remainingBytes = MAX_OPERATION_DISCOVERY_LIST_BYTES - bytes
     if (remainingBytes < 1) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `${name} contains more than ${String(MAX_OPERATION_DISCOVERY_LIST_BYTES)} bytes.`,
       )
@@ -127,7 +127,7 @@ export function boundedOperationDiscoveryList(
     bytes += snapshot.bytes
     values += snapshot.values
     if (values > MAX_OPERATION_DISCOVERY_LIST_VALUES) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `${name} contains more than ${String(MAX_OPERATION_DISCOVERY_LIST_VALUES)} JSON values.`,
       )
@@ -158,7 +158,7 @@ export function normalizeOperationDiscovery(
     )
     const preparation = uniqueSorted(parsed.policy.preparation)
     if (preparation.length !== parsed.policy.preparation.length) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `Duplicate preparation requirement for ${operationKey(parsed.kind, parsed.version)}.`,
         { kind: parsed.kind, version: parsed.version },
@@ -169,7 +169,7 @@ export function normalizeOperationDiscovery(
         left.resource.localeCompare(right.resource)
       ))
     if (new Set(resources.map(resource => resource.resource)).size !== resources.length) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "invalid-data",
         `Duplicate resource claim for ${operationKey(parsed.kind, parsed.version)}.`,
         { kind: parsed.kind, version: parsed.version },
@@ -186,7 +186,7 @@ export function normalizeOperationDiscovery(
   for (const operation of normalized) {
     const key = operationKey(operation.kind, operation.version)
     if (seen.has(key)) {
-      throw new TransmuteCodeError(
+      throw new AtetCodeError(
         "conflict",
         `Duplicate operation discovery entry: ${key}`,
         { kind: operation.kind, version: operation.version },
@@ -298,7 +298,7 @@ export function parseWorkflowRegistryProjection(
     { trustedCompute: parsed.trustedCompute },
   )
   if (parsed.projectionSha256 !== normalized.projectionSha256) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow registry projection hash does not match its contents.",
       {
@@ -309,7 +309,7 @@ export function parseWorkflowRegistryProjection(
     )
   }
   if (canonicalJsonSha256(parsed) !== canonicalJsonSha256(normalized)) {
-    throw new TransmuteCodeError(
+    throw new AtetCodeError(
       "invalid-data",
       "Workflow registry projection discovery is not normalized.",
       { projectionId: parsed.id },
@@ -319,8 +319,8 @@ export function parseWorkflowRegistryProjection(
 }
 
 function publicDiscovery(): readonly OperationDiscovery[] {
-  return PORTABLE_TRANSMUTE_OPERATION_KINDS.map((kind) => {
-    const contract = PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[kind]
+  return PORTABLE_ATET_OPERATION_KINDS.map((kind) => {
+    const contract = PORTABLE_ATET_OPERATION_CONTRACTS[kind]
     return {
       inputSchemaId: contract.inputSchemaId,
       kind: contract.kind,
@@ -343,6 +343,6 @@ export function createPublicWorkflowRegistryProjection(): WorkflowRegistryProjec
 export const PUBLIC_WORKFLOW_REGISTRY_PROJECTION =
   createPublicWorkflowRegistryProjection()
 
-/** Compatibility spelling for hosts that identify this as the Transmute projection. */
-export const PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION =
+/** Compatibility spelling for hosts that identify this as the Atet projection. */
+export const PUBLIC_ATET_WORKFLOW_PROJECTION =
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION

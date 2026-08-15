@@ -40,7 +40,7 @@ const positiveFaceFixture = join(import.meta.dir, "face-positive-fixture.jpg");
 describe("Apple Vision face-analyzer build boundary", () => {
   test("exports one stable ignored runtime path without compiling on import", () => {
     expect(resolveFaceAnalyzerPath()).toBe(faceAnalyzerExecutablePath);
-    expect(faceAnalyzerExecutablePath).toEndWith("/analysis/dist/transmute-face-analyzer");
+    expect(faceAnalyzerExecutablePath).toEndWith("/analysis/dist/atet-face-analyzer");
   });
 
   test("ad-hoc signs the helper and exposes pinned offline backend provenance", async () => {
@@ -78,7 +78,7 @@ describe("Apple Vision face-analyzer build boundary", () => {
 
     expect(version.exitCode).toBe(0);
     expect(version.stderr).toBe("");
-    expect(version.stdout).toMatch(/^transmute-face-analyzer \d+\.\d+\.\d+ .{1,400}\n$/u);
+    expect(version.stdout).toMatch(/^atet-face-analyzer \d+\.\d+\.\d+ .{1,400}\n$/u);
     expect(new TextEncoder().encode(version.stdout).byteLength).toBeLessThanOrEqual(512);
     expect(json.exitCode).toBe(0);
     expect(parseFaceAnalyzerJsonLines(json.stdout)[0]?.event).toBe("probe");
@@ -102,7 +102,7 @@ describe("Apple Vision face-analyzer build boundary", () => {
   test("selects the requested video-track ordinal and reports decoded sample PTS", async () => {
     if (process.platform !== "darwin" || ffmpeg === undefined) return;
     const { path } = await builtAnalyzer();
-    const directory = await mkdtemp(join(tmpdir(), "transmute-face-analyzer-pts-"));
+    const directory = await mkdtemp(join(tmpdir(), "atet-face-analyzer-pts-"));
     const fixture = join(directory, "two-tracks.mov");
     try {
       const fixtureBuild = await run([
@@ -170,7 +170,7 @@ describe("Apple Vision face-analyzer build boundary", () => {
     if (process.platform !== "darwin" || ffmpeg === undefined) return;
     expect(existsSync(positiveFaceFixture)).toBeTrue();
     const { path } = await builtAnalyzer();
-    const directory = await mkdtemp(join(tmpdir(), "transmute-face-analyzer-positive-"));
+    const directory = await mkdtemp(join(tmpdir(), "atet-face-analyzer-positive-"));
     const fixture = join(directory, "three-fictional-faces.mp4");
     try {
       const fixtureBuild = await run([

@@ -27,7 +27,7 @@ const WORKFLOW_TIMESTAMP = "2026-07-22T16:00:00.000Z";
 const RECOVERY_TIMESTAMP = "2026-07-22T16:00:03.000Z";
 const COMPLETED_TIMESTAMP = "2026-07-22T16:00:08.000Z";
 const RUN_ID = "run_direct_workflow";
-const RUN_PATH = `artifacts/transmute/private/workflow-runs/${RUN_ID}`;
+const RUN_PATH = `artifacts/atet/private/workflow-runs/${RUN_ID}`;
 
 /**
  * Browser-safe discovery snapshot for the production operations used by this
@@ -468,7 +468,7 @@ export function createWorkflowEvidence(): WorkflowEvidence {
       label: node.label ?? node.key,
     })),
     recovery: {
-      command: "transmute runs resume run_direct_workflow --replay-ambiguous-code curate",
+      command: "atet runs resume run_direct_workflow --replay-ambiguous-code curate",
       failedNode: "curate",
       replayScope: "one-attempt",
     },
@@ -483,7 +483,7 @@ export function createWorkflowEvidence(): WorkflowEvidence {
           startedAt: WORKFLOW_TIMESTAMP,
           status: "ambiguous-code",
           updatedAt: RECOVERY_TIMESTAMP,
-          version: "transmute-run-store-v2",
+          version: "atet-run-store-v2",
         },
       },
       {
@@ -498,7 +498,7 @@ export function createWorkflowEvidence(): WorkflowEvidence {
           startedAt: WORKFLOW_TIMESTAMP,
           status: "completed",
           updatedAt: COMPLETED_TIMESTAMP,
-          version: "transmute-run-store-v2",
+          version: "atet-run-store-v2",
         },
       },
     ],

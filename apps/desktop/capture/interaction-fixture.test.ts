@@ -138,13 +138,13 @@ describe("owned interaction fixture protocol", () => {
       `private let interactionFixtureProtocolVersion = ${String(INTERACTION_FIXTURE_PROTOCOL_VERSION)}`,
     );
     expect(source).toContain(
-      'private let interactionFixturePublicFieldIdPrefix = "transmute-fixture-public-"',
+      'private let interactionFixturePublicFieldIdPrefix = "atet-fixture-public-"',
     );
     expect(source).toContain(
       'publicFieldId = "\\(interactionFixturePublicFieldIdPrefix)\\(fixtureId)"',
     );
     expect(source).toContain(
-      'windowTitle = "Transmute Interaction Fixture · \\(fixtureId)"',
+      'windowTitle = "Atet Interaction Fixture · \\(fixtureId)"',
     );
     expect(source).toContain(
       'Set(object.keys) == ["command", "fixtureId", "fixtureProtocolVersion", "requestId"]',
@@ -252,11 +252,11 @@ describe("owned interaction fixture protocol", () => {
       }),
     ]);
     const fixture = await startInteractionFixture({
-      executable: "/tmp/transmute-capture",
+      executable: "/tmp/atet-capture",
       fixtureId,
       transportFactory: factory,
     });
-    expect(factory.spawned).toEqual(["/tmp/transmute-capture", fixtureId]);
+    expect(factory.spawned).toEqual(["/tmp/atet-capture", fixtureId]);
     expect(fixture.publicFocusIdentity).toEqual(publicFocusIdentity);
     expect(await fixture.exercise()).toEqual(receipt());
     await fixture.close();
@@ -292,7 +292,7 @@ describe("owned interaction fixture protocol", () => {
     let failure: unknown;
     try {
       await startInteractionFixture({
-        executable: "/tmp/transmute-capture",
+        executable: "/tmp/atet-capture",
         fixtureId,
         transportFactory: factory,
       });
@@ -308,13 +308,13 @@ describe("owned interaction fixture protocol", () => {
     const otherId = "fedcba98-7654-4abc-9def-fedcba987654";
     const factory = new FakeTransportFactory([line(ready(otherId))]);
     expect(await rejection(startInteractionFixture({
-      executable: "/tmp/transmute-capture",
+      executable: "/tmp/atet-capture",
       fixtureId,
       transportFactory: factory,
     }))).toMatchObject({ code: "fixture-protocol" });
     expect(factory.transport.closed).toBeTrue();
     expect(await rejection(startInteractionFixture({
-      executable: "/tmp/transmute-capture",
+      executable: "/tmp/atet-capture",
       fixtureId: fixtureId.toUpperCase(),
       transportFactory: factory,
     }))).toBeDefined();
@@ -322,11 +322,11 @@ describe("owned interaction fixture protocol", () => {
 
   test("rejects nonce drift at ready and every receipt focus-identity drift", async () => {
     const drift = {
-      fieldId: "transmute-fixture-public-fedcba98-7654-4abc-9def-fedcba987654",
+      fieldId: "atet-fixture-public-fedcba98-7654-4abc-9def-fedcba987654",
       processId: 99,
       windowId: "99",
       windowTitle:
-        "Transmute Interaction Fixture · fedcba98-7654-4abc-9def-fedcba987654",
+        "Atet Interaction Fixture · fedcba98-7654-4abc-9def-fedcba987654",
     } as const;
     for (const key of ["fieldId", "windowTitle"] as const) {
       const factory = new FakeTransportFactory([
@@ -339,7 +339,7 @@ describe("owned interaction fixture protocol", () => {
         }),
       ]);
       expect(await rejection(startInteractionFixture({
-        executable: "/tmp/transmute-capture",
+        executable: "/tmp/atet-capture",
         fixtureId,
         transportFactory: factory,
       }))).toMatchObject({ code: "fixture-protocol" });
@@ -353,7 +353,7 @@ describe("owned interaction fixture protocol", () => {
         line({ ...ready(), publicFocusIdentity: invalidIdentity }),
       ]);
       expect(await rejection(startInteractionFixture({
-        executable: "/tmp/transmute-capture",
+        executable: "/tmp/atet-capture",
         fixtureId,
         transportFactory: factory,
       }))).toMatchObject({ code: "fixture-protocol" });
@@ -372,7 +372,7 @@ describe("owned interaction fixture protocol", () => {
         }),
       ]);
       const fixture = await startInteractionFixture({
-        executable: "/tmp/transmute-capture",
+        executable: "/tmp/atet-capture",
         fixtureId,
         transportFactory: factory,
       });
@@ -393,7 +393,7 @@ describe("owned interaction fixture protocol", () => {
       }),
     ]);
     expect(await rejection(startInteractionFixture({
-      executable: "/tmp/transmute-capture",
+      executable: "/tmp/atet-capture",
       fixtureId,
       transportFactory: factory,
     }))).toMatchObject({ code: "fixture-protocol" });

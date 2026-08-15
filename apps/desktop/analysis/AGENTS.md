@@ -9,7 +9,7 @@
 
 # Guidelines
 
-- Keep `transmute-face-analyzer` offline. It reads only the explicitly supplied local media file and never opens a network connection or loads a provider model.
+- Keep `atet-face-analyzer` offline. It reads only the explicitly supplied local media file and never opens a network connection or loads a provider model.
 - Target macOS 15 or newer and use `VNDetectFaceRectanglesRequest` through Apple Vision. Report the bounded helper/runtime versions, pinned request revision, OS build, and process architecture in every probe and analysis header.
 - Select video streams by zero-based video-track ordinal and report both the ordinal and persistent track ID. Never substitute the first track after an invalid selection.
 - Use each decoded sample buffer's real presentation timestamp. Do not infer timestamps from frame count, nominal frame rate, or the requested sampling interval.

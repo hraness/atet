@@ -3,16 +3,16 @@ import { createRoot } from "react-dom/client";
 import "../frontend/src/index.css";
 import "./workbench.css";
 
-import { mountTransmuteDirect } from "./mount";
+import { mountAtetDirect } from "./mount";
 import {
-  TransmuteDirectError,
-  TransmuteDirectWorkbench,
+  AtetDirectError,
+  AtetDirectWorkbench,
 } from "./workbench";
 
 const rootElement = document.querySelector("#root");
-if (rootElement === null) throw new Error("The Transmute Direct root element is missing.");
+if (rootElement === null) throw new Error("The Atet Direct root element is missing.");
 const root = createRoot(rootElement);
-const mounted = mountTransmuteDirect(
+const mounted = mountAtetDirect(
   { kind: "query", source: globalThis.location.search },
   {
     registerPagehide: (listener) => {
@@ -27,10 +27,10 @@ const mounted = mountTransmuteDirect(
 );
 
 if (!mounted.ok) {
-  root.render(<TransmuteDirectError message={mounted.error.message} />);
+  root.render(<AtetDirectError message={mounted.error.message} />);
 } else {
   try {
-    root.render(<TransmuteDirectWorkbench mounted={mounted.value} />);
+    root.render(<AtetDirectWorkbench mounted={mounted.value} />);
   } catch (reason) {
     mounted.value.dispose();
     throw reason;

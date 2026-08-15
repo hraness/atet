@@ -44,6 +44,7 @@ const TransactionBaseShape = {
   after: GenerationReferenceSchema,
   before: GenerationReferenceSchema,
   kind: z.union([
+    z.literal("atet.project-state-transaction"),
     z.literal("transmute.project-state-transaction"),
     z.literal("studio.project-state-transaction"),
   ]),
@@ -99,7 +100,10 @@ export const ProjectStateTransactionSettlementV1Schema = z.strictObject({
   active: z.enum(["before", "after"]),
   after: GenerationReferenceSchema,
   before: GenerationReferenceSchema,
-  kind: z.literal("transmute.project-state-transaction-settlement"),
+  kind: z.union([
+    z.literal("atet.project-state-transaction-settlement"),
+    z.literal("transmute.project-state-transaction-settlement"),
+  ]),
   projectId: VideoProjectIdSchema,
   schemaVersion: z.literal(1),
   transactionId: TransactionIdSchema,
@@ -275,7 +279,7 @@ async function publishTransactionSettlement(
     active: transaction.active,
     after: transaction.after,
     before: transaction.before,
-    kind: "transmute.project-state-transaction-settlement",
+    kind: "atet.project-state-transaction-settlement",
     projectId: transaction.projectId,
     schemaVersion: 1,
     transactionId: transaction.transactionId,
@@ -432,7 +436,7 @@ export async function commitProjectStateTransaction(options: {
   const transaction = ProjectStateTransactionV1Schema.parse({
     after: referenceFor(transactionId, "after", after),
     before: referenceFor(transactionId, "before", before),
-    kind: "transmute.project-state-transaction",
+    kind: "atet.project-state-transaction",
     phase: "prepare",
     projectId: before.project.projectId,
     schemaVersion: 1,

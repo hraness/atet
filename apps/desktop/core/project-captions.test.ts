@@ -71,7 +71,7 @@ function captionFixture(options: CaptionFixtureOptions): {
       codec: "pcm_s16le",
       container: "wav",
       fileRange: { endUs: options.durationUs, startUs: 0 },
-      path: "artifacts/transmute/projects/project_caption0001/dialogue.wav",
+      path: "artifacts/atet/projects/project_caption0001/dialogue.wav",
       sha256: MEDIA_SHA256,
       streamIndex: 0,
     }],
@@ -87,7 +87,7 @@ function captionFixture(options: CaptionFixtureOptions): {
     createdAt: NOW,
     durationUs: options.durationUs,
     inputDigest: ANALYSIS_INPUT_SHA256,
-    kind: "transmute.speech-analysis",
+    kind: "atet.speech-analysis",
     result: options.noSpeech
       ? {
           detectedLanguage: "en",
@@ -139,7 +139,7 @@ function captionFixture(options: CaptionFixtureOptions): {
       createdAt: analysis.createdAt,
       fillerCount: analysis.result.status === "transcribed" ? analysis.result.fillers.length : 0,
       kind: "speech",
-      path: "artifacts/transmute/projects/project_caption0001/analysis/speech.json",
+      path: "artifacts/atet/projects/project_caption0001/analysis/speech.json",
       sha256: sha256Hex(`${canonicalJson(analysis)}\n`),
       streamId: analysis.subject.streamId,
       wordCount: analysis.result.status === "transcribed" ? analysis.result.words.length : 0,
@@ -160,7 +160,7 @@ function captionFixture(options: CaptionFixtureOptions): {
     }],
     createdAt: NOW,
     currentEditPlanPath: null,
-    kind: "transmute.video-project",
+    kind: "atet.video-project",
     name: "Caption test project",
     placements: [{
       assetId: "asset_caption0001",

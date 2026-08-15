@@ -56,6 +56,7 @@ export const MediaAudioEffectsReceiptSchema = z.strictObject({
   filterGraph: z.string().min(1).max(256 * 1024),
   input: MediaArtifactReferenceSchema,
   kind: z.union([
+    z.literal("atet.local-media-transform-receipt"),
     z.literal("transmute.local-media-transform-receipt"),
     z.literal("studio.local-media-transform-receipt"),
   ]),
@@ -352,7 +353,7 @@ export function createMediaAudioEffectsOperationDefinition(
             ),
             filterGraph: rendered.filterGraph,
             input: boundInput.input,
-            kind: "transmute.local-media-transform-receipt",
+            kind: "atet.local-media-transform-receipt",
             operation: "audio-effects",
             output: {
               ...published.artifact,

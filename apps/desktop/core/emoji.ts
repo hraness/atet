@@ -187,7 +187,7 @@ export function createEmojiAssetProvider(
           path,
           provenance: {
             command: ["bun", "run", "emoji-pack:generate"],
-            generator: "transmute-emoji-pack",
+            generator: "atet-emoji-pack",
             generatorVersion: manifest.provenance.vtracerVersion,
             kind: "generated",
             sourceSha256: item.sourcePngSha256,

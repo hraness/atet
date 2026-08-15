@@ -12,7 +12,7 @@ export class GatewayCredentialError extends Error {
 
   constructor(code: "invalid" | "missing") {
     super(code === "missing"
-      ? "Set AI_GATEWAY_API_KEY, or run Transmute with `vercel env run -- …` so VERCEL_OIDC_TOKEN is available."
+      ? "Set AI_GATEWAY_API_KEY, or run Atet with `vercel env run -- …` so VERCEL_OIDC_TOKEN is available."
       : "The Vercel AI Gateway credential is invalid.");
     this.name = "GatewayCredentialError";
     this.code = code;

@@ -61,7 +61,7 @@ import {
 import {
   CandidateProjectRenderInputSchema,
   CandidateRenderDerivationV1Schema,
-  TRANSMUTE_PROJECT_RENDERER_ABI,
+  ATET_PROJECT_RENDERER_ABI,
   bindCandidateRenderOutputInput,
   bindCandidateRenderOutputOperationDefinition,
   candidateRenderDerivationSha256,
@@ -145,7 +145,7 @@ async function immutableRenderFixture(
         createdAt: mediaProject.createdAt,
         durationUs: mediaProject.assets[0]!.durationUs,
         inputDigest: "c".repeat(64),
-        kind: "transmute.speech-analysis",
+        kind: "atet.speech-analysis",
         result: {
           detectedLanguage: "en",
           fillers: [],
@@ -336,7 +336,7 @@ async function compileFrozenPlan(
     version: 1,
   });
   const output = ProjectRenderPlanOutputSchema.parse(result.output);
-  expect(output.kind).toBe("transmute.project-render-plan-reference");
+  expect(output.kind).toBe("atet.project-render-plan-reference");
   return output;
 }
 
@@ -430,7 +430,7 @@ async function exactCandidateRenderInput(
     bindingsSha256: "9".repeat(64),
     candidate,
     derivationSha256: "a".repeat(64),
-    kind: "transmute.creative-candidate-revision-reference",
+    kind: "atet.creative-candidate-revision-reference",
     planId: fixture.revision.planId,
     projectEditPlanSha256: fixture.revision.projectEditPlanSha256,
     projectId: fixture.revision.projectId,
@@ -503,7 +503,7 @@ function candidateRenderInputWithRendererAbi(
 
 describe("immutable workflow project rendering", () => {
   test("render-plan publication revalidates the workflow fence", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-render-plan-fence-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-plan-fence-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const application = renderApplication(repositoryRoot, {
@@ -524,7 +524,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("derives packed social captions from an exact frozen speech analysis", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-captioned-render-plan-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-captioned-render-plan-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot, {
         captions: true,
@@ -615,7 +615,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("fails closed when a caption binding changes after node planning", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-caption-binding-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-caption-binding-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot, {
         captions: true,
@@ -687,7 +687,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("current project and plan mutation cannot change a revision render", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-render-operation-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-operation-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       expect(() => RenderableProjectEditRevisionReferenceSchema.parse({
@@ -767,7 +767,7 @@ describe("immutable workflow project rendering", () => {
   test("adopts an exact candidate render across runs from immutable source evidence", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-candidate-render-adoption-",
+      "atet-candidate-render-adoption-",
     ));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
@@ -802,13 +802,13 @@ describe("immutable workflow project rendering", () => {
       expect(JSON.parse(await fixture.fileSystem.readText(reusePath)))
         .toMatchObject({
           derivationSha256: input.derivation.derivationSha256,
-          rendererAbi: TRANSMUTE_PROJECT_RENDERER_ABI,
+          rendererAbi: ATET_PROJECT_RENDERER_ABI,
           sourceReceipt: { path: first.receipt.path },
         });
 
       const incompatibleInput = candidateRenderInputWithRendererAbi(
         input,
-        "transmute-project-renderer-abi-v2",
+        "atet-project-renderer-abi-v2",
       );
       expect(incompatibleInput.output.path).not.toBe(input.output.path);
       const incompatibleError: unknown = await bindProjectRenderInputV3(
@@ -841,7 +841,7 @@ describe("immutable workflow project rendering", () => {
       expect(JSON.parse(await fixture.fileSystem.readText(reusePath)))
         .toMatchObject({
           derivationSha256: input.derivation.derivationSha256,
-          rendererAbi: TRANSMUTE_PROJECT_RENDERER_ABI,
+          rendererAbi: ATET_PROJECT_RENDERER_ABI,
           sourceReceipt: { path: first.receipt.path },
         });
 
@@ -882,12 +882,12 @@ describe("immutable workflow project rendering", () => {
       expect(validRecordSha256).toMatch(/^[a-f0-9]{64}$/u);
       const incompatibleReuseBody = {
         ...validReuseBody,
-        rendererAbi: "transmute-project-renderer-abi-v2",
+        rendererAbi: "atet-project-renderer-abi-v2",
       };
       const incompatibleReuseRecord = {
         ...incompatibleReuseBody,
         recordSha256: canonicalJsonSha256({
-          domain: "transmute.candidate-render-reuse-record/v1",
+          domain: "atet.candidate-render-reuse-record/v1",
           ...incompatibleReuseBody,
         }),
       };
@@ -964,12 +964,12 @@ describe("immutable workflow project rendering", () => {
   test("reconciliation recovers a candidate output from its exact run-private precommit", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "transmute-candidate-render-precommit-recovery-",
+      "atet-candidate-render-precommit-recovery-",
     ));
     const receiptDirectory = join(
       repositoryRoot,
       "artifacts",
-      "transmute",
+      "atet",
       "projects",
       "project_operation01",
       "renders",
@@ -1014,7 +1014,7 @@ describe("immutable workflow project rendering", () => {
       expect(await readFile(
         publicationPrecommitPath(application),
         "utf8",
-      )).toContain("transmute.project-render-publication-precommit");
+      )).toContain("atet.project-render-publication-precommit");
 
       let publicationChecks = 0;
       const reconciliation = await reconcileProjectRender(
@@ -1044,7 +1044,7 @@ describe("immutable workflow project rendering", () => {
         .toMatchObject({
           derivationSha256: input.derivation.derivationSha256,
           output: reconciliation.output.output,
-          rendererAbi: TRANSMUTE_PROJECT_RENDERER_ABI,
+          rendererAbi: ATET_PROJECT_RENDERER_ABI,
           sourceReceipt: { path: receiptPath },
         });
       expect(rendererCalls).toBe(1);
@@ -1061,7 +1061,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("rejects a canvas target that disagrees with the exact render plan", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-render-target-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-target-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       let rendererCalls = 0;
@@ -1101,7 +1101,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("a cancellation requested at the publication point cannot strand an output without its receipt", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-render-finalize-cancel-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-finalize-cancel-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const application = renderApplication(repositoryRoot, {
@@ -1143,7 +1143,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("reconciliation finalizes an exact receipt after failure between output and receipt publication", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-render-precommit-recovery-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-precommit-recovery-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const receiptDirectory = join(
@@ -1178,7 +1178,7 @@ describe("immutable workflow project rendering", () => {
       expect(await readFile(
         publicationPrecommitPath(application),
         "utf8",
-      )).toContain("transmute.project-render-publication-precommit");
+      )).toContain("atet.project-render-publication-precommit");
 
       const fenced = await reconcileProjectRender(
         application,
@@ -1243,7 +1243,7 @@ describe("immutable workflow project rendering", () => {
       )).toEqual(reconciliation);
     } finally {
       await chmod(
-        join(repositoryRoot, "artifacts", "transmute", "projects", "project_operation01", "renders", "receipts"),
+        join(repositoryRoot, "artifacts", "atet", "projects", "project_operation01", "renders", "receipts"),
         0o700,
       ).catch(() => undefined);
       await rm(repositoryRoot, { force: true, recursive: true });
@@ -1251,7 +1251,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("reconciliation rejects forged and differently-bound publication precommits", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-render-precommit-forgery-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-precommit-forgery-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const receiptDirectory = join(
@@ -1345,7 +1345,7 @@ describe("immutable workflow project rendering", () => {
       ).catch(() => null)).toBeNull();
     } finally {
       await chmod(
-        join(repositoryRoot, "artifacts", "transmute", "projects", "project_operation01", "renders", "receipts"),
+        join(repositoryRoot, "artifacts", "atet", "projects", "project_operation01", "renders", "receipts"),
         0o700,
       ).catch(() => undefined);
       await rm(repositoryRoot, { force: true, recursive: true });
@@ -1353,7 +1353,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("media mutation after encoding prevents public output and receipt publication", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-render-media-race-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-media-race-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const runner: ApplicationProcessRunner = {
@@ -1385,7 +1385,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("a pre-existing unrelated output is preserved without dispatch", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-render-no-replace-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-no-replace-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       let rendererCalls = 0;
@@ -1431,7 +1431,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("rejects same-version executable replacement after exact node planning", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "transmute-render-tool-binding-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-tool-binding-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const ffmpeg = join(repositoryRoot, "ffmpeg-fixture");

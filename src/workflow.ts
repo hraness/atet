@@ -1,12 +1,12 @@
 import {
-  executeTransmuteOperationWithLease,
-  isTransmuteOperationCode,
-  parseTransmuteOperationInput,
-  transmuteOperationHostResourceClaims,
-  type TransmuteOperationCode,
-  type TransmuteOperationDependencies,
-  type TransmuteOperationInputMap,
-  type TransmuteOperationResultMap,
+  executeAtetOperationWithLease,
+  isAtetOperationCode,
+  parseAtetOperationInput,
+  atetOperationHostResourceClaims,
+  type AtetOperationCode,
+  type AtetOperationDependencies,
+  type AtetOperationInputMap,
+  type AtetOperationResultMap,
 } from "./operations.js"
 import {
   createDefaultHostResourceCoordinator,
@@ -19,7 +19,7 @@ const workflowStepIdPattern = /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/u
 const defaultMaximumSteps = 64
 const hardMaximumSteps = 256
 
-export type TransmuteWorkflowErrorCode =
+export type AtetWorkflowErrorCode =
   | "INVALID_WORKFLOW"
   | "INVALID_WORKFLOW_INPUT"
   | "INVALID_WORKFLOW_STEP"
@@ -27,34 +27,34 @@ export type TransmuteWorkflowErrorCode =
   | "WORKFLOW_FAILED"
   | "WORKFLOW_STEP_FAILED"
 
-export interface TransmuteWorkflowStepReceipt {
+export interface AtetWorkflowStepReceipt {
   readonly index: number
   readonly id: string
-  readonly operation: TransmuteOperationCode
+  readonly operation: AtetOperationCode
 }
 
-export class TransmuteWorkflowError extends Error {
-  readonly code: TransmuteWorkflowErrorCode
-  readonly completedSteps: readonly TransmuteWorkflowStepReceipt[]
+export class AtetWorkflowError extends Error {
+  readonly code: AtetWorkflowErrorCode
+  readonly completedSteps: readonly AtetWorkflowStepReceipt[]
   readonly failedStep?: Readonly<{
     id: string
-    operation: TransmuteOperationCode
+    operation: AtetOperationCode
   }>
 
   constructor(
-    code: TransmuteWorkflowErrorCode,
+    code: AtetWorkflowErrorCode,
     message: string,
     options: {
       readonly cause?: unknown
-      readonly completedSteps?: readonly TransmuteWorkflowStepReceipt[]
+      readonly completedSteps?: readonly AtetWorkflowStepReceipt[]
       readonly failedStep?: Readonly<{
         id: string
-        operation: TransmuteOperationCode
+        operation: AtetOperationCode
       }>
     } = {},
   ) {
     super(`[${code}] ${message}`, { cause: options.cause })
-    this.name = "TransmuteWorkflowError"
+    this.name = "AtetWorkflowError"
     this.code = code
     this.completedSteps = Object.freeze(
       [...(options.completedSteps ?? [])].sort(
@@ -67,67 +67,67 @@ export class TransmuteWorkflowError extends Error {
   }
 }
 
-export interface TransmuteWorkflowExecutorContext {
+export interface AtetWorkflowExecutorContext {
   readonly hostResourceLease: HostResourceLease
   readonly signal: AbortSignal
   readonly stepId: string
 }
 
-export type TransmuteWorkflowExecutor = <C extends TransmuteOperationCode>(
+export type AtetWorkflowExecutor = <C extends AtetOperationCode>(
   code: C,
-  input: TransmuteOperationInputMap[C],
-  context: TransmuteWorkflowExecutorContext,
-) => Promise<TransmuteOperationResultMap[C]>
+  input: AtetOperationInputMap[C],
+  context: AtetWorkflowExecutorContext,
+) => Promise<AtetOperationResultMap[C]>
 
-export interface TransmuteWorkflowContext {
+export interface AtetWorkflowContext {
   readonly signal: AbortSignal
-  operation<C extends TransmuteOperationCode>(
+  operation<C extends AtetOperationCode>(
     id: string,
     code: C,
-    input: TransmuteOperationInputMap[C],
-  ): Promise<TransmuteOperationResultMap[C]>
+    input: AtetOperationInputMap[C],
+  ): Promise<AtetOperationResultMap[C]>
 }
 
-export interface TransmuteWorkflowDefinition<Input, Output> {
+export interface AtetWorkflowDefinition<Input, Output> {
   readonly id: string
   readonly version: number
   readonly parseInput: (value: unknown) => Input
   readonly run: (
-    context: TransmuteWorkflowContext,
+    context: AtetWorkflowContext,
     input: Input,
   ) => Output | Promise<Output>
 }
 
-export interface DefineTransmuteWorkflowOptions<Input, Output>
-  extends TransmuteWorkflowDefinition<Input, Output> {}
+export interface DefineAtetWorkflowOptions<Input, Output>
+  extends AtetWorkflowDefinition<Input, Output> {}
 
-export interface RunTransmuteWorkflowOptions {
+export interface RunAtetWorkflowOptions {
   /**
    * Operation dependencies may also carry admission controls. Explicit
    * workflow-level controls take precedence when both are present.
    */
-  readonly dependencies?: TransmuteOperationDependencies
-  readonly executor?: TransmuteWorkflowExecutor
+  readonly dependencies?: AtetOperationDependencies
+  readonly executor?: AtetWorkflowExecutor
   readonly hostResourceCoordinator?: HostResourceCoordinator
   readonly maximumSteps?: number
   readonly signal?: AbortSignal
   readonly waitTimeoutMilliseconds?: number
 }
 
-export interface TransmuteWorkflowRun<Output> {
+export interface AtetWorkflowRun<Output> {
   readonly workflow: Readonly<{
     id: string
     version: number
   }>
   readonly output: Output
-  readonly steps: readonly TransmuteWorkflowStepReceipt[]
+  readonly steps: readonly AtetWorkflowStepReceipt[]
 }
 
 function workflowError(
-  code: TransmuteWorkflowErrorCode,
+  code: AtetWorkflowErrorCode,
   message: string,
 ): never {
-  throw new TransmuteWorkflowError(code, message)
+  throw new AtetWorkflowError(code, message)
 }
 
 function validateWorkflowId(id: unknown): asserts id is string {
@@ -146,7 +146,7 @@ function validateWorkflowId(id: unknown): asserts id is string {
 
 function validateStepId(
   id: unknown,
-  completedSteps: readonly TransmuteWorkflowStepReceipt[] = [],
+  completedSteps: readonly AtetWorkflowStepReceipt[] = [],
 ): asserts id is string {
   if (
     typeof id !== "string" ||
@@ -154,7 +154,7 @@ function validateStepId(
     id.length > 80 ||
     !workflowStepIdPattern.test(id)
   ) {
-    throw new TransmuteWorkflowError(
+    throw new AtetWorkflowError(
       "INVALID_WORKFLOW_STEP",
       "Step id must be 1 through 80 letters, numbers, dots, underscores, colons, or hyphens.",
       { completedSteps },
@@ -162,9 +162,9 @@ function validateStepId(
   }
 }
 
-export function defineTransmuteWorkflow<Input, Output>(
-  options: DefineTransmuteWorkflowOptions<Input, Output>,
-): TransmuteWorkflowDefinition<Input, Output> {
+export function defineAtetWorkflow<Input, Output>(
+  options: DefineAtetWorkflowOptions<Input, Output>,
+): AtetWorkflowDefinition<Input, Output> {
   if (typeof options !== "object" || options === null) {
     workflowError("INVALID_WORKFLOW", "Workflow definition must be an object.")
   }
@@ -205,28 +205,28 @@ function maximumSteps(value: number | undefined): number {
 }
 
 function aborted(
-  completedSteps: readonly TransmuteWorkflowStepReceipt[],
+  completedSteps: readonly AtetWorkflowStepReceipt[],
   cause?: unknown,
-): TransmuteWorkflowError {
-  return new TransmuteWorkflowError(
+): AtetWorkflowError {
+  return new AtetWorkflowError(
     "WORKFLOW_ABORTED",
     "Workflow execution was aborted.",
     { cause, completedSteps },
   )
 }
 
-export async function runTransmuteWorkflow<Input, Output>(
-  definition: TransmuteWorkflowDefinition<Input, Output>,
+export async function runAtetWorkflow<Input, Output>(
+  definition: AtetWorkflowDefinition<Input, Output>,
   value: unknown,
-  options: RunTransmuteWorkflowOptions = {},
-): Promise<TransmuteWorkflowRun<Awaited<Output>>> {
-  const normalized = defineTransmuteWorkflow(definition)
+  options: RunAtetWorkflowOptions = {},
+): Promise<AtetWorkflowRun<Awaited<Output>>> {
+  const normalized = defineAtetWorkflow(definition)
   const limit = maximumSteps(options.maximumSteps)
   const signal = options.signal
     ?? options.dependencies?.signal
     ?? new AbortController().signal
   const invoked = new Set<string>()
-  const completed: TransmuteWorkflowStepReceipt[] = []
+  const completed: AtetWorkflowStepReceipt[] = []
   const dispatched: Promise<unknown>[] = []
   let acceptingOperations = true
   let nextIndex = 0
@@ -237,19 +237,19 @@ export async function runTransmuteWorkflow<Input, Output>(
   try {
     input = normalized.parseInput(value)
   } catch (cause) {
-    throw new TransmuteWorkflowError(
+    throw new AtetWorkflowError(
       "INVALID_WORKFLOW_INPUT",
       "Workflow input did not satisfy its parser.",
       { cause },
     )
   }
 
-  const executor: TransmuteWorkflowExecutor = options.executor
-    ?? (<C extends TransmuteOperationCode>(
+  const executor: AtetWorkflowExecutor = options.executor
+    ?? (<C extends AtetOperationCode>(
       code: C,
-      operationInput: TransmuteOperationInputMap[C],
-      context: TransmuteWorkflowExecutorContext,
-    ) => executeTransmuteOperationWithLease(
+      operationInput: AtetOperationInputMap[C],
+      context: AtetWorkflowExecutorContext,
+    ) => executeAtetOperationWithLease(
       code,
       operationInput,
       context.hostResourceLease,
@@ -261,29 +261,29 @@ export async function runTransmuteWorkflow<Input, Output>(
   const waitTimeoutMilliseconds = options.waitTimeoutMilliseconds
     ?? options.dependencies?.waitTimeoutMilliseconds
 
-  async function dispatchOperation<C extends TransmuteOperationCode>(
+  async function dispatchOperation<C extends AtetOperationCode>(
     id: string,
     code: C,
-    operationInput: TransmuteOperationInputMap[C],
-  ): Promise<TransmuteOperationResultMap[C]> {
+    operationInput: AtetOperationInputMap[C],
+  ): Promise<AtetOperationResultMap[C]> {
     if (signal.aborted) throw aborted(completed)
     validateStepId(id, completed)
-    if (!isTransmuteOperationCode(code)) {
-      throw new TransmuteWorkflowError(
+    if (!isAtetOperationCode(code)) {
+      throw new AtetWorkflowError(
         "INVALID_WORKFLOW_STEP",
-        `Workflow step ${id} names an unknown Transmute operation.`,
+        `Workflow step ${id} names an unknown Atet operation.`,
         { completedSteps: completed },
       )
     }
     if (invoked.has(id)) {
-      throw new TransmuteWorkflowError(
+      throw new AtetWorkflowError(
         "INVALID_WORKFLOW_STEP",
         `Duplicate workflow step id: ${id}.`,
         { completedSteps: completed },
       )
     }
     if (nextIndex >= limit) {
-      throw new TransmuteWorkflowError(
+      throw new AtetWorkflowError(
         "INVALID_WORKFLOW_STEP",
         `Workflow exceeds its ${String(limit)}-step limit.`,
         { completedSteps: completed },
@@ -292,11 +292,11 @@ export async function runTransmuteWorkflow<Input, Output>(
     const index = nextIndex
     nextIndex += 1
     invoked.add(id)
-    let normalizedInput: TransmuteOperationInputMap[C]
+    let normalizedInput: AtetOperationInputMap[C]
     try {
-      normalizedInput = parseTransmuteOperationInput(code, operationInput)
+      normalizedInput = parseAtetOperationInput(code, operationInput)
     } catch (cause) {
-      throw new TransmuteWorkflowError(
+      throw new AtetWorkflowError(
         "INVALID_WORKFLOW_STEP",
         `Workflow step ${id} has invalid input for ${code}.`,
         { cause, completedSteps: completed },
@@ -304,7 +304,7 @@ export async function runTransmuteWorkflow<Input, Output>(
     }
     try {
       const result = await hostResourceCoordinator.withLease(
-        transmuteOperationHostResourceClaims(code),
+        atetOperationHostResourceClaims(code),
         async (hostResourceLease) => await executor(code, normalizedInput, {
           hostResourceLease,
           signal,
@@ -322,13 +322,13 @@ export async function runTransmuteWorkflow<Input, Output>(
       return result
     } catch (cause) {
       if (
-        cause instanceof TransmuteWorkflowError &&
+        cause instanceof AtetWorkflowError &&
         cause.code === "WORKFLOW_ABORTED"
       ) {
         throw cause
       }
       if (signal.aborted) throw aborted(completed, cause)
-      throw new TransmuteWorkflowError(
+      throw new AtetWorkflowError(
         "WORKFLOW_STEP_FAILED",
         `Workflow step ${id} (${code}) failed.`,
         {
@@ -340,16 +340,16 @@ export async function runTransmuteWorkflow<Input, Output>(
     }
   }
 
-  const context: TransmuteWorkflowContext = Object.freeze({
+  const context: AtetWorkflowContext = Object.freeze({
     signal,
-    operation<C extends TransmuteOperationCode>(
+    operation<C extends AtetOperationCode>(
       id: string,
       code: C,
-      operationInput: TransmuteOperationInputMap[C],
-    ): Promise<TransmuteOperationResultMap[C]> {
+      operationInput: AtetOperationInputMap[C],
+    ): Promise<AtetOperationResultMap[C]> {
       if (!acceptingOperations) {
-        const closed = Promise.reject<TransmuteOperationResultMap[C]>(
-          new TransmuteWorkflowError(
+        const closed = Promise.reject<AtetOperationResultMap[C]>(
+          new AtetWorkflowError(
             "INVALID_WORKFLOW_STEP",
             "Workflow operations cannot start after authored workflow code has settled.",
             { completedSteps: completed },
@@ -382,8 +382,8 @@ export async function runTransmuteWorkflow<Input, Output>(
   const operationResults = await Promise.allSettled(dispatched)
   if (signal.aborted) throw aborted(completed, runFailed ? runFailure : undefined)
   if (runFailed) {
-    if (runFailure instanceof TransmuteWorkflowError) throw runFailure
-    throw new TransmuteWorkflowError(
+    if (runFailure instanceof AtetWorkflowError) throw runFailure
+    throw new AtetWorkflowError(
       "WORKFLOW_FAILED",
       `Workflow ${normalized.id} failed in authored code.`,
       { cause: runFailure, completedSteps: completed },
@@ -394,8 +394,8 @@ export async function runTransmuteWorkflow<Input, Output>(
   )
   if (operationFailure !== undefined) {
     const cause: unknown = operationFailure.reason
-    if (cause instanceof TransmuteWorkflowError) throw cause
-    throw new TransmuteWorkflowError(
+    if (cause instanceof AtetWorkflowError) throw cause
+    throw new AtetWorkflowError(
       "WORKFLOW_STEP_FAILED",
       "A dispatched workflow operation failed.",
       { cause, completedSteps: completed },
@@ -407,3 +407,28 @@ export async function runTransmuteWorkflow<Input, Output>(
     steps: Object.freeze([...completed].sort((left, right) => left.index - right.index)),
   })
 }
+
+/** @deprecated Use Atet names for newly authored integrations. */
+export type TransmuteWorkflowErrorCode = AtetWorkflowErrorCode
+/** @deprecated Use {@link AtetWorkflowStepReceipt}. */
+export type TransmuteWorkflowStepReceipt = AtetWorkflowStepReceipt
+/** @deprecated Use {@link AtetWorkflowError}. */
+export { AtetWorkflowError as TransmuteWorkflowError }
+/** @deprecated Use {@link AtetWorkflowExecutorContext}. */
+export type TransmuteWorkflowExecutorContext = AtetWorkflowExecutorContext
+/** @deprecated Use {@link AtetWorkflowExecutor}. */
+export type TransmuteWorkflowExecutor = AtetWorkflowExecutor
+/** @deprecated Use {@link AtetWorkflowContext}. */
+export type TransmuteWorkflowContext = AtetWorkflowContext
+/** @deprecated Use {@link AtetWorkflowDefinition}. */
+export type TransmuteWorkflowDefinition<Input, Output> = AtetWorkflowDefinition<Input, Output>
+/** @deprecated Use {@link DefineAtetWorkflowOptions}. */
+export type DefineTransmuteWorkflowOptions<Input, Output> = DefineAtetWorkflowOptions<Input, Output>
+/** @deprecated Use {@link RunAtetWorkflowOptions}. */
+export type RunTransmuteWorkflowOptions = RunAtetWorkflowOptions
+/** @deprecated Use {@link AtetWorkflowRun}. */
+export type TransmuteWorkflowRun<Output> = AtetWorkflowRun<Output>
+/** @deprecated Use {@link defineAtetWorkflow}. */
+export const defineTransmuteWorkflow = defineAtetWorkflow
+/** @deprecated Use {@link runAtetWorkflow}. */
+export const runTransmuteWorkflow = runAtetWorkflow

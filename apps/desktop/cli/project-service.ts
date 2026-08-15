@@ -274,7 +274,7 @@ export async function createProjectFromRecording(options: CreateProjectOptions):
     assets: [asset],
     createdAt: timestamp,
     currentEditPlanPath: CURRENT_PROJECT_EDIT_PLAN_PATH,
-    kind: "transmute.video-project",
+    kind: "atet.video-project",
     name: options.name?.trim() || `Recording ${options.recording.manifest.recordingId}`,
     placements: [placement],
     projectId,

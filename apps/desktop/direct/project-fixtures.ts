@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SCENE_UPLOAD_POLICY } from "@hraness/transmute/scene";
+import { SCENE_UPLOAD_POLICY } from "@hraness/atet/scene";
 
 import {
   AudioAlignmentAnalysisV1Schema,
@@ -94,7 +94,7 @@ const ID = Object.freeze({
   streamScreenVideo: "stream_screen_video",
 });
 
-const TOOL = Object.freeze({ name: "transmute-core", profile: "direct-fixture", version: "1" });
+const TOOL = Object.freeze({ name: "atet-core", profile: "direct-fixture", version: "1" });
 
 function mediaSegment(
   durationUs: number,
@@ -122,7 +122,7 @@ function importedSource(originalName: string, sourceSha256: string) {
 }
 
 function screenAsset(): ProjectAssetV1 {
-  const path = "artifacts/transmute/private/imports/screen-demo.mp4";
+  const path = "artifacts/atet/private/imports/screen-demo.mp4";
   return ProjectAssetV1Schema.parse({
     assetId: ID.assetScreen,
     createdAt: TIMESTAMP,
@@ -445,7 +445,7 @@ function createFaceAnalysis(
       streamId: ID.streamCameraAVideo,
     },
     tool: {
-      name: "transmute-face-analyzer",
+      name: "atet-face-analyzer",
       profile: "offline-boxes",
       version: "fixture",
     },
@@ -487,7 +487,7 @@ function createMusicAnalysis() {
       { alternatives: [{ bpm: 59, confidence: 0.27 }], beatTimesUs: [4_100_000, 4_608_475, 5_116_950], bpm: 118, changeFromPrevious: null, confidence: 0.92, meter: "4/4", range: { endUs: 27_000_000, startUs: 4_000_000 } },
       { alternatives: [{ bpm: 66, confidence: 0.19 }], beatTimesUs: [27_100_000, 27_554_545, 28_009_090], bpm: 132, changeFromPrevious: { confidence: 0.9, deltaBpm: 14 }, confidence: 0.9, meter: "4/4", range: { endUs: 31_000_000, startUs: 27_000_000 } },
     ],
-    tool: { name: "transmute-music", profile: "local-deterministic", version: "1" },
+    tool: { name: "atet-music", profile: "local-deterministic", version: "1" },
   });
 }
 
@@ -513,7 +513,7 @@ function sceneAnalysis(options: {
       actualAssetTimeUs,
       bytes: 92_000 + index * 1_000,
       perceptualHash: `${index + 1}`.repeat(16),
-      path: `artifacts/transmute/projects/${ID.project}/analysis/scenes/${options.pathStem}-${String(index + 1)}.jpg`,
+      path: `artifacts/atet/projects/${ID.project}/analysis/scenes/${options.pathStem}-${String(index + 1)}.jpg`,
       reasons: index === 0 ? ["boundary", "middle"] : ["boundary", "maximum-gap"],
       requestedAssetTimeUs: actualAssetTimeUs,
       sampleId: `sample_${options.pathStem}${String(index + 1).padStart(2, "0")}`,
@@ -544,7 +544,7 @@ function sceneAnalysis(options: {
         activities: scene.contentKind === "camera" ? ["speaking to camera"] : ["editing a project", "running a CLI command"],
         contentKind: scene.contentKind,
         modelConfidence: 0.91,
-        setting: scene.contentKind === "camera" ? "Desk camera angle" : "Transmute terminal workspace",
+        setting: scene.contentKind === "camera" ? "Desk camera angle" : "Atet terminal workspace",
         subjects: scene.contentKind === "camera" ? ["presenter"] : ["terminal", "project timeline"],
         summary: scene.summary,
         title: scene.title,
@@ -643,8 +643,8 @@ function createSpeechAnalysis() {
 
 function assetForOverlay(kind: "emoji" | "gif" | "image" | "svg" | "video") {
   const generated = {
-    command: ["transmute", "overlay", "prepare", kind],
-    generator: "transmute-overlay-prep",
+    command: ["atet", "overlay", "prepare", kind],
+    generator: "atet-overlay-prep",
     generatorVersion: "1",
     kind: "generated" as const,
     sourceSha256: SHA[kind],
@@ -662,7 +662,7 @@ function assetForOverlay(kind: "emoji" | "gif" | "image" | "svg" | "video") {
     asset: {
       bytes: kind === "video" ? 2_400_000 : 180_000,
       mediaType,
-      path: `artifacts/transmute/projects/${ID.project}/assets/${kind}.${kind === "image" || kind === "emoji" ? "png" : kind === "video" ? "mp4" : kind}`,
+      path: `artifacts/atet/projects/${ID.project}/assets/${kind}.${kind === "image" || kind === "emoji" ? "png" : kind === "video" ? "mp4" : kind}`,
       provenance: generated,
       sha256: SHA[kind],
     },
@@ -995,7 +995,7 @@ export function createProjectEvidence(): ProjectEvidence {
     durationUs: CAMERA_A_DURATION_US,
     label: "Camera A — presenter",
     originalName: "camera-a.mp4",
-    path: "artifacts/transmute/private/imports/camera-a.mp4",
+    path: "artifacts/atet/private/imports/camera-a.mp4",
     sha256: SHA.cameraA,
     videoStreamId: ID.streamCameraAVideo,
   });
@@ -1006,7 +1006,7 @@ export function createProjectEvidence(): ProjectEvidence {
     durationUs: CAMERA_B_DURATION_US,
     label: "Camera B — desk detail",
     originalName: "camera-b.mp4",
-    path: "artifacts/transmute/private/imports/camera-b.mp4",
+    path: "artifacts/atet/private/imports/camera-b.mp4",
     sha256: SHA.cameraB,
     videoStreamId: ID.streamCameraBVideo,
   });
@@ -1077,8 +1077,8 @@ export function createProjectEvidence(): ProjectEvidence {
     durationUs: SCREEN_DURATION_US,
     pathStem: "screen",
     scenes: [
-      { contentKind: "terminal", endUs: 14_000_000, summary: "The CLI creates a synchronized multi-angle project.", title: "Create project", visibleTextSummary: "transmute projects create and project add" },
-      { contentKind: "terminal", endUs: SCREEN_DURATION_US, summary: "The timeline applies a global cut, speed range, and overlays.", title: "Edit project", visibleTextSummary: "transmute project edit, align analyze, render" },
+      { contentKind: "terminal", endUs: 14_000_000, summary: "The CLI creates a synchronized multi-angle project.", title: "Create project", visibleTextSummary: "atet projects create and project add" },
+      { contentKind: "terminal", endUs: SCREEN_DURATION_US, summary: "The timeline applies a global cut, speed range, and overlays.", title: "Edit project", visibleTextSummary: "atet project edit, align analyze, render" },
     ],
     streamId: ID.streamScreenVideo,
   });
@@ -1096,19 +1096,19 @@ export function createProjectEvidence(): ProjectEvidence {
   });
   const speech = createSpeechAnalysis();
   const analyses = [
-    { analysisId: ID.alignA, confidence: 0.98, createdAt: TIMESTAMP, driftPpm: 0, kind: "audio-alignment", path: `artifacts/transmute/projects/${ID.project}/analysis/${ID.alignA}.json`, referencePlacementId: ID.placementScreen, sha256: SHA.alignA, targetPlacementId: ID.placementCameraA },
-    { analysisId: ID.alignB, confidence: 0.95, createdAt: TIMESTAMP, driftPpm: -24, kind: "audio-alignment", path: `artifacts/transmute/projects/${ID.project}/analysis/${ID.alignB}.json`, referencePlacementId: ID.placementScreen, sha256: SHA.alignB, targetPlacementId: ID.placementCameraB },
-    { analysisId: ID.music, assetId: ID.assetScreen, createdAt: TIMESTAMP, keyRegions: music.keyRegions.length, kind: "music", musicRegions: music.musicRegions.length, path: `artifacts/transmute/projects/${ID.project}/analysis/${ID.music}.json`, sha256: SHA.music, streamId: ID.streamScreenAudio, tempoRegions: music.tempoRegions.length },
-    { analysisId: ID.sceneScreen, assetId: ID.assetScreen, createdAt: TIMESTAMP, kind: "scenes", model: screenScenes.model.requestedModel, path: `artifacts/transmute/projects/${ID.project}/analysis/${ID.sceneScreen}.json`, sceneCount: screenScenes.scenes.length, sha256: SHA.sceneScreen, streamIds: [ID.streamScreenVideo] },
-    { analysisId: ID.sceneCamera, assetId: ID.assetCameraA, createdAt: TIMESTAMP, kind: "scenes", model: cameraScenes.model.requestedModel, path: `artifacts/transmute/projects/${ID.project}/analysis/${ID.sceneCamera}.json`, sceneCount: cameraScenes.scenes.length, sha256: SHA.sceneCamera, streamIds: [ID.streamCameraAVideo] },
-    { analysisId: ID.faceAnalysis, analyzedFrames: faceAnalysis.coverage.analyzedFrames, assetId: ID.assetCameraA, createdAt: TIMESTAMP, kind: "faces", localOnly: true, path: `artifacts/transmute/projects/${ID.project}/analysis/${ID.faceAnalysis}.json`, sha256: SHA.face, streamId: ID.streamCameraAVideo, subjectIntegritySha256: SHA.cameraA, trackCount: faceAnalysis.tracks.length },
-    { analysisId: ID.speech, assetId: ID.assetCameraA, createdAt: TIMESTAMP, fillerCount: speech.result.status === "transcribed" ? speech.result.fillers.length : 0, kind: "speech", path: `artifacts/transmute/projects/${ID.project}/analysis/${ID.speech}.json`, sha256: SHA.speech, streamId: ID.streamCameraAAudio, wordCount: speech.result.status === "transcribed" ? speech.result.words.length : 0 },
+    { analysisId: ID.alignA, confidence: 0.98, createdAt: TIMESTAMP, driftPpm: 0, kind: "audio-alignment", path: `artifacts/atet/projects/${ID.project}/analysis/${ID.alignA}.json`, referencePlacementId: ID.placementScreen, sha256: SHA.alignA, targetPlacementId: ID.placementCameraA },
+    { analysisId: ID.alignB, confidence: 0.95, createdAt: TIMESTAMP, driftPpm: -24, kind: "audio-alignment", path: `artifacts/atet/projects/${ID.project}/analysis/${ID.alignB}.json`, referencePlacementId: ID.placementScreen, sha256: SHA.alignB, targetPlacementId: ID.placementCameraB },
+    { analysisId: ID.music, assetId: ID.assetScreen, createdAt: TIMESTAMP, keyRegions: music.keyRegions.length, kind: "music", musicRegions: music.musicRegions.length, path: `artifacts/atet/projects/${ID.project}/analysis/${ID.music}.json`, sha256: SHA.music, streamId: ID.streamScreenAudio, tempoRegions: music.tempoRegions.length },
+    { analysisId: ID.sceneScreen, assetId: ID.assetScreen, createdAt: TIMESTAMP, kind: "scenes", model: screenScenes.model.requestedModel, path: `artifacts/atet/projects/${ID.project}/analysis/${ID.sceneScreen}.json`, sceneCount: screenScenes.scenes.length, sha256: SHA.sceneScreen, streamIds: [ID.streamScreenVideo] },
+    { analysisId: ID.sceneCamera, assetId: ID.assetCameraA, createdAt: TIMESTAMP, kind: "scenes", model: cameraScenes.model.requestedModel, path: `artifacts/atet/projects/${ID.project}/analysis/${ID.sceneCamera}.json`, sceneCount: cameraScenes.scenes.length, sha256: SHA.sceneCamera, streamIds: [ID.streamCameraAVideo] },
+    { analysisId: ID.faceAnalysis, analyzedFrames: faceAnalysis.coverage.analyzedFrames, assetId: ID.assetCameraA, createdAt: TIMESTAMP, kind: "faces", localOnly: true, path: `artifacts/atet/projects/${ID.project}/analysis/${ID.faceAnalysis}.json`, sha256: SHA.face, streamId: ID.streamCameraAVideo, subjectIntegritySha256: SHA.cameraA, trackCount: faceAnalysis.tracks.length },
+    { analysisId: ID.speech, assetId: ID.assetCameraA, createdAt: TIMESTAMP, fillerCount: speech.result.status === "transcribed" ? speech.result.fillers.length : 0, kind: "speech", path: `artifacts/atet/projects/${ID.project}/analysis/${ID.speech}.json`, sha256: SHA.speech, streamId: ID.streamCameraAAudio, wordCount: speech.result.status === "transcribed" ? speech.result.words.length : 0 },
   ];
   const project = VideoProjectV1Schema.parse({
     analyses,
     assets: [screen, cameraA, cameraB],
     createdAt: TIMESTAMP,
-    currentEditPlanPath: `artifacts/transmute/projects/${ID.project}/edits/plan_agentdemo1.json`,
+    currentEditPlanPath: `artifacts/atet/projects/${ID.project}/edits/plan_agentdemo1.json`,
     kind: "studio.video-project",
     name: "Agent demo — synchronized multi-angle",
     placements: [screenPlacement, syncedCameraA, syncedCameraB],
@@ -1265,8 +1265,8 @@ export function createProjectEvidence(): ProjectEvidence {
     cameraMoves: [manualCameraMove, plannedFaceCamera.move],
   });
   const nextCommands = (cameraMoveId: string) => ({
-    remove: `transmute project edit ${ID.project} camera remove ${cameraMoveId} --json`,
-    show: `transmute project edit ${ID.project} camera show --json`,
+    remove: `atet project edit ${ID.project} camera remove ${cameraMoveId} --json`,
+    show: `atet project edit ${ID.project} camera show --json`,
   });
   const manualReceipt = ProjectCameraCreateReceiptSchema.parse({
     cameraMoveId: manualCameraMove.cameraMoveId,

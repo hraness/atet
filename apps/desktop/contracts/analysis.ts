@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   SCENE_UPLOAD_POLICY,
   SceneDescriptionSchema,
-} from "@hraness/transmute/scene";
+} from "@hraness/atet/scene";
 
 import { SourceIntervalSchema } from "./edit";
 import {
@@ -215,6 +215,7 @@ export const FaceAnalysisV1Schema = z.strictObject({
   durationUs: PositiveMicrosecondsSchema,
   inputDigest: Sha256Schema,
   kind: z.union([
+    z.literal("atet.face-analysis"),
     z.literal("transmute.face-analysis"),
     z.literal("studio.face-analysis"),
   ]),
@@ -377,6 +378,7 @@ export const ProjectInactivityAnalysisV1Schema = z.strictObject({
   inputDigest: Sha256Schema,
   interactions: z.array(ProjectInteractionEvidenceSchema).max(1_000_000),
   kind: z.union([
+    z.literal("atet.project-inactivity-analysis"),
     z.literal("transmute.project-inactivity-analysis"),
     z.literal("studio.project-inactivity-analysis"),
   ]),
@@ -513,6 +515,7 @@ export const AudioAlignmentAnalysisV1Schema = z.strictObject({
   createdAt: IsoTimestampSchema,
   inputDigest: Sha256Schema,
   kind: z.union([
+    z.literal("atet.audio-alignment-analysis"),
     z.literal("transmute.audio-alignment-analysis"),
     z.literal("studio.audio-alignment-analysis"),
   ]),
@@ -640,6 +643,7 @@ export const MusicAnalysisV1Schema = z.strictObject({
   inputDigest: Sha256Schema,
   keyRegions: z.array(KeyRegionSchema).max(100_000),
   kind: z.union([
+    z.literal("atet.music-analysis"),
     z.literal("transmute.music-analysis"),
     z.literal("studio.music-analysis"),
   ]),
@@ -734,6 +738,7 @@ export const SceneAnalysisV1Schema = z.strictObject({
   durationUs: MicrosecondsSchema,
   inputDigest: Sha256Schema,
   kind: z.union([
+    z.literal("atet.scene-analysis"),
     z.literal("transmute.scene-analysis"),
     z.literal("studio.scene-analysis"),
   ]),
@@ -857,6 +862,7 @@ export const SpeechAnalysisV1Schema = z.strictObject({
   durationUs: MicrosecondsSchema,
   inputDigest: Sha256Schema,
   kind: z.union([
+    z.literal("atet.speech-analysis"),
     z.literal("transmute.speech-analysis"),
     z.literal("studio.speech-analysis"),
   ]),

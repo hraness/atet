@@ -20,11 +20,11 @@ afterEach(async () => {
 
 describe("workflow runtime identity", () => {
   test("binds the Bun configuration with the allowlisted dependency closure bundled", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-runtime-identity-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-runtime-identity-"));
     temporaryDirectories.push(root);
     await writeFile(
       join(root, "workflow.ts"),
-      "import { seconds } from '@hraness/transmute/local/code'; export default seconds(1);\n",
+      "import { seconds } from '@hraness/atet/local/code'; export default seconds(1);\n",
     );
     const bundle = await bundleWorkflowSource({ allowedRoot: root, entryPath: "workflow.ts" });
     const first = await createWorkflowRuntimeIdentity({ bundle });
@@ -40,7 +40,7 @@ describe("workflow runtime identity", () => {
   });
 
   test("changes when a selected native capability is replaced", async () => {
-    const root = await mkdtemp(join(tmpdir(), "transmute-host-runtime-identity-"));
+    const root = await mkdtemp(join(tmpdir(), "atet-host-runtime-identity-"));
     temporaryDirectories.push(root);
     const executable = join(root, "face-analyzer");
     await writeFile(executable, "native helper v1\n", { mode: 0o700 });

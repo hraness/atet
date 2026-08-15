@@ -1,4 +1,4 @@
-<!-- kb:context scopes/projects-transmute-apps-desktop--6e0904032a47 -->
+<!-- kb:context scopes/projects-atet-apps-desktop--6e0904032a47 -->
 # Contents
 
 - `contracts/`, `core/`, `application/`, `code/`, `workflows/`, `html-overlay/`, and `cli/` – recording/project contracts, local edit and renderer planning, the full host operation projection and durable workflow runtime, deterministic browser-overlay authoring, and agent command surface.
@@ -8,8 +8,8 @@
 # Guidelines
 
 - Treat recording bundles, multi-asset projects, and immutable analysis sidecars as the primary API. The desktop renderer may issue only typed start, pause, resume, stop, and snapshot commands.
-- Consume graph contracts, references, canonical identity, generic authoring, and compilation from `@hraness/transmute/code`. Keep only host projection, durable scheduling, project authority, native capture, permissions, and UI adapters here; never fork the portable workflow core.
-- Store recordings, projects, generated artifacts, and private metadata under `artifacts/transmute/{recordings,projects,generated,private}/`. Mutation leases and other secret-free state belong in the machine-global per-user CLI state root. Read Gateway credentials directly from `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN`; never persist, log, or pass them in argv.
+- Consume graph contracts, references, canonical identity, generic authoring, and compilation from `@hraness/atet/code`. Keep only host projection, durable scheduling, project authority, native capture, permissions, and UI adapters here; never fork the portable workflow core.
+- Store recordings, projects, generated artifacts, and private metadata under `artifacts/atet/{recordings,projects,generated,private}/`. Mutation leases and other secret-free state belong in the machine-global per-user CLI state root. Read Gateway credentials directly from `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN`; never persist, log, or pass them in argv.
 - Keep raw media and events immutable. Pause closes one synchronized segment and resume opens another; edits create plans and derivatives. Keep displays distinct and system audio, microphone, and webcam independently addressable.
 - Map every source into one checked project clock using integer microseconds while retaining native timestamps. Reject overlapping/inverted foreign ranges and apply edits once in project time.
 - Treat captured media, titles, focus, cursor, and typing evidence as sensitive. Typed-text capture is opt-in, secure fields are always suppressed, and each native permission reports an explicit state.

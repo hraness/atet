@@ -24,7 +24,7 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
 
 test("HTML-browser discovery advertises only provenance-verifiable Chrome app candidates", () => {
   const candidates = capabilityCandidates("/desktop", {
-    TRANSMUTE_HTML_BROWSER: "/Custom/Google Chrome.app/Contents/MacOS/Google Chrome",
+    ATET_HTML_BROWSER: "/Custom/Google Chrome.app/Contents/MacOS/Google Chrome",
   }).find(candidate => candidate.name === "html-browser")?.candidates;
   expect(candidates).toEqual([
     "/Custom/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -34,6 +34,17 @@ test("HTML-browser discovery advertises only provenance-verifiable Chrome app ca
   expect(candidates).not.toContain(
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
   );
+});
+
+test("accepts matching predecessor environment values and rejects renamed conflicts", () => {
+  expect(capabilityCandidates("/desktop", {
+    TRANSMUTE_CAPTURE_HELPER: "/tools/capture",
+  }).find(candidate => candidate.name === "capture-helper")?.candidates[0])
+    .toBe("/tools/capture");
+  expect(() => capabilityCandidates("/desktop", {
+    ATET_CAPTURE_HELPER: "/tools/atet-capture",
+    TRANSMUTE_CAPTURE_HELPER: "/tools/transmute-capture",
+  })).toThrow("ATET_CAPTURE_HELPER and TRANSMUTE_CAPTURE_HELPER disagree");
 });
 
 test("a targeted capability probe does not inspect unrelated executables", async () => {
@@ -125,7 +136,7 @@ test("a targeted capability probe owns its caller's cancellation", async () => {
 });
 
 test("doctor remains the explicit exhaustive capability discovery boundary", async () => {
-  const root = await mkdtemp(join(tmpdir(), "transmute-doctor-capabilities-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-doctor-capabilities-"));
   const browser = join(
     root,
     "Fixture Google Chrome.app",
@@ -151,7 +162,7 @@ test("doctor remains the explicit exhaustive capability discovery boundary", asy
     let stdout = "";
     const io: CliIo = {
       cwd: () => root,
-      env: { TRANSMUTE_HTML_BROWSER: browser },
+      env: { ATET_HTML_BROWSER: browser },
       now: () => new Date("2026-07-29T00:00:00.000Z"),
       platform: "linux",
       stderr: value => { stderr += value; },

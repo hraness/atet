@@ -1,8 +1,8 @@
 import type { ApplicationContext } from "../application/context";
 import {
-  bindTransmutePortableOperationInputV2,
-  transmutePortableOutputPublicationParent,
-} from "../application/operations/transmute-portable";
+  bindAtetPortableOperationInputV2,
+  atetPortableOutputPublicationParent,
+} from "../application/operations/atet-portable";
 import {
   CreativeBaseV1Schema,
   createCreativeBaseV1,
@@ -27,7 +27,7 @@ import {
 } from "../application/project-store";
 import {
   bindMediaOperationInput,
-  bindTransmuteVisualOperationInput,
+  bindAtetVisualOperationInput,
   bindAnalysisCapabilityInput,
   bindCreateCreativeCandidateInput,
   bindCreateCandidateRevisionInput,
@@ -304,13 +304,13 @@ async function exactOperationInput(
   if (
     request.operation.version === 1
     && (
-      request.operation.kind === "transmute.diagram.check"
-      || request.operation.kind === "transmute.diagram.render"
-      || request.operation.kind === "transmute.image.vectorize"
+      request.operation.kind === "atet.diagram.check"
+      || request.operation.kind === "atet.diagram.render"
+      || request.operation.kind === "atet.image.vectorize"
     )
   ) {
     return JsonValueSchema.parse(
-      await bindTransmuteVisualOperationInput(
+      await bindAtetVisualOperationInput(
         application,
         request.operation.kind,
         deterministic,
@@ -320,14 +320,14 @@ async function exactOperationInput(
   if (
     request.operation.version === 2
     && (
-      request.operation.kind === "transmute.diagram.check"
-      || request.operation.kind === "transmute.diagram.render"
-      || request.operation.kind === "transmute.image.generate"
-      || request.operation.kind === "transmute.image.vectorize"
+      request.operation.kind === "atet.diagram.check"
+      || request.operation.kind === "atet.diagram.render"
+      || request.operation.kind === "atet.image.generate"
+      || request.operation.kind === "atet.image.vectorize"
     )
   ) {
     return JsonValueSchema.parse(
-      await bindTransmutePortableOperationInputV2(
+      await bindAtetPortableOperationInputV2(
         application,
         request.operation.kind,
         deterministic,
@@ -396,17 +396,17 @@ function publicationKeys(
 ): readonly string[] {
   if (request.operation.version === 2 && jsonObject(input)) {
     if (
-      request.operation.kind === "transmute.diagram.render"
-      || request.operation.kind === "transmute.image.generate"
-      || request.operation.kind === "transmute.image.vectorize"
+      request.operation.kind === "atet.diagram.render"
+      || request.operation.kind === "atet.image.generate"
+      || request.operation.kind === "atet.image.vectorize"
     ) {
-      const publicationParent = transmutePortableOutputPublicationParent(
+      const publicationParent = atetPortableOutputPublicationParent(
         request.operation.kind,
         input,
       );
       if (publicationParent === undefined) return [];
       return [
-        `output:transmute:${sha256Hex(
+        `output:atet:${sha256Hex(
           `studio.workflow.output-publication/v1\0${publicationParent}`,
         )}`,
       ];
@@ -936,7 +936,7 @@ async function reconcileGatewayNode(
       return {
         kind: "ambiguous",
         message:
-          "The durable Gateway journal records paid dispatch without a completed authoritative receipt; Transmute will not resubmit it.",
+          "The durable Gateway journal records paid dispatch without a completed authoritative receipt; Atet will not resubmit it.",
       };
     case "failed":
       return {

@@ -47,7 +47,7 @@ export const bindCandidateRevisionOperationDefinition = {
         revision: {
           artifact: input.revision.artifact,
           baseGeneration: input.revision.base.generation,
-          kind: "transmute.project-edit-revision-reference",
+          kind: "atet.project-edit-revision-reference",
           outputGeometrySha256,
           pixelHeight: input.pixelHeight,
           pixelWidth: input.pixelWidth,

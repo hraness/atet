@@ -331,7 +331,7 @@ export const createCandidateRevisionOperationDefinition = {
         bindingsSha256,
         candidate: input.candidate,
         derivationSha256,
-        kind: "transmute.creative-candidate-revision-reference",
+        kind: "atet.creative-candidate-revision-reference",
         planId: nextPlan.planId,
         projectEditPlanSha256: revision.projectEditPlanSha256,
         projectId: input.base.projectId,

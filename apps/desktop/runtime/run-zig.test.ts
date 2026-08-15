@@ -19,18 +19,18 @@ test("the ejected desktop build resolves the root-owned Native SDK package", asy
 test("caps uncapped Zig builds at the admitted worker budget", () => {
   expect(zigArgumentsWithWorkerBudget(
     ["build", "test", "-Dplatform=macos"],
-    { TRANSMUTE_WORKER_BUDGET: "3" },
+    { ATET_WORKER_BUDGET: "3" },
   )).toEqual(["build", "-j3", "test", "-Dplatform=macos"]);
 });
 
 test("preserves non-build and explicitly capped Zig commands", () => {
   expect(zigArgumentsWithWorkerBudget(
     ["version"],
-    { TRANSMUTE_WORKER_BUDGET: "3" },
+    { ATET_WORKER_BUDGET: "3" },
   )).toEqual(["version"]);
   expect(zigArgumentsWithWorkerBudget(
     ["build", "-j2", "test"],
-    { TRANSMUTE_WORKER_BUDGET: "3" },
+    { ATET_WORKER_BUDGET: "3" },
   )).toEqual(["build", "-j2", "test"]);
   expect(zigArgumentsWithWorkerBudget(["build", "test"], {}))
     .toEqual(["build", "test"]);
@@ -39,10 +39,10 @@ test("preserves non-build and explicitly capped Zig commands", () => {
 test("rejects malformed scheduler worker budgets", () => {
   expect(() => zigArgumentsWithWorkerBudget(
     ["build"],
-    { TRANSMUTE_WORKER_BUDGET: "0" },
-  )).toThrow("TRANSMUTE_WORKER_BUDGET must be a positive integer");
+    { ATET_WORKER_BUDGET: "0" },
+  )).toThrow("ATET_WORKER_BUDGET must be a positive integer");
   expect(() => zigArgumentsWithWorkerBudget(
     ["build"],
-    { TRANSMUTE_WORKER_BUDGET: "many" },
-  )).toThrow("TRANSMUTE_WORKER_BUDGET must be a positive integer");
+    { ATET_WORKER_BUDGET: "many" },
+  )).toThrow("ATET_WORKER_BUDGET must be a positive integer");
 });

@@ -98,8 +98,8 @@ export const HtmlOverlayLibraryLocksSchema = z.array(HtmlOverlayLibraryLockSchem
   .overwrite(locks => [...locks].sort((left, right) => compareAscii(left.specifier, right.specifier)));
 export type HtmlOverlayLibraryLocks = Readonly<z.infer<typeof HtmlOverlayLibraryLocksSchema>>;
 
-export const HTML_OVERLAY_LIBRARY_LOCAL_PREFIX = "/.transmute-overlay/libraries/" as const;
-export const HTML_OVERLAY_ASSET_LOCAL_PREFIX = "/.transmute-overlay/assets/" as const;
+export const HTML_OVERLAY_LIBRARY_LOCAL_PREFIX = "/.atet-overlay/libraries/" as const;
+export const HTML_OVERLAY_ASSET_LOCAL_PREFIX = "/.atet-overlay/assets/" as const;
 
 export function getApprovedHtmlOverlayLibraryLock(
   specifier: HtmlOverlayLibrarySpecifier,

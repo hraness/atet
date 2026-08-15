@@ -133,7 +133,10 @@ export const ProjectRenderEncoderRecipeSchema = z.strictObject({
   decoderThreads: z.literal(1),
   filterComplexThreads: z.literal(1),
   filterThreads: z.literal(1),
-  kind: z.literal("transmute.project-render-encoder-recipe"),
+  kind: z.union([
+    z.literal("atet.project-render-encoder-recipe"),
+    z.literal("transmute.project-render-encoder-recipe"),
+  ]),
   schemaVersion: z.literal(1),
   tier: ProjectRenderTierSchema,
   video: z.strictObject({
@@ -166,7 +169,7 @@ export const PROJECT_RENDER_ENCODER_RECIPES = Object.freeze({
     decoderThreads: 1,
     filterComplexThreads: 1,
     filterThreads: 1,
-    kind: "transmute.project-render-encoder-recipe",
+    kind: "atet.project-render-encoder-recipe",
     schemaVersion: 1,
     tier: "final",
     video: {
@@ -183,7 +186,7 @@ export const PROJECT_RENDER_ENCODER_RECIPES = Object.freeze({
     decoderThreads: 1,
     filterComplexThreads: 1,
     filterThreads: 1,
-    kind: "transmute.project-render-encoder-recipe",
+    kind: "atet.project-render-encoder-recipe",
     schemaVersion: 1,
     tier: "preview",
     video: {
@@ -445,6 +448,7 @@ export const ProjectRenderPlanV1Schema = z.strictObject({
   cameraSegments: z.array(ProjectCameraSegmentSchema).max(100_000),
   effects: RenderEffectsSchema,
   kind: z.union([
+    z.literal("atet.project-render-plan"),
     z.literal("transmute.project-render-plan"),
     z.literal("studio.project-render-plan"),
   ]),
@@ -599,6 +603,7 @@ export const ProjectRenderToolchainSchema = z.strictObject({
 export const ProjectRenderReceiptV1Schema = z.strictObject({
   createdAt: IsoTimestampSchema,
   kind: z.union([
+    z.literal("atet.project-render-receipt"),
     z.literal("transmute.project-render-receipt"),
     z.literal("studio.project-render-receipt"),
   ]),

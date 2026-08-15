@@ -456,7 +456,7 @@ async function materializeManifestMedia(
 }
 
 test("trims recording media from its exact rebased file range", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-rebased-render-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-rebased-render-test-"));
   try {
     const base = testManifest();
     const rebased = RecordingManifestV1Schema.parse({
@@ -504,7 +504,7 @@ test("trims recording media from its exact rebased file range", async () => {
 });
 
 test.skipIf(process.platform === "win32")("verifies overlay assets and regenerates SVG derivatives without trusting cache leaves", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-svg-prepare-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-svg-prepare-test-"));
   const assetDirectory = join(temporary, "assets");
   try {
     await mkdir(assetDirectory, { recursive: true });
@@ -587,7 +587,7 @@ test.skipIf(process.platform === "win32")("verifies overlay assets and regenerat
 });
 
 test("renders legacy null-index animated overlays from probed non-cover streams", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-legacy-overlay-stream-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-legacy-overlay-stream-test-"));
   try {
     const manifest = await materializeManifestMedia(temporary, testManifest());
     const assetPath = "assets/legacy.mp4";
@@ -685,7 +685,7 @@ test("renders legacy null-index animated overlays from probed non-cover streams"
 });
 
 test("builds gap-preserving metadata effects and z-ordered image/SVG/GIF/video overlays", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-renderer-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-renderer-test-"));
   try {
     const manifest = await materializeManifestMedia(temporary, manifestWithVideoGap());
     const base = testPlan();
@@ -854,7 +854,7 @@ test("builds gap-preserving metadata effects and z-ordered image/SVG/GIF/video o
 });
 
 test("keeps a normal multi-minute cursor graph out of process argv", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-filter-argv-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-filter-argv-test-"));
   try {
     const manifest = await materializeManifestMedia(temporary, testManifest());
     const display = manifest.tracks.find(track => track.kind === "display-video")!;
@@ -901,7 +901,7 @@ test("keeps a normal multi-minute cursor graph out of process argv", async () =>
 }, 30_000);
 
 test("clamps overlay transitions to the post-speed output duration", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-overlay-speed-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-overlay-speed-test-"));
   try {
     const manifest = await materializeManifestMedia(temporary, testManifest());
     const fade = { durationUs: 400_000, easing: { kind: "linear" as const }, kind: "fade" as const };
@@ -951,7 +951,7 @@ test("clamps overlay transitions to the post-speed output duration", async () =>
 });
 
 test("keeps animated video and audio on one clock across cuts and speed boundaries", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-overlay-continuity-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-overlay-continuity-test-"));
   try {
     const manifest = await materializeManifestMedia(temporary, testManifest());
     const operation: OverlayOperation = {
@@ -1023,7 +1023,7 @@ test("keeps animated video and audio on one clock across cuts and speed boundari
 });
 
 test("omits overlay audio when the selected source window ends before audio starts", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-overlay-silent-window-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-overlay-silent-window-test-"));
   try {
     const manifest = await materializeManifestMedia(temporary, testManifest());
     const operation = overlay("overlay_silent_window", 0, overlaySource({
@@ -1075,7 +1075,7 @@ test("omits overlay audio when the selected source window ends before audio star
 });
 
 test("loops delayed overlay audio in a deterministic format and ducks only audible phases", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-overlay-audio-loop-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-overlay-audio-loop-test-"));
   try {
     const manifest = await materializeManifestMedia(temporary, testManifest());
     const operation = overlay("overlay_delayed_loop", 0, overlaySource({
@@ -1128,7 +1128,7 @@ test("loops delayed overlay audio in a deterministic format and ducks only audib
 });
 
 test("applies overlapping duck targets once to captured primary audio without touching earlier overlays", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-overlay-primary-duck-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-overlay-primary-duck-test-"));
   try {
     const manifest = await materializeManifestMedia(temporary, testManifest());
     const animatedOverlay = (
@@ -1213,7 +1213,7 @@ test("applies overlapping duck targets once to captured primary audio without to
 });
 
 test("ends hide transitions and primary-audio ducking with visible overlay media", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-overlay-hide-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-overlay-hide-test-"));
   try {
     const manifest = await materializeManifestMedia(temporary, testManifest());
     const fade = { durationUs: 800_000, easing: { kind: "linear" as const }, kind: "fade" as const };
@@ -1264,7 +1264,7 @@ test("ends hide transitions and primary-audio ducking with visible overlay media
 });
 
 test("does not interpolate across the gap between independent hard zooms", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-zoom-gap-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-zoom-gap-test-"));
   try {
     const manifest = await materializeManifestMedia(temporary, testManifest());
     const plan = normalizeEditPlan({
@@ -1322,7 +1322,7 @@ test("does not interpolate across the gap between independent hard zooms", async
 
 test.skipIf(FFMPEG === undefined)("executes the metadata compositor with FFmpeg", async () => {
   if (FFMPEG === undefined) return;
-  const temporary = await mkdtemp(join(tmpdir(), "transmute-render-execution-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "atet-render-execution-test-"));
   try {
     const mediaDirectory = join(temporary, "media");
     const renderDirectory = join(temporary, "renders");

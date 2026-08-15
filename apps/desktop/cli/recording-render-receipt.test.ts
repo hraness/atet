@@ -56,10 +56,10 @@ async function materializeRecording(root: string): Promise<{
   readonly paths: RepositoryPaths;
 }> {
   const paths: RepositoryPaths = {
-    artifactRoot: join(root, "artifacts", "transmute", "recordings"),
-    desktopRoot: join(root, "projects", "transmute", "apps", "desktop"),
-    privateRoot: join(root, "artifacts", "transmute", "private"),
-    projectRoot: join(root, "artifacts", "transmute", "projects"),
+    artifactRoot: join(root, "artifacts", "atet", "recordings"),
+    desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
+    privateRoot: join(root, "artifacts", "atet", "private"),
+    projectRoot: join(root, "artifacts", "atet", "projects"),
     repositoryRoot: root,
   };
   const directory = join(paths.artifactRoot, "rec_example001");
@@ -99,7 +99,7 @@ async function materializeRecording(root: string): Promise<{
 }
 
 test("replaces a stale custom-output receipt with verified output and immutable plan identity", async () => {
-  const root = await mkdtemp(join(tmpdir(), "transmute-recording-render-receipt-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-recording-render-receipt-"));
   try {
     const fixture = await materializeRecording(root);
     const outputRelative = "renders/custom/final.mp4";
@@ -154,7 +154,7 @@ test("replaces a stale custom-output receipt with verified output and immutable 
     expect(receipt).toMatchObject({
       createdAt: NOW.toISOString(),
       display: { displayId: "display-primary", trackId: "track_display01" },
-      kind: "transmute.recording-render-receipt",
+      kind: "atet.recording-render-receipt",
       output: {
         bytes: renderedBytes.byteLength,
         path: outputRelative,
@@ -175,7 +175,7 @@ test("replaces a stale custom-output receipt with verified output and immutable 
 });
 
 test("recording render dry-runs publish neither output nor receipt", async () => {
-  const root = await mkdtemp(join(tmpdir(), "transmute-recording-render-dry-run-"));
+  const root = await mkdtemp(join(tmpdir(), "atet-recording-render-dry-run-"));
   try {
     const fixture = await materializeRecording(root);
     const outputRelative = "renders/dry-run.mp4";

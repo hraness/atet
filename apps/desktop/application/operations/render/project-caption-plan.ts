@@ -218,8 +218,8 @@ export function prepareProjectCaptionPlan(
         mediaType: "image/svg+xml" as const,
         path,
         provenance: {
-          command: ["transmute", "caption", style],
-          generator: "transmute-social-caption-sprite",
+          command: ["atet", "caption", style],
+          generator: "atet-social-caption-sprite",
           generatorVersion: "1",
           kind: "generated" as const,
           sourceSha256,

@@ -5,7 +5,7 @@ import {
   runPortableSurface,
 } from "./portable-surface";
 
-describe("unified portable Transmute CLI surface", () => {
+describe("unified portable Atet CLI surface", () => {
   test("delegates the complete headless diagram and explicit-file image grammar", async () => {
     const delegated: readonly string[][] = [];
     const runHeadless = (argv: readonly string[]): Promise<void> => {
@@ -121,7 +121,7 @@ describe("unified portable Transmute CLI surface", () => {
     expect(writes).toHaveLength(1);
     expect(writes[0]?.path).toBe("/workspace/overlays/title.html");
     expect(writes[0]?.html).toContain('from "@paper-design/shaders"');
-    expect(writes[0]?.html).toContain("TransmuteOverlay.onFrame");
+    expect(writes[0]?.html).toContain("AtetOverlay.onFrame");
     expect(logs).toEqual(["Created /workspace/overlays/title.html"]);
   });
 });

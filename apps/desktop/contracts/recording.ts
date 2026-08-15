@@ -723,6 +723,7 @@ const RecordingManifestBaseShape = {
   diagnostics: z.array(RecordingDiagnosticSchema),
   eventStreams: z.array(EventStreamReferenceSchema),
   kind: z.union([
+    z.literal("atet.recording-bundle"),
     z.literal("transmute.recording-bundle"),
     z.literal("studio.recording-bundle"),
   ]),
@@ -737,7 +738,7 @@ const RecordingManifestBaseShape = {
   state: RecordingLifecycleStateSchema,
   tool: z.strictObject({
     captureVersion: z.string().min(1).max(128),
-    name: z.union([z.literal("transmute"), z.literal("studio")]),
+    name: z.union([z.literal("atet"), z.literal("studio")]),
     version: z.string().min(1).max(128),
   }),
   tracks: z.array(LogicalTrackSchema),
@@ -806,11 +807,11 @@ interface ValidatableRecordingManifest {
   readonly createdAt: string;
   readonly diagnostics: readonly z.infer<typeof RecordingDiagnosticSchema>[];
   readonly eventStreams: readonly z.infer<typeof EventStreamReferenceSchema>[];
-  readonly kind: "transmute.recording-bundle" | "studio.recording-bundle";
+  readonly kind: "atet.recording-bundle" | "studio.recording-bundle";
   readonly sources: z.infer<typeof SourceInventorySchema>;
   readonly state: z.infer<typeof RecordingLifecycleStateSchema>;
   readonly timeline: { readonly durationUs: number };
-  readonly tool: { readonly name: "transmute" | "studio" };
+  readonly tool: { readonly name: "atet" | "studio" };
   readonly tracks: readonly z.infer<typeof LogicalTrackSchema>[];
   readonly updatedAt: string;
 }
@@ -819,8 +820,8 @@ function validateRecordingManifest(
   manifest: ValidatableRecordingManifest,
   context: z.core.$RefinementCtx<unknown>,
 ): void {
-  const canonicalIdentity = manifest.kind === "transmute.recording-bundle"
-    && manifest.tool.name === "transmute";
+  const canonicalIdentity = manifest.kind === "atet.recording-bundle"
+    && manifest.tool.name === "atet";
   const legacyIdentity = manifest.kind === "studio.recording-bundle"
     && manifest.tool.name === "studio";
   if (!canonicalIdentity && !legacyIdentity) {

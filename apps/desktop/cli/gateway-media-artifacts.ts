@@ -70,7 +70,10 @@ export interface GatewayMediaReceipt {
   }>;
   readonly createdAt: string;
   readonly inputs: readonly GatewayMediaInputDigest[];
-  readonly kind: "transmute.gateway-media-receipt" | "studio.gateway-media-receipt";
+  readonly kind:
+    | "atet.gateway-media-receipt"
+    | "transmute.gateway-media-receipt"
+    | "studio.gateway-media-receipt";
   readonly localValidation: Readonly<{
     readonly decodeValidatedOutputs: number;
     readonly failureSha256?: string;
@@ -460,7 +463,7 @@ function nextCommands(
         || !NON_SELF_DESCRIBING_SPEECH_MEDIA_TYPES.has(output.mediaType)
       ))
       .map(output => (
-        `transmute project add <project> ${
+        `atet project add <project> ${
           shellArgument(
             relative(
               repositoryRoot,
@@ -650,7 +653,7 @@ export function createFileGatewayMediaArtifactStore(options: Readonly<{
           catalog: input.catalog,
           createdAt,
           inputs: input.inputs.map(validateDigest),
-          kind: "transmute.gateway-media-receipt",
+          kind: "atet.gateway-media-receipt",
           localValidation,
           model: input.model,
           nextCommands: localValidation.status === "decode-passed"

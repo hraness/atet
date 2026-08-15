@@ -1,4 +1,4 @@
-export type TransmuteCodeErrorCode =
+export type AtetCodeErrorCode =
   | "usage"
   | "not-found"
   | "conflict"
@@ -13,17 +13,17 @@ export type TransmuteCodeErrorCode =
   | "incompatible"
   | "internal"
 
-export class TransmuteCodeError extends Error {
-  readonly code: TransmuteCodeErrorCode
+export class AtetCodeError extends Error {
+  readonly code: AtetCodeErrorCode
   readonly details: Readonly<Record<string, unknown>> | undefined
 
   constructor(
-    code: TransmuteCodeErrorCode,
+    code: AtetCodeErrorCode,
     message: string,
     details?: Readonly<Record<string, unknown>>,
   ) {
     super(message)
-    this.name = "TransmuteCodeError"
+    this.name = "AtetCodeError"
     this.code = code
     this.details = details === undefined
       ? undefined
@@ -31,11 +31,20 @@ export class TransmuteCodeError extends Error {
   }
 }
 
-export function transmuteCodeErrorMessage(error: unknown): string {
+export function atetCodeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-export function asTransmuteCodeError(error: unknown): TransmuteCodeError {
-  if (error instanceof TransmuteCodeError) return error
-  return new TransmuteCodeError("internal", transmuteCodeErrorMessage(error))
+export function asAtetCodeError(error: unknown): AtetCodeError {
+  if (error instanceof AtetCodeError) return error
+  return new AtetCodeError("internal", atetCodeErrorMessage(error))
 }
+
+/** @deprecated Use Atet names for newly authored integrations. */
+export type TransmuteCodeErrorCode = AtetCodeErrorCode
+/** @deprecated Use {@link AtetCodeError}. */
+export { AtetCodeError as TransmuteCodeError }
+/** @deprecated Use {@link atetCodeErrorMessage}. */
+export const transmuteCodeErrorMessage = atetCodeErrorMessage
+/** @deprecated Use {@link asAtetCodeError}. */
+export const asTransmuteCodeError = asAtetCodeError
