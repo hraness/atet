@@ -42,7 +42,10 @@ import {
   HtmlOverlayExecutionIntegritySchema,
   createHtmlOverlayExecutionBundle,
 } from "../../html-overlay-integrity";
-import type { OperationDefinition } from "../../operation";
+import {
+  ATET_APPLICATION_TOOL_VERSION,
+  type OperationDefinition,
+} from "../../operation";
 import { writeOperationCompletionCheckpoint } from "../../operation-completion-checkpoint";
 import { openLeasedProjectSnapshot } from "../../project-publication-lease";
 import { assertProjectGeneration } from "../../project-store";
@@ -416,10 +419,10 @@ export function createHtmlOverlayOperationDefinition(
   const probe = dependencies.probe ?? probeVisualMediaSummary;
   const bindBrowserRuntime = dependencies.bindBrowserRuntime
     ?? bindHtmlOverlayBrowserRuntime;
-  const toolVersion = dependencies.toolVersion ?? "atet-1.0.0";
+  const toolVersion = dependencies.toolVersion ?? ATET_APPLICATION_TOOL_VERSION;
   return {
     inputSchema: HtmlOverlayInputSchema,
-    inputSchemaId: "studio.operation.media.html-overlay.input/v1",
+    inputSchemaId: "atet.operation.media.html-overlay.input/v1",
     kind: "media.html-overlay",
     lifecycle: {
       kind: "local-artifact",
@@ -744,9 +747,9 @@ export function createHtmlOverlayOperationDefinition(
             receipt,
           });
           await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId: "studio.operation.media.html-overlay.input/v1",
+            inputSchemaId: "atet.operation.media.html-overlay.input/v1",
             kind: "media.html-overlay",
-            outputSchemaId: "studio.operation.media.html-overlay.output/v1",
+            outputSchemaId: "atet.operation.media.html-overlay.output/v1",
             version: 1,
           }, output);
           return output;
@@ -757,7 +760,7 @@ export function createHtmlOverlayOperationDefinition(
       },
     },
     outputSchema: MediaOverlayOutputSchema,
-    outputSchemaId: "studio.operation.media.html-overlay.output/v1",
+    outputSchemaId: "atet.operation.media.html-overlay.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

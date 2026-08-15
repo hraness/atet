@@ -8,7 +8,7 @@ import {
   OperationDiscoverySchema,
 } from "./contracts";
 
-export const CODE_WORKER_PROTOCOL = "studio.code-worker/v5";
+export const CODE_WORKER_PROTOCOL = "atet.code-worker/v5";
 export const MAX_CODE_WORKER_FRAME_BYTES = 4 * 1024 * 1024;
 
 const IdentifierSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u);

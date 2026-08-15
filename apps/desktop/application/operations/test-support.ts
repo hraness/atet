@@ -76,7 +76,7 @@ export function operationTestProject(): VideoProjectV1 {
     }],
     createdAt: OPERATION_TEST_NOW.toISOString(),
     currentEditPlanPath: "edits/current.json",
-    kind: "studio.video-project",
+    kind: "atet.video-project",
     name: "Operation fixture",
     placements: [{
       assetId: "asset_operation01",

@@ -44,7 +44,7 @@ export type SelectVariantOutput = z.infer<typeof SelectVariantOutputSchema>;
 
 export const selectVariantOperationDefinition = {
   inputSchema: SelectVariantInputSchema,
-  inputSchemaId: "studio.operation.iteration.select.input/v1",
+  inputSchemaId: "atet.operation.iteration.select.input/v1",
   kind: "iteration.select",
   lifecycle: {
     kind: "local-artifact",
@@ -123,7 +123,7 @@ export const selectVariantOperationDefinition = {
     },
   },
   outputSchema: SelectVariantOutputSchema,
-  outputSchemaId: "studio.operation.iteration.select.output/v1",
+  outputSchemaId: "atet.operation.iteration.select.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,

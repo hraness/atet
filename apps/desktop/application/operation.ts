@@ -2,6 +2,8 @@ import type { z } from "zod";
 
 import type { ApplicationContext } from "./context";
 
+export const ATET_APPLICATION_TOOL_VERSION = "atet-2.0.0" as const;
+
 export const OPERATION_KINDS = [
   "project.snapshot",
   "analysis.project-inactivity",

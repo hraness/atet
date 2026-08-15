@@ -48,6 +48,7 @@ import {
   atetImageVectorizeOperationDefinition,
 } from "./operations";
 import { atetPortableOperationDefinitions } from "./operations/atet-portable";
+import { ATET_APPLICATION_TOOL_VERSION } from "./operation";
 import { OperationRegistry } from "./registry";
 
 export interface CreateApplicationOperationRegistryOptions {
@@ -60,7 +61,7 @@ export function createApplicationOperationRegistry(
 ): OperationRegistry {
   const nextAnalysisId = options.nextAnalysisId
     ?? (() => `analysis_${randomUUID().replaceAll("-", "")}`);
-  const toolVersion = options.toolVersion ?? "atet-1.0.0";
+  const toolVersion = options.toolVersion ?? ATET_APPLICATION_TOOL_VERSION;
   const registry = new OperationRegistry();
   registry.register(projectSnapshotOperationDefinition);
   registry.register(createProjectInactivityOperationDefinition({

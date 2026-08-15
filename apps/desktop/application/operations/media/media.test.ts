@@ -202,7 +202,7 @@ describe("media application operations", () => {
     const audioTransform: AudioEffectsTransformV1 = {
       audioStreamIndex: 0,
       effects: [{ gainDb: -3, kind: "volume" }],
-      kind: "studio.audio-effects-transform",
+      kind: "atet.audio-effects-transform",
       output: { kind: "audio-only", profile: "wav-pcm-s16le" },
       schemaVersion: 1,
     };
@@ -278,7 +278,7 @@ describe("media application operations", () => {
 
     const colorTransform: ColorGradeTransformV1 = {
       grade: { kind: "preset", preset: "clean" },
-      kind: "studio.color-grade-transform",
+      kind: "atet.color-grade-transform",
       outputProfile: "h264-mp4",
       schemaVersion: 1,
       videoStreamIndex: 0,
@@ -418,11 +418,11 @@ describe("media application operations", () => {
       throw new Error("Expected workflow operation context.");
     }
     const identity = {
-      inputSchemaId: "studio.operation.media.ingest.input/v1",
+      inputSchemaId: "atet.operation.media.ingest.input/v1",
       kind: "media.ingest",
       nodeKey: baseContext.workflow.nodeKey,
       nodePlanSha256: baseContext.workflow.nodePlanSha256,
-      outputSchemaId: "studio.operation.media.ingest.output/v1",
+      outputSchemaId: "atet.operation.media.ingest.output/v1",
       runId: baseContext.workflow.runId,
       version: 1,
     } as const;

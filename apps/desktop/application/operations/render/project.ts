@@ -1735,11 +1735,11 @@ const projectRenderLifecycle = {
 
 export const projectRenderOperationDefinition = {
   inputSchema: ProjectRenderInputSchema,
-  inputSchemaId: "studio.operation.render.project.input/v1",
+  inputSchemaId: "atet.operation.render.project.input/v1",
   kind: "render.project",
   lifecycle: projectRenderLifecycle,
   outputSchema: ProjectRenderOutputSchema,
-  outputSchemaId: "studio.operation.render.project.output/v1",
+  outputSchemaId: "atet.operation.render.project.output/v1",
   policy: {
     cache: "exact-run",
     cancellable: true,
@@ -1779,9 +1779,9 @@ export const projectRenderOperationDefinition = {
 export const projectRenderOperationDefinitionV2 = {
   ...projectRenderOperationDefinition,
   inputSchema: ProjectRenderInputSchemaV2,
-  inputSchemaId: "studio.operation.render.project.input/v2",
+  inputSchemaId: "atet.operation.render.project.input/v2",
   lifecycle: projectRenderLifecycle,
-  outputSchemaId: "studio.operation.render.project.output/v2",
+  outputSchemaId: "atet.operation.render.project.output/v2",
   policy: {
     ...projectRenderOperationDefinition.policy,
     resources: [
@@ -1807,9 +1807,9 @@ export const projectRenderOperationDefinitionV2 = {
 export const projectRenderOperationDefinitionV3 = {
   ...projectRenderOperationDefinitionV2,
   inputSchema: ProjectRenderInputSchemaV3,
-  inputSchemaId: "studio.operation.render.project.input/v3",
+  inputSchemaId: "atet.operation.render.project.input/v3",
   lifecycle: projectRenderLifecycle,
-  outputSchemaId: "studio.operation.render.project.output/v3",
+  outputSchemaId: "atet.operation.render.project.output/v3",
   version: 3,
 } satisfies OperationDefinition<
   "render.project",

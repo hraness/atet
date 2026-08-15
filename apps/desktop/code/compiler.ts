@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
   DEFAULT_GRAPH_COMPILER_LIMITS,
+  REQUIREMENT_ENVELOPE_VERSION,
   compileWorkflowGraph,
+  normalizeAuthoredWorkflowGraph,
   type ValidatedGraphTopology,
 } from "@hraness/atet/code/advanced";
 
@@ -11,7 +13,11 @@ import {
   boundedCanonicalJsonFingerprint,
 } from "../core/canonical-json";
 import {
+  CODE_WORKER_ABI,
+  GRAPH_ABI,
+  GRAPH_COMPILER_ABI,
   GRAPH_PLAN_VERSION,
+  GRAPH_SCHEDULER_ABI,
   GraphPlanV1Schema,
   JsonValueSchema,
   OperationDiscoverySchema,
@@ -23,6 +29,7 @@ import {
   type GraphCompilerLimits,
   type GraphPlanV1,
   type StaticBindings,
+  type UnsignedGraphPlanV1,
   type WorkflowRuntimeIdentity,
 } from "./contracts";
 
@@ -82,6 +89,13 @@ function uniqueSorted<Value extends string>(
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
+function canonicalAtetIdentity(value: string): string {
+  if (value === "studio" || value === "transmute") return "atet";
+  return value
+    .replace(/^studio\./u, "atet.")
+    .replace(/^transmute\./u, "atet.");
+}
+
 function normalizeRuntime(input: unknown): WorkflowRuntimeIdentity {
   const parsed = parseBoundary(
     WorkflowRuntimeIdentitySchema,
@@ -103,7 +117,15 @@ function normalizeRuntime(input: unknown): WorkflowRuntimeIdentity {
   }
   return WorkflowRuntimeIdentitySchema.parse({
     ...parsed,
+    applicationBuild: parsed.applicationBuild.replace(
+      /^(?:studio|transmute)([/-])/u,
+      "atet$1",
+    ),
+    codeWorkerAbi: CODE_WORKER_ABI,
+    compilerAbi: GRAPH_COMPILER_ABI,
     externals: { ...parsed.externals, modules },
+    graphAbi: GRAPH_ABI,
+    schedulerAbi: GRAPH_SCHEDULER_ABI,
   });
 }
 
@@ -225,6 +247,59 @@ export function compileGraphPlan(options: CompileGraphPlanOptions): GraphPlanV1 
   });
 }
 
+function canonicalizeAuthenticatedGraphPlan(
+  parsed: GraphPlanV1,
+): UnsignedGraphPlanV1 {
+  const nodeKeys = parsed.graph.nodes.map(node => node.key);
+  const sortedNodeKeys = [...nodeKeys].sort((left, right) => (
+    left.localeCompare(right)
+  ));
+  if (nodeKeys.some((key, index) => key !== sortedNodeKeys[index])) {
+    throw new ApplicationError(
+      "invalid-data",
+      "Graph plan nodes are not normalized.",
+    );
+  }
+  return UnsignedGraphPlanV1Schema.parse({
+    bundle: parsed.bundle,
+    envelope: {
+      ...parsed.envelope,
+      computeKeys: parsed.envelope.computeKeys.map(canonicalAtetIdentity),
+      operationFamilies: parsed.envelope.operationFamilies.map(canonicalAtetIdentity),
+      operationKinds: parsed.envelope.operationKinds.map(canonicalAtetIdentity),
+      version: REQUIREMENT_ENVELOPE_VERSION,
+    },
+    graph: normalizeAuthoredWorkflowGraph(parsed.graph),
+    limits: parsed.limits,
+    registry: {
+      discovery: parsed.registry.discovery.map(discovery => ({
+        ...discovery,
+        inputSchemaId: canonicalAtetIdentity(discovery.inputSchemaId),
+        kind: canonicalAtetIdentity(discovery.kind),
+        outputSchemaId: canonicalAtetIdentity(discovery.outputSchemaId),
+      })),
+    },
+    runtime: {
+      ...parsed.runtime,
+      applicationBuild: parsed.runtime.applicationBuild.replace(
+        /^(?:studio|transmute)([/-])/u,
+        "atet$1",
+      ),
+      codeWorkerAbi: CODE_WORKER_ABI,
+      compilerAbi: GRAPH_COMPILER_ABI,
+      graphAbi: GRAPH_ABI,
+      schedulerAbi: GRAPH_SCHEDULER_ABI,
+    },
+    staticBindings: {
+      ...parsed.staticBindings,
+      version: STATIC_BINDINGS_VERSION,
+    },
+    topologicalWaves: parsed.topologicalWaves,
+    version: GRAPH_PLAN_VERSION,
+    workflowInput: parsed.workflowInput,
+  });
+}
+
 export function parseGraphPlan(input: unknown): GraphPlanV1 {
   const parsed = parseBoundary(GraphPlanV1Schema, input, "graph plan");
   const { graphPlanSha256, ...unsignedInput } = parsed;
@@ -245,7 +320,8 @@ export function parseGraphPlan(input: unknown): GraphPlanV1 {
     staticBindings: parsed.staticBindings,
     workflowInput: parsed.workflowInput,
   });
-  if (recompiled.graphPlanSha256 !== parsed.graphPlanSha256) {
+  const canonicalUnsigned = canonicalizeAuthenticatedGraphPlan(parsed);
+  if (recompiled.graphPlanSha256 !== createGraphPlanHash(canonicalUnsigned)) {
     throw new ApplicationError(
       "invalid-data",
       "Graph plan topology, requirements, registry, or bindings do not match the embedded graph.",

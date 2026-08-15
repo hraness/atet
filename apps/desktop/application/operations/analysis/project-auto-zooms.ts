@@ -128,7 +128,7 @@ async function resolveSubject(
   if (asset?.source.kind !== "recording") {
     throw new ApplicationError(
       "conflict",
-      `Placement ${placement.placementId} is not backed by a Atet recording.`,
+      `Placement ${placement.placementId} is not backed by an Atet recording.`,
     );
   }
   const recording = await openRecording(
@@ -186,7 +186,7 @@ export function createProjectAutoZoomOperationDefinition(
   const loadEvents = dependencies.loadEvents ?? loadRecordingEvents;
   return {
     inputSchema: ProjectAutoZoomInputSchema,
-    inputSchemaId: "studio.operation.analysis.project-auto-zooms.input/v1",
+    inputSchemaId: "atet.operation.analysis.project-auto-zooms.input/v1",
     kind: "analysis.project-auto-zooms",
     lifecycle: {
       kind: "local-artifact",
@@ -263,7 +263,7 @@ export function createProjectAutoZoomOperationDefinition(
       },
     },
     outputSchema: ProjectAutoZoomOutputSchema,
-    outputSchemaId: "studio.operation.analysis.project-auto-zooms.output/v1",
+    outputSchemaId: "atet.operation.analysis.project-auto-zooms.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

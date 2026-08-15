@@ -100,6 +100,12 @@ export type {
   WorkflowOutputValue,
 } from "./contracts";
 export {
+  TransmuteCodeError,
+  asTransmuteCodeError,
+  transmuteCodeErrorMessage,
+  type TransmuteCodeErrorCode,
+} from "@hraness/atet/code";
+export {
   CandidateProjectEditBatchV3Schema,
   CreativeCandidateReferenceV1Schema,
   CreativeRenderNameSchema,

@@ -144,7 +144,7 @@ async function loadExistingMaterialization(input: {
 
 export const materializeVariantSelectionOperationDefinition = {
   inputSchema: MaterializeVariantSelectionInputSchema,
-  inputSchemaId: "studio.operation.render.materialize-selection.input/v1",
+  inputSchemaId: "atet.operation.render.materialize-selection.input/v1",
   kind: "render.materialize-selection",
   lifecycle: {
     kind: "local-artifact",
@@ -288,7 +288,7 @@ export const materializeVariantSelectionOperationDefinition = {
     },
   },
   outputSchema: MaterializeVariantSelectionOutputSchema,
-  outputSchemaId: "studio.operation.render.materialize-selection.output/v1",
+  outputSchemaId: "atet.operation.render.materialize-selection.output/v1",
   policy: {
     cache: "none",
     cancellable: true,

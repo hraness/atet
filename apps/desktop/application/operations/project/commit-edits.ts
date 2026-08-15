@@ -378,7 +378,7 @@ async function assertMetadataEffectsAvailable(
   if (asset?.source.kind !== "recording") {
     throw new ApplicationError(
       "conflict",
-      `Metadata placement ${placementId} is not backed by a Atet recording.`,
+      `Metadata placement ${placementId} is not backed by an Atet recording.`,
     );
   }
   let manifest: Awaited<ReturnType<typeof openRecording>>["manifest"];
@@ -660,7 +660,7 @@ async function resolveManualZoomBinding(
   if (asset?.source.kind !== "recording") {
     throw new ApplicationError(
       "conflict",
-      `Zoom placement ${placementId} is not backed by a Atet recording.`,
+      `Zoom placement ${placementId} is not backed by an Atet recording.`,
     );
   }
   let recording: ManualZoomRecordingEvidence;
@@ -1784,7 +1784,7 @@ function normalizeCompleteEditDraft(
 
 export const commitProjectEditsOperationDefinition = {
   inputSchema: CommitProjectEditsInputSchema,
-  inputSchemaId: "studio.operation.project.commit-edits.input/v1",
+  inputSchemaId: "atet.operation.project.commit-edits.input/v1",
   kind: "project.commit-edits",
   lifecycle: {
     kind: "project-transaction",
@@ -1795,7 +1795,7 @@ export const commitProjectEditsOperationDefinition = {
     ),
   },
   outputSchema: ProjectEditCommitReceiptSchema,
-  outputSchemaId: "studio.operation.project.commit-edits.output/v1",
+  outputSchemaId: "atet.operation.project.commit-edits.output/v1",
   policy: {
     cache: "none",
     cancellable: true,
@@ -1831,7 +1831,7 @@ export const commitProjectEditsOperationDefinition = {
 
 export const commitProjectEditsOperationDefinitionV2 = {
   inputSchema: CommitProjectEditsInputV2Schema,
-  inputSchemaId: "studio.operation.project.commit-edits.input/v2",
+  inputSchemaId: "atet.operation.project.commit-edits.input/v2",
   kind: "project.commit-edits",
   lifecycle: {
     kind: "project-transaction",
@@ -1879,7 +1879,7 @@ export const commitProjectEditsOperationDefinitionV2 = {
     },
   },
   outputSchema: ProjectEditCommitReceiptSchema,
-  outputSchemaId: "studio.operation.project.commit-edits.output/v2",
+  outputSchemaId: "atet.operation.project.commit-edits.output/v2",
   policy: {
     cache: "none",
     cancellable: true,
@@ -1915,7 +1915,7 @@ export const commitProjectEditsOperationDefinitionV2 = {
 
 export const commitProjectEditsOperationDefinitionV3 = {
   inputSchema: CommitProjectEditsInputV3Schema,
-  inputSchemaId: "studio.operation.project.commit-edits.input/v3",
+  inputSchemaId: "atet.operation.project.commit-edits.input/v3",
   kind: "project.commit-edits",
   lifecycle: {
     kind: "project-transaction",
@@ -2015,7 +2015,7 @@ export const commitProjectEditsOperationDefinitionV3 = {
     },
   },
   outputSchema: ProjectEditCommitReceiptSchema,
-  outputSchemaId: "studio.operation.project.commit-edits.output/v3",
+  outputSchemaId: "atet.operation.project.commit-edits.output/v3",
   policy: {
     cache: "none",
     cancellable: true,

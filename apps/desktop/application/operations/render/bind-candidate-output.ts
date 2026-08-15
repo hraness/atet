@@ -275,7 +275,7 @@ export function bindCandidateRenderOutputInput(
 
 export const bindCandidateRenderOutputOperationDefinition = {
   inputSchema: BindCandidateRenderOutputInputSchema,
-  inputSchemaId: "studio.operation.render.bind-candidate-output.input/v1",
+  inputSchemaId: "atet.operation.render.bind-candidate-output.input/v1",
   kind: "render.bind-candidate-output",
   lifecycle: {
     kind: "pure",
@@ -296,7 +296,7 @@ export const bindCandidateRenderOutputOperationDefinition = {
     },
   },
   outputSchema: CandidateProjectRenderInputSchema,
-  outputSchemaId: "studio.operation.render.bind-candidate-output.output/v1",
+  outputSchemaId: "atet.operation.render.bind-candidate-output.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,

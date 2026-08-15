@@ -84,7 +84,7 @@ function faceEvidence() {
     createdAt: "2026-07-23T15:00:00.000Z",
     durationUs: 10_000_000,
     inputDigest: FACE_INPUT_SHA256,
-    kind: "studio.face-analysis",
+    kind: "atet.face-analysis",
     privacy: {
       biometricIdentification: "not-performed",
       execution: "local-only",

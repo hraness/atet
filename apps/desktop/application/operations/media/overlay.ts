@@ -417,7 +417,7 @@ export function createMediaOverlayOperationDefinition(
   const resolveEmoji = dependencies.resolveEmoji ?? resolveEmojiAsset;
   return {
     inputSchema: MediaOverlayInputSchema,
-    inputSchemaId: "studio.operation.media.overlay.input/v1",
+    inputSchemaId: "atet.operation.media.overlay.input/v1",
     kind: "media.overlay",
     lifecycle: {
       kind: "local-artifact",
@@ -695,9 +695,9 @@ export function createMediaOverlayOperationDefinition(
             receipt,
           });
           await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId: "studio.operation.media.overlay.input/v1",
+            inputSchemaId: "atet.operation.media.overlay.input/v1",
             kind: "media.overlay",
-            outputSchemaId: "studio.operation.media.overlay.output/v1",
+            outputSchemaId: "atet.operation.media.overlay.output/v1",
             version: 1,
           }, output);
           return output;
@@ -707,7 +707,7 @@ export function createMediaOverlayOperationDefinition(
       },
     },
     outputSchema: MediaOverlayOutputSchema,
-    outputSchemaId: "studio.operation.media.overlay.output/v1",
+    outputSchemaId: "atet.operation.media.overlay.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

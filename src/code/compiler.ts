@@ -15,6 +15,8 @@ import {
   WORKFLOW_COMPILATION_VERSION,
   LEGACY_WORKFLOW_COMPILATION_VERSION,
   WORKFLOW_EFFECT_CLASSES,
+  WORKFLOW_GRAPH_VERSION,
+  WORKFLOW_REF_VERSION,
   WORKFLOW_RESUME_CLASSES,
   isComputeGraphNode,
   isOperationGraphNode,
@@ -37,6 +39,7 @@ import {
   type WorkflowResumeClass,
 } from "./contracts.js"
 import {
+  canonicalJsonSha256,
   canonicalJsonSha256Prefixed,
 } from "./canonical-json.js"
 import { parseCodeBoundary } from "./boundary.js"
@@ -141,6 +144,13 @@ function uniqueSorted<Value extends string>(
   return [...new Set(values)].sort((left, right) => left.localeCompare(right))
 }
 
+function canonicalAtetIdentity(value: string): string {
+  if (value === "studio" || value === "transmute") return "atet"
+  return value
+    .replace(/^studio\./u, "atet.")
+    .replace(/^transmute\./u, "atet.")
+}
+
 function safeAdd(left: number, right: number, name: string): number {
   const result = left + right
   if (!Number.isSafeInteger(result)) {
@@ -196,7 +206,7 @@ function preflightAuthoredWorkflowGraph(
   }
 }
 
-export function normalizeAuthoredWorkflowGraph(
+function parseAuthoredWorkflowGraphPreservingIdentity(
   graphInput: unknown,
   maximumNodes = MAX_SERIALIZED_GRAPH_NODES,
 ): AuthoredWorkflowGraphV1 {
@@ -228,6 +238,74 @@ export function normalizeAuthoredWorkflowGraph(
     )),
   }
   return deepFreezeJson(sorted)
+}
+
+function canonicalizeGraphValue(
+  value: GraphInputValue | WorkflowOutputBinding,
+): GraphInputValue | WorkflowOutputBinding {
+  if (isSerializedRef(value)) {
+    return {
+      $ref: {
+        ...value.$ref,
+        schemaId: canonicalAtetIdentity(value.$ref.schemaId),
+      },
+      version: WORKFLOW_REF_VERSION,
+    }
+  }
+  if (Array.isArray(value)) {
+    return value.map(canonicalizeGraphValue) as readonly GraphInputValue[]
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(Object.entries(value).map(([key, nested]) => (
+      [key, canonicalizeGraphValue(nested)]
+    ))) as GraphInputValue
+  }
+  return value
+}
+
+function canonicalizeAuthoredWorkflowGraph(
+  graph: AuthoredWorkflowGraphV1,
+): AuthoredWorkflowGraphV1 {
+  return deepFreezeJson(parseCodeBoundary(AuthoredWorkflowGraphV1Schema, {
+    ...graph,
+    nodes: graph.nodes.map(node => ({
+      ...node,
+      executor: node.executor.kind === "operation"
+        ? {
+            kind: "operation" as const,
+            operation: {
+              ...node.executor.operation,
+              kind: canonicalAtetIdentity(node.executor.operation.kind),
+            },
+          }
+        : {
+            compute: {
+              ...node.executor.compute,
+              key: canonicalAtetIdentity(node.executor.compute.key),
+            },
+            kind: "compute" as const,
+          },
+      input: canonicalizeGraphValue(node.input),
+      inputSchemaId: canonicalAtetIdentity(node.inputSchemaId),
+      outputSchemaId: canonicalAtetIdentity(node.outputSchemaId),
+    })),
+    outputs: canonicalizeGraphValue(graph.outputs),
+    version: WORKFLOW_GRAPH_VERSION,
+    workflow: {
+      ...graph.workflow,
+      id: canonicalAtetIdentity(graph.workflow.id),
+      inputSchemaId: canonicalAtetIdentity(graph.workflow.inputSchemaId),
+    },
+  }, "canonical authored workflow graph"))
+}
+
+export function normalizeAuthoredWorkflowGraph(
+  graphInput: unknown,
+  maximumNodes = MAX_SERIALIZED_GRAPH_NODES,
+): AuthoredWorkflowGraphV1 {
+  return canonicalizeAuthoredWorkflowGraph(
+    parseAuthoredWorkflowGraphPreservingIdentity(graphInput, maximumNodes),
+  )
 }
 
 function workflowGraphHashFromNormalized(
@@ -664,6 +742,23 @@ function deriveRequirementEnvelope(validated: ValidatedGraph): RequirementEnvelo
   }, "workflow requirement envelope")
 }
 
+function canonicalizeRequirementEnvelope(
+  input: unknown,
+): RequirementEnvelope {
+  const envelope = parseCodeBoundary(
+    RequirementEnvelopeSchema,
+    input,
+    "workflow requirement envelope",
+  )
+  return parseCodeBoundary(RequirementEnvelopeSchema, {
+    ...envelope,
+    computeKeys: envelope.computeKeys.map(canonicalAtetIdentity),
+    operationFamilies: envelope.operationFamilies.map(canonicalAtetIdentity),
+    operationKinds: envelope.operationKinds.map(canonicalAtetIdentity),
+    version: REQUIREMENT_ENVELOPE_VERSION,
+  }, "canonical workflow requirement envelope")
+}
+
 function resolveProjection(
   options: CompileWorkflowGraphOptions,
 ): WorkflowRegistryProjection {
@@ -788,7 +883,7 @@ export function compileWorkflowGraph(
 
 export function parseCompiledWorkflowGraph(input: unknown): CompiledWorkflowGraph {
   const bounded = boundedCompilationInput(input, "compiled workflow graph")
-  const parsed = parseCodeBoundary(
+  const shallow = parseCodeBoundary(
     ShallowCompiledWorkflowGraphSchema,
     bounded,
     "compiled workflow graph",
@@ -796,7 +891,7 @@ export function parseCompiledWorkflowGraph(input: unknown): CompiledWorkflowGrap
   const {
     compilationSha256: parsedCompilationSha256,
     ...unsigned
-  } = parsed
+  } = shallow
   const expected = workflowCompilationHashFromValidated(unsigned)
   if (parsedCompilationSha256 !== expected) {
     throw new AtetCodeError(
@@ -808,15 +903,53 @@ export function parseCompiledWorkflowGraph(input: unknown): CompiledWorkflowGrap
       },
     )
   }
+  const parsed = parseCodeBoundary(
+    CompiledWorkflowGraphSchema,
+    bounded,
+    "compiled workflow graph",
+  )
+  const exactGraph = parseAuthoredWorkflowGraphPreservingIdentity(parsed.graph)
+  if (canonicalJsonSha256(parsed.graph) !== canonicalJsonSha256(exactGraph)) {
+    throw new AtetCodeError(
+      "invalid-data",
+      "Compiled workflow graph nodes are not normalized.",
+    )
+  }
+  const expectedGraphSha256 = workflowGraphHashFromNormalized(exactGraph)
+  if (parsed.graphSha256 !== expectedGraphSha256) {
+    throw new AtetCodeError(
+      "invalid-data",
+      "Workflow graph hash does not match its authenticated contents.",
+      {
+        actualGraphSha256: parsed.graphSha256,
+        expectedGraphSha256,
+      },
+    )
+  }
+  const canonicalGraph = canonicalizeAuthoredWorkflowGraph(exactGraph)
+  const canonicalProjection = parseWorkflowRegistryProjection(parsed.projection)
+  const canonicalLimits = normalizeLimits(parsed.limits)
   const recompiled = compileWorkflowGraph({
-    graph: parsed.graph,
-    limits: parsed.limits,
-    projection: parsed.projection,
+    graph: canonicalGraph,
+    limits: canonicalLimits,
+    projection: canonicalProjection,
   })
-  // The parsed contents were independently hashed above. Recompilation must
-  // resolve to that exact authenticated identity, which avoids another full
-  // canonical serialization while retaining the SHA-256 collision boundary.
-  if (recompiled.compilationSha256 !== parsedCompilationSha256) {
+  const canonicalUnsigned: UnsignedWorkflowCompilation = {
+    envelope: canonicalizeRequirementEnvelope(parsed.envelope),
+    graph: canonicalGraph,
+    graphSha256: workflowGraphHashFromNormalized(canonicalGraph),
+    limits: canonicalLimits,
+    projection: canonicalProjection,
+    topologicalWaves: parsed.topologicalWaves,
+    version: WORKFLOW_COMPILATION_VERSION,
+  }
+  // The predecessor bytes and their nested graph/projection hashes were
+  // verified before identity normalization. Recompilation must then match the
+  // complete canonicalized semantics rather than the obsolete outer digest.
+  if (
+    recompiled.compilationSha256
+    !== workflowCompilationHashFromValidated(canonicalUnsigned)
+  ) {
     throw new AtetCodeError(
       "invalid-data",
       "Workflow compilation topology, requirements, or projection do not match the graph.",

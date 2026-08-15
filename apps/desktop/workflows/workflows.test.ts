@@ -49,6 +49,14 @@ describe("built-in workflow catalog", () => {
       3,
       2,
     ]);
+    expect(BUILT_IN_WORKFLOWS.every(workflow => (
+      workflow.inputSchemaId.startsWith("atet.workflow.")
+    ))).toBe(true);
+    expect(JSON.stringify(BUILT_IN_WORKFLOWS.map(workflow => ({
+      id: workflow.id,
+      inputSchemaId: workflow.inputSchemaId,
+      version: workflow.version,
+    })))).not.toMatch(/studio|transmute/u);
   });
 
   test("creative iteration fans immutable preview candidates out from one base and stops at a closed matrix", () => {
@@ -78,6 +86,7 @@ describe("built-in workflow catalog", () => {
       runtime: TESTING_WORKFLOW_RUNTIME,
       workflowInput: built.input,
     });
+    expect(JSON.stringify(plan)).not.toMatch(/studio|transmute/u);
 
     expect(plan.topologicalWaves).toEqual([
       ["base"],

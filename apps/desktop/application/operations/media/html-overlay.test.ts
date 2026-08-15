@@ -485,9 +485,11 @@ describe("media.html-overlay application operation", () => {
       fixture.projectRoot,
       fixture.project.projectId,
     );
+    let observedGeneratorVersion: string | undefined;
     const definition = createHtmlOverlayOperationDefinition({
       bindBrowserRuntime: bindFixtureBrowserRuntime,
       ingest: async (projectDirectory, input) => {
+        observedGeneratorVersion = input.generatorVersion;
         const bytes = await readFile(input.path);
         const digest = sha256(bytes);
         const path = `assets/${digest}.mov`;
@@ -522,7 +524,6 @@ describe("media.html-overlay application operation", () => {
         videoStartUs: 0,
         videoStreamIndex: 0,
       }),
-      toolVersion: "atet-fixture",
     });
     const registry = new OperationRegistry();
     registry.register(definition);
@@ -535,6 +536,7 @@ describe("media.html-overlay application operation", () => {
       version: 1,
     });
     const output = HtmlOverlayOutputSchema.parse(result.output);
+    expect(observedGeneratorVersion).toBe("atet-2.0.0");
     expect(result.receiptReference).toBe(output.receipt.path);
     const receipt = HtmlOverlayReceiptSchema.parse(JSON.parse(
       await readFile(join(root, output.receipt.path), "utf8"),
@@ -549,11 +551,11 @@ describe("media.html-overlay application operation", () => {
       throw new Error("Expected an HTML-overlay workflow context.");
     }
     const identity = {
-      inputSchemaId: "studio.operation.media.html-overlay.input/v1",
+      inputSchemaId: "atet.operation.media.html-overlay.input/v1",
       kind: "media.html-overlay",
       nodeKey: context.workflow.nodeKey,
       nodePlanSha256: context.workflow.nodePlanSha256,
-      outputSchemaId: "studio.operation.media.html-overlay.output/v1",
+      outputSchemaId: "atet.operation.media.html-overlay.output/v1",
       runId: context.workflow.runId,
       version: 1,
     } as const;

@@ -50,7 +50,7 @@ describe("scene analysis semantic workflow helper", () => {
       source: "asset_sceneplan01:stream_sceneplan01",
     });
     expect(sceneNode?.outputSchemaId)
-      .toBe("studio.operation.analysis.scenes.output/v1");
+      .toBe("atet.operation.analysis.scenes.output/v1");
     expect(graph.outputs).toMatchObject({
       planDigest: {
         $ref: { nodeKey: "scenes", path: ["planDigest"] },

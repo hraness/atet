@@ -332,7 +332,7 @@ export function createFollowFacesOperationDefinition(
     }));
   return {
     inputSchema: FollowFacesInputSchema,
-    inputSchemaId: "studio.operation.derive.follow-faces.input/v1",
+    inputSchemaId: "atet.operation.derive.follow-faces.input/v1",
     kind: "derive.follow-faces",
     lifecycle: {
       kind: "local-artifact",
@@ -420,7 +420,7 @@ export function createFollowFacesOperationDefinition(
       },
     },
     outputSchema: FaceFollowRevisionDraftSchema,
-    outputSchemaId: "studio.operation.derive.follow-faces.output/v1",
+    outputSchemaId: "atet.operation.derive.follow-faces.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

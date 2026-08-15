@@ -8,6 +8,7 @@ import {
   NodeKeySegmentSchema,
   OperationDiscoverySchema,
   SerializedRefV1Schema,
+  LEGACY_TRUSTED_COMPUTE_BRAND,
   TRUSTED_COMPUTE_BRAND,
   TRUSTED_COMPUTE_VERSION,
   WORKFLOW_GRAPH_VERSION,
@@ -72,6 +73,10 @@ interface EncodedInput {
 
 const MAX_AUTHORING_VALUE_DEPTH = 128
 const MAX_AUTHORING_VALUES = 1_000_000
+const NORMALIZED_LEGACY_COMPUTES = new WeakMap<
+  object,
+  AnyTrustedComputeDefinition
+>()
 
 interface EncodingBudget {
   consumed: number
@@ -122,6 +127,31 @@ function requireStateCapacity(state: BuilderState, additional: number): void {
       `Workflow authoring values exceed the ${String(MAX_AUTHORING_VALUES)} value limit.`,
     )
   }
+}
+
+function normalizeTrustedComputeDefinition<Input, Output>(
+  definition: TrustedComputeDefinition<Input, Output>,
+): TrustedComputeDefinition<Input, Output> | undefined {
+  if (definition[TRUSTED_COMPUTE_BRAND] === true) return definition
+  if (Reflect.get(definition, LEGACY_TRUSTED_COMPUTE_BRAND) !== true) {
+    return undefined
+  }
+  const existing = NORMALIZED_LEGACY_COMPUTES.get(definition)
+  if (existing !== undefined) {
+    return existing as TrustedComputeDefinition<Input, Output>
+  }
+  const normalized = Object.freeze({
+    [TRUSTED_COMPUTE_BRAND]: true as const,
+    bounds: definition.bounds,
+    inputSchema: definition.inputSchema,
+    inputSchemaId: definition.inputSchemaId,
+    key: definition.key,
+    outputSchema: definition.outputSchema,
+    outputSchemaId: definition.outputSchemaId,
+    run: definition.run,
+  }) satisfies TrustedComputeDefinition<Input, Output>
+  NORMALIZED_LEGACY_COMPUTES.set(definition, normalized)
+  return normalized
 }
 
 function discoveryKey(kind: OperationKind, version: number): string {
@@ -727,11 +757,14 @@ export class WorkflowGraphBuilder {
     input: OperationInputValue<Input>,
     options: OperationNodeOptions = {},
   ): Ref<Output> {
-    if (
-      typeof definition !== "object"
-      || definition === null
-      || definition[TRUSTED_COMPUTE_BRAND] !== true
-    ) {
+    if (typeof definition !== "object" || definition === null) {
+      throw new AtetCodeError(
+        "invalid-data",
+        "Compute nodes require a definition created by defineCompute().",
+      )
+    }
+    const normalizedDefinition = normalizeTrustedComputeDefinition(definition)
+    if (normalizedDefinition === undefined) {
       throw new AtetCodeError(
         "invalid-data",
         "Compute nodes require a definition created by defineCompute().",
@@ -740,14 +773,14 @@ export class WorkflowGraphBuilder {
     const compute = parseCodeBoundary(
       AuthoredComputeIdentitySchema,
       {
-        bounds: definition.bounds,
-        key: definition.key,
+        bounds: normalizedDefinition.bounds,
+        key: normalizedDefinition.key,
         version: TRUSTED_COMPUTE_VERSION,
       },
       "trusted compute identity",
     )
     const existing = this.#state.computes.get(compute.key)
-    if (existing !== undefined && existing !== definition) {
+    if (existing !== undefined && existing !== normalizedDefinition) {
       throw new AtetCodeError(
         "conflict",
         `Duplicate trusted compute key: ${compute.key}`,
@@ -772,15 +805,19 @@ export class WorkflowGraphBuilder {
       dependencies,
       executor: { compute, kind: "compute" },
       input: encoded.value,
-      inputSchemaId: definition.inputSchemaId,
+      inputSchemaId: normalizedDefinition.inputSchemaId,
       key,
       ...(options.label === undefined ? {} : { label: options.label }),
-      outputSchemaId: definition.outputSchemaId,
+      outputSchemaId: normalizedDefinition.outputSchemaId,
     }, "authored compute node")
-    this.#state.computes.set(compute.key, definition)
+    this.#state.computes.set(compute.key, normalizedDefinition)
     this.#state.nodes.set(key, node)
     this.#state.authoredValues += nodeValues
-    return createReference<Output>(key, definition.outputSchemaId, this.#state)
+    return createReference<Output>(
+      key,
+      normalizedDefinition.outputSchemaId,
+      this.#state,
+    )
   }
 
   computeDefinitions(): readonly AnyTrustedComputeDefinition[] {

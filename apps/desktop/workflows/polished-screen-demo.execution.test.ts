@@ -391,7 +391,7 @@ function faceAnalysis(
       fixture: "polished-screen-demo",
       subject,
     }),
-    kind: "studio.face-analysis",
+    kind: "atet.face-analysis",
     privacy: {
       biometricIdentification: "not-performed",
       execution: "local-only",

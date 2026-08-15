@@ -33,14 +33,29 @@ import { compileGraphPlan } from "./compiler";
 import { defineCompute } from "./define-workflow";
 import { WorkflowGraphBuilder } from "./graph-builder";
 import {
+  CancellationRequestSchema,
   NODE_EXECUTION_PLAN_VERSION,
   NODE_PREPARATION_PLAN_VERSION,
+  RUN_EVENT_VERSION,
+  RUN_FENCE_VERSION,
   RUN_GRANT_VERSION,
+  RUN_NODE_VERSION,
+  RUN_OUTPUTS_VERSION,
   RUN_STORE_VERSION,
+  NodeExecutionPlanSchema,
+  NodePreparationPlanSchema,
+  RunEventSchema,
+  RunFenceSchema,
+  RunGrantSchema,
+  RunNodeRecordSchema,
+  RunOutputsSchema,
+  RunRuntimeRecordSchema,
+  RunSummarySchema,
   createNodeExecutionPlanHash,
   createNodeInputHash,
   createNodePreparationPlanHash,
   createRunNodeOutputDigest,
+  createRunOutputsDigest,
   nodeRecordFilename,
   type CreateRunRecord,
   type NodeExecutionPlan,
@@ -424,6 +439,133 @@ async function completeFixtureNode(
 }
 
 describe("durable workflow run store", () => {
+  test("fails closed on predecessor machine-local run state", () => {
+    const input = fixture();
+    const node = input.graphPlan.graph.nodes[0]!;
+    const nodePlans = plans(input);
+    const timestamp = "2026-07-23T12:00:00.000Z";
+    const currentRecords: readonly {
+      readonly current: unknown;
+      readonly legacyVersion: string;
+      readonly schema: z.ZodType;
+    }[] = [
+      {
+        current: input.runtime,
+        legacyVersion: "transmute-run-store-v2",
+        schema: RunRuntimeRecordSchema,
+      },
+      {
+        current: nodePlans.preparation,
+        legacyVersion: "transmute-node-preparation-plan-v2",
+        schema: NodePreparationPlanSchema,
+      },
+      {
+        current: nodePlans.execution,
+        legacyVersion: "transmute-node-execution-plan-v2",
+        schema: NodeExecutionPlanSchema,
+      },
+      {
+        current: {
+          attempt: 0,
+          dependencies: node.dependencies,
+          executionPlan: nodePlans.execution,
+          executor: node.executor,
+          nodeKey: node.key,
+          preparationPlan: nodePlans.preparation,
+          status: "ready",
+          version: RUN_NODE_VERSION,
+        },
+        legacyVersion: "transmute-run-node-v2",
+        schema: RunNodeRecordSchema,
+      },
+      {
+        current: {
+          acquiredAt: timestamp,
+          generation: 1,
+          hostname: "localhost",
+          owner: "owner",
+          pid: 1,
+          runId: input.runId,
+          token: "00000000-0000-4000-8000-000000000001",
+          version: RUN_FENCE_VERSION,
+        },
+        legacyVersion: "transmute-run-fence-v2",
+        schema: RunFenceSchema,
+      },
+      {
+        current: {
+          details: {},
+          fenceGeneration: 1,
+          kind: "run-claimed",
+          runId: input.runId,
+          sequence: 1,
+          timestamp,
+          version: RUN_EVENT_VERSION,
+        },
+        legacyVersion: "transmute-run-event-v2",
+        schema: RunEventSchema,
+      },
+      {
+        current: {
+          createdAt: timestamp,
+          graphPlanSha256: input.graphPlan.graphPlanSha256,
+          grantedBy: "owner",
+          grantId: "00000000-0000-4000-8000-000000000002",
+          kind: "graph-policy",
+          runId: input.runId,
+          scopes: ["local-read"],
+          version: RUN_GRANT_VERSION,
+        },
+        legacyVersion: "transmute-run-grant-v2",
+        schema: RunGrantSchema,
+      },
+      {
+        current: {
+          requestedAt: timestamp,
+          requestedBy: "owner",
+          runId: input.runId,
+          version: RUN_STORE_VERSION,
+        },
+        legacyVersion: "transmute-run-store-v2",
+        schema: CancellationRequestSchema,
+      },
+      {
+        current: {
+          counts: { cancelled: 0, completed: 0, failed: 0, pending: 1, skipped: 0 },
+          graphPlanSha256: input.graphPlan.graphPlanSha256,
+          runId: input.runId,
+          status: "planned",
+          updatedAt: timestamp,
+          version: RUN_STORE_VERSION,
+        },
+        legacyVersion: "transmute-run-store-v2",
+        schema: RunSummarySchema,
+      },
+      {
+        current: {
+          graphPlanSha256: input.graphPlan.graphPlanSha256,
+          nodeOutputDigests: {},
+          outputs: {},
+          outputsSha256: createRunOutputsDigest({}),
+          runId: input.runId,
+          version: RUN_OUTPUTS_VERSION,
+        },
+        legacyVersion: "transmute-run-outputs-v2",
+        schema: RunOutputsSchema,
+      },
+    ];
+
+    for (const { current, legacyVersion, schema: contract } of currentRecords) {
+      expect(contract.safeParse(current).success).toBe(true);
+      expect(contract.safeParse({
+        ...(current as Readonly<Record<string, unknown>>),
+        version: legacyVersion,
+      }).success).toBe(false);
+    }
+    expect(JSON.stringify(currentRecords.map(record => record.current)))
+      .not.toMatch(/(?:studio|transmute)[.-]/u);
+  });
+
   test("persists exact private identities and initializes digest-addressed nodes", async () => {
     const root = await temporaryDirectory();
     const store = new RunStore({ root });

@@ -204,7 +204,7 @@ export function deriveProjectEditBatch(
 
 export const deriveEditBatchOperationDefinition = {
   inputSchema: ProjectEditBatchInputSchema,
-  inputSchemaId: "studio.operation.derive.edit-batch.input/v1",
+  inputSchemaId: "atet.operation.derive.edit-batch.input/v1",
   kind: "derive.edit-batch",
   lifecycle: {
     kind: "pure",
@@ -217,7 +217,7 @@ export const deriveEditBatchOperationDefinition = {
     },
   },
   outputSchema: ProjectEditBatchSchema,
-  outputSchemaId: "studio.operation.derive.edit-batch.output/v1",
+  outputSchemaId: "atet.operation.derive.edit-batch.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,
@@ -607,7 +607,7 @@ export function deriveProjectEditBatchV2(
 
 export const deriveEditBatchOperationDefinitionV2 = {
   inputSchema: ProjectEditBatchInputV2Schema,
-  inputSchemaId: "studio.operation.derive.edit-batch.input/v2",
+  inputSchemaId: "atet.operation.derive.edit-batch.input/v2",
   kind: "derive.edit-batch",
   lifecycle: {
     kind: "pure",
@@ -623,7 +623,7 @@ export const deriveEditBatchOperationDefinitionV2 = {
     },
   },
   outputSchema: ProjectEditBatchV2Schema,
-  outputSchemaId: "studio.operation.derive.edit-batch.output/v2",
+  outputSchemaId: "atet.operation.derive.edit-batch.output/v2",
   policy: {
     cache: "content-addressed",
     cancellable: true,
@@ -926,7 +926,7 @@ export function deriveProjectEditBatchV3(
 
 export const deriveEditBatchOperationDefinitionV3 = {
   inputSchema: ProjectEditBatchInputV3Schema,
-  inputSchemaId: "studio.operation.derive.edit-batch.input/v3",
+  inputSchemaId: "atet.operation.derive.edit-batch.input/v3",
   kind: "derive.edit-batch",
   lifecycle: {
     kind: "pure",
@@ -942,7 +942,7 @@ export const deriveEditBatchOperationDefinitionV3 = {
     },
   },
   outputSchema: ProjectEditBatchV3Schema,
-  outputSchemaId: "studio.operation.derive.edit-batch.output/v3",
+  outputSchemaId: "atet.operation.derive.edit-batch.output/v3",
   policy: {
     cache: "content-addressed",
     cancellable: true,

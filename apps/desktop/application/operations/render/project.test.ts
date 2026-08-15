@@ -247,7 +247,7 @@ async function immutableRenderFixture(
       sha256: artifactSha256,
     },
     baseGeneration: hashProjectGeneration(project, plan),
-    kind: "studio.project-edit-revision-reference",
+    kind: "atet.project-edit-revision-reference",
     outputGeometrySha256: hashProjectEditRevisionOutputGeometry({
       pixelHeight: 720,
       pixelWidth: 1_280,

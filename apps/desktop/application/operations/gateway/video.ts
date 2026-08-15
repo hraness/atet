@@ -13,7 +13,7 @@ import {
 
 export const gatewayVideoOperationDefinition = {
   inputSchema: GatewayVideoOperationInputSchema,
-  inputSchemaId: "studio.operation.gateway.video.input/v1",
+  inputSchemaId: "atet.operation.gateway.video.input/v1",
   kind: "gateway.video",
   lifecycle: {
     kind: "paid-dispatch",
@@ -26,7 +26,7 @@ export const gatewayVideoOperationDefinition = {
     },
   },
   outputSchema: GatewayVideoOperationResultSchema,
-  outputSchemaId: "studio.operation.gateway.video.output/v1",
+  outputSchemaId: "atet.operation.gateway.video.output/v1",
   policy: gatewayOperationPolicy({
     maximumDurationMs: 20 * 60_000,
     mediaInput: true,

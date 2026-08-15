@@ -226,7 +226,7 @@ export function createMediaColorGradeOperationDefinition(
     }).renderColor(options));
   return {
     inputSchema: MediaColorGradeInputSchema,
-    inputSchemaId: "studio.operation.media.color-grade.input/v1",
+    inputSchemaId: "atet.operation.media.color-grade.input/v1",
     kind: "media.color-grade",
     lifecycle: {
       kind: "local-artifact",
@@ -344,10 +344,10 @@ export function createMediaColorGradeOperationDefinition(
           });
           await writeOperationCompletionCheckpoint(context, {
             inputSchemaId:
-              "studio.operation.media.color-grade.input/v1",
+              "atet.operation.media.color-grade.input/v1",
             kind: "media.color-grade",
             outputSchemaId:
-              "studio.operation.media.color-grade.output/v1",
+              "atet.operation.media.color-grade.output/v1",
             version: 1,
           }, output);
           return output;
@@ -357,7 +357,7 @@ export function createMediaColorGradeOperationDefinition(
       },
     },
     outputSchema: MediaColorGradeOutputSchema,
-    outputSchemaId: "studio.operation.media.color-grade.output/v1",
+    outputSchemaId: "atet.operation.media.color-grade.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

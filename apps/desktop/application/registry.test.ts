@@ -8,6 +8,7 @@ import {
 
 import { createApplicationOperationRegistry } from "./default-registry";
 import { ApplicationError } from "./errors";
+import { ATET_APPLICATION_TOOL_VERSION } from "./operation";
 import { OperationRegistry } from "./registry";
 import type { OperationDefinition } from "./operation";
 
@@ -85,6 +86,12 @@ describe("operation registry", () => {
     const descriptions = registry.list().map(operation => (
       registry.describe(operation.kind, operation.version)
     ));
+    expect(ATET_APPLICATION_TOOL_VERSION).toBe("atet-2.0.0");
+    expect(JSON.stringify(registry.list())).not.toMatch(/studio|transmute/u);
+    expect(registry.list().every(operation => (
+      operation.inputSchemaId.startsWith("atet.operation.")
+      && operation.outputSchemaId.startsWith("atet.operation.")
+    ))).toBe(true);
     expect(descriptions).toHaveLength(49);
     const portableKinds = new Set<string>(
       PORTABLE_ATET_OPERATION_KINDS.map(

@@ -191,11 +191,11 @@ describe("media.overlay application operation", () => {
       exactInput,
       expectedProjectGeneration: snapshot.generation.generationSha256,
       identity: {
-        inputSchemaId: "studio.operation.media.overlay.input/v1",
+        inputSchemaId: "atet.operation.media.overlay.input/v1",
         kind: "media.overlay" as const,
         nodeKey: context.workflow.nodeKey,
         nodePlanSha256: context.workflow.nodePlanSha256,
-        outputSchemaId: "studio.operation.media.overlay.output/v1",
+        outputSchemaId: "atet.operation.media.overlay.output/v1",
         runId: context.workflow.runId,
         version: 1,
       },

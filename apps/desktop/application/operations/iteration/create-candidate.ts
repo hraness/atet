@@ -129,7 +129,7 @@ export async function bindCreateCreativeCandidateInput(
 
 export const createCreativeCandidateOperationDefinition = {
   inputSchema: CreateCreativeCandidateInputSchema,
-  inputSchemaId: "studio.operation.iteration.create-candidate.input/v1",
+  inputSchemaId: "atet.operation.iteration.create-candidate.input/v1",
   kind: "iteration.create-candidate",
   lifecycle: {
     kind: "local-artifact",
@@ -208,7 +208,7 @@ export const createCreativeCandidateOperationDefinition = {
     },
   },
   outputSchema: CreateCreativeCandidateOutputSchema,
-  outputSchemaId: "studio.operation.iteration.create-candidate.output/v1",
+  outputSchemaId: "atet.operation.iteration.create-candidate.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,

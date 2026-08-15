@@ -258,7 +258,7 @@ async function publishPromotionReceipt(input: {
 
 export const promoteVariantSelectionOperationDefinition = {
   inputSchema: PromoteVariantSelectionInputSchema,
-  inputSchemaId: "studio.operation.project.promote-selection.input/v1",
+  inputSchemaId: "atet.operation.project.promote-selection.input/v1",
   kind: "project.promote-selection",
   lifecycle: {
     kind: "project-transaction",
@@ -368,7 +368,7 @@ export const promoteVariantSelectionOperationDefinition = {
     },
   },
   outputSchema: PromoteVariantSelectionOutputSchema,
-  outputSchemaId: "studio.operation.project.promote-selection.output/v1",
+  outputSchemaId: "atet.operation.project.promote-selection.output/v1",
   policy: {
     cache: "none",
     cancellable: true,

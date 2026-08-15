@@ -244,7 +244,7 @@ function createRegistry(
   const registry = new OperationRegistry();
   const definition = {
     inputSchema: BenchmarkInputSchema,
-    inputSchemaId: "studio.concurrency-benchmark-input/v1",
+    inputSchemaId: "atet.concurrency-benchmark-input/v1",
     kind: "derive.edit-batch",
     lifecycle: {
       execute: async (context, input) => {
@@ -294,7 +294,7 @@ function createRegistry(
       kind: "pure",
     },
     outputSchema: BenchmarkOutputSchema,
-    outputSchemaId: "studio.concurrency-benchmark-output/v1",
+    outputSchemaId: "atet.concurrency-benchmark-output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,
@@ -346,7 +346,7 @@ function createGraphPlan(registry: OperationRegistry) {
   });
   const graph = builder.build({
     id: "concurrency-benchmark",
-    inputSchemaId: "studio.concurrency-benchmark-workflow-input/v1",
+    inputSchemaId: "atet.concurrency-benchmark-workflow-input/v1",
     version: 1,
   }, { join: joinNode });
   const bundleBytes = new TextEncoder().encode(

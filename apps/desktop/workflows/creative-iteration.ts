@@ -48,7 +48,7 @@ export const CreativeIterationInputSchema = z.strictObject({
 export const creativeIteration = defineWorkflow({
   id: "creative-iteration",
   inputSchema: CreativeIterationInputSchema,
-  inputSchemaId: "studio.workflow.creative-iteration.input/v1",
+  inputSchemaId: "atet.workflow.creative-iteration.input/v1",
   version: 1,
   build(workflow, input) {
     const project = workflow.iteration.base("base", input.project);

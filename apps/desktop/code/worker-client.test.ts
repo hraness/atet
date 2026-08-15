@@ -210,7 +210,7 @@ async function writeRuntimeMismatchWorker(
       bundleSha256: argument("--sha256"),
       generation: 1,
       kind: "hello",
-      protocol: "studio.code-worker/v5",
+      protocol: "atet.code-worker/v5",
       workerEntrySha256,
     }));
     const header = Buffer.alloc(4);
@@ -342,8 +342,8 @@ describe("trusted code worker client", () => {
     });
     expect(built.diagnostics.stdout).toContain("trusted top-level diagnostic");
     expect(built.diagnostics.stderr).toContain("trusted build diagnostic");
-    expect(built.diagnostics.stdout).not.toContain("studio.code-worker/v5:diagnostics");
-    expect(built.diagnostics.stderr).not.toContain("studio.code-worker/v5:diagnostics");
+    expect(built.diagnostics.stdout).not.toContain("atet.code-worker/v5:diagnostics");
+    expect(built.diagnostics.stderr).not.toContain("atet.code-worker/v5:diagnostics");
   });
 
   for (const mismatch of ["bunVersion", "bunRevision"] as const) {

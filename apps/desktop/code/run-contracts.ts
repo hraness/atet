@@ -30,14 +30,14 @@ export const RUN_EVENT_VERSION = "atet-run-event-v2" as const;
 export const RUN_GRANT_VERSION = "atet-run-grant-v2" as const;
 export const RUN_FENCE_VERSION = "atet-run-fence-v2" as const;
 export const RUN_OUTPUTS_VERSION = "atet-run-outputs-v2" as const;
-const LEGACY_RUN_STORE_VERSION = "transmute-run-store-v2" as const;
-const LEGACY_RUN_NODE_VERSION = "transmute-run-node-v2" as const;
-const LEGACY_NODE_PREPARATION_PLAN_VERSION = "transmute-node-preparation-plan-v2" as const;
-const LEGACY_NODE_EXECUTION_PLAN_VERSION = "transmute-node-execution-plan-v2" as const;
-const LEGACY_RUN_EVENT_VERSION = "transmute-run-event-v2" as const;
-const LEGACY_RUN_GRANT_VERSION = "transmute-run-grant-v2" as const;
-const LEGACY_RUN_FENCE_VERSION = "transmute-run-fence-v2" as const;
-const LEGACY_RUN_OUTPUTS_VERSION = "transmute-run-outputs-v2" as const;
+
+/**
+ * Active durable runs are machine-local execution state, not portable authored
+ * artifacts. V1 runs must finish with the v1 host or restart under v2 because
+ * translating their plan hashes would also retarget staging and replay grants.
+ * Saved workflow source, projects, and completed artifacts remain separate
+ * compatibility boundaries.
+ */
 
 export const NODE_PREPARATION_PLAN_HASH_DOMAIN =
   "studio.workflow.node-preparation-plan/v2" as const;
@@ -90,7 +90,7 @@ export const RunFenceSchema = z.strictObject({
   pid: PositiveSafeIntegerSchema,
   runId: RunIdSchema,
   token: FenceTokenSchema,
-  version: z.union([z.literal(RUN_FENCE_VERSION), z.literal(LEGACY_RUN_FENCE_VERSION)]),
+  version: z.literal(RUN_FENCE_VERSION),
 });
 
 export type RunFence = z.infer<typeof RunFenceSchema>;
@@ -107,7 +107,7 @@ export const RunRuntimeRecordSchema = z.strictObject({
   computes: z.array(AuthoredComputeIdentitySchema).max(4_096),
   operations: z.array(AuthoredOperationIdentitySchema).max(OPERATION_KINDS.length * 32),
   runtime: WorkflowRuntimeIdentitySchema,
-  version: z.union([z.literal(RUN_STORE_VERSION), z.literal(LEGACY_RUN_STORE_VERSION)]),
+  version: z.literal(RUN_STORE_VERSION),
 });
 
 export type RunRuntimeRecord = z.infer<typeof RunRuntimeRecordSchema>;
@@ -121,7 +121,7 @@ export const NodePreparationPlanUnsignedSchema = z.strictObject({
   requestedPreparation: OperationPolicySchema.shape.preparation,
   upperDurationMs: z.number().int().nonnegative().safe(),
   upperInputBytes: z.number().int().nonnegative().safe(),
-  version: z.union([z.literal(NODE_PREPARATION_PLAN_VERSION), z.literal(LEGACY_NODE_PREPARATION_PLAN_VERSION)]),
+  version: z.literal(NODE_PREPARATION_PLAN_VERSION),
 });
 
 export const NodePreparationPlanSchema = NodePreparationPlanUnsignedSchema.extend({
@@ -141,7 +141,7 @@ export const NodeExecutionPlanUnsignedSchema = z.strictObject({
   policy: WorkflowNodePolicySchema,
   preparationPlanSha256: Sha256Schema,
   publicationKeys: z.array(z.string().min(1).max(512)).max(64),
-  version: z.union([z.literal(NODE_EXECUTION_PLAN_VERSION), z.literal(LEGACY_NODE_EXECUTION_PLAN_VERSION)]),
+  version: z.literal(NODE_EXECUTION_PLAN_VERSION),
 });
 
 export const NodeExecutionPlanSchema = NodeExecutionPlanUnsignedSchema.extend({
@@ -259,7 +259,7 @@ export const RunNodeRecordSchema = z.strictObject({
   preparationPlan: NodePreparationPlanSchema.optional(),
   startedAt: TimestampSchema.optional(),
   status: RunNodeStatusSchema,
-  version: z.union([z.literal(RUN_NODE_VERSION), z.literal(LEGACY_RUN_NODE_VERSION)]),
+  version: z.literal(RUN_NODE_VERSION),
 }).superRefine((record, context) => {
   const terminal = [
     "ambiguous",
@@ -360,7 +360,7 @@ export const RunEventSchema = z.strictObject({
   runId: RunIdSchema,
   sequence: PositiveSafeIntegerSchema,
   timestamp: TimestampSchema,
-  version: z.union([z.literal(RUN_EVENT_VERSION), z.literal(LEGACY_RUN_EVENT_VERSION)]),
+  version: z.literal(RUN_EVENT_VERSION),
 });
 
 export type RunEvent = z.infer<typeof RunEventSchema>;
@@ -372,7 +372,7 @@ const GrantBaseSchema = z.strictObject({
   grantedBy: OwnerSchema,
   grantId: z.string().uuid(),
   runId: RunIdSchema,
-  version: z.union([z.literal(RUN_GRANT_VERSION), z.literal(LEGACY_RUN_GRANT_VERSION)]),
+  version: z.literal(RUN_GRANT_VERSION),
 });
 
 export const RunGrantSchema = z.discriminatedUnion("kind", [
@@ -411,7 +411,7 @@ export const CancellationRequestSchema = z.strictObject({
   requestedAt: TimestampSchema,
   requestedBy: OwnerSchema,
   runId: RunIdSchema,
-  version: z.union([z.literal(RUN_STORE_VERSION), z.literal(LEGACY_RUN_STORE_VERSION)]),
+  version: z.literal(RUN_STORE_VERSION),
 });
 
 export type CancellationRequest = z.infer<typeof CancellationRequestSchema>;
@@ -431,7 +431,7 @@ export const RunSummarySchema = z.strictObject({
   startedAt: TimestampSchema.optional(),
   status: RunStatusSchema,
   updatedAt: TimestampSchema,
-  version: z.union([z.literal(RUN_STORE_VERSION), z.literal(LEGACY_RUN_STORE_VERSION)]),
+  version: z.literal(RUN_STORE_VERSION),
 });
 
 export type RunSummary = z.infer<typeof RunSummarySchema>;
@@ -442,7 +442,7 @@ export const RunOutputsSchema = z.strictObject({
   outputs: JsonValueSchema,
   outputsSha256: Sha256Schema,
   runId: RunIdSchema,
-  version: z.union([z.literal(RUN_OUTPUTS_VERSION), z.literal(LEGACY_RUN_OUTPUTS_VERSION)]),
+  version: z.literal(RUN_OUTPUTS_VERSION),
 });
 
 export type RunOutputs = z.infer<typeof RunOutputsSchema>;

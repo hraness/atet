@@ -343,7 +343,7 @@ async function projectMetadata(
     if (asset?.source.kind !== "recording") {
       throw new ApplicationError(
         "conflict",
-        `Placement ${placement.placementId} is not backed by a Atet recording with window and input metadata.`,
+        `Placement ${placement.placementId} is not backed by an Atet recording with window and input metadata.`,
       );
     }
     const recording = await openRecording(artifactRoot, asset.source.recordingId);
@@ -702,7 +702,7 @@ async function publishProjectCaptionArtifacts(
 
 export const projectRenderPlanOperationDefinition = {
   inputSchema: ProjectRenderPlanInputSchema,
-  inputSchemaId: "studio.operation.render.project-plan.input/v1",
+  inputSchemaId: "atet.operation.render.project-plan.input/v1",
   kind: "render.project-plan",
   lifecycle: {
     kind: "local-artifact",
@@ -761,7 +761,7 @@ export const projectRenderPlanOperationDefinition = {
     },
   },
   outputSchema: ProjectRenderPlanOutputSchema,
-  outputSchemaId: "studio.operation.render.project-plan.output/v1",
+  outputSchemaId: "atet.operation.render.project-plan.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,
@@ -796,7 +796,7 @@ export const projectRenderPlanOperationDefinition = {
 
 export const projectRenderPlanOperationDefinitionV2 = {
   inputSchema: ProjectRenderPlanInputV2Schema,
-  inputSchemaId: "studio.operation.render.project-plan.input/v2",
+  inputSchemaId: "atet.operation.render.project-plan.input/v2",
   kind: "render.project-plan",
   lifecycle: {
     kind: "local-artifact",
@@ -905,7 +905,7 @@ export const projectRenderPlanOperationDefinitionV2 = {
     },
   },
   outputSchema: ProjectRenderPlanOutputSchema,
-  outputSchemaId: "studio.operation.render.project-plan.output/v2",
+  outputSchemaId: "atet.operation.render.project-plan.output/v2",
   policy: {
     cache: "content-addressed",
     cancellable: true,

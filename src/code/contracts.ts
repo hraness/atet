@@ -1,11 +1,16 @@
 import { z } from "zod"
 
-export const WORKFLOW_GRAPH_VERSION = "studio-workflow-graph-v2" as const
-export const WORKFLOW_REF_VERSION = "studio-workflow-ref-v1" as const
-export const GRAPH_ABI = "studio-workflow-graph-abi-v2" as const
-export const REQUIREMENT_ENVELOPE_VERSION = "studio-requirement-envelope-v2" as const
+export const WORKFLOW_GRAPH_VERSION = "atet-workflow-graph-v2" as const
+export const WORKFLOW_REF_VERSION = "atet-workflow-ref-v1" as const
+export const GRAPH_ABI = "atet-workflow-graph-abi-v2" as const
+export const REQUIREMENT_ENVELOPE_VERSION = "atet-requirement-envelope-v2" as const
 export const TRUSTED_COMPUTE_VERSION = 1 as const
 export const WORKFLOW_COMPILATION_VERSION = "atet-workflow-compilation-v1" as const
+export const LEGACY_WORKFLOW_GRAPH_VERSION = "studio-workflow-graph-v2" as const
+export const LEGACY_WORKFLOW_REF_VERSION = "studio-workflow-ref-v1" as const
+export const LEGACY_GRAPH_ABI = "studio-workflow-graph-abi-v2" as const
+export const LEGACY_REQUIREMENT_ENVELOPE_VERSION =
+  "studio-requirement-envelope-v2" as const
 export const LEGACY_WORKFLOW_COMPILATION_VERSION = "transmute-workflow-compilation-v1" as const
 
 export const MAX_SERIALIZED_GRAPH_NODES = 4_096
@@ -82,7 +87,10 @@ export const SerializedRefV1Schema = z.strictObject({
       .optional(),
     schemaId: SchemaIdSchema,
   }),
-  version: z.literal(WORKFLOW_REF_VERSION),
+  version: z.union([
+    z.literal(WORKFLOW_REF_VERSION),
+    z.literal(LEGACY_WORKFLOW_REF_VERSION),
+  ]),
 })
 
 export type SerializedRefV1 = z.infer<typeof SerializedRefV1Schema>
@@ -218,7 +226,10 @@ export type WorkflowIdentity = z.infer<typeof WorkflowIdentitySchema>
 export const AuthoredWorkflowGraphV1Schema = z.strictObject({
   nodes: z.array(AuthoredGraphNodeV1Schema).min(1).max(MAX_SERIALIZED_GRAPH_NODES),
   outputs: WorkflowOutputBindingSchema,
-  version: z.literal(WORKFLOW_GRAPH_VERSION),
+  version: z.union([
+    z.literal(WORKFLOW_GRAPH_VERSION),
+    z.literal(LEGACY_WORKFLOW_GRAPH_VERSION),
+  ]),
   workflow: WorkflowIdentitySchema,
 })
 
@@ -452,7 +463,10 @@ export const RequirementEnvelopeSchema = z.strictObject({
     .max(WORKFLOW_RESUME_CLASSES.length),
   unresolved: z.array(z.enum(UNRESOLVED_REQUIREMENT_KINDS))
     .max(UNRESOLVED_REQUIREMENT_KINDS.length),
-  version: z.literal(REQUIREMENT_ENVELOPE_VERSION),
+  version: z.union([
+    z.literal(REQUIREMENT_ENVELOPE_VERSION),
+    z.literal(LEGACY_REQUIREMENT_ENVELOPE_VERSION),
+  ]),
 })
 export type RequirementEnvelope = z.infer<typeof RequirementEnvelopeSchema>
 
@@ -493,6 +507,9 @@ export interface OperationContract<Input, Output> {
 }
 
 export const TRUSTED_COMPUTE_BRAND: unique symbol = Symbol.for(
+  "atet.trusted-compute-definition",
+) as never
+export const LEGACY_TRUSTED_COMPUTE_BRAND: unique symbol = Symbol.for(
   "studio.trusted-compute-definition",
 ) as never
 
@@ -530,7 +547,7 @@ export type OperationInputValue<Value> =
   )
 
 export const WORKFLOW_REF_BRAND: unique symbol = Symbol.for(
-  "studio.workflow-ref",
+  "atet.workflow-ref",
 ) as never
 
 interface RefIdentity<Value> {

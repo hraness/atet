@@ -126,7 +126,7 @@ export function createFacesOperationDefinition(
     }));
   return {
     inputSchema: FacesOperationInputSchema,
-    inputSchemaId: "studio.operation.analysis.faces.input/v1",
+    inputSchemaId: "atet.operation.analysis.faces.input/v1",
     kind: "analysis.faces",
     lifecycle: {
       kind: "local-artifact",
@@ -202,16 +202,16 @@ export function createFacesOperationDefinition(
           tracks: analyzed.analysis.tracks.length,
         });
         await writeOperationCompletionCheckpoint(context, {
-          inputSchemaId: "studio.operation.analysis.faces.input/v1",
+          inputSchemaId: "atet.operation.analysis.faces.input/v1",
           kind: "analysis.faces",
-          outputSchemaId: "studio.operation.analysis.faces.output/v1",
+          outputSchemaId: "atet.operation.analysis.faces.output/v1",
           version: 1,
         }, output);
         return output;
       },
     },
     outputSchema: FacesOperationOutputSchema,
-    outputSchemaId: "studio.operation.analysis.faces.output/v1",
+    outputSchemaId: "atet.operation.analysis.faces.output/v1",
     policy: {
       cache: "none",
       cancellable: true,

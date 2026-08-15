@@ -60,7 +60,7 @@ export const CreativeSelectionInputSchema = z.strictObject({
 export const creativeSelection = defineWorkflow({
   id: "creative-selection",
   inputSchema: CreativeSelectionInputSchema,
-  inputSchemaId: "studio.workflow.creative-selection.input/v1",
+  inputSchemaId: "atet.workflow.creative-selection.input/v1",
   version: 1,
   build(workflow, input) {
     const matrix = workflow.iteration.matrixFromReference(input.matrix);

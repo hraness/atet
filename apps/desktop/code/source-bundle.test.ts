@@ -626,16 +626,52 @@ export default {
     const root = await temporaryDirectory();
     await writeFile(
       join(root, "workflow.ts"),
-      `import { seconds } from "@hraness/transmute/local/code";
-import { GRAPH_ABI } from "@hraness/transmute/local/code/advanced";
+      `import {
+  TransmuteCodeError,
+  asTransmuteCodeError,
+  seconds,
+  transmuteCodeErrorMessage,
+} from "@hraness/transmute/local/code";
+import type { TransmuteCodeErrorCode } from "@hraness/transmute/local/code";
+import {
+  GRAPH_ABI,
+  PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
+  PORTABLE_TRANSMUTE_OPERATION_KINDS,
+  PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION,
+  createTransmuteCodeHost,
+} from "@hraness/transmute/local/code/advanced";
+import type {
+  PortableTransmuteOperationInputMap,
+  PortableTransmuteOperationKind,
+  PortableTransmuteOperationResultMap,
+  TransmuteCodeHost,
+} from "@hraness/transmute/local/code/advanced";
 import type { BuiltInWorkflow } from "@hraness/transmute/local/code/workflows";
 import { HTML_OVERLAY_SCHEMA_VERSION } from "@hraness/transmute/local/html-overlay";
 
+const legacyCode: TransmuteCodeErrorCode = "internal";
+const legacyError = asTransmuteCodeError(
+  new TransmuteCodeError(legacyCode, "legacy source import"),
+);
+type LegacyAdvancedTypes = [
+  PortableTransmuteOperationInputMap,
+  PortableTransmuteOperationKind,
+  PortableTransmuteOperationResultMap,
+  TransmuteCodeHost,
+];
+const legacyTypes = undefined as LegacyAdvancedTypes | undefined;
+
 export default {
   builtIn: undefined as BuiltInWorkflow | undefined,
+  contracts: PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
+  createHost: createTransmuteCodeHost,
   graphAbi: GRAPH_ABI,
+  kinds: PORTABLE_TRANSMUTE_OPERATION_KINDS,
+  legacyError: transmuteCodeErrorMessage(legacyError),
+  legacyTypes,
   overlaySchemaVersion: HTML_OVERLAY_SCHEMA_VERSION,
   oneSecondUs: seconds(1),
+  projection: PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION,
 };
 `,
       { mode: 0o600 },

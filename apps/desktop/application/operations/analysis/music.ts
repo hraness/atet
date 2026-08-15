@@ -129,7 +129,7 @@ export function createMusicOperationDefinition(
   const toolVersion = resolveToolVersion(dependencies);
   return {
     inputSchema: MusicOperationInputSchema,
-    inputSchemaId: "studio.operation.analysis.music.input/v1",
+    inputSchemaId: "atet.operation.analysis.music.input/v1",
     kind: "analysis.music",
     lifecycle: {
       kind: "local-artifact",
@@ -206,16 +206,16 @@ export function createMusicOperationDefinition(
           tempoRegions: analyzed.analysis.tempoRegions.length,
         });
         await writeOperationCompletionCheckpoint(context, {
-          inputSchemaId: "studio.operation.analysis.music.input/v1",
+          inputSchemaId: "atet.operation.analysis.music.input/v1",
           kind: "analysis.music",
-          outputSchemaId: "studio.operation.analysis.music.output/v1",
+          outputSchemaId: "atet.operation.analysis.music.output/v1",
           version: 1,
         }, output);
         return output;
       },
     },
     outputSchema: MusicOperationOutputSchema,
-    outputSchemaId: "studio.operation.analysis.music.output/v1",
+    outputSchemaId: "atet.operation.analysis.music.output/v1",
     policy: {
       cache: "none",
       cancellable: true,

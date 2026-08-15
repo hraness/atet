@@ -611,8 +611,8 @@ function normalizePolicy(policy: WorkflowNodePolicy): WorkflowNodePolicy {
 function normalizeDiscovery(discovery: OperationDiscovery): OperationDiscovery {
   return {
     ...discovery,
-    inputSchemaId: discovery.inputSchemaId.replace(/^transmute\./u, "atet."),
-    outputSchemaId: discovery.outputSchemaId.replace(/^transmute\./u, "atet."),
+    inputSchemaId: discovery.inputSchemaId.replace(/^(?:studio|transmute)\./u, "atet."),
+    outputSchemaId: discovery.outputSchemaId.replace(/^(?:studio|transmute)\./u, "atet."),
     policy: OperationPolicySchema.parse(normalizePolicy(discovery.policy)),
   };
 }

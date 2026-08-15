@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   AuthoredWorkflowGraphV1Schema,
   GRAPH_ABI,
+  LEGACY_GRAPH_ABI,
   GraphCompilerLimitsSchema,
   JsonValueSchema,
   MAX_SERIALIZED_GRAPH_NODES,
@@ -94,7 +95,7 @@ export const WorkflowRuntimeIdentitySchema = z.strictObject({
   compilerAbi: z.union([z.literal(GRAPH_COMPILER_ABI), z.literal(LEGACY_GRAPH_COMPILER_ABI)]),
   codeWorkerAbi: z.union([z.literal(CODE_WORKER_ABI), z.literal(LEGACY_CODE_WORKER_ABI)]),
   externals: ExternalsPolicyIdentitySchema,
-  graphAbi: z.literal(GRAPH_ABI),
+  graphAbi: z.union([z.literal(GRAPH_ABI), z.literal(LEGACY_GRAPH_ABI)]),
   schedulerAbi: z.union([z.literal(GRAPH_SCHEDULER_ABI), z.literal(LEGACY_GRAPH_SCHEDULER_ABI)]),
 });
 

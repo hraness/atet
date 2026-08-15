@@ -872,9 +872,9 @@ describe("application node planner", () => {
           operation: { kind: "project.snapshot", version: 1 },
         },
         input: { project: "project_example" },
-        inputSchemaId: "studio.operation.project.snapshot.input/v1",
+        inputSchemaId: "atet.operation.project.snapshot.input/v1",
         key: "project",
-        outputSchemaId: "studio.operation.project.snapshot.output/v1",
+        outputSchemaId: "atet.operation.project.snapshot.output/v1",
       },
       operation: {
         kind: "project.snapshot",

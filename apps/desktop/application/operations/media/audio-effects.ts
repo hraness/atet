@@ -259,7 +259,7 @@ export function createMediaAudioEffectsOperationDefinition(
     }).renderAudio(options));
   return {
     inputSchema: MediaAudioEffectsInputSchema,
-    inputSchemaId: "studio.operation.media.audio-effects.input/v1",
+    inputSchemaId: "atet.operation.media.audio-effects.input/v1",
     kind: "media.audio-effects",
     lifecycle: {
       kind: "local-artifact",
@@ -378,10 +378,10 @@ export function createMediaAudioEffectsOperationDefinition(
           });
           await writeOperationCompletionCheckpoint(context, {
             inputSchemaId:
-              "studio.operation.media.audio-effects.input/v1",
+              "atet.operation.media.audio-effects.input/v1",
             kind: "media.audio-effects",
             outputSchemaId:
-              "studio.operation.media.audio-effects.output/v1",
+              "atet.operation.media.audio-effects.output/v1",
             version: 1,
           }, output);
           return output;
@@ -391,7 +391,7 @@ export function createMediaAudioEffectsOperationDefinition(
       },
     },
     outputSchema: MediaAudioEffectsOutputSchema,
-    outputSchemaId: "studio.operation.media.audio-effects.output/v1",
+    outputSchemaId: "atet.operation.media.audio-effects.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

@@ -278,9 +278,9 @@ describe("workflow file candidate provenance", () => {
           operation: { kind: "project.snapshot", version: 1 },
         },
         input: { project: fixtureProject.project.projectId },
-        inputSchemaId: "studio.operation.project.snapshot.input/v1",
+        inputSchemaId: "atet.operation.project.snapshot.input/v1",
         key: "project",
-        outputSchemaId: "studio.operation.project.snapshot.output/v1",
+        outputSchemaId: "atet.operation.project.snapshot.output/v1",
       };
       const projectOutput = {
         currentPlan: initial.plan,
@@ -359,9 +359,9 @@ describe("workflow file candidate provenance", () => {
           operation: { kind: "gateway.image", version: 1 },
         },
         input: {},
-        inputSchemaId: "studio.operation.gateway.image.input/v1",
+        inputSchemaId: "atet.operation.gateway.image.input/v1",
         key: "image",
-        outputSchemaId: "studio.operation.gateway.image.output/v1",
+        outputSchemaId: "atet.operation.gateway.image.output/v1",
       };
       const gatewayInput = {
         ...input,
@@ -480,9 +480,9 @@ describe("workflow file candidate provenance", () => {
           operation: { kind: "project.snapshot", version: 1 },
         },
         input: { project: fixtureProject.project.projectId },
-        inputSchemaId: "studio.operation.project.snapshot.input/v1",
+        inputSchemaId: "atet.operation.project.snapshot.input/v1",
         key: "project",
-        outputSchemaId: "studio.operation.project.snapshot.output/v1",
+        outputSchemaId: "atet.operation.project.snapshot.output/v1",
       };
       const node = {
         dependencies: ["project"],
@@ -583,9 +583,9 @@ describe("workflow file candidate provenance", () => {
           operation: { kind: "gateway.image", version: 1 },
         },
         input: {},
-        inputSchemaId: "studio.operation.gateway.image.input/v1",
+        inputSchemaId: "atet.operation.gateway.image.input/v1",
         key: "image",
-        outputSchemaId: "studio.operation.gateway.image.output/v1",
+        outputSchemaId: "atet.operation.gateway.image.output/v1",
       };
       const gatewayInput = {
         ...input,

@@ -153,7 +153,7 @@ export function createMediaIngestOperationDefinition(
   const executeIngest = dependencies.ingest ?? ingestProjectMedia;
   return {
     inputSchema: MediaIngestInputSchema,
-    inputSchemaId: "studio.operation.media.ingest.input/v1",
+    inputSchemaId: "atet.operation.media.ingest.input/v1",
     kind: "media.ingest",
     lifecycle: {
       kind: "local-artifact",
@@ -246,9 +246,9 @@ export function createMediaIngestOperationDefinition(
             receipt,
           });
           await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId: "studio.operation.media.ingest.input/v1",
+            inputSchemaId: "atet.operation.media.ingest.input/v1",
             kind: "media.ingest",
-            outputSchemaId: "studio.operation.media.ingest.output/v1",
+            outputSchemaId: "atet.operation.media.ingest.output/v1",
             version: 1,
           }, output);
           return output;
@@ -258,7 +258,7 @@ export function createMediaIngestOperationDefinition(
       },
     },
     outputSchema: MediaIngestOutputSchema,
-    outputSchemaId: "studio.operation.media.ingest.output/v1",
+    outputSchemaId: "atet.operation.media.ingest.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,
