@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { main as runAtetCliInProcess } from "./cli.ts"
@@ -77,6 +77,21 @@ describe("Atet CLI", () => {
       expect(help.stdout).toContain(command)
     }
     expect(help.stdout).not.toContain("atet auth")
+  })
+
+  test("initializes diagrams against the canonical v2 schema", async () => {
+    const root = await mkdtemp(join(tmpdir(), "atet-cli-init-"))
+    try {
+      const result = await runCli(["diagram", "init", "system.diagram.json"], root)
+      expect(result.exitCode).toBe(0)
+      expect(result.stderr).toBe("")
+      const diagram = JSON.parse(await readFile(join(root, "system.diagram.json"), "utf8"))
+      expect(diagram.$schema).toBe(
+        "https://raw.githubusercontent.com/hraness/atet/v2.0.0/schema/diagram.schema.json",
+      )
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   test("searches the canonical registry as bounded JSON", async () => {
