@@ -27,6 +27,7 @@ import {
   type HelperProbe,
   probeCaptureHelper,
   RecordingService,
+  resolveRecordingArtifactDirectory,
   resolveGatewayRepositoryRoot,
 } from "./recording-service";
 
@@ -365,6 +366,21 @@ async function waitFor(
 }
 
 describe("recording runtime service", () => {
+  test("reuses one predecessor artifact namespace and rejects a split workspace", async () => {
+    const root = await repository();
+    await mkdir(join(root, "artifacts", "transmute"), { recursive: true });
+    expect(await resolveRecordingArtifactDirectory(
+      root,
+      "artifacts/atet/recordings",
+    )).toBe(join(root, "artifacts", "transmute", "recordings"));
+
+    await mkdir(join(root, "artifacts", "atet"), { recursive: true });
+    await expect(resolveRecordingArtifactDirectory(
+      root,
+      "artifacts/atet/recordings",
+    )).rejects.toThrow("Both artifacts/atet and artifacts/transmute exist")
+  });
+
   test("runs the native capability probe with concurrent bounded output and a deadline", async () => {
     const calls: Array<{
       readonly argv: readonly string[];

@@ -11,6 +11,22 @@ async function isDirectory(path: string): Promise<boolean> {
   }
 }
 
+async function physicalArtifactNamespaceExists(path: string): Promise<boolean> {
+  try {
+    const details = await lstat(path);
+    if (details.isSymbolicLink() || !details.isDirectory()) {
+      throw new CliError(
+        "unsafe-path",
+        `Artifact namespace must be a physical directory: ${path}`,
+      );
+    }
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}
+
 async function isFile(path: string): Promise<boolean> {
   try {
     return (await lstat(path)).isFile();
@@ -34,7 +50,7 @@ export async function discoverRepositoryRoot(start: string): Promise<string> {
   }
   throw new CliError(
     "not-found",
-    `Could not find a Atet checkout from ${resolve(start)} (expected package.json and apps/desktop).`,
+    `Could not find an Atet checkout from ${resolve(start)} (expected package.json and apps/desktop).`,
   );
 }
 
@@ -249,8 +265,8 @@ export async function resolveRepositoryPaths(
   }
   const repositoryRoot = await realpath(requestedRoot);
   const [hasAtetArtifacts, hasTransmuteArtifacts] = await Promise.all([
-    isDirectory(join(repositoryRoot, "artifacts", "atet")),
-    isDirectory(join(repositoryRoot, "artifacts", "transmute")),
+    physicalArtifactNamespaceExists(join(repositoryRoot, "artifacts", "atet")),
+    physicalArtifactNamespaceExists(join(repositoryRoot, "artifacts", "transmute")),
   ]);
   if (hasAtetArtifacts && hasTransmuteArtifacts) {
     throw new CliError(

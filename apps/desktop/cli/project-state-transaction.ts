@@ -14,6 +14,7 @@ import {
 import {
   canonicalJson,
   canonicalJsonSha256,
+  canonicalAtetPersistenceDocument,
   hashProjectStructure,
   loadProjectEditPlan,
   loadVideoProject,
@@ -142,7 +143,10 @@ function validateGeneration(input: ProjectGeneration, label: string): ProjectGen
   if (plan.projectStructureSha256 !== hashProjectStructure(project)) {
     throw new CliError("invalid-data", `${label} project state has an edit plan for another structure generation.`);
   }
-  return { plan, project };
+  return {
+    plan: canonicalAtetPersistenceDocument(plan),
+    project: canonicalAtetPersistenceDocument(project),
+  };
 }
 
 function referenceFor(
@@ -190,7 +194,10 @@ async function writeTransaction(
   fileSystem: BundleFileSystem,
   transaction: ProjectStateTransactionV1,
 ): Promise<void> {
-  const parsed = ProjectStateTransactionV1Schema.parse(transaction);
+  const parsed = ProjectStateTransactionV1Schema.parse({
+    ...transaction,
+    kind: "atet.project-state-transaction",
+  });
   await fileSystem.writeTextAtomic(PROJECT_STATE_TRANSACTION_PATH, `${canonicalJson(parsed)}\n`);
 }
 
@@ -208,17 +215,29 @@ async function loadGeneration(
   reference: z.infer<typeof GenerationReferenceSchema>,
   label: string,
 ): Promise<ProjectGeneration> {
-  const generation = validateGeneration({
-    plan: await loadProjectEditPlan(fileSystem, reference.plan.path),
-    project: await loadVideoProject(fileSystem, reference.project.path),
-  }, label);
+  const [rawPlanText, rawProjectText] = await Promise.all([
+    fileSystem.readText(reference.plan.path),
+    fileSystem.readText(reference.project.path),
+  ]);
+  let rawGeneration: ProjectGeneration;
+  try {
+    rawGeneration = {
+      plan: ProjectEditPlanV1Schema.parse(JSON.parse(rawPlanText) as unknown),
+      project: VideoProjectV1Schema.parse(JSON.parse(rawProjectText) as unknown),
+    };
+  } catch {
+    throw new CliError(
+      "invalid-data",
+      `${label} project transaction generation is not valid structured state.`,
+    );
+  }
   if (
-    canonicalJsonSha256(generation.plan) !== reference.plan.sha256
-    || canonicalJsonSha256(generation.project) !== reference.project.sha256
+    canonicalJsonSha256(rawGeneration.plan) !== reference.plan.sha256
+    || canonicalJsonSha256(rawGeneration.project) !== reference.project.sha256
   ) {
     throw new CliError("invalid-data", `${label} project transaction generation failed its integrity check.`);
   }
-  return generation;
+  return validateGeneration(rawGeneration, label);
 }
 
 export async function loadProjectStateTransactionSettlement(
@@ -242,33 +261,36 @@ export async function loadProjectStateTransactionSettlement(
       `Project transaction settlement ${transactionId} is not valid JSON.`,
     );
   }
-  const settlement = ProjectStateTransactionSettlementV1Schema.parse(value);
-  if (settlement.transactionId !== TransactionIdSchema.parse(transactionId)) {
+  const rawSettlement = ProjectStateTransactionSettlementV1Schema.parse(value);
+  if (rawSettlement.transactionId !== TransactionIdSchema.parse(transactionId)) {
     throw new CliError(
       "invalid-data",
       `Project transaction settlement path does not match ${transactionId}.`,
     );
   }
-  if (text !== `${canonicalJson(settlement)}\n`) {
+  if (text !== `${canonicalJson(rawSettlement)}\n`) {
     throw new CliError(
       "invalid-data",
       `Project transaction settlement ${transactionId} is not canonical immutable JSON.`,
     );
   }
   const [before, after] = await Promise.all([
-    loadGeneration(fileSystem, settlement.before, `before ${transactionId}`),
-    loadGeneration(fileSystem, settlement.after, `after ${transactionId}`),
+    loadGeneration(fileSystem, rawSettlement.before, `before ${transactionId}`),
+    loadGeneration(fileSystem, rawSettlement.after, `after ${transactionId}`),
   ]);
   if (
-    before.project.projectId !== settlement.projectId
-    || after.project.projectId !== settlement.projectId
+    before.project.projectId !== rawSettlement.projectId
+    || after.project.projectId !== rawSettlement.projectId
   ) {
     throw new CliError(
       "invalid-data",
       `Project transaction settlement ${transactionId} references another project.`,
     );
   }
-  return settlement;
+  return ProjectStateTransactionSettlementV1Schema.parse({
+    ...rawSettlement,
+    kind: "atet.project-state-transaction-settlement",
+  });
 }
 
 async function publishTransactionSettlement(
@@ -302,9 +324,14 @@ async function publishTransactionSettlement(
     project: await loadVideoProject(fileSystem),
   }, "Settled current");
   const active = transaction[transaction.active];
+  const activeGeneration = await loadGeneration(
+    fileSystem,
+    active,
+    `settled active ${transaction.transactionId}`,
+  );
   if (
-    canonicalJsonSha256(current.plan) !== active.plan.sha256
-    || canonicalJsonSha256(current.project) !== active.project.sha256
+    canonicalJsonSha256(current.plan) !== canonicalJsonSha256(activeGeneration.plan)
+    || canonicalJsonSha256(current.project) !== canonicalJsonSha256(activeGeneration.project)
   ) {
     throw new CliError(
       "invalid-data",
@@ -345,7 +372,7 @@ function transactionWithPhase(
   return ProjectStateTransactionV1Schema.parse({
     after: transaction.after,
     before: transaction.before,
-    kind: transaction.kind,
+    kind: "atet.project-state-transaction",
     phase,
     projectId: transaction.projectId,
     schemaVersion: transaction.schemaVersion,
@@ -361,7 +388,7 @@ function settledTransaction(
     after: transaction.after,
     before: transaction.before,
     active,
-    kind: transaction.kind,
+    kind: "atet.project-state-transaction",
     phase: "settled",
     projectId: transaction.projectId,
     schemaVersion: transaction.schemaVersion,
@@ -414,7 +441,7 @@ export async function commitProjectStateTransaction(options: {
   readonly before: ProjectGeneration;
   readonly fileSystem: BundleFileSystem;
   readonly transactionId?: string;
-}): Promise<void> {
+}): Promise<ProjectGeneration> {
   const before = validateGeneration(options.before, "Prior");
   const after = validateGeneration(options.after, "Next");
   if (before.project.projectId !== after.project.projectId) {
@@ -481,4 +508,5 @@ export async function commitProjectStateTransaction(options: {
     }
     if (!commitReady) throw error;
   }
+  return after;
 }

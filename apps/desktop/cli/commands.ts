@@ -46,6 +46,7 @@ import {
   addZoom,
   buildProjectOutputTimeMap,
   buildSourceTimeMap,
+  canonicalAtetPersistenceDocument,
   canonicalJson,
   compileProjectRenderPlan,
   compileRenderPlan,
@@ -291,7 +292,7 @@ import {
   workflowRunStore,
 } from "./workflow-runs";
 
-export const ATET_VERSION = "1.0.0";
+export const ATET_VERSION = "2.0.0";
 
 // Legacy direct renders predate per-target output contracts. Keep them
 // bounded generously enough for long-form production while preventing one
@@ -789,9 +790,10 @@ async function persistMutation(
   json: boolean,
   io: CliIo,
 ): Promise<void> {
+  const persistedPlan = canonicalAtetPersistenceDocument(plan);
   await ensurePrivateDirectory(join(recording.directory.path, "edits"));
-  await saveEditPlan(recording.fileSystem, plan, CURRENT_EDIT_PLAN_PATH);
-  const receipt = mutationReceipt(recording, operation, plan);
+  await saveEditPlan(recording.fileSystem, persistedPlan, CURRENT_EDIT_PLAN_PATH);
+  const receipt = mutationReceipt(recording, operation, persistedPlan);
   writeValue(io, json, receipt, () => `${operation} ${plan.planId} ${String(receipt.planHash)}`);
 }
 
@@ -1151,7 +1153,9 @@ async function handleEdit(context: CommandContext, command: Extract<CliCommand, 
             .reduce((total, slice) => total + slice.output.endUs - slice.output.startUs, 0),
         );
         try {
-          next = addOverlay(plan, prepared.operation, timestamp);
+          next = canonicalAtetPersistenceDocument(
+            addOverlay(plan, prepared.operation, timestamp),
+          );
           await ensurePrivateDirectory(join(recording.directory.path, "edits"));
           await saveEditPlan(recording.fileSystem, next, CURRENT_EDIT_PLAN_PATH);
         } catch (error) {
@@ -1380,6 +1384,7 @@ async function handleRecordingInactivity(
         ? cutPlan(next, range, context.io.now().toISOString())
         : setSpeed(next, range, command.speedRate, context.io.now().toISOString());
     }
+    next = canonicalAtetPersistenceDocument(next);
     await ensurePrivateDirectory(join(recording.directory.path, "edits"));
     await saveEditPlan(recording.fileSystem, next, CURRENT_EDIT_PLAN_PATH);
   }
@@ -1450,7 +1455,7 @@ async function handleProjectInactivity(
     if (application.status === "rejected") {
       throw new CliError("conflict", `Inactivity application was rejected: ${application.reason}`, application);
     }
-    next = application.plan;
+    next = canonicalAtetPersistenceDocument(application.plan);
     await saveProjectEditPlan(project.fileSystem, next);
   }
   const output = {
@@ -1511,6 +1516,7 @@ async function handleAutomaticZooms(
       updatedAt: context.io.now().toISOString(),
       zooms: [...plan.zooms.filter(({ kind }) => kind !== "automatic"), ...suggestions],
     });
+    next = canonicalAtetPersistenceDocument(next);
     await ensurePrivateDirectory(join(recording.directory.path, "edits"));
     await saveEditPlan(recording.fileSystem, next, CURRENT_EDIT_PLAN_PATH);
   }
@@ -1991,6 +1997,7 @@ async function handleProjectCameraEdit(
   if (editedMove === undefined) {
     throw new CliError("internal", "Camera edit completed without a bounded mutation receipt.");
   }
+  next = canonicalAtetPersistenceDocument(next);
   const planHash = hashProjectEditPlan(next);
   const nextCommands = projectCameraNextCommands(
     project.project.projectId,
@@ -2039,7 +2046,7 @@ async function projectMetadataContext(
   if (asset?.source.kind !== "recording") {
     throw new CliError(
       "conflict",
-      `Placement ${placement.placementId} is not backed by a Atet recording with window and input metadata.`,
+      `Placement ${placement.placementId} is not backed by an Atet recording with window and input metadata.`,
     );
   }
   const recording = await openRecording(context.paths.artifactRoot, asset.source.recordingId);
@@ -2222,7 +2229,9 @@ async function handleProjectMetadataEdit(
                 }
               : { enabled: false },
           };
-  const next = normalizeProjectEditPlan({ ...plan, effects, updatedAt: timestamp });
+  const next = canonicalAtetPersistenceDocument(
+    normalizeProjectEditPlan({ ...plan, effects, updatedAt: timestamp }),
+  );
   await saveProjectEditPlan(project.fileSystem, next);
   const receipt = {
     effects: next.effects,
@@ -2277,6 +2286,7 @@ async function handleProjectOverlayEdit(
         updatedAt: timestamp,
       });
     }
+    next = canonicalAtetPersistenceDocument(next);
     await saveProjectEditPlan(project.fileSystem, next);
   } catch (error) {
     await rollback?.();
@@ -2519,12 +2529,16 @@ async function persistAppliedAlignment(
   });
   const priorPlan = await loadCurrentProjectPlan(project);
   const nextPlan = rebaseProjectEditPlan(project.project, nextProject, priorPlan, timestamp);
-  await commitProjectStateTransaction({
+  const persisted = await commitProjectStateTransaction({
     after: { plan: nextPlan, project: nextProject },
     before: { plan: priorPlan, project: analysisProject },
     fileSystem: project.fileSystem,
   });
-  return { application, planHash: hashProjectEditPlan(nextPlan), project: nextProject };
+  return {
+    application,
+    planHash: hashProjectEditPlan(persisted.plan),
+    project: persisted.project,
+  };
 }
 
 async function handleAlignAnalyze(
@@ -2579,7 +2593,7 @@ async function handleAlignAnalyze(
   const analysisPath = projectAnalysisPath("alignment", analysis.analysisId);
   await saveAnalysisArtifact(project.fileSystem, analysis, analysisPath);
   const firstCandidate = analysis.result.status === "no-match" ? undefined : analysis.result.candidates[0];
-  const analysisProject = VideoProjectV1Schema.parse({
+  const analysisProject = canonicalAtetPersistenceDocument(VideoProjectV1Schema.parse({
     ...project.project,
     analyses: [
       ...project.project.analyses.filter(existing => existing.analysisId !== analysis.analysisId),
@@ -2596,7 +2610,7 @@ async function handleAlignAnalyze(
       },
     ],
     updatedAt: timestamp,
-  });
+  }));
   await saveVideoProject(project.fileSystem, analysisProject);
 
   let application: Awaited<ReturnType<typeof persistAppliedAlignment>> | null = null;
@@ -2824,14 +2838,14 @@ async function handleSceneAnalysis(
     sha256: sha256Hex(`${canonicalJson(result.analysis)}\n`),
     streamIds: result.analysis.subjects.map(item => item.streamId),
   };
-  const nextProject = VideoProjectV1Schema.parse({
+  const nextProject = canonicalAtetPersistenceDocument(VideoProjectV1Schema.parse({
     ...project.project,
     analyses: [
       ...project.project.analyses.filter(existing => existing.analysisId !== reference.analysisId),
       reference,
     ],
     updatedAt: timestamp,
-  });
+  }));
   await saveVideoProject(project.fileSystem, nextProject);
   const failed = result.analysis.batches.filter(batch => batch.state === "failed" || batch.state === "ambiguous");
   const output = {
@@ -3244,11 +3258,11 @@ async function handleFillersApply(
   const current = await loadCurrentProjectPlan(project);
   const timestamp = context.io.now().toISOString();
   const cut = cutProjectPlan(project.project, current, projection.derivation.projectRange, timestamp);
-  const next = normalizeProjectEditPlan({
+  const next = canonicalAtetPersistenceDocument(normalizeProjectEditPlan({
     ...cut,
     derivations: [...cut.derivations, projection.derivation],
     updatedAt: timestamp,
-  });
+  }));
   await saveProjectEditPlan(project.fileSystem, next);
   const output = {
     candidateId: command.candidate,

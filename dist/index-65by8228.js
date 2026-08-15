@@ -1,14 +1,14 @@
 // @bun
 import {
   vectorizeImage
-} from "./index-vdtz0dng.js";
+} from "./index-7jg2r2mc.js";
 import {
-  generateTransmuteImageFile,
-  transmuteMaximumPromptBytes
-} from "./index-4daanrct.js";
+  atetMaximumPromptBytes,
+  generateAtetImageFile
+} from "./index-41988ev7.js";
 import {
   createDefaultHostResourceCoordinator
-} from "./index-eq77wsng.js";
+} from "./index-64bhbap5.js";
 
 // src/operations.ts
 import { randomUUID } from "crypto";
@@ -1482,18 +1482,27 @@ function serializeTldr(spec, config) {
 `;
 }
 // src/operations.ts
+var atetOperationCodes = [
+  "atet.diagram.check",
+  "atet.diagram.render",
+  "atet.image.vectorize",
+  "atet.image.generate"
+];
 var transmuteOperationCodes = [
   "transmute.diagram.check",
   "transmute.diagram.render",
   "transmute.image.vectorize",
   "transmute.image.generate"
 ];
+function canonicalAtetOperationCode(code) {
+  return code.replace(/^transmute\./u, "atet.");
+}
 
-class TransmuteOperationError extends Error {
+class AtetOperationError extends Error {
   code;
   constructor(code, message) {
     super(`[${code}] ${message}`);
-    this.name = "TransmuteOperationError";
+    this.name = "AtetOperationError";
     this.code = code;
   }
 }
@@ -1516,11 +1525,11 @@ function deepFreeze(value) {
     deepFreeze(nested);
   return Object.freeze(value);
 }
-var transmuteOperationRegistry = deepFreeze([
+var atetOperationRegistry = deepFreeze([
   {
-    code: "transmute.diagram.check",
+    code: "atet.diagram.check",
     title: "Check diagram",
-    description: "Parse and lint a checked Transmute diagram source without changing its files.",
+    description: "Parse and lint a checked Atet diagram source without changing its files.",
     execution: "local",
     authentication: "none",
     destructive: false,
@@ -1537,9 +1546,9 @@ var transmuteOperationRegistry = deepFreeze([
     ]
   },
   {
-    code: "transmute.diagram.render",
+    code: "atet.diagram.render",
     title: "Render diagram",
-    description: "Render a checked Transmute diagram source to its replaceable light, dark, PNG, SVG, and tldraw artifacts.",
+    description: "Render a checked Atet diagram source to its replaceable light, dark, PNG, SVG, and tldraw artifacts.",
     execution: "local",
     authentication: "none",
     destructive: true,
@@ -1564,7 +1573,7 @@ var transmuteOperationRegistry = deepFreeze([
     ]
   },
   {
-    code: "transmute.image.vectorize",
+    code: "atet.image.vectorize",
     title: "Vectorize image",
     description: "Convert a local caller-owned raster into a bounded inert SVG without authentication or network access.",
     execution: "local",
@@ -1597,7 +1606,7 @@ var transmuteOperationRegistry = deepFreeze([
     ]
   },
   {
-    code: "transmute.image.generate",
+    code: "atet.image.generate",
     title: "Generate image",
     description: "Generate one bounded image directly through Vercel AI Gateway with an environment credential and no client retry.",
     execution: "gateway",
@@ -1613,7 +1622,7 @@ var transmuteOperationRegistry = deepFreeze([
         prompt: {
           type: "string",
           minLength: 1,
-          maxLength: transmuteMaximumPromptBytes
+          maxLength: atetMaximumPromptBytes
         },
         outputPath: pathSchema
       }
@@ -1632,7 +1641,7 @@ var transmuteOperationRegistry = deepFreeze([
   }
 ]);
 function operationFailure(message) {
-  throw new TransmuteOperationError("INVALID_OPERATION_INPUT", message);
+  throw new AtetOperationError("INVALID_OPERATION_INPUT", message);
 }
 function isRecord2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -1706,8 +1715,8 @@ function parseGenerate(value) {
   if (typeof input.model !== "string" || input.model.length > 256 || !/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/iu.test(input.model)) {
     operationFailure("model must be a bounded Vercel AI Gateway provider/model id.");
   }
-  if (typeof input.prompt !== "string" || input.prompt.trim().length < 1 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(input.prompt) || Buffer.byteLength(input.prompt, "utf8") > transmuteMaximumPromptBytes) {
-    operationFailure(`prompt must be non-empty and no more than ${transmuteMaximumPromptBytes} UTF-8 bytes.`);
+  if (typeof input.prompt !== "string" || input.prompt.trim().length < 1 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(input.prompt) || Buffer.byteLength(input.prompt, "utf8") > atetMaximumPromptBytes) {
+    operationFailure(`prompt must be non-empty and no more than ${atetMaximumPromptBytes} UTF-8 bytes.`);
   }
   const outputPath = pathValue(input.outputPath, "outputPath");
   if (!/\.(?:jpe?g|png|webp)$/iu.test(outputPath)) {
@@ -1719,36 +1728,39 @@ function parseGenerate(value) {
     outputPath
   };
 }
-function parseTransmuteOperationInput(code, input) {
+function parseAtetOperationInput(code, input) {
   switch (code) {
-    case "transmute.diagram.check":
+    case "atet.diagram.check":
       return parseCheck(input);
-    case "transmute.diagram.render":
+    case "atet.diagram.render":
       return parseRender(input);
-    case "transmute.image.vectorize":
+    case "atet.image.vectorize":
       return parseVectorize(input);
-    case "transmute.image.generate":
+    case "atet.image.generate":
       return parseGenerate(input);
     default:
-      throw new TransmuteOperationError("INVALID_OPERATION", "Unknown Transmute operation code.");
+      throw new AtetOperationError("INVALID_OPERATION", "Unknown Atet operation code.");
   }
+}
+function isAtetOperationCode(value) {
+  return atetOperationCodes.includes(value);
 }
 function isTransmuteOperationCode(value) {
   return transmuteOperationCodes.includes(value);
 }
-function transmuteOperationHostResourceClaims(code) {
-  const descriptor = transmuteOperationRegistry.find((candidate) => candidate.code === code);
+function atetOperationHostResourceClaims(code) {
+  const descriptor = atetOperationRegistry.find((candidate) => candidate.code === code);
   if (descriptor === undefined) {
-    throw new TransmuteOperationError("INVALID_OPERATION", "Unknown Transmute operation code.");
+    throw new AtetOperationError("INVALID_OPERATION", "Unknown Atet operation code.");
   }
   return descriptor.resources;
 }
-function searchTransmuteOperations(query = "", limit = transmuteOperationRegistry.length) {
+function searchAtetOperations(query = "", limit = atetOperationRegistry.length) {
   if (typeof query !== "string" || query.length > 200 || /[\u0000-\u001f\u007f]/u.test(query) || !Number.isInteger(limit) || limit < 1 || limit > 20) {
-    throw new TransmuteOperationError("INVALID_SEARCH", "Search requires a bounded query and a limit from 1 through 20.");
+    throw new AtetOperationError("INVALID_SEARCH", "Search requires a bounded query and a limit from 1 through 20.");
   }
   const terms = query.toLowerCase().split(/\s+/u).filter((term) => term.length > 0);
-  return transmuteOperationRegistry.filter((operation) => {
+  return atetOperationRegistry.filter((operation) => {
     const haystack = `${operation.code} ${operation.title} ${operation.description}`.toLowerCase();
     return terms.every((term) => haystack.includes(term));
   }).slice(0, limit);
@@ -1759,7 +1771,7 @@ function operationDependenciesWithLease(dependencies, lease) {
     lease.inheritedFileDescriptor
   ].filter((descriptor, index, descriptors) => descriptors.indexOf(descriptor) === index);
   if (inheritedFileDescriptors.length > 16 || inheritedFileDescriptors.some((descriptor) => !Number.isSafeInteger(descriptor) || descriptor < 0 || descriptor > 2147483647)) {
-    throw new TransmuteOperationError("INVALID_OPERATION_INPUT", "Operation host-resource inheritance exceeds its descriptor bound.");
+    throw new AtetOperationError("INVALID_OPERATION_INPUT", "Operation host-resource inheritance exceeds its descriptor bound.");
   }
   const {
     hostResourceCoordinator: _hostResourceCoordinator,
@@ -1772,9 +1784,9 @@ function operationDependenciesWithLease(dependencies, lease) {
     inheritedFileDescriptors
   };
 }
-async function withTransmuteOperationHostAdmission(code, callback, options = {}) {
+async function withAtetOperationHostAdmission(code, callback, options = {}) {
   const coordinator = options.hostResourceCoordinator ?? createDefaultHostResourceCoordinator();
-  return await coordinator.withLease(transmuteOperationHostResourceClaims(code), async (lease) => {
+  return await coordinator.withLease(atetOperationHostResourceClaims(code), async (lease) => {
     await lease.assertOwned();
     return await callback(lease);
   }, {
@@ -1791,18 +1803,18 @@ async function readOperationDiagram(path) {
   try {
     value = JSON.parse(await readFile2(absolutePath, "utf8"));
   } catch (cause) {
-    throw new TransmuteOperationError("INVALID_OPERATION_INPUT", "Diagram source could not be read as JSON.");
+    throw new AtetOperationError("INVALID_OPERATION_INPUT", "Diagram source could not be read as JSON.");
   }
   const spec = parseDiagramSpec(value);
   for (const shape of spec.shapes) {
     if ((shape.type === "rect" || shape.type === "ellipse") && shape.icon !== undefined && !Object.hasOwn(builtInIcons, shape.icon)) {
-      throw new TransmuteOperationError("INVALID_OPERATION_INPUT", "Diagram requests an unavailable built-in icon.");
+      throw new AtetOperationError("INVALID_OPERATION_INPUT", "Diagram requests an unavailable built-in icon.");
     }
   }
   return { absolutePath, spec };
 }
 async function atomicOperationWrite(path, value) {
-  const temporaryPath = join(dirname(path), `.${randomUUID()}.transmute-operation.tmp`);
+  const temporaryPath = join(dirname(path), `.${randomUUID()}.atet-operation.tmp`);
   try {
     await writeFile(temporaryPath, value, { flag: "wx" });
     await rename(temporaryPath, path);
@@ -1853,18 +1865,18 @@ async function renderOperationDiagram(input) {
     configPath: null
   };
 }
-async function executeTransmuteOperationUncoordinated(code, value, dependencies = {}) {
-  const input = parseTransmuteOperationInput(code, value);
+async function executeAtetOperationUncoordinated(code, value, dependencies = {}) {
+  const input = parseAtetOperationInput(code, value);
   switch (code) {
-    case "transmute.diagram.check": {
+    case "atet.diagram.check": {
       const options = input;
       return await checkOperationDiagram(options.path);
     }
-    case "transmute.diagram.render": {
+    case "atet.diagram.render": {
       const options = input;
       return await renderOperationDiagram(options);
     }
-    case "transmute.image.vectorize": {
+    case "atet.image.vectorize": {
       const options = input;
       const result = await vectorizeImage(options.inputPath, {
         outputPath: options.outputPath,
@@ -1876,46 +1888,70 @@ async function executeTransmuteOperationUncoordinated(code, value, dependencies 
         }
       });
       if (result.outputPath === null) {
-        throw new TransmuteOperationError("INVALID_OPERATION_INPUT", "Vectorization did not publish its required output.");
+        throw new AtetOperationError("INVALID_OPERATION_INPUT", "Vectorization did not publish its required output.");
       }
       return {
         outputPath: result.outputPath,
         receipt: result.receipt
       };
     }
-    case "transmute.image.generate": {
+    case "atet.image.generate": {
       const options = input;
-      return await generateTransmuteImageFile({
+      return await generateAtetImageFile({
         ...options,
         ...dependencies.signal === undefined ? {} : { signal: dependencies.signal }
       }, dependencies);
     }
     default:
-      throw new TransmuteOperationError("INVALID_OPERATION", "Unknown Transmute operation code.");
+      throw new AtetOperationError("INVALID_OPERATION", "Unknown Atet operation code.");
   }
 }
-async function executeTransmuteOperationWithLease(code, value, lease, dependencies = {}) {
+async function executeAtetOperationWithLease(code, value, lease, dependencies = {}) {
   await lease.assertOwned();
   const available = new Map;
   for (const claim of lease.claims) {
     if (typeof claim.resource !== "string" || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(claim.resource) || !Number.isSafeInteger(claim.amount) || claim.amount < 1) {
-      throw new TransmuteOperationError("INVALID_OPERATION", "The active host-resource lease contains invalid claims.");
+      throw new AtetOperationError("INVALID_OPERATION", "The active host-resource lease contains invalid claims.");
     }
     const total = (available.get(claim.resource) ?? 0) + claim.amount;
     if (!Number.isSafeInteger(total)) {
-      throw new TransmuteOperationError("INVALID_OPERATION", "The active host-resource lease contains invalid claims.");
+      throw new AtetOperationError("INVALID_OPERATION", "The active host-resource lease contains invalid claims.");
     }
     available.set(claim.resource, total);
   }
-  const missing = transmuteOperationHostResourceClaims(code).filter((claim) => (available.get(claim.resource) ?? 0) < claim.amount);
+  const missing = atetOperationHostResourceClaims(code).filter((claim) => (available.get(claim.resource) ?? 0) < claim.amount);
   if (missing.length > 0) {
-    throw new TransmuteOperationError("INVALID_OPERATION", `The active host-resource lease does not cover ${missing.map((claim) => `${claim.resource}:${String(claim.amount)}`).join(", ")}.`);
+    throw new AtetOperationError("INVALID_OPERATION", `The active host-resource lease does not cover ${missing.map((claim) => `${claim.resource}:${String(claim.amount)}`).join(", ")}.`);
   }
-  return await executeTransmuteOperationUncoordinated(code, value, operationDependenciesWithLease(dependencies, lease));
+  return await executeAtetOperationUncoordinated(code, value, operationDependenciesWithLease(dependencies, lease));
+}
+async function executeAtetOperation(code, value, dependencies = {}) {
+  const input = parseAtetOperationInput(code, value);
+  return await withAtetOperationHostAdmission(code, async (lease) => await executeAtetOperationUncoordinated(code, input, operationDependenciesWithLease(dependencies, lease)), dependencies);
+}
+var transmuteOperationRegistry = Object.freeze(atetOperationRegistry.map((descriptor) => Object.freeze({
+  ...descriptor,
+  code: descriptor.code.replace(/^atet\./u, "transmute.")
+})));
+function parseTransmuteOperationInput(code, input) {
+  return parseAtetOperationInput(canonicalAtetOperationCode(code), input);
+}
+function transmuteOperationHostResourceClaims(code) {
+  return atetOperationHostResourceClaims(canonicalAtetOperationCode(code));
+}
+function searchTransmuteOperations(query = "", limit = transmuteOperationRegistry.length) {
+  const normalized = query.replace(/\btransmute\./gu, "atet.");
+  const matches = new Set(searchAtetOperations(normalized, limit).map((item) => item.code));
+  return transmuteOperationRegistry.filter((item) => matches.has(canonicalAtetOperationCode(item.code))).slice(0, limit);
+}
+async function withTransmuteOperationHostAdmission(code, callback, options = {}) {
+  return await withAtetOperationHostAdmission(canonicalAtetOperationCode(code), callback, options);
+}
+async function executeTransmuteOperationWithLease(code, value, lease, dependencies = {}) {
+  return await executeAtetOperationWithLease(canonicalAtetOperationCode(code), value, lease, dependencies);
 }
 async function executeTransmuteOperation(code, value, dependencies = {}) {
-  const input = parseTransmuteOperationInput(code, value);
-  return await withTransmuteOperationHostAdmission(code, async (lease) => await executeTransmuteOperationUncoordinated(code, input, operationDependenciesWithLease(dependencies, lease)), dependencies);
+  return await executeAtetOperation(canonicalAtetOperationCode(code), value, dependencies);
 }
 
-export { builtInIcons, sanitizeIcon, resolveEdge, renderSvg, renderPng, lintDiagram, stackLayoutDefaults, StackLayoutError, resolveStackLayout, resolveDiagramSource, DiagramValidationError, parseDiagramSource, parseDiagramSpec, serializeTldr, transmuteOperationCodes, TransmuteOperationError, transmuteOperationRegistry, parseTransmuteOperationInput, isTransmuteOperationCode, transmuteOperationHostResourceClaims, searchTransmuteOperations, withTransmuteOperationHostAdmission, executeTransmuteOperationWithLease, executeTransmuteOperation };
+export { builtInIcons, sanitizeIcon, resolveEdge, renderSvg, renderPng, lintDiagram, stackLayoutDefaults, StackLayoutError, resolveStackLayout, resolveDiagramSource, DiagramValidationError, parseDiagramSource, parseDiagramSpec, serializeTldr, atetOperationCodes, transmuteOperationCodes, AtetOperationError, atetOperationRegistry, parseAtetOperationInput, isAtetOperationCode, isTransmuteOperationCode, atetOperationHostResourceClaims, searchAtetOperations, withAtetOperationHostAdmission, executeAtetOperationWithLease, executeAtetOperation, transmuteOperationRegistry, parseTransmuteOperationInput, transmuteOperationHostResourceClaims, searchTransmuteOperations, withTransmuteOperationHostAdmission, executeTransmuteOperationWithLease, executeTransmuteOperation };

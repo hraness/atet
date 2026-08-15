@@ -14,7 +14,7 @@ import { HostResponseSchema } from "./src/host-protocol";
 
 const desktopRoot = resolve(import.meta.dir, "..");
 const packageRoot = join(desktopRoot, "zig-out", "package");
-export const macOSAppPath = join(packageRoot, "atet-1.0.0-macos-ReleaseFast.app");
+export const macOSAppPath = join(packageRoot, "atet-2.0.0-macos-ReleaseFast.app");
 
 type RuntimeManifest = Readonly<{
   capture: Readonly<{ name: "atet-capture"; sha256: string }>;

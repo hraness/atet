@@ -214,7 +214,7 @@ async function computeApplicationBuildIdentity(options: {
     hash.update(bytes);
     hash.update("\0");
   }
-  return `transmute/${hash.digest("hex")}`;
+  return `atet/${hash.digest("hex")}`;
 }
 
 export async function createApplicationBuildIdentity(options: {
@@ -276,7 +276,7 @@ export async function createHostApplicationBuildIdentity(
       .sort((left, right) => left.name.localeCompare(right.name))
       .map(executableIdentity),
   );
-  return `transmute/${sha256Hex(
+  return `atet/${sha256Hex(
     `${HOST_APPLICATION_BUILD_DOMAIN}\0${canonicalJson({
       capabilities: executableBindings,
       sourceBuild,

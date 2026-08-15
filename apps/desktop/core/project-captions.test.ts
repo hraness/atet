@@ -24,6 +24,7 @@ import {
   type ProjectCaptionOutput,
 } from "./project-captions";
 import { createDefaultProjectEditPlan } from "./project-plan";
+import { loadAnalysisArtifact } from "./storage";
 import { buildProjectOutputTimeMap } from "./project-time";
 
 const NOW = "2026-07-31T12:00:00.000Z";
@@ -220,6 +221,34 @@ function compile(fixture: ReturnType<typeof captionFixture>) {
 }
 
 describe("project caption timing", () => {
+  test("verifies and consumes a predecessor speech artifact without rewriting its hashed identity", async () => {
+    const fixture = captionFixture({
+      durationUs: 1_000_000,
+      words: [{ endUs: 500_000, startUs: 100_000, text: "Light" }],
+    });
+    const predecessor = SpeechAnalysisV1Schema.parse({
+      ...fixture.analysis,
+      kind: "transmute.speech-analysis",
+    });
+    const contents = `${canonicalJson(predecessor)}\n`;
+    const loaded = SpeechAnalysisV1Schema.parse(await loadAnalysisArtifact({
+      readText: async () => contents,
+      writeTextAtomic: async () => {
+        throw new Error("The immutable predecessor fixture must not be rewritten.");
+      },
+    }, "analysis/speech.json"));
+    const project = VideoProjectV1Schema.parse({
+      ...fixture.project,
+      analyses: fixture.project.analyses.map(reference => ({
+        ...reference,
+        sha256: sha256Hex(contents),
+      })),
+    });
+
+    expect(loaded.kind).toBe("transmute.speech-analysis");
+    expect(compile({ ...fixture, analysis: loaded, project })[0]?.lines).toEqual(["Light"]);
+  });
+
   test("maps words through a project cut and speed change", () => {
     const fixture = captionFixture({
       durationUs: 6_000_000,

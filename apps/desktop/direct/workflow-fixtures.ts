@@ -37,10 +37,10 @@ const RUN_PATH = `artifacts/atet/private/workflow-runs/${RUN_ID}`;
  */
 export const DIRECT_WORKFLOW_OPERATION_DISCOVERY = [
   {
-    inputSchemaId: "studio.operation.analysis.faces.input/v1",
+    inputSchemaId: "atet.operation.analysis.faces.input/v1",
     kind: "analysis.faces",
     lifecycle: "local-artifact",
-    outputSchemaId: "studio.operation.analysis.faces.output/v1",
+    outputSchemaId: "atet.operation.analysis.faces.output/v1",
     policy: {
       cache: "none",
       cancellable: true,
@@ -60,10 +60,10 @@ export const DIRECT_WORKFLOW_OPERATION_DISCOVERY = [
     version: 1,
   },
   {
-    inputSchemaId: "studio.operation.analysis.music.input/v1",
+    inputSchemaId: "atet.operation.analysis.music.input/v1",
     kind: "analysis.music",
     lifecycle: "local-artifact",
-    outputSchemaId: "studio.operation.analysis.music.output/v1",
+    outputSchemaId: "atet.operation.analysis.music.output/v1",
     policy: {
       cache: "none",
       cancellable: true,
@@ -83,10 +83,10 @@ export const DIRECT_WORKFLOW_OPERATION_DISCOVERY = [
     version: 1,
   },
   {
-    inputSchemaId: "studio.operation.analysis.project-inactivity.input/v1",
+    inputSchemaId: "atet.operation.analysis.project-inactivity.input/v1",
     kind: "analysis.project-inactivity",
     lifecycle: "local-artifact",
-    outputSchemaId: "studio.operation.analysis.project-inactivity.output/v1",
+    outputSchemaId: "atet.operation.analysis.project-inactivity.output/v1",
     policy: {
       cache: "none",
       cancellable: true,
@@ -106,10 +106,10 @@ export const DIRECT_WORKFLOW_OPERATION_DISCOVERY = [
     version: 1,
   },
   {
-    inputSchemaId: "studio.operation.derive.edit-batch.input/v1",
+    inputSchemaId: "atet.operation.derive.edit-batch.input/v1",
     kind: "derive.edit-batch",
     lifecycle: "pure",
-    outputSchemaId: "studio.operation.derive.edit-batch.output/v1",
+    outputSchemaId: "atet.operation.derive.edit-batch.output/v1",
     policy: {
       cache: "content-addressed",
       cancellable: true,
@@ -125,10 +125,10 @@ export const DIRECT_WORKFLOW_OPERATION_DISCOVERY = [
     version: 1,
   },
   {
-    inputSchemaId: "studio.operation.derive.edit-batch.input/v2",
+    inputSchemaId: "atet.operation.derive.edit-batch.input/v2",
     kind: "derive.edit-batch",
     lifecycle: "pure",
-    outputSchemaId: "studio.operation.derive.edit-batch.output/v2",
+    outputSchemaId: "atet.operation.derive.edit-batch.output/v2",
     policy: {
       cache: "content-addressed",
       cancellable: true,
@@ -144,10 +144,10 @@ export const DIRECT_WORKFLOW_OPERATION_DISCOVERY = [
     version: 2,
   },
   {
-    inputSchemaId: "studio.operation.derive.edit-batch.input/v3",
+    inputSchemaId: "atet.operation.derive.edit-batch.input/v3",
     kind: "derive.edit-batch",
     lifecycle: "pure",
-    outputSchemaId: "studio.operation.derive.edit-batch.output/v3",
+    outputSchemaId: "atet.operation.derive.edit-batch.output/v3",
     policy: {
       cache: "content-addressed",
       cancellable: true,
@@ -163,10 +163,10 @@ export const DIRECT_WORKFLOW_OPERATION_DISCOVERY = [
     version: 3,
   },
   {
-    inputSchemaId: "studio.operation.project.snapshot.input/v1",
+    inputSchemaId: "atet.operation.project.snapshot.input/v1",
     kind: "project.snapshot",
     lifecycle: "local-artifact",
-    outputSchemaId: "studio.operation.project.snapshot.output/v1",
+    outputSchemaId: "atet.operation.project.snapshot.output/v1",
     policy: {
       cache: "none",
       cancellable: true,
@@ -251,13 +251,13 @@ const selectCuts = defineCompute({
     inactivity: z.unknown(),
     music: z.unknown(),
   }),
-  inputSchemaId: "studio.direct.select-cuts.input/v1",
+  inputSchemaId: "atet.direct.select-cuts.input/v1",
   key: "direct.select-cuts",
   maxDurationMs: 2_000,
   maxInputBytes: 256 * 1_024,
   maxOutputBytes: 32 * 1_024,
   outputSchema: SelectCutsOutputSchema,
-  outputSchemaId: "studio.direct.select-cuts.output/v1",
+  outputSchemaId: "atet.direct.select-cuts.output/v1",
   run: () => ({
     cutRanges: [{ endUs: 9_000_000, startUs: 4_000_000 }],
   }),
@@ -300,7 +300,7 @@ const workflowFixture = defineWorkflow({
     musicSource: z.string().min(1).max(256),
     project: z.string().regex(/^project_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
   }),
-  inputSchemaId: "studio.direct.code-mode.input/v1",
+  inputSchemaId: "atet.direct.code-mode.input/v1",
   version: 1,
 });
 

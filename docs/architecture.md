@@ -1,6 +1,6 @@
 # Architecture
 
-Transmute turns source material into visual assets. Its public model has three
+Atet turns source material into visual assets. Its public model has three
 primitives:
 
 - a still frame;
@@ -14,8 +14,8 @@ than separate project types.
 
 ## One engine
 
-`@hraness/transmute` contains the portable graph, workflow, diagram, render,
-vectorization, and operation contracts. `@hraness/transmute/local/*` adds the
+`@hraness/atet` contains the portable graph, workflow, diagram, render,
+vectorization, and operation contracts. `@hraness/atet/local/*` adds the
 durable project store, media pipeline, renderer, scheduler, and native capture
 adapters. The command-line interface uses both layers.
 
@@ -82,7 +82,7 @@ only after its complete output and receipt have been written atomically.
 ## Network boundary
 
 Local files, project state, recordings, and rendered assets remain local.
-Model-backed operations call Vercel AI Gateway directly. Transmute reads an
+Model-backed operations call Vercel AI Gateway directly. Atet reads an
 `AI_GATEWAY_API_KEY` supplied to the process, or a short-lived
 `VERCEL_OIDC_TOKEN` when it runs in a linked Vercel environment. It has no user
 database, account service, hosted session, subscription system, or remote state
@@ -93,7 +93,7 @@ local invocation is:
 
 ```sh
 vercel link
-vercel env run -- transmute image generate "a polished metallic monogram" \
+vercel env run -- atet image generate "a polished metallic monogram" \
   --output monogram.webp
 ```
 

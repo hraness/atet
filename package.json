@@ -1,7 +1,7 @@
 {
   "name": "@hraness/atet",
   "version": "2.0.0",
-  "description": "Open-source TypeScript SDK, Bun CLI, and local runtime for turning ideas and raw assets into images, diagrams, animated loops, and video.",
+  "description": "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
@@ -230,7 +230,7 @@
     "check:sdk": "bun run typecheck:sdk && bun run lint:sdk && bun run build:sdk && bun run test:sdk && bun run check:release-workflows && bun run check:schema && bun run check:skill",
     "check:desktop": "bun run typecheck:desktop && bun run lint:desktop && bun run test:desktop && bun run build:desktop",
     "check:web": "bun run --cwd apps/web check",
-    "check": "bun run check:standalone && bun run check:sdk && bun run check:desktop && bun run check:web && bun run test:package",
+    "check": "bun run check:standalone && bun run check:sdk && bun run check:desktop && bun run check:web && bun run check:standalone && bun run test:package",
     "prepack": "bun run check"
   },
   "dependencies": {

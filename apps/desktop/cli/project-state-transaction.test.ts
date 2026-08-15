@@ -79,7 +79,7 @@ function fixtureProject(durationUs = 10_000_000): VideoProjectV1 {
     }],
     createdAt: NOW,
     currentEditPlanPath: "edits/current.json",
-    kind: "studio.video-project",
+    kind: "atet.video-project",
     name: "Fixture",
     placements: [{
       assetId: "asset_fixture01",
@@ -175,6 +175,53 @@ test("commits a structural project and edit-plan generation together", async () 
       kind: "studio.project-state-transaction",
     }).kind).toBe("studio.project-state-transaction");
     await assertProjectStateTransactionSettled(fileSystem);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("first mutation of predecessor project state receipts the saved Atet generation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-legacy-"));
+  try {
+    const fileSystem = createNodeBundleFileSystem(root);
+    const beforeProject = VideoProjectV1Schema.parse({
+      ...fixtureProject(),
+      kind: "studio.video-project",
+    });
+    const beforePlan = ProjectEditPlanV1Schema.parse({
+      ...fixturePlan(beforeProject),
+      kind: "studio.project-edit-plan",
+    });
+    await fileSystem.writeTextAtomic("project.json", `${canonicalJson(beforeProject)}\n`);
+    await fileSystem.writeTextAtomic("edits/current.json", `${canonicalJson(beforePlan)}\n`);
+    const afterProject = VideoProjectV1Schema.parse({
+      ...beforeProject,
+      name: "First Atet mutation",
+      updatedAt: "2026-07-22T12:02:00.000Z",
+    });
+    const afterPlan = ProjectEditPlanV1Schema.parse({
+      ...beforePlan,
+      updatedAt: afterProject.updatedAt,
+    });
+    const installed = await commitProjectStateTransaction({
+      after: { plan: afterPlan, project: afterProject },
+      before: { plan: beforePlan, project: beforeProject },
+      fileSystem,
+      transactionId: "transaction_14141414141414141414141414141414",
+    });
+
+    const [savedPlan, savedProject] = await Promise.all([
+      loadProjectEditPlan(fileSystem),
+      loadVideoProject(fileSystem),
+    ]);
+    const transaction = ProjectStateTransactionV1Schema.parse(JSON.parse(
+      await fileSystem.readText(PROJECT_STATE_TRANSACTION_PATH),
+    ) as unknown);
+    expect(savedPlan.kind).toBe("atet.project-edit-plan");
+    expect(savedProject.kind).toBe("atet.video-project");
+    expect(installed).toEqual({ plan: savedPlan, project: savedProject });
+    expect(transaction.after.plan.sha256).toBe(canonicalJsonSha256(savedPlan));
+    expect(transaction.after.project.sha256).toBe(canonicalJsonSha256(savedProject));
   } finally {
     await rm(root, { force: true, recursive: true });
   }
@@ -288,13 +335,19 @@ test("marks a failed commit-ready settlement as ambiguous and preserves roll-for
   }
 });
 
-test("rolls an interrupted prepare generation back before readers can proceed", async () => {
+test("authenticates a predecessor prepare generation before canonical rollback", async () => {
   const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-recover-"));
   try {
     const fileSystem = createNodeBundleFileSystem(root);
     const transactionId = "transaction_22222222222222222222222222222222";
-    const beforeProject = fixtureProject();
-    const beforePlan = fixturePlan(beforeProject);
+    const beforeProject = VideoProjectV1Schema.parse({
+      ...fixtureProject(),
+      kind: "transmute.video-project",
+    });
+    const beforePlan = ProjectEditPlanV1Schema.parse({
+      ...fixturePlan(beforeProject),
+      kind: "transmute.project-edit-plan",
+    });
     const afterProject = VideoProjectV1Schema.parse({
       ...beforeProject,
       name: "Interrupted next generation",
@@ -303,16 +356,28 @@ test("rolls an interrupted prepare generation back before readers can proceed", 
     const afterPlan = ProjectEditPlanV1Schema.parse({ ...beforePlan, updatedAt: afterProject.updatedAt });
     const before = generationReference(transactionId, "before", beforeProject, beforePlan);
     const after = generationReference(transactionId, "after", afterProject, afterPlan);
-    await saveVideoProject(fileSystem, beforeProject, before.project.path);
-    await saveProjectEditPlan(fileSystem, beforePlan, before.plan.path);
-    await saveVideoProject(fileSystem, afterProject, after.project.path);
-    await saveProjectEditPlan(fileSystem, afterPlan, after.plan.path);
-    await saveVideoProject(fileSystem, beforeProject);
-    await saveProjectEditPlan(fileSystem, afterPlan);
+    await fileSystem.writeTextAtomic(
+      before.project.path,
+      `${canonicalJson(beforeProject)}\n`,
+    );
+    await fileSystem.writeTextAtomic(
+      before.plan.path,
+      `${canonicalJson(beforePlan)}\n`,
+    );
+    await fileSystem.writeTextAtomic(
+      after.project.path,
+      `${canonicalJson(afterProject)}\n`,
+    );
+    await fileSystem.writeTextAtomic(
+      after.plan.path,
+      `${canonicalJson(afterPlan)}\n`,
+    );
+    await fileSystem.writeTextAtomic("project.json", `${canonicalJson(beforeProject)}\n`);
+    await fileSystem.writeTextAtomic("edits/current.json", `${canonicalJson(afterPlan)}\n`);
     await fileSystem.writeTextAtomic(PROJECT_STATE_TRANSACTION_PATH, `${canonicalJson(ProjectStateTransactionV1Schema.parse({
       after,
       before,
-      kind: "atet.project-state-transaction",
+      kind: "studio.project-state-transaction",
       phase: "prepare",
       projectId: beforeProject.projectId,
       schemaVersion: 1,
@@ -323,8 +388,17 @@ test("rolls an interrupted prepare generation back before readers can proceed", 
     expect(blocked).toBeInstanceOf(CliError);
     expect(blocked).toMatchObject({ code: "conflict" });
     expect(await recoverProjectStateTransaction(fileSystem)).toBe("rolled-back");
-    expect(await loadVideoProject(fileSystem)).toEqual(beforeProject);
-    expect(await loadProjectEditPlan(fileSystem)).toEqual(beforePlan);
+    expect(await loadVideoProject(fileSystem)).toEqual({
+      ...beforeProject,
+      kind: "atet.video-project",
+    });
+    expect(await loadProjectEditPlan(fileSystem)).toEqual({
+      ...beforePlan,
+      kind: "atet.project-edit-plan",
+    });
+    expect(ProjectStateTransactionV1Schema.parse(JSON.parse(
+      await fileSystem.readText(PROJECT_STATE_TRANSACTION_PATH),
+    ) as unknown).kind).toBe("atet.project-state-transaction");
   } finally {
     await rm(root, { force: true, recursive: true });
   }

@@ -19,6 +19,7 @@ import {
 } from "../contracts";
 import {
   associateFaceDetections,
+  canonicalAtetPersistenceDocument,
   canonicalJson,
   canonicalJsonSha256,
   saveAnalysisArtifact,
@@ -690,11 +691,13 @@ export async function analyzeAndPersistProjectFaces(
     project: options.project.project,
     updatedAt: analyzed.analysis.createdAt,
   });
-  await saveVideoProject(options.project.fileSystem, update.project);
+  const project = canonicalAtetPersistenceDocument(update.project);
+  await saveVideoProject(options.project.fileSystem, project);
   return {
     ...analyzed,
     analysisPath: published.analysisPath,
     ...update,
+    project,
   };
 }
 

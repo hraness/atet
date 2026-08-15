@@ -9,37 +9,37 @@ import { link, rm, writeFile } from "fs/promises";
 import { dirname, extname, resolve } from "path";
 
 // src/cloud-errors.ts
-class TransmuteCloudError extends Error {
+class AtetCloudError extends Error {
   code;
   constructor(code, message, options) {
     super(`[${code}] ${message}`, options);
-    this.name = "TransmuteCloudError";
+    this.name = "AtetCloudError";
     this.code = code;
   }
 }
 
 // src/generate.ts
-var transmuteGatewayApiBaseUrl = "https://ai-gateway.vercel.sh/v4/ai";
-var transmuteImageModels = Object.freeze([
+var atetGatewayApiBaseUrl = "https://ai-gateway.vercel.sh/v4/ai";
+var atetImageModels = Object.freeze([
   "openai/gpt-image-1.5",
   "recraft/recraft-v4.1-utility"
 ]);
-var transmuteResponseMediaTypes = Object.freeze([
+var atetResponseMediaTypes = Object.freeze([
   "image/png",
   "image/jpeg",
   "image/webp"
 ]);
-var transmuteMaximumPromptBytes = 32 * 1024;
-var transmuteMaximumRawImageBytes = 64 * 1024 * 1024;
+var atetMaximumPromptBytes = 32 * 1024;
+var atetMaximumRawImageBytes = 64 * 1024 * 1024;
 var defaultGenerationTimeoutMs = 5 * 60000;
 var maximumGenerationTimeoutMs = 30 * 60000;
 var defaultMaximumGatewayResponseBytes = 96 * 1024 * 1024;
 function invalidArgument(message) {
-  throw new TransmuteCloudError("INVALID_ARGUMENT", message);
+  throw new AtetCloudError("INVALID_ARGUMENT", message);
 }
 function credentialValue(value) {
   if (value.length < 16 || value.length > 16 * 1024 || value.trim() !== value || /[^\x21-\x7e]/u.test(value)) {
-    throw new TransmuteCloudError("AUTHENTICATION_REQUIRED", "The selected Vercel AI Gateway credential is invalid.");
+    throw new AtetCloudError("AUTHENTICATION_REQUIRED", "The selected Vercel AI Gateway credential is invalid.");
   }
   return value;
 }
@@ -60,9 +60,9 @@ function resolveGatewayCredential(injected) {
       token: credentialValue(values.VERCEL_OIDC_TOKEN)
     };
   }
-  throw new TransmuteCloudError("AUTHENTICATION_REQUIRED", "Set AI_GATEWAY_API_KEY or run Transmute through `vercel env run -- \u2026` with VERCEL_OIDC_TOKEN available.");
+  throw new AtetCloudError("AUTHENTICATION_REQUIRED", "Set AI_GATEWAY_API_KEY or run Atet through `vercel env run -- \u2026` with VERCEL_OIDC_TOKEN available.");
 }
-function transmuteGatewayCredentialStatus(injected) {
+function atetGatewayCredentialStatus(injected) {
   const values = environment(injected);
   if (values.AI_GATEWAY_API_KEY !== undefined) {
     credentialValue(values.AI_GATEWAY_API_KEY);
@@ -81,8 +81,8 @@ function validateModel(value) {
   return value;
 }
 function validatePrompt(value) {
-  if (typeof value !== "string" || value.trim().length === 0 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value) || Buffer.byteLength(value, "utf8") > transmuteMaximumPromptBytes) {
-    invalidArgument(`Prompt must be non-empty and no more than ${transmuteMaximumPromptBytes} UTF-8 bytes.`);
+  if (typeof value !== "string" || value.trim().length === 0 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value) || Buffer.byteLength(value, "utf8") > atetMaximumPromptBytes) {
+    invalidArgument(`Prompt must be non-empty and no more than ${atetMaximumPromptBytes} UTF-8 bytes.`);
   }
   return value;
 }
@@ -98,7 +98,7 @@ function isObject(value) {
 }
 function parseFunction(value) {
   if (typeof value !== "function") {
-    throw new TransmuteCloudError("GENERATION_FAILED", "The Vercel AI Gateway runtime is unavailable.");
+    throw new AtetCloudError("GENERATION_FAILED", "The Vercel AI Gateway runtime is unavailable.");
   }
   return value;
 }
@@ -107,7 +107,7 @@ function disableAiSdkWarningLogging() {
 }
 function assertGenerationActive(signal) {
   if (signal.aborted) {
-    throw new TransmuteCloudError("GENERATION_FAILED", "Vercel AI Gateway image generation was cancelled or exceeded its deadline.");
+    throw new AtetCloudError("GENERATION_FAILED", "Vercel AI Gateway image generation was cancelled or exceeded its deadline.");
   }
 }
 async function loadDefaultGatewayRuntime() {
@@ -119,21 +119,21 @@ async function loadDefaultGatewayRuntime() {
       import("@ai-sdk/gateway-v4")
     ]);
   } catch {
-    throw new TransmuteCloudError("GENERATION_FAILED", "The Vercel AI Gateway runtime is unavailable.");
+    throw new AtetCloudError("GENERATION_FAILED", "The Vercel AI Gateway runtime is unavailable.");
   }
   if (!isObject(aiModule) || !isObject(gatewayModule)) {
-    throw new TransmuteCloudError("GENERATION_FAILED", "The Vercel AI Gateway runtime is unavailable.");
+    throw new AtetCloudError("GENERATION_FAILED", "The Vercel AI Gateway runtime is unavailable.");
   }
   const generateImage = parseFunction(aiModule.generateImage);
   if (typeof gatewayModule.createGateway !== "function") {
-    throw new TransmuteCloudError("GENERATION_FAILED", "The Vercel AI Gateway runtime is unavailable.");
+    throw new AtetCloudError("GENERATION_FAILED", "The Vercel AI Gateway runtime is unavailable.");
   }
   const createGateway = gatewayModule.createGateway;
   return {
     createGateway: (settings) => {
       const provider = createGateway(settings);
       if (!isObject(provider) || typeof provider.imageModel !== "function") {
-        throw new TransmuteCloudError("GENERATION_FAILED", "The Vercel AI Gateway runtime is unavailable.");
+        throw new AtetCloudError("GENERATION_FAILED", "The Vercel AI Gateway runtime is unavailable.");
       }
       const imageModel = provider.imageModel;
       return { imageModel: (modelId) => imageModel.call(provider, modelId) };
@@ -147,9 +147,9 @@ function gatewayUrl(input) {
       return new URL(input.url);
     if (input instanceof URL)
       return new URL(input.href);
-    return new URL(input, transmuteGatewayApiBaseUrl);
+    return new URL(input, atetGatewayApiBaseUrl);
   } catch {
-    throw new TransmuteCloudError("GENERATION_FAILED", "The Vercel AI Gateway request was rejected.");
+    throw new AtetCloudError("GENERATION_FAILED", "The Vercel AI Gateway request was rejected.");
   }
 }
 function canonicalGatewayInput(input, url) {
@@ -173,7 +173,7 @@ function boundedResponse(response, maximumBytes) {
       response.body?.cancel().catch(() => {
         return;
       });
-      throw new TransmuteCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an invalid bounded response.");
+      throw new AtetCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an invalid bounded response.");
     }
   }
   if (response.body === null)
@@ -195,12 +195,12 @@ function boundedResponse(response, maximumBytes) {
           await reader.cancel().catch(() => {
             return;
           });
-          controller.error(new TransmuteCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an invalid bounded response."));
+          controller.error(new AtetCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an invalid bounded response."));
           return;
         }
         controller.enqueue(next.value);
       } catch {
-        controller.error(new TransmuteCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an invalid bounded response."));
+        controller.error(new AtetCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an invalid bounded response."));
       }
     }
   });
@@ -216,11 +216,11 @@ function createFixedGatewayFetch(options = {}) {
   if (!Number.isSafeInteger(maximumResponseBytes) || maximumResponseBytes < 1 || maximumResponseBytes > 1024 * 1024 * 1024) {
     invalidArgument("maximumResponseBytes is outside the supported range.");
   }
-  const fixed = new URL(transmuteGatewayApiBaseUrl);
+  const fixed = new URL(atetGatewayApiBaseUrl);
   return async (input, init) => {
     const url = gatewayUrl(input);
     if (url.origin !== fixed.origin || url.pathname !== fixed.pathname && !url.pathname.startsWith(`${fixed.pathname}/`) || url.username !== "" || url.password !== "") {
-      throw new TransmuteCloudError("GENERATION_FAILED", "The Vercel AI Gateway request was rejected.");
+      throw new AtetCloudError("GENERATION_FAILED", "The Vercel AI Gateway request was rejected.");
     }
     const canonicalInput = canonicalGatewayInput(input, url);
     let response;
@@ -230,15 +230,15 @@ function createFixedGatewayFetch(options = {}) {
         redirect: "error"
       });
     } catch (error) {
-      if (error instanceof TransmuteCloudError)
+      if (error instanceof AtetCloudError)
         throw error;
-      throw new TransmuteCloudError("GENERATION_FAILED", "Vercel AI Gateway image generation failed; the request was not retried.");
+      throw new AtetCloudError("GENERATION_FAILED", "Vercel AI Gateway image generation failed; the request was not retried.");
     }
     if (response.redirected || response.status >= 300 && response.status < 400) {
       await response.body?.cancel().catch(() => {
         return;
       });
-      throw new TransmuteCloudError("GENERATION_FAILED", "The Vercel AI Gateway request was rejected.");
+      throw new AtetCloudError("GENERATION_FAILED", "The Vercel AI Gateway request was rejected.");
     }
     return boundedResponse(response, maximumResponseBytes);
   };
@@ -251,7 +251,7 @@ function combineSignals(caller, timeoutMs) {
     rejectInterruption = reject;
   });
   const rejectOnAbort = () => {
-    rejectInterruption?.(new TransmuteCloudError("GENERATION_FAILED", "Vercel AI Gateway image generation was cancelled or exceeded its deadline."));
+    rejectInterruption?.(new AtetCloudError("GENERATION_FAILED", "Vercel AI Gateway image generation was cancelled or exceeded its deadline."));
   };
   controller.signal.addEventListener("abort", rejectOnAbort, { once: true });
   if (caller?.aborted === true)
@@ -270,13 +270,13 @@ function combineSignals(caller, timeoutMs) {
   };
 }
 function mediaType(value) {
-  if (typeof value !== "string" || !transmuteResponseMediaTypes.includes(value)) {
-    throw new TransmuteCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an unsupported image type.");
+  if (typeof value !== "string" || !atetResponseMediaTypes.includes(value)) {
+    throw new AtetCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an unsupported image type.");
   }
   return value;
 }
 function validImageBytes(bytes, type) {
-  if (bytes.byteLength < 12 || bytes.byteLength > transmuteMaximumRawImageBytes) {
+  if (bytes.byteLength < 12 || bytes.byteLength > atetMaximumRawImageBytes) {
     return false;
   }
   if (type === "image/png") {
@@ -305,15 +305,15 @@ function warningReceipt(value) {
 }
 function parseResult(value, model) {
   if (!isObject(value) || !Array.isArray(value.images) || value.images.length !== 1) {
-    throw new TransmuteCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway did not return exactly one image.");
+    throw new AtetCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway did not return exactly one image.");
   }
   const image = value.images[0];
   if (!isObject(image) || !(image.uint8Array instanceof Uint8Array)) {
-    throw new TransmuteCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an invalid bounded image.");
+    throw new AtetCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an invalid bounded image.");
   }
   const type = mediaType(image.mediaType);
   if (!validImageBytes(image.uint8Array, type)) {
-    throw new TransmuteCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an invalid bounded image.");
+    throw new AtetCloudError("GENERATION_INVALID_RESPONSE", "Vercel AI Gateway returned an invalid bounded image.");
   }
   const gateway = isObject(value.providerMetadata) && isObject(value.providerMetadata.gateway) ? value.providerMetadata.gateway : undefined;
   const foreignGenerationId = gateway !== undefined && typeof gateway.generationId === "string" && gateway.generationId.length > 0 && gateway.generationId.length <= 256 && !/[\u0000-\u001f\u007f]/u.test(gateway.generationId) ? gateway.generationId : randomUUID();
@@ -346,7 +346,7 @@ async function performGeneration(input, dependencies) {
       assertGenerationActive(timeout.signal);
       const provider = runtime.createGateway({
         apiKey: credential.token,
-        baseURL: transmuteGatewayApiBaseUrl,
+        baseURL: atetGatewayApiBaseUrl,
         fetch: createFixedGatewayFetch({
           ...dependencies.fetch === undefined ? {} : { fetch: dependencies.fetch },
           ...dependencies.maximumResponseBytes === undefined ? {} : { maximumResponseBytes: dependencies.maximumResponseBytes }
@@ -364,14 +364,14 @@ async function performGeneration(input, dependencies) {
     })();
     return await Promise.race([generation, timeout.interruption]);
   } catch (error) {
-    if (error instanceof TransmuteCloudError)
+    if (error instanceof AtetCloudError)
       throw error;
-    throw new TransmuteCloudError("GENERATION_FAILED", "Vercel AI Gateway image generation failed; the request was not retried.");
+    throw new AtetCloudError("GENERATION_FAILED", "Vercel AI Gateway image generation failed; the request was not retried.");
   } finally {
     timeout.dispose();
   }
 }
-async function generateTransmuteImage(input, dependencies = {}) {
+async function generateAtetImage(input, dependencies = {}) {
   return (await performGeneration(input, dependencies)).response;
 }
 function expectedMediaType(outputPath) {
@@ -386,27 +386,27 @@ function expectedMediaType(outputPath) {
 }
 async function atomicImageWrite(outputPath, bytes) {
   const absolutePath = resolve(outputPath);
-  const temporaryPath = resolve(dirname(absolutePath), `.${randomUUID()}.transmute-generate.tmp`);
+  const temporaryPath = resolve(dirname(absolutePath), `.${randomUUID()}.atet-generate.tmp`);
   try {
     await writeFile(temporaryPath, bytes, { flag: "wx" });
     await link(temporaryPath, absolutePath);
     return absolutePath;
   } catch {
-    throw new TransmuteCloudError("OUTPUT_WRITE_FAILED", "Transmute could not atomically write the generated image.");
+    throw new AtetCloudError("OUTPUT_WRITE_FAILED", "Atet could not atomically write the generated image.");
   } finally {
     await rm(temporaryPath, { force: true }).catch(() => {
       return;
     });
   }
 }
-async function generateTransmuteImageFile(input, dependencies = {}) {
+async function generateAtetImageFile(input, dependencies = {}) {
   if (typeof input.outputPath !== "string" || input.outputPath.length < 1 || input.outputPath.length > 4096 || input.outputPath.includes("\x00")) {
     invalidArgument("Output path must be a non-empty local path.");
   }
   const expected = expectedMediaType(input.outputPath);
   const generated = await performGeneration(input, dependencies);
   if (generated.response.image.mediaType !== expected) {
-    throw new TransmuteCloudError("GENERATION_INVALID_RESPONSE", `Generated ${generated.response.image.mediaType} does not match the requested ${expected} output path.`);
+    throw new AtetCloudError("GENERATION_INVALID_RESPONSE", `Generated ${generated.response.image.mediaType} does not match the requested ${expected} output path.`);
   }
   const outputPath = await atomicImageWrite(input.outputPath, generated.bytes);
   return {
@@ -420,5 +420,13 @@ async function generateTransmuteImageFile(input, dependencies = {}) {
     warnings: generated.response.warnings
   };
 }
+var transmuteGatewayApiBaseUrl = atetGatewayApiBaseUrl;
+var transmuteImageModels = atetImageModels;
+var transmuteResponseMediaTypes = atetResponseMediaTypes;
+var transmuteMaximumPromptBytes = atetMaximumPromptBytes;
+var transmuteMaximumRawImageBytes = atetMaximumRawImageBytes;
+var transmuteGatewayCredentialStatus = atetGatewayCredentialStatus;
+var generateTransmuteImage = generateAtetImage;
+var generateTransmuteImageFile = generateAtetImageFile;
 
-export { TransmuteCloudError, transmuteGatewayApiBaseUrl, transmuteImageModels, transmuteResponseMediaTypes, transmuteMaximumPromptBytes, transmuteMaximumRawImageBytes, transmuteGatewayCredentialStatus, createFixedGatewayFetch, generateTransmuteImage, generateTransmuteImageFile };
+export { AtetCloudError, atetGatewayApiBaseUrl, atetImageModels, atetResponseMediaTypes, atetMaximumPromptBytes, atetMaximumRawImageBytes, atetGatewayCredentialStatus, createFixedGatewayFetch, generateAtetImage, generateAtetImageFile, transmuteGatewayApiBaseUrl, transmuteImageModels, transmuteResponseMediaTypes, transmuteMaximumPromptBytes, transmuteMaximumRawImageBytes, transmuteGatewayCredentialStatus, generateTransmuteImage, generateTransmuteImageFile };

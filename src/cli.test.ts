@@ -54,11 +54,11 @@ async function runCli(
 }
 
 describe("Atet CLI", () => {
-  test("reports v1.0.0 and documents namespaced media surfaces", async () => {
+  test("reports v2.0.0 and documents namespaced media surfaces", async () => {
     const version = await runCli(["--version"], process.cwd())
     expect(version).toEqual({
       exitCode: 0,
-      stdout: "1.0.0\n",
+      stdout: "2.0.0\n",
       stderr: "",
     })
     const help = await runCli(["--help"], process.cwd())
@@ -90,6 +90,16 @@ describe("Atet CLI", () => {
     expect(parsed.operations.map(({ code }: { code: string }) => code)).toEqual([
       "atet.diagram.check",
       "atet.diagram.render",
+    ])
+
+    const predecessor = await runCli(
+      ["code", "search", "transmute.diagram.check"],
+      process.cwd(),
+    )
+    expect(predecessor.exitCode).toBe(0)
+    expect(predecessor.stderr).toBe("")
+    expect(JSON.parse(predecessor.stdout).operations).toEqual([
+      expect.objectContaining({ code: "atet.diagram.check" }),
     ])
   })
 
@@ -249,6 +259,23 @@ describe("Atet CLI", () => {
         result: { configPath: null },
       })
       expect(await Bun.file(marker).exists()).toBe(false)
+
+      const predecessor = await runCli(
+        [
+          "code",
+          "execute",
+          "transmute.diagram.check",
+          "--input",
+          JSON.stringify({ path: "flow.diagram.json" }),
+        ],
+        root,
+      )
+      expect(predecessor.exitCode).toBe(0)
+      expect(predecessor.stderr).toBe("")
+      expect(JSON.parse(predecessor.stdout)).toMatchObject({
+        operation: "atet.diagram.check",
+        result: { configPath: null },
+      })
 
       const rejected = await runCli(
         [

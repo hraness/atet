@@ -738,7 +738,11 @@ const RecordingManifestBaseShape = {
   state: RecordingLifecycleStateSchema,
   tool: z.strictObject({
     captureVersion: z.string().min(1).max(128),
-    name: z.union([z.literal("atet"), z.literal("studio")]),
+    name: z.union([
+      z.literal("atet"),
+      z.literal("transmute"),
+      z.literal("studio"),
+    ]),
     version: z.string().min(1).max(128),
   }),
   tracks: z.array(LogicalTrackSchema),
@@ -807,11 +811,11 @@ interface ValidatableRecordingManifest {
   readonly createdAt: string;
   readonly diagnostics: readonly z.infer<typeof RecordingDiagnosticSchema>[];
   readonly eventStreams: readonly z.infer<typeof EventStreamReferenceSchema>[];
-  readonly kind: "atet.recording-bundle" | "studio.recording-bundle";
+  readonly kind: "atet.recording-bundle" | "transmute.recording-bundle" | "studio.recording-bundle";
   readonly sources: z.infer<typeof SourceInventorySchema>;
   readonly state: z.infer<typeof RecordingLifecycleStateSchema>;
   readonly timeline: { readonly durationUs: number };
-  readonly tool: { readonly name: "atet" | "studio" };
+  readonly tool: { readonly name: "atet" | "transmute" | "studio" };
   readonly tracks: readonly z.infer<typeof LogicalTrackSchema>[];
   readonly updatedAt: string;
 }
@@ -822,9 +826,11 @@ function validateRecordingManifest(
 ): void {
   const canonicalIdentity = manifest.kind === "atet.recording-bundle"
     && manifest.tool.name === "atet";
-  const legacyIdentity = manifest.kind === "studio.recording-bundle"
+  const predecessorIdentity = manifest.kind === "transmute.recording-bundle"
+    && manifest.tool.name === "transmute";
+  const legacyStudioIdentity = manifest.kind === "studio.recording-bundle"
     && manifest.tool.name === "studio";
-  if (!canonicalIdentity && !legacyIdentity) {
+  if (!canonicalIdentity && !predecessorIdentity && !legacyStudioIdentity) {
     context.addIssue({
       code: "custom",
       message: "Recording bundle kind and tool name must use the same product identity.",

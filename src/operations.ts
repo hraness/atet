@@ -871,6 +871,23 @@ export async function withTransmuteOperationHostAdmission<T>(
   return await withAtetOperationHostAdmission(canonicalAtetOperationCode(code), callback, options)
 }
 
+/** @deprecated Use {@link executeAtetOperationWithLease}. */
+export async function executeTransmuteOperationWithLease<
+  C extends TransmuteOperationCode,
+>(
+  code: C,
+  value: unknown,
+  lease: HostResourceLease,
+  dependencies: TransmuteOperationDependencies = {},
+): Promise<TransmuteOperationResultMap[C]> {
+  return await executeAtetOperationWithLease(
+    canonicalAtetOperationCode(code),
+    value,
+    lease,
+    dependencies,
+  ) as TransmuteOperationResultMap[C]
+}
+
 /** @deprecated Use {@link executeAtetOperation}. */
 export async function executeTransmuteOperation<C extends TransmuteOperationCode>(
   code: C,

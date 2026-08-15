@@ -1,11 +1,15 @@
 export {
   atetMcpProtocolVersion,
   atetMcpServerName,
+  transmuteMcpProtocolVersion,
+  transmuteMcpServerName,
   runMcpServer,
 } from "./server.js"
 export {
   atetMcpTools,
+  transmuteMcpTools,
   AtetMcpToolRuntime,
+  TransmuteMcpToolRuntime,
   mcpMaximumEdges,
   mcpMaximumRenderedPixels,
   mcpMaximumReturnedFindings,

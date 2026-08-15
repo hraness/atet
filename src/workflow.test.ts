@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import {
   defineAtetWorkflow,
+  defineTransmuteWorkflow,
   runAtetWorkflow,
+  runTransmuteWorkflow,
   AtetWorkflowError,
   type AtetWorkflowExecutor,
+  type TransmuteWorkflowExecutor,
 } from "./workflow.ts"
 import {
   createProcessLocalHostResourceCoordinator,
@@ -34,6 +37,48 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
 }
 
 describe("typed Atet workflows", () => {
+  test("adapts the v1 workflow input surface and emits canonical receipts", async () => {
+    const observed: string[] = []
+    const executor: TransmuteWorkflowExecutor = (async (code, input) => {
+      observed.push(`${code}:${Reflect.get(input, "path") as string}`)
+      return { configPath: null, findings: [] }
+    }) as TransmuteWorkflowExecutor
+    const workflow = defineTransmuteWorkflow({
+      id: "legacy-input-adapter",
+      version: 1,
+      parseInput: diagramInput,
+      run: (context, input) => context.operation(
+        "check",
+        "transmute.diagram.check",
+        input,
+      ),
+    })
+
+    const result = await runTransmuteWorkflow(
+      workflow,
+      { path: "legacy.diagram.json" },
+      {
+        executor,
+        hostResourceCoordinator: createProcessLocalHostResourceCoordinator({
+          profile: {
+            id: "test.legacy-workflow-adapter/v1",
+            capacities: [
+              { resource: "cpu", limit: 1 },
+              { resource: "local-io", limit: 1 },
+            ],
+          },
+        }),
+      },
+    )
+
+    expect(observed).toEqual([
+      "transmute.diagram.check:legacy.diagram.json",
+    ])
+    expect(result.steps).toEqual([
+      { id: "check", index: 0, operation: "atet.diagram.check" },
+    ])
+  })
+
   test("wraps a custom executor in immutable operation-owned admission", async () => {
     const coordinator = createProcessLocalHostResourceCoordinator({
       profile: {

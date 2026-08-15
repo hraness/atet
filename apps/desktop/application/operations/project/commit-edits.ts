@@ -14,6 +14,7 @@ import {
 import {
   assertProjectCameraMoveBindings,
   assertStaticProjectZoomTargetVisible,
+  canonicalAtetPersistenceDocument,
   canonicalJsonSha256,
   cutProjectPlan,
   hashProjectCameraGeometry,
@@ -1753,6 +1754,9 @@ async function executeProjectEditsTransaction<
     await context.workflow?.beforePublication();
     throwIfAborted(context.abortSignal);
   }
+  const persistedProject = canonicalAtetPersistenceDocument(snapshot.project);
+  const persistedPriorPlan = canonicalAtetPersistenceDocument(snapshot.plan);
+  const persistedNextPlan = canonicalAtetPersistenceDocument(next);
   const nodePlanSha256 = context.workflow?.nodePlanSha256
     ?? canonicalJsonSha256({
       generation: snapshot.generation,
@@ -1760,12 +1764,12 @@ async function executeProjectEditsTransaction<
       nextPlanSha256: hashProjectEditPlan(next),
     });
   await commitProjectStateTransaction({
-    after: { plan: next, project: snapshot.project },
-    before: { plan: snapshot.plan, project: snapshot.project },
+    after: { plan: persistedNextPlan, project: persistedProject },
+    before: { plan: persistedPriorPlan, project: persistedProject },
     fileSystem: snapshot.openProject.fileSystem,
     transactionId: projectEditTransactionId(nodePlanSha256),
   });
-  return projectEditCommitReceipt(input, snapshot.project, next);
+  return projectEditCommitReceipt(input, persistedProject, persistedNextPlan);
 }
 
 function normalizeCompleteEditDraft(

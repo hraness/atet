@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  canonicalAtetPersistenceDocument,
   canonicalJson,
   canonicalJsonSha256,
   hashProjectEditPlan,
@@ -190,8 +191,8 @@ async function verifiedPromotionDocuments(
   const receipt = createEditorialPromotionReceiptV1({
     base: selection.base,
     candidate: chosen,
-    frozenProject: candidate.base.project,
-    promotedPlan: revision.projectEditPlan,
+    frozenProject: canonicalAtetPersistenceDocument(candidate.base.project),
+    promotedPlan: canonicalAtetPersistenceDocument(revision.projectEditPlan),
     selection: input.selection,
   });
   return { candidate, receipt, revision, selection };
@@ -333,6 +334,11 @@ export const promoteVariantSelectionOperationDefinition = {
         input.project,
       );
       assertProjectEditBasis(verified.receipt.base.editBasis, snapshot);
+      const persistedProject = canonicalAtetPersistenceDocument(snapshot.project);
+      const persistedPriorPlan = canonicalAtetPersistenceDocument(snapshot.plan);
+      const persistedPromotedPlan = canonicalAtetPersistenceDocument(
+        verified.revision.projectEditPlan,
+      );
 
       if (
         hashProjectEditPlan(snapshot.plan)
@@ -340,12 +346,12 @@ export const promoteVariantSelectionOperationDefinition = {
       ) {
         await commitProjectStateTransaction({
           after: {
-            plan: verified.revision.projectEditPlan,
-            project: snapshot.project,
+            plan: persistedPromotedPlan,
+            project: persistedProject,
           },
           before: {
-            plan: snapshot.plan,
-            project: snapshot.project,
+            plan: persistedPriorPlan,
+            project: persistedProject,
           },
           fileSystem: snapshot.openProject.fileSystem,
           transactionId: verified.receipt.transactionId,

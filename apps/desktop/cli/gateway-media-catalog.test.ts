@@ -232,6 +232,41 @@ describe("Gateway media catalog", () => {
     expect(cache.get()).rejects.toThrow("catalog is unavailable");
   });
 
+  test("rewrites a predecessor disk snapshot to Atet after 304 revalidation", async () => {
+    const snapshot = parseGatewayMediaCatalog(catalogFixture(), {
+      fetchedAt: FETCHED_AT,
+      validators: { etag: "\"catalog-v1\"" },
+    });
+    const predecessor = parseGatewayMediaCatalogSnapshot({
+      ...snapshot,
+      kind: "studio.gateway-media-catalog",
+    });
+    let written: unknown;
+    const cache = createGatewayMediaCatalogCache({
+      now: () => Date.parse(FETCHED_AT) + 60_000,
+      snapshotStore: {
+        read: () => Promise.resolve(predecessor),
+        write: value => {
+          written = value;
+          return Promise.resolve();
+        },
+      },
+      transport: {
+        refresh: () => Promise.resolve({
+          status: "not-modified",
+          validatedAt: "2026-07-23T12:01:00.000Z",
+        }),
+      },
+    });
+
+    const view = await cache.get({ forceRefresh: true });
+    expect(view.snapshot.kind).toBe("atet.gateway-media-catalog");
+    expect(written).toMatchObject({
+      kind: "atet.gateway-media-catalog",
+      snapshotId: predecessor.snapshotId,
+    });
+  });
+
   test("shares the initial disk load without letting a later caller race the store", async () => {
     const snapshot = parseGatewayMediaCatalog(catalogFixture(), {
       fetchedAt: FETCHED_AT,

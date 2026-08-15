@@ -150,7 +150,7 @@ async function runBoundedPathOutputCommand(commandForOutput, timeoutMs, failureC
   let result;
   let failure = noCommandFailure;
   try {
-    outputDirectory = await mkdtemp(join(options.temporaryRoot, "transmute-command-output-"));
+    outputDirectory = await mkdtemp(join(options.temporaryRoot, "atet-command-output-"));
     directoryHandle = await open(outputDirectory, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
     await assertOpenedPrivateDirectory(outputDirectory, directoryHandle);
     const outputPath = join(outputDirectory, "output.svg");
@@ -914,8 +914,17 @@ var vtracerReleases = Object.freeze({
 var MAX_ARCHIVE_BYTES = 4 * 1024 * 1024;
 var MAX_TOOL_BYTES = 16 * 1024 * 1024;
 var FILE_CHUNK_BYTES = 64 * 1024;
+function renamedEnvironmentValue(canonical) {
+  const predecessor = canonical.replace(/^ATET_/u, "TRANSMUTE_");
+  const current = process.env[canonical];
+  const legacy = process.env[predecessor];
+  if (current !== undefined && legacy !== undefined && current !== legacy) {
+    throw new VectorizeError("invalid_input", `${canonical} and ${predecessor} disagree; remove one or set both to the same value.`);
+  }
+  return current ?? legacy;
+}
 async function ensureVTracer(deadline, privateDirectory, cacheDirectory) {
-  const override = process.env.TRANSMUTE_VTRACER_PATH;
+  const override = renamedEnvironmentValue("ATET_VTRACER_PATH");
   if (override !== undefined) {
     return copyAndInspectVTracer(resolve(override), resolve(privateDirectory), "override", deadline);
   }
@@ -935,15 +944,15 @@ async function ensureVTracer(deadline, privateDirectory, cacheDirectory) {
   return copyAndInspectVTracer(toolPath, resolve(privateDirectory), "official-release", deadline, release.binarySha256);
 }
 function defaultCacheDirectory() {
-  const explicit = process.env.TRANSMUTE_CACHE_DIR;
+  const explicit = renamedEnvironmentValue("ATET_CACHE_DIR");
   if (explicit !== undefined && explicit.trim() !== "")
     return explicit;
   if (process.platform === "win32") {
-    return join2(process.env.LOCALAPPDATA ?? homedir(), "transmute");
+    return join2(process.env.LOCALAPPDATA ?? homedir(), "atet");
   }
   if (process.platform === "darwin")
-    return join2(homedir(), "Library", "Caches", "transmute");
-  return join2(process.env.XDG_CACHE_HOME ?? join2(homedir(), ".cache"), "transmute");
+    return join2(homedir(), "Library", "Caches", "atet");
+  return join2(process.env.XDG_CACHE_HOME ?? join2(homedir(), ".cache"), "atet");
 }
 async function installOfficialVTracer(toolPath, release, deadline) {
   deadline.assert("VTracer download");
@@ -1147,7 +1156,7 @@ async function downloadBounded(url, deadline, maximumBytes) {
   const timer = setTimeout(() => controller.abort(), deadline.remainingMs());
   try {
     const response = await fetch(url, {
-      headers: { "user-agent": "hraness-transmute-vectorizer" },
+      headers: { "user-agent": "hraness-atet-vectorizer" },
       redirect: "follow",
       signal: controller.signal
     });
@@ -1538,7 +1547,7 @@ async function runVectorizeWorker(input, options) {
     throw new VectorizeError("tool_platform", "Bounded VTracer streaming is unavailable on Windows.", { platform: process.platform });
   }
   const workerInput = encodeInput(input, limits.maxInputBytes);
-  const temporaryRoot = await mkdtemp2(join3(tmpdir(), "transmute-vectorize-"));
+  const temporaryRoot = await mkdtemp2(join3(tmpdir(), "atet-vectorize-"));
   let result;
   try {
     result = await executeVectorizeWorker(workerInput, options, limits, startedAt, temporaryRoot);

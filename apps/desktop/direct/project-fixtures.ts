@@ -252,7 +252,7 @@ function createAlignmentAnalyses(): readonly [AudioAlignmentAnalysisV1, AudioAli
       windowUs: 2_000_000,
     },
     createdAt: TIMESTAMP,
-    kind: "studio.audio-alignment-analysis" as const,
+    kind: "atet.audio-alignment-analysis" as const,
     reference,
     schemaVersion: 1 as const,
     tool: TOOL,
@@ -425,7 +425,7 @@ function createFaceAnalysis(
     createdAt: TIMESTAMP,
     durationUs: CAMERA_A_DURATION_US,
     inputDigest: SHA.face,
-    kind: "studio.face-analysis",
+    kind: "atet.face-analysis",
     privacy: {
       biometricIdentification: "not-performed",
       execution: "local-only",
@@ -476,7 +476,7 @@ function createMusicAnalysis() {
       { alternate: null, changeConfidence: null, confidence: 0.91, key: { kind: "key", mode: "major", pitchClass: 0 }, range: { endUs: 23_000_000, startUs: 4_000_000 } },
       { alternate: { confidence: 0.22, key: { kind: "key", mode: "major", pitchClass: 0 } }, changeConfidence: 0.88, confidence: 0.89, key: { kind: "key", mode: "minor", pitchClass: 9 }, range: { endUs: 31_000_000, startUs: 23_000_000 } },
     ],
-    kind: "studio.music-analysis",
+    kind: "atet.music-analysis",
     musicRegions: [
       { confidence: 0.94, range: { endUs: 14_000_000, startUs: 4_000_000 } },
       { confidence: 0.97, range: { endUs: 31_000_000, startUs: 23_000_000 } },
@@ -527,7 +527,7 @@ function sceneAnalysis(options: {
     createdAt: TIMESTAMP,
     durationUs: options.durationUs,
     inputDigest: options.digest,
-    kind: "studio.scene-analysis",
+    kind: "atet.scene-analysis",
     model: {
       aiSdkVersion: "6",
       gateway: "vercel-ai-gateway",
@@ -578,7 +578,7 @@ function createSpeechAnalysis() {
     createdAt: TIMESTAMP,
     durationUs: CAMERA_A_DURATION_US,
     inputDigest: SHA.speech,
-    kind: "studio.speech-analysis",
+    kind: "atet.speech-analysis",
     result: {
       detectedLanguage: "en",
       fillers: [
@@ -1109,7 +1109,7 @@ export function createProjectEvidence(): ProjectEvidence {
     assets: [screen, cameraA, cameraB],
     createdAt: TIMESTAMP,
     currentEditPlanPath: `artifacts/atet/projects/${ID.project}/edits/plan_agentdemo1.json`,
-    kind: "studio.video-project",
+    kind: "atet.video-project",
     name: "Agent demo — synchronized multi-angle",
     placements: [screenPlacement, syncedCameraA, syncedCameraB],
     projectId: ID.project,
@@ -1159,7 +1159,7 @@ export function createProjectEvidence(): ProjectEvidence {
       { endUs: 30_000_000, startUs: safeRange.endUs },
       { endUs: PROJECT_DURATION_US, startUs: 33_000_000 },
     ],
-    kind: "studio.project-edit-plan",
+    kind: "atet.project-edit-plan",
     overlays: overlays(),
     planId: "plan_agentdemo1",
     projectId: ID.project,

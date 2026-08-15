@@ -6,10 +6,16 @@ import { join } from "node:path";
 import {
   canonicalJson,
   canonicalJsonSha256,
+  hashProjectEditPlan,
   loadProjectEditPlan,
+  loadVideoProject,
   saveProjectEditPlan,
   sha256Hex,
 } from "../../../core";
+import {
+  ProjectEditPlanV1Schema,
+  VideoProjectV1Schema,
+} from "../../../contracts";
 import {
   candidateRevisionDerivationSha256,
   createEditorialPromotionReceiptV1,
@@ -17,6 +23,7 @@ import {
   createVariantSelectionV1,
   CreativeCandidateV1Schema,
   DeliveryMaterializationReceiptV1Schema,
+  EditorialPromotionReceiptV1Schema,
   VariantSelectionV1Schema,
 } from "../../creative-iteration";
 import { commitProjectStateTransaction } from "../../../cli/project-state-transaction";
@@ -639,6 +646,68 @@ describe("creative iteration", () => {
         .toEqual(input.project.plan);
     } finally {
       await rm(input.repositoryRoot, { force: true, recursive: true });
+    }
+  });
+
+  test("promotes an authenticated predecessor project candidate into canonical Atet state", async () => {
+    const current = await fixture();
+    try {
+      const project = VideoProjectV1Schema.parse({
+        ...current.project.project,
+        kind: "studio.video-project",
+      });
+      const plan = ProjectEditPlanV1Schema.parse({
+        ...current.project.plan,
+        kind: "studio.project-edit-plan",
+      });
+      await current.project.fileSystem.writeTextAtomic(
+        "project.json",
+        `${canonicalJson(project)}\n`,
+      );
+      await current.project.fileSystem.writeTextAtomic(
+        "edits/current.json",
+        `${canonicalJson(plan)}\n`,
+      );
+      const input = {
+        ...current,
+        project: { ...current.project, plan, project },
+        snapshot: ProjectSnapshotOutputSchema.parse({
+          currentPlan: plan,
+          editBasis: projectEditBasis(project, plan),
+          generation: hashProjectGeneration(project, plan),
+          project,
+        }),
+      };
+      const edited = await publishCandidate(input, {
+        batch: deriveProjectEditBatchV3([{
+          kind: "cut",
+          range: { endUs: 2_000_000, startUs: 1_000_000 },
+        }]),
+        variantKey: "legacy-edited",
+      });
+      const matrix = await matrixFor(input, [edited.candidate]);
+      const selection = await select(input, matrix, "legacy-edited");
+      const promoted = promoteVariantSelectionOperationDefinition.outputSchema.parse((
+        await registry().execute(input.context, {
+          input: bindPromoteVariantSelectionInput(input.application, { selection }),
+          kind: "project.promote-selection",
+          version: 1,
+        })
+      ).output);
+      const [savedPlan, savedProject] = await Promise.all([
+        loadProjectEditPlan(input.project.fileSystem),
+        loadVideoProject(input.project.fileSystem),
+      ]);
+      const receipt = EditorialPromotionReceiptV1Schema.parse(JSON.parse(
+        await input.project.fileSystem.readText(promoted.artifact.path),
+      ) as unknown);
+
+      expect(savedPlan.kind).toBe("atet.project-edit-plan");
+      expect(savedProject.kind).toBe("atet.video-project");
+      expect(promoted.promotedPlanSha256).toBe(hashProjectEditPlan(savedPlan));
+      expect(promoted.promotionSha256).toBe(receipt.promotionSha256);
+    } finally {
+      await rm(current.repositoryRoot, { force: true, recursive: true });
     }
   });
 

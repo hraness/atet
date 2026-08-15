@@ -109,26 +109,26 @@ function initializeNativeLocking() {
         failures.push(`${candidate}: ${cause instanceof Error ? cause.message : String(cause)}`);
       }
     }
-    throw new Error("Transmute could not load host flock support" + ` (${failures.join("; ")}).`);
+    throw new Error("Atet could not load host flock support" + ` (${failures.join("; ")}).`);
   }
-  throw new Error(`Transmute host-resource coordination is unsupported on ${process.platform}.`);
+  throw new Error(`Atet host-resource coordination is unsupported on ${process.platform}.`);
 }
 function currentErrno(locking) {
   const pointer = locking.errnoLocation();
   if (pointer === null) {
-    throw new Error("Transmute could not read the host flock error.");
+    throw new Error("Atet could not read the host flock error.");
   }
   return locking.readInt32(pointer);
 }
 function isBusyErrno(errno) {
   return process.platform === "darwin" ? errno === 35 : errno === 11;
 }
-var transmuteHostResourcePlatforms = Object.freeze([
+var atetHostResourcePlatforms = Object.freeze([
   "darwin",
   "linux"
 ]);
 function isHostResourcePlatformSupported(platform) {
-  return transmuteHostResourcePlatforms.some((candidate) => candidate === platform);
+  return atetHostResourcePlatforms.some((candidate) => candidate === platform);
 }
 function tryLockHostResourceDescriptor(descriptor) {
   const locking = initializeNativeLocking();
@@ -141,7 +141,7 @@ function tryLockHostResourceDescriptor(descriptor) {
       continue;
     if (isBusyErrno(errno))
       return false;
-    throw new Error(`Transmute host-resource flock failed with errno ${errno}.`);
+    throw new Error(`Atet host-resource flock failed with errno ${errno}.`);
   }
 }
 function unlockHostResourceDescriptor(descriptor) {
@@ -152,7 +152,7 @@ function unlockHostResourceDescriptor(descriptor) {
     const errno = currentErrno(locking);
     if (errno === interruptedErrno)
       continue;
-    throw new Error(`Transmute host-resource unlock failed with errno ${errno}.`);
+    throw new Error(`Atet host-resource unlock failed with errno ${errno}.`);
   }
 }
 
@@ -179,7 +179,7 @@ var maximumAdmissionBackoffMilliseconds = 250;
 var smallPollIntervalMilliseconds = 4;
 var maximumAdmissionBackoffMultiplier = 8;
 var HOST_RESOURCE_MAX_WAIT_MILLISECONDS = 24 * 60 * 60000;
-var transmuteHostResourceNames = Object.freeze([
+var atetHostResourceNames = Object.freeze([
   "cpu",
   "local-io",
   "ffmpeg",
@@ -253,7 +253,7 @@ function normalizeHostResourceClaims(value, profile) {
   });
   return deepFreeze(claims);
 }
-function defaultTransmuteHostResourceProfile(hostParallelism = availableParallelism()) {
+function defaultAtetHostResourceProfile(hostParallelism = availableParallelism()) {
   if (!boundedPositiveInteger(hostParallelism, maximumResourceAmount)) {
     throw new HostResourceError("INVALID_PROFILE", "Host parallelism must be a positive safe integer.");
   }
@@ -274,9 +274,9 @@ function defaultTransmuteHostResourceProfile(hostParallelism = availableParallel
     ]
   });
 }
-function defaultTransmuteHostResourceStateRoot(platform = process.platform, environment = process.env, userHome = homedir()) {
+function defaultAtetHostResourceStateRoot(platform = process.platform, environment = process.env, userHome = homedir()) {
   if (!isHostResourcePlatformSupported(platform)) {
-    throw new HostResourceError("UNSUPPORTED_PLATFORM", "Transmute host-resource coordination requires Darwin or Linux.");
+    throw new HostResourceError("UNSUPPORTED_PLATFORM", "Atet host-resource coordination requires Darwin or Linux.");
   }
   if (platform === "darwin") {
     return join(userHome, "Library", "Application Support", "Transmute", "cli", "host-resources-v1");
@@ -285,6 +285,9 @@ function defaultTransmuteHostResourceStateRoot(platform = process.platform, envi
   const stateHome = configuredStateHome !== undefined && isAbsolute(configuredStateHome) ? configuredStateHome : join(userHome, ".local", "state");
   return join(stateHome, "transmute", "host-resources-v1");
 }
+var transmuteHostResourceNames = atetHostResourceNames;
+var defaultTransmuteHostResourceProfile = defaultAtetHostResourceProfile;
+var defaultTransmuteHostResourceStateRoot = defaultAtetHostResourceStateRoot;
 function canonicalProfile(profile) {
   return JSON.stringify(profile);
 }
@@ -534,7 +537,7 @@ function readState(directory, profile) {
 function assertMatchingProfile(state, profile) {
   if (canonicalProfile(state.profile) === canonicalProfile(profile))
     return;
-  throw new HostResourceError("PROFILE_MISMATCH", "The machine-global Transmute host-resource profile does not match this process.");
+  throw new HostResourceError("PROFILE_MISMATCH", "The machine-global Atet host-resource profile does not match this process.");
 }
 function reserveTicket(directory, state) {
   const ticket = BigInt(state.nextTicket);
@@ -948,10 +951,10 @@ async function releaseMarker(marker, root, options, state) {
 }
 function resolveCoordinatorOptions(options) {
   if (!isHostResourcePlatformSupported(process.platform)) {
-    throw new HostResourceError("UNSUPPORTED_PLATFORM", "Transmute host-resource coordination requires Darwin or Linux.");
+    throw new HostResourceError("UNSUPPORTED_PLATFORM", "Atet host-resource coordination requires Darwin or Linux.");
   }
-  const profile = normalizeHostResourceProfile(options.profile ?? defaultTransmuteHostResourceProfile());
-  const stateRoot = options.stateRoot ?? defaultTransmuteHostResourceStateRoot();
+  const profile = normalizeHostResourceProfile(options.profile ?? defaultAtetHostResourceProfile());
+  const stateRoot = options.stateRoot ?? defaultAtetHostResourceStateRoot();
   if (typeof stateRoot !== "string" || !isAbsolute(stateRoot) || stateRoot.includes("\x00") || Buffer.byteLength(stateRoot, "utf8") > maximumPathBytes) {
     throw stateFailure("Host-resource state root must be a bounded absolute path.");
   }
@@ -1038,7 +1041,7 @@ function createHostResourceCoordinator(coordinatorOptions = {}) {
 }
 var processLocalCoordinatorStates = new Map;
 function createProcessLocalHostResourceCoordinator(coordinatorOptions = {}) {
-  const profile = normalizeHostResourceProfile(coordinatorOptions.profile ?? defaultTransmuteHostResourceProfile());
+  const profile = normalizeHostResourceProfile(coordinatorOptions.profile ?? defaultAtetHostResourceProfile());
   const defaultWait = duration(coordinatorOptions.waitTimeoutMilliseconds, defaultWaitTimeoutMilliseconds, HOST_RESOURCE_MAX_WAIT_MILLISECONDS, "INVALID_PROFILE", "Host-resource wait timeout");
   if (coordinatorOptions.pollIntervalMilliseconds !== undefined) {
     duration(coordinatorOptions.pollIntervalMilliseconds, defaultPollIntervalMilliseconds, 1000, "INVALID_PROFILE", "Host-resource poll interval");
@@ -1216,4 +1219,4 @@ function createDefaultHostResourceCoordinator(options = {}, platform = process.p
   });
 }
 
-export { HOST_RESOURCE_MAX_WAIT_MILLISECONDS, transmuteHostResourceNames, HostResourceError, normalizeHostResourceProfile, normalizeHostResourceClaims, defaultTransmuteHostResourceProfile, defaultTransmuteHostResourceStateRoot, createHostResourceCoordinator, createProcessLocalHostResourceCoordinator, createDefaultHostResourceCoordinator };
+export { HOST_RESOURCE_MAX_WAIT_MILLISECONDS, atetHostResourceNames, HostResourceError, normalizeHostResourceProfile, normalizeHostResourceClaims, defaultAtetHostResourceProfile, defaultAtetHostResourceStateRoot, transmuteHostResourceNames, defaultTransmuteHostResourceProfile, defaultTransmuteHostResourceStateRoot, createHostResourceCoordinator, createProcessLocalHostResourceCoordinator, createDefaultHostResourceCoordinator };

@@ -1,0 +1,1680 @@
+[
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "d2852b2b894ca956236668abdd7616b7635f0fd25e2c7b14715e55d78bfde719",
+    "occurrenceCount": 2,
+    "path": "AGENTS.md",
+    "categories": [
+      "compat-doc"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "2e779a8c7c3b5a48bd04334fba21a3b72d35ed6101e8da42ba0e816050e5e868",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/analysis/protocol.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "e040bd484866f7d0d23b0b4defabb0249b0bb69f4e73d2ad8662e6dca399b25f",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/analysis/protocol.ts",
+    "categories": [
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 37,
+    "identityLinesSha256": "a0aa41b10c48ebd63afb75bad4cf4582fc5528cf4d65b636cdbd71e8c5b7e015",
+    "occurrenceCount": 37,
+    "path": "apps/desktop/application/creative-iteration.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "54ced5d0002aa948f2e8469afb677ff7c03e03b33fa07690ddd8c722c5b9b80d",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/application/gateway-port.ts",
+    "categories": [
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "d80530dc17d7729747de8089bfd65114c0c9cccdf30606fce991a50e6a30ffb2",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/application/html-overlay-browser-runtime.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "f561c7f6723a6452b2dfaf7494b9170b67d2e9cd51fa9700c40d9dd0022e3149",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/application/html-overlay-integrity.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "7a36152a717cd639e4bc935bc10d5aaa690dd32178b61bddcd4f1c94adecfe0a",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/application/operation-completion-checkpoint.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "db8cf3a0659cd09450cb33e9e63a168e373b7a35632ac1d2bc9c3a47e8e1d24f",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/application/operation-completion-checkpoint.ts",
+    "categories": [
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "0aafbcff118c749896dc230b8edf15990d7356724cda11ce609d5577406947d7",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/application/operations/atet-visuals.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 6,
+    "identityLinesSha256": "60c39921bd940ee732eb3883a3b88f8f39500fc844c2aeb2dbb31fb50a85368e",
+    "occurrenceCount": 6,
+    "path": "apps/desktop/application/operations/derive/edit-batch.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "d048a2ffaa85cb27a0290d7fdf04837985fe589b859caa144b19fcbbeaffb187",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/application/operations/derive/follow-faces.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "97f9aea347305b0694c1c8588e5d253695582b83100442520c1c31856b967314",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/application/operations/iteration/creative-iteration.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "571ade4f465c4667f2d3cf930fa962f30d4e91f4531e13f0d872e4e52c141ade",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/application/operations/media/audio-effects.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "571ade4f465c4667f2d3cf930fa962f30d4e91f4531e13f0d872e4e52c141ade",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/application/operations/media/color-grade.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "723c1613f58cd8c710f4ce14e416176c3ab6e94045f4b6064e4bbc6c99e8d309",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/application/operations/media/html-overlay.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "a0a39539b311a064265c6cbdef12da123a481d2ef4d5700982c92250e09365ee",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/application/operations/media/ingest.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "79efd6e148ef19d4909ac0c19b64f445f5fbf43e112c5f829ccbe31849f1b7e3",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/application/operations/media/overlay.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "6bb9e7163bf1b1d2bc14e051d8e7d891c8cfc97f6c9aee19d1b1f31e597373e0",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/application/operations/render/bind-candidate-output.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "59effea35cc1364e7b34bf7e7d7050f60143a583bd05f1e0ec5786d1abb61573",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/application/operations/render/project-caption-plan.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "bdbf6b23028a81e30f111a9e5d3b4d3b81569cd3d420558a46791580882f968e",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/application/operations/render/project-plan.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "25ea1d064178a65c38a9d633665475c0bf75d97eb51ce372c374e5616affab36",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/application/operations/render/project.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "1b64cc10f69c26070dc376c46e6f79c7276888032d959e994f6cc0995dd7639c",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/application/output-publication-lease.ts",
+    "categories": [
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "4ede7142ed461053d83c9275b51ac0b72db64989bae84b599dea33ceb6fee2a5",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/application/project-store.ts",
+    "categories": [
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 19,
+    "identityLinesSha256": "802066ec9710ca9874ba43ec69ba12ee54956ae16dfa755dbd7ae73ea9d16894",
+    "occurrenceCount": 19,
+    "path": "apps/desktop/application/receipts.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "0c800390a69b3396be2d307657b05b754a1abaf9803b95996d091d21240aa6ea",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/application/registry.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 6,
+    "identityLinesSha256": "3328b9b7469b3cd00803ca024585c8ec67fdac6bae1ec3c9c2a879f73c3f18f8",
+    "occurrenceCount": 6,
+    "path": "apps/desktop/application/registry.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "5e65934d7a0552f2f1bd6ba522e48a483316550727098e1667134ed586d4c0a0",
+    "occurrenceCount": 5,
+    "path": "apps/desktop/application/verified-receipt-reconciliation.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "67ddbc451ca389eb168483876173741ab6d0389a38703f4e62d2599f58d52fa3",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/capture/hardware-smoke-config.ts",
+    "categories": [
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "fe41e1d49ba6b752f96609b2bd51b26636748439291915bc441a2fa1f342252a",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/capture/interruption-state.macos.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "61a18c415699f8aa257a1222628dd2d0b7f83c50365dc70d31c4642cee4ee566",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/capture/recorder-single-flight.macos.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "19f3b47e67b5a7839fbf3a4a7067db6e45c8b480ce870cc8f15db08deda091ff",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/cli/asset-ingest.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "6895cc07b10813ce51b2959d95e46fa772577d787c645928ddf1b9a61b4456c6",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/cli/audio-analysis.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "0762f8a28c7a087b0b3dc9dae897e290236d994878f890dbf4e248a09b6b82e8",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/cli/capabilities.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "b22d82054bdb47baa687b16f9793cd78304f70a9859860c0c03c91f9f367a75c",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/cli/command-safety.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "a440165e672a1d0a7351cbef8d000713209db0d7e46f22be9ae7041ec3ed2aca",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/cli/commands.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "ac353c3b2f0d4979124423c2517188d1cc865ccee02be0b2c9a4a2778e6d862b",
+    "occurrenceCount": 5,
+    "path": "apps/desktop/cli/face-analysis-service.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "4e50e49df4da3f9645cd47cb6b7b863fd7464fb7ddec4fe47103748894cfe82a",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/cli/gateway-application-port.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "f174e6b34a1d05fa700632fe4348ccb13af410762bf7682fc3d89a000bcde915",
+    "occurrenceCount": 5,
+    "path": "apps/desktop/cli/gateway-application-port.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "7ce54e798baadf6b1ff48e4b162c4763e17ce3380c1ef90a155e2d8a437ddfdd",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/cli/gateway-media-artifacts.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "b7a5be1a08e537b7685ad97c2daa716f8722fa8cf892428f9e880690349b574c",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/cli/gateway-media-catalog.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "ca383b84bc9fecad227f05fa78dfc07967b4f9873c19f16d30274719b7ace96f",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/cli/gateway-media-catalog.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "78cfdcd4c49b2cdfe62f8cbfa7c1aa220cea9a0e1a83ed668ae72a7e9d745d28",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/cli/gateway-media-service.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "66b5bedc78939489b0714b5a6eefae8d875c40e320380da0d868eaea4ec19b5d",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/cli/gateway-media-service.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 10,
+    "identityLinesSha256": "1bb05bfdb5bd409a06f7c7ede96d4907344ffe5c644f0a2896dd8871c570a077",
+    "occurrenceCount": 13,
+    "path": "apps/desktop/cli/main.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 6,
+    "identityLinesSha256": "6d957a9a69a40d90f29280011170dcdc1c3fb87085557b92b430b7bd8ae5d547",
+    "occurrenceCount": 6,
+    "path": "apps/desktop/cli/main.ts",
+    "categories": [
+      "cli-bin-alias",
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "1d67faf1e1df1bddcb8714160d6e354ea096b8dea3bda0e402c070020ca00fb7",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/cli/media-effects-service.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "6895cc07b10813ce51b2959d95e46fa772577d787c645928ddf1b9a61b4456c6",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/cli/music-analysis-service.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "21be23a804e7c60b79d2b349944055aed9cd8102a29905ed9aa80893d22247cf",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/cli/mutation-lock.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 11,
+    "identityLinesSha256": "ca286768911b53f93e2b135813fd823dbf0454fb18bed7ee10289fe22d683fee",
+    "occurrenceCount": 11,
+    "path": "apps/desktop/cli/paths.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 11,
+    "identityLinesSha256": "f63b3b6439a7e7e2513b217a1a4effb2f96e317b8b00581268fe526f40c7ae6e",
+    "occurrenceCount": 12,
+    "path": "apps/desktop/cli/paths.ts",
+    "categories": [
+      "artifact-reader",
+      "deprecated-ts-api",
+      "env-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "8efb490bc891575ae1c386946aa94173ac0803caa7828aa9c2c0a744cdf187be",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/cli/project-face-camera.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "cde2c07b723e5c8d24a5af917e91a6fe2c1a3429ef40c3b9c94772003a8d7a1f",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/cli/project-renderer.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "3891e8b6c6bc20b3b2ae3ecf220556441506418413415e754d62ca5904e02ca2",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/cli/project-renderer.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 7,
+    "identityLinesSha256": "c57fad590eb67e107e05c5b705bb5503309ebea6c4e11aca580bfba78e4bc731",
+    "occurrenceCount": 7,
+    "path": "apps/desktop/cli/project-state-transaction.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "04b5f85e0b6f41ec9f4d2956faa7dd0f07d2a67f7a91364bb4dea8bcf605836d",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/cli/project-state-transaction.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "2ccb79d0e3c9071fe2aa9b72c0f5c3472363794ce80fbb5903bb0fe455063154",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/cli/recording-render-receipt.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "657244116feeae9c2099dcb37c30788c55795fbbc165f4c087e6f5a7b4a10646",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/cli/renamed-environment.ts",
+    "categories": [
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "6895cc07b10813ce51b2959d95e46fa772577d787c645928ddf1b9a61b4456c6",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/cli/scene-analysis-service.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "f2967f4f56354ac6cd661cc0d5ead2d416dfc4848739b2d799e55be789ff6874",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/cli/speech-analysis-service.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 11,
+    "identityLinesSha256": "6e0cbbfb812fa842cf27b56ca2d0179c006d35a588d775e31d8576b1257ad611",
+    "occurrenceCount": 11,
+    "path": "apps/desktop/cli/workflow-commands.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 8,
+    "identityLinesSha256": "21a296ebbe090afb65872fd2d3b80e3623f7346a230a0c9fe8074f4eb3d811e5",
+    "occurrenceCount": 8,
+    "path": "apps/desktop/code/advanced.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "581552dc7ef269227f53c5a77c1cad599bf2a67687f02cd32ff1d2d62a8cc4d3",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/code/AGENTS.md",
+    "categories": [
+      "compat-doc"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "65fb82eb59b9c267d1ad186bf66cd8890adfc1316f2df4357b2d129bdb27a0d4",
+    "occurrenceCount": 5,
+    "path": "apps/desktop/code/application-node-planner.ts",
+    "categories": [
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 22,
+    "identityLinesSha256": "189194b184b9330ba25b3ca00d2a7ca7e770b622018fcec1df88c1a69cd871a6",
+    "occurrenceCount": 25,
+    "path": "apps/desktop/code/compiler.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 7,
+    "identityLinesSha256": "3f82d753942bb5ef5016c4b7c9e6500973fa36870175f514743b6da492633e05",
+    "occurrenceCount": 10,
+    "path": "apps/desktop/code/compiler.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 7,
+    "identityLinesSha256": "d5a5d5631a7740836a727ff01ffdf80998764f63d43524adad16d1e62e73cfb2",
+    "occurrenceCount": 7,
+    "path": "apps/desktop/code/contracts.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "905d603756acea07603647c0bc33b998dd43888905691490d7b39d621a96b1a3",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/code/file-candidate-provenance.ts",
+    "categories": [
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 9,
+    "identityLinesSha256": "53a559f676c18459b10d60050d89499e3746e20b05962e974e56d736aaddeff9",
+    "occurrenceCount": 9,
+    "path": "apps/desktop/code/plan-contracts.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "f3e52e7e422895ab00dd53d5b60f11991d84eed7b3bb138faceac0d5dee9efb2",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/code/planning.ts",
+    "categories": [
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "c7cd3db3b6876f3fe6cf7489e54d84cd95509217e8e711706f6cec07a5eed837",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/code/public.ts",
+    "categories": [
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "31e5dd891f11b48cc4cc89edc8c2386bfaca4eaeb832f410157e3cbc7ca1822c",
+    "occurrenceCount": 5,
+    "path": "apps/desktop/code/run-contracts.ts",
+    "categories": [
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 11,
+    "identityLinesSha256": "eab834dbd363093af1ba7656600ed70bbdd0d236b820974f130850cec95b4a1e",
+    "occurrenceCount": 12,
+    "path": "apps/desktop/code/run-store.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "f322d328787162980c61f1c430ad73915386e4fabf5bb02ee3300d69fb29dd16",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/code/runtime-identity.ts",
+    "categories": [
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "dabf88c18cfe2c140be0312ad0c6d9025f28c9f09b991e31750f61f1e7b640c5",
+    "occurrenceCount": 5,
+    "path": "apps/desktop/code/scheduler.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 31,
+    "identityLinesSha256": "e02d029b396cd118a22e812e7914f92a1d89f4892d27b6942adca8a6b6b9befb",
+    "occurrenceCount": 32,
+    "path": "apps/desktop/code/source-bundle.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 9,
+    "identityLinesSha256": "bf9fe48b77541da8b83d2dc8f577927d1f9c1e165a4a44417b4abacb433c7081",
+    "occurrenceCount": 9,
+    "path": "apps/desktop/code/source-bundle.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "source-import-reader"
+    ]
+  },
+  {
+    "identityLineCount": 12,
+    "identityLinesSha256": "421452a19c1691aeb11cc2b915ca911b5ec9a0054fff646cd6e3372381a12513",
+    "occurrenceCount": 12,
+    "path": "apps/desktop/contracts/analysis.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "de2d8c066331cdcba8915fb7a1efc69a7d107582be8ac49312af304b24770bdc",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/contracts/edit.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "6267db179dacdb03274bbc37532ce32ffdce0b663eb06f0e96fdfd4eb29b8324",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/contracts/face-analysis.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "301c06506714b11d1dba848877974880bc07a460630af0655412b1069c9eb2fe",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/contracts/media-effects.property.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "f3bd51c9829f588b75be0b9d0a06ec84c8ba4fc51deb0a8bca83e97f73a653cf",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/contracts/media-effects.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "e59c495e709e8d740c2dae9d8b7b2272b086ffafab9e577517a65b0c34fdbde8",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/contracts/media-effects.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "4a45d16e24e909bbe69a67de420f2cbcf67782fefea53efb60ad4528563a1d88",
+    "occurrenceCount": 5,
+    "path": "apps/desktop/contracts/project-render.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "d3e538f51a3f95e7c4daffc04012929292c61a8c5ea2cfa681e6be902014530d",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/contracts/project.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "03db54b5981a8c1f770ed3ef5d5dcf5abbe6ca123317288196546568ce40aa74",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/contracts/project.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "05a54fd4f5fbe2fdec5bb79ce103cd837670da34287cc91aa4b25c1f924dae4a",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/contracts/recording.property.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "754df0502aaa15a4492430932895d8b4ad0c59a4dd2c4309fb237604a9efa360",
+    "occurrenceCount": 5,
+    "path": "apps/desktop/contracts/recording.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 11,
+    "identityLinesSha256": "143643590c47df65927dd10b62e9f9a4e68e77aa15c113eefc2357c93aa15b95",
+    "occurrenceCount": 14,
+    "path": "apps/desktop/contracts/recording.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 6,
+    "identityLinesSha256": "5c4532da36e8931e022959fcbf1e26ffdef48dcd37f7d14580eb69db9156b960",
+    "occurrenceCount": 6,
+    "path": "apps/desktop/contracts/render.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "30edb44828930d862a24c12e247311cf0af86befda6a68fcf380d956605439de",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/contracts/runtime.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 7,
+    "identityLinesSha256": "26b2f6aa1c31040b19fb8cfe17f5b65a9e372f757bcc0f746f5c9fbed5c64a03",
+    "occurrenceCount": 9,
+    "path": "apps/desktop/contracts/runtime.ts",
+    "categories": [
+      "artifact-reader",
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "0572a91834cf2640dbf7d28c1577d07b20bf02912bc57f4b37681a48ee7bdf1e",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/contracts/video-effects.property.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "d4f4c7c5010a5184756eb97e6942e038a1282cabd7c7714f34f0d11c8b685326",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/contracts/video-effects.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "ba07e290c15ef624940b2d07f29bcdb003c2b8097d2474d23649fa1df70e78aa",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/contracts/video-effects.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "4bd86f7b90bfb22e900ebe02173705fc07c3ec92d3abc7cc1866a85ab07e30c7",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/core/alignment-apply.property.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "08966fc26f388498fc50f2b1bba39b115a58528cabbebcb39e7e36aa979709be",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/core/alignment-apply.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "aa9f1f9b36cac402fdc94abe2d96b1d17eb60164fbe674d7e0dfa5820ca41d0b",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/core/audio-alignment.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "32546de71fc26de077d75f035d10a009921c0f9f0044c81e15a3410b9e4f5303",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/core/inactivity.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "a61fed46a3f0431471c145b678505c8865f0440e5418c8561686962f4def4449",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/core/music-analysis.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "8172d638a624ba382a393dd2b22b7772eebcc77eda89d8ca5175446036b54dba",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/core/project-captions.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "2a96a99ee051bd650d65730894c91c13986eabcbb52f0457e349a6c5d330f7a5",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/core/project-inactivity.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "6895cc07b10813ce51b2959d95e46fa772577d787c645928ddf1b9a61b4456c6",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/core/project-metadata.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "e2e1217ddd5cf919e2009cbccf135187ed228db1c1573fe438a268ef65164168",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/core/project-plan.property.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "6895cc07b10813ce51b2959d95e46fa772577d787c645928ddf1b9a61b4456c6",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/core/project-render-plan.property.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "6895cc07b10813ce51b2959d95e46fa772577d787c645928ddf1b9a61b4456c6",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/core/project-render-plan.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "25742cec679aa9bf5c9006c79a2cb41a6d8bbe77cc029d8c7ef27b6a323ee4dd",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/core/project-time.property.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "e2e1217ddd5cf919e2009cbccf135187ed228db1c1573fe438a268ef65164168",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/core/project-time.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "7b6cbee4b230f7921139b127a723a99b8a98eef764d1029689a7ab89af4d27f3",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/core/speech-analysis.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 8,
+    "identityLinesSha256": "903e3e6083fffc2013f2e1371f5d10797a98b5bf8b287f26fca6b5a11bff9c98",
+    "occurrenceCount": 9,
+    "path": "apps/desktop/core/storage.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "7a543c7320194572726f8846683bec1b373c574c0156c570cd1099eb6327b674",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/core/storage.ts",
+    "categories": [
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "fa7106294f396da33c703dbd6745341e08b5a8d36599b048bdbf4707c0f12160",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/core/test-support.ts",
+    "categories": [
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 40,
+    "identityLinesSha256": "19cf2c1427212bd75b88bc91a4097db8259952bdceb6c291612a93c64e0b17c5",
+    "occurrenceCount": 292,
+    "path": "apps/desktop/dist/cli/main.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "3e86ed398d44506ef6bd7436eafb15dcbaa8a88d9151d30d0cca188f6ba60b6b",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/html-overlay/contracts.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "1381118fa4c1670f13e3deb210bcaf8d04ecfe4fffac1e46b6b6a2e5a79c286d",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/html-overlay/contracts.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "af2b086d0e13a9917f475a2fc3e18412748e9b65dea2ab8c0839731f6f76a1ce",
+    "occurrenceCount": 1,
+    "path": "apps/desktop/html-overlay/random.ts",
+    "categories": [
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "71f6a491a7d4a43d343b3422ad57cfe43a489a9669fa075174628b869a08fbba",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/html-overlay/runtime.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "8ada87a97a912eb2bf6881538dd96320056e01f7643e4dd3c05aa07f173dcad9",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/html-overlay/runtime.ts",
+    "categories": [
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 6,
+    "identityLinesSha256": "1f4d73c99d4ccc01e2bbeebbdbc29d82e9c5a00cdec024d8421db9cd1e80285a",
+    "occurrenceCount": 6,
+    "path": "apps/desktop/README.md",
+    "categories": [
+      "compat-doc"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "4662880aaf46cd2203b7ff59bb1b3c5f354aef76e0335b0a94a714a65bb3cb2c",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/runtime/src/gateway.integration.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "04923a71c2c8ec7d72742152b6be1641e307f2923904790bb90e8621d306e663",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/runtime/src/main.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "955f8d6f258ada9de18d42d589b34fb2636cfaa8fbf6e43be01b2c75e18c1149",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/runtime/src/main.ts",
+    "categories": [
+      "artifact-reader",
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "8acee6545a572361e07ed2de2a5d6ccd63187b489757e5f3e47f2dc36c7453e2",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/runtime/src/recording-service.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "a685a01c1764749fc4fca0623466480f013819f51da67c9d740e8e08b2978901",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/runtime/src/recording-service.ts",
+    "categories": [
+      "artifact-reader",
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "151783cd530dfeeac41aeb50d11475422dff618ee3bd384e92924ce6e162d453",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/src/runtime_host.zig",
+    "categories": [
+      "deprecated-ts-api",
+      "env-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "24223e7ac0ff2bad233d6263f0241608f41c702abbd88bbba33e644016ced5b3",
+    "occurrenceCount": 4,
+    "path": "apps/desktop/workflows/workflows.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 7,
+    "identityLinesSha256": "bbdf3bd865b020f15e50ba616b40eeca7059e7a2e8ce70230f0267fe4ce434f8",
+    "occurrenceCount": 9,
+    "path": "apps/web/site.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 6,
+    "identityLinesSha256": "2ab72dfd376d476d2634b7448ce7f40fb3b837a555f6effc5e8cb02c16442b84",
+    "occurrenceCount": 6,
+    "path": "apps/web/vercel.json",
+    "categories": [
+      "legacy-redirect",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "fec81787dc2ebe3fc39a8cbb04bde364d835b539275cf8186f37a1f739dbbbd5",
+    "occurrenceCount": 6,
+    "path": "dist/cli.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 44,
+    "identityLinesSha256": "a6f53e2a6c054ae95d365a921478bf6cc91fea0084d00a02c2b54c07ecaac995",
+    "occurrenceCount": 44,
+    "path": "dist/code/advanced.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 44,
+    "identityLinesSha256": "9e4376da2546d4968704c51751189770630aca931824d1635c7e2512dc941f09",
+    "occurrenceCount": 44,
+    "path": "dist/code/index.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 16,
+    "identityLinesSha256": "5930fd850e523ab384f0ca0c67ae7745a9932db4ab307a00b1f3109a1e71ad98",
+    "occurrenceCount": 16,
+    "path": "dist/generate.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 6,
+    "identityLinesSha256": "56276dca622238891be55d227941aaea18155aa2176515d67e055341b4e40c5d",
+    "occurrenceCount": 6,
+    "path": "dist/host-resources.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 10,
+    "identityLinesSha256": "11b201bc160b8ee29b3144525bebfbd9e84393951bcadfacee1f72993502088a",
+    "occurrenceCount": 17,
+    "path": "dist/index-41988ev7.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 7,
+    "identityLinesSha256": "aca05ee32f8e40c8b529a152af0e85c1e2e7e4e125ea0d182ad8cc06e9b35804",
+    "occurrenceCount": 9,
+    "path": "dist/index-64bhbap5.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 19,
+    "identityLinesSha256": "cc2af5f39cc015c65c2e197562824dd8e8f8878451c0c385bce1f8d5da44404b",
+    "occurrenceCount": 28,
+    "path": "dist/index-65by8228.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "5c1c1a2da485f8a5ea61bb947feb1ddd64b7a9cacd2004d2904e64ed84fad1f4",
+    "occurrenceCount": 1,
+    "path": "dist/index-7jg2r2mc.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 54,
+    "identityLinesSha256": "9469219ab87dce43896b7c15b15335629113556a5078687835469ae113f2ebc7",
+    "occurrenceCount": 79,
+    "path": "dist/index-8twpynbt.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 40,
+    "identityLinesSha256": "55aefdb33b6a783186baa49c2dd2d8685973814e8586c300774705dfd1b5179b",
+    "occurrenceCount": 44,
+    "path": "dist/index-nap24380.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 13,
+    "identityLinesSha256": "6138e1f3ad31ddf4337febee0a6cc8110014dc4592d8896725c33197b2b1c7ab",
+    "occurrenceCount": 14,
+    "path": "dist/index-smffk7h7.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 54,
+    "identityLinesSha256": "bacf7233ab1e46110191f271ab0b558e17bbe64ab4cd1071f51c13351c7916da",
+    "occurrenceCount": 54,
+    "path": "dist/index.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 19,
+    "identityLinesSha256": "c40a261efbe95cff8facc66cb92523be26bbb837544c249078a601c8896f00ef",
+    "occurrenceCount": 19,
+    "path": "dist/operations.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "13b38ac4094bdbf5113ce3cd796c867c9392a6f39bb8253423e9d64e5883c647",
+    "occurrenceCount": 5,
+    "path": "dist/workflow.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "ea1a2b4ac8ff21625736b8f9cf81f925e9b35c29e4e1cce72db9e4c072baae79",
+    "occurrenceCount": 1,
+    "path": "package.json",
+    "categories": [
+      "cli-bin-alias"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "f71f835e00eb953471b1b0a394836bcbc3b6095c20ed6ce4d6d631ccbabe8411",
+    "occurrenceCount": 2,
+    "path": "README.md",
+    "categories": [
+      "compat-doc"
+    ]
+  },
+  {
+    "identityLineCount": 32,
+    "identityLinesSha256": "95532b67ce51ff7568dc7325df8d935615f951907577e215d1e4a1e6c94c2a77",
+    "occurrenceCount": 33,
+    "path": "scripts/package-smoke.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "6ac96580d17450158b919323a27f562e3579a6b2c63601826f8be1418e1d7561",
+    "occurrenceCount": 2,
+    "path": "src/cli.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 6,
+    "identityLinesSha256": "881d0498489fdfd6be7d8f33a182c65043083bc206bde4195c9eb2de7f7fa34b",
+    "occurrenceCount": 6,
+    "path": "src/cli.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "8fdf3174f5720cc926f079ee6cad18de706fce7a4e03c0c0c63a5fbc6cc5b5f7",
+    "occurrenceCount": 2,
+    "path": "src/cloud-errors.ts",
+    "categories": [
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 22,
+    "identityLinesSha256": "131d1b251a7e0568ece6408cb1d3e4cb72e437d5200a15f842023aa49d4130e8",
+    "occurrenceCount": 25,
+    "path": "src/code/compiler.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "68a4af8d686ea51b70ef432ab3534f97ba48ee070b17a47d1da58f35e6146892",
+    "occurrenceCount": 6,
+    "path": "src/code/compiler.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 6,
+    "identityLinesSha256": "790b79d64bd8c08926e4a9f57d15fbaac7af6117c9a8cccd59947d8f5fa6639b",
+    "occurrenceCount": 6,
+    "path": "src/code/contracts.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "a3ca5599065758a9e3ac66374fe42f77081a31af7746f25a6e3767061bfb671b",
+    "occurrenceCount": 4,
+    "path": "src/code/errors.ts",
+    "categories": [
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "a8280cc3f979dd113d71daaec4d976237f9df08f96c1ce6e4db58593207ae041",
+    "occurrenceCount": 5,
+    "path": "src/code/index.ts",
+    "categories": [
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 10,
+    "identityLinesSha256": "7de5553e33455f8dd1a842f38540fc842e85052f0ebf442778e3db68e1247be4",
+    "occurrenceCount": 11,
+    "path": "src/code/projection.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 58,
+    "identityLinesSha256": "61387b37503521a35f60743333d34f9ae0a27dbdf16493f2708ff5ca5cab2310",
+    "occurrenceCount": 59,
+    "path": "src/code/public-operations.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 12,
+    "identityLinesSha256": "b60d401bf301a4db70511cd8290b6a4180d5ebaf2cababa2e1cfd619556a47b6",
+    "occurrenceCount": 14,
+    "path": "src/code/runtime.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 33,
+    "identityLinesSha256": "d9b3f60449598a5317c12b8a11636bab85a365015104b3fbcee775a6cfae6b94",
+    "occurrenceCount": 36,
+    "path": "src/code/runtime.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "4ebf00d4e6f118050cab6d02d851ce908285d42c965f31cd328bb204c465528c",
+    "occurrenceCount": 2,
+    "path": "src/config.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "d5732d1ae742b264713a3064acf0067cdfc9400612b521eaa9d3178c3314790a",
+    "occurrenceCount": 4,
+    "path": "src/config.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 17,
+    "identityLinesSha256": "d58f5a91268992542af4f87ace5256be0765fb3c4980b5f61a29de418c80bc32",
+    "occurrenceCount": 17,
+    "path": "src/generate.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "b7b1a84111b251adb3f404ec614458bbb92b92ec524f983a65069978b3a5bf24",
+    "occurrenceCount": 1,
+    "path": "src/host-resource-posix.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "shared-admission-key"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "d12d13390a122acafacbf884da430d6b3d9132f8359ae1d9e3c750a8a6ac39c3",
+    "occurrenceCount": 1,
+    "path": "src/host-resources.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 8,
+    "identityLinesSha256": "b071dd8c400691295d1e13970e701bcb24ae98a3c0f0bbd101a9777e06f8fa33",
+    "occurrenceCount": 8,
+    "path": "src/host-resources.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "shared-admission-key",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 30,
+    "identityLinesSha256": "972c61f7f243098c4566f0558d54feb8ebd85cf2e6283d82812e89b661536818",
+    "occurrenceCount": 30,
+    "path": "src/index.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "27a326f3b8d31dc30e44e33214f6c24f428c172ac7288f93a804e3ba6772abcd",
+    "occurrenceCount": 4,
+    "path": "src/mcp/index.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "a83d6213554b8b642e95c1aca29edd340d3199eb2d1b01ad4d02b5f7881bf86f",
+    "occurrenceCount": 3,
+    "path": "src/mcp/server.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 5,
+    "identityLinesSha256": "4e05e1e3e2cd38de6948640e01f0bba72b0bbc50be60ea0afa0b973923f96a09",
+    "occurrenceCount": 7,
+    "path": "src/mcp/server.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader",
+      "stable-hash-domain"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "94dbc11a1bb069c11bb8e989d922e54b6c495614871343aae62ef288203052aa",
+    "occurrenceCount": 4,
+    "path": "src/mcp/tools.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 22,
+    "identityLinesSha256": "1d497197b46a2b969e22d09be1a4721e4b36e97bc0aa10f1d43fd0ec5d2d594a",
+    "occurrenceCount": 23,
+    "path": "src/mcp/tools.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "aee8cb7d874f46dc8df2596808d3d4f24ca45f97267f5f8a3e115a92eaea45d5",
+    "occurrenceCount": 2,
+    "path": "src/mcp/types.ts",
+    "categories": [
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "5ce65f93abb74fa73e43e5a31f6a860e70dce1212a9e296535860eb1b24257e7",
+    "occurrenceCount": 3,
+    "path": "src/operations.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 53,
+    "identityLinesSha256": "2b5b7b50aa74c8e3a9fae471b9c5ba64d037b1ed1a076b3a55bcc4a915dd54ba",
+    "occurrenceCount": 60,
+    "path": "src/operations.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "ba1744db9571cfcadb800c790d531ace5b74a14ddb05a436aa098bdfec50930a",
+    "occurrenceCount": 1,
+    "path": "src/vectorize/tool.ts",
+    "categories": [
+      "deprecated-ts-api"
+    ]
+  },
+  {
+    "identityLineCount": 9,
+    "identityLinesSha256": "7d47fff3231cf0d72b8d41cfb5ada326fb1ce9e6ca8c05e77a5fe2a89d1b1bbc",
+    "occurrenceCount": 9,
+    "path": "src/workflow.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 44,
+    "identityLinesSha256": "889f2a705adaa06ab8daa7117860d7d8b6b395c39e24f4f1bd01dc73f6c3c6cd",
+    "occurrenceCount": 48,
+    "path": "src/workflow.ts",
+    "categories": [
+      "deprecated-ts-api",
+      "serialized-reader"
+    ]
+  }
+]

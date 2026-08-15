@@ -135,6 +135,28 @@ async function runOutput(command: string[], cwd: string): Promise<string> {
   return stdout;
 }
 
+async function runCaptured(
+  command: string[],
+  cwd: string,
+): Promise<Readonly<{ stdout: string; stderr: string }>> {
+  const child = Bun.spawn(command, {
+    cwd,
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(
+      `Command failed (${String(exitCode)}): ${command.join(" ")}\n${stderr}`,
+    );
+  }
+  return { stderr, stdout };
+}
+
 async function runFailure(
   command: string[],
   cwd: string,
@@ -225,6 +247,26 @@ try {
       `Packed CLI reports version ${JSON.stringify(doctor.version)} instead of package version ${JSON.stringify(packageJson.version)}.`,
     );
   }
+  const predecessorDoctor = await runCaptured([
+    join(consumer, "node_modules", ".bin", "transmute"),
+    "doctor",
+    "--json",
+  ], consumer);
+  const predecessorDoctorJson = record(
+    JSON.parse(predecessorDoctor.stdout) as unknown,
+    "transmute doctor --json",
+  );
+  if (
+    predecessorDoctorJson.repositoryRoot !== consumerRoot
+    || predecessorDoctorJson.version !== packageJson.version
+  ) {
+    throw new Error("Packed predecessor CLI did not retain canonical doctor behavior.");
+  }
+  if (predecessorDoctor.stderr !== "transmute is deprecated; use atet.\n") {
+    throw new Error(
+      `Packed predecessor CLI warning drifted: ${JSON.stringify(predecessorDoctor.stderr)}`,
+    );
+  }
   const operationsText = await runOutput([
     join(consumer, "node_modules", ".bin", "atet"),
     "operations",
@@ -284,7 +326,74 @@ try {
     .map((specifier, index) => `import * as surface${String(index)} from ${JSON.stringify(specifier)};`)
     .join("\n");
   const uses = importSpecifiers.map((_, index) => `surface${String(index)}`).join(", ");
-  await writeFile(join(consumer, "index.ts"), `${imports}\nvoid [${uses}];\n`);
+  const predecessorTypeFixture = `
+import { executeTransmuteOperationWithLease } from "@hraness/atet";
+import {
+  createTransmuteCodeHost,
+  type TransmuteCodeExecutionRequest,
+  type TransmuteCodeExecutor,
+} from "@hraness/atet/code";
+import {
+  defineTransmuteWorkflow,
+  type TransmuteWorkflowExecutor,
+} from "@hraness/atet/workflow";
+
+const predecessorRequest: TransmuteCodeExecutionRequest<"transmute.diagram.check"> = {
+  input: { path: "diagram.json" },
+  kind: "transmute.diagram.check",
+  nodeKey: "check",
+  version: 2,
+};
+const predecessorCodeExecutor = (async request => {
+  if (request.kind === "transmute.diagram.check") {
+    return { configPath: null, findings: [] };
+  }
+  throw new Error("fixture does not execute");
+}) as TransmuteCodeExecutor;
+const predecessorHost = createTransmuteCodeHost({ execute: predecessorCodeExecutor });
+const predecessorWorkflowExecutor = (async code => {
+  if (code === "transmute.diagram.check") {
+    return { configPath: null, findings: [] };
+  }
+  throw new Error("fixture does not execute");
+}) as TransmuteWorkflowExecutor;
+const predecessorWorkflow = defineTransmuteWorkflow({
+  id: "predecessor-consumer",
+  version: 1,
+  parseInput: value => value as { readonly path: string },
+  run: (context, input) => context.operation(
+    "check",
+    "transmute.diagram.check",
+    input,
+  ),
+});
+if (surface0.atetApi !== surface0.diagramApi) {
+  throw new Error("Deprecated diagramApi must be the canonical atetApi object.");
+}
+void [
+  surface0.atetApi.defineAtetWorkflow,
+  surface0.atetApi.runAtetWorkflow,
+  surface0.diagramApi.executeTransmuteOperation,
+  surface0.diagramApi.generateTransmuteImage,
+  surface0.diagramApi.generateTransmuteImageFile,
+  surface0.diagramApi.searchTransmuteOperations,
+  surface0.diagramApi.transmuteGatewayCredentialStatus,
+  surface0.diagramApi.transmuteMcpProtocolVersion,
+  surface0.diagramApi.transmuteMcpServerName,
+  surface0.diagramApi.transmuteMcpTools,
+  surface0.diagramApi.transmuteOperationRegistry,
+  surface0.diagramApi.TransmuteMcpToolRuntime,
+  predecessorRequest,
+  predecessorHost,
+  predecessorWorkflow,
+  predecessorWorkflowExecutor,
+  executeTransmuteOperationWithLease,
+];
+`;
+  await writeFile(
+    join(consumer, "index.ts"),
+    `${imports}\nvoid [${uses}];\n${predecessorTypeFixture}`,
+  );
   await writeFile(
     join(consumer, "tsconfig.json"),
     `${JSON.stringify({

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { chmod, lstat, mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdtemp, mkdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -95,4 +95,16 @@ test("fails closed on renamed environment and artifact namespace conflicts", asy
     ATET_REPOSITORY_ROOT: project,
     TRANSMUTE_REPOSITORY_ROOT: install,
   }, install)).rejects.toThrow("ATET_REPOSITORY_ROOT and TRANSMUTE_REPOSITORY_ROOT disagree");
+});
+
+test("rejects a predecessor namespace symlink instead of forking new state", async () => {
+  const install = await repositoryFixture();
+  const project = await mkdtemp(join(tmpdir(), "atet-symlinked-artifacts-"));
+  const outside = await mkdtemp(join(tmpdir(), "atet-outside-artifacts-"));
+  temporaryRoots.push(project, outside);
+  await mkdir(join(project, "artifacts"), { recursive: true });
+  await symlink(outside, join(project, "artifacts", "transmute"));
+
+  await expect(resolveRepositoryPaths(project, {}, install))
+    .rejects.toThrow("Artifact namespace must be a physical directory");
 });

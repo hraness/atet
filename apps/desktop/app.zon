@@ -2,7 +2,7 @@
     .id = "com.hraness.atet",
     .name = "atet",
     .display_name = "Atet",
-    .version = "1.0.0",
+    .version = "2.0.0",
     .icons = .{"assets/icon.png"},
     .platforms = .{"macos"},
     .permissions = .{},

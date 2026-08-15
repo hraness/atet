@@ -126,7 +126,7 @@ function screenInterruption(
 }
 
 describe("recording bundle manifest", () => {
-  test("accepts canonical and matching legacy product identities", () => {
+  test("accepts canonical and matching predecessor and legacy product identities", () => {
     const legacy = testManifest();
     expect(RecordingManifestSchema.parse(legacy).kind).toBe("studio.recording-bundle");
 
@@ -137,6 +137,14 @@ describe("recording bundle manifest", () => {
     });
     expect(canonical.kind).toBe("atet.recording-bundle");
     expect(canonical.tool.name).toBe("atet");
+
+    const predecessor = RecordingManifestSchema.parse({
+      ...legacy,
+      kind: "transmute.recording-bundle",
+      tool: { ...legacy.tool, name: "transmute" },
+    });
+    expect(predecessor.kind).toBe("transmute.recording-bundle");
+    expect(predecessor.tool.name).toBe("transmute");
 
     expect(() => RecordingManifestSchema.parse({
       ...legacy,

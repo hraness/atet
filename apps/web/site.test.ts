@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 import { buildWebsite } from "./scripts/build"
 
 const appDirectory = dirname(fileURLToPath(import.meta.url))
-const description = "Open-source TypeScript SDK, Bun CLI, and local runtime for turning ideas and raw assets into images, diagrams, animated loops, and video."
+const description = "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video."
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
 beforeAll(async () => {
@@ -58,7 +58,7 @@ describe("static Atet site", () => {
         description,
         installUrl: "https://atet.sh/#install",
         sameAs: ["https://github.com/hraness/atet"],
-        softwareVersion: "1.0.0",
+        softwareVersion: "2.0.0",
       }),
       expect.objectContaining({
         "@id": "https://atet.sh/#source",
@@ -289,6 +289,6 @@ describe("static Atet site", () => {
     expect(html).toContain('href="https://hraness.com"')
     expect(html).toContain('aria-label="hraness"')
     expect(html).toContain("class=\"hraness-mark\"")
-    expect(html).toContain("Atet 1.0.0 · MIT · Local-first visual media.")
+    expect(html).toContain("Atet 2.0.0 · MIT · Local-first visual media.")
   })
 })

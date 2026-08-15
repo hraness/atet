@@ -17,6 +17,9 @@ import {
   generateAtetImage,
   generateAtetImageFile,
   atetGatewayCredentialStatus,
+  generateTransmuteImage,
+  generateTransmuteImageFile,
+  transmuteGatewayCredentialStatus,
 } from "./generate.js"
 import { builtInIcons } from "./icons.js"
 import {
@@ -30,12 +33,19 @@ import {
   executeAtetOperation,
   atetOperationRegistry,
   searchAtetOperations,
+  executeTransmuteOperation,
+  transmuteOperationRegistry,
+  searchTransmuteOperations,
 } from "./operations.js"
 import {
   atetMcpProtocolVersion,
   atetMcpServerName,
   atetMcpTools,
   AtetMcpToolRuntime,
+  transmuteMcpProtocolVersion,
+  transmuteMcpServerName,
+  transmuteMcpTools,
+  TransmuteMcpToolRuntime,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
@@ -57,14 +67,16 @@ import {
   runAtetWorkflow,
   AtetWorkflowError,
 } from "./workflow.js"
+export { ATET_VERSION } from "./version.js"
 
-export const diagramApi = Object.freeze({
+export const atetApi = Object.freeze({
   artifactSummary,
   builtInIcons,
   bundledSkillPath,
   checkDiagramFile,
   desktopDownloadPage,
   desktopStatus,
+  defineAtetWorkflow,
   DiagramValidationError,
   findDesktopApplication,
   generateAtetImage,
@@ -92,17 +104,32 @@ export const diagramApi = Object.freeze({
   resolveEdge,
   resolveDiagramSource,
   resolveStackLayout,
+  runAtetWorkflow,
   runMcpServer,
   searchAtetOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
   StackLayoutError,
+  AtetWorkflowError,
   vectorizeImage,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
   executeAtetOperation,
+  generateTransmuteImage,
+  generateTransmuteImageFile,
+  transmuteGatewayCredentialStatus,
+  transmuteMcpProtocolVersion,
+  transmuteMcpServerName,
+  transmuteMcpTools,
+  transmuteOperationRegistry,
+  TransmuteMcpToolRuntime,
+  searchTransmuteOperations,
+  executeTransmuteOperation,
 })
+
+/** @deprecated Use atetApi. Retained through the Atet 2.x line. */
+export const diagramApi = atetApi
 
 export {
   artifactSummary,
@@ -122,6 +149,10 @@ export {
   atetMcpTools,
   atetOperationRegistry,
   AtetMcpToolRuntime,
+  transmuteMcpProtocolVersion,
+  transmuteMcpServerName,
+  transmuteMcpTools,
+  TransmuteMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
@@ -151,6 +182,12 @@ export {
   WorkspaceBoundary,
   WorkspaceBoundaryError,
   executeAtetOperation,
+  generateTransmuteImage,
+  generateTransmuteImageFile,
+  transmuteGatewayCredentialStatus,
+  transmuteOperationRegistry,
+  searchTransmuteOperations,
+  executeTransmuteOperation,
 }
 export * from "./cloud-errors.js"
 export * from "./generate.js"

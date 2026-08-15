@@ -4,12 +4,14 @@
 
 **Carry an idea all the way into view.**
 
-Open-source TypeScript SDK, Bun CLI, and local runtime for turning ideas and raw assets into images, diagrams, animated loops, and video.
+Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI
+for carrying ideas and raw assets into images, diagrams, animated loops, and
+video.
 
-Atet is named for Ra's solar barque. The name fits the work: one vessel carries
-an idea from its first rough material through rendering, review, and delivery.
-Atet keeps that journey inspectable, with explicit sources, bounded execution,
-and editable artifacts instead of an opaque creative endpoint.
+The name fits the work: one vessel carries an idea from its first rough material
+through rendering, review, and delivery. Atet keeps that journey inspectable,
+with explicit sources, bounded execution, and editable artifacts instead of an
+opaque creative endpoint.
 
 ```sh
 bun add --global github:hraness/atet#v2.0.0
@@ -270,7 +272,14 @@ CLI identity. The former `transmute` executable remains an alias to `atet`
 through the 2.x release line so existing scripts have one major version to
 migrate. Version-1 serialized operation identifiers and MCP tool names remain
 accepted only as compatibility inputs; new output and documentation use Atet
-identifiers.
+identifiers. The four exact `@hraness/transmute/local/*` imports used by saved
+local workflows are rewritten at load time to their Atet equivalents; newly
+authored source uses only `@hraness/atet/local/*`.
+
+Machine-local runs already in flight are the one deliberate exception. Finish
+them with the 1.x host or restart them under Atet 2.x. Atet rejects predecessor
+run stores before it acquires a lease or mutates state because translating
+their plan hashes would also retarget staging paths and replay grants.
 
 The immutable version-1 tags and Releases remain available in the same GitHub
 repository history. GitHub redirects the former repository URL after the

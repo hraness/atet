@@ -4,7 +4,9 @@ import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  canonicalJson,
   createNodeBundleFileSystem,
+  hashEditPlan,
   loadEditPlan,
   saveRecordingManifest,
 } from "../core";
@@ -146,6 +148,29 @@ function overlayArguments(source: string): readonly string[] {
 }
 
 describe("exclusive bundle mutation lock", () => {
+  test("first mutation of a predecessor recording plan receipts the saved Atet bytes", async () => {
+    const fixture = await recordingFixture();
+    try {
+      const fileSystem = createNodeBundleFileSystem(fixture.recordingDirectory);
+      const current = await loadEditPlan(fileSystem, CURRENT_EDIT_PLAN_PATH);
+      await writeFile(
+        join(fixture.recordingDirectory, CURRENT_EDIT_PLAN_PATH),
+        `${canonicalJson({ ...current, kind: "studio.edit-plan" })}\n`,
+      );
+
+      const result = await execute(fixture.paths, [
+        "edit", "rec_example001", "cut", "--from", "4s", "--to", "5s", "--json",
+      ]);
+      expect(result).toMatchObject({ exitCode: 0, stderr: "" });
+      const receipt = JSON.parse(result.stdout) as { readonly planHash: string };
+      const saved = await loadEditPlan(fileSystem, CURRENT_EDIT_PLAN_PATH);
+      expect(saved.kind).toBe("atet.edit-plan");
+      expect(receipt.planHash).toBe(hashEditPlan(saved));
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
   test("uses the same conflict boundary for project edits", async () => {
     const root = await mkdtemp(join(tmpdir(), "atet-project-mutation-lock-"));
     const paths: RepositoryPaths = {

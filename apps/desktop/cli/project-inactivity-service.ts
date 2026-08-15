@@ -19,6 +19,7 @@ import {
 } from "../contracts";
 import {
   DEFAULT_MINIMUM_FREEZE_CONFIDENCE,
+  canonicalAtetPersistenceDocument,
   canonicalJson,
   canonicalJsonSha256,
   hashPlacementSync,
@@ -540,10 +541,12 @@ export async function analyzeAndPersistProjectInactivity(
     project: options.project.project,
     updatedAt: analyzed.analysis.createdAt,
   });
-  await saveVideoProject(options.project.fileSystem, update.project);
+  const project = canonicalAtetPersistenceDocument(update.project);
+  await saveVideoProject(options.project.fileSystem, project);
   return {
     analysis: analyzed.analysis,
     analysisPath: published.analysisPath,
     ...update,
+    project,
   };
 }

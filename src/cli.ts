@@ -25,14 +25,16 @@ import {
   executeAtetOperation,
   atetOperationCodes,
   isAtetOperationCode,
+  isTransmuteOperationCode,
   searchAtetOperations,
   withAtetOperationHostAdmission,
 } from "./operations.js"
 import type { HostResourceCoordinator } from "./host-resources.js"
 import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.js"
 import { pathExists } from "./fs.js"
+import { ATET_VERSION } from "./version.js"
 
-export const atetCliVersion = "1.0.0"
+export const atetCliVersion = ATET_VERSION
 /** @deprecated Use {@link atetCliVersion}. */
 export const transmuteCliVersion = atetCliVersion
 
@@ -424,7 +426,7 @@ export async function main(
         parsePositiveInteger(parsed.options.limit, "limit") ??
         atetOperationCodes.length
       const operations = searchAtetOperations(
-        parsed.positionals[0] ?? "",
+        (parsed.positionals[0] ?? "").replace(/\btransmute\./gu, "atet."),
         limit,
       )
       console.log(JSON.stringify({ operations }, null, 2))
@@ -440,9 +442,14 @@ export async function main(
           "Use atet code execute <operation> --input <JSON>",
         )
       }
-      const operation = parsed.positionals[0]!
-      if (!isAtetOperationCode(operation)) {
-        throw new Error(`Unknown Atet operation code: ${operation}`)
+      const requestedOperation = parsed.positionals[0]!
+      const operation = isAtetOperationCode(requestedOperation)
+        ? requestedOperation
+        : isTransmuteOperationCode(requestedOperation)
+          ? requestedOperation.replace(/^transmute\./u, "atet.") as typeof atetOperationCodes[number]
+          : undefined
+      if (operation === undefined) {
+        throw new Error(`Unknown Atet operation code: ${requestedOperation}`)
       }
       const inputText = requiredOption(parsed, "input")
       if (Buffer.byteLength(inputText, "utf8") > 64 * 1024) {

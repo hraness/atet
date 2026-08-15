@@ -1,12 +1,16 @@
 import {
   executeAtetOperationWithLease,
   isAtetOperationCode,
+  isTransmuteOperationCode,
   parseAtetOperationInput,
   atetOperationHostResourceClaims,
   type AtetOperationCode,
   type AtetOperationDependencies,
   type AtetOperationInputMap,
   type AtetOperationResultMap,
+  type TransmuteOperationCode,
+  type TransmuteOperationInputMap,
+  type TransmuteOperationResultMap,
 } from "./operations.js"
 import {
   createDefaultHostResourceCoordinator,
@@ -410,25 +414,144 @@ export async function runAtetWorkflow<Input, Output>(
 
 /** @deprecated Use Atet names for newly authored integrations. */
 export type TransmuteWorkflowErrorCode = AtetWorkflowErrorCode
-/** @deprecated Use {@link AtetWorkflowStepReceipt}. */
+/** @deprecated New receipts use canonical Atet operation identifiers. */
 export type TransmuteWorkflowStepReceipt = AtetWorkflowStepReceipt
 /** @deprecated Use {@link AtetWorkflowError}. */
 export { AtetWorkflowError as TransmuteWorkflowError }
 /** @deprecated Use {@link AtetWorkflowExecutorContext}. */
 export type TransmuteWorkflowExecutorContext = AtetWorkflowExecutorContext
-/** @deprecated Use {@link AtetWorkflowExecutor}. */
-export type TransmuteWorkflowExecutor = AtetWorkflowExecutor
-/** @deprecated Use {@link AtetWorkflowContext}. */
-export type TransmuteWorkflowContext = AtetWorkflowContext
-/** @deprecated Use {@link AtetWorkflowDefinition}. */
-export type TransmuteWorkflowDefinition<Input, Output> = AtetWorkflowDefinition<Input, Output>
+/** @deprecated Accepts v1 operation identifiers and adapts them to Atet. */
+export type TransmuteWorkflowExecutor = <C extends TransmuteOperationCode>(
+  code: C,
+  input: TransmuteOperationInputMap[C],
+  context: TransmuteWorkflowExecutorContext,
+) => Promise<TransmuteOperationResultMap[C]>
+/** @deprecated Accepts v1 operation identifiers and adapts them to Atet. */
+export interface TransmuteWorkflowContext {
+  readonly signal: AbortSignal
+  operation<C extends TransmuteOperationCode>(
+    id: string,
+    code: C,
+    input: TransmuteOperationInputMap[C],
+  ): Promise<TransmuteOperationResultMap[C]>
+}
+/** @deprecated Use {@link AtetWorkflowDefinition} for newly authored workflows. */
+export interface TransmuteWorkflowDefinition<Input, Output> {
+  readonly id: string
+  readonly version: number
+  readonly parseInput: (value: unknown) => Input
+  readonly run: (
+    context: TransmuteWorkflowContext,
+    input: Input,
+  ) => Output | Promise<Output>
+}
 /** @deprecated Use {@link DefineAtetWorkflowOptions}. */
-export type DefineTransmuteWorkflowOptions<Input, Output> = DefineAtetWorkflowOptions<Input, Output>
+export interface DefineTransmuteWorkflowOptions<Input, Output>
+  extends TransmuteWorkflowDefinition<Input, Output> {}
 /** @deprecated Use {@link RunAtetWorkflowOptions}. */
-export type RunTransmuteWorkflowOptions = RunAtetWorkflowOptions
-/** @deprecated Use {@link AtetWorkflowRun}. */
+export interface RunTransmuteWorkflowOptions {
+  readonly dependencies?: AtetOperationDependencies
+  readonly executor?: TransmuteWorkflowExecutor
+  readonly hostResourceCoordinator?: HostResourceCoordinator
+  readonly maximumSteps?: number
+  readonly signal?: AbortSignal
+  readonly waitTimeoutMilliseconds?: number
+}
+/** @deprecated New runs return canonical Atet receipts. */
 export type TransmuteWorkflowRun<Output> = AtetWorkflowRun<Output>
+
+function atetCodeFromTransmute(code: TransmuteOperationCode): AtetOperationCode {
+  if (!isTransmuteOperationCode(code)) {
+    throw new AtetWorkflowError(
+      "INVALID_WORKFLOW_STEP",
+      "Deprecated Transmute workflows accept only exact v1 operation identifiers.",
+    )
+  }
+  return code.replace(/^transmute\./u, "atet.") as AtetOperationCode
+}
+
+function transmuteCodeFromAtet(code: AtetOperationCode): TransmuteOperationCode {
+  return code.replace(/^atet\./u, "transmute.") as TransmuteOperationCode
+}
+
 /** @deprecated Use {@link defineAtetWorkflow}. */
-export const defineTransmuteWorkflow = defineAtetWorkflow
-/** @deprecated Use {@link runAtetWorkflow}. */
-export const runTransmuteWorkflow = runAtetWorkflow
+export function defineTransmuteWorkflow<Input, Output>(
+  options: DefineTransmuteWorkflowOptions<Input, Output>,
+): TransmuteWorkflowDefinition<Input, Output> {
+  if (typeof options !== "object" || options === null) {
+    workflowError("INVALID_WORKFLOW", "Workflow definition must be an object.")
+  }
+  validateWorkflowId(options.id)
+  if (!Number.isSafeInteger(options.version) || options.version < 1) {
+    workflowError(
+      "INVALID_WORKFLOW",
+      "Workflow version must be a positive safe integer.",
+    )
+  }
+  if (typeof options.parseInput !== "function" || typeof options.run !== "function") {
+    workflowError(
+      "INVALID_WORKFLOW",
+      "Workflow definition requires parseInput and run functions.",
+    )
+  }
+  return Object.freeze({
+    id: options.id,
+    version: options.version,
+    parseInput: options.parseInput,
+    run: options.run,
+  })
+}
+
+/**
+ * @deprecated Use {@link runAtetWorkflow}. Exact v1 operation inputs are
+ * adapted before dispatch; receipts and errors use canonical Atet identifiers.
+ */
+export async function runTransmuteWorkflow<Input, Output>(
+  definition: TransmuteWorkflowDefinition<Input, Output>,
+  value: unknown,
+  options: RunTransmuteWorkflowOptions = {},
+): Promise<TransmuteWorkflowRun<Awaited<Output>>> {
+  const legacy = defineTransmuteWorkflow(definition)
+  const canonical = defineAtetWorkflow({
+    id: legacy.id,
+    version: legacy.version,
+    parseInput: legacy.parseInput,
+    run(context, input) {
+      const legacyContext: TransmuteWorkflowContext = Object.freeze({
+        signal: context.signal,
+        operation<C extends TransmuteOperationCode>(
+          id: string,
+          code: C,
+          operationInput: TransmuteOperationInputMap[C],
+        ): Promise<TransmuteOperationResultMap[C]> {
+          return context.operation(
+            id,
+            atetCodeFromTransmute(code),
+            operationInput,
+          ) as Promise<TransmuteOperationResultMap[C]>
+        },
+      })
+      return legacy.run(legacyContext, input)
+    },
+  })
+  const legacyExecutor = options.executor
+  const executor: AtetWorkflowExecutor | undefined = legacyExecutor === undefined
+    ? undefined
+    : (async (code, operationInput, context) => await legacyExecutor(
+        transmuteCodeFromAtet(code),
+        operationInput,
+        context,
+      )) as AtetWorkflowExecutor
+  return await runAtetWorkflow(canonical, value, {
+    ...(options.dependencies === undefined ? {} : { dependencies: options.dependencies }),
+    ...(executor === undefined ? {} : { executor }),
+    ...(options.hostResourceCoordinator === undefined
+      ? {}
+      : { hostResourceCoordinator: options.hostResourceCoordinator }),
+    ...(options.maximumSteps === undefined ? {} : { maximumSteps: options.maximumSteps }),
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+    ...(options.waitTimeoutMilliseconds === undefined
+      ? {}
+      : { waitTimeoutMilliseconds: options.waitTimeoutMilliseconds }),
+  })
+}

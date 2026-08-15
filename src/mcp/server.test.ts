@@ -93,13 +93,34 @@ describe("Atet MCP stdio server", () => {
             },
           },
         },
+        {
+          jsonrpc: "2.0",
+          id: 7,
+          method: "tools/call",
+          params: {
+            name: "search_transmute",
+            arguments: { query: "diagram" },
+          },
+        },
+        {
+          jsonrpc: "2.0",
+          id: 8,
+          method: "tools/call",
+          params: {
+            name: "execute_transmute",
+            arguments: {
+              operation: "transmute.diagram.check",
+              input: { path: "flow.diagram.json" },
+            },
+          },
+        },
       ])
 
-      expect(responses).toHaveLength(6)
+      expect(responses).toHaveLength(8)
       expect(responses[0]?.result).toMatchObject({
         protocolVersion: "2025-11-25",
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "hraness-atet", version: "1.0.0" },
+        serverInfo: { name: "hraness-atet", version: "2.0.0" },
       })
       const listed = responses[2]?.result as {
         readonly tools: readonly Readonly<Record<string, unknown>>[]
@@ -136,6 +157,21 @@ describe("Atet MCP stdio server", () => {
             { code: "atet.diagram.check" },
             { code: "atet.diagram.render" },
           ],
+        },
+      })
+      expect(responses[6]?.result).toMatchObject({
+        structuredContent: {
+          ok: true,
+          operations: [
+            { code: "atet.diagram.check" },
+            { code: "atet.diagram.render" },
+          ],
+        },
+      })
+      expect(responses[7]?.result).toMatchObject({
+        structuredContent: {
+          ok: true,
+          operation: "atet.diagram.check",
         },
       })
       expect(responses[5]?.result).toMatchObject({

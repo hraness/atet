@@ -18,7 +18,11 @@ import {
   hostSuccess,
   parseHostRequest,
 } from "./host-protocol";
-import { RecordingService, resolveGatewayRepositoryRoot } from "./recording-service";
+import {
+  RecordingService,
+  resolveGatewayRepositoryRoot,
+  resolveRecordingArtifactDirectory,
+} from "./recording-service";
 import { renamedEnvironmentValue } from "../../cli/renamed-environment";
 
 const defaultOperationSettlementTimeoutMs = 30_000;
@@ -45,6 +49,19 @@ async function executableFromEnvironment(value: string | undefined): Promise<str
   return canonical;
 }
 
+async function physicalDirectoryExists(path: string): Promise<boolean> {
+  try {
+    const details = await lstat(path);
+    if (details.isSymbolicLink() || !details.isDirectory()) {
+      throw new Error("Atet workspace must be a physical directory.");
+    }
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}
+
 /** Selects mutable project state independently from immutable bundled tools. */
 export async function resolveRuntimeRepositoryRoot(options: {
   readonly environmentValue?: string;
@@ -58,7 +75,17 @@ export async function resolveRuntimeRepositoryRoot(options: {
   }
   const homeDirectory = options.homeDirectory ?? process.env.HOME;
   if (homeDirectory === undefined || !isAbsolute(homeDirectory)) return null;
-  const projectRoot = join(homeDirectory, "Movies", "Atet");
+  const canonicalRoot = join(homeDirectory, "Movies", "Atet");
+  const predecessorRoot = join(homeDirectory, "Movies", "Transmute");
+  const [hasCanonicalRoot, hasPredecessorRoot] = await Promise.all([
+    physicalDirectoryExists(canonicalRoot),
+    physicalDirectoryExists(predecessorRoot),
+  ]);
+  if (hasCanonicalRoot && hasPredecessorRoot) {
+    throw new Error("Both Movies/Atet and Movies/Transmute exist. Select one with ATET_REPOSITORY_ROOT before Atet writes project state.");
+  }
+  if (hasPredecessorRoot) return await realpath(predecessorRoot);
+  const projectRoot = canonicalRoot;
   await mkdir(projectRoot, { mode: 0o700, recursive: true });
   const details = await lstat(projectRoot);
   if (details.isSymbolicLink() || !details.isDirectory()) {
@@ -83,10 +110,11 @@ async function maybeRunRecordingDaemon(arguments_: readonly string[]): Promise<b
   if (repositoryRoot === null) throw new Error("Recording daemon requires a configured repository.");
   const helper = await executableFromEnvironment(valueAfter(arguments_, "--helper"));
   const artifactRoot = resolve(valueAfter(arguments_, "--artifact-root"));
-  if (
-    artifactRoot !== join(repositoryRoot, "artifacts", "atet", "recordings")
-    && artifactRoot !== join(repositoryRoot, "artifacts", "transmute", "recordings")
-  ) {
+  const selectedArtifactRoot = await resolveRecordingArtifactDirectory(
+    repositoryRoot,
+    "artifacts/atet/recordings",
+  );
+  if (artifactRoot !== selectedArtifactRoot) {
     throw new Error("Recording daemon artifact root is outside the configured repository location.");
   }
   await runRecordingDaemon({ artifactRoot, helperExecutable: helper });

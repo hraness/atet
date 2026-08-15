@@ -1,7 +1,38 @@
-import { lstat, readdir, readFile } from "node:fs/promises";
+import { lstat, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
+import {
+  compareLegacyIdentityInventory,
+  duplicateIdentityAlternatives,
+  legacyIdentitySnapshot,
+  planLegacyIdentityInventoryUpdate,
+  validateInventoryEntries,
+  type LegacyIdentityInventoryEntry,
+  type LegacyIdentitySnapshot,
+} from "./legacy-identity";
 
 const ROOT = new URL("../", import.meta.url).pathname;
+const LEGACY_IDENTITY_INVENTORY_PATH = join(
+  ROOT,
+  "scripts/legacy-identity.inventory.json",
+);
+const LEGACY_IDENTITY_BOUNDARY_FILES = new Set([
+  "scripts/check-standalone.ts",
+  "scripts/legacy-identity.inventory.json",
+  "scripts/legacy-identity.test.ts",
+  "scripts/legacy-identity.ts",
+]);
+const UPDATE_LEGACY_IDENTITY_INVENTORY =
+  process.argv.length === 3
+  && process.argv[2] === "--update-legacy-identity-inventory";
+if (
+  process.argv.length > 2
+  && !UPDATE_LEGACY_IDENTITY_INVENTORY
+) {
+  console.error(
+    "Usage: bun scripts/check-standalone.ts [--update-legacy-identity-inventory]",
+  );
+  process.exit(2);
+}
 const SCANNED_ROOTS = [
   ".github",
   "apps",
@@ -63,6 +94,38 @@ const TEXT_EXTENSIONS = new Set([
   ".zig",
   ".zon",
 ]);
+const CANONICAL_TEXT_SENTINELS = [
+  {
+    path: "src/version.ts",
+    values: ['export const ATET_VERSION = "2.0.0" as const'],
+  },
+  {
+    path: "src/operations.ts",
+    values: [
+      '"atet.diagram.check"',
+      '"atet.diagram.render"',
+      '"atet.image.generate"',
+      '"atet.image.vectorize"',
+    ],
+  },
+  {
+    path: "apps/desktop/core/storage.ts",
+    values: ["canonicalAtetPersistenceDocument"],
+  },
+  {
+    path: "apps/desktop/cli/project-state-transaction.ts",
+    values: ['kind: "atet.project-state-transaction"'],
+  },
+  {
+    path: "apps/desktop/dist/cli/main.js",
+    values: [
+      '"2.0.0"',
+      '"atet.diagram.check"',
+      '"atet.edit-plan"',
+      '"atet.video-project"',
+    ],
+  },
+] as const;
 
 const FORBIDDEN_SOURCE = [
   { label: "private Jungle package", pattern: /@jungle\//u },
@@ -91,9 +154,15 @@ const FORBIDDEN_SOURCE = [
 const LEGACY_IDENTITY =
   /@hraness\/transmute|github\.com\/hraness\/transmute|transmute\.rocks|(?:Transmute|transmute|TRANSMUTE)/u;
 const REVIEWED_SERIALIZED_COMPATIBILITY = [
-  /\btransmute\.[a-z][a-z0-9.-]*(?:\.[a-z][a-z0-9.-]*)+\b/gu,
+  /\btransmute\.(?!config\b|rocks\b)[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)*\b/gu,
   /\b(?:execute|search)_transmute\b/gu,
 ] as const;
+const DEPRECATED_TYPESCRIPT_API = /\b[A-Za-z0-9_]*(?:Transmute|transmute|TRANSMUTE)[A-Za-z0-9_]*\b/gu;
+const PREDECESSOR_ENVIRONMENT = /\bTRANSMUTE_[A-Z][A-Z0-9_]*\b/gu;
+const PREDECESSOR_HYPHENATED_IDENTITY = /\btransmute-[a-z0-9-]+(?:\/v[0-9]+)?\b/gu;
+const PREDECESSOR_OPERATION_REGEX = /transmute\\\./gu;
+const PREDECESSOR_OPERATION_PREFIX = /transmute\./gu;
+const PREDECESSOR_LOCAL_IMPORT = /@hraness\/transmute\/local\/(?:code(?:\/(?:advanced|workflows))?|html-overlay)/gu;
 const REVIEWED_FILE_COMPATIBILITY = new Map<string, readonly RegExp[]>([
   [
     "AGENTS.md",
@@ -115,6 +184,79 @@ const REVIEWED_FILE_COMPATIBILITY = new Map<string, readonly RegExp[]>([
       /join\(consumer, "node_modules", "\.bin", "transmute"\)/gu,
     ],
   ],
+  ["src/cli.ts", [DEPRECATED_TYPESCRIPT_API]],
+  ["src/cloud-errors.ts", [DEPRECATED_TYPESCRIPT_API]],
+  ["src/code/contracts.ts", [PREDECESSOR_HYPHENATED_IDENTITY]],
+  ["src/code/errors.ts", [DEPRECATED_TYPESCRIPT_API]],
+  ["src/code/public-operations.ts", [DEPRECATED_TYPESCRIPT_API, PREDECESSOR_OPERATION_REGEX, PREDECESSOR_OPERATION_PREFIX]],
+  ["src/code/runtime.ts", [DEPRECATED_TYPESCRIPT_API]],
+  [
+    "src/config.ts",
+    [/transmute\.config\.(?:ts|mjs|js|json)/gu],
+  ],
+  [
+    "src/config.test.ts",
+    [/atet-config-transmute-/gu, /transmute\.config\.(?:ts|mjs|js|json)/gu],
+  ],
+  ["src/generate.ts", [DEPRECATED_TYPESCRIPT_API]],
+  ["src/host-resource-posix.ts", [DEPRECATED_TYPESCRIPT_API]],
+  [
+    "src/host-resources.ts",
+    [DEPRECATED_TYPESCRIPT_API, /\bTransmute\b/gu, /"transmute"/gu],
+  ],
+  ["src/operations.ts", [DEPRECATED_TYPESCRIPT_API, PREDECESSOR_OPERATION_REGEX, PREDECESSOR_OPERATION_PREFIX]],
+  ["src/vectorize/tool.ts", [PREDECESSOR_ENVIRONMENT, /TRANSMUTE_/gu]],
+  ["src/workflow.ts", [DEPRECATED_TYPESCRIPT_API]],
+  ["apps/desktop/README.md", [/`TransmuteOverlay`/gu]],
+  ["apps/desktop/application/registry.ts", [PREDECESSOR_OPERATION_REGEX, PREDECESSOR_OPERATION_PREFIX]],
+  ["apps/desktop/capture/hardware-smoke-config.ts", [PREDECESSOR_ENVIRONMENT, /TRANSMUTE_/gu]],
+  ["apps/desktop/cli/capabilities.test.ts", [PREDECESSOR_ENVIRONMENT, PREDECESSOR_HYPHENATED_IDENTITY]],
+  [
+    "apps/desktop/cli/main.test.ts",
+    [DEPRECATED_TYPESCRIPT_API, /"transmute"/gu, /transmute\.exe/gu, /transmute-helper/gu, /transmute is deprecated; use atet/gu],
+  ],
+  [
+    "apps/desktop/cli/main.ts",
+    [DEPRECATED_TYPESCRIPT_API, /"transmute"/gu, /transmute is deprecated; use atet/gu],
+  ],
+  [
+    "apps/desktop/cli/paths.test.ts",
+    [PREDECESSOR_ENVIRONMENT, /\bTransmute\b/gu, /"transmute"/gu, /\/transmute/gu, /artifacts\/transmute/gu],
+  ],
+  [
+    "apps/desktop/cli/paths.ts",
+    [PREDECESSOR_ENVIRONMENT, DEPRECATED_TYPESCRIPT_API, /"Transmute"/gu, /"transmute"/gu, /artifacts\/transmute/gu],
+  ],
+  ["apps/desktop/cli/renamed-environment.ts", [PREDECESSOR_ENVIRONMENT, /TRANSMUTE_/gu, /\bTransmute\b/gu]],
+  ["apps/desktop/code/plan-contracts.ts", [PREDECESSOR_HYPHENATED_IDENTITY]],
+  ["apps/desktop/code/run-contracts.ts", [PREDECESSOR_HYPHENATED_IDENTITY]],
+  ["apps/desktop/code/runtime-identity.ts", [/\btransmute\//gu]],
+  ["apps/desktop/code/scheduler.ts", [PREDECESSOR_OPERATION_REGEX, PREDECESSOR_OPERATION_PREFIX]],
+  [
+    "apps/desktop/code/source-bundle.test.ts",
+    [PREDECESSOR_LOCAL_IMPORT, /@hraness\/transmute\/local\//gu, /\bTransmute\b/gu],
+  ],
+  ["apps/desktop/code/source-bundle.ts", [PREDECESSOR_LOCAL_IMPORT]],
+  ["apps/desktop/contracts/recording.test.ts", [/"transmute"/gu]],
+  ["apps/desktop/contracts/recording.ts", [/"transmute"/gu]],
+  ["apps/desktop/contracts/runtime.ts", [DEPRECATED_TYPESCRIPT_API, /artifacts\/transmute/gu]],
+  ["apps/desktop/html-overlay/runtime.test.ts", [DEPRECATED_TYPESCRIPT_API]],
+  ["apps/desktop/html-overlay/runtime.ts", [DEPRECATED_TYPESCRIPT_API]],
+  [
+    "apps/desktop/runtime/src/main.test.ts",
+    [/\bTransmute\b/gu, /Movies\\\/Transmute/gu],
+  ],
+  [
+    "apps/desktop/runtime/src/main.ts",
+    [PREDECESSOR_ENVIRONMENT, /\bTransmute\b/gu, /"transmute"/gu, /artifacts\/transmute/gu],
+  ],
+  ["apps/desktop/runtime/src/recording-service.ts", [/artifacts\/transmute/gu]],
+  ["apps/desktop/src/runtime_host.zig", [PREDECESSOR_ENVIRONMENT]],
+  [
+    "apps/web/site.test.ts",
+    [/\bTransmute\b/gu, /(?:preview\.)?transmute\.rocks/gu, /transmute\\\.rocks/gu],
+  ],
+  ["apps/web/vercel.json", [/(?:preview\.)?transmute\.rocks/gu]],
 ]);
 
 function removeReviewedLegacyCompatibility(
@@ -201,13 +343,21 @@ const files = (await Promise.all(SCANNED_ROOTS.map(async root => {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
-}))).flat().concat(SCANNED_ROOT_FILES.map(file => join(ROOT, file)));
+}))).flat().concat(SCANNED_ROOT_FILES.map(file => join(ROOT, file))).sort();
+
+const inventoryInput: unknown = JSON.parse(
+  await readFile(LEGACY_IDENTITY_INVENTORY_PATH, "utf8"),
+);
+const inventoryStructureProblems = [...validateInventoryEntries(inventoryInput)];
+const inventoryEntries = inventoryStructureProblems.length === 0
+  ? inventoryInput as readonly LegacyIdentityInventoryEntry[]
+  : [];
+const inventoriedIdentityPaths = new Set(inventoryEntries.map(entry => entry.path));
 
 const sourceProblems: string[] = [];
+const legacyIdentitySnapshots: LegacyIdentitySnapshot[] = [];
 for (const file of files) {
-  if (file === import.meta.path) continue;
-  if (relative(ROOT, file) === "scripts/check-standalone.ts") continue;
-  const rootRelative = relative(ROOT, file);
+  const rootRelative = relative(ROOT, file).split(sep).join("/");
   if (LEGACY_IDENTITY.test(rootRelative)) {
     sourceProblems.push(`${rootRelative} retains a pre-Atet source path`);
   }
@@ -216,24 +366,53 @@ for (const file of files) {
     && !SCANNED_ROOT_FILES.includes(rootRelative)
   ) continue;
   const text = await readFile(file, "utf8");
-  if (rootRelative !== "scripts/package-smoke.ts") {
+  const identityBoundaryFile = LEGACY_IDENTITY_BOUNDARY_FILES.has(rootRelative);
+  if (!identityBoundaryFile && rootRelative !== "scripts/package-smoke.ts") {
     for (const rule of FORBIDDEN_SOURCE) {
       if (rule.pattern.test(text)) {
-        sourceProblems.push(`${relative(ROOT, file)} contains ${rule.label}`);
+        sourceProblems.push(`${rootRelative} contains ${rule.label}`);
       }
     }
   }
-  const unreviewedIdentity = removeReviewedLegacyCompatibility(rootRelative, text);
-  if (LEGACY_IDENTITY.test(unreviewedIdentity)) {
+  if (!identityBoundaryFile) {
+    const snapshot = legacyIdentitySnapshot(rootRelative, text);
+    if (snapshot !== null) legacyIdentitySnapshots.push(snapshot);
+    sourceProblems.push(...duplicateIdentityAlternatives(rootRelative, text));
+  }
+  const unreviewedIdentity = identityBoundaryFile
+    ? ""
+    : removeReviewedLegacyCompatibility(rootRelative, text);
+  const generatedOutput = rootRelative.startsWith("dist/")
+    || rootRelative.startsWith("apps/desktop/dist/");
+  if (
+    !generatedOutput
+    && !inventoriedIdentityPaths.has(rootRelative)
+    && LEGACY_IDENTITY.test(unreviewedIdentity)
+  ) {
     sourceProblems.push(
       `${rootRelative} contains an unreviewed pre-Atet identity outside serialized or CLI compatibility`,
     );
   }
 }
 
-const problems = [...packageProblems, ...sourceProblems];
+legacyIdentitySnapshots.sort((left, right) => left.path.localeCompare(right.path));
+
+const inventoryProblems = UPDATE_LEGACY_IDENTITY_INVENTORY
+  ? []
+  : compareLegacyIdentityInventory(inventoryEntries, legacyIdentitySnapshots);
+const inventoryUpdate = UPDATE_LEGACY_IDENTITY_INVENTORY
+  ? planLegacyIdentityInventoryUpdate(inventoryEntries, legacyIdentitySnapshots)
+  : { entries: [], problems: [] };
+
+const problems = [
+  ...packageProblems,
+  ...sourceProblems,
+  ...inventoryStructureProblems,
+  ...inventoryProblems,
+  ...inventoryUpdate.problems,
+];
 const rootPackage = await readJson(join(ROOT, "package.json"));
-const expectedDescription = "Open-source TypeScript SDK, Bun CLI, and local runtime for turning ideas and raw assets into images, diagrams, animated loops, and video.";
+const expectedDescription = "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.";
 if (rootPackage.name !== "@hraness/atet") {
   problems.push("package.json name must be @hraness/atet");
 }
@@ -297,10 +476,21 @@ if (typeof packageVersion !== "string") {
       "apps/desktop/runtime/package-macos.ts",
       `atet-${packageVersion}-macos-ReleaseFast.app`,
     ],
+    ["src/version.ts", `ATET_VERSION = ${JSON.stringify(packageVersion)}`],
   ] as const;
   for (const [path, expected] of versionContracts) {
     if (!(await readFile(join(ROOT, path), "utf8")).includes(expected)) {
       problems.push(`${path} does not match package version ${packageVersion}`);
+    }
+  }
+}
+for (const sentinel of CANONICAL_TEXT_SENTINELS) {
+  const text = await readFile(join(ROOT, sentinel.path), "utf8");
+  for (const value of sentinel.values) {
+    if (!text.includes(value)) {
+      problems.push(
+        `${sentinel.path} is missing canonical Atet sentinel ${JSON.stringify(value)}`,
+      );
     }
   }
 }
@@ -318,6 +508,17 @@ problems.sort();
 if (problems.length > 0) {
   for (const problem of problems) console.error(problem);
   process.exit(1);
+}
+
+if (UPDATE_LEGACY_IDENTITY_INVENTORY) {
+  await writeFile(
+    LEGACY_IDENTITY_INVENTORY_PATH,
+    `${JSON.stringify(inventoryUpdate.entries, null, 2)}\n`,
+  );
+  console.log(
+    `Updated generated legacy identity inventory across ${inventoryUpdate.entries.length} files.`,
+  );
+  process.exit(0);
 }
 
 console.log(`Standalone boundary verified across ${files.length} source files.`);

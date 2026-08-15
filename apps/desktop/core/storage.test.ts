@@ -15,7 +15,65 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { sha256Hex } from "./canonical-json";
-import { createNodeBundleFileSystem } from "./storage";
+import { operationTestProject } from "../application/operations/test-support";
+import { testManifest } from "./test-support";
+import {
+  createNodeBundleFileSystem,
+  loadRecordingManifest,
+  loadVideoProject,
+  saveRecordingManifest,
+  saveVideoProject,
+} from "./storage";
+
+test("mutable bundle persistence preserves predecessor reads and writes canonical Atet", async () => {
+  const files = new Map<string, string>();
+  const fileSystem = {
+    readText: async (path: string) => {
+      const value = files.get(path);
+      if (value === undefined) throw new Error(`Missing fixture file: ${path}`);
+      return value;
+    },
+    writeTextAtomic: async (path: string, contents: string) => {
+      files.set(path, contents);
+    },
+  };
+  const recording = testManifest();
+  const project = operationTestProject();
+  files.set("manifest.json", `${JSON.stringify({
+    ...recording,
+    kind: "transmute.recording-bundle",
+    tool: { ...recording.tool, name: "transmute" },
+  })}\n`);
+  files.set("project.json", `${JSON.stringify({
+    ...project,
+    kind: "transmute.video-project",
+  })}\n`);
+
+  const loadedRecording = await loadRecordingManifest(fileSystem);
+  const loadedProject = await loadVideoProject(fileSystem);
+  expect({
+    kind: loadedRecording.kind,
+    tool: loadedRecording.tool.name,
+  }).toEqual({ kind: "transmute.recording-bundle", tool: "transmute" });
+  expect(loadedProject.kind).toBe("transmute.video-project");
+
+  await saveRecordingManifest(fileSystem, {
+    ...loadedRecording,
+    kind: "studio.recording-bundle",
+    tool: { ...loadedRecording.tool, name: "studio" },
+  });
+  await saveVideoProject(fileSystem, {
+    ...loadedProject,
+    kind: "studio.video-project",
+  });
+  expect(JSON.parse(files.get("manifest.json")!)).toMatchObject({
+    kind: "atet.recording-bundle",
+    tool: { name: "atet" },
+  });
+  expect(JSON.parse(files.get("project.json")!)).toMatchObject({
+    kind: "atet.video-project",
+  });
+});
 
 test.skipIf(process.platform === "win32")("bundle storage rejects symlink leaves and redirected parent directories", async () => {
   const temporary = await mkdtemp(join(tmpdir(), "atet-storage-path-test-"));

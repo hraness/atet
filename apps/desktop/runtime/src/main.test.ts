@@ -126,6 +126,23 @@ test("packaged gateway creates user-owned state independent of its bundle locati
   expect((await lstat(first!)).mode & 0o777).toBe(0o700);
 });
 
+test("packaged gateway reuses the predecessor workspace and rejects ambiguous defaults", async () => {
+  const { home } = await fixture();
+  const predecessor = join(home, "Movies", "Transmute");
+  await mkdir(predecessor, { recursive: true });
+
+  expect(await resolveRuntimeRepositoryRoot({
+    environmentValue: "",
+    homeDirectory: home,
+  })).toBe(await realpath(predecessor));
+
+  await mkdir(join(home, "Movies", "Atet"));
+  expect(resolveRuntimeRepositoryRoot({
+    environmentValue: "",
+    homeDirectory: home,
+  })).rejects.toThrow(/Both Movies\/Atet and Movies\/Transmute exist/u);
+});
+
 test("runtime workspace selection rejects relative configuration and symlink defaults", async () => {
   const { home } = await fixture();
   expect(resolveRuntimeRepositoryRoot({ environmentValue: "relative/path", homeDirectory: home }))

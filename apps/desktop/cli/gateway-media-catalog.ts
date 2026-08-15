@@ -653,6 +653,7 @@ export function createGatewayMediaCatalogCache(options: Readonly<{
         );
         const snapshot: GatewayMediaCatalogSnapshot = {
           ...cached.snapshot,
+          kind: "atet.gateway-media-catalog",
           validatedAt,
           ...(validators === undefined ? {} : { validators }),
         };

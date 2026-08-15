@@ -37,6 +37,9 @@ import {
   type PortableAtetOperationInputMap,
   type PortableAtetOperationKind,
   type PortableAtetOperationResultMap,
+  type PortableTransmuteOperationInputMap,
+  type PortableTransmuteOperationKind,
+  type PortableTransmuteOperationResultMap,
 } from "./public-operations.js"
 import { PUBLIC_WORKFLOW_REGISTRY_PROJECTION } from "./projection.js"
 import {
@@ -101,19 +104,19 @@ export function createAtetCodeHost(
   if (typeof options !== "object" || options === null) {
     throw new AtetCodeError(
       "invalid-data",
-      "A Atet Code host must be an object.",
+      "An Atet Code host must be an object.",
     )
   }
   if (typeof options.execute !== "function") {
     throw new AtetCodeError(
       "invalid-data",
-      "A Atet Code host requires an execute function.",
+      "An Atet Code host requires an execute function.",
     )
   }
   if (options.admit !== undefined && typeof options.admit !== "function") {
     throw new AtetCodeError(
       "invalid-data",
-      "A Atet Code host admit value must be a function when provided.",
+      "An Atet Code host admit value must be a function when provided.",
     )
   }
   return Object.freeze({
@@ -579,15 +582,90 @@ export async function runWorkflow<
   return await runBuiltWorkflow(buildWorkflow(definition, input), options)
 }
 
-/** Deprecated Transmute names preserve the v1 TypeScript surface. */
+/** Deprecated Transmute inputs preserve the v1 TypeScript surface. */
 export type TransmuteCodeExecutionRequest<
-  Kind extends PortableAtetOperationKind = PortableAtetOperationKind,
-> = AtetCodeExecutionRequest<Kind>
+  Kind extends PortableTransmuteOperationKind = PortableTransmuteOperationKind,
+> = Readonly<{
+  input: PortableTransmuteOperationInputMap[Kind]
+  kind: Kind
+  nodeKey: string
+  version: 2
+}>
 export type TransmuteCodeExecutionContext = AtetCodeExecutionContext
-export type TransmuteCodeExecutor = AtetCodeExecutor
-export type TransmuteCodeAdmissionRequest = AtetCodeAdmissionRequest
-export type TransmuteCodeAdmission = AtetCodeAdmission
+export type TransmuteCodeExecutor = <Kind extends PortableTransmuteOperationKind>(
+  request: TransmuteCodeExecutionRequest<Kind>,
+  context: TransmuteCodeExecutionContext,
+) => Promise<PortableTransmuteOperationResultMap[Kind]>
+export interface TransmuteCodeAdmissionRequest {
+  readonly kind: PortableTransmuteOperationKind
+  readonly nodeKey: string
+  readonly policy: OperationPolicy
+  readonly version: 2
+}
+export type TransmuteCodeAdmission = <Result>(
+  request: TransmuteCodeAdmissionRequest,
+  execute: () => Promise<Result>,
+  context: TransmuteCodeExecutionContext,
+) => Promise<Result>
 export type TransmuteCodeHost = AtetCodeHost
-export type CreateTransmuteCodeHostOptions = CreateAtetCodeHostOptions
-export const createTransmuteCodeHost = createAtetCodeHost
+export interface CreateTransmuteCodeHostOptions {
+  readonly admit?: TransmuteCodeAdmission
+  readonly execute: TransmuteCodeExecutor
+}
+
+function transmuteKindFromAtet(
+  kind: PortableAtetOperationKind,
+): PortableTransmuteOperationKind {
+  return kind.replace(/^atet\./u, "transmute.") as PortableTransmuteOperationKind
+}
+
+/**
+ * @deprecated Use {@link createAtetCodeHost}. The adapter accepts exact v1
+ * request identifiers while the workflow graph and receipts remain Atet.
+ */
+export function createTransmuteCodeHost(
+  options: CreateTransmuteCodeHostOptions,
+): AtetCodeHost {
+  if (typeof options !== "object" || options === null) {
+    throw new AtetCodeError(
+      "invalid-data",
+      "A Transmute Code host must be an object.",
+    )
+  }
+  const legacyExecute = options.execute
+  const legacyAdmit = options.admit
+  if (typeof legacyExecute !== "function") {
+    throw new AtetCodeError(
+      "invalid-data",
+      "A Transmute Code host requires an execute function.",
+    )
+  }
+  if (legacyAdmit !== undefined && typeof legacyAdmit !== "function") {
+    throw new AtetCodeError(
+      "invalid-data",
+      "A Transmute Code host admit value must be a function when provided.",
+    )
+  }
+  const execute: AtetCodeExecutor = (async (request, context) => {
+    const legacyKind = transmuteKindFromAtet(request.kind)
+    return await legacyExecute({
+      input: request.input,
+      kind: legacyKind,
+      nodeKey: request.nodeKey,
+      version: 2,
+    }, context)
+  }) as AtetCodeExecutor
+  const admit: AtetCodeAdmission | undefined = legacyAdmit === undefined
+    ? undefined
+    : (async (request, dispatch, context) => await legacyAdmit({
+        kind: transmuteKindFromAtet(request.kind),
+        nodeKey: request.nodeKey,
+        policy: request.policy,
+        version: 2,
+      }, dispatch, context)) as AtetCodeAdmission
+  return createAtetCodeHost({
+    ...(admit === undefined ? {} : { admit }),
+    execute,
+  })
+}
 export { AtetWorkflowRunError as TransmuteWorkflowRunError }

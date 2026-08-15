@@ -31,6 +31,7 @@ describe("workflow runtime identity", () => {
     const second = await createWorkflowRuntimeIdentity({ bundle });
 
     expect(first).toEqual(second);
+    expect(first.applicationBuild).toMatch(/^atet\/[a-f0-9]{64}$/u);
     expect(first.externals).toMatchObject({
       kind: "deny-all",
       modules: [],
@@ -79,6 +80,7 @@ describe("workflow runtime identity", () => {
       },
     } satisfies ApplicationContext;
     const first = await createHostApplicationBuildIdentity(application);
+    expect(first).toMatch(/^atet\/[a-f0-9]{64}$/u);
     await writeFile(executable, "native helper v2\n", { mode: 0o700 });
     const second = await createHostApplicationBuildIdentity(application);
     expect(first).not.toBe(second);
