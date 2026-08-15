@@ -142,7 +142,7 @@ describe("verified-receipt reconciliation", () => {
       createdAt: "2026-07-23T15:01:00.000Z",
       durationUs: 10_000_000,
       inputDigest: "b".repeat(64),
-      kind: "studio.face-analysis",
+      kind: "atet.face-analysis",
       privacy: {
         biometricIdentification: "not-performed",
         execution: "local-only",

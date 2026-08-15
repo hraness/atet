@@ -289,13 +289,13 @@ describe("workflow CLI", () => {
       )).toBe(0);
       expect(JSON.parse(operationDescription.stdout())).toMatchObject({
         inputJsonSchema: {
-          $id: "studio.operation.derive.edit-batch.input/v1",
+          $id: "atet.operation.derive.edit-batch.input/v1",
           additionalProperties: false,
           type: "object",
         },
         kind: "derive.edit-batch",
         outputJsonSchema: {
-          $id: "studio.operation.derive.edit-batch.output/v1",
+          $id: "atet.operation.derive.edit-batch.output/v1",
           additionalProperties: false,
           type: "object",
         },
@@ -308,13 +308,13 @@ describe("workflow CLI", () => {
       )).toBe(0);
       expect(JSON.parse(completeOperationDescription.stdout())).toMatchObject({
         inputJsonSchema: {
-          $id: "studio.operation.derive.edit-batch.input/v2",
+          $id: "atet.operation.derive.edit-batch.input/v2",
           additionalProperties: false,
           type: "object",
         },
         kind: "derive.edit-batch",
         outputJsonSchema: {
-          $id: "studio.operation.derive.edit-batch.output/v2",
+          $id: "atet.operation.derive.edit-batch.output/v2",
           additionalProperties: false,
           type: "object",
         },
@@ -329,7 +329,7 @@ describe("workflow CLI", () => {
       expect(JSON.parse(workflowDescription.stdout())).toMatchObject({
         id: "polished-screen-demo",
         inputJsonSchema: {
-          $id: "studio.workflow.polished-screen-demo.input/v4",
+          $id: "atet.workflow.polished-screen-demo.input/v4",
           additionalProperties: false,
           type: "object",
         },

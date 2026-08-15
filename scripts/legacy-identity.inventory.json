@@ -272,9 +272,9 @@
     ]
   },
   {
-    "identityLineCount": 5,
-    "identityLinesSha256": "5e65934d7a0552f2f1bd6ba522e48a483316550727098e1667134ed586d4c0a0",
-    "occurrenceCount": 5,
+    "identityLineCount": 4,
+    "identityLinesSha256": "be2c86dd903fd662bd27898c7db05d316e2739d5a87374dfc982d8358fbabe66",
+    "occurrenceCount": 4,
     "path": "apps/desktop/application/verified-receipt-reconciliation.test.ts",
     "categories": [
       "test-fixture"
@@ -330,15 +330,6 @@
     "identityLinesSha256": "0762f8a28c7a087b0b3dc9dae897e290236d994878f890dbf4e248a09b6b82e8",
     "occurrenceCount": 4,
     "path": "apps/desktop/cli/capabilities.test.ts",
-    "categories": [
-      "test-fixture"
-    ]
-  },
-  {
-    "identityLineCount": 4,
-    "identityLinesSha256": "b22d82054bdb47baa687b16f9793cd78304f70a9859860c0c03c91f9f367a75c",
-    "occurrenceCount": 4,
-    "path": "apps/desktop/cli/command-safety.test.ts",
     "categories": [
       "test-fixture"
     ]
@@ -589,9 +580,9 @@
     ]
   },
   {
-    "identityLineCount": 11,
-    "identityLinesSha256": "6e0cbbfb812fa842cf27b56ca2d0179c006d35a588d775e31d8576b1257ad611",
-    "occurrenceCount": 11,
+    "identityLineCount": 6,
+    "identityLinesSha256": "059f64cf792b8d8089166f852796d9e9c893b6802b1e47b39d7b33fb1aad1c31",
+    "occurrenceCount": 6,
     "path": "apps/desktop/cli/workflow-commands.test.ts",
     "categories": [
       "test-fixture"
@@ -1083,7 +1074,7 @@
   },
   {
     "identityLineCount": 40,
-    "identityLinesSha256": "19cf2c1427212bd75b88bc91a4097db8259952bdceb6c291612a93c64e0b17c5",
+    "identityLinesSha256": "e041e70e478cea71931aedcd4abd06df56a500180cd4178b52a8d547cde2f9d1",
     "occurrenceCount": 292,
     "path": "apps/desktop/dist/cli/main.js",
     "categories": [

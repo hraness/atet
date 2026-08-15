@@ -24,6 +24,7 @@ import { canonicalJson } from "../core/canonical-json";
 import {
   AuthoredWorkflowGraphV1Schema,
   JsonValueSchema,
+  normalizeAuthoredWorkflowGraph,
   type JsonValue,
 } from "./contracts";
 import {
@@ -1360,11 +1361,11 @@ function assertExpectedBuild(
   expectedInput: Pick<CodeWorkerBuildResult, "graph" | "input">,
 ): void {
   const actual = WorkerBuiltWorkflowSchema.parse({
-    graph: actualInput.graph,
+    graph: normalizeAuthoredWorkflowGraph(actualInput.graph),
     input: actualInput.input,
   });
   const expected = WorkerBuiltWorkflowSchema.parse({
-    graph: expectedInput.graph,
+    graph: normalizeAuthoredWorkflowGraph(expectedInput.graph),
     input: expectedInput.input,
   });
   if (canonicalJson(actual) !== canonicalJson(expected)) {

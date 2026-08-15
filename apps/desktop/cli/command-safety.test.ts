@@ -299,7 +299,7 @@ function alignmentAnalysis(
       target,
       targetPlacement,
     }),
-    kind: "studio.audio-alignment-analysis",
+    kind: "atet.audio-alignment-analysis",
     matches: [],
     reference: storedReference,
     result: {
@@ -364,7 +364,7 @@ function speechAnalysis(project: OpenProject["project"]): SpeechAnalysisV1 {
     createdAt: LATER,
     durationUs: 10_000_000,
     inputDigest: HASH,
-      kind: "studio.speech-analysis",
+    kind: "atet.speech-analysis",
     result: {
       detectedLanguage: "en",
       fillers: [{
@@ -411,7 +411,7 @@ function otherSpeechAnalysis(
     createdAt: LATER,
     durationUs: 10_000_000,
     inputDigest: HASH,
-      kind: "studio.speech-analysis",
+    kind: "atet.speech-analysis",
     result: status === "no-speech"
       ? { detectedLanguage: null, reason: "no-speech", status: "no-speech" }
       : {
@@ -459,7 +459,7 @@ function musicAnalysis(
     durationUs: 10_000_000,
     inputDigest: HASH,
     keyRegions: [],
-    kind: "studio.music-analysis",
+    kind: "atet.music-analysis",
     musicRegions: [{ confidence: 1, range: { endUs: 8_500_000, startUs: 8_000_000 } }],
     schemaVersion: 1,
     subject,
