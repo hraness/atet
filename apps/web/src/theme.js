@@ -1,5 +1,5 @@
 const allowedThemes = new Set(["dark", "light", "system"])
-const storageKey = "transmute.appearance"
+const storageKey = "atet.appearance"
 const root = document.documentElement
 const choices = document.querySelectorAll("[data-theme-choice]")
 
