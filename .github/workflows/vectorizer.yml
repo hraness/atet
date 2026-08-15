@@ -1,4 +1,4 @@
-name: Official VTracer
+name: Atet VTracer
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   official_vtracer:
-    name: Official VTracer (${{ matrix.target }})
+    name: Atet VTracer (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     strategy:

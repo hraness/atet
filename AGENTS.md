@@ -1,12 +1,12 @@
 # Contents
 
 - `src/` – portable declarative and imperative workflow SDKs, host-resource admission, diagrams, direct Vercel AI Gateway generation, local vectorization, semantic operations, MCP, and canvas integration.
-- `apps/desktop/` – the canonical `transmute` CLI, complete local media host, durable scheduler, HTML and Three.js overlays, native capture helpers, frontend, and desktop shell.
-- `apps/web/` – the dependency-free static `transmute.rocks` site, with no API, account, or credential surface.
+- `apps/desktop/` – the canonical `atet` CLI, complete local media host, durable scheduler, HTML and Three.js overlays, native capture helpers, frontend, and desktop shell.
+- `apps/web/` – the dependency-free static `atet.sh` site, with no API, account, or credential surface.
 - `packages/scene/` – the shared local scene-analysis contract.
 - `src/code/` – portable declarative graph authoring, the closed public capability projection, compilation, planning, and execution contracts.
 - `schema/` – version-one diagram JSON Schema.
-- `skills/transmute/` – the canonical Transmute Agent Skill.
+- `skills/atet/` – the canonical Atet Agent Skill.
 - `examples/` – checked diagram, configuration, and executable imperative and declarative Bun workflow examples.
 - `scripts/` – schema, skill, package, release, and official-vectorizer verification.
 - `dist/` and `apps/desktop/dist/cli/` – committed Bun-targeted entrypoints consumed by package and Git installs.
@@ -17,13 +17,14 @@
 # Guidelines
 
 - Use Bun 1.3.14 and run `bun run check` before handing off a change.
-- Keep `@hraness/transmute` at the repository root. The root package owns both the portable SDK and canonical `transmute` binary built from `apps/desktop/cli/main.ts`.
-- Keep canonical commands namespaced as `transmute diagram init|check|render`, `transmute image generate|vectorize`, and the `code`, `mcp`, `canvas`, `skill`, and `doctor` surfaces.
+- Keep `@hraness/atet` at the repository root. The root package owns both the portable SDK and canonical `atet` binary built from `apps/desktop/cli/main.ts`.
+- Keep canonical commands namespaced as `atet diagram init|check|render`, `atet image generate|vectorize`, and the `code`, `mcp`, `canvas`, `skill`, and `doctor` surfaces.
 - Keep local vectorization authentication-free and network-silent. Gateway generation reads `AI_GATEWAY_API_KEY` before `VERCEL_OIDC_TOKEN`, never persists credentials, pins the Gateway origin, bounds responses, and sets `maxRetries: 0`.
 - Keep `/artifacts/`, `.env`, and `.env.*` ignored. Recordings, imported media, private project metadata, Gateway tokens, and provider options must never enter Git or a package artifact.
 - Treat `vercel env run -- <command>` as the ergonomic local Vercel path. Never shell out to infer or scrape a token from the Vercel CLI.
 - Preserve `.diagram.json` version one and the five same-stem render outputs: `.tldr`, light and dark SVG, and light and dark PNG.
-- Keep one self-contained Transmute identity. Do not add hosted accounts, OAuth, an application database, a credential store, or legacy Graphics runtime aliases.
+- Keep one self-contained Atet identity. Version 2 retains `transmute` only as a one-major CLI bin alias and accepts only reviewed version-1 serialized identifiers at explicit compatibility boundaries. Do not retain predecessor branding, package names, source names, or runtime implementations.
+- Preserve every immutable version-1 tag and Release. Never rewrite a historical tag or recreate a repository at the former GitHub path, because doing so would replace GitHub's compatibility redirect.
 - Treat diagram source as authoritative and generated media as replaceable. Defaults may resolve mechanics but must not invent claims, labels, legends, relationships, or decorative meaning.
 - Parse foreign values from `unknown`, keep output deterministic, and test every parser, protocol, operation, path, credential, and compatibility boundary.
 - Keep semantic registries fixed and typed. Never accept source text, evaluation, dynamic imports, executable workspace configuration, shell commands, or caller-selected remote URLs.

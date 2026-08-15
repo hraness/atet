@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join, sep } from "node:path";
 
-const packageName = "@hraness/transmute";
+const packageName = "@hraness/atet";
 const importSpecifiers = [
   packageName,
   `${packageName}/cli`,
@@ -71,13 +71,13 @@ const packageTextExtensions = new Set([
 ]);
 const forbiddenPackageText = [
   { label: "private package", pattern: /@jungle\//u },
-  { label: "private source path", pattern: /projects\/transmute/u },
+  { label: "private source path", pattern: /projects\/(?:atet|transmute)/u },
   { label: "private fixture path", pattern: /\/(?:tmp|work)\/jungle\//u },
   { label: "account database runtime", pattern: /(?:^|[^a-z])convex(?:[^a-z]|$)/iu },
   { label: "hosted auth runtime", pattern: /better-auth/iu },
   { label: "hosted account runtime", pattern: /suite[-_ ]accounts/iu },
   { label: "hosted account origin", pattern: /account\.hraness\.com/iu },
-  { label: "hosted Transmute API", pattern: /transmute\.rocks\/api/iu },
+  { label: "legacy hosted API", pattern: /transmute\.rocks\/api/iu },
   { label: "legacy Graphics runtime", pattern: /graphics-compat/iu },
 ] as const;
 
@@ -168,7 +168,7 @@ function record(value: unknown, label: string): Record<string, unknown> {
 }
 
 const repository = process.cwd();
-const work = await mkdtemp(join(tmpdir(), "transmute-package-smoke-"));
+const work = await mkdtemp(join(tmpdir(), "atet-package-smoke-"));
 try {
   const archive = join(work, "package.tgz");
   const consumer = join(work, "consumer");
@@ -188,7 +188,7 @@ try {
   );
   await run([process.execPath, "add", archive, "--ignore-scripts"], consumer);
   const installedPackage = await realpath(
-    join(consumer, "node_modules", "@hraness", "transmute"),
+    join(consumer, "node_modules", "@hraness", "atet"),
   );
   await scanPackedPackage(installedPackage);
   await run([
@@ -197,15 +197,19 @@ try {
     `await Promise.all(${JSON.stringify(importSpecifiers)}.map(specifier => import(specifier)))`,
   ], consumer);
   await run([
+    join(consumer, "node_modules", ".bin", "atet"),
+    "--help",
+  ], consumer);
+  await run([
     join(consumer, "node_modules", ".bin", "transmute"),
     "--help",
   ], consumer);
   const doctorText = await runOutput([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "doctor",
     "--json",
   ], consumer);
-  const doctor = record(JSON.parse(doctorText) as unknown, "transmute doctor --json");
+  const doctor = record(JSON.parse(doctorText) as unknown, "atet doctor --json");
   const consumerRoot = await realpath(consumer);
   if (doctor.repositoryRoot !== consumerRoot) {
     throw new Error(
@@ -222,20 +226,20 @@ try {
     );
   }
   const operationsText = await runOutput([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "operations",
     "list",
     "--json",
   ], consumer);
   const operations = record(
     JSON.parse(operationsText) as unknown,
-    "transmute operations list --json",
+    "atet operations list --json",
   ).operations;
   if (!Array.isArray(operations) || operations.length === 0) {
     throw new Error("Packed CLI returned no local operations.");
   }
   const semanticSearchText = await runOutput([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "code",
     "search",
     "--limit",
@@ -243,13 +247,13 @@ try {
   ], consumer);
   const semanticOperations = record(
     JSON.parse(semanticSearchText) as unknown,
-    "transmute code search --limit 1",
+    "atet code search --limit 1",
   ).operations;
   if (!Array.isArray(semanticOperations) || semanticOperations.length !== 1) {
     throw new Error("Packed CLI did not delegate semantic code search.");
   }
   const skillPath = (await runOutput([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "skill",
     "path",
   ], consumer)).trim();
@@ -258,15 +262,15 @@ try {
     throw new Error(`Packed CLI resolved a skill outside its install: ${skillPath}`);
   }
   const canvasStatus = record(JSON.parse(await runOutput([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "canvas",
     "status",
-  ], consumer)) as unknown, "transmute canvas status");
+  ], consumer)) as unknown, "atet canvas status");
   if (!("installedPath" in canvasStatus) || !("server" in canvasStatus)) {
     throw new Error("Packed CLI did not delegate canvas status.");
   }
   await runFailure([
-    join(consumer, "node_modules", ".bin", "transmute"),
+    join(consumer, "node_modules", ".bin", "atet"),
     "mcp",
   ], consumer, "--root is required");
   await run([

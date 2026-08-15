@@ -66,27 +66,70 @@ const TEXT_EXTENSIONS = new Set([
 
 const FORBIDDEN_SOURCE = [
   { label: "private Jungle package", pattern: /@jungle\//u },
-  { label: "private Jungle source path", pattern: /projects\/transmute/u },
+  { label: "private Jungle source path", pattern: /projects\/(?:atet|transmute)/u },
   { label: "private Jungle fixture path", pattern: /\/(?:tmp|work)\/jungle\//u },
   { label: "Convex runtime", pattern: /(?:^|[^a-z])convex(?:[^a-z]|$)/iu },
   { label: "Better Auth runtime", pattern: /better-auth/iu },
   { label: "Suite Accounts runtime", pattern: /suite[-_ ]accounts/iu },
   { label: "hosted account service", pattern: /account\.hraness\.com/iu },
-  { label: "hosted Transmute API", pattern: /transmute\.rocks\/api/iu },
+  { label: "legacy hosted API", pattern: /transmute\.rocks\/api/iu },
   { label: "legacy Graphics runtime", pattern: /graphics-compat/iu },
   {
     label: "duplicate compatibility schema alternative",
-    pattern: /z\.literal\("((?:transmute|studio)(?:\.[^"]+)?)"\),\s*z\.literal\("\1"\)/u,
+    pattern: /z\.literal\("((?:atet|transmute|studio)(?:\.[^"]+)?)"\),\s*z\.literal\("\1"\)/u,
   },
   {
     label: "duplicate compatibility type alternative",
-    pattern: /"((?:transmute|studio)(?:\.[^"]+)?)"\s*\|\s*"\1"/u,
+    pattern: /"((?:atet|transmute|studio)(?:\.[^"]+)?)"\s*\|\s*"\1"/u,
   },
   {
     label: "duplicate compatibility reader branch",
-    pattern: /!==\s*"((?:transmute|studio)(?:\.[^"]+)?)"[^;\n]{0,200}!==\s*"\1"/u,
+    pattern: /!==\s*"((?:atet|transmute|studio)(?:\.[^"]+)?)"[^;\n]{0,200}!==\s*"\1"/u,
   },
 ];
+
+const LEGACY_IDENTITY =
+  /@hraness\/transmute|github\.com\/hraness\/transmute|transmute\.rocks|(?:Transmute|transmute|TRANSMUTE)/u;
+const REVIEWED_SERIALIZED_COMPATIBILITY = [
+  /\btransmute\.[a-z][a-z0-9.-]*(?:\.[a-z][a-z0-9.-]*)+\b/gu,
+  /\b(?:execute|search)_transmute\b/gu,
+] as const;
+const REVIEWED_FILE_COMPATIBILITY = new Map<string, readonly RegExp[]>([
+  [
+    "AGENTS.md",
+    [/Version 2 retains `transmute` only as a one-major CLI bin alias/gu],
+  ],
+  [
+    "README.md",
+    [/The former `transmute` executable remains an alias to `atet`/gu],
+  ],
+  [
+    "package.json",
+    [/"transmute": "\.\/apps\/desktop\/dist\/cli\/main\.js"/gu],
+  ],
+  [
+    "scripts/package-smoke.ts",
+    [
+      /pattern: \/projects\\\/\(\?:atet\|transmute\)\/u/gu,
+      /pattern: \/transmute\\\.rocks\\\/api\/iu/gu,
+      /join\(consumer, "node_modules", "\.bin", "transmute"\)/gu,
+    ],
+  ],
+]);
+
+function removeReviewedLegacyCompatibility(
+  path: string,
+  source: string,
+): string {
+  let remaining = source;
+  for (const pattern of REVIEWED_SERIALIZED_COMPATIBILITY) {
+    remaining = remaining.replaceAll(pattern, "");
+  }
+  for (const pattern of REVIEWED_FILE_COMPATIBILITY.get(path) ?? []) {
+    remaining = remaining.replaceAll(pattern, "");
+  }
+  return remaining;
+}
 
 function extension(path: string): string {
   const match = /\.[^./]+$/u.exec(path);
@@ -162,29 +205,78 @@ const files = (await Promise.all(SCANNED_ROOTS.map(async root => {
 
 const sourceProblems: string[] = [];
 for (const file of files) {
-  if (
-    file === import.meta.path
-    || file === join(ROOT, "scripts", "package-smoke.ts")
-  ) continue;
+  if (file === import.meta.path) continue;
   if (relative(ROOT, file) === "scripts/check-standalone.ts") continue;
   const rootRelative = relative(ROOT, file);
+  if (LEGACY_IDENTITY.test(rootRelative)) {
+    sourceProblems.push(`${rootRelative} retains a pre-Atet source path`);
+  }
   if (
     !TEXT_EXTENSIONS.has(extension(file))
     && !SCANNED_ROOT_FILES.includes(rootRelative)
   ) continue;
   const text = await readFile(file, "utf8");
-  for (const rule of FORBIDDEN_SOURCE) {
-    if (rule.pattern.test(text)) {
-      sourceProblems.push(`${relative(ROOT, file)} contains ${rule.label}`);
+  if (rootRelative !== "scripts/package-smoke.ts") {
+    for (const rule of FORBIDDEN_SOURCE) {
+      if (rule.pattern.test(text)) {
+        sourceProblems.push(`${relative(ROOT, file)} contains ${rule.label}`);
+      }
     }
+  }
+  const unreviewedIdentity = removeReviewedLegacyCompatibility(rootRelative, text);
+  if (LEGACY_IDENTITY.test(unreviewedIdentity)) {
+    sourceProblems.push(
+      `${rootRelative} contains an unreviewed pre-Atet identity outside serialized or CLI compatibility`,
+    );
   }
 }
 
 const problems = [...packageProblems, ...sourceProblems];
 const rootPackage = await readJson(join(ROOT, "package.json"));
+const expectedDescription = "Open-source TypeScript SDK, Bun CLI, and local runtime for turning ideas and raw assets into images, diagrams, animated loops, and video.";
+if (rootPackage.name !== "@hraness/atet") {
+  problems.push("package.json name must be @hraness/atet");
+}
+if (rootPackage.description !== expectedDescription) {
+  problems.push("package.json description does not match the canonical Atet description");
+}
+if (rootPackage.homepage !== "https://atet.sh/") {
+  problems.push("package.json homepage must be https://atet.sh/");
+}
+const repository = rootPackage.repository;
+if (
+  repository === null
+  || typeof repository !== "object"
+  || Array.isArray(repository)
+  || Reflect.get(repository, "url") !== "git+https://github.com/hraness/atet.git"
+) {
+  problems.push("package.json repository must be hraness/atet");
+}
+const bugs = rootPackage.bugs;
+if (
+  bugs === null
+  || typeof bugs !== "object"
+  || Array.isArray(bugs)
+  || Reflect.get(bugs, "url") !== "https://github.com/hraness/atet/issues"
+) {
+  problems.push("package.json bugs URL must be the hraness/atet issue tracker");
+}
+const bins = rootPackage.bin;
+if (
+  bins === null
+  || typeof bins !== "object"
+  || Array.isArray(bins)
+  || Object.keys(bins).sort().join(",") !== "atet,transmute"
+  || Reflect.get(bins, "atet") !== "./apps/desktop/dist/cli/main.js"
+  || Reflect.get(bins, "transmute") !== "./apps/desktop/dist/cli/main.js"
+) {
+  problems.push("package.json bins must expose canonical atet plus the version-2 transmute alias");
+}
 const packageVersion = rootPackage.version;
 if (typeof packageVersion !== "string") {
   problems.push("package.json version must be a string");
+} else if (packageVersion !== "2.0.0") {
+  problems.push("package.json version must be 2.0.0 for the Atet identity cutover");
 } else {
   const versionContracts = [
     ["apps/desktop/app.zon", `.version = ${JSON.stringify(packageVersion)}`],
@@ -195,7 +287,7 @@ if (typeof packageVersion !== "string") {
     ],
     [
       "apps/desktop/cli/commands.ts",
-      `export const TRANSMUTE_VERSION = ${JSON.stringify(packageVersion)}`,
+      `export const ATET_VERSION = ${JSON.stringify(packageVersion)}`,
     ],
     [
       "apps/desktop/cli/recording-controller.ts",
@@ -203,7 +295,7 @@ if (typeof packageVersion !== "string") {
     ],
     [
       "apps/desktop/runtime/package-macos.ts",
-      `transmute-${packageVersion}-macos-ReleaseFast.app`,
+      `atet-${packageVersion}-macos-ReleaseFast.app`,
     ],
   ] as const;
   for (const [path, expected] of versionContracts) {

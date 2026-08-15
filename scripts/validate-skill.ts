@@ -1,7 +1,7 @@
 import { access, readFile } from "node:fs/promises"
 import { join } from "node:path"
 
-const root = join(process.cwd(), "skills", "transmute")
+const root = join(process.cwd(), "skills", "atet")
 const skillPath = join(root, "SKILL.md")
 const text = await readFile(skillPath, "utf8")
 const match = /^---\n([\s\S]*?)\n---\n/.exec(text)
@@ -21,7 +21,7 @@ const keys = Object.keys(frontmatter).sort()
 if (keys.join(",") !== "description,name") {
   throw new Error(`SKILL.md frontmatter must contain only name and description, received ${keys}`)
 }
-if (frontmatter.name !== "transmute") throw new Error("Skill name must be transmute")
+if (frontmatter.name !== "atet") throw new Error("Skill name must be atet")
 if ((frontmatter.description?.length ?? 0) < 40) {
   throw new Error("Skill description must explain capability and triggers")
 }
@@ -44,4 +44,4 @@ const openai = await readFile(join(root, "agents", "openai.yaml"), "utf8")
 for (const required of ["display_name:", "short_description:", "default_prompt:"]) {
   if (!openai.includes(required)) throw new Error(`agents/openai.yaml is missing ${required}`)
 }
-console.log("transmute skill is valid")
+console.log("atet skill is valid")

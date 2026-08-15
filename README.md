@@ -1,44 +1,95 @@
-# Transmute
+# Atet
 
-Transmute is an agent tool for generating and editing images and video. This
-package is its open-source TypeScript SDK and Bun CLI for turning checked
-source into visual assets. It provides deterministic diagrams, light and dark
-raster/vector exports, editable tldraw interchange, bounded raster-to-SVG
-conversion, direct Vercel AI Gateway image generation, typed
-Bun-script workflows, semantic operation dispatch, and a local MCP server.
+[![Atet: an open visual-media toolkit for agents and people](https://atet.sh/og.png)](https://atet.sh)
 
-The package is designed to compose with editors and video renderers. Its portable declarative graph SDK is the canonical workflow core used by the restricted public host and the complete local host. The desktop shell is a native capture and UI client of that local host, not a second workflow engine. A diagram, generated image, traced SVG, or `.tldr` canvas remains an ordinary media input rather than a format trapped inside the tool.
+**Carry an idea all the way into view.**
 
-Project site: [transmute.rocks](https://transmute.rocks)
+Open-source TypeScript SDK, Bun CLI, and local runtime for turning ideas and raw assets into images, diagrams, animated loops, and video.
+
+Atet is named for Ra's solar barque. The name fits the work: one vessel carries
+an idea from its first rough material through rendering, review, and delivery.
+Atet keeps that journey inspectable, with explicit sources, bounded execution,
+and editable artifacts instead of an opaque creative endpoint.
+
+```sh
+bun add --global github:hraness/atet#v2.0.0
+atet doctor
+atet diagram init diagrams/system.diagram.json
+atet image vectorize input.png --output input.svg --json
+```
+
+[Project site](https://atet.sh) · [Security policy](SECURITY.md) · [Architecture](docs/architecture.md)
+
+## What Atet makes
+
+- **Images.** Generate through Vercel AI Gateway or turn caller-owned raster
+  artwork into bounded, inert SVG with an exact provenance receipt.
+- **Diagrams.** Author checked JSON, then render editable tldraw interchange,
+  light and dark SVG, and light and dark PNG from the same source.
+- **Animated loops and video.** Compose local project graphs from imported
+  media, generated candidates, HTML or Three.js overlays, audio, captions,
+  camera moves, and explicit delivery variants.
+- **Typed visual workflows.** Build declarative graphs or ordinary Bun
+  workflows over a closed operation registry, with resource claims and durable
+  receipts at every execution boundary.
+
+## Why Atet is different
+
+- **Local custody.** Project state, imported media, generated candidates, and
+  delivery artifacts stay in caller-owned storage. Model requests go directly
+  from the current process to Vercel AI Gateway.
+- **Source before output.** Diagram source, scene source, workflow graphs, and
+  exact references remain authoritative. Rendered media is replaceable.
+- **Bounded by construction.** Parsers, paths, pixels, frames, responses,
+  subprocesses, downloads, and concurrent resource claims have explicit limits.
+- **Honest artifacts.** Atet records the tool, input identity, model, output,
+  and verification evidence needed to understand how a result was made.
+- **One visual engine.** The SDK, CLI, MCP server, complete local runtime, and
+  desktop shell share the same typed contracts instead of drifting into
+  separate products.
+
+Atet complements editors, model providers, agent frameworks, and render tools.
+Those systems own their interfaces and models. Atet owns the checked path from
+an idea or source asset to visual-media artifacts an agent and a person can
+inspect together.
 
 ## Install
 
-Pin the public repository to the immutable `v1.0.0` tag:
+Atet requires Bun 1.3.14. Pin the public repository to the immutable `v2.0.0`
+tag for a global CLI install:
 
 ```sh
-bun add --global github:hraness/transmute#v1.0.0
-transmute doctor
+bun add --global github:hraness/atet#v2.0.0
+atet doctor
 ```
 
-For programmatic use:
+Install the SDK into a Bun project with the same immutable source:
 
 ```sh
-bun add github:hraness/transmute#v1.0.0
+bun add github:hraness/atet#v2.0.0
 ```
 
-Transmute requires Bun 1.3.14. Diagram rendering works on macOS, Linux, and Windows. Bounded VTracer execution works on macOS and Linux; Windows fails closed with `tool_platform` until its output can cross the same bounded capture path. Semantic operation and workflow resource admission is machine-global on macOS and Linux and process-local on other supported Bun platforms.
+Atet is distributed through immutable GitHub tags and Releases. It is not
+published to npm.
 
-## Create a diagram
+Diagram rendering runs on macOS, Linux, and Windows. Bounded VTracer execution
+runs on macOS and Linux; Windows fails closed with `tool_platform` until its
+output can cross the same bounded capture path. Machine-global resource
+admission is available on macOS and Linux and falls back truthfully to
+process-local admission elsewhere.
+
+## Diagrams
 
 ```sh
-transmute diagram init diagrams/system.diagram.json
-transmute diagram check diagrams/system.diagram.json --strict
-transmute diagram render diagrams/system.diagram.json
+atet diagram init diagrams/system.diagram.json
+atet diagram check diagrams/system.diagram.json --strict
+atet diagram render diagrams/system.diagram.json
 ```
 
-The checked source uses `.diagram.json` version one. Each render replaces the same five derivatives:
+A successful render writes five same-stem outputs:
 
 ```text
+system.diagram.json
 system.tldr
 system.light.svg
 system.dark.svg
@@ -46,15 +97,11 @@ system.light.png
 system.dark.png
 ```
 
-The source remains authoritative. The five outputs are replaceable and each file is published through an atomic rename. The five-file family is not a filesystem transaction.
-
-Use this schema URL in authored files:
-
-The version-one diagram schema is unchanged in 1.0.0, so its canonical identity remains the `v0.8.0` URL.
+The checked source uses the versioned public schema:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/hraness/transmute/v0.8.0/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/atet/v2.0.0/schema/diagram.schema.json",
   "version": 1,
   "name": "source-result",
   "canvas": { "width": 960, "height": 540 },
@@ -72,27 +119,57 @@ The version-one diagram schema is unchanged in 1.0.0, so its canonical identity 
 }
 ```
 
-Array order may place shapes, but it never creates relationships. Edges stay explicit. Impossible stack constraints fail instead of silently shrinking shapes, gaps, or the canvas.
+Place `atet.config.ts`, `.mjs`, `.js`, or `.json` beside a diagram to provide
+local fonts, sanitized SVG icons, or theme colors. Pass `--config <path>` when
+the configuration belongs elsewhere. MCP and semantic operations never load
+executable workspace configuration.
 
-Place `transmute.config.ts`, `.mjs`, `.js`, or `.json` beside a diagram to supply local fonts, sanitized SVG icons, or theme colors. Pass `--config <path>` when configuration belongs elsewhere. MCP and semantic operations deliberately ignore executable workspace configuration.
+## Generate and vectorize images
 
-## Vectorize a local image
+Local vectorization is authentication-free and network-silent:
 
 ```sh
-transmute image vectorize input.png --output input.svg --json
-transmute image vectorize input.png \
+atet image vectorize input.png --output input.svg --json
+atet image vectorize input.png \
   --output input.duotone.svg \
-  --duotone '#171717,#7c3aed'
+  --duotone '#1f2937,#f97316' \
+  --json
 ```
 
-Canonical vectorization requires no credential and makes no network request. It bounds encoded input, decoded dimensions and pixels, subprocess time, paths, emitted bytes, and measured fidelity. The output is rebuilt as inert SVG geometry; foreign tracer SVG is not passed through.
+Atet downloads the checksum-pinned official VTracer 0.6.4 archive on first
+use. `ATET_VTRACER_PATH` can select a compatible local binary and
+`ATET_CACHE_DIR` can move the tool cache. The receipt records the exact binary
+hash and trace measurements.
 
-VTracer 0.6.4 downloads from a checksum-pinned official release on first use. `TRANSMUTE_VTRACER_PATH` may point to a compatible local binary, whose hash is recorded in the receipt. `TRANSMUTE_CACHE_DIR` overrides the default tool cache.
+Model-backed generation reads `AI_GATEWAY_API_KEY` before
+`VERCEL_OIDC_TOKEN`, pins the Gateway origin, sets `maxRetries: 0`, and never
+stores or prints either credential:
 
-Programmatic use returns the SVG, published path, and provenance receipt:
+```sh
+export AI_GATEWAY_API_KEY='replace-me'
+atet image generate 'one cobalt circle on white' \
+  --model google/gemini-3.1-flash-image-preview \
+  --output circle.webp \
+  --json
+```
+
+With a linked Vercel project, inject a short-lived OIDC token without creating
+a project dotenv file:
+
+```sh
+vercel env run -- atet image generate \
+  'one cobalt circle on white' \
+  --output circle.webp \
+  --json
+```
+
+## SDK and workflows
+
+Importing an SDK entrypoint has no CLI side effect and does not inspect local
+state:
 
 ```ts
-import { vectorizeImage } from "@hraness/transmute"
+import { vectorizeImage } from "@hraness/atet"
 
 const result = await vectorizeImage("input.png", {
   outputPath: "input.svg",
@@ -101,91 +178,21 @@ const result = await vectorizeImage("input.png", {
 console.log(result.receipt.sourceSha256, result.receipt.svgSha256)
 ```
 
-## Generate an image through Vercel AI Gateway
+`@hraness/atet/code` builds typed declarative graphs. It compiles each graph
+against the host's closed capability projection and rejects unsupported work
+before resource admission. `@hraness/atet/code/advanced` exposes lower-level
+graph, compiler, plan, policy, and runner contracts without adding a mutable
+operation registry.
 
-Generation goes directly from your process to Vercel AI Gateway. Transmute has
-no account, OAuth, database, or hosted generation service of its own.
-
-```sh
-export AI_GATEWAY_API_KEY=your_key
-transmute image generate 'one cobalt circle on white' \
-  --output circle.webp
-```
-
-If the repository is linked to a Vercel project, inject its environment without
-writing a local dotenv file:
-
-```sh
-vercel link
-vercel env run -- transmute image generate \
-  'a polished metallic monogram on transparent black' \
-  --model openai/gpt-image-1.5 \
-  --output monogram.webp
-```
-
-`AI_GATEWAY_API_KEY` takes precedence over `VERCEL_OIDC_TOKEN`. Vercel
-deployments supply the latter automatically; `vercel env run` can supply it to
-local commands. Transmute never stores, accepts on argv, or prints either
-credential. It pins `https://ai-gateway.vercel.sh/v4/ai`, rejects redirects,
-bounds streamed responses, requests one image with `maxRetries: 0`, validates
-PNG, JPEG, or WebP signatures, and publishes with atomic no-replace semantics.
-
-## Use semantic operations
-
-The registry has four canonical codes:
-
-- `transmute.diagram.check`
-- `transmute.diagram.render`
-- `transmute.image.vectorize`
-- `transmute.image.generate`
-
-```sh
-transmute code search diagram --limit 4
-transmute code execute transmute.diagram.check \
-  --input '{"path":"diagrams/system.diagram.json"}'
-```
-
-Search returns bounded descriptors. Execute accepts strict JSON for an exact registered code. It does not accept source text, shell commands, dynamic imports, executable configuration, or caller-selected remote URLs. Direct SDK, CLI, and MCP execution acquires the operation's declared host-resource claims before work begins.
-
-The same surface is available from `@hraness/transmute/operations`:
+`@hraness/atet/workflow` composes the same fixed operations in explicitly
+imported Bun code. Runtime input is parsed before work starts, step identifiers
+are unique, execution is bounded, and completed-step receipts survive every
+failure path.
 
 ```ts
-import {
-  executeTransmuteOperation,
-  searchTransmuteOperations,
-} from "@hraness/transmute/operations"
+import { defineAtetWorkflow, runAtetWorkflow } from "@hraness/atet/workflow"
 
-const matches = searchTransmuteOperations("diagram")
-const result = await executeTransmuteOperation("transmute.diagram.check", {
-  path: "diagrams/system.diagram.json",
-})
-```
-
-## Build a declarative workflow graph
-
-`@hraness/transmute/code` is the additive declarative SDK. It builds a typed graph, compiles that graph against the closed public capability projection, produces a deterministic plan and requirement envelope, then runs accepted operation nodes through the existing semantic executor and host-resource boundary.
-
-The public projection contains exactly the four diagram and image operations listed above. Workflow code cannot register another capability. A graph that names a local-host-only operation fails compilation with `unsupported-plan` before an executor or resource coordinator is called.
-
-See [`examples/declarative-workflow.ts`](examples/declarative-workflow.ts) for a standalone Bun module that checks and renders a diagram. Run it in a checkout with:
-
-```sh
-bun run examples/declarative-workflow.ts examples/capex-opex.diagram.json
-```
-
-`@hraness/transmute/code/advanced` exposes the portable graph, reference, projection, policy, compiler, plan, and runner contracts for hosts that need lower-level integration. It does not expose a mutable global registry, a capability-registration hook, complete local-host bindings, or built-in local workflows.
-
-## Use the v0.8 imperative workflow API
-
-`@hraness/transmute/workflow` composes the same fixed, typed operation registry in an ordinary Bun script. A definition parses its runtime input before work begins. Step ids are unique, execution is bounded to 64 steps by default, and the run result records completed steps in invocation order even when branches settle in a different order.
-
-```ts
-import {
-  defineTransmuteWorkflow,
-  runTransmuteWorkflow,
-} from "@hraness/transmute/workflow"
-
-const checkedRender = defineTransmuteWorkflow({
+const checkedRender = defineAtetWorkflow({
   id: "checked-render",
   version: 1,
   parseInput(value: unknown) {
@@ -197,146 +204,92 @@ const checkedRender = defineTransmuteWorkflow({
   async run(workflow, input) {
     const checked = await workflow.operation(
       "check",
-      "transmute.diagram.check",
+      "atet.diagram.check",
       input,
     )
     const rendered = await workflow.operation(
       "render",
-      "transmute.diagram.render",
+      "atet.diagram.render",
       input,
     )
     return { checked, artifacts: rendered.artifacts }
   },
 })
 
-const result = await runTransmuteWorkflow(checkedRender, {
+const result = await runAtetWorkflow(checkedRender, {
   path: "diagrams/system.diagram.json",
 })
 console.log(result.steps, result.output.artifacts)
 ```
 
-See [`examples/render-workflow.ts`](examples/render-workflow.ts) for an executable script. Run it in a checkout with:
+The complete local runtime extends these portable contracts with immutable
+source revisions, generated candidates, selections, media timelines, durable
+scheduling, HTML and Three.js overlays, native capture helpers, and delivery
+variants. The desktop shell adds operating-system permissions and application
+UI; ordinary SDK and CLI use does not require it.
+
+See [Architecture](docs/architecture.md) for the full boundary map.
+
+## Semantic operations and MCP
 
 ```sh
-bun run examples/render-workflow.ts examples/capex-opex.diagram.json
+atet operations list --json
+atet code search diagram --limit 4
+atet code execute atet.diagram.check \
+  --input '{"path":"diagrams/system.diagram.json","strict":true}'
+atet mcp --root /absolute/path/to/workspace
 ```
 
-Parallel branches are ordinary `Promise.all` calls around `workflow.operation(...)`. Every step code and input is validated against the fixed public operation registry before dispatch, including when a custom executor is injected. The runner drains every dispatched operation before it returns, including a branch that authored code did not await, so destructive work cannot escape a successful run. `AbortSignal` is checked before dispatch and after each built-in operation completes. Custom injected executors also receive the signal for cooperative in-flight cancellation. A failed parallel step snapshots the steps completed at that moment; already-started siblings are not implicitly cancelled and may still settle afterward. Errors thrown by authored workflow code use `WORKFLOW_FAILED` and retain the completed-step receipt.
+The stdio server exposes dedicated diagram tools plus `search_atet` and
+`execute_atet`. File arguments are root-relative and confined to the selected
+workspace. The server is a trusted local workspace boundary, not an
+operating-system sandbox against concurrent same-user mutation.
 
-Every semantic operation declares physical resource claims. The default
-profile reserves CPU headroom and bounds local I/O, FFmpeg, video encoding,
-Vision, Whisper, browser, network, paid-call, and capture work. On macOS and
-Linux, independent Bun processes and Git worktrees enter the same crash-safe
-FIFO admission boundary. A terminated process releases its kernel-backed
-lease, while an admitted subprocess inherits the lease descriptor so it cannot
-outlive the claimed capacity. Direct SDK, CLI, MCP, and workflow calls share
-this boundary. Windows uses the same profile within one process.
+## Canvases and the Agent Skill
 
-Use `@hraness/transmute/host-resources` to inspect or inject the boundary:
-
-```ts
-import {
-  createDefaultHostResourceCoordinator,
-  defaultTransmuteHostResourceProfile,
-} from "@hraness/transmute/host-resources"
-import { runTransmuteWorkflow } from "@hraness/transmute/workflow"
-
-const hostResourceCoordinator = createDefaultHostResourceCoordinator({
-  profile: defaultTransmuteHostResourceProfile(),
-})
-
-await runTransmuteWorkflow(workflow, input, { hostResourceCoordinator })
-```
-
-`runTransmuteWorkflow` also accepts `signal` and
-`waitTimeoutMilliseconds` beside the coordinator. The same three controls may
-be supplied in `dependencies` when one dependency object is shared with direct
-operation calls; explicit workflow-level values take precedence.
-
-Admission cancellation applies while waiting. Once a callback owns capacity,
-the coordinator retains that capacity until the callback actually settles,
-even if higher-level workflow cancellation has already returned an error.
-Custom executors receive the exact `hostResourceLease`; subprocess launchers
-must inherit its descriptor and call `assertOwned()` before irreversible work.
-
-Workflow modules are trusted current-user Bun code that you explicitly import and run. Module initialization has the same authority as other code run by the current user. The declarative compiler restricts operation nodes to the supplied closed capability projection and rejects unsupported capabilities before executor or resource admission. The SDK does not load arbitrary paths, evaluate source strings, add operation codes, or expose an open registration hook.
-
-## Continue reference-led work in the complete local host
-
-Image-to-Three.js scenes and reference-led metallic logo treatments use
-Transmute's complete local Code Mode host in this repository. The host consumes
-the same canonical SDK and adds the durable media runtime. The desktop shell
-adds native capture, operating-system permission flows, and application UI.
-Those capabilities are outside the portable four-operation projection. The
-local host composes
-`gateway.image`, reviewed HTML scene source, the exact Three.js browser lock,
-and `media.htmlOverlay` in its typed project graph.
-
-The staged Three.js flow is reference generation, source authoring, review,
-full-length 1x preview, then selected final render. The exact reference artifact
-remains bound to the scene as provenance. Model-produced JavaScript is never an
-operation input. The local-host starter supplies explicit color and tone policy,
-camera fitting, draw-call and triangle ceilings, deterministic orbit, zoom and
-explode parameters, shader precompilation, and GPU cleanup.
-
-Metallic logo generation stays an image treatment. Its typed local-host recipe
-takes an exact logo reference, brand name, background color, object color, and
-explicit model. The reference remains the shape authority, and the output
-remains a candidate until silhouette, negative space, proportions, and lettering
-pass review.
-
-The packaged Agent Skill contains the complete procedure in
-`skills/transmute/references/reference-led-3d.md`. If only this public package is
-installed, generate the source image here and continue in the complete local
-host. Local Bun scripts and CLI commands do not require the desktop shell; the
-shell is needed only for native capture, permissions, and application UI. Do
-not add Three.js as a dependency or evaluate scene source through the fixed
-public operation registry.
-
-## Connect MCP
+Generated `.tldr` files are editable interchange and do not require the tldraw
+SDK or desktop app to render:
 
 ```sh
-transmute mcp --root /absolute/path/to/workspace
+atet canvas open diagrams/system.tldr
+atet canvas status
+atet canvas install
+atet skill install --target codex --scope user
 ```
 
-The stdio server exposes `check_diagram`, `render_diagram`, `search_transmute`, and `execute_transmute`. File arguments are root-relative and confined to the selected workspace. Diagram source, shape count, edge count, PNG pixels, returned findings, paths, and outputs are bounded before execution. The server is a trusted local workspace boundary, not an operating-system sandbox against concurrent same-user mutation.
+The optional installer resolves an official tldraw Offline release and verifies
+its published SHA-256 digest. The packaged Agent Skill keeps literal prompts,
+checked source, exact references, rendering, vectorization, semantic operations,
+and review in one reusable workflow. `atet skill path` prints its packaged
+location.
 
-## Work with canvases
+## Compatibility in version 2
 
-Diagram rendering does not require the tldraw SDK or desktop app. The generated `.tldr` file is editable interchange:
+Version 2 makes Atet the repository, package, SDK, skill, site, and canonical
+CLI identity. The former `transmute` executable remains an alias to `atet`
+through the 2.x release line so existing scripts have one major version to
+migrate. Version-1 serialized operation identifiers and MCP tool names remain
+accepted only as compatibility inputs; new output and documentation use Atet
+identifiers.
 
-```sh
-transmute canvas open diagrams/system.tldr
-transmute canvas status
-transmute canvas url
-transmute canvas install
-```
+The immutable version-1 tags and Releases remain available in the same GitHub
+repository history. GitHub redirects the former repository URL after the
+rename. Do not create a new repository at that old path, because doing so would
+replace GitHub's redirect.
 
-The optional installer flow resolves an official tldraw Offline release, verifies its published SHA-256 digest, and prepares the platform installer. A native `.tldraw` file is an app-owned ZIP/SQLite bundle; Transmute opens it but does not rewrite it directly.
+## Limits and trust
 
-## Install the Agent Skill
-
-```sh
-transmute skill install --target codex --scope user
-transmute skill install --target agents --scope project
-```
-
-The skill keeps literal prompts, checked diagram source, rendering, vectorization, semantic operations, and review steps together. `transmute skill path` prints its packaged location.
-
-## Command reference
-
-| Command | Result |
-| --- | --- |
-| `transmute diagram init [file]` | Create a starter without overwriting an existing file. |
-| `transmute diagram check <file>` | Parse and lint a version-one diagram source. |
-| `transmute diagram render <file>` | Replace `.tldr`, light/dark SVG, and light/dark PNG derivatives. |
-| `transmute image vectorize <image>` | Trace one local raster to bounded inert SVG without authentication. |
-| `transmute image generate <prompt>` | Generate one validated image directly through Vercel AI Gateway. |
-| `transmute code search|execute` | Search or execute the fixed semantic registry. |
-| `transmute mcp --root <workspace>` | Serve confined tools over stdio. |
-| `transmute canvas open|status|url|install` | Inspect or use optional canvas integration. |
-| `transmute skill path|install` | Locate or install the packaged Agent Skill. |
-| `transmute doctor` | Report runtime, vectorizer, Gateway environment, MCP, and canvas status. |
+- Generated meaning is never inferred into diagram labels, claims, legends,
+  or relationships. Defaults resolve mechanics only.
+- Raster and vector inputs, output pixels, arrays, frames, durations,
+  subprocesses, downloads, and responses are bounded before execution.
+- Explicitly imported workflow modules are trusted current-user Bun code. Atet
+  does not load caller-selected modules or evaluate source strings.
+- Model-backed generation sends the prompt and supplied media to Vercel AI
+  Gateway and the chosen provider. Local diagram rendering and vectorization do
+  not require that network authority.
+- The complete local runtime treats generated media as candidates until an
+  explicit selection is bound to a delivery revision.
 
 ## Development
 
@@ -345,8 +298,12 @@ bun install --frozen-lockfile --ignore-scripts
 bun run check
 ```
 
-`bun run check` typechecks, validates the schema and skill, runs deterministic and property tests, builds the public entrypoints, and installs the resulting archive in a clean consumer.
+`bun run check` verifies the standalone boundary, typechecks and lints the SDK
+and local runtime, validates the schema and Agent Skill, runs deterministic and
+property tests, builds committed entrypoints, checks the static site, and
+installs the packed archive in a clean consumer.
 
 ## License
 
-MIT. See [NOTICE.md](NOTICE.md) for optional tldraw Offline and VTracer integration terms.
+MIT. See [NOTICE.md](NOTICE.md) for tldraw Offline, VTracer, rendering, and model
+integration terms.
