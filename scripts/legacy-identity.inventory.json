@@ -430,9 +430,9 @@
     ]
   },
   {
-    "identityLineCount": 10,
-    "identityLinesSha256": "1bb05bfdb5bd409a06f7c7ede96d4907344ffe5c644f0a2896dd8871c570a077",
-    "occurrenceCount": 13,
+    "identityLineCount": 11,
+    "identityLinesSha256": "0a0ff449281f2c90bce6d26c4f33ffffdfc48ee54bf546beaa63444aabde3089",
+    "occurrenceCount": 14,
     "path": "apps/desktop/cli/main.test.ts",
     "categories": [
       "test-fixture"
@@ -577,6 +577,15 @@
     "path": "apps/desktop/cli/speech-analysis-service.test.ts",
     "categories": [
       "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "de6a64401c7c53e679586d7d7fc43c375960d4194c03b7d071d6aaafcadbc70c",
+    "occurrenceCount": 3,
+    "path": "apps/desktop/cli/transmute.ts",
+    "categories": [
+      "cli-bin-alias"
     ]
   },
   {
@@ -1083,6 +1092,24 @@
   },
   {
     "identityLineCount": 1,
+    "identityLinesSha256": "788e446cd441f11cdec9e578dd98c2e90cb8f2d3c459dbeee67a16aa26df948a",
+    "occurrenceCount": 2,
+    "path": "apps/desktop/dist/cli/transmute.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "14c8d6fef1490c9ba65740571f219f63386b12b06de93c7b8227c80b4a247071",
+    "occurrenceCount": 13,
+    "path": "apps/desktop/frontend/dist/assets/index-d2SQ55wJ.js",
+    "categories": [
+      "generated"
+    ]
+  },
+  {
+    "identityLineCount": 1,
     "identityLinesSha256": "3e86ed398d44506ef6bd7436eafb15dcbaa8a88d9151d30d0cca188f6ba60b6b",
     "occurrenceCount": 1,
     "path": "apps/desktop/html-overlay/contracts.test.ts",
@@ -1357,9 +1384,9 @@
     ]
   },
   {
-    "identityLineCount": 1,
-    "identityLinesSha256": "ea1a2b4ac8ff21625736b8f9cf81f925e9b35c29e4e1cce72db9e4c072baae79",
-    "occurrenceCount": 1,
+    "identityLineCount": 2,
+    "identityLinesSha256": "472e0af0c982291a897d0107a0aead82a511a99e423d25ea175dffbd0b7d2978",
+    "occurrenceCount": 3,
     "path": "package.json",
     "categories": [
       "cli-bin-alias"

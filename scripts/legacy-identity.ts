@@ -707,7 +707,7 @@ export function validateInventoryEntries(entries: unknown): readonly string[] {
 }
 
 export function isGeneratedLegacyIdentityPath(path: string): boolean {
-  return path.startsWith("dist/") || path.startsWith("apps/desktop/dist/")
+  return path.startsWith("dist/") || path.includes("/dist/")
 }
 
 export function planLegacyIdentityInventoryUpdate(

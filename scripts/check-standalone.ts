@@ -3,6 +3,7 @@ import { join, relative, sep } from "node:path";
 import {
   compareLegacyIdentityInventory,
   duplicateIdentityAlternatives,
+  isGeneratedLegacyIdentityPath,
   legacyIdentitySnapshot,
   planLegacyIdentityInventoryUpdate,
   validateInventoryEntries,
@@ -20,6 +21,10 @@ const LEGACY_IDENTITY_BOUNDARY_FILES = new Set([
   "scripts/legacy-identity.inventory.json",
   "scripts/legacy-identity.test.ts",
   "scripts/legacy-identity.ts",
+]);
+const REVIEWED_PREDECESSOR_PATHS = new Set([
+  "apps/desktop/cli/transmute.ts",
+  "apps/desktop/dist/cli/transmute.js",
 ]);
 const UPDATE_LEGACY_IDENTITY_INVENTORY =
   process.argv.length === 3
@@ -174,7 +179,7 @@ const REVIEWED_FILE_COMPATIBILITY = new Map<string, readonly RegExp[]>([
   ],
   [
     "package.json",
-    [/"transmute": "\.\/apps\/desktop\/dist\/cli\/main\.js"/gu],
+    [/"transmute": "\.\/apps\/desktop\/dist\/cli\/transmute\.js"/gu],
   ],
   [
     "scripts/package-smoke.ts",
@@ -218,6 +223,10 @@ const REVIEWED_FILE_COMPATIBILITY = new Map<string, readonly RegExp[]>([
   [
     "apps/desktop/cli/main.ts",
     [DEPRECATED_TYPESCRIPT_API, /"transmute"/gu, /transmute is deprecated; use atet/gu],
+  ],
+  [
+    "apps/desktop/cli/transmute.ts",
+    [/"transmute"/gu],
   ],
   [
     "apps/desktop/cli/paths.test.ts",
@@ -358,7 +367,10 @@ const sourceProblems: string[] = [];
 const legacyIdentitySnapshots: LegacyIdentitySnapshot[] = [];
 for (const file of files) {
   const rootRelative = relative(ROOT, file).split(sep).join("/");
-  if (LEGACY_IDENTITY.test(rootRelative)) {
+  if (
+    !REVIEWED_PREDECESSOR_PATHS.has(rootRelative)
+    && LEGACY_IDENTITY.test(rootRelative)
+  ) {
     sourceProblems.push(`${rootRelative} retains a pre-Atet source path`);
   }
   if (
@@ -382,8 +394,7 @@ for (const file of files) {
   const unreviewedIdentity = identityBoundaryFile
     ? ""
     : removeReviewedLegacyCompatibility(rootRelative, text);
-  const generatedOutput = rootRelative.startsWith("dist/")
-    || rootRelative.startsWith("apps/desktop/dist/");
+  const generatedOutput = isGeneratedLegacyIdentityPath(rootRelative);
   if (
     !generatedOutput
     && !inventoriedIdentityPaths.has(rootRelative)
@@ -447,7 +458,7 @@ if (
   || Array.isArray(bins)
   || Object.keys(bins).sort().join(",") !== "atet,transmute"
   || Reflect.get(bins, "atet") !== "./apps/desktop/dist/cli/main.js"
-  || Reflect.get(bins, "transmute") !== "./apps/desktop/dist/cli/main.js"
+  || Reflect.get(bins, "transmute") !== "./apps/desktop/dist/cli/transmute.js"
 ) {
   problems.push("package.json bins must expose canonical atet plus the version-2 transmute alias");
 }
