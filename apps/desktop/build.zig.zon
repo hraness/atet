@@ -1,6 +1,6 @@
 .{
     .name = .atet,
-    .fingerprint = 0xe9830fbee8664699,
+    .fingerprint = 0xbec4a53120ac8933,
     .version = "2.0.0",
     .minimum_zig_version = "0.16.0",
     .dependencies = .{},
