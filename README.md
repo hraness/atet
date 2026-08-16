@@ -278,10 +278,6 @@ executing arbitrary commands supplied through MCP.
 - **Inspectable history:** important media and model operations retain
   secret-free receipts that identify their inputs and implementation.
 
-Atet validates the inputs accepted by its own tools. It is not an
-operating-system sandbox. Trusted Bun workflows and other project code run with
-the current user's normal permissions.
-
 Read [the architecture guide](docs/architecture.md) for project revisions,
 rendering, caching, workflow execution, and network boundaries. See
 [SECURITY.md](SECURITY.md) for reporting and supported-version policy and
