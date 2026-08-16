@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 import { buildWebsite } from "./scripts/build"
 
 const appDirectory = dirname(fileURLToPath(import.meta.url))
-const description = "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video."
+const description = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
 beforeAll(async () => {
@@ -21,7 +21,7 @@ describe("static Atet site", () => {
   test("publishes one canonical Atet identity across discovery metadata", async () => {
     const html = await readSource("index.html")
 
-    expect(html).toContain("<title>Atet: code-first visual media from source to final</title>")
+    expect(html).toContain("<title>Atet: agentic creative coding toolkit</title>")
     expect(html).toContain(`<meta name="description" content="${description}">`)
     expect(html).toContain('<link rel="canonical" href="https://atet.sh/">')
     expect(html).toContain('<meta property="og:url" content="https://atet.sh/">')
@@ -226,12 +226,14 @@ describe("static Atet site", () => {
     expect(theme).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
-  test("uses the solar-barque name as a restrained abstract metaphor", async () => {
+  test("pairs the creation story with restrained abstract barque art", async () => {
     const html = await readSource("index.html")
 
-    expect(html).toContain("Atet draws on Ra's solar barque as an abstract")
-    expect(html).toContain("metaphor for passage and transformation")
-    expect(html).not.toMatch(/hieroglyph|pharaoh|pyramid|ankh/i)
+    expect(html).toContain("Agentic creative coding toolkit.")
+    expect(html).toContain("Atum dawned and")
+    expect(html).toContain("solar\n            barque Atet")
+    expect(html).toContain('<div aria-hidden="true" class="solar-field">')
+    expect(html).not.toMatch(/hieroglyph|pharaoh|ankh/i)
   })
 
   test("keeps the page semantic, keyboard-operable, and responsive", async () => {

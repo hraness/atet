@@ -1,17 +1,17 @@
 # Atet
 
-[![Atet: an open visual-media toolkit for agents and people](https://atet.sh/og.png)](https://atet.sh)
+[![Atet: agentic creative coding toolkit](https://atet.sh/og.png)](https://atet.sh)
 
-**Carry an idea all the way into view.**
+**Agentic creative coding toolkit.**
 
-Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI
-for carrying ideas and raw assets into images, diagrams, animated loops, and
-video.
+At the beginning of time, when there was nothing but chaos, Atum existed alone
+in the watery mass of Nun. A pyramid mound called Benben emerged. When the
+lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the
+underworld on the solar barque Atet.
 
-The name fits the work: one vessel carries an idea from its first rough material
-through rendering, review, and delivery. Atet keeps that journey inspectable,
-with explicit sources, bounded execution, and editable artifacts instead of an
-opaque creative endpoint.
+Atet carries ideas and raw assets into images, diagrams, animated loops, and
+video. The TypeScript SDK, Bun CLI, and local runtime keep that journey
+inspectable, with explicit sources, bounded execution, and editable artifacts.
 
 ```sh
 bun add --global github:hraness/atet#v2.0.0

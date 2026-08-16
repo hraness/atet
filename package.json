@@ -1,7 +1,7 @@
 {
   "name": "@hraness/atet",
   "version": "2.0.0",
-  "description": "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.",
+  "description": "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
