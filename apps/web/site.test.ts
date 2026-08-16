@@ -369,9 +369,13 @@ describe("static Atet site", () => {
     }))
 
     expect(projected).toEqual([
+      { source: "/", host: { type: "host", value: "hraness.graphics" }, destination: "https://atet.sh/", permanent: true },
       { source: "/:path*", host: { type: "host", value: "hraness.graphics" }, destination: "https://atet.sh/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "hraness.studio" }, destination: "https://atet.sh/", permanent: true },
       { source: "/:path*", host: { type: "host", value: "hraness.studio" }, destination: "https://atet.sh/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "preview.hraness.graphics" }, destination: "https://preview.atet.sh/", permanent: true },
       { source: "/:path*", host: { type: "host", value: "preview.hraness.graphics" }, destination: "https://preview.atet.sh/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "preview.hraness.studio" }, destination: "https://preview.atet.sh/", permanent: true },
       { source: "/:path*", host: { type: "host", value: "preview.hraness.studio" }, destination: "https://preview.atet.sh/:path*", permanent: true },
     ])
 
