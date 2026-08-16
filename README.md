@@ -14,7 +14,8 @@ video. The TypeScript SDK, Bun CLI, and local runtime keep that journey
 inspectable, with explicit sources, bounded execution, and editable artifacts.
 
 ```sh
-bun add --global github:hraness/atet#v2.0.0
+bun add --global github:hraness/atet
+atet skill install
 atet doctor
 atet diagram init diagrams/system.diagram.json
 atet image vectorize input.png --output input.svg --json
@@ -57,22 +58,23 @@ inspect together.
 
 ## Install
 
-Atet requires Bun 1.3.14. Pin the public repository to the immutable `v2.0.0`
-tag for a global CLI install:
+Atet requires Bun 1.3.14. Install the CLI and its Agent Skill directly from
+the canonical public repository:
 
 ```sh
-bun add --global github:hraness/atet#v2.0.0
+bun add --global github:hraness/atet
+atet skill install
 atet doctor
 ```
 
-Install the SDK into a Bun project with the same immutable source:
+Install the SDK into a Bun project from the same source:
 
 ```sh
-bun add github:hraness/atet#v2.0.0
+bun add github:hraness/atet
 ```
 
-Atet is distributed through immutable GitHub tags and Releases. It is not
-published to npm.
+Atet is distributed directly through GitHub and is not published to npm.
+Published version tags and Releases remain immutable records.
 
 Diagram rendering runs on macOS, Linux, and Windows. Bounded VTracer execution
 runs on macOS and Linux; Windows fails closed with `tool_platform` until its

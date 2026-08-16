@@ -105,180 +105,131 @@
     <header class="topbar">
       <a aria-label="Atet home" class="wordmark" href="/">Atet</a>
       <nav aria-label="Primary">
-        <a class="nav-docs" href="/docs">Docs</a>
-        <a class="nav-section-link" href="#outputs">Outputs</a>
-        <a class="nav-section-link" href="#system">System</a>
-        <a class="nav-install" href="#install">Install</a>
+        <a href="#install">Install</a>
+        <a href="/docs">Docs</a>
         <a class="nav-github" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
       </nav>
     </header>
 
     <main id="main" tabindex="-1">
-      <section aria-labelledby="hero-title" class="hero">
-        <div aria-hidden="true" class="solar-field">
-          <span class="solar-disk"></span>
-          <span class="solar-barque"></span>
-        </div>
-        <div class="hero-content">
-          <p class="eyebrow">Atet</p>
-          <h1 id="hero-title">Carry ideas from first light to final form.</h1>
-          <div class="hero-lower">
-            <div class="hero-intro">
-              <p class="hero-statement">
-                Generate images, build editable diagrams, author animated loops,
-                and compose video through one TypeScript SDK, Bun CLI, and local runtime.
-              </p>
-              <div class="action-row">
-                <a class="button button-primary" href="#install">Install Atet</a>
-                <a class="button button-quiet" href="/docs">Read the docs</a>
-                <a class="button button-quiet" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
-              </div>
-            </div>
-            <blockquote class="hero-explainer">
-              <p class="hero-description-lead">Agentic creative coding toolkit.</p>
-              <p>
-                At the beginning of time, when there was nothing but chaos, Atum
-                existed alone in the watery mass of Nun. A pyramid mound called
-                Benben emerged. When the lotus flower bloomed, Atum dawned and
-                became Ra. Every night Ra sails in the underworld on the solar
-                barque Atet.
-              </p>
-              <footer>Named for the vessel that carries the sun through darkness.</footer>
-            </blockquote>
+      <section id="install" aria-labelledby="hero-title" class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Agentic creative coding toolkit</p>
+          <h1 id="hero-title">Install Atet. Tell your agent what to make.</h1>
+          <p class="hero-deck">
+            Atet gives coding agents one local, inspectable way to create images,
+            diagrams, animated loops, and video. Install the CLI and Agent Skill,
+            then work in plain language.
+          </p>
+          <div class="action-row">
+            <a class="button button-primary" href="/docs#install">Installation guide</a>
+            <a class="text-link" href="https://github.com/hraness/atet">View the source <span aria-hidden="true">↗</span></a>
           </div>
-          <ul aria-label="Project facts" class="proof-list">
-            <li><span>01</span> Open source</li>
-            <li><span>02</span> Local first</li>
-            <li><span>03</span> Credentials stay local</li>
-            <li><span>04</span> CLI + TypeScript SDK</li>
-          </ul>
+        </div>
+
+        <div class="install-panel" aria-label="Install Atet for Codex">
+          <div class="solar-mark" aria-hidden="true"><span></span></div>
+          <p class="panel-label">Bun 1.3.14+ · two commands</p>
+          <ol class="install-commands">
+            <li>
+              <span>01</span>
+              <code>bun add --global github:hraness/atet</code>
+            </li>
+            <li>
+              <span>02</span>
+              <code>atet skill install</code>
+            </li>
+          </ol>
+          <p class="panel-note">
+            The second command installs the Codex skill for your user account.
+            Start a new agent session, then ask it to use Atet.
+          </p>
+          <a class="panel-link" href="/docs#install">Claude, other agents, and project setup <span aria-hidden="true">→</span></a>
         </div>
       </section>
 
       <div class="page">
-        <section aria-labelledby="outputs" class="section output-section">
-          <div class="section-heading">
-            <p class="eyebrow">Four output families</p>
-            <h2 id="outputs">Choose the form. Keep the source.</h2>
-            <p>Every fixed export remains connected to the project and operations that produced it.</p>
-          </div>
-          <dl class="output-grid">
+        <section aria-labelledby="capabilities" class="section capabilities-section">
+          <header class="section-heading">
+            <p class="eyebrow">What your agent can make</p>
+            <h2 id="capabilities">Four forms. One way of working.</h2>
+            <p>Ask for the result. Source-based workflows keep editable source beside the files you can share.</p>
+          </header>
+          <dl class="capability-list">
             <div>
-              <dt><span aria-hidden="true">01</span> Images</dt>
-              <dd>Generate through Vercel AI Gateway, vectorize references, or render stills with code.</dd>
+              <dt><span>01</span> Images</dt>
+              <dd>Create new imagery or turn existing artwork into clean, reusable assets.</dd>
             </div>
             <div>
-              <dt><span aria-hidden="true">02</span> Diagrams</dt>
-              <dd>Build checked, editable tldraw sources and render SVG or PNG derivatives when delivery needs a fixed asset.</dd>
+              <dt><span>02</span> Diagrams</dt>
+              <dd>Turn an explanation into checked, editable visual source and publication-ready outputs.</dd>
             </div>
             <div>
-              <dt><span aria-hidden="true">03</span> Animated loops</dt>
-              <dd>Author deterministic HTML, CSS, SVG, Canvas, WebGL, Three.js, or shader scenes with explicit timing.</dd>
+              <dt><span>03</span> Animated loops</dt>
+              <dd>Build timed visual scenes and repeatable motion that can be revised or reused.</dd>
             </div>
             <div>
-              <dt><span aria-hidden="true">04</span> Video</dt>
-              <dd>Compose recordings, images, diagrams, loops, audio, captions, and overlays into every required aspect ratio.</dd>
+              <dt><span>04</span> Video</dt>
+              <dd>Compose recordings, visuals, sound, captions, and delivery variants as one project.</dd>
             </div>
           </dl>
         </section>
+      </div>
 
-        <section aria-labelledby="system" class="section journey-section">
-          <div class="section-heading section-heading-wide">
-            <p class="eyebrow">One project</p>
-            <h2 id="system">Many variants. One exact journey.</h2>
+      <section aria-labelledby="system" class="system-section">
+        <div class="system-inner">
+          <header class="section-heading system-heading">
+            <p class="eyebrow">How it works</p>
+            <h2 id="system">From request to editable result.</h2>
             <p>
-              Captions, crops, aspect ratios, quality tiers, and delivery formats
-              are variants of one immutable project graph, not copies that drift.
+              One install gives your agent both the tool and the instructions to
+              use it. Atet checks the work, coordinates local tools, and returns
+              finished files to your workspace and keeps editable source when
+              the work has one.
             </p>
-          </div>
-          <ol aria-label="Atet project flow" class="journey">
-            <li><span>01</span><div><h3>Sources</h3><p>Ideas, recordings, sketches, media, text, and code enter with exact revisions.</p></div></li>
-            <li><span>02</span><div><h3>Project graph</h3><p>Typed operations connect immutable inputs to bounded outputs.</p></div></li>
-            <li><span>03</span><div><h3>Candidates</h3><p>Independent revisions branch from one frozen base.</p></div></li>
-            <li><span>04</span><div><h3>Renders</h3><p>Fast previews inform selection; final quality stays explicit.</p></div></li>
-            <li><span>05</span><div><h3>Delivery</h3><p>Each artifact carries the identity needed to verify and reuse it.</p></div></li>
+          </header>
+          <ol class="system-flow" aria-label="How Atet handles a request">
+            <li><span>01</span><div><strong>Your request</strong><p>Describe the outcome in ordinary language.</p></div></li>
+            <li><span>02</span><div><strong>Agent + skill</strong><p>The agent uses the installed skill to choose a known Atet capability.</p></div></li>
+            <li><span>03</span><div><strong>Checked work</strong><p>Atet validates inputs and runs the work in your workspace.</p></div></li>
+            <li><span>04</span><div><strong>Results</strong><p>Files return to your workspace; source-based work keeps its editable source.</p></div></li>
           </ol>
-        </section>
+          <aside class="gateway-note">
+            <span aria-hidden="true">↳</span>
+            <p><strong>Online only when needed.</strong> Model-backed creation goes from your local Atet process through Vercel AI Gateway. Local work stays local.</p>
+          </aside>
+        </div>
+      </section>
 
-        <section aria-labelledby="contracts-title" class="section contracts-section">
-          <div class="section-heading section-heading-wide">
-            <p class="eyebrow">Performance without hidden state</p>
-            <h2 id="contracts-title">Iteration stays fast because identity stays exact.</h2>
-          </div>
-          <div class="contract-grid">
-            <section aria-labelledby="cache-title" class="contract-card">
-              <h3 id="cache-title">Cache by proof</h3>
-              <p>A verified artifact with the same inputs, source revision, operation, renderer, toolchain, and output profile can be adopted. A meaningful change creates a new identity.</p>
-            </section>
-            <section aria-labelledby="candidate-title" class="contract-card">
-              <h3 id="candidate-title">Fork candidates safely</h3>
-              <p>Agents render independent candidates without sharing mutable files. Selection is explicit, and stale promotion fails closed while preserving every branch.</p>
-            </section>
-            <section aria-labelledby="preview-title" class="contract-card">
-              <h3 id="preview-title">Preview the whole piece</h3>
-              <p>The default preview keeps complete duration while reducing spatial quality and selecting a faster encoder recipe.</p>
-            </section>
-            <section aria-labelledby="final-title" class="contract-card">
-              <h3 id="final-title">Render final on purpose</h3>
-              <p>Independent work runs in parallel within one machine ceiling. Expensive video encodes serialize by default, and partial verified results remain reusable.</p>
-            </section>
-          </div>
-        </section>
-
-        <section aria-labelledby="boundary-title" class="section boundary-section">
-          <div class="section-heading">
-            <p class="eyebrow">One system, three boundaries</p>
-            <h2 id="boundary-title">Use the smallest surface the work needs.</h2>
-          </div>
-          <dl class="boundary-list">
-            <div><dt>TypeScript SDK</dt><dd>Define, validate, compile, and run typed visual graphs inside a Bun script or agent host.</dd></div>
-            <div><dt>Local host</dt><dd>Schedule durable media work, enforce resource ceilings, recover runs, and publish verified artifacts.</dd></div>
-            <div><dt>Desktop shell</dt><dd>Add screen, camera, and microphone capture plus native permissions without creating another workflow engine.</dd></div>
+      <div class="page">
+        <section aria-labelledby="trust" class="section trust-section">
+          <header class="section-heading">
+            <p class="eyebrow">Why the design is dependable</p>
+            <h2 id="trust">Built for work you need to inspect.</h2>
+          </header>
+          <dl class="trust-list">
+            <div><dt>Local custody</dt><dd>Project files and artifacts remain in storage you control.</dd></div>
+            <div><dt>No Atet account</dt><dd>There is no hosted project layer, auth service, or Atet credential store.</dd></div>
+            <div><dt>Source stays primary</dt><dd>In source-based and project workflows, working source remains authoritative over its exports.</dd></div>
+            <div><dt>Bounded work</dt><dd>Atet checks known capabilities and coordinates expensive jobs before they run.</dd></div>
           </dl>
+          <a class="text-link" href="/docs#design">Understand the design <span aria-hidden="true">→</span></a>
         </section>
 
-        <section aria-labelledby="install" class="section install-section">
-          <div class="install-copy">
-            <p class="eyebrow">Local by default</p>
-            <h2 id="install">Bring Atet to the work.</h2>
+        <section aria-labelledby="about" class="section about-section">
+          <p class="eyebrow">The name</p>
+          <div class="about-copy">
+            <h2 id="about">Atet carries the work through.</h2>
             <p>
-              Atet has no hosted account or browser generation service. The local
-              SDK and CLI read <code>AI_GATEWAY_API_KEY</code> or Vercel's
-              short-lived <code>VERCEL_OIDC_TOKEN</code>. This site never receives
-              either credential.
+              Agentic creative coding toolkit. At the beginning of time, when
+              there was nothing but chaos, Atum existed alone in the watery mass
+              of Nun. A pyramid mound called Benben emerged. When the lotus flower
+              bloomed, Atum dawned and became Ra. Every night Ra sails in the
+              underworld on the solar barque Atet.
             </p>
-            <p>
-              Local media stays local unless a workflow explicitly sends a bounded
-              input to a generation provider.
-            </p>
-            <a class="text-link" href="https://github.com/hraness/atet">Read the source <span aria-hidden="true">↗</span></a>
-          </div>
-          <div class="command-stack">
-            <div class="command-panel">
-              <div class="command-label"><span>Install</span><span>v2.0.0</span></div>
-              <pre><code>bun add --global github:hraness/atet#v2.0.0
-atet doctor
-atet image generate "a sunlit geometric vessel"</code></pre>
-            </div>
-            <aside class="gateway-card">
-              <p class="command-label">Use linked Vercel access for one command</p>
-              <pre><code>vercel link
-vercel env run -- atet image generate "…"</code></pre>
-            </aside>
           </div>
         </section>
 
-        <section aria-labelledby="cta-title" class="section final-cta">
-          <div>
-            <p class="eyebrow">Source in. Final out.</p>
-            <h2 id="cta-title">Set the work in motion.</h2>
-          </div>
-          <div class="action-row">
-            <a class="button button-primary" href="#install">Install Atet</a>
-            <a class="button button-secondary" href="/docs">Read the docs</a>
-            <a class="button button-quiet" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
-          </div>
-        </section>
       </div>
     </main>
 
@@ -294,7 +245,7 @@ vercel env run -- atet image generate "…"</code></pre>
           </svg>
           <span>hraness</span>
         </a>
-        <p class="footer-note">Atet 2.0.0 · MIT · Local-first visual media.</p>
+        <p class="footer-note">Atet · MIT · Local-first creative tools.</p>
         <fieldset class="appearance" aria-label="Appearance">
           <legend>Appearance</legend>
           <button type="button" data-theme-choice="light">Light</button>
