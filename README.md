@@ -20,7 +20,7 @@ atet diagram init diagrams/system.diagram.json
 atet image vectorize input.png --output input.svg --json
 ```
 
-[Project site](https://atet.sh) · [Security policy](SECURITY.md) · [Architecture](docs/architecture.md)
+[Project site](https://atet.sh) · [Documentation](https://atet.sh/docs) · [Security policy](SECURITY.md) · [Architecture](docs/architecture.md)
 
 ## What Atet makes
 
@@ -238,7 +238,7 @@ See [Architecture](docs/architecture.md) for the full boundary map.
 atet operations list --json
 atet code search diagram --limit 4
 atet code execute atet.diagram.check \
-  --input '{"path":"diagrams/system.diagram.json","strict":true}'
+  --input '{"path":"diagrams/system.diagram.json"}'
 atet mcp --root /absolute/path/to/workspace
 ```
 

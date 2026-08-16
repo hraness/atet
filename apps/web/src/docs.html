@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#fff4da" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#090a12" media="(prefers-color-scheme: dark)">
+    <title>Atet documentation: learn, build, and look things up</title>
+    <meta name="description" content="Learn Atet with a first-project tutorial, task-focused guides, complete CLI and SDK reference, and explanations of its local-first visual-media model.">
+    <meta name="application-name" content="Atet">
+    <meta name="generator" content="Bun 1.3.14">
+    <meta name="keywords" content="Atet documentation, TypeScript SDK, Bun CLI, visual media workflows, image generation, vectorization, diagrams, animated loops, video">
+    <link rel="canonical" href="https://atet.sh/docs">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="stylesheet" href="{{CSS_ASSET}}">
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml">
+
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Atet">
+    <meta property="og:title" content="Atet documentation: learn, build, and look things up">
+    <meta property="og:description" content="Tutorials, task-focused guides, CLI and SDK reference, and explanations for Atet's local-first visual-media system.">
+    <meta property="og:url" content="https://atet.sh/docs">
+    <meta property="og:image" content="https://atet.sh/og.png">
+    <meta property="og:image:alt" content="Atet, visual media moved from source to final, beside an abstract solar disk and barque path">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Atet documentation: learn, build, and look things up">
+    <meta name="twitter:description" content="Tutorials, task-focused guides, CLI and SDK reference, and explanations for Atet's local-first visual-media system.">
+    <meta name="twitter:image" content="https://atet.sh/og.png">
+    <meta name="twitter:image:alt" content="Atet, visual media moved from source to final, beside an abstract solar disk and barque path">
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@id": "https://atet.sh/#website",
+            "@type": "WebSite",
+            "name": "Atet",
+            "url": "https://atet.sh/"
+          },
+          {
+            "@id": "https://atet.sh/docs#page",
+            "@type": ["WebPage", "TechArticle"],
+            "about": { "@id": "https://atet.sh/#software" },
+            "dateModified": "2026-08-16",
+            "description": "Learn Atet with a first-project tutorial, task-focused guides, complete CLI and SDK reference, and explanations of its local-first visual-media model.",
+            "headline": "Atet documentation",
+            "isPartOf": { "@id": "https://atet.sh/#website" },
+            "name": "Atet documentation: learn, build, and look things up",
+            "url": "https://atet.sh/docs"
+          },
+          {
+            "@id": "https://atet.sh/#software",
+            "@type": "SoftwareApplication",
+            "applicationCategory": "DeveloperApplication",
+            "isAccessibleForFree": true,
+            "name": "Atet",
+            "operatingSystem": ["macOS", "Linux", "Windows"],
+            "softwareVersion": "2.0.0",
+            "url": "https://atet.sh/"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "item": "https://atet.sh/",
+                "name": "Atet",
+                "position": 1
+              },
+              {
+                "@type": "ListItem",
+                "item": "https://atet.sh/docs",
+                "name": "Documentation",
+                "position": 2
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <script src="{{THEME_ASSET}}" defer></script>
+  </head>
+  <body class="docs-route">
+    <a class="skip-link" href="#docs-content">Skip to documentation</a>
+    <header class="topbar">
+      <a aria-label="Atet home" class="wordmark" href="/">ATET</a>
+      <nav aria-label="Primary">
+        <a href="/">Home</a>
+        <a aria-current="page" href="/docs">Docs</a>
+        <a class="nav-github" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+
+    <main id="docs-content" tabindex="-1">
+      <section aria-labelledby="docs-title" class="docs-hero">
+        <div class="docs-hero-copy">
+          <p class="eyebrow">Atet documentation</p>
+          <h1 id="docs-title">Move from first command to final artifact.</h1>
+          <p>
+            Learn the system with one guided success, solve a specific task,
+            look up an exact contract, or understand why Atet works the way it
+            does. Start where your work is now.
+          </p>
+          <div class="action-row">
+            <a class="button button-primary" href="#first-diagram">Build your first diagram</a>
+            <a class="button button-secondary" href="#reference">Open the reference</a>
+          </div>
+        </div>
+        <div aria-hidden="true" class="docs-passage">
+          <span class="passage-node passage-source">Source</span>
+          <span class="passage-line passage-line-a"></span>
+          <span class="passage-node passage-graph">Graph</span>
+          <span class="passage-line passage-line-b"></span>
+          <span class="passage-sun"></span>
+          <span class="passage-node passage-artifact">Artifact</span>
+        </div>
+      </section>
+
+      <section aria-labelledby="choose-title" class="docs-chooser">
+        <div class="docs-heading">
+          <p class="eyebrow">Choose by intent</p>
+          <h2 id="choose-title">What do you need right now?</h2>
+          <p>The sections are independent. You do not have to read them in order.</p>
+        </div>
+        <div class="docs-intents">
+          <a class="intent-card intent-learn" href="#first-diagram">
+            <span>01 · Learn</span>
+            <strong>Take a guided first journey</strong>
+            <small>Install Atet, author checked source, and produce five diagram artifacts.</small>
+          </a>
+          <a class="intent-card intent-guide" href="#guides">
+            <span>02 · Do</span>
+            <strong>Complete a specific task</strong>
+            <small>Generate, vectorize, compose, automate, inspect, and render.</small>
+          </a>
+          <a class="intent-card intent-reference" href="#reference">
+            <span>03 · Look up</span>
+            <strong>Find an exact contract</strong>
+            <small>CLI surfaces, operation codes, SDK entrypoints, outputs, and environment.</small>
+          </a>
+          <a class="intent-card intent-explain" href="#concepts">
+            <span>04 · Understand</span>
+            <strong>See how the system fits</strong>
+            <small>Source authority, local custody, artifact identity, and bounded execution.</small>
+          </a>
+        </div>
+      </section>
+
+      <div class="docs-shell">
+        <aside class="docs-rail">
+          <nav aria-label="Documentation sections">
+            <p>Start here</p>
+            <a href="#orientation">Orientation</a>
+            <a href="#first-diagram">First diagram</a>
+            <p>How-to guides</p>
+            <a href="#guide-generate">Generate an image</a>
+            <a href="#guide-vectorize">Vectorize artwork</a>
+            <a href="#guide-sdk">Use the SDK</a>
+            <a href="#guide-workflows">Compose workflows</a>
+            <a href="#guide-agents">Connect agents</a>
+            <a href="#guide-local-media">Build a media project</a>
+            <a href="#troubleshooting">Troubleshoot</a>
+            <p>Reference</p>
+            <a href="#features">Feature map</a>
+            <a href="#cli-reference">CLI</a>
+            <a href="#operation-reference">Operations</a>
+            <a href="#sdk-reference">SDK</a>
+            <a href="#files-reference">Files and outputs</a>
+            <a href="#environment-reference">Environment</a>
+            <a href="#platform-reference">Platforms</a>
+            <p>Explanation</p>
+            <a href="#system-model">System model</a>
+            <a href="#source-authority">Source authority</a>
+            <a href="#trust-boundary">Trust boundary</a>
+            <a href="#artifact-identity">Artifact identity</a>
+            <a href="#execution-model">Execution model</a>
+          </nav>
+        </aside>
+
+        <div class="docs-main">
+          <section aria-labelledby="orientation" class="docs-section docs-orientation">
+            <div class="doc-kicker"><span>Tutorial</span><span>Learning-oriented</span></div>
+            <h2 id="orientation">Start with the smallest complete path.</h2>
+            <p class="docs-lede">
+              Atet is a TypeScript SDK, Bun CLI, complete local media host, and
+              macOS desktop shell built on the same checked contracts. The first
+              tutorial uses diagrams because it reaches an editable source and
+              visible outputs without credentials, native capture, or a model call.
+            </p>
+            <div class="orientation-grid">
+              <div>
+                <h3>Use Atet when</h3>
+                <ul class="check-list">
+                  <li>You want source and provenance to survive the render.</li>
+                  <li>An agent and a person need to inspect the same artifact.</li>
+                  <li>Variants should branch from one exact project instead of copied files.</li>
+                  <li>Local work must remain bounded and explicit.</li>
+                </ul>
+              </div>
+              <div>
+                <h3>What you need</h3>
+                <dl class="compact-facts">
+                  <div><dt>Runtime</dt><dd>Bun 1.3.14 or newer</dd></div>
+                  <div><dt>Install</dt><dd>Immutable GitHub tag</dd></div>
+                  <div><dt>Account</dt><dd>None</dd></div>
+                  <div><dt>Gateway</dt><dd>Only for model-backed generation</dd></div>
+                </dl>
+              </div>
+            </div>
+          </section>
+
+          <section aria-labelledby="first-diagram" class="docs-section tutorial-section">
+            <div class="doc-kicker"><span>Tutorial</span><span>About 10 minutes</span></div>
+            <h2 id="first-diagram">Build your first checked diagram.</h2>
+            <p class="docs-lede">
+              You will install Atet, create one source file, validate it, and
+              render editable and fixed derivatives. Work in an empty directory
+              so every new file is obvious.
+            </p>
+
+            <ol class="lesson-steps">
+              <li>
+                <div class="lesson-number">1</div>
+                <div class="lesson-content">
+                  <h3>Install the CLI and inspect the host</h3>
+                  <p>The public package is distributed from an immutable GitHub Release, not npm.</p>
+                  <div class="code-block">
+                    <div class="code-caption"><span>Terminal</span><span>Install + doctor</span></div>
+                    <pre><code>bun add --global github:hraness/atet#v2.0.0
+atet doctor</code></pre>
+                  </div>
+                  <p class="expected"><strong>Checkpoint:</strong> <code>atet doctor</code> reports the local runtime and any optional capabilities. Diagram authoring does not need a Gateway credential.</p>
+                </div>
+              </li>
+              <li>
+                <div class="lesson-number">2</div>
+                <div class="lesson-content">
+                  <h3>Create the source</h3>
+                  <p>Ask Atet for a valid starter, then replace it with a small source-to-result graph.</p>
+                  <div class="code-block">
+                    <div class="code-caption"><span>Terminal</span><span>Create a starter</span></div>
+                    <pre><code>mkdir -p diagrams
+atet diagram init diagrams/journey.diagram.json</code></pre>
+                  </div>
+                  <div class="code-block">
+                    <div class="code-caption"><span>diagrams/journey.diagram.json</span><span>Checked source</span></div>
+                    <pre><code>{
+  "$schema": "https://raw.githubusercontent.com/hraness/atet/v2.0.0/schema/diagram.schema.json",
+  "version": 1,
+  "name": "journey",
+  "canvas": { "width": 960, "height": 540 },
+  "layout": {
+    "type": "stack",
+    "direction": "horizontal",
+    "gap": 160,
+    "align": "center"
+  },
+  "shapes": [
+    { "id": "source", "type": "rect", "width": 220, "height": 140, "label": "Source" },
+    { "id": "result", "type": "rect", "width": 220, "height": 140, "label": "Result" }
+  ],
+  "edges": [
+    { "id": "source-result", "from": "source", "to": "result" }
+  ]
+}</code></pre>
+                  </div>
+                </div>
+              </li>
+              <li>
+                <div class="lesson-number">3</div>
+                <div class="lesson-content">
+                  <h3>Check before you render</h3>
+                  <p><code>--strict</code> turns every lint finding into a failed check. This is the useful mode for automation.</p>
+                  <div class="code-block">
+                    <div class="code-caption"><span>Terminal</span><span>Validate + render</span></div>
+                    <pre><code>atet diagram check diagrams/journey.diagram.json --strict
+atet diagram render diagrams/journey.diagram.json</code></pre>
+                  </div>
+                  <div class="expected-output">
+                    <p><strong>You now have one source and five same-stem outputs:</strong></p>
+                    <pre><code>journey.diagram.json
+journey.tldr
+journey.light.svg
+journey.dark.svg
+journey.light.png
+journey.dark.png</code></pre>
+                  </div>
+                </div>
+              </li>
+              <li>
+                <div class="lesson-number">4</div>
+                <div class="lesson-content">
+                  <h3>Choose your next move</h3>
+                  <p>
+                    Open <code>journey.tldr</code> for editable interchange, place
+                    the SVG in a responsive interface, or use the PNG for a fixed
+                    delivery. Keep the JSON source authoritative and regenerate
+                    the derivatives after every meaningful edit.
+                  </p>
+                  <div class="next-links">
+                    <a href="#guide-generate">Generate an image</a>
+                    <a href="#guide-sdk">Call Atet from TypeScript</a>
+                    <a href="#guide-agents">Connect an agent</a>
+                  </div>
+                </div>
+              </li>
+            </ol>
+          </section>
+
+          <section aria-labelledby="guides" class="docs-section docs-divider">
+            <div class="doc-kicker"><span>How-to guides</span><span>Goal-oriented</span></div>
+            <h2 id="guides">Solve the task in front of you.</h2>
+            <p class="docs-lede">
+              These guides assume you already know the result you want. Each one
+              gives the shortest safe path and calls out the boundary that matters.
+            </p>
+          </section>
+
+          <section aria-labelledby="guide-generate" class="docs-section task-guide">
+            <div class="guide-heading">
+              <span>Image guide</span>
+              <h2 id="guide-generate">Generate an image through Vercel AI Gateway.</h2>
+            </div>
+            <p>
+              Atet calls the pinned Gateway origin directly from your local
+              process. It reads <code>AI_GATEWAY_API_KEY</code> first, then
+              <code>VERCEL_OIDC_TOKEN</code>, and does not store or print either value.
+            </p>
+            <div class="code-block">
+              <div class="code-caption"><span>Terminal</span><span>Explicit API key</span></div>
+              <pre><code>export AI_GATEWAY_API_KEY='replace-me'
+atet image generate 'one cobalt circle on white' \
+  --model google/gemini-3.1-flash-image-preview \
+  --output artifacts/circle.webp \
+  --json</code></pre>
+            </div>
+            <p>For linked Vercel access, inject a short-lived token for one command instead of creating a project dotenv file:</p>
+            <div class="code-block">
+              <div class="code-caption"><span>Terminal</span><span>Linked Vercel project</span></div>
+              <pre><code>vercel link
+vercel env run -- atet image generate \
+  'a restrained chapter card on transparent black' \
+  --output artifacts/chapter.webp \
+  --json</code></pre>
+            </div>
+            <aside class="boundary-note">
+              <strong>Cloud boundary</strong>
+              <p>The prompt and any supplied media go to Vercel AI Gateway and the selected provider. Atet sets <code>maxRetries: 0</code>, bounds the response, and writes the chosen output locally.</p>
+            </aside>
+          </section>
+
+          <section aria-labelledby="guide-vectorize" class="docs-section task-guide">
+            <div class="guide-heading">
+              <span>Image guide</span>
+              <h2 id="guide-vectorize">Turn caller-owned artwork into inert SVG.</h2>
+            </div>
+            <p>
+              Vectorization is local, authentication-free, and network-silent
+              after the checksum-pinned official VTracer tool is available. The
+              result includes a receipt with source, output, binary, and fidelity evidence.
+            </p>
+            <div class="split-code">
+              <div class="code-block">
+                <div class="code-caption"><span>Full color</span><span>SVG</span></div>
+                <pre><code>atet image vectorize mark.png \
+  --output mark.svg \
+  --json</code></pre>
+              </div>
+              <div class="code-block">
+                <div class="code-caption"><span>Duotone</span><span>SVG</span></div>
+                <pre><code>atet image vectorize mark.png \
+  --output mark.duotone.svg \
+  --duotone '#1f2937,#f97316' \
+  --json</code></pre>
+              </div>
+            </div>
+            <p class="expected"><strong>Custom tool location:</strong> set <code>ATET_VTRACER_PATH</code> to a compatible binary. Set <code>ATET_CACHE_DIR</code> to move the managed tool cache.</p>
+          </section>
+
+          <section aria-labelledby="guide-sdk" class="docs-section task-guide">
+            <div class="guide-heading">
+              <span>SDK guide</span>
+              <h2 id="guide-sdk">Use Atet from a Bun project.</h2>
+            </div>
+            <p>Install the same immutable source into the project. Importing an SDK entrypoint does not start the CLI or inspect local state.</p>
+            <div class="code-block">
+              <div class="code-caption"><span>Terminal</span><span>Project dependency</span></div>
+              <pre><code>bun add github:hraness/atet#v2.0.0</code></pre>
+            </div>
+            <div class="code-block">
+              <div class="code-caption"><span>vectorize.ts</span><span>Root SDK</span></div>
+              <pre><code>import { vectorizeImage } from "@hraness/atet"
+
+const result = await vectorizeImage("input.png", {
+  outputPath: "artifacts/input.svg",
+})
+
+console.log({
+  source: result.receipt.sourceSha256,
+  output: result.receipt.svgSha256,
+})</code></pre>
+            </div>
+            <p>
+              Use the root package for diagrams, image generation,
+              vectorization, fixed semantic operations, MCP, and resource
+              admission. Use the narrower entrypoints in the
+              <a href="#sdk-reference">SDK reference</a> when a boundary should be explicit.
+            </p>
+          </section>
+
+          <section aria-labelledby="guide-workflows" class="docs-section task-guide">
+            <div class="guide-heading">
+              <span>Workflow guide</span>
+              <h2 id="guide-workflows">Compose checked operations into a workflow.</h2>
+            </div>
+            <p>
+              Portable imperative workflows are ordinary trusted Bun modules
+              over four fixed operations. Input is parsed before work starts,
+              step IDs are unique, and completed-step receipts survive failure.
+            </p>
+            <div class="code-block">
+              <div class="code-caption"><span>checked-render.ts</span><span>@hraness/atet/workflow</span></div>
+              <pre><code>import {
+  defineAtetWorkflow,
+  runAtetWorkflow,
+} from "@hraness/atet/workflow"
+
+const checkedRender = defineAtetWorkflow({
+  id: "checked-render",
+  version: 1,
+  parseInput(value: unknown) {
+    if (typeof value !== "object" || value === null) throw new Error("input")
+    const path = Reflect.get(value, "path")
+    if (typeof path !== "string") throw new Error("path")
+    return { path }
+  },
+  async run(workflow, input) {
+    const checked = await workflow.operation(
+      "check",
+      "atet.diagram.check",
+      input,
+    )
+    const rendered = await workflow.operation(
+      "render",
+      "atet.diagram.render",
+      input,
+    )
+    return { checked, artifacts: rendered.artifacts }
+  },
+})
+
+const run = await runAtetWorkflow(checkedRender, {
+  path: "diagrams/journey.diagram.json",
+})
+
+console.log(run.output.artifacts)</code></pre>
+            </div>
+            <p>
+              For a declarative graph, use <code>@hraness/atet/code</code>. The
+              graph compiles against the host's closed capability projection and
+              rejects unsupported work before resource admission. The complete
+              local host adds project snapshots, media analyses, edit batches,
+              candidates, selections, and multi-format delivery workflows.
+            </p>
+          </section>
+
+          <section aria-labelledby="guide-agents" class="docs-section task-guide">
+            <div class="guide-heading">
+              <span>Agent guide</span>
+              <h2 id="guide-agents">Give an agent a bounded Atet surface.</h2>
+            </div>
+            <p>Choose the smallest interface that supports the task. Discovery remains separate from execution.</p>
+            <div class="command-grid">
+              <div class="code-block">
+                <div class="code-caption"><span>Discover</span><span>Read-only</span></div>
+                <pre><code>atet operations list --json
+atet code search diagram --limit 4</code></pre>
+              </div>
+              <div class="code-block">
+                <div class="code-caption"><span>Execute</span><span>Checked JSON input</span></div>
+                <pre><code>atet code execute atet.diagram.check \
+  --input '{"path":"diagrams/journey.diagram.json"}'</code></pre>
+              </div>
+              <div class="code-block">
+                <div class="code-caption"><span>MCP</span><span>Workspace boundary</span></div>
+                <pre><code>atet mcp --root /absolute/path/to/workspace</code></pre>
+              </div>
+              <div class="code-block">
+                <div class="code-caption"><span>Agent Skill</span><span>User scope</span></div>
+                <pre><code>atet skill install \
+  --target codex \
+  --scope user</code></pre>
+              </div>
+            </div>
+            <p>
+              MCP file paths are root-relative and confined to the selected
+              workspace. The server exposes dedicated diagram tools plus
+              <code>search_atet</code> and <code>execute_atet</code>. It is a
+              trusted same-user workspace boundary, not an operating-system sandbox.
+            </p>
+            <p>For editable canvas handoff, run <code>atet canvas open diagrams/journey.tldr</code>. The optional installer verifies the official tldraw Offline release digest before installation.</p>
+          </section>
+
+          <section aria-labelledby="guide-local-media" class="docs-section task-guide">
+            <div class="guide-heading">
+              <span>Local media guide</span>
+              <h2 id="guide-local-media">Build a recording into a media project.</h2>
+            </div>
+            <p>
+              The complete host treats imported media and recordings as immutable
+              sources. Analyses create evidence; edits create revisions; a render
+              binds one exact revision to one delivery target.
+            </p>
+            <ol class="compact-steps">
+              <li><strong>Capture or import.</strong> Record on Apple Silicon macOS 15+, or create a project from existing local media.</li>
+              <li><strong>Inspect and align.</strong> Bind each placement clock to project time before shared edits.</li>
+              <li><strong>Analyze.</strong> Create inactivity, music, face, scene, or speech evidence without silently editing the project.</li>
+              <li><strong>Edit.</strong> Apply cuts, speed changes, camera moves, metadata effects, captions, and overlays as a new revision.</li>
+              <li><strong>Render.</strong> Plan first, then run the exact output recipe.</li>
+            </ol>
+            <div class="code-block">
+              <div class="code-caption"><span>Terminal</span><span>One local project path</span></div>
+              <pre><code>atet record start
+atet record stop
+atet recordings list --json
+
+atet projects create --from-recording &lt;recording&gt; --name 'First take'
+atet project inspect &lt;project&gt; --json
+atet analyze inactivity &lt;project&gt; --min-duration 3s --handle cut
+atet project edit &lt;project&gt; cut 8s 11.2s
+atet project render plan &lt;project&gt; --json
+atet project render run &lt;project&gt; --output renders/final.mp4</code></pre>
+            </div>
+            <p>
+              More advanced surfaces include multi-angle audio alignment,
+              offline Apple Vision face tracking, metadata-aware cursor and
+              typed-text effects, deterministic HTML and Three.js overlays,
+              generated image and video candidates, and immutable creative
+              iteration matrices. Use <code>atet operations list --json</code>
+              and <code>atet workflows list --json</code> to discover the installed host.
+            </p>
+          </section>
+
+          <section aria-labelledby="troubleshooting" class="docs-section task-guide troubleshooting">
+            <div class="guide-heading">
+              <span>How-to guide</span>
+              <h2 id="troubleshooting">Diagnose common failures.</h2>
+            </div>
+            <div class="table-wrap" role="region" aria-label="Common Atet failures" tabindex="0">
+              <table>
+                <thead><tr><th>Symptom</th><th>What it means</th><th>Next action</th></tr></thead>
+                <tbody>
+                  <tr><td>Gateway credential missing</td><td>No supported credential reached the local process.</td><td>Set <code>AI_GATEWAY_API_KEY</code> or run the command through <code>vercel env run --</code>, then check <code>atet doctor --json</code>.</td></tr>
+                  <tr><td><code>tool_platform</code> while vectorizing</td><td>The official bounded VTracer path is unavailable on this platform.</td><td>Run on macOS or Linux, or set <code>ATET_VTRACER_PATH</code> to a compatible verified binary.</td></tr>
+                  <tr><td>Strict diagram check fails</td><td>The source parsed, but at least one lint finding remains.</td><td>Read the reported shape or edge ID, correct the JSON source, and rerun <code>diagram check --strict</code>.</td></tr>
+                  <tr><td>Operation not found</td><td>The requested code is outside the fixed portable registry or installed host projection.</td><td>Run <code>atet code search &lt;term&gt;</code> or <code>atet operations list --json</code>; do not guess an identifier.</td></tr>
+                  <tr><td>Stale project or promotion</td><td>The source, plan, candidate base, or toolchain changed after the receipt was created.</td><td>Re-open the current project snapshot, re-plan, and create a new revision. Do not overwrite the prior candidate.</td></tr>
+                  <tr><td>Resource wait</td><td>Another Atet process owns an overlapping machine resource claim.</td><td>Let the admitted work finish. Avoid launching a second unmanaged encoder or native build beside it.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section aria-labelledby="reference" class="docs-section docs-divider reference-intro">
+            <div class="doc-kicker"><span>Reference</span><span>Information-oriented</span></div>
+            <h2 id="reference">Look up the machinery.</h2>
+            <p class="docs-lede">
+              This section describes the public surface without teaching a
+              sequence. Use it while authoring a command, import, operation, or artifact contract.
+            </p>
+          </section>
+
+          <section aria-labelledby="features" class="docs-section reference-section">
+            <h2 id="features">Feature map</h2>
+            <div class="feature-map">
+              <article>
+                <span>01</span>
+                <h3>Images</h3>
+                <p>Generate bounded PNG, JPEG, or WebP results through Vercel AI Gateway. Vectorize caller-owned raster art into sanitized SVG with binary and fidelity receipts.</p>
+                <ul><li>Direct local credentials</li><li>Fixed Gateway origin</li><li>Official VTracer provenance</li><li>Duotone output</li></ul>
+              </article>
+              <article>
+                <span>02</span>
+                <h3>Diagrams</h3>
+                <p>Author versioned JSON with explicit shapes, edges, layouts, canvas bounds, and optional local styling configuration.</p>
+                <ul><li>Schema + strict lint</li><li>Editable tldraw interchange</li><li>Light and dark SVG</li><li>Light and dark PNG</li></ul>
+              </article>
+              <article>
+                <span>03</span>
+                <h3>Animated loops</h3>
+                <p>Prepare deterministic HTML, CSS, SVG, Canvas, WebGL, Three.js, or shader scenes with explicit time and immutable source bundles.</p>
+                <ul><li>Bounded browser runtime</li><li>Exact source identity</li><li>Transparent overlays</li><li>Reusable loop ranges</li></ul>
+              </article>
+              <article>
+                <span>04</span>
+                <h3>Video</h3>
+                <p>Compose recordings, imported media, audio, captions, analyses, camera moves, effects, generated candidates, and delivery variants.</p>
+                <ul><li>Multi-angle alignment</li><li>Local analysis evidence</li><li>Immutable edit revisions</li><li>16:9, 9:16, 1:1, and 4:5 delivery</li></ul>
+              </article>
+              <article>
+                <span>05</span>
+                <h3>Automation</h3>
+                <p>Use fixed semantic operations, imperative workflows, declarative graphs, MCP, or the packaged Agent Skill over the same contracts.</p>
+                <ul><li>Closed operation registry</li><li>Typed references</li><li>Plan before run</li><li>Durable receipts</li></ul>
+              </article>
+              <article>
+                <span>06</span>
+                <h3>Local host</h3>
+                <p>Coordinate project storage, generated candidates, native helpers, durable scheduling, and machine resources without a hosted Atet account.</p>
+                <ul><li>Caller-owned storage</li><li>Crash-safe admission</li><li>Bounded subprocesses</li><li>Explicit cloud upload</li></ul>
+              </article>
+            </div>
+          </section>
+
+          <section aria-labelledby="cli-reference" class="docs-section reference-section">
+            <h2 id="cli-reference">CLI surfaces</h2>
+            <p>Run <code>atet --help</code> for the installed command tree. These are the stable task families.</p>
+            <div class="table-wrap" role="region" aria-label="Atet CLI surface reference" tabindex="0">
+              <table>
+                <thead><tr><th>Surface</th><th>Purpose</th><th>Representative command</th></tr></thead>
+                <tbody>
+                  <tr><td><code>doctor</code></td><td>Inspect runtime, credentials, tools, devices, and optional capabilities.</td><td><code>atet doctor --json</code></td></tr>
+                  <tr><td><code>diagram</code></td><td>Initialize, check, and render version-one diagram source.</td><td><code>atet diagram render file.diagram.json</code></td></tr>
+                  <tr><td><code>image</code></td><td>Generate through Gateway or vectorize locally.</td><td><code>atet image vectorize input.png --output output.svg</code></td></tr>
+                  <tr><td><code>operations</code></td><td>List and inspect installed semantic operations.</td><td><code>atet operations show render.project@2 --json</code></td></tr>
+                  <tr><td><code>code</code></td><td>Search or execute portable operations; initialize, check, plan, and run complete-host code.</td><td><code>atet code search diagram --limit 4</code></td></tr>
+                  <tr><td><code>workflows</code></td><td>Inspect, plan, and run built-in complete media recipes.</td><td><code>atet workflows list --json</code></td></tr>
+                  <tr><td><code>mcp</code></td><td>Serve bounded stdio tools inside one absolute workspace root.</td><td><code>atet mcp --root /workspace</code></td></tr>
+                  <tr><td><code>canvas</code></td><td>Open tldraw interchange, inspect the desktop app, or install an official release.</td><td><code>atet canvas open diagram.tldr</code></td></tr>
+                  <tr><td><code>skill</code></td><td>Locate or install the packaged Agent Skill.</td><td><code>atet skill path</code></td></tr>
+                  <tr><td><code>record</code></td><td>Start, pause, resume, and stop synchronized native capture.</td><td><code>atet record start</code></td></tr>
+                  <tr><td><code>projects</code> / <code>project</code></td><td>Create, inspect, edit, and render immutable media projects.</td><td><code>atet project render plan &lt;project&gt; --json</code></td></tr>
+                  <tr><td><code>analyze</code></td><td>Create inactivity, music, face, scene, and speech evidence.</td><td><code>atet analyze faces &lt;project&gt; --source &lt;stream&gt;</code></td></tr>
+                  <tr><td><code>ai</code></td><td>Discover and invoke current Gateway image, video, speech, and transcription models.</td><td><code>atet ai models list --type video --json</code></td></tr>
+                  <tr><td><code>media</code></td><td>Create non-destructive local audio and color derivatives.</td><td><code>atet media color screen.mp4 --preset cinematic</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="reference-note">Read commands default to a bounded text summary and commonly accept <code>--json</code>. Event streams can use <code>--jsonl</code>. Mutations write atomically and return normalized identity or receipt data.</p>
+          </section>
+
+          <section aria-labelledby="operation-reference" class="docs-section reference-section">
+            <h2 id="operation-reference">Portable operation registry</h2>
+            <div class="table-wrap" role="region" aria-label="Portable Atet operation registry" tabindex="0">
+              <table>
+                <thead><tr><th>Code</th><th>Execution</th><th>Authentication</th><th>Result</th></tr></thead>
+                <tbody>
+                  <tr><td><code>atet.diagram.check</code></td><td>Local</td><td>None</td><td>Lint findings and configuration identity</td></tr>
+                  <tr><td><code>atet.diagram.render</code></td><td>Local</td><td>None</td><td>tldraw, SVG, PNG artifacts and findings</td></tr>
+                  <tr><td><code>atet.image.vectorize</code></td><td>Local subprocess</td><td>None</td><td>SVG path and provenance receipt</td></tr>
+                  <tr><td><code>atet.image.generate</code></td><td>Vercel AI Gateway</td><td>Environment</td><td>Bounded image file and provider evidence</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="reference-note">The registry is fixed and typed. Callers cannot register arbitrary source, shell commands, dynamic imports, or remote URLs as operations.</p>
+          </section>
+
+          <section aria-labelledby="sdk-reference" class="docs-section reference-section">
+            <h2 id="sdk-reference">SDK entrypoints</h2>
+            <div class="definition-grid">
+              <div><code>@hraness/atet</code><p>Root API for diagrams, generation, vectorization, operations, MCP, workflows, canvas integration, and host admission.</p></div>
+              <div><code>@hraness/atet/generate</code><p>Gateway credential status, fixed transport, model-backed generation, response limits, and result types.</p></div>
+              <div><code>@hraness/atet/operations</code><p>Portable operation codes, descriptors, input/result maps, search, resource claims, and execution.</p></div>
+              <div><code>@hraness/atet/workflow</code><p>Imperative workflow definition, execution, step receipts, failure model, and runtime options.</p></div>
+              <div><code>@hraness/atet/code</code><p>Declarative graph authoring, closed capability projection, compiler, policy, and portable code host.</p></div>
+              <div><code>@hraness/atet/code/advanced</code><p>Lower-level graph, compiler, ABI, plan, and runner contracts for hosts that need explicit control.</p></div>
+              <div><code>@hraness/atet/host-resources</code><p>Resource profiles, normalized claims, machine-global or process-local coordinators, leases, and errors.</p></div>
+              <div><code>@hraness/atet/local/code</code><p>Complete-host semantic project, analysis, editing, Gateway, iteration, and rendering graph builders.</p></div>
+              <div><code>@hraness/atet/local/code/workflows</code><p>Reusable complete-host workflow fragments and render target helpers.</p></div>
+              <div><code>@hraness/atet/local/html-overlay</code><p>Deterministic HTML overlay authoring and the bounded <code>AtetOverlay</code> runtime contract.</p></div>
+            </div>
+            <p class="reference-note">Package imports target Bun. The root SDK and portable contracts work without the desktop application. Native capture and the complete runtime add platform-specific capabilities.</p>
+          </section>
+
+          <section aria-labelledby="files-reference" class="docs-section reference-section">
+            <h2 id="files-reference">Files, outputs, and storage</h2>
+            <div class="table-wrap" role="region" aria-label="Atet files and outputs" tabindex="0">
+              <table>
+                <thead><tr><th>Object</th><th>Authority</th><th>Derived output</th></tr></thead>
+                <tbody>
+                  <tr><td>Diagram</td><td><code>*.diagram.json</code></td><td><code>*.tldr</code>, light/dark SVG, light/dark PNG</td></tr>
+                  <tr><td>Vectorization</td><td>Caller-owned raster + exact options</td><td>Sanitized SVG + provenance receipt</td></tr>
+                  <tr><td>Generated image</td><td>Prompt, model, supplied media, options</td><td>PNG, JPEG, or WebP + provider evidence</td></tr>
+                  <tr><td>Media project</td><td>Immutable sources + explicit project revision</td><td>Previews, final renders, captions, delivery variants</td></tr>
+                  <tr><td>Animated overlay</td><td>Trusted source bundle + runtime identity + time contract</td><td>Prepared immutable overlay handle or rendered sequence</td></tr>
+                  <tr><td>Workflow run</td><td>Source, parsed input, capability projection, plan, toolchain</td><td>Node receipts, output references, and durable run evidence</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="reference-note">Complete-host private state lives under caller-owned <code>artifacts/atet</code> roots. Keep recordings, imported media, project metadata, provider options, and credentials out of source control.</p>
+          </section>
+
+          <section aria-labelledby="environment-reference" class="docs-section reference-section">
+            <h2 id="environment-reference">Configuration and environment</h2>
+            <div class="definition-grid definition-grid-wide">
+              <div><code>AI_GATEWAY_API_KEY</code><p>Preferred Gateway credential for model-backed local commands.</p></div>
+              <div><code>VERCEL_OIDC_TOKEN</code><p>Short-lived linked-project credential used when no API key is present.</p></div>
+              <div><code>ATET_VTRACER_PATH</code><p>Explicit compatible VTracer binary. Atet verifies the execution boundary and records its hash.</p></div>
+              <div><code>ATET_CACHE_DIR</code><p>Moves the managed local tool cache from its platform default.</p></div>
+              <div><code>atet.config.ts</code> / <code>.mjs</code> / <code>.js</code> / <code>.json</code><p>Diagram-adjacent local fonts, sanitized SVG icons, and theme colors. Pass <code>--config</code> for another location.</p></div>
+              <div><code>--allow-cloud-upload</code><p>Explicit opt-in on complete-host commands that upload caller media or derived frames to a provider.</p></div>
+            </div>
+            <aside class="boundary-note">
+              <strong>Credential order</strong>
+              <p><code>AI_GATEWAY_API_KEY</code> wins when both credentials exist. The static website has no form, API route, account, or credential surface.</p>
+            </aside>
+          </section>
+
+          <section aria-labelledby="platform-reference" class="docs-section reference-section">
+            <h2 id="platform-reference">Platform support</h2>
+            <div class="table-wrap" role="region" aria-label="Atet platform support" tabindex="0">
+              <table>
+                <thead><tr><th>Capability</th><th>macOS</th><th>Linux</th><th>Windows</th></tr></thead>
+                <tbody>
+                  <tr><td>Diagram check and render</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+                  <tr><td>Gateway image generation</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+                  <tr><td>Bounded official VTracer</td><td>Yes</td><td>Yes</td><td>Fails closed</td></tr>
+                  <tr><td>Machine-global resource admission</td><td>Yes</td><td>Yes</td><td>Process-local fallback</td></tr>
+                  <tr><td>Native screen, camera, and microphone capture</td><td>Apple Silicon, macOS 15+</td><td>No</td><td>No</td></tr>
+                  <tr><td>Offline Apple Vision face analysis</td><td>macOS 15+</td><td>No</td><td>No</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section aria-labelledby="concepts" class="docs-section docs-divider explanation-intro">
+            <div class="doc-kicker"><span>Explanation</span><span>Understanding-oriented</span></div>
+            <h2 id="concepts">Understand the journey, not just the command.</h2>
+            <p class="docs-lede">
+              These sections connect Atet's design decisions. Read them when you
+              need to decide where code belongs, what may be cached, or which boundary to trust.
+            </p>
+          </section>
+
+          <section aria-labelledby="system-model" class="docs-section concept-section">
+            <h2 id="system-model">One system, three execution boundaries</h2>
+            <div class="concept-columns">
+              <div><h3>Portable SDK and CLI</h3><p>Own diagrams, direct Gateway image generation, local vectorization, four fixed operations, declarative and imperative workflow contracts, MCP, and host-resource admission.</p></div>
+              <div><h3>Complete local host</h3><p>Adds recordings, immutable project storage, analyses, edit transactions, candidate iteration, durable scheduling, native helpers, overlays, and multi-format delivery.</p></div>
+              <div><h3>Desktop shell</h3><p>Adds macOS capture permissions and application UI. It does not create a separate workflow engine or hosted service.</p></div>
+            </div>
+            <p>The smallest sufficient boundary is usually the safest one. A diagram check should not initialize a media project; a local vectorization should not acquire network authority; a desktop permission should not leak into the portable SDK.</p>
+          </section>
+
+          <section aria-labelledby="source-authority" class="docs-section concept-section">
+            <h2 id="source-authority">Source remains authoritative</h2>
+            <p>
+              Atet treats diagram JSON, scene code, workflow graphs, imported
+              media identity, and explicit project revisions as the durable
+              description of intent. Rendered files are replaceable results.
+              That separation makes an artifact reproducible without pretending
+              the artifact is the source.
+            </p>
+            <div class="concept-flow" aria-label="Atet source-to-final model">
+              <div><span>1</span><strong>Sources</strong><small>Ideas, media, text, and code with exact revisions</small></div>
+              <div><span>2</span><strong>Project graph</strong><small>Typed operations and checked relationships</small></div>
+              <div><span>3</span><strong>Candidates</strong><small>Independent revisions from one frozen base</small></div>
+              <div><span>4</span><strong>Renders</strong><small>Explicit preview or final recipes</small></div>
+              <div><span>5</span><strong>Delivery</strong><small>Verified outputs bound to their identity</small></div>
+            </div>
+          </section>
+
+          <section aria-labelledby="trust-boundary" class="docs-section concept-section">
+            <h2 id="trust-boundary">Local custody does not mean no network</h2>
+            <p>
+              Local custody means Atet project state and artifacts live in
+              caller-owned storage, and the current process controls every
+              provider call. Diagram rendering and vectorization need no network
+              authority. Model-backed generation sends only the declared prompt
+              and media to Gateway and the selected provider. Complete-host media
+              uploads require an explicit <code>--allow-cloud-upload</code> gate.
+            </p>
+            <p>
+              The website is outside that execution path. It is a dependency-free
+              static document with no analytics, API, account, authentication,
+              billing, form, or credential input.
+            </p>
+          </section>
+
+          <section aria-labelledby="artifact-identity" class="docs-section concept-section">
+            <h2 id="artifact-identity">Cache by proof, not by filename</h2>
+            <p>
+              A reusable result needs the same meaningful inputs: source bytes,
+              operation, options, runtime or renderer ABI, toolchain, output
+              profile, and any provider or media evidence the operation owns. If
+              one of those changes, the result receives a new identity. If all of
+              them match, Atet can adopt a verified artifact without performing
+              the expensive work again.
+            </p>
+            <p>
+              Candidate iteration uses the same rule. Agents can branch from one
+              frozen project base, render independently, and compare a matrix of
+              results. Promotion is an explicit checked operation. A concurrent
+              editorial change preserves the candidates and rejects a stale promotion.
+            </p>
+          </section>
+
+          <section aria-labelledby="execution-model" class="docs-section concept-section">
+            <h2 id="execution-model">Bound work before it starts</h2>
+            <p>
+              Atet validates paths, source sizes, pixels, frames, arrays,
+              responses, subprocess duration, downloads, and resource claims at
+              the boundary that owns them. Declarative code compiles against a
+              closed capability projection. Unsupported work fails before an
+              executor or paid resource is admitted.
+            </p>
+            <p>
+              On macOS and Linux, semantic SDK, CLI, MCP, and workflow operations
+              share crash-safe machine-global admission. CPU, local I/O, network,
+              paid calls, native tools, and video encodes can be scheduled without
+              parallel agents accidentally multiplying the machine load. Other
+              platforms report a truthful process-local fallback.
+            </p>
+          </section>
+
+          <section aria-labelledby="docs-method" class="docs-section docs-method">
+            <h2 id="docs-method">How this documentation is organized</h2>
+            <p>
+              The information architecture follows
+              <a href="https://diataxis.fr/">Diátaxis</a>: tutorials support
+              learning, how-to guides support a task, reference describes the
+              machinery, and explanation builds understanding. Those modes stay
+              separate so you can enter at the point your work requires.
+            </p>
+            <div class="next-links">
+              <a href="https://github.com/hraness/atet/blob/main/README.md">Project README <span aria-hidden="true">↗</span></a>
+              <a href="https://github.com/hraness/atet/blob/main/docs/architecture.md">Architecture <span aria-hidden="true">↗</span></a>
+              <a href="https://github.com/hraness/atet">Source on GitHub <span aria-hidden="true">↗</span></a>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <a class="hraness-brand" href="https://hraness.com" aria-label="hraness">
+          <svg aria-hidden="true" class="hraness-mark" focusable="false" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <path d="M372 141a116 116 0 1 1-232 0 116 116 0 1 1 232 0Zm-14 0a102 102 0 1 0-204 0 102 102 0 1 0 204 0Zm-8 0a94 94 0 1 1-188 0 94 94 0 1 1 188 0Z" fill="currentColor" fill-rule="evenodd"/>
+            <path d="M211 252c75-8 154 30 204 94 32 40 51 89 59 142H184c20-28 29-57 22-87-9-39-26-71-28-99-2-22 9-39 33-50Z" fill="currentColor"/>
+            <path d="M246 270c-27-20-67-23-100-9-25 11-42 31-46 56l-34 20 38 12c4 25 14 47 31 66 15 13 22 32 18 56l-14 17h116c-20-27-23-50-8-68 6-8 14-14 23-21 23-20 34-50 28-79-5-22-23-40-52-50ZM132 309c9-14 22-22 38-22 13 0 25 7 34 19-10 14-23 22-39 22-14 0-25-6-33-19Z" fill="currentColor" fill-rule="evenodd"/>
+            <path d="M151 410c-2 30-16 57-43 78h197c-19-27-40-49-63-63-28-18-59-23-91-15Z" fill="currentColor"/>
+            <circle cx="166" cy="307" fill="currentColor" r="8"/>
+          </svg>
+          <span>hraness</span>
+        </a>
+        <p class="footer-note">Atet 2.0.0 · MIT · Documentation for a local-first visual-media system.</p>
+        <fieldset class="appearance" aria-label="Appearance">
+          <legend>Appearance</legend>
+          <button type="button" data-theme-choice="light">Light</button>
+          <button type="button" data-theme-choice="dark">Dark</button>
+          <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
+        </fieldset>
+      </div>
+    </footer>
+  </body>
+</html>
