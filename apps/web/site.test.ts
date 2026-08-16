@@ -7,7 +7,8 @@ import { buildWebsite } from "./scripts/build"
 
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
-const description = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
+const brandDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
+const searchDescription = "Atet is an open-source, local-first agentic creative coding toolkit for Codex, Claude, and other agents working with images, diagrams, animated loops, and video."
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
 beforeAll(async () => {
@@ -21,7 +22,7 @@ async function readSource(path: string): Promise<string> {
 describe("static Atet site", () => {
   test("makes the README a detailed agent guide with natural GitHub discovery terms", async () => {
     const readme = await readFile(join(repositoryDirectory, "README.md"), "utf8")
-    const searchableReadme = readme.replace(/\s+/gu, " ").toLowerCase()
+    const searchableReadme = readme.replaceAll("**", "").replace(/\s+/gu, " ").toLowerCase()
 
     for (const heading of [
       "## Install Atet for your agent",
@@ -46,6 +47,8 @@ describe("static Atet site", () => {
       expect(searchableReadme).toContain(term.toLowerCase())
     }
 
+    expect(searchableReadme).toContain(brandDescription.toLowerCase())
+
     expect(readme).toContain("bun add --global github:hraness/atet")
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
@@ -57,7 +60,11 @@ describe("static Atet site", () => {
     const html = await readSource("index.html")
 
     expect(html).toContain("<title>Atet: agentic creative coding toolkit</title>")
-    expect(html).toContain(`<meta name="description" content="${description}">`)
+    expect(html).toContain(`<meta name="description" content="${searchDescription}">`)
+    expect(html).toContain(`<meta property="og:description" content="${searchDescription}">`)
+    expect(html).toContain(`<meta name="twitter:description" content="${searchDescription}">`)
+    expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
+    expect(html).not.toContain('<meta name="keywords"')
     expect(html).toContain('<link rel="canonical" href="https://atet.sh/">')
     expect(html).toContain('<meta property="og:url" content="https://atet.sh/">')
     expect(html).toContain('<meta property="og:image" content="https://atet.sh/og.png">')
@@ -78,26 +85,38 @@ describe("static Atet site", () => {
 
     expect(value["@graph"]).toEqual(expect.arrayContaining([
       expect.objectContaining({
+        "@id": "https://hraness.com/#organization",
+        "@type": "Organization",
+        name: "Hraness",
+        sameAs: ["https://github.com/hraness"],
+      }),
+      expect.objectContaining({
         "@id": "https://atet.sh/#website",
         "@type": "WebSite",
-        description,
+        description: searchDescription,
+        inLanguage: "en",
+        publisher: { "@id": "https://hraness.com/#organization" },
       }),
       expect.objectContaining({
         "@id": "https://atet.sh/#webpage",
         "@type": "WebPage",
         isPartOf: { "@id": "https://atet.sh/#website" },
         mainEntity: { "@id": "https://atet.sh/#software" },
+        publisher: { "@id": "https://hraness.com/#organization" },
       }),
       expect.objectContaining({
         "@id": "https://atet.sh/#software",
         "@type": "SoftwareApplication",
-        description,
+        description: searchDescription,
+        author: { "@id": "https://hraness.com/#organization" },
         installUrl: "https://atet.sh/#install",
+        publisher: { "@id": "https://hraness.com/#organization" },
         sameAs: ["https://github.com/hraness/atet"],
       }),
       expect.objectContaining({
         "@id": "https://atet.sh/#source",
         "@type": "SoftwareSourceCode",
+        author: { "@id": "https://hraness.com/#organization" },
         codeRepository: "https://github.com/hraness/atet",
         targetProduct: { "@id": "https://atet.sh/#software" },
       }),
@@ -117,6 +136,8 @@ describe("static Atet site", () => {
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
     expect(positions.at(-1)).toBeLessThan(html.indexOf("</section>"))
     expect(html).toContain("Install Atet for your agent.")
+    expect(html).toContain("Atet is an open-source, local-first creative coding toolkit for")
+    expect(html).toContain("Codex, Claude, and other coding agents")
     expect(html).toContain("Bun 1.3.14+ · Codex user account")
     expect(html).toContain("Run the last command from the project")
     expect(html).toContain("Start a new")
@@ -183,8 +204,9 @@ describe("static Atet site", () => {
 
   test("keeps the approved creation story as quiet identity context", async () => {
     const html = await readSource("index.html")
+    const searchableHtml = html.replace(/\s+/gu, " ")
 
-    expect(html).toContain("Agentic creative coding toolkit.")
+    expect(searchableHtml).toContain(brandDescription)
     expect(html).toContain("Atum dawned and became Ra")
     expect(html).toContain("underworld on the solar barque Atet")
     expect(html).toContain('<h3>The name Atet</h3>')
@@ -308,7 +330,22 @@ describe("static Atet site", () => {
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
       .map(match => match[1])
 
-    expect(robots).toBe("User-agent: *\nAllow: /\n\nSitemap: https://atet.sh/sitemap.xml\n")
+    expect(robots).toBe([
+      "User-agent: OAI-SearchBot",
+      "Allow: /",
+      "",
+      "User-agent: Claude-SearchBot",
+      "Allow: /",
+      "",
+      "User-agent: Claude-User",
+      "Allow: /",
+      "",
+      "User-agent: *",
+      "Allow: /",
+      "",
+      "Sitemap: https://atet.sh/sitemap.xml",
+      "",
+    ].join("\n"))
     expect(locations).toEqual(["https://atet.sh/"])
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
   })
