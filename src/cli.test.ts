@@ -106,16 +106,6 @@ describe("Atet CLI", () => {
       "atet.diagram.check",
       "atet.diagram.render",
     ])
-
-    const predecessor = await runCli(
-      ["code", "search", "transmute.diagram.check"],
-      process.cwd(),
-    )
-    expect(predecessor.exitCode).toBe(0)
-    expect(predecessor.stderr).toBe("")
-    expect(JSON.parse(predecessor.stdout).operations).toEqual([
-      expect.objectContaining({ code: "atet.diagram.check" }),
-    ])
   })
 
   test("defaults direct generation to the Recraft utility model", async () => {
@@ -274,23 +264,6 @@ describe("Atet CLI", () => {
         result: { configPath: null },
       })
       expect(await Bun.file(marker).exists()).toBe(false)
-
-      const predecessor = await runCli(
-        [
-          "code",
-          "execute",
-          "transmute.diagram.check",
-          "--input",
-          JSON.stringify({ path: "flow.diagram.json" }),
-        ],
-        root,
-      )
-      expect(predecessor.exitCode).toBe(0)
-      expect(predecessor.stderr).toBe("")
-      expect(JSON.parse(predecessor.stdout)).toMatchObject({
-        operation: "atet.diagram.check",
-        result: { configPath: null },
-      })
 
       const rejected = await runCli(
         [

@@ -216,7 +216,6 @@ export const FaceAnalysisV1Schema = z.strictObject({
   inputDigest: Sha256Schema,
   kind: z.union([
     z.literal("atet.face-analysis"),
-    z.literal("transmute.face-analysis"),
     z.literal("studio.face-analysis"),
   ]),
   privacy: z.strictObject({
@@ -379,7 +378,6 @@ export const ProjectInactivityAnalysisV1Schema = z.strictObject({
   interactions: z.array(ProjectInteractionEvidenceSchema).max(1_000_000),
   kind: z.union([
     z.literal("atet.project-inactivity-analysis"),
-    z.literal("transmute.project-inactivity-analysis"),
     z.literal("studio.project-inactivity-analysis"),
   ]),
   projectId: VideoProjectIdSchema,
@@ -516,7 +514,6 @@ export const AudioAlignmentAnalysisV1Schema = z.strictObject({
   inputDigest: Sha256Schema,
   kind: z.union([
     z.literal("atet.audio-alignment-analysis"),
-    z.literal("transmute.audio-alignment-analysis"),
     z.literal("studio.audio-alignment-analysis"),
   ]),
   matches: z.array(AlignmentMatchSchema).max(100_000),
@@ -644,7 +641,6 @@ export const MusicAnalysisV1Schema = z.strictObject({
   keyRegions: z.array(KeyRegionSchema).max(100_000),
   kind: z.union([
     z.literal("atet.music-analysis"),
-    z.literal("transmute.music-analysis"),
     z.literal("studio.music-analysis"),
   ]),
   musicRegions: z.array(MusicPresenceRegionSchema).max(100_000),
@@ -739,7 +735,6 @@ export const SceneAnalysisV1Schema = z.strictObject({
   inputDigest: Sha256Schema,
   kind: z.union([
     z.literal("atet.scene-analysis"),
-    z.literal("transmute.scene-analysis"),
     z.literal("studio.scene-analysis"),
   ]),
   model: z.strictObject({
@@ -863,7 +858,6 @@ export const SpeechAnalysisV1Schema = z.strictObject({
   inputDigest: Sha256Schema,
   kind: z.union([
     z.literal("atet.speech-analysis"),
-    z.literal("transmute.speech-analysis"),
     z.literal("studio.speech-analysis"),
   ]),
   result: z.discriminatedUnion("status", [

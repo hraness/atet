@@ -68,7 +68,6 @@ const SvgCacheManifestSchema = z.strictObject({
   }),
   kind: z.union([
     z.literal("atet.svg-raster-cache"),
-    z.literal("transmute.svg-raster-cache"),
     z.literal("studio.svg-raster-cache"),
   ]),
   recipe: z.strictObject({

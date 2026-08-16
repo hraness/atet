@@ -12,10 +12,10 @@ import type {
 } from "./types.js"
 
 const configNames = [
-  { current: "atet.config.ts", predecessor: "transmute.config.ts", retired: "diagram.config.ts" },
-  { current: "atet.config.mjs", predecessor: "transmute.config.mjs", retired: "diagram.config.mjs" },
-  { current: "atet.config.js", predecessor: "transmute.config.js", retired: "diagram.config.js" },
-  { current: "atet.config.json", predecessor: "transmute.config.json", retired: "diagram.config.json" },
+  { current: "atet.config.ts", retired: "diagram.config.ts" },
+  { current: "atet.config.mjs", retired: "diagram.config.mjs" },
+  { current: "atet.config.js", retired: "diagram.config.js" },
+  { current: "atet.config.json", retired: "diagram.config.json" },
 ] as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -100,7 +100,6 @@ function parseConfig(value: unknown): DiagramConfig {
 
 async function discoverConfig(directory: string): Promise<string | null> {
   let current: string | null = null
-  let predecessor: string | null = null
   for (const names of configNames) {
     const candidate = resolve(directory, names.current)
     if (await pathExists(candidate)) {
@@ -108,27 +107,7 @@ async function discoverConfig(directory: string): Promise<string | null> {
       break
     }
   }
-  for (const names of configNames) {
-    const candidate = resolve(directory, names.predecessor)
-    if (await pathExists(candidate)) {
-      predecessor = candidate
-      break
-    }
-  }
-  if (current !== null && predecessor !== null) {
-    const [currentBytes, predecessorBytes] = await Promise.all([
-      readFile(current),
-      readFile(predecessor),
-    ])
-    if (!currentBytes.equals(predecessorBytes)) {
-      throw new Error(
-        `Conflicting Atet configs found at ${current} and ${predecessor}. Remove one or make their bytes identical.`,
-      )
-    }
-    return current
-  }
   if (current !== null) return current
-  if (predecessor !== null) return predecessor
   for (const names of configNames) {
     const candidate = resolve(directory, names.retired)
     if (await pathExists(candidate)) {

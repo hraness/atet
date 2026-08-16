@@ -36,17 +36,6 @@ test("HTML-browser discovery advertises only provenance-verifiable Chrome app ca
   );
 });
 
-test("accepts matching predecessor environment values and rejects renamed conflicts", () => {
-  expect(capabilityCandidates("/desktop", {
-    TRANSMUTE_CAPTURE_HELPER: "/tools/capture",
-  }).find(candidate => candidate.name === "capture-helper")?.candidates[0])
-    .toBe("/tools/capture");
-  expect(() => capabilityCandidates("/desktop", {
-    ATET_CAPTURE_HELPER: "/tools/atet-capture",
-    TRANSMUTE_CAPTURE_HELPER: "/tools/transmute-capture",
-  })).toThrow("ATET_CAPTURE_HELPER and TRANSMUTE_CAPTURE_HELPER disagree");
-});
-
 test("a targeted capability probe does not inspect unrelated executables", async () => {
   const calls: string[][] = [];
   const runner: ProcessRunner = {

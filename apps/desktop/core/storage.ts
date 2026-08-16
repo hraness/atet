@@ -97,9 +97,7 @@ export type AtetPersistenceDocument =
 export function canonicalAtetPersistenceDocument<
   Value extends AtetPersistenceDocument,
 >(value: Value): Value {
-  const kind = value.kind
-    .replace(/^transmute\./u, "atet.")
-    .replace(/^studio\./u, "atet.");
+  const kind = value.kind.replace(/^studio\./u, "atet.");
   if ("tool" in value && value.kind.endsWith(".recording-bundle")) {
     if (kind === value.kind && value.tool.name === "atet") return value;
     return {

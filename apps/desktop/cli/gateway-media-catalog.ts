@@ -65,7 +65,6 @@ export interface GatewayMediaCatalogSnapshot {
   readonly fetchedAt: string;
   readonly kind:
     | "atet.gateway-media-catalog"
-    | "transmute.gateway-media-catalog"
     | "studio.gateway-media-catalog";
   readonly models: readonly GatewayMediaModel[];
   readonly schemaVersion: 1;
@@ -404,7 +403,6 @@ export function parseGatewayMediaCatalogSnapshot(
     !isRecord(value)
     || (
       value.kind !== "atet.gateway-media-catalog"
-      && value.kind !== "transmute.gateway-media-catalog"
       && value.kind !== "studio.gateway-media-catalog"
     )
     || value.schemaVersion !== 1

@@ -11,7 +11,6 @@ import type {
 import {
   executeAtetOperation,
   executeAtetOperationWithLease,
-  executeTransmuteOperationWithLease,
   atetOperationCodes,
   atetOperationRegistry,
   parseAtetOperationInput,
@@ -298,16 +297,7 @@ describe("canonical Atet operations", () => {
       )
       expect(checked.configPath).toBeNull()
 
-      const predecessorChecked = await executeTransmuteOperationWithLease(
-        "transmute.diagram.check",
-        { path },
-        lease([
-          { amount: 1, resource: "cpu" },
-          { amount: 1, resource: "local-io" },
-        ]),
-      )
-      expect(predecessorChecked.configPath).toBeNull()
-      expect(assertions).toBe(5)
+      expect(assertions).toBe(4)
     } finally {
       await rm(root, { force: true, recursive: true })
     }

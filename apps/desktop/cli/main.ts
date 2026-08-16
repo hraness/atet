@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { parseCliArgs } from "./args";
 import { runCli } from "./commands";
 import { asCliError, CliError, EXIT_CODE } from "./errors";
@@ -88,28 +88,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   });
 }
 
-export function isLegacyTransmuteInvocation(
-  candidates: readonly string[] = [process.argv[0] ?? "", process.argv[1] ?? "", process.execPath],
-): boolean {
-  return candidates.some((candidate) => basename(candidate).replace(/\.exe$/iu, "") === "transmute");
-}
-
-export function writeLegacyTransmuteInvocationWarning(
-  candidates: readonly string[],
-  write: (message: string) => void,
-): boolean {
-  if (!isLegacyTransmuteInvocation(candidates)) return false;
-  write("transmute is deprecated; use atet.\n");
-  return true;
-}
-
 export async function runMainEntrypoint(): Promise<void> {
-  if (process.argv[2] !== "__record_daemon") {
-    writeLegacyTransmuteInvocationWarning(
-      [process.argv[0] ?? "", process.argv[1] ?? "", process.execPath],
-      message => process.stderr.write(message),
-    );
-  }
   try {
     process.exitCode = await main();
   } catch (error) {

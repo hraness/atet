@@ -13,7 +13,6 @@ import {
   Sha256Schema,
   UNRESOLVED_REQUIREMENT_KINDS,
   WORKFLOW_COMPILATION_VERSION,
-  LEGACY_WORKFLOW_COMPILATION_VERSION,
   WORKFLOW_EFFECT_CLASSES,
   WORKFLOW_GRAPH_VERSION,
   WORKFLOW_REF_VERSION,
@@ -54,9 +53,9 @@ import {
   parseWorkflowRegistryProjection,
 } from "./projection.js"
 
-export const WORKFLOW_GRAPH_HASH_DOMAIN = "transmute.workflow.graph/v1" as const
+export const WORKFLOW_GRAPH_HASH_DOMAIN = "atet.workflow.graph/v1" as const
 export const WORKFLOW_COMPILATION_HASH_DOMAIN =
-  "transmute.workflow.compilation/v1" as const
+  "atet.workflow.compilation/v1" as const
 
 export const DEFAULT_GRAPH_COMPILER_LIMITS = Object.freeze({
   maxDepth: 64,
@@ -145,10 +144,8 @@ function uniqueSorted<Value extends string>(
 }
 
 function canonicalAtetIdentity(value: string): string {
-  if (value === "studio" || value === "transmute") return "atet"
-  return value
-    .replace(/^studio\./u, "atet.")
-    .replace(/^transmute\./u, "atet.")
+  if (value === "studio") return "atet"
+  return value.replace(/^studio\./u, "atet.")
 }
 
 function safeAdd(left: number, right: number, name: string): number {
@@ -811,10 +808,7 @@ const ShallowCompiledWorkflowGraphSchema = z.strictObject({
   limits: RequiredCompilationComponentSchema,
   projection: RequiredCompilationComponentSchema,
   topologicalWaves: RequiredCompilationComponentSchema,
-  version: z.union([
-    z.literal(WORKFLOW_COMPILATION_VERSION),
-    z.literal(LEGACY_WORKFLOW_COMPILATION_VERSION),
-  ]),
+  version: z.literal(WORKFLOW_COMPILATION_VERSION),
 })
 
 function boundedCompilationInput(input: unknown, name: string): unknown {

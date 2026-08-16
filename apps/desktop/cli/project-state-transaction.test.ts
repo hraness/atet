@@ -342,11 +342,11 @@ test("authenticates a predecessor prepare generation before canonical rollback",
     const transactionId = "transaction_22222222222222222222222222222222";
     const beforeProject = VideoProjectV1Schema.parse({
       ...fixtureProject(),
-      kind: "transmute.video-project",
+      kind: "studio.video-project",
     });
     const beforePlan = ProjectEditPlanV1Schema.parse({
       ...fixturePlan(beforeProject),
-      kind: "transmute.project-edit-plan",
+      kind: "studio.project-edit-plan",
     });
     const afterProject = VideoProjectV1Schema.parse({
       ...beforeProject,

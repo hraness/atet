@@ -57,7 +57,6 @@ describe("injected HTML overlay browser runtime", () => {
     const context: {
       document: { getAnimations(): FakeAnimation[] };
       AtetOverlay?: PublicOverlayApi;
-      TransmuteOverlay?: PublicOverlayApi;
     } = {
       document: { getAnimations: () => [documentAnimation] },
     };
@@ -68,7 +67,6 @@ describe("injected HTML overlay browser runtime", () => {
     if (overlay === undefined) throw new Error("Runtime did not install AtetOverlay.");
     expect(Object.isFrozen(overlay)).toBe(true);
     expect(context.AtetOverlay).toBe(overlay);
-    expect(context.TransmuteOverlay).toBe(overlay);
     expect(Object.hasOwn(overlay, "renderFrame")).toBe(false);
     expect(Object.isFrozen(overlay.parameters)).toBe(true);
     expect(overlay.asset("logo"))

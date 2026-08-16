@@ -65,46 +65,19 @@ test("preserves the caller project directory mode while creating only owned stat
     .toBe(0o700);
 });
 
-test("keeps machine-global state shared with Transmute processes", () => {
-  expect(defaultCliStateRoot("darwin", {})).toContain("/Transmute/cli");
-  expect(defaultCliStateRoot("linux", {})).toEndWith("/transmute");
+test("keeps machine-global state under the Atet identity", () => {
+  expect(defaultCliStateRoot("darwin", {})).toContain("/Atet/cli");
+  expect(defaultCliStateRoot("linux", {})).toEndWith("/atet");
 });
 
-test("reads an existing predecessor artifact namespace without migrating it", async () => {
-  const install = await repositoryFixture();
-  const project = await mkdtemp(join(tmpdir(), "atet-predecessor-artifacts-"));
-  temporaryRoots.push(project);
-  await mkdir(join(project, "artifacts", "transmute"), { recursive: true });
-  const paths = await resolveRepositoryPaths(project, {
-    TRANSMUTE_REPOSITORY_ROOT: project,
-  }, install);
-  expect(paths.artifactRoot).toBe(join(await realpath(project), "artifacts", "transmute", "recordings"));
-});
-
-test("fails closed on renamed environment and artifact namespace conflicts", async () => {
-  const install = await repositoryFixture();
-  const project = await mkdtemp(join(tmpdir(), "atet-conflicting-artifacts-"));
-  temporaryRoots.push(project);
-  await Promise.all([
-    mkdir(join(project, "artifacts", "atet"), { recursive: true }),
-    mkdir(join(project, "artifacts", "transmute"), { recursive: true }),
-  ]);
-  await expect(resolveRepositoryPaths(project, {}, install))
-    .rejects.toThrow("Both artifacts/atet and artifacts/transmute exist");
-  await expect(resolveRepositoryPaths(project, {
-    ATET_REPOSITORY_ROOT: project,
-    TRANSMUTE_REPOSITORY_ROOT: install,
-  }, install)).rejects.toThrow("ATET_REPOSITORY_ROOT and TRANSMUTE_REPOSITORY_ROOT disagree");
-});
-
-test("rejects a predecessor namespace symlink instead of forking new state", async () => {
+test("rejects an Atet namespace symlink", async () => {
   const install = await repositoryFixture();
   const project = await mkdtemp(join(tmpdir(), "atet-symlinked-artifacts-"));
   const outside = await mkdtemp(join(tmpdir(), "atet-outside-artifacts-"));
   temporaryRoots.push(project, outside);
   await mkdir(join(project, "artifacts"), { recursive: true });
-  await symlink(outside, join(project, "artifacts", "transmute"));
+  await symlink(outside, join(project, "artifacts", "atet"));
 
   await expect(resolveRepositoryPaths(project, {}, install))
-    .rejects.toThrow("Artifact namespace must be a physical directory");
+    .rejects.toThrow("Private directory requires physical components");
 });

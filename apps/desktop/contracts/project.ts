@@ -393,7 +393,6 @@ export const VideoProjectV1Schema = z.strictObject({
   currentEditPlanPath: RepositoryRelativePathSchema.nullable(),
   kind: z.union([
     z.literal("atet.video-project"),
-    z.literal("transmute.video-project"),
     z.literal("studio.video-project"),
   ]),
   name: z.string().min(1).max(512),
@@ -590,7 +589,6 @@ export const ProjectEditPlanV1Schema = z.strictObject({
   keep: z.array(SourceIntervalSchema),
   kind: z.union([
     z.literal("atet.project-edit-plan"),
-    z.literal("transmute.project-edit-plan"),
     z.literal("studio.project-edit-plan"),
   ]),
   overlays: z.array(OverlayOperationSchema),

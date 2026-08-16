@@ -119,40 +119,21 @@ async function optionalPhysicalDirectory(path: string): Promise<boolean> {
   }
 }
 
-/** Selects one physical artifact namespace before any recorder can write. */
+/** Selects the physical Atet artifact namespace before any recorder can write. */
 export async function resolveRecordingArtifactDirectory(
   repositoryRoot: string,
   requestedDirectory: CaptureStartOptions["recordingDirectory"],
 ): Promise<string> {
-  if (
-    requestedDirectory !== "artifacts/atet/recordings"
-    && requestedDirectory !== "artifacts/transmute/recordings"
-  ) {
+  if (requestedDirectory !== "artifacts/atet/recordings") {
     throw new RuntimeServiceError(
       "unavailable",
       "Custom recording subdirectories are not available yet; use artifacts/atet/recordings.",
       false,
     );
   }
-  const artifactsRoot = resolve(repositoryRoot, "artifacts");
-  const canonicalRoot = resolve(artifactsRoot, "atet");
-  const predecessorRoot = resolve(artifactsRoot, "transmute");
-  const artifactsExists = await optionalPhysicalDirectory(artifactsRoot);
-  const [canonicalExists, predecessorExists] = artifactsExists
-    ? await Promise.all([
-        optionalPhysicalDirectory(canonicalRoot),
-        optionalPhysicalDirectory(predecessorRoot),
-      ])
-    : [false, false];
-  if (canonicalExists && predecessorExists) {
-    throw new RuntimeServiceError(
-      "conflict",
-      "Both artifacts/atet and artifacts/transmute exist. Reconcile them before Atet records new media.",
-      false,
-    );
-  }
-  const selectedRoot = predecessorExists ? predecessorRoot : canonicalRoot;
-  return resolve(selectedRoot, "recordings");
+  const artifactNamespace = resolve(repositoryRoot, "artifacts", "atet");
+  await optionalPhysicalDirectory(artifactNamespace);
+  return resolve(artifactNamespace, "recordings");
 }
 
 function safeRecordingPath(repositoryRoot: string, absolutePath: string): string {

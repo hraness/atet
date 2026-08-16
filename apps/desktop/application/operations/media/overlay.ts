@@ -198,7 +198,6 @@ export const MediaOverlayReceiptSchema = z.strictObject({
   ffprobeVersion: z.string().min(1).max(256).nullable(),
   kind: z.union([
     z.literal("atet.local-overlay-preparation-receipt"),
-    z.literal("transmute.local-overlay-preparation-receipt"),
     z.literal("studio.local-overlay-preparation-receipt"),
   ]),
   operationSha256: Sha256Schema,

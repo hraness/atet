@@ -11,7 +11,6 @@ import {
 } from "./recording";
 
 export const ATET_DESKTOP_PROTOCOL = "atet.desktop";
-export const LEGACY_TRANSMUTE_DESKTOP_PROTOCOL = "transmute.desktop";
 export const LEGACY_STUDIO_DESKTOP_PROTOCOL = "studio.desktop";
 export const ATET_DESKTOP_PROTOCOL_VERSION = 3;
 
@@ -86,10 +85,8 @@ export const CaptureStartOptionsSchema = z.strictObject({
   microphone: OptionalDeviceSelectionSchema,
   recordingDirectory: RepositoryRelativePathSchema.refine(
     (path) => path === "artifacts/atet/recordings"
-      || path.startsWith("artifacts/atet/recordings/")
-      || path === "artifacts/transmute/recordings"
-      || path.startsWith("artifacts/transmute/recordings/"),
-    "Recordings must stay under artifacts/atet/recordings/ or the legacy artifacts/transmute/recordings/ root.",
+      || path.startsWith("artifacts/atet/recordings/"),
+    "Recordings must stay under artifacts/atet/recordings/.",
   ),
   systemAudio: z.boolean(),
   typedText: z.enum(["disabled", "enabled"]),
@@ -110,7 +107,6 @@ export const DesktopRequestSchema = z.strictObject({
   ]),
   protocol: z.union([
     z.literal(ATET_DESKTOP_PROTOCOL),
-    z.literal(LEGACY_TRANSMUTE_DESKTOP_PROTOCOL),
     z.literal(LEGACY_STUDIO_DESKTOP_PROTOCOL),
   ]),
   protocolVersion: z.literal(ATET_DESKTOP_PROTOCOL_VERSION),

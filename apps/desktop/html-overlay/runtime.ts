@@ -747,21 +747,12 @@ export function createHtmlOverlayBrowserRuntimeSource(
     width: config.width,
   });
 
-  if (
-    Object.hasOwn(globalThis, "AtetOverlay")
-    || Object.hasOwn(globalThis, "TransmuteOverlay")
-  ) {
+  if (Object.hasOwn(globalThis, "AtetOverlay")) {
     throw new Error("The HTML overlay authoring API is already installed.");
   }
   Object.defineProperty(globalThis, "AtetOverlay", {
     configurable: false,
     enumerable: true,
-    value: publicApi,
-    writable: false,
-  });
-  Object.defineProperty(globalThis, "TransmuteOverlay", {
-    configurable: false,
-    enumerable: false,
     value: publicApi,
     writable: false,
   });

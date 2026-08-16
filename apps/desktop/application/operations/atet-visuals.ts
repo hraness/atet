@@ -100,11 +100,9 @@ export const AtetDiagramRenderReceiptSchema = z.strictObject({
   findings: z.array(DiagramFindingSchema).max(256),
   kind: z.union([
     z.literal("atet.visual-artifact-receipt"),
-    z.literal("transmute.visual-artifact-receipt"),
   ]),
   operation: z.union([
     z.literal("atet.diagram.render"),
-    z.literal("transmute.diagram.render"),
   ]),
   scale: z.number().finite().positive().max(4),
   schemaVersion: z.literal(1),
@@ -183,11 +181,9 @@ export const AtetImageVectorizeReceiptSchema = z.strictObject({
   exactInputSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   kind: z.union([
     z.literal("atet.visual-artifact-receipt"),
-    z.literal("transmute.visual-artifact-receipt"),
   ]),
   operation: z.union([
     z.literal("atet.image.vectorize"),
-    z.literal("transmute.image.vectorize"),
   ]),
   schemaVersion: z.literal(1),
   source: MediaArtifactReferenceSchema,

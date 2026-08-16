@@ -68,7 +68,6 @@ export function hashProjectEditRevisionOutputGeometry(input: {
 const ProjectEditRevisionDocumentBodySchema = z.strictObject({
   kind: z.union([
     z.literal("atet.project-edit-revision"),
-    z.literal("transmute.project-edit-revision"),
     z.literal("studio.project-edit-revision"),
   ]),
   project: VideoProjectV1Schema,
@@ -167,7 +166,6 @@ export const ProjectEditRevisionReferenceSchema = z.strictObject({
   derivationSha256: Sha256Schema,
   kind: z.union([
     z.literal("atet.project-edit-revision-reference"),
-    z.literal("transmute.project-edit-revision-reference"),
     z.literal("studio.project-edit-revision-reference"),
   ]),
   outputGeometrySha256: Sha256Schema,
@@ -235,7 +233,6 @@ export const RenderableProjectEditRevisionReferenceSchema = z.strictObject({
   baseGeneration: ProjectGenerationHashesSchema,
   kind: z.union([
     z.literal("atet.project-edit-revision-reference"),
-    z.literal("transmute.project-edit-revision-reference"),
     z.literal("studio.project-edit-revision-reference"),
   ]),
   outputGeometrySha256: Sha256Schema,
@@ -286,7 +283,6 @@ export const ProjectEditRevisionRenderInputSchema = z.union([
 export const ProjectRenderPlanDocumentSchema = z.strictObject({
   kind: z.union([
     z.literal("atet.project-render-plan-document"),
-    z.literal("transmute.project-render-plan-document"),
     z.literal("studio.project-render-plan-document"),
   ]),
   outputGeometrySha256: Sha256Schema,
@@ -333,7 +329,6 @@ export const ProjectRenderPlanReferenceSchema = z.strictObject({
   artifact: ProjectRenderPlanArtifactSchema,
   kind: z.union([
     z.literal("atet.project-render-plan-reference"),
-    z.literal("transmute.project-render-plan-reference"),
     z.literal("studio.project-render-plan-reference"),
   ]),
   outputGeometrySha256: Sha256Schema,
@@ -361,7 +356,6 @@ export const ProjectRenderOutputReferenceSchema = z.strictObject({
   bytes: z.number().int().safe().positive(),
   kind: z.union([
     z.literal("atet.project-render-output-reference"),
-    z.literal("transmute.project-render-output-reference"),
     z.literal("studio.project-render-output-reference"),
   ]),
   path: ProjectRenderOutputPathSchema,
@@ -379,7 +373,6 @@ const ProjectRenderReceiptV2BodyBaseSchema = z.strictObject({
   invocationSha256: Sha256Schema,
   kind: z.union([
     z.literal("atet.project-render-receipt"),
-    z.literal("transmute.project-render-receipt"),
     z.literal("studio.project-render-receipt"),
   ]),
   output: ProjectRenderOutputReferenceSchema,
@@ -504,7 +497,6 @@ export const ProjectRenderReceiptReferenceSchema = z.strictObject({
   bytes: z.number().int().safe().positive().max(256 * 1024 * 1024),
   kind: z.union([
     z.literal("atet.project-render-receipt-reference"),
-    z.literal("transmute.project-render-receipt-reference"),
     z.literal("studio.project-render-receipt-reference"),
   ]),
   nodePlanSha256: Sha256Schema,

@@ -51,7 +51,6 @@ export const MediaIngestReceiptSchema = z.strictObject({
   input: MediaArtifactReferenceSchema,
   kind: z.union([
     z.literal("atet.local-media-ingest-receipt"),
-    z.literal("transmute.local-media-ingest-receipt"),
     z.literal("studio.local-media-ingest-receipt"),
   ]),
   operation: z.literal("media.ingest"),

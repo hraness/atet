@@ -1,14 +1,14 @@
 // @bun
 import {
   vectorizeImage
-} from "./index-7jg2r2mc.js";
+} from "./index-zhffnaj1.js";
 import {
   atetMaximumPromptBytes,
   generateAtetImageFile
-} from "./index-41988ev7.js";
+} from "./index-70c7xxz7.js";
 import {
   createDefaultHostResourceCoordinator
-} from "./index-64bhbap5.js";
+} from "./index-6kb9qvnn.js";
 
 // src/operations.ts
 import { randomUUID } from "crypto";
@@ -1488,15 +1488,6 @@ var atetOperationCodes = [
   "atet.image.vectorize",
   "atet.image.generate"
 ];
-var transmuteOperationCodes = [
-  "transmute.diagram.check",
-  "transmute.diagram.render",
-  "transmute.image.vectorize",
-  "transmute.image.generate"
-];
-function canonicalAtetOperationCode(code) {
-  return code.replace(/^transmute\./u, "atet.");
-}
 
 class AtetOperationError extends Error {
   code;
@@ -1745,9 +1736,6 @@ function parseAtetOperationInput(code, input) {
 function isAtetOperationCode(value) {
   return atetOperationCodes.includes(value);
 }
-function isTransmuteOperationCode(value) {
-  return transmuteOperationCodes.includes(value);
-}
 function atetOperationHostResourceClaims(code) {
   const descriptor = atetOperationRegistry.find((candidate) => candidate.code === code);
   if (descriptor === undefined) {
@@ -1929,29 +1917,5 @@ async function executeAtetOperation(code, value, dependencies = {}) {
   const input = parseAtetOperationInput(code, value);
   return await withAtetOperationHostAdmission(code, async (lease) => await executeAtetOperationUncoordinated(code, input, operationDependenciesWithLease(dependencies, lease)), dependencies);
 }
-var transmuteOperationRegistry = Object.freeze(atetOperationRegistry.map((descriptor) => Object.freeze({
-  ...descriptor,
-  code: descriptor.code.replace(/^atet\./u, "transmute.")
-})));
-function parseTransmuteOperationInput(code, input) {
-  return parseAtetOperationInput(canonicalAtetOperationCode(code), input);
-}
-function transmuteOperationHostResourceClaims(code) {
-  return atetOperationHostResourceClaims(canonicalAtetOperationCode(code));
-}
-function searchTransmuteOperations(query = "", limit = transmuteOperationRegistry.length) {
-  const normalized = query.replace(/\btransmute\./gu, "atet.");
-  const matches = new Set(searchAtetOperations(normalized, limit).map((item) => item.code));
-  return transmuteOperationRegistry.filter((item) => matches.has(canonicalAtetOperationCode(item.code))).slice(0, limit);
-}
-async function withTransmuteOperationHostAdmission(code, callback, options = {}) {
-  return await withAtetOperationHostAdmission(canonicalAtetOperationCode(code), callback, options);
-}
-async function executeTransmuteOperationWithLease(code, value, lease, dependencies = {}) {
-  return await executeAtetOperationWithLease(canonicalAtetOperationCode(code), value, lease, dependencies);
-}
-async function executeTransmuteOperation(code, value, dependencies = {}) {
-  return await executeAtetOperation(canonicalAtetOperationCode(code), value, dependencies);
-}
 
-export { builtInIcons, sanitizeIcon, resolveEdge, renderSvg, renderPng, lintDiagram, stackLayoutDefaults, StackLayoutError, resolveStackLayout, resolveDiagramSource, DiagramValidationError, parseDiagramSource, parseDiagramSpec, serializeTldr, atetOperationCodes, transmuteOperationCodes, AtetOperationError, atetOperationRegistry, parseAtetOperationInput, isAtetOperationCode, isTransmuteOperationCode, atetOperationHostResourceClaims, searchAtetOperations, withAtetOperationHostAdmission, executeAtetOperationWithLease, executeAtetOperation, transmuteOperationRegistry, parseTransmuteOperationInput, transmuteOperationHostResourceClaims, searchTransmuteOperations, withTransmuteOperationHostAdmission, executeTransmuteOperationWithLease, executeTransmuteOperation };
+export { builtInIcons, sanitizeIcon, resolveEdge, renderSvg, renderPng, lintDiagram, stackLayoutDefaults, StackLayoutError, resolveStackLayout, resolveDiagramSource, DiagramValidationError, parseDiagramSource, parseDiagramSpec, serializeTldr, atetOperationCodes, AtetOperationError, atetOperationRegistry, parseAtetOperationInput, isAtetOperationCode, atetOperationHostResourceClaims, searchAtetOperations, withAtetOperationHostAdmission, executeAtetOperationWithLease, executeAtetOperation };

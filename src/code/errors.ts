@@ -39,12 +39,3 @@ export function asAtetCodeError(error: unknown): AtetCodeError {
   if (error instanceof AtetCodeError) return error
   return new AtetCodeError("internal", atetCodeErrorMessage(error))
 }
-
-/** @deprecated Use Atet names for newly authored integrations. */
-export type TransmuteCodeErrorCode = AtetCodeErrorCode
-/** @deprecated Use {@link AtetCodeError}. */
-export { AtetCodeError as TransmuteCodeError }
-/** @deprecated Use {@link atetCodeErrorMessage}. */
-export const transmuteCodeErrorMessage = atetCodeErrorMessage
-/** @deprecated Use {@link asAtetCodeError}. */
-export const asTransmuteCodeError = asAtetCodeError

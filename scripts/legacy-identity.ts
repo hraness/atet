@@ -49,8 +49,8 @@ interface DuplicateIssue {
   readonly value: string
 }
 
-const LEGACY_IDENTITY_PATTERN = /transmute|studio|hraness\.graphics/giu
-const IDENTITY_LITERAL_PATTERN = /^(?:atet|transmute|studio)(?:[./-][a-z0-9][a-z0-9./-]*)?$/iu
+const LEGACY_IDENTITY_PATTERN = /studio|hraness\.graphics/giu
+const IDENTITY_LITERAL_PATTERN = /^(?:atet|studio)(?:[./-][a-z0-9][a-z0-9./-]*)?$/iu
 const SYNTAX_EXTENSIONS = /\.(?:[cm]?[jt]sx?)$/u
 const TYPESCRIPT_EXTENSIONS = /\.(?:[cm]?tsx?)$/u
 

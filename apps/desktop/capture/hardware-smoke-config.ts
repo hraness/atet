@@ -44,7 +44,6 @@ export type HardwareSmokeConfigErrorCode =
   | "invalid-boolean"
   | "invalid-keep-artifacts"
   | "invalid-minimum-displays"
-  | "renamed-environment-conflict"
   | "typed-text-requires-interactions";
 
 export class HardwareSmokeConfigError extends Error {
@@ -61,16 +60,7 @@ function environmentValue(
   environment: Readonly<Record<string, string | undefined>>,
   name: string,
 ): string | undefined {
-  const predecessor = name.replace(/^ATET_/u, "TRANSMUTE_");
-  const current = environment[name];
-  const legacy = environment[predecessor];
-  if (current !== undefined && legacy !== undefined && current !== legacy) {
-    throw new HardwareSmokeConfigError(
-      "renamed-environment-conflict",
-      `${name} and ${predecessor} disagree; remove one or set both to the same value.`,
-    );
-  }
-  return current ?? legacy;
+  return environment[name];
 }
 
 export function hardwareSmokeRequested(

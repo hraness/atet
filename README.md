@@ -265,27 +265,6 @@ checked source, exact references, rendering, vectorization, semantic operations,
 and review in one reusable workflow. `atet skill path` prints its packaged
 location.
 
-## Compatibility in version 2
-
-Version 2 makes Atet the repository, package, SDK, skill, site, and canonical
-CLI identity. The former `transmute` executable remains an alias to `atet`
-through the 2.x release line so existing scripts have one major version to
-migrate. Version-1 serialized operation identifiers and MCP tool names remain
-accepted only as compatibility inputs; new output and documentation use Atet
-identifiers. The four exact `@hraness/transmute/local/*` imports used by saved
-local workflows are rewritten at load time to their Atet equivalents; newly
-authored source uses only `@hraness/atet/local/*`.
-
-Machine-local runs already in flight are the one deliberate exception. Finish
-them with the 1.x host or restart them under Atet 2.x. Atet rejects predecessor
-run stores before it acquires a lease or mutates state because translating
-their plan hashes would also retarget staging paths and replay grants.
-
-The immutable version-1 tags and Releases remain available in the same GitHub
-repository history. GitHub redirects the former repository URL after the
-rename. Do not create a new repository at that old path, because doing so would
-replace GitHub's redirect.
-
 ## Limits and trust
 
 - Generated meaning is never inferred into diagram labels, claims, legends,

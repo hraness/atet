@@ -206,7 +206,7 @@ export function prepareProjectCaptionPlan(
     }
     const path = `renders/caption-assets/${sha256}.svg`;
     const overlayId = `overlay_caption_${canonicalJsonSha256({
-      domain: "transmute.social-caption-sprite/v1",
+      domain: "atet.social-caption-sprite/v1",
       sha256,
       sourceSha256,
       spriteIndex,

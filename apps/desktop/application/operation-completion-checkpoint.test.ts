@@ -113,7 +113,7 @@ describe("operation completion checkpoints", () => {
 
     const canonicalKindWithLegacyIdentity = (await readFile(path, "utf8"))
       .replace("studio.workflow-operation-completion", "atet.workflow-operation-completion")
-      .replaceAll("atet.operation.", "transmute.operation.");
+      .replaceAll("atet.operation.", "studio.operation.");
     await writeFile(path, canonicalKindWithLegacyIdentity, { mode: 0o600 });
     expect(readOperationCompletionCheckpoint({
       expected: value.identity,

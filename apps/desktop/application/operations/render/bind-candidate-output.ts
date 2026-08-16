@@ -42,7 +42,6 @@ const CandidateRenderDerivationBodyV1Schema = z.strictObject({
   encoderRecipe: ProjectRenderEncoderRecipeSchema,
   kind: z.union([
     z.literal("atet.candidate-render-derivation"),
-    z.literal("transmute.candidate-render-derivation"),
   ]),
   maximumBytes: ProjectRenderOutputRequestSchema.shape.maximumBytes,
   plan: ProjectRenderPlanReferenceSchema,
@@ -211,7 +210,7 @@ export function candidateRenderDerivationSha256(
 ): string {
   const body = CandidateRenderDerivationBodyV1Schema.parse(input);
   return canonicalJsonSha256({
-    domain: "transmute.candidate-render-derivation/v1",
+    domain: "atet.candidate-render-derivation/v1",
     ...body,
   });
 }

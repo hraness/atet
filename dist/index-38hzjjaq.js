@@ -3,12 +3,11 @@ import {
   atetOperationHostResourceClaims,
   executeAtetOperationWithLease,
   isAtetOperationCode,
-  isTransmuteOperationCode,
   parseAtetOperationInput
-} from "./index-65by8228.js";
+} from "./index-b7xv1v0z.js";
 import {
   createDefaultHostResourceCoordinator
-} from "./index-64bhbap5.js";
+} from "./index-6kb9qvnn.js";
 
 // src/workflow.ts
 var workflowIdPattern = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/u;
@@ -189,59 +188,5 @@ async function runAtetWorkflow(definition, value, options = {}) {
     steps: Object.freeze([...completed].sort((left, right) => left.index - right.index))
   });
 }
-function atetCodeFromTransmute(code) {
-  if (!isTransmuteOperationCode(code)) {
-    throw new AtetWorkflowError("INVALID_WORKFLOW_STEP", "Deprecated Transmute workflows accept only exact v1 operation identifiers.");
-  }
-  return code.replace(/^transmute\./u, "atet.");
-}
-function transmuteCodeFromAtet(code) {
-  return code.replace(/^atet\./u, "transmute.");
-}
-function defineTransmuteWorkflow(options) {
-  if (typeof options !== "object" || options === null) {
-    workflowError("INVALID_WORKFLOW", "Workflow definition must be an object.");
-  }
-  validateWorkflowId(options.id);
-  if (!Number.isSafeInteger(options.version) || options.version < 1) {
-    workflowError("INVALID_WORKFLOW", "Workflow version must be a positive safe integer.");
-  }
-  if (typeof options.parseInput !== "function" || typeof options.run !== "function") {
-    workflowError("INVALID_WORKFLOW", "Workflow definition requires parseInput and run functions.");
-  }
-  return Object.freeze({
-    id: options.id,
-    version: options.version,
-    parseInput: options.parseInput,
-    run: options.run
-  });
-}
-async function runTransmuteWorkflow(definition, value, options = {}) {
-  const legacy = defineTransmuteWorkflow(definition);
-  const canonical = defineAtetWorkflow({
-    id: legacy.id,
-    version: legacy.version,
-    parseInput: legacy.parseInput,
-    run(context, input) {
-      const legacyContext = Object.freeze({
-        signal: context.signal,
-        operation(id, code, operationInput) {
-          return context.operation(id, atetCodeFromTransmute(code), operationInput);
-        }
-      });
-      return legacy.run(legacyContext, input);
-    }
-  });
-  const legacyExecutor = options.executor;
-  const executor = legacyExecutor === undefined ? undefined : async (code, operationInput, context) => await legacyExecutor(transmuteCodeFromAtet(code), operationInput, context);
-  return await runAtetWorkflow(canonical, value, {
-    ...options.dependencies === undefined ? {} : { dependencies: options.dependencies },
-    ...executor === undefined ? {} : { executor },
-    ...options.hostResourceCoordinator === undefined ? {} : { hostResourceCoordinator: options.hostResourceCoordinator },
-    ...options.maximumSteps === undefined ? {} : { maximumSteps: options.maximumSteps },
-    ...options.signal === undefined ? {} : { signal: options.signal },
-    ...options.waitTimeoutMilliseconds === undefined ? {} : { waitTimeoutMilliseconds: options.waitTimeoutMilliseconds }
-  });
-}
 
-export { AtetWorkflowError, defineAtetWorkflow, runAtetWorkflow, defineTransmuteWorkflow, runTransmuteWorkflow };
+export { AtetWorkflowError, defineAtetWorkflow, runAtetWorkflow };

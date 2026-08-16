@@ -558,7 +558,7 @@ function parseResult(
     ? gateway.generationId
     : randomUUID()
   const requestId = `sha256:${createHash("sha256")
-    .update("transmute.gateway-generation-id/v1\0")
+    .update("atet.gateway-generation-id/v1\0")
     .update(foreignGenerationId)
     .digest("hex")}`
   const warnings = Array.isArray(value.warnings)
@@ -702,36 +702,3 @@ export async function generateAtetImageFile(
     warnings: generated.response.warnings,
   }
 }
-
-/** @deprecated Use Atet names for newly authored integrations. */
-export const transmuteGatewayApiBaseUrl = atetGatewayApiBaseUrl
-/** @deprecated Use {@link atetImageModels}. */
-export const transmuteImageModels = atetImageModels
-/** @deprecated Use {@link atetResponseMediaTypes}. */
-export const transmuteResponseMediaTypes = atetResponseMediaTypes
-/** @deprecated Use {@link atetMaximumPromptBytes}. */
-export const transmuteMaximumPromptBytes = atetMaximumPromptBytes
-/** @deprecated Use {@link atetMaximumRawImageBytes}. */
-export const transmuteMaximumRawImageBytes = atetMaximumRawImageBytes
-/** @deprecated Use {@link AtetImageModel}. */
-export type TransmuteImageModel = AtetImageModel
-/** @deprecated Use {@link AtetResponseMediaType}. */
-export type TransmuteResponseMediaType = AtetResponseMediaType
-/** @deprecated Use {@link AtetGatewayCredentialSource}. */
-export type TransmuteGatewayCredentialSource = AtetGatewayCredentialSource
-/** @deprecated Use {@link AtetGatewayCredentialStatus}. */
-export type TransmuteGatewayCredentialStatus = AtetGatewayCredentialStatus
-/** @deprecated Use {@link GenerateAtetImageInput}. */
-export type GenerateTransmuteImageInput = GenerateAtetImageInput
-/** @deprecated Use {@link GeneratedAtetImage}. */
-export type GeneratedTransmuteImage = GeneratedAtetImage
-/** @deprecated Use {@link GeneratedAtetImageFile}. */
-export type GeneratedTransmuteImageFile = GeneratedAtetImageFile
-/** @deprecated Use {@link AtetGenerateDependencies}. */
-export type TransmuteGenerateDependencies = AtetGenerateDependencies
-/** @deprecated Use {@link atetGatewayCredentialStatus}. */
-export const transmuteGatewayCredentialStatus = atetGatewayCredentialStatus
-/** @deprecated Use {@link generateAtetImage}. */
-export const generateTransmuteImage = generateAtetImage
-/** @deprecated Use {@link generateAtetImageFile}. */
-export const generateTransmuteImageFile = generateAtetImageFile

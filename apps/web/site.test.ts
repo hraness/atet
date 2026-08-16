@@ -32,7 +32,6 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta name="twitter:image" content="https://atet.sh/og.png">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
-    expect(html).not.toMatch(/Transmute|transmute\.rocks|hraness\.(?:graphics|studio)/)
   })
 
   test("links the website, product, and source in structured data", async () => {
@@ -243,10 +242,8 @@ describe("static Atet site", () => {
     }))
 
     expect(projected).toEqual([
-      { source: "/:path*", host: { type: "host", value: "transmute.rocks" }, destination: "https://atet.sh/:path*", permanent: true },
       { source: "/:path*", host: { type: "host", value: "hraness.graphics" }, destination: "https://atet.sh/:path*", permanent: true },
       { source: "/:path*", host: { type: "host", value: "hraness.studio" }, destination: "https://atet.sh/:path*", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "preview.transmute.rocks" }, destination: "https://preview.atet.sh/:path*", permanent: true },
       { source: "/:path*", host: { type: "host", value: "preview.hraness.graphics" }, destination: "https://preview.atet.sh/:path*", permanent: true },
       { source: "/:path*", host: { type: "host", value: "preview.hraness.studio" }, destination: "https://preview.atet.sh/:path*", permanent: true },
     ])

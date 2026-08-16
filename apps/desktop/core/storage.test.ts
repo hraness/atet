@@ -25,7 +25,7 @@ import {
   saveVideoProject,
 } from "./storage";
 
-test("mutable bundle persistence preserves predecessor reads and writes canonical Atet", async () => {
+test("mutable bundle persistence preserves Studio reads and writes canonical Atet", async () => {
   const files = new Map<string, string>();
   const fileSystem = {
     readText: async (path: string) => {
@@ -41,12 +41,12 @@ test("mutable bundle persistence preserves predecessor reads and writes canonica
   const project = operationTestProject();
   files.set("manifest.json", `${JSON.stringify({
     ...recording,
-    kind: "transmute.recording-bundle",
-    tool: { ...recording.tool, name: "transmute" },
+    kind: "studio.recording-bundle",
+    tool: { ...recording.tool, name: "studio" },
   })}\n`);
   files.set("project.json", `${JSON.stringify({
     ...project,
-    kind: "transmute.video-project",
+    kind: "studio.video-project",
   })}\n`);
 
   const loadedRecording = await loadRecordingManifest(fileSystem);
@@ -54,8 +54,8 @@ test("mutable bundle persistence preserves predecessor reads and writes canonica
   expect({
     kind: loadedRecording.kind,
     tool: loadedRecording.tool.name,
-  }).toEqual({ kind: "transmute.recording-bundle", tool: "transmute" });
-  expect(loadedProject.kind).toBe("transmute.video-project");
+  }).toEqual({ kind: "studio.recording-bundle", tool: "studio" });
+  expect(loadedProject.kind).toBe("studio.video-project");
 
   await saveRecordingManifest(fileSystem, {
     ...loadedRecording,

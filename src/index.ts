@@ -17,9 +17,6 @@ import {
   generateAtetImage,
   generateAtetImageFile,
   atetGatewayCredentialStatus,
-  generateTransmuteImage,
-  generateTransmuteImageFile,
-  transmuteGatewayCredentialStatus,
 } from "./generate.js"
 import { builtInIcons } from "./icons.js"
 import {
@@ -33,19 +30,12 @@ import {
   executeAtetOperation,
   atetOperationRegistry,
   searchAtetOperations,
-  executeTransmuteOperation,
-  transmuteOperationRegistry,
-  searchTransmuteOperations,
 } from "./operations.js"
 import {
   atetMcpProtocolVersion,
   atetMcpServerName,
   atetMcpTools,
   AtetMcpToolRuntime,
-  transmuteMcpProtocolVersion,
-  transmuteMcpServerName,
-  transmuteMcpTools,
-  TransmuteMcpToolRuntime,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
@@ -116,16 +106,6 @@ export const atetApi = Object.freeze({
   WorkspaceBoundary,
   WorkspaceBoundaryError,
   executeAtetOperation,
-  generateTransmuteImage,
-  generateTransmuteImageFile,
-  transmuteGatewayCredentialStatus,
-  transmuteMcpProtocolVersion,
-  transmuteMcpServerName,
-  transmuteMcpTools,
-  transmuteOperationRegistry,
-  TransmuteMcpToolRuntime,
-  searchTransmuteOperations,
-  executeTransmuteOperation,
 })
 
 /** @deprecated Use atetApi. Retained through the Atet 2.x line. */
@@ -149,10 +129,6 @@ export {
   atetMcpTools,
   atetOperationRegistry,
   AtetMcpToolRuntime,
-  transmuteMcpProtocolVersion,
-  transmuteMcpServerName,
-  transmuteMcpTools,
-  TransmuteMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
@@ -182,12 +158,6 @@ export {
   WorkspaceBoundary,
   WorkspaceBoundaryError,
   executeAtetOperation,
-  generateTransmuteImage,
-  generateTransmuteImageFile,
-  transmuteGatewayCredentialStatus,
-  transmuteOperationRegistry,
-  searchTransmuteOperations,
-  executeTransmuteOperation,
 }
 export * from "./cloud-errors.js"
 export * from "./generate.js"

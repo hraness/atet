@@ -228,7 +228,7 @@ describe("project caption timing", () => {
     });
     const predecessor = SpeechAnalysisV1Schema.parse({
       ...fixture.analysis,
-      kind: "transmute.speech-analysis",
+      kind: "studio.speech-analysis",
     });
     const contents = `${canonicalJson(predecessor)}\n`;
     const loaded = SpeechAnalysisV1Schema.parse(await loadAnalysisArtifact({
@@ -245,7 +245,7 @@ describe("project caption timing", () => {
       })),
     });
 
-    expect(loaded.kind).toBe("transmute.speech-analysis");
+    expect(loaded.kind).toBe("studio.speech-analysis");
     expect(compile({ ...fixture, analysis: loaded, project })[0]?.lines).toEqual(["Light"]);
   });
 

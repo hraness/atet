@@ -40,22 +40,4 @@ describe("Atet config discovery", () => {
     }
   })
 
-  it("loads a predecessor config and fails closed on divergent siblings", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "atet-config-transmute-"))
-    const predecessor = join(directory, "transmute.config.json")
-    const current = join(directory, "atet.config.json")
-    try {
-      await writeFile(predecessor, JSON.stringify({ font: { family: "Existing" } }))
-      expect((await loadDiagramConfig({ searchDirectory: directory })).filePath)
-        .toBe(predecessor)
-      await writeFile(current, JSON.stringify({ font: { family: "Different" } }))
-      await expect(loadDiagramConfig({ searchDirectory: directory }))
-        .rejects.toThrow("Conflicting Atet configs")
-      await writeFile(current, await Bun.file(predecessor).text())
-      expect((await loadDiagramConfig({ searchDirectory: directory })).filePath)
-        .toBe(current)
-    } finally {
-      await rm(directory, { recursive: true, force: true })
-    }
-  })
 })

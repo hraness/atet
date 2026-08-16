@@ -145,7 +145,6 @@ export const HtmlOverlayReceiptSchema = z.strictObject({
   frameCount: z.number().int().safe().positive(),
   kind: z.union([
     z.literal("atet.html-overlay-preparation-receipt"),
-    z.literal("transmute.html-overlay-preparation-receipt"),
     z.literal("studio.html-overlay-preparation-receipt"),
   ]),
   libraryLocks: HtmlOverlayLibraryLocksSchema,

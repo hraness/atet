@@ -87,7 +87,6 @@ describe("operation registry", () => {
       registry.describe(operation.kind, operation.version)
     ));
     expect(ATET_APPLICATION_TOOL_VERSION).toBe("atet-2.0.0");
-    expect(JSON.stringify(registry.list())).not.toMatch(/studio|transmute/u);
     expect(registry.list().every(operation => (
       operation.inputSchemaId.startsWith("atet.operation.")
       && operation.outputSchemaId.startsWith("atet.operation.")

@@ -187,18 +187,6 @@ Running with an expected custom-code plan hash fails if source, input,
 registry, Bun revision, worker implementation, selected native-helper bytes,
 or a bound subject changed.
 
-The exact predecessor imports `@hraness/transmute/local/code`,
-`@hraness/transmute/local/code/advanced`,
-`@hraness/transmute/local/code/workflows`, and
-`@hraness/transmute/local/html-overlay` remain input-only aliases to the Atet
-implementations so persisted Transmute workflows still load. Templates,
-documentation, and newly authored bundles emit only `@hraness/atet/local/*`.
-
-In-flight version-1 durable run stores are not migrated. Complete them with the
-version-1 host or restart them under Atet 2.x. The version-2 host rejects those
-stores before acquiring a lease or changing staging state; rewriting their
-plan hashes would otherwise retarget staging paths and replay grants.
-
 ```sh
 # A built-in workflow: independent analyses join at one checked edit commit,
 # then a face-derived camera path becomes the immutable render revision.
@@ -732,9 +720,8 @@ deletion from colliding with a new render container or a swapped peer subtree.
 The signed snapshot is prepared once per render request and shared by every
 frame in that sequence; callers should submit a complete loop or overlay range
 rather than issuing one render request per frame.
-The injected Playwright launcher remains a trusted host adapter. The legacy
-`TransmuteOverlay` name remains a read-only alias solely so previously authored
-documents can still render; new documents use `AtetOverlay`.
+The injected Playwright launcher remains a trusted host adapter. Authored
+documents use the `AtetOverlay` API.
 
 The prepared HTML result is the same overlay handle returned by image, SVG,
 GIF, video, and emoji preparation, so it joins `edits.addOverlays` and one

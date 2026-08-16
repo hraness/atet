@@ -37,19 +37,8 @@ export const WORKFLOW_ALLOWED_BARE_IMPORTS = Object.freeze([
   "@hraness/atet/local/code/advanced",
   "@hraness/atet/local/code/workflows",
   "@hraness/atet/local/html-overlay",
-  "@hraness/transmute/local/code",
-  "@hraness/transmute/local/code/advanced",
-  "@hraness/transmute/local/code/workflows",
-  "@hraness/transmute/local/html-overlay",
   "zod",
 ]);
-
-const PREDECESSOR_BARE_IMPORT_ALIASES: Readonly<Record<string, string>> = Object.freeze({
-  "@hraness/transmute/local/code": "@hraness/atet/local/code",
-  "@hraness/transmute/local/code/advanced": "@hraness/atet/local/code/advanced",
-  "@hraness/transmute/local/code/workflows": "@hraness/atet/local/code/workflows",
-  "@hraness/transmute/local/html-overlay": "@hraness/atet/local/html-overlay",
-});
 
 const SOURCE_EXTENSIONS = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
@@ -896,10 +885,7 @@ async function bareImportAliases(
   for (const specifier of imports) {
     if (specifier === "bun" || specifier.startsWith("node:")) continue;
     try {
-      const resolvedPath = await Bun.resolve(
-        PREDECESSOR_BARE_IMPORT_ALIASES[specifier] ?? specifier,
-        resolutionRoot,
-      );
+      const resolvedPath = await Bun.resolve(specifier, resolutionRoot);
       aliases[specifier] = resolvedPath;
     } catch (error) {
       throw new ApplicationError(

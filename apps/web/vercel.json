@@ -8,12 +8,6 @@
   "redirects": [
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "transmute.rocks" }],
-      "destination": "https://atet.sh/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
       "has": [{ "type": "host", "value": "hraness.graphics" }],
       "destination": "https://atet.sh/:path*",
       "permanent": true
@@ -22,12 +16,6 @@
       "source": "/:path*",
       "has": [{ "type": "host", "value": "hraness.studio" }],
       "destination": "https://atet.sh/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "preview.transmute.rocks" }],
-      "destination": "https://preview.atet.sh/:path*",
       "permanent": true
     },
     {

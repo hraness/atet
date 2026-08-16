@@ -90,10 +90,8 @@ function uniqueSorted<Value extends string>(
 }
 
 function canonicalAtetIdentity(value: string): string {
-  if (value === "studio" || value === "transmute") return "atet";
-  return value
-    .replace(/^studio\./u, "atet.")
-    .replace(/^transmute\./u, "atet.");
+  if (value === "studio") return "atet";
+  return value.replace(/^studio\./u, "atet.");
 }
 
 function normalizeRuntime(input: unknown): WorkflowRuntimeIdentity {
@@ -118,7 +116,7 @@ function normalizeRuntime(input: unknown): WorkflowRuntimeIdentity {
   return WorkflowRuntimeIdentitySchema.parse({
     ...parsed,
     applicationBuild: parsed.applicationBuild.replace(
-      /^(?:studio|transmute)([/-])/u,
+      /^studio([/-])/u,
       "atet$1",
     ),
     codeWorkerAbi: CODE_WORKER_ABI,
@@ -282,7 +280,7 @@ function canonicalizeAuthenticatedGraphPlan(
     runtime: {
       ...parsed.runtime,
       applicationBuild: parsed.runtime.applicationBuild.replace(
-        /^(?:studio|transmute)([/-])/u,
+        /^studio([/-])/u,
         "atet$1",
       ),
       codeWorkerAbi: CODE_WORKER_ABI,

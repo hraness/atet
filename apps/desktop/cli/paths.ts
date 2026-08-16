@@ -11,22 +11,6 @@ async function isDirectory(path: string): Promise<boolean> {
   }
 }
 
-async function physicalArtifactNamespaceExists(path: string): Promise<boolean> {
-  try {
-    const details = await lstat(path);
-    if (details.isSymbolicLink() || !details.isDirectory()) {
-      throw new CliError(
-        "unsafe-path",
-        `Artifact namespace must be a physical directory: ${path}`,
-      );
-    }
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-    throw error;
-  }
-}
-
 async function isFile(path: string): Promise<boolean> {
   try {
     return (await lstat(path)).isFile();
@@ -54,41 +38,16 @@ export async function discoverRepositoryRoot(start: string): Promise<string> {
   );
 }
 
-export type ArtifactNamespace = "atet" | "transmute";
-
-export function defaultArtifactRoot(
-  repositoryRoot: string,
-  namespace: ArtifactNamespace = "atet",
-): string {
-  return join(repositoryRoot, "artifacts", namespace, "recordings");
+export function defaultArtifactRoot(repositoryRoot: string): string {
+  return join(repositoryRoot, "artifacts", "atet", "recordings");
 }
 
-function defaultProjectRoot(repositoryRoot: string, namespace: ArtifactNamespace): string {
-  return join(repositoryRoot, "artifacts", namespace, "projects");
+function defaultProjectRoot(repositoryRoot: string): string {
+  return join(repositoryRoot, "artifacts", "atet", "projects");
 }
 
-function defaultPrivateRoot(repositoryRoot: string, namespace: ArtifactNamespace): string {
-  return join(repositoryRoot, "artifacts", namespace, "private");
-}
-
-function renamedPathEnvironmentValue(
-  env: Readonly<Record<string, string | undefined>>,
-  canonical: string,
-  predecessor: string,
-): string | undefined {
-  const current = env[canonical];
-  const legacy = env[predecessor];
-  if (
-    current !== undefined
-    && legacy !== undefined
-    && resolve(current) !== resolve(legacy)
-  ) {
-    throw new CliError(
-      "unsafe-path",
-      `${canonical} and ${predecessor} disagree; remove one or set both to the same path.`,
-    );
-  }
-  return current ?? legacy;
+function defaultPrivateRoot(repositoryRoot: string): string {
+  return join(repositoryRoot, "artifacts", "atet", "private");
 }
 
 /** Shared local state coordinates resource admission across checkouts. */
@@ -98,7 +57,7 @@ export function defaultCliStateRoot(
 ): string {
   const userHome = homedir();
   if (platform === "darwin") {
-    return join(userHome, "Library", "Application Support", "Transmute", "cli");
+    return join(userHome, "Library", "Application Support", "Atet", "cli");
   }
   if (platform === "win32") {
     const localAppData = env.LOCALAPPDATA;
@@ -106,7 +65,7 @@ export function defaultCliStateRoot(
       localAppData !== undefined && isAbsolute(localAppData)
         ? localAppData
         : join(userHome, "AppData", "Local"),
-      "Transmute",
+      "Atet",
       "cli",
     );
   }
@@ -115,7 +74,7 @@ export function defaultCliStateRoot(
     stateHome !== undefined && isAbsolute(stateHome)
       ? stateHome
       : join(userHome, ".local", "state"),
-    "transmute",
+    "atet",
   );
 }
 
@@ -254,33 +213,14 @@ export async function resolveRepositoryPaths(
   installedFrom: string = import.meta.dir,
 ): Promise<RepositoryPaths> {
   const toolRoot = await discoverRepositoryRoot(installedFrom);
-  const repositoryRootInput = renamedPathEnvironmentValue(
-    env,
-    "ATET_REPOSITORY_ROOT",
-    "TRANSMUTE_REPOSITORY_ROOT",
-  );
+  const repositoryRootInput = env.ATET_REPOSITORY_ROOT;
   const requestedRoot = resolve(repositoryRootInput ?? cwd);
   if (!await isDirectory(requestedRoot)) {
     throw new CliError("not-found", `Atet project root is not a directory: ${requestedRoot}`);
   }
   const repositoryRoot = await realpath(requestedRoot);
-  const [hasAtetArtifacts, hasTransmuteArtifacts] = await Promise.all([
-    physicalArtifactNamespaceExists(join(repositoryRoot, "artifacts", "atet")),
-    physicalArtifactNamespaceExists(join(repositoryRoot, "artifacts", "transmute")),
-  ]);
-  if (hasAtetArtifacts && hasTransmuteArtifacts) {
-    throw new CliError(
-      "unsafe-path",
-      "Both artifacts/atet and artifacts/transmute exist. Resolve the namespace conflict before Atet writes artifacts.",
-    );
-  }
-  const artifactNamespace: ArtifactNamespace = hasTransmuteArtifacts ? "transmute" : "atet";
-  const requiredArtifactRoot = defaultArtifactRoot(repositoryRoot, artifactNamespace);
-  const configuredArtifactRoot = renamedPathEnvironmentValue(
-    env,
-    "ATET_ARTIFACT_ROOT",
-    "TRANSMUTE_ARTIFACT_ROOT",
-  );
+  const requiredArtifactRoot = defaultArtifactRoot(repositoryRoot);
+  const configuredArtifactRoot = env.ATET_ARTIFACT_ROOT;
   if (
     configuredArtifactRoot !== undefined
     && resolve(configuredArtifactRoot) !== resolve(requiredArtifactRoot)
@@ -292,15 +232,15 @@ export async function resolveRepositoryPaths(
   }
   const artifactRoot = await ensurePhysicalPrivateDirectoryWithin(
     repositoryRoot,
-    `artifacts/${artifactNamespace}/recordings`,
+    "artifacts/atet/recordings",
   );
   const projectRoot = await ensurePhysicalPrivateDirectoryWithin(
     repositoryRoot,
-    relative(repositoryRoot, defaultProjectRoot(repositoryRoot, artifactNamespace)),
+    relative(repositoryRoot, defaultProjectRoot(repositoryRoot)),
   );
   const privateRoot = await ensurePhysicalPrivateDirectoryWithin(
     repositoryRoot,
-    relative(repositoryRoot, defaultPrivateRoot(repositoryRoot, artifactNamespace)),
+    relative(repositoryRoot, defaultPrivateRoot(repositoryRoot)),
   );
   await Promise.all([
     ensurePrivateDirectory(artifactRoot),

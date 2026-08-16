@@ -190,7 +190,7 @@ function runtimeRootSha256(
   input: Omit<HtmlOverlayBrowserRuntimeManifest, "rootSha256">,
 ): string {
   return createHash("sha256").update(canonicalJson({
-    domain: "transmute.html-overlay-browser-runtime/v1",
+    domain: "atet.html-overlay-browser-runtime/v1",
     ...input,
   })).digest("hex");
 }

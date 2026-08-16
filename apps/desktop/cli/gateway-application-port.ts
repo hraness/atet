@@ -71,7 +71,6 @@ const GatewayJournalSchema = z.strictObject({
   failureSha256: Sha256Schema.optional(),
   kind: z.union([
     z.literal("atet.gateway-workflow-request"),
-    z.literal("transmute.gateway-workflow-request"),
     z.literal("studio.gateway-workflow-request"),
   ]),
   model: z.string().min(3).max(256),

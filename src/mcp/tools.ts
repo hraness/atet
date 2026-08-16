@@ -12,12 +12,10 @@ import {
   atetOperationCodes,
   parseAtetOperationInput,
   searchAtetOperations,
-  transmuteOperationCodes,
   withAtetOperationHostAdmission,
   type CheckAtetOperationInput,
   type GenerateAtetOperationInput,
   type AtetOperationCode,
-  type TransmuteOperationCode,
   type RenderAtetOperationInput,
   type VectorizeAtetOperationInput,
 } from "../operations.js"
@@ -303,59 +301,6 @@ export const atetMcpTools: readonly McpToolDefinition[] = deepFreeze([
   },
 ])
 
-function operationSchemaWithCodes(
-  schema: Readonly<Record<string, unknown>>,
-  operationCodes: readonly string[],
-): Readonly<Record<string, unknown>> {
-  const properties = Reflect.get(schema, "properties")
-  const operation = typeof properties === "object" && properties !== null
-    ? Reflect.get(properties, "operation")
-    : undefined
-  if (
-    typeof properties !== "object"
-    || properties === null
-    || typeof operation !== "object"
-    || operation === null
-  ) {
-    throw new Error("Internal MCP operation schema is invalid.")
-  }
-  return {
-    ...schema,
-    properties: {
-      ...properties,
-      operation: { ...operation, enum: operationCodes },
-    },
-  }
-}
-
-/** Deprecated v1 discovery surface. New MCP sessions list only Atet tools. */
-export const transmuteMcpTools: readonly McpToolDefinition[] = deepFreeze(
-  atetMcpTools.map((tool): McpToolDefinition => {
-    if (tool.name === "search_atet") {
-      return {
-        ...tool,
-        name: "search_transmute",
-        title: "Search Transmute operations",
-        description: "Deprecated v1 alias for search_atet.",
-      }
-    }
-    if (tool.name === "execute_atet") {
-      return {
-        ...tool,
-        name: "execute_transmute",
-        title: "Execute Transmute operation",
-        description: "Deprecated v1 alias for execute_atet.",
-        inputSchema: operationSchemaWithCodes(
-          tool.inputSchema,
-          transmuteOperationCodes,
-        ),
-        outputSchema: tool.outputSchema,
-      }
-    }
-    return tool
-  }),
-)
-
 class ToolFailure extends Error {
   readonly code: string
   readonly issues?: readonly string[]
@@ -384,11 +329,6 @@ interface ParsedSearchArguments {
 
 interface ParsedExecuteArguments {
   readonly operation: AtetOperationCode
-  readonly input: unknown
-}
-
-interface ParsedTransmuteExecuteArguments {
-  readonly operation: TransmuteOperationCode
   readonly input: unknown
 }
 
@@ -534,35 +474,6 @@ function parseExecuteArguments(value: unknown): ParsedExecuteArguments {
     operation: value.operation as AtetOperationCode,
     input: value.input,
   }
-}
-
-function parseTransmuteExecuteArguments(
-  value: unknown,
-): ParsedTransmuteExecuteArguments {
-  if (!isRecord(value)) {
-    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.")
-  }
-  rejectUnknownKeys(value, new Set(["operation", "input"]))
-  if (
-    typeof value.operation !== "string"
-    || !transmuteOperationCodes.includes(value.operation as TransmuteOperationCode)
-    || !isRecord(value.input)
-  ) {
-    throw new ToolFailure(
-      "INVALID_ARGUMENTS",
-      "operation must be an exact Transmute v1 operation code and input must be an object.",
-    )
-  }
-  return {
-    operation: value.operation as TransmuteOperationCode,
-    input: value.input,
-  }
-}
-
-function canonicalAtetOperation(
-  operation: TransmuteOperationCode,
-): AtetOperationCode {
-  return operation.replace(/^transmute\./u, "atet.") as AtetOperationCode
 }
 
 function assertBuiltInIcons(spec: DiagramSpec): void {
@@ -844,25 +755,9 @@ export class AtetMcpToolRuntime {
           { ok: true, operations },
         )
       }
-      if (name === "search_transmute") {
-        const options = parseSearchArguments(argumentsValue)
-        const operations = searchAtetOperations(
-          options.query.replace(/\btransmute\./gu, "atet."),
-          options.limit,
-        )
-        return successResult(
-          `Found ${operations.length} Atet operation${operations.length === 1 ? "" : "s"}.`,
-          { ok: true, operations },
-        )
-      }
       if (name === "execute_atet") {
         const options = parseExecuteArguments(argumentsValue)
         return await this.execute(options)
-      }
-      if (name === "execute_transmute") {
-        const options = parseTransmuteExecuteArguments(argumentsValue)
-        const canonical = canonicalAtetOperation(options.operation)
-        return await this.execute({ operation: canonical, input: options.input })
       }
       throw new ToolFailure("UNKNOWN_TOOL", "Requested tool is not available.")
     } catch (error) {
@@ -1066,6 +961,3 @@ export class AtetMcpToolRuntime {
     })
   }
 }
-
-/** @deprecated Use {@link AtetMcpToolRuntime}. */
-export { AtetMcpToolRuntime as TransmuteMcpToolRuntime }

@@ -915,13 +915,7 @@ var MAX_ARCHIVE_BYTES = 4 * 1024 * 1024;
 var MAX_TOOL_BYTES = 16 * 1024 * 1024;
 var FILE_CHUNK_BYTES = 64 * 1024;
 function renamedEnvironmentValue(canonical) {
-  const predecessor = canonical.replace(/^ATET_/u, "TRANSMUTE_");
-  const current = process.env[canonical];
-  const legacy = process.env[predecessor];
-  if (current !== undefined && legacy !== undefined && current !== legacy) {
-    throw new VectorizeError("invalid_input", `${canonical} and ${predecessor} disagree; remove one or set both to the same value.`);
-  }
-  return current ?? legacy;
+  return process.env[canonical];
 }
 async function ensureVTracer(deadline, privateDirectory, cacheDirectory) {
   const override = renamedEnvironmentValue("ATET_VTRACER_PATH");
