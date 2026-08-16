@@ -8,7 +8,7 @@ import { buildWebsite } from "./scripts/build"
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
 const brandDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
-const searchDescription = "Atet is an open-source, local-first agentic creative coding toolkit for Codex, Claude, and other agents working with images, diagrams, animated loops, and video."
+const searchDescription = "Atet gives Codex, Claude, and other coding agents tools to create images, editable diagrams, animated loops, and video inside a project."
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
 beforeAll(async () => {
@@ -25,12 +25,12 @@ describe("static Atet site", () => {
     const searchableReadme = readme.replaceAll("**", "").replace(/\s+/gu, " ").toLowerCase()
 
     for (const heading of [
-      "## Install Atet for your agent",
-      "## Give your agent a task",
-      "### Agent operating guide",
-      "## What Atet makes",
-      "## How Atet works",
-      "## Trust and network boundary",
+      "## Install Atet",
+      "## Ask your agent to use Atet",
+      "### Instructions for coding agents",
+      "## What Atet can make",
+      "## How Atet is designed",
+      "## Network and trust",
     ]) {
       expect(readme).toContain(heading)
     }
@@ -42,7 +42,7 @@ describe("static Atet site", () => {
       "Agent Skill",
       "MCP server",
       "Vercel AI Gateway",
-      "images, diagrams, animated loops, and video",
+      "images, editable diagrams, animated loops, and video",
     ]) {
       expect(searchableReadme).toContain(term.toLowerCase())
     }
@@ -52,6 +52,7 @@ describe("static Atet site", () => {
     expect(readme).toContain("bun add --global github:hraness/atet")
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
+    expect(readme).not.toMatch(/checked step|checked path|bounded capability|delivery variant/i)
     expect(readme).not.toContain("https://atet.sh/docs")
     expect(readme).not.toContain("github:hraness/atet#")
   })
@@ -59,7 +60,7 @@ describe("static Atet site", () => {
   test("publishes one canonical Atet identity across discovery metadata", async () => {
     const html = await readSource("index.html")
 
-    expect(html).toContain("<title>Atet: agentic creative coding toolkit</title>")
+    expect(html).toContain("<title>Atet: creative tools for coding agents</title>")
     expect(html).toContain(`<meta name="description" content="${searchDescription}">`)
     expect(html).toContain(`<meta property="og:description" content="${searchDescription}">`)
     expect(html).toContain(`<meta name="twitter:description" content="${searchDescription}">`)
@@ -72,7 +73,7 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta property="og:image:height" content="630">')
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image">')
     expect(html).toContain('<meta name="twitter:image" content="https://atet.sh/og.png">')
-    expect(html).toContain('<meta name="twitter:image:alt" content="Atet, carry ideas from first light to final form, beside an abstract solar disk and barque path">')
+    expect(html).toContain('<meta name="twitter:image:alt" content="Atet, creative tools for coding agents, beside an abstract solar disk and barque path">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
   })
@@ -125,6 +126,7 @@ describe("static Atet site", () => {
 
   test("puts the complete agent install before the first section ends", async () => {
     const html = await readSource("index.html")
+    const searchableHtml = html.replace(/\s+/gu, " ")
     const commands = [
       "bun add --global github:hraness/atet",
       "atet skill install",
@@ -135,13 +137,14 @@ describe("static Atet site", () => {
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
     expect(positions.at(-1)).toBeLessThan(html.indexOf("</section>"))
-    expect(html).toContain("Install Atet for your agent.")
-    expect(html).toContain("Atet is an open-source, local-first creative coding toolkit for")
-    expect(html).toContain("Codex, Claude, and other coding agents")
-    expect(html).toContain("Bun 1.3.14+ · Codex user account")
-    expect(html).toContain("Run the last command from the project")
-    expect(html).toContain("Start a new")
-    expect(html).toContain("agent session")
+    expect(html).toContain("Creative tools for coding agents.")
+    expect(searchableHtml).toContain("Atet is a local toolkit that your agent runs inside a project")
+    expect(searchableHtml).toContain("create images, editable diagrams, animation, and video")
+    expect(searchableHtml).toContain("The Agent Skill is a short guide")
+    expect(searchableHtml).toContain("teaches Codex, Claude, or another coding agent how to use it")
+    expect(html).toContain("Requires Bun 1.3.14+ · Installs for Codex by default")
+    expect(html).toContain("inside the project you want to work")
+    expect(html).toContain("start a new agent session")
     expect(html).toContain("atet skill install --target claude")
     expect(html).toContain("atet skill install --target agents")
     expect(html).toContain("--scope project")
@@ -164,15 +167,16 @@ describe("static Atet site", () => {
     const html = await readSource("index.html")
 
     for (const claim of [
-      "turn this repository architecture into a clear diagram",
-      "vectorize this mark",
-      "create three image directions",
-      "build a seamless animated loop",
-      "Atet to review this video project",
+      "services in this repository into a diagram I can edit later",
+      "convert <code>logo.png</code> into a clean SVG",
+      "three cover-image ideas for this article",
+      "seamless five-second 3D loop",
+      "render this logo as polished metal",
     ]) {
       expect(html.toLowerCase()).toContain(claim.toLowerCase())
     }
 
+    expect(html).not.toMatch(/checked step|checked path|bounded capability|delivery variant/i)
     expect(html).not.toMatch(/<table\b|class="table-wrap"/)
     expect(html).not.toMatch(/atet\.diagram\.|atet\.image\.|@hraness\/atet\/code/)
     expect(html).not.toMatch(/AI_GATEWAY_API_KEY|VERCEL_OIDC_TOKEN|ATET_CACHE_DIR/)
@@ -189,16 +193,16 @@ describe("static Atet site", () => {
 
   test("explains the architecture and trust boundary in plain language", async () => {
     const html = await readSource("index.html")
+    const searchableHtml = html.replace(/\s+/gu, " ")
 
-    for (const claim of ["Intent", "Plan", "Execution", "Result"]) {
+    for (const claim of ["Request", "Choose", "Run", "Review"]) {
       expect(html).toContain(claim)
     }
-    expect(html).toContain("Several ways in, one underlying system.")
-    expect(html).toContain("macOS desktop app adds")
-    expect(html).toContain("native capture without creating a second project model")
-    expect(html).toContain("Gateway credentials are supplied by your local process and are not stored by Atet")
-    expect(html).toContain("Atet does not operate a hosted project database or account system")
-    expect(html).toContain("it is not an operating-system")
+    expect(html).toContain("How people and software use it")
+    expect(searchableHtml).toContain("macOS desktop app uses the same local project files")
+    expect(searchableHtml).toContain("your own Vercel AI Gateway credential")
+    expect(searchableHtml).toContain("There is no hosted project database, login, or subscription")
+    expect(searchableHtml.toLowerCase()).toContain("it is not an operating-system")
     expect(html).not.toMatch(/<form|type="password"|\/api\//)
   })
 
@@ -258,7 +262,9 @@ describe("static Atet site", () => {
     expect(Array.from(social.slice(1, 4))).toEqual([80, 78, 71])
     expect(socialView.getUint32(16)).toBe(1200)
     expect(socialView.getUint32(20)).toBe(630)
-    expect(socialSource).toContain("Carry ideas")
+    expect(socialSource).toContain("Creative tools")
+    expect(socialSource).toContain("for coding")
+    expect(socialSource).toContain("agents.")
     expect(socialSource).toContain("Iowan Old Style")
     expect(socialSource).toContain('fill="#e8aa48"')
     expect(Array.from(apple.slice(1, 4))).toEqual([80, 78, 71])
@@ -431,6 +437,6 @@ describe("static Atet site", () => {
     expect(html).toContain('href="https://hraness.com"')
     expect(html).toContain('aria-label="hraness"')
     expect(html).toContain('class="hraness-mark"')
-    expect(html).toContain("Atet · MIT · Local-first creative tools.")
+    expect(html).toContain("Atet · MIT · Creative tools for coding agents.")
   })
 })

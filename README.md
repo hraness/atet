@@ -1,96 +1,121 @@
 # Atet
 
-[![Atet: agentic creative coding toolkit](https://atet.sh/og.png)](https://atet.sh)
+[![Atet: creative tools for coding agents](https://atet.sh/og.png)](https://atet.sh)
 
-**Agentic creative coding toolkit.**
+**Creative tools for coding agents.**
 
-At the beginning of time, when there was nothing but chaos, Atum existed alone
-in the watery mass of Nun. A pyramid mound called Benben emerged. When the
-lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the
-underworld on the solar barque Atet.
+Atet gives Codex, Claude, and other coding agents a practical way to create
+images, editable diagrams, animated loops, and video inside a project. It
+includes a Bun CLI, meaning a command-line app that does the work, and an Agent
+Skill that teaches the agent how to use it.
 
-Atet is an open-source, local-first creative coding toolkit for agents. It gives
-Codex, Claude, and other coding agents a checked path from an idea or source
-asset to images, diagrams, animated loops, and video. The TypeScript SDK, Bun
-CLI, Agent Skill, MCP server, and local runtime share one set of contracts, so
-the files a person reviews are the files the tools understand.
+Install Atet once, open a project, and describe the result you want. Your agent
+chooses the appropriate Atet command, works with the files in that project, and
+shows you what it made. Atet does not require an account or upload your project
+to an Atet service.
 
-[Install](#install-atet-for-your-agent) · [Use with an agent](#give-your-agent-a-task) · [Capabilities](#what-atet-makes) · [Architecture](#how-atet-works) · [atet.sh](https://atet.sh) · [Security](SECURITY.md)
+[Install](#install-atet) · [Ask for something](#ask-your-agent-to-use-atet) · [Outputs](#what-atet-can-make) · [Design](#how-atet-is-designed) · [atet.sh](https://atet.sh) · [Security](SECURITY.md)
 
-## Install Atet for your agent
+## Install Atet
 
-Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the CLI and its
-Agent Skill from the public repository:
+Atet requires [Bun 1.3.14 or newer](https://bun.sh). Run these commands once:
 
 ```sh
 bun add --global github:hraness/atet
 atet skill install
+```
+
+The first command installs the Atet command-line app. The second installs a
+short guide that Codex reads when you ask it to use Atet.
+
+Next, move into the project where you want to work and check what Atet can use
+on your computer:
+
+```sh
+cd /path/to/your/project
 atet doctor
 ```
 
-Run `atet doctor` from the project you want the agent to use. Start a new agent
-session after installing the skill so the agent discovers it. The default
-installs Atet for Codex in your user account.
+Start a new agent session after installing the skill. The default installation
+works with Codex across your user account.
 
-Choose another agent or keep the skill inside one repository when needed:
+For Claude Code or another agent system:
 
 ```sh
 atet skill install --target claude
 atet skill install --target agents
+```
+
+To install the guide only for the current repository, run this from that
+repository:
+
+```sh
 atet skill install --scope project
 ```
 
-`--scope project` uses the current directory. Pass `--project <path>` when the
-target repository is elsewhere. `atet skill path` prints the packaged source
-of the installed guide.
+Use `--project <path>` when the target repository is somewhere else.
+`atet skill path` prints the packaged guide so you or your agent can inspect
+the exact instructions.
 
-Atet is distributed directly through GitHub and is not published to npm. To
-use the SDK inside a Bun project:
+Atet is distributed directly through GitHub and is not published to npm.
 
-```sh
-bun add github:hraness/atet
-```
+## Ask your agent to use Atet
 
-## Give your agent a task
+Open the project that contains your source files, start a new agent session,
+and mention Atet in your request. Say which file or subject to use and what you
+want to receive.
 
-Open a project and describe the result. Name Atet when you want the agent to
-use its checked creative workflow.
+> Use Atet to turn the services in this repository into a diagram I can edit
+> later.
 
-> Use Atet to turn this repository architecture into a clear diagram.
+> Use Atet to convert `logo.png` into a clean SVG. Keep the original PNG
+> unchanged.
 
-> Use Atet to vectorize this mark and keep the original beside the reusable
-> asset.
+> Use Atet to create three cover-image ideas for this article and show them to
+> me side by side.
 
-> Use Atet to create three image directions for this chapter and help me
-> compare them.
+> Use Atet to turn `reference.png` into a seamless five-second 3D loop with a
+> transparent background.
 
-> Use Atet to build a seamless animated loop from this reference image.
+> Use Atet to render this logo as polished metal on a plain background. Keep
+> the original shape recognizable.
 
-> Use Atet to review this video project and explain the next checked step.
+You do not need to learn the command tree first. The installed skill tells the
+agent which Atet tools exist, how to run them, and what to inspect before it
+reports back.
 
-The skill teaches the agent to find existing source, preserve the literal
-request, choose a bounded capability, run the work, inspect the result, and
-keep editable source when the workflow has one. You do not need to memorize
-the command tree before asking for work.
+### What happens after you ask
 
-### Agent operating guide
+1. Your agent reads the Atet skill and your project instructions.
+2. It looks for the source files you named and any existing Atet work for the
+   same subject.
+3. It chooses an Atet command that matches the request.
+4. Atet checks the inputs, creates the result, and saves it in your project.
+5. The agent inspects the result and tells you which files were created or
+   changed.
 
-Agents working directly with the repository should follow these rules:
+When the work has editable source, such as a diagram or 3D scene, Atet keeps
+that source alongside the rendered output. You can ask for revisions in the
+same plain language.
 
-1. Read local repository instructions and look for existing Atet source before
-   creating another copy.
-2. Treat the user prompt as the content specification. Do not invent labels,
-   relationships, examples, or visual claims.
-3. Keep authored diagram, scene, and workflow source authoritative. Regenerate
-   derived files instead of editing them by hand.
-4. Use `--json` or the semantic operation registry when another program needs
-   a stable result. Do not scrape human-readable terminal output.
-5. Keep credentials process-local. Never put a Gateway key in a command,
-   project file, receipt, or generated artifact.
-6. Inspect visual output at its intended size and report useful source,
-   artifact, and receipt paths.
+### Instructions for coding agents
 
-Current machine-readable discovery:
+Agents using Atet should follow these rules:
+
+1. Read the repository's local instructions before changing anything.
+2. Search for existing Atet source for the same subject before creating a new
+   copy.
+3. Treat the user's request as the content specification. Do not invent labels,
+   relationships, examples, or claims.
+4. Change editable source, then regenerate derived images or video. Do not
+   patch a rendered file when source exists.
+5. Use `--json` when another program needs to read a command result.
+6. Keep Gateway credentials in the process environment. Never put a key in a
+   command, project file, log, or generated artifact.
+7. Inspect visual output at the size where it will be used.
+8. Report the useful source and output paths when the task is complete.
+
+Useful discovery commands:
 
 ```sh
 atet --help
@@ -99,23 +124,25 @@ atet code search 'diagram' --limit 4
 atet skill path
 ```
 
-For a connected tool server, run `atet mcp --root /absolute/workspace`. Its
-dedicated diagram tools and fixed `search_atet` / `execute_atet` registry keep
-file access inside that selected workspace.
+For a connected MCP server, run
+`atet mcp --root /absolute/path/to/workspace`. The server limits file access
+to that workspace and exposes a fixed set of Atet operations rather than
+running arbitrary commands supplied through MCP.
 
-## What Atet makes
+## What Atet can make
 
-| Output | What an agent can do | Inspectable result |
+| Output | What Atet does | What you receive |
 | --- | --- | --- |
-| Images | Generate through Vercel AI Gateway or convert caller-owned raster artwork into bounded SVG. | Image files, local vector output, and generation or provenance receipts. |
-| Diagrams | Turn an explanation into checked source and render it for editing or publication. | One `.diagram.json` source, editable `.tldr`, light and dark SVG, and light and dark PNG. |
-| Animated loops | Build timed HTML, SVG, shader, or Three.js scenes and render repeatable motion. | Reviewed scene source, references, preview, and final artifact. |
-| Video | Compose recordings, imported media, generated candidates, audio, captions, overlays, camera moves, and delivery variants. | An immutable project revision with preview, final outputs, and receipts. |
+| Images | Creates images through Vercel AI Gateway or converts artwork you already own into SVG locally. | The image or SVG, plus a small record of how Atet made it. |
+| Diagrams | Turns an explanation or system description into an editable diagram. | One source file, an editable tldraw file, and light and dark SVG and PNG exports. |
+| Animated loops | Builds repeatable motion with HTML, SVG, shaders, or Three.js. | Editable scene source, a preview, and the rendered loop. |
+| Video | Combines recordings, imported media, graphics, sound, captions, and alternate formats in one project. | Project files, preview renders, and final exports. |
 
-These are four output families, not four separate products. They share the
-same source, project, execution, and artifact model.
+These are four kinds of output from one toolkit. An image can become part of a
+diagram, a diagram can become part of a video, and the same project files can
+be opened from the CLI, SDK, or desktop app.
 
-### Useful CLI examples
+### Common commands
 
 Create and render an editable diagram:
 
@@ -125,13 +152,14 @@ atet diagram check diagrams/system.diagram.json --strict
 atet diagram render diagrams/system.diagram.json
 ```
 
-Vectorize existing artwork locally, without a credential or network request:
+Convert existing artwork to SVG on your computer, without a credential or
+network request:
 
 ```sh
-atet image vectorize input.png --output input.svg --json
+atet image vectorize logo.png --output logo.svg --json
 ```
 
-Generate an image through Vercel AI Gateway:
+Generate an image through your Vercel AI Gateway account:
 
 ```sh
 export AI_GATEWAY_API_KEY='<value>'
@@ -140,8 +168,8 @@ atet image generate 'one cobalt circle on white' \
   --json
 ```
 
-With a linked Vercel project, a short-lived OIDC token can stay outside project
-files:
+If the project is linked to Vercel, you can use its short-lived local
+credential instead of storing a key in the project:
 
 ```sh
 vercel env run -- atet image generate \
@@ -150,88 +178,111 @@ vercel env run -- atet image generate \
   --json
 ```
 
-### TypeScript SDK
+## How Atet is designed
 
-SDK imports have no CLI side effects and do not inspect local state:
+Atet has several entry points, but they all use the same underlying project and
+execution system:
+
+- **Agent Skill:** a readable guide that teaches a coding agent when and how to
+  use Atet.
+- **CLI:** the `atet` command that agents and people run.
+- **TypeScript SDK:** library functions for software that needs Atet directly.
+- **MCP server:** a fixed, workspace-scoped set of tools for connected agents.
+- **Local media engine:** project storage, rendering, analysis, and scheduling
+  for larger media work.
+- **macOS desktop app:** the same local engine with screen capture, permissions,
+  previews, and a graphical interface.
+
+The normal path through the system is straightforward:
+
+1. **Request:** a person describes the result and points to any source files.
+2. **Choose:** the agent selects a known Atet operation.
+3. **Run:** Atet validates the inputs and performs the work locally, or uses
+   Vercel AI Gateway when the request needs a generative model.
+4. **Review:** Atet saves the files in the project and the agent inspects them
+   with the person.
+
+### Design choices
+
+- **No Atet account:** there is no hosted project database, login, or
+  subscription.
+- **Local wherever possible:** diagrams, vectorization, project state, and
+  deterministic rendering stay on the computer running Atet.
+- **Editable work stays editable:** diagrams, scenes, and media projects keep
+  their source instead of leaving only a flattened export.
+- **Revisions are explicit:** alternatives and exports begin from a specific
+  project state instead of silently overwriting earlier work.
+- **Clear limits:** Atet checks file types, paths, dimensions,
+  response sizes, process duration, and expensive concurrent work.
+- **A record of what happened:** important model and media operations record the inputs
+  and tool identity needed to understand how an output was produced, without
+  recording credentials.
+- **Preview matches final:** previews use the same timeline and composition as
+  final renders at a lower quality setting.
+
+Read [the architecture guide](docs/architecture.md) for project revisions,
+caching, rendering, and network boundaries.
+
+## For software integrations
+
+Add the package to a Bun project:
+
+```sh
+bun add github:hraness/atet
+```
+
+SDK imports do not start the CLI or inspect local project state:
 
 ```ts
 import { vectorizeImage } from "@hraness/atet"
 
-const result = await vectorizeImage("input.png", {
-  outputPath: "input.svg",
+const result = await vectorizeImage("logo.png", {
+  outputPath: "logo.svg",
 })
 
 console.log(result.receipt.sourceSha256, result.receipt.svgSha256)
 ```
 
-Use `@hraness/atet/code` for declarative graphs,
-`@hraness/atet/workflow` for explicitly imported Bun workflows, and
-`@hraness/atet/local/*` for the complete local media engine. The operation
-registry is closed: callers select typed capabilities rather than registering
-arbitrary code at runtime.
+Use `@hraness/atet/code` for declarative workflow graphs,
+`@hraness/atet/workflow` for trusted Bun workflows imported by the caller,
+and `@hraness/atet/local/*` for the local media engine. Atet exposes
+a fixed set of typed operations. It does not let a remote caller register and
+execute arbitrary code through the operation registry.
 
-## How Atet works
+## Network and trust
 
-Atet has three visual primitives: a still frame, a structured scene, and a
-time-based composition. Images, diagrams, loops, and videos are common outputs
-built from those primitives.
-
-The path through the system stays simple:
-
-1. **Intent.** A person describes the result or provides source material.
-2. **Plan.** The agent chooses a known Atet capability and creates or updates
-   checked source when the work has one.
-3. **Execution.** Atet validates inputs, coordinates local resources, and calls
-   Vercel AI Gateway only when a model is required.
-4. **Result.** Artifacts return to caller-owned storage with the source and
-   identity needed to inspect, revise, or reproduce the work.
-
-The portable SDK, CLI, Agent Skill, MCP server, complete local runtime, and
-desktop shell use that same engine. The desktop adds native capture,
-permissions, and preview UI. It does not create a separate project format.
-
-Important design properties:
-
-- **Caller-owned storage.** Atet has no hosted account, database, session, or
-  subscription system.
-- **Source before output.** Source-based work keeps its editable plan or scene;
-  rendered files remain replaceable.
-- **Immutable project revisions.** Creative candidates and delivery variants
-  branch from an exact base rather than silently rewriting it.
-- **Content-addressed reuse.** Unchanged analysis and renders can be reused by
-  exact identity.
-- **Bounded execution.** Inputs, pixels, frames, subprocesses, downloads,
-  responses, and expensive concurrent work have explicit limits.
-- **Truthful previews.** Preview and final resolve the same composition at
-  different quality profiles.
-
-Read [the architecture guide](docs/architecture.md) for the project, cache,
-rendering, and network boundaries.
-
-## Trust and network boundary
-
-Local diagram rendering and image vectorization do not require network access.
-Model-backed work sends the prompt and supplied media directly from the current
-process to Vercel AI Gateway and the selected provider. Atet reads
+Diagram rendering and image vectorization do not need network access.
+Model-backed work sends the prompt and supplied media from the current process
+to Vercel AI Gateway and the selected model provider. Atet reads
 `AI_GATEWAY_API_KEY` first or a short-lived `VERCEL_OIDC_TOKEN`; it does not
 store or print either credential.
 
-Atet validates its own capabilities, paths, and artifacts. It is not an
-operating-system sandbox. Explicitly imported Bun workflows and other code a
-user chooses to run retain the trust of that user account.
+Atet checks the inputs accepted by its own commands. It is not an
+operating-system sandbox. A Bun workflow or other project code that you
+deliberately run has the same permissions as other code running under your
+user account.
 
 See [SECURITY.md](SECURITY.md) for reporting and supported-version policy, and
 [NOTICE.md](NOTICE.md) for tldraw Offline, VTracer, rendering, and model
 integration terms.
 
+## Why the name Atet
+
+**Agentic creative coding toolkit.**
+
+At the beginning of time, when there was nothing but chaos, Atum existed alone
+in the watery mass of Nun. A pyramid mound called Benben emerged. When the
+lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the
+underworld on the solar barque Atet.
+
 ## Repository map
 
-- `src/`: portable SDK, CLI adapters, semantic operations, MCP, and workflows.
-- `apps/desktop/`: complete local runtime, media engine, CLI host, desktop app,
-  and native capture helpers.
-- `schema/` and `examples/`: public diagram schema and runnable examples.
+- `src/`: portable SDK, CLI adapters, operations, MCP, and workflows.
+- `apps/desktop/`: local media engine, CLI host, desktop app, and native
+  capture helpers.
+- `schema/` and `examples/`: diagram schema and runnable examples.
 - `skills/atet/`: the packaged Agent Skill and its focused references.
-- `docs/architecture.md`: the maintained system overview.
+- `docs/architecture.md`: the maintained technical overview.
 
 ## Development
 
@@ -240,9 +291,9 @@ bun install --frozen-lockfile --ignore-scripts
 bun run check
 ```
 
-The full check verifies the standalone public boundary, SDK and local runtime,
-schema, Agent Skill, deterministic and property tests, generated entrypoints,
-static site, and a clean packed consumer.
+The full check verifies the standalone public boundary, SDK, local runtime,
+schema, Agent Skill, generated entrypoints, static site, deterministic tests,
+property tests, and a clean packed consumer.
 
 ## License
 
