@@ -6,8 +6,8 @@
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#09090d" media="(prefers-color-scheme: dark)">
-    <title>Atet: creative tools for coding agents</title>
-    <meta name="description" content="Atet gives Codex, Claude, and other coding agents tools to create images, editable diagrams, animated loops, and video inside a project.">
+    <title>Atet: AI media generation and video editing for coding agents</title>
+    <meta name="description" content="Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos.">
     <meta name="application-name" content="Atet">
     <meta name="generator" content="Bun 1.3.14">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -19,19 +19,19 @@
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Atet">
-    <meta property="og:title" content="Atet: creative tools for coding agents">
-    <meta property="og:description" content="Atet gives Codex, Claude, and other coding agents tools to create images, editable diagrams, animated loops, and video inside a project.">
+    <meta property="og:title" content="Atet: AI media generation and video editing for coding agents">
+    <meta property="og:description" content="Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos.">
     <meta property="og:url" content="https://atet.sh/">
     <meta property="og:image" content="https://atet.sh/og.png">
-    <meta property="og:image:alt" content="Atet, creative tools for coding agents, beside an abstract solar disk and barque path">
+    <meta property="og:image:alt" content="Atet, AI media generation and video editing for coding agents, beside an abstract solar disk and barque path">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
 
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Atet: creative tools for coding agents">
-    <meta name="twitter:description" content="Atet gives Codex, Claude, and other coding agents tools to create images, editable diagrams, animated loops, and video inside a project.">
+    <meta name="twitter:title" content="Atet: AI media generation and video editing for coding agents">
+    <meta name="twitter:description" content="Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos.">
     <meta name="twitter:image" content="https://atet.sh/og.png">
-    <meta name="twitter:image:alt" content="Atet, creative tools for coding agents, beside an abstract solar disk and barque path">
+    <meta name="twitter:image:alt" content="Atet, AI media generation and video editing for coding agents, beside an abstract solar disk and barque path">
 
     <script type="application/ld+json">
       {
@@ -48,7 +48,7 @@
             "@id": "https://atet.sh/#website",
             "@type": "WebSite",
             "name": "Atet",
-            "description": "Atet gives Codex, Claude, and other coding agents tools to create images, editable diagrams, animated loops, and video inside a project.",
+            "description": "Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos.",
             "inLanguage": "en",
             "publisher": { "@id": "https://hraness.com/#organization" },
             "url": "https://atet.sh/"
@@ -56,8 +56,8 @@
           {
             "@id": "https://atet.sh/#webpage",
             "@type": "WebPage",
-            "name": "Atet: creative tools for coding agents",
-            "description": "Atet gives Codex, Claude, and other coding agents tools to create images, editable diagrams, animated loops, and video inside a project.",
+            "name": "Atet: AI media generation and video editing for coding agents",
+            "description": "Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos.",
             "inLanguage": "en",
             "isPartOf": { "@id": "https://atet.sh/#website" },
             "mainEntity": { "@id": "https://atet.sh/#software" },
@@ -68,14 +68,16 @@
             "@id": "https://atet.sh/#software",
             "@type": "SoftwareApplication",
             "name": "Atet",
-            "applicationCategory": "DeveloperApplication",
-            "description": "Atet gives Codex, Claude, and other coding agents tools to create images, editable diagrams, animated loops, and video inside a project.",
+            "applicationCategory": "MultimediaApplication",
+            "description": "Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos.",
             "featureList": [
               "Agent Skill for Codex, Claude, and other coding agents",
-              "Image generation and local image-to-SVG conversion",
-              "Editable diagrams with tldraw, SVG, and PNG exports",
-              "Animated loops and video composition",
-              "Local project files with records of important operations"
+              "AI image, video, speech, and transcription through Vercel AI Gateway",
+              "Screen, camera, microphone, and system-audio recording",
+              "Non-destructive video editing, captions, overlays, color, and audio effects",
+              "Landscape, vertical, square, and portrait video delivery",
+              "Editable diagrams, local vectorization, and deterministic motion graphics",
+              "Local project files with explicit revisions and operation receipts"
             ],
             "author": { "@id": "https://hraness.com/#organization" },
             "installUrl": "https://atet.sh/#install",
@@ -127,13 +129,13 @@
     <main id="main" tabindex="-1">
       <section id="install" aria-labelledby="page-title" class="docs-hero">
         <div class="docs-hero-copy">
-          <p class="eyebrow">Agentic creative coding toolkit</p>
-          <h1 id="page-title">Creative tools for coding agents.</h1>
+          <p class="eyebrow">AI media · video editing · motion graphics</p>
+          <h1 id="page-title">Make and edit visual media with your coding agent.</h1>
           <p>
-            Atet is a local toolkit that your agent runs inside a project to
-            create images, editable diagrams, animation, and video. The
-            command-line app does the work. The Agent Skill is a short guide
-            that teaches Codex, Claude, or another coding agent how to use it.
+            Atet lets Codex, Claude, and other coding agents generate images,
+            video, and voice; edit screen recordings and imported footage; add
+            captions, graphics, and motion; and export finished videos from the
+            files in your project.
           </p>
         </div>
 
@@ -146,15 +148,15 @@
           </ol>
           <p class="panel-note">
             Run <code>atet doctor</code> inside the project you want to work
-            in. Then start a new agent session so it can see the skill.
+            in. Then start a new agent session and describe the finished result.
           </p>
         </div>
       </section>
 
       <nav aria-label="Page sections" class="docs-index">
         <a href="#install"><span>01</span> Install</a>
-        <a href="#use"><span>02</span> Use</a>
-        <a href="#features"><span>03</span> Features</a>
+        <a href="#examples"><span>02</span> Examples</a>
+        <a href="#workflow"><span>03</span> Workflow</a>
         <a href="#design"><span>04</span> Design</a>
       </nav>
 
@@ -162,70 +164,78 @@
         <section aria-labelledby="targets-title" class="docs-section install-details">
           <div class="docs-label"><p>Other setups</p></div>
           <div class="docs-prose">
-            <h2 id="targets-title">Choose where Atet installs its instructions.</h2>
+            <h2 id="targets-title">Install the instructions where your agent can read them.</h2>
             <p>
-              The CLI is the program that does the work. The Agent Skill is a
-              readable guide your agent uses to decide which command to run.
+              The CLI performs the work. The Agent Skill explains the creative
+              tools and the decisions an agent should make before it uses them.
               By default, Atet installs that guide for Codex across your user
               account.
             </p>
             <dl class="setup-options">
               <div><dt>Claude Code</dt><dd><code>atet skill install --target claude</code></dd></div>
-              <div><dt>Other systems that read Agent Skills</dt><dd><code>atet skill install --target agents</code></dd></div>
+              <div><dt>Other Agent Skill readers</dt><dd><code>atet skill install --target agents</code></dd></div>
               <div><dt>Only the current repository</dt><dd>Run the install there and add <code>--scope project</code>.</dd></div>
             </dl>
           </div>
         </section>
 
-        <section id="use" aria-labelledby="use-title" class="docs-section">
-          <div class="docs-label"><p>Use</p></div>
+        <section id="examples" aria-labelledby="examples-title" class="docs-section">
+          <div class="docs-label"><p>Examples</p></div>
           <div class="docs-prose">
-            <h2 id="use-title">Ask for a result, not a command.</h2>
+            <h2 id="examples-title">Give your agent the whole creative job.</h2>
             <p>
-              Open the project that contains your source files, start a new
-              agent session, and mention Atet in your request. Say which file
-              or subject to use and what you want to receive. Your agent will
-              choose and run the commands.
+              A useful request names the source, the result, and the details
+              that must remain unchanged. Your agent can plan the individual
+              commands and show you a preview before it makes the final files.
             </p>
             <div class="prompt-list" aria-label="Example requests">
-              <blockquote>“Use Atet to turn the services in this repository into a diagram I can edit later.”</blockquote>
-              <blockquote>“Use Atet to convert <code>logo.png</code> into a clean SVG. Keep the original PNG unchanged.”</blockquote>
-              <blockquote>“Use Atet to create three cover-image ideas for this article and show them to me side by side.”</blockquote>
-              <blockquote>“Use Atet to turn <code>reference.png</code> into a seamless five-second 3D loop with a transparent background.”</blockquote>
-              <blockquote>“Use Atet to render this logo as polished metal on a plain background. Keep the original shape recognizable.”</blockquote>
+              <article class="prompt-example">
+                <h3>Edit a product demo</h3>
+                <blockquote>“Use Atet to record my screen, camera, microphone, and system audio while I demo the app. When I stop, turn the recording into a polished two-minute walkthrough. Remove long pauses and filler words, zoom in when I click or type, keep me framed, add readable captions and <code>logo.svg</code>, and show me a preview before exporting the final video.”</blockquote>
+              </article>
+              <article class="prompt-example">
+                <h3>Generate an opening sequence</h3>
+                <blockquote>“Use Atet to create three opening-shot ideas from <code>product.png</code>. Show them to me side by side, then animate the one I choose into a six-second widescreen clip. Keep the product shape, colors, and lettering recognizable.”</blockquote>
+              </article>
+              <article class="prompt-example">
+                <h3>Add voice and deliver every format</h3>
+                <blockquote>“Use Atet to generate a calm voiceover from <code>script.txt</code>, place it over the approved edit, mix the music quietly underneath it, and export clean and captioned versions in 16:9, 9:16, 1:1, and 4:5.”</blockquote>
+              </article>
+              <article class="prompt-example">
+                <h3>Explain a system visually</h3>
+                <blockquote>“Use Atet to turn the services in this repository into an editable diagram, then build a short animated version that introduces each service in order.”</blockquote>
+              </article>
             </div>
             <p class="quiet-note">
-              After it runs, your agent should show you the result, tell you
-              where the files were saved, and keep editable source when Atet
-              creates it. You can ask for changes in the same way. You do not
-              need to learn the CLI first.
+              After it runs, your agent should show you the result and report
+              the source, preview, and final output files. You can ask for
+              changes in the same plain language.
             </p>
           </div>
         </section>
 
-        <section id="features" aria-labelledby="features-title" class="docs-section">
-          <div class="docs-label"><p>Features</p></div>
+        <section id="workflow" aria-labelledby="workflow-title" class="docs-section">
+          <div class="docs-label"><p>Workflow</p></div>
           <div class="docs-prose">
-            <h2 id="features-title">Images, diagrams, animation, and video.</h2>
+            <h2 id="workflow-title">From raw footage to finished delivery.</h2>
             <p>
-              Atet uses one project system for four kinds of visual output.
-              Work can begin with files you already have, a plain-language
-              description, or both.
+              Atet brings generation, editing, motion, and export into one
+              project that your agent can inspect and revise.
             </p>
             <dl class="feature-list">
-              <div><dt>Images</dt><dd>Create an image through Vercel AI Gateway, or convert artwork you already own into SVG on your computer.</dd></div>
-              <div><dt>Diagrams</dt><dd>Turn an explanation into an editable diagram with tldraw, SVG, and PNG exports.</dd></div>
-              <div><dt>Animated loops</dt><dd>Build repeatable motion with editable HTML, SVG, shader, or Three.js source.</dd></div>
-              <div><dt>Video</dt><dd>Combine recordings, graphics, sound, captions, and alternate formats in one local project.</dd></div>
+              <div><dt>Bring in what you have</dt><dd>Record a screen, camera, microphone, and system audio on macOS, or import existing video, audio, images, and graphics.</dd></div>
+              <div><dt>Generate what is missing</dt><dd>Discover current Gateway models and create images, video shots, voiceovers, or transcripts from text and reference media.</dd></div>
+              <div><dt>Shape the edit</dt><dd>Remove pauses and filler words, align sound, reframe speakers, zoom into screen actions, add overlays, captions, color, and audio treatment.</dd></div>
+              <div><dt>Review before final</dt><dd>Render a lower-cost preview from the same timeline and composition that will produce the final video.</dd></div>
+              <div><dt>Deliver every version</dt><dd>Export clean and captioned cuts in landscape, vertical, square, and portrait formats without rebuilding the edit.</dd></div>
             </dl>
             <aside class="plain-aside">
-              <h3>How people and software use it</h3>
+              <h3>Graphics and motion use the same toolkit</h3>
               <p>
-                Most people install the Agent Skill and talk to their coding
-                agent. Underneath, the agent runs the Atet CLI. Developers can
-                call the same tools through the TypeScript SDK or MCP server.
-                The macOS desktop app uses the same local project files and
-                adds screen capture and previews.
+                Atet also creates editable diagrams, converts raster artwork to
+                SVG locally, and builds deterministic animated layers with
+                HTML, SVG, shaders, and Three.js. Those outputs can stand alone
+                or join a video project.
               </p>
             </aside>
           </div>
@@ -234,50 +244,46 @@
         <section id="design" aria-labelledby="design-title" class="docs-section design-section">
           <div class="docs-label"><p>Design</p></div>
           <div class="docs-prose">
-            <h2 id="design-title">Your files stay in your project.</h2>
+            <h2 id="design-title">A local project your agent can understand.</h2>
             <p>
-              Atet is not a web app and does not have user accounts. It runs on
-              your computer and writes source files, previews, and final
-              outputs to storage you control. When a task needs a generative
-              model, your local Atet process sends that request through your
-              own Vercel AI Gateway credential.
+              Atet keeps source media, editing decisions, previews, and final
+              outputs in storage you control. The agent chooses explicit
+              operations, and the project records what those operations changed.
             </p>
 
             <ol class="architecture-flow" aria-label="Atet system overview">
-              <li><span>01</span><div><strong>Request</strong><p>You describe what you want and point to any source files.</p></div></li>
-              <li><span>02</span><div><strong>Choose</strong><p>Your agent selects the Atet tool made for that kind of work.</p></div></li>
-              <li><span>03</span><div><strong>Run</strong><p>Atet checks the inputs, then works locally or calls the configured model provider.</p></div></li>
-              <li><span>04</span><div><strong>Review</strong><p>The files are saved in your project and your agent shows you what changed.</p></div></li>
+              <li><span>01</span><div><strong>Source</strong><p>Original recordings and imported media stay unchanged.</p></div></li>
+              <li><span>02</span><div><strong>Project</strong><p>Cuts, timing, framing, overlays, and effects become a revisable project state.</p></div></li>
+              <li><span>03</span><div><strong>Operations</strong><p>Your agent chooses from checked local tools and current Gateway models.</p></div></li>
+              <li><span>04</span><div><strong>Outputs</strong><p>Previews, alternatives, and deliveries remain tied to the project state that produced them.</p></div></li>
             </ol>
 
             <dl class="confidence-list">
-              <div><dt>No Atet account</dt><dd>There is no hosted project database, login, or subscription.</dd></div>
-              <div><dt>Local wherever possible</dt><dd>Diagrams, vectorization, project state, and deterministic rendering stay on the computer running Atet.</dd></div>
-              <div><dt>Editable work stays editable</dt><dd>Diagrams, scenes, and media projects keep their source instead of leaving only a flattened export.</dd></div>
-              <div><dt>Clear limits</dt><dd>Atet checks file types, paths, dimensions, response sizes, process duration, and expensive concurrent work.</dd></div>
-              <div><dt>A record of what happened</dt><dd>Important model and media operations record what created the output without including credentials.</dd></div>
+              <div><dt>Local project</dt><dd>There is no Atet account or hosted project database. Source, project state, previews, and final files stay in storage you control.</dd></div>
+              <div><dt>Caller-owned AI access</dt><dd>Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement.</dd></div>
+              <div><dt>Non-destructive revisions</dt><dd>Original media remains intact while alternatives and approved changes are recorded as distinct project states.</dd></div>
+              <div><dt>Reviewable results</dt><dd>Preview and final use the same edit, while secret-free receipts identify the inputs and implementation behind important operations.</dd></div>
             </dl>
 
             <aside class="boundary-note">
-              <h3>Atet checks its commands, not every program on your computer</h3>
+              <h3>Atet checks its tools, not every program on your computer</h3>
               <p>
-                Atet validates the inputs accepted by its own tools. It is not
-                an operating-system sandbox. A script you deliberately run in
-                a project has the same permissions as other code running under
-                your user account.
+                Atet validates the inputs accepted by its commands. It is not
+                an operating-system sandbox. Trusted project code runs with the
+                same permissions as other code under your user account.
               </p>
             </aside>
 
             <div class="reference-block">
               <h3>For technical readers</h3>
               <p>
-                The installed skill and <code>atet --help</code> describe the
-                commands available on the current machine. The repository
-                documents the project model, security boundary, and source for
-                people who want to inspect the implementation.
+                The installed Agent Skill and <code>atet --help</code> describe
+                the exact tools available on the current machine. The
+                repository documents the project model, workflow engine,
+                security boundary, and implementation.
               </p>
               <ul>
-                <li><a href="https://github.com/hraness/atet#readme">Agent guide and README <span aria-hidden="true">↗</span></a></li>
+                <li><a href="https://github.com/hraness/atet#readme">README and agent guide <span aria-hidden="true">↗</span></a></li>
                 <li><a href="https://github.com/hraness/atet/blob/main/docs/architecture.md">Architecture <span aria-hidden="true">↗</span></a></li>
                 <li><a href="https://github.com/hraness/atet/blob/main/SECURITY.md">Security policy <span aria-hidden="true">↗</span></a></li>
                 <li><a href="https://github.com/hraness/atet">Source on GitHub <span aria-hidden="true">↗</span></a></li>
@@ -311,7 +317,7 @@
           </svg>
           <span>hraness</span>
         </a>
-        <p class="footer-note">Atet · MIT · Creative tools for coding agents.</p>
+        <p class="footer-note">Atet · MIT · AI media generation and video editing for coding agents.</p>
         <fieldset class="appearance" aria-label="Appearance">
           <legend>Appearance</legend>
           <button type="button" data-theme-choice="light">Light</button>
