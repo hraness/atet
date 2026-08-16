@@ -8,7 +8,7 @@ import { buildWebsite } from "./scripts/build"
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
 const brandDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
-const searchDescription = "Atet gives Codex, Claude, and other coding agents tools to create images, editable diagrams, animated loops, and video inside a project."
+const searchDescription = "Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos."
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
 beforeAll(async () => {
@@ -22,15 +22,19 @@ async function readSource(path: string): Promise<string> {
 describe("static Atet site", () => {
   test("makes the README a detailed agent guide with natural GitHub discovery terms", async () => {
     const readme = await readFile(join(repositoryDirectory, "README.md"), "utf8")
-    const searchableReadme = readme.replaceAll("**", "").replace(/\s+/gu, " ").toLowerCase()
+    const searchableReadme = readme
+      .replaceAll("**", "")
+      .replace(/^>\s?/gmu, "")
+      .replace(/\s+/gu, " ")
+      .toLowerCase()
 
     for (const heading of [
       "## Install Atet",
-      "## Ask your agent to use Atet",
+      "## Start with a finished job",
       "### Instructions for coding agents",
-      "## What Atet can make",
-      "## How Atet is designed",
-      "## Network and trust",
+      "## What Atet does",
+      "## How Atet works",
+      "## Design and trust",
     ]) {
       expect(readme).toContain(heading)
     }
@@ -42,7 +46,10 @@ describe("static Atet site", () => {
       "Agent Skill",
       "MCP server",
       "Vercel AI Gateway",
-      "images, editable diagrams, animated loops, and video",
+      "AI media generation and video editing for coding agents",
+      "screen recordings and imported footage",
+      "image, video, speech, and transcription models",
+      "clean and captioned versions",
     ]) {
       expect(searchableReadme).toContain(term.toLowerCase())
     }
@@ -52,15 +59,51 @@ describe("static Atet site", () => {
     expect(readme).toContain("bun add --global github:hraness/atet")
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
+    expect(readme).toContain("atet ai video generate")
+    expect(readme).toContain("atet workflows show social-variants --json")
     expect(readme).not.toMatch(/checked step|checked path|bounded capability|delivery variant/i)
     expect(readme).not.toContain("https://atet.sh/docs")
     expect(readme).not.toContain("github:hraness/atet#")
   })
 
+  test("ships agent instructions for video editing and Gateway media generation", async () => {
+    const [skill, video, gateway] = await Promise.all([
+      readFile(join(repositoryDirectory, "skills/atet/SKILL.md"), "utf8"),
+      readFile(join(repositoryDirectory, "skills/atet/references/video-projects.md"), "utf8"),
+      readFile(join(repositoryDirectory, "skills/atet/references/gateway-media.md"), "utf8"),
+    ])
+
+    expect(skill).toContain("# Make and edit visual media with Atet")
+    expect(skill).toContain("[video-projects.md](references/video-projects.md)")
+    expect(skill).toContain("[gateway-media.md](references/gateway-media.md)")
+    expect(skill).toContain("social video variants")
+
+    for (const capability of [
+      "talking-head-cleanup",
+      "polished-screen-demo",
+      "social-variants",
+      "creative-iteration",
+      "Preview and final use the same timeline and composition",
+    ]) {
+      expect(video).toContain(capability)
+    }
+
+    for (const command of [
+      "atet ai models list --type image",
+      "atet ai video generate",
+      "atet ai speech generate",
+      "atet ai transcribe",
+      "--allow-cloud-upload",
+      "--allow-cloud-audio-upload",
+    ]) {
+      expect(gateway).toContain(command)
+    }
+  })
+
   test("publishes one canonical Atet identity across discovery metadata", async () => {
     const html = await readSource("index.html")
 
-    expect(html).toContain("<title>Atet: creative tools for coding agents</title>")
+    expect(html).toContain("<title>Atet: AI media generation and video editing for coding agents</title>")
     expect(html).toContain(`<meta name="description" content="${searchDescription}">`)
     expect(html).toContain(`<meta property="og:description" content="${searchDescription}">`)
     expect(html).toContain(`<meta name="twitter:description" content="${searchDescription}">`)
@@ -73,7 +116,7 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta property="og:image:height" content="630">')
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image">')
     expect(html).toContain('<meta name="twitter:image" content="https://atet.sh/og.png">')
-    expect(html).toContain('<meta name="twitter:image:alt" content="Atet, creative tools for coding agents, beside an abstract solar disk and barque path">')
+    expect(html).toContain('<meta name="twitter:image:alt" content="Atet, AI media generation and video editing for coding agents, beside an abstract solar disk and barque path">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
   })
@@ -137,11 +180,11 @@ describe("static Atet site", () => {
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
     expect(positions.at(-1)).toBeLessThan(html.indexOf("</section>"))
-    expect(html).toContain("Creative tools for coding agents.")
-    expect(searchableHtml).toContain("Atet is a local toolkit that your agent runs inside a project")
-    expect(searchableHtml).toContain("create images, editable diagrams, animation, and video")
-    expect(searchableHtml).toContain("The Agent Skill is a short guide")
-    expect(searchableHtml).toContain("teaches Codex, Claude, or another coding agent how to use it")
+    expect(html).toContain("Make and edit visual media with your coding agent.")
+    expect(searchableHtml).toContain("generate images, video, and voice")
+    expect(searchableHtml).toContain("edit screen recordings and imported footage")
+    expect(searchableHtml).toContain("add captions, graphics, and motion")
+    expect(searchableHtml).toContain("export finished videos")
     expect(html).toContain("Requires Bun 1.3.14+ · Installs for Codex by default")
     expect(html).toContain("inside the project you want to work")
     expect(html).toContain("start a new agent session")
@@ -151,9 +194,9 @@ describe("static Atet site", () => {
     expect(html).not.toContain("github:hraness/atet#")
   })
 
-  test("uses one install, use, features, and design information architecture", async () => {
+  test("uses one install, examples, workflow, and design information architecture", async () => {
     const html = await readSource("index.html")
-    const modes = ["> Install<", "> Use<", "> Features<", "> Design<"]
+    const modes = ["> Install<", "> Examples<", "> Workflow<", "> Design<"]
     const positions = modes.map(mode => html.indexOf(mode))
 
     expect(positions.every(position => position >= 0)).toBe(true)
@@ -167,11 +210,11 @@ describe("static Atet site", () => {
     const html = await readSource("index.html")
 
     for (const claim of [
-      "services in this repository into a diagram I can edit later",
-      "convert <code>logo.png</code> into a clean SVG",
-      "three cover-image ideas for this article",
-      "seamless five-second 3D loop",
-      "render this logo as polished metal",
+      "record my screen, camera, microphone, and system audio",
+      "three opening-shot ideas from <code>product.png</code>",
+      "generate a calm voiceover from <code>script.txt</code>",
+      "clean and captioned versions in 16:9, 9:16, 1:1, and 4:5",
+      "services in this repository into an editable diagram",
     ]) {
       expect(html.toLowerCase()).toContain(claim.toLowerCase())
     }
@@ -182,10 +225,16 @@ describe("static Atet site", () => {
     expect(html).not.toMatch(/AI_GATEWAY_API_KEY|VERCEL_OIDC_TOKEN|ATET_CACHE_DIR/)
   })
 
-  test("states the four output families in order", async () => {
+  test("presents one complete creative workflow in order", async () => {
     const html = await readSource("index.html")
-    const families = [">Images<", ">Diagrams<", ">Animated loops<", ">Video<"]
-    const positions = families.map(family => html.indexOf(family))
+    const stages = [
+      ">Bring in what you have<",
+      ">Generate what is missing<",
+      ">Shape the edit<",
+      ">Review before final<",
+      ">Deliver every version<",
+    ]
+    const positions = stages.map(stage => html.indexOf(stage))
 
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
@@ -195,13 +244,12 @@ describe("static Atet site", () => {
     const html = await readSource("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
 
-    for (const claim of ["Request", "Choose", "Run", "Review"]) {
+    for (const claim of ["Source", "Project", "Operations", "Outputs"]) {
       expect(html).toContain(claim)
     }
-    expect(html).toContain("How people and software use it")
-    expect(searchableHtml).toContain("macOS desktop app uses the same local project files")
-    expect(searchableHtml).toContain("your own Vercel AI Gateway credential")
-    expect(searchableHtml).toContain("There is no hosted project database, login, or subscription")
+    expect(html).toContain("A local project your agent can understand.")
+    expect(searchableHtml).toContain("your Vercel AI Gateway credential")
+    expect(searchableHtml).toContain("There is no Atet account or hosted project database")
     expect(searchableHtml.toLowerCase()).toContain("it is not an operating-system")
     expect(html).not.toMatch(/<form|type="password"|\/api\//)
   })
@@ -262,9 +310,9 @@ describe("static Atet site", () => {
     expect(Array.from(social.slice(1, 4))).toEqual([80, 78, 71])
     expect(socialView.getUint32(16)).toBe(1200)
     expect(socialView.getUint32(20)).toBe(630)
-    expect(socialSource).toContain("Creative tools")
-    expect(socialSource).toContain("for coding")
-    expect(socialSource).toContain("agents.")
+    expect(socialSource).toContain("Make and edit")
+    expect(socialSource).toContain("visual media")
+    expect(socialSource).toContain("with your agent.")
     expect(socialSource).toContain("Iowan Old Style")
     expect(socialSource).toContain('fill="#e8aa48"')
     expect(Array.from(apple.slice(1, 4))).toEqual([80, 78, 71])
@@ -437,6 +485,6 @@ describe("static Atet site", () => {
     expect(html).toContain('href="https://hraness.com"')
     expect(html).toContain('aria-label="hraness"')
     expect(html).toContain('class="hraness-mark"')
-    expect(html).toContain("Atet · MIT · Creative tools for coding agents.")
+    expect(html).toContain("Atet · MIT · AI media generation and video editing for coding agents.")
   })
 })

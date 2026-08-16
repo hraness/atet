@@ -1,9 +1,36 @@
 ---
 name: atet
-description: Create or update concise diagrams from a literal user prompt, keep checked source, generate light/dark exports, provide editable tldraw interchange, convert caller-owned raster artwork to bounded SVG, generate images directly through Vercel AI Gateway, or guide reviewed reference-image workflows for Three.js scenes and metallic logo treatments. Use for diagrams, flowcharts, maps, visual explanations, `.tldr` files, image-to-SVG conversion, image generation, low-poly or transparent 3D motion, metallic brand-symbol renders, semantic Atet operations, or typed Bun workflows.
+description: Make and edit visual media with the installed Atet CLI. Use for screen and camera recording, non-destructive video editing, pause or filler-word cleanup, speaker framing, screen zooms, captions, overlays, social video variants, AI image or video generation, speech, transcription, editable diagrams, raster-to-SVG conversion, deterministic animated loops, Three.js scenes, semantic Atet operations, or typed Bun workflows.
 ---
 
-# Create clear diagrams
+# Make and edit visual media with Atet
+
+Use the installed `atet` CLI as the execution surface. Begin with the result
+the user asked for, inspect the source and existing Atet project state, then
+choose the narrowest workflow that can produce and verify that result.
+
+## Choose the right workflow
+
+- For recording, imported footage, video cleanup, camera framing, screen
+  zooms, captions, overlays, audio or color treatment, previews, or delivery
+  variants, read [video-projects.md](references/video-projects.md).
+- For Gateway image generation, video generation, speech, or transcription,
+  read [gateway-media.md](references/gateway-media.md).
+- For a diagram or visual explanation, continue with the diagram workflow
+  below and read
+  [visual-communication.md](references/visual-communication.md) before
+  composing it.
+- For local image-to-SVG conversion, use the vectorization workflow below.
+- For a reference-led Three.js scene, transparent 3D loop, or metallic logo
+  treatment, read [reference-led-3d.md](references/reference-led-3d.md).
+
+One request may cross these workflows. Generate missing media first, inspect
+it, import the selected artifact into the local project, edit the composition,
+render a preview, and produce final deliveries only after the user or task has
+selected the intended direction. Never invent a model ID, project ID, media
+stream ID, or option. Discover it from the current host.
+
+## Create clear diagrams
 
 Use the installed `atet` CLI as the deterministic adapter. Keep the authored
 `.diagram.json` source; treat `.light.svg`, `.dark.svg`, `.light.png`,

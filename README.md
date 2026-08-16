@@ -1,20 +1,19 @@
 # Atet
 
-[![Atet: creative tools for coding agents](https://atet.sh/og.png)](https://atet.sh)
+[![Atet: AI media generation and video editing for coding agents](https://atet.sh/og.png)](https://atet.sh)
 
-**Creative tools for coding agents.**
+**AI media generation and video editing for coding agents.**
 
-Atet gives Codex, Claude, and other coding agents a practical way to create
-images, editable diagrams, animated loops, and video inside a project. It
-includes a Bun CLI, meaning a command-line app that does the work, and an Agent
-Skill that teaches the agent how to use it.
+Atet lets Codex, Claude, and other coding agents generate images, video, and
+voice; edit screen recordings and imported footage; add captions, graphics,
+and motion; and export finished videos from the files in your project.
 
-Install Atet once, open a project, and describe the result you want. Your agent
-chooses the appropriate Atet command, works with the files in that project, and
-shows you what it made. Atet does not require an account or upload your project
-to an Atet service.
+The toolkit runs on your computer. Its Agent Skill teaches your coding agent
+how to use the Bun CLI, local media engine, and Vercel AI Gateway as one
+creative workflow. Atet has no account system and does not upload a project to
+an Atet service.
 
-[Install](#install-atet) · [Ask for something](#ask-your-agent-to-use-atet) · [Outputs](#what-atet-can-make) · [Design](#how-atet-is-designed) · [atet.sh](https://atet.sh) · [Security](SECURITY.md)
+[Install](#install-atet) · [Try a request](#start-with-a-finished-job) · [Capabilities](#what-atet-does) · [Design](#how-atet-works) · [atet.sh](https://atet.sh) · [Security](SECURITY.md)
 
 ## Install Atet
 
@@ -25,11 +24,11 @@ bun add --global github:hraness/atet
 atet skill install
 ```
 
-The first command installs the Atet command-line app. The second installs a
-short guide that Codex reads when you ask it to use Atet.
+The first command installs the Atet CLI. The second installs a short guide that
+teaches Codex when and how to use it.
 
-Next, move into the project where you want to work and check what Atet can use
-on your computer:
+Move into the project where you want Atet to work, then check the available
+recording, rendering, browser, and media tools:
 
 ```sh
 cd /path/to/your/project
@@ -39,189 +38,255 @@ atet doctor
 Start a new agent session after installing the skill. The default installation
 works with Codex across your user account.
 
-For Claude Code or another agent system:
+For Claude Code or another system that reads Agent Skills:
 
 ```sh
 atet skill install --target claude
 atet skill install --target agents
 ```
 
-To install the guide only for the current repository, run this from that
-repository:
-
-```sh
-atet skill install --scope project
-```
-
-Use `--project <path>` when the target repository is somewhere else.
-`atet skill path` prints the packaged guide so you or your agent can inspect
-the exact instructions.
+To install the guide only for the current repository, run
+`atet skill install --scope project` from that repository. Use
+`--project <path>` to name a different repository. `atet skill path` prints the
+packaged guide for inspection.
 
 Atet is distributed directly through GitHub and is not published to npm.
 
-## Ask your agent to use Atet
+## Start with a finished job
 
-Open the project that contains your source files, start a new agent session,
-and mention Atet in your request. Say which file or subject to use and what you
-want to receive.
+Open the project that contains your footage, artwork, script, or other source
+files. Start a new agent session and describe the finished result. These are
+the kinds of requests Atet is built to handle.
 
-> Use Atet to turn the services in this repository into a diagram I can edit
-> later.
+### Edit a product demo
 
-> Use Atet to convert `logo.png` into a clean SVG. Keep the original PNG
-> unchanged.
+> Use Atet to record my screen, camera, microphone, and system audio while I
+> demo the app. When I stop, turn the recording into a polished two-minute
+> walkthrough. Remove long pauses and filler words, zoom in when I click or
+> type, keep me framed, add readable captions and `logo.svg`, and show me a
+> preview before exporting the final video.
 
-> Use Atet to create three cover-image ideas for this article and show them to
-> me side by side.
+### Generate an opening sequence
 
-> Use Atet to turn `reference.png` into a seamless five-second 3D loop with a
-> transparent background.
+> Use Atet to create three opening-shot ideas from `product.png`. Show them to
+> me side by side, then animate the one I choose into a six-second widescreen
+> clip. Keep the product shape, colors, and lettering recognizable.
 
-> Use Atet to render this logo as polished metal on a plain background. Keep
-> the original shape recognizable.
+### Add voice and deliver every format
 
-You do not need to learn the command tree first. The installed skill tells the
-agent which Atet tools exist, how to run them, and what to inspect before it
-reports back.
+> Use Atet to generate a calm voiceover from `script.txt`, place it over the
+> approved edit, mix the music quietly underneath it, and export clean
+> and captioned versions in 16:9, 9:16, 1:1, and 4:5.
 
-### What happens after you ask
+### Explain a system visually
 
-1. Your agent reads the Atet skill and your project instructions.
-2. It looks for the source files you named and any existing Atet work for the
-   same subject.
-3. It chooses an Atet command that matches the request.
-4. Atet checks the inputs, creates the result, and saves it in your project.
-5. The agent inspects the result and tells you which files were created or
-   changed.
+> Use Atet to turn the services in this repository into an editable diagram,
+> then build a short animated version that introduces each service in order.
 
-When the work has editable source, such as a diagram or 3D scene, Atet keeps
-that source alongside the rendered output. You can ask for revisions in the
-same plain language.
+Name the source files, the result you want, and any details that must remain
+unchanged. Your agent can inspect the current project, discover available
+models, choose the necessary Atet operations, render a preview, and report the
+files it created. You do not need to learn the command tree first.
+
+## What Atet does
+
+### Edit real video
+
+Atet keeps video work in a project, so each change can be reviewed and revised
+before export.
+
+- Record the screen, camera, microphone, and system audio on macOS, or import
+  existing video, audio, images, and graphics.
+- Find silence, filler words, faces, scenes, music, clicks, cursor movement,
+  keystrokes, and typed text without changing the original media.
+- Cut, trim, retime, align audio, reframe the camera, follow a speaker, and add
+  screen zooms where the action needs attention.
+- Add images, SVG, GIFs, video, emoji, HTML, shaders, or Three.js scenes as
+  overlays with controlled timing, placement, motion, and audio behavior.
+- Apply captions, denoise and mix audio, adjust color, and render the same edit
+  for landscape, vertical, square, and portrait delivery.
+- Create several preview candidates from one frozen project, choose one, and
+  promote it without overwriting the alternatives.
+
+Built-in workflows cover talking-head cleanup, polished screen demos,
+chaptered videos, creative alternatives, selection, and social variants. Run
+`atet workflows list` to see the exact catalog installed on the current
+machine.
+
+### Generate the media a project is missing
+
+Atet discovers the current image, video, speech, and transcription models
+available through [Vercel AI Gateway](https://vercel.com/ai-gateway). Your
+agent can then:
+
+- generate images from text, reference images, or masks;
+- generate video from text, a source image, first and last frames, or other
+  visual references;
+- create spoken audio from a script, with the selected voice, language, pace,
+  instructions, and file format;
+- transcribe audio to text, JSON, SRT, and VTT; and
+- bring generated media back into a local video project for editing and
+  delivery.
+
+Local media never uploads implicitly. A command must explicitly acknowledge
+any local image, video, or audio that will be sent to a model provider. Atet
+uses the caller's Gateway credential, validates downloaded media, and writes
+outputs and receipts under `artifacts/atet/generated/`.
+
+### Build graphics and motion
+
+- Turn an explanation into an editable diagram with tldraw, SVG, and PNG
+  exports.
+- Convert caller-owned raster artwork to SVG locally with the pinned VTracer
+  runtime.
+- Build deterministic animated loops and transparent video layers with HTML,
+  SVG, Motion, Paper Shaders, or Three.js.
+- Use an existing image as the visual reference for a reviewed 3D scene or
+  branded material treatment.
+
+An image can become a video reference, an animated scene can become an
+overlay, and one approved edit can become every delivery format. The same
+project is available through the Agent Skill, CLI, TypeScript SDK, MCP server,
+and macOS desktop app.
+
+## How Atet works
+
+Atet keeps the creative process legible to both the person making a request
+and the agent doing the work.
+
+1. **Bring in the source.** Record a screen and camera, import existing media,
+   or point the agent to the files already in the repository.
+2. **Create what is missing.** Generate an image, video shot, voiceover, or
+   transcript through the caller's Gateway account when the project needs it.
+3. **Shape the edit.** The agent applies explicit operations to a local project
+   while the original media remains unchanged.
+4. **Review a real preview.** Preview renders use the same timeline and
+   composition as the final export at a lower cost.
+5. **Deliver the approved work.** Atet renders the selected project state to
+   the requested aspect ratios, caption treatments, and destinations.
+
+Project revisions are explicit. Alternatives begin from a named project state,
+important operations record what produced their outputs, and repeated work can
+reuse verified results. That makes the workflow inspectable without asking a
+person to manage low-level media commands.
 
 ### Instructions for coding agents
 
 Agents using Atet should follow these rules:
 
 1. Read the repository's local instructions before changing anything.
-2. Search for existing Atet source for the same subject before creating a new
-   copy.
-3. Treat the user's request as the content specification. Do not invent labels,
-   relationships, examples, or claims.
-4. Change editable source, then regenerate derived images or video. Do not
-   patch a rendered file when source exists.
-5. Use `--json` when another program needs to read a command result.
-6. Keep Gateway credentials in the process environment. Never put a key in a
+2. Inspect the named source files and search for an existing Atet project or
+   editable source for the same subject.
+3. Confirm the requested result, non-negotiable details, and delivery formats.
+   Ask only when a missing choice would materially change the work.
+4. Discover current capabilities instead of inventing model IDs, project IDs,
+   media stream IDs, or command options.
+5. Preserve original media. Change project state or editable source, then
+   regenerate previews and final outputs.
+6. For substantial video work, render a preview before the final delivery.
+7. Keep Gateway credentials in the process environment. Never put a key in a
    command, project file, log, or generated artifact.
-7. Inspect visual output at the size where it will be used.
-8. Report the useful source and output paths when the task is complete.
+8. Inspect visual output and report the useful source, preview, receipt, and
+   final output paths.
 
 Useful discovery commands:
 
 ```sh
 atet --help
+atet doctor --json
+atet workflows list --json
+atet ai models list --json
 atet operations list --json
-atet code search 'diagram' --limit 4
 atet skill path
 ```
 
+### Useful media commands
+
+Inspect the current model catalog before selecting a model:
+
+```sh
+atet ai models list --type image
+atet ai models list --type video
+atet ai models list --type speech
+atet ai models show <model-id>
+```
+
+Generate an image or a referenced video shot through Gateway:
+
+```sh
+atet ai image generate \
+  --model <image-model-id> \
+  --prompt-file image-brief.txt \
+  --aspect-ratio 16:9
+
+atet ai video generate \
+  --model <video-model-id> \
+  --prompt-file shot-brief.txt \
+  --image product.png \
+  --duration 6 \
+  --aspect-ratio 16:9 \
+  --allow-cloud-upload
+```
+
+Create a voiceover or transcript:
+
+```sh
+atet ai speech generate \
+  --model <speech-model-id> \
+  --text-file script.txt \
+  --format wav
+
+atet ai transcribe interview.wav \
+  --model <transcription-model-id> \
+  --format all \
+  --allow-cloud-audio-upload
+```
+
+Inspect a local video project and the built-in editing workflows:
+
+```sh
+atet projects list --json
+atet project inspect <project-id> --json
+atet workflows show talking-head-cleanup --json
+atet workflows show social-variants --json
+```
+
+Run `atet help ai`, `atet help project`, or `atet help workflows` for the full
+current command grammar. The Agent Skill contains the decision rules an agent
+needs to turn a plain-language brief into those exact commands.
+
 For a connected MCP server, run
-`atet mcp --root /absolute/path/to/workspace`. The server limits file access
-to that workspace and exposes a fixed set of Atet operations rather than
-running arbitrary commands supplied through MCP.
+`atet mcp --root /absolute/path/to/workspace`. The server limits file access to
+that workspace and exposes a fixed set of typed Atet operations rather than
+executing arbitrary commands supplied through MCP.
 
-## What Atet can make
-
-| Output | What Atet does | What you receive |
-| --- | --- | --- |
-| Images | Creates images through Vercel AI Gateway or converts artwork you already own into SVG locally. | The image or SVG, plus a small record of how Atet made it. |
-| Diagrams | Turns an explanation or system description into an editable diagram. | One source file, an editable tldraw file, and light and dark SVG and PNG exports. |
-| Animated loops | Builds repeatable motion with HTML, SVG, shaders, or Three.js. | Editable scene source, a preview, and the rendered loop. |
-| Video | Combines recordings, imported media, graphics, sound, captions, and alternate formats in one project. | Project files, preview renders, and final exports. |
-
-These are four kinds of output from one toolkit. An image can become part of a
-diagram, a diagram can become part of a video, and the same project files can
-be opened from the CLI, SDK, or desktop app.
-
-### Common commands
-
-Create and render an editable diagram:
-
-```sh
-atet diagram init diagrams/system.diagram.json
-atet diagram check diagrams/system.diagram.json --strict
-atet diagram render diagrams/system.diagram.json
-```
-
-Convert existing artwork to SVG on your computer, without a credential or
-network request:
-
-```sh
-atet image vectorize logo.png --output logo.svg --json
-```
-
-Generate an image through your Vercel AI Gateway account:
-
-```sh
-export AI_GATEWAY_API_KEY='<value>'
-atet image generate 'one cobalt circle on white' \
-  --output circle.webp \
-  --json
-```
-
-If the project is linked to Vercel, you can use its short-lived local
-credential instead of storing a key in the project:
-
-```sh
-vercel env run -- atet image generate \
-  'one cobalt circle on white' \
-  --output circle.webp \
-  --json
-```
-
-## How Atet is designed
-
-Atet has several entry points, but they all use the same underlying project and
-execution system:
-
-- **Agent Skill:** a readable guide that teaches a coding agent when and how to
-  use Atet.
-- **CLI:** the `atet` command that agents and people run.
-- **TypeScript SDK:** library functions for software that needs Atet directly.
-- **MCP server:** a fixed, workspace-scoped set of tools for connected agents.
-- **Local media engine:** project storage, rendering, analysis, and scheduling
-  for larger media work.
-- **macOS desktop app:** the same local engine with screen capture, permissions,
-  previews, and a graphical interface.
-
-The normal path through the system is straightforward:
-
-1. **Request:** a person describes the result and points to any source files.
-2. **Choose:** the agent selects a known Atet operation.
-3. **Run:** Atet validates the inputs and performs the work locally, or uses
-   Vercel AI Gateway when the request needs a generative model.
-4. **Review:** Atet saves the files in the project and the agent inspects them
-   with the person.
-
-### Design choices
+## Design and trust
 
 - **No Atet account:** there is no hosted project database, login, or
   subscription.
-- **Local wherever possible:** diagrams, vectorization, project state, and
-  deterministic rendering stay on the computer running Atet.
-- **Editable work stays editable:** diagrams, scenes, and media projects keep
-  their source instead of leaving only a flattened export.
-- **Revisions are explicit:** alternatives and exports begin from a specific
-  project state instead of silently overwriting earlier work.
-- **Clear limits:** Atet checks file types, paths, dimensions,
-  response sizes, process duration, and expensive concurrent work.
-- **A record of what happened:** important model and media operations record the inputs
-  and tool identity needed to understand how an output was produced, without
-  recording credentials.
-- **Preview matches final:** previews use the same timeline and composition as
-  final renders at a lower quality setting.
+- **Local project authority:** source media, project state, diagrams,
+  vectorization, deterministic rendering, previews, and outputs stay on the
+  computer running Atet.
+- **Caller-owned AI access:** model-backed work uses `AI_GATEWAY_API_KEY` or a
+  short-lived `VERCEL_OIDC_TOKEN` from the current process. Atet does not store
+  or print either credential.
+- **Non-destructive editing:** cuts, timing, framing, overlays, and effects are
+  recorded as project decisions rather than applied to the original media.
+- **Preview and final agree:** both use the same timeline and composition.
+- **Bounded work:** Atet checks paths, media types, decoded dimensions, byte
+  limits, process duration, and expensive concurrent operations.
+- **Inspectable history:** important media and model operations retain
+  secret-free receipts that identify their inputs and implementation.
+
+Atet validates the inputs accepted by its own tools. It is not an
+operating-system sandbox. Trusted Bun workflows and other project code run with
+the current user's normal permissions.
 
 Read [the architecture guide](docs/architecture.md) for project revisions,
-caching, rendering, and network boundaries.
+rendering, caching, workflow execution, and network boundaries. See
+[SECURITY.md](SECURITY.md) for reporting and supported-version policy and
+[NOTICE.md](NOTICE.md) for tldraw Offline, VTracer, rendering, and model
+integration terms.
 
 ## For software integrations
 
@@ -244,27 +309,10 @@ console.log(result.receipt.sourceSha256, result.receipt.svgSha256)
 ```
 
 Use `@hraness/atet/code` for declarative workflow graphs,
-`@hraness/atet/workflow` for trusted Bun workflows imported by the caller,
-and `@hraness/atet/local/*` for the local media engine. Atet exposes
-a fixed set of typed operations. It does not let a remote caller register and
-execute arbitrary code through the operation registry.
-
-## Network and trust
-
-Diagram rendering and image vectorization do not need network access.
-Model-backed work sends the prompt and supplied media from the current process
-to Vercel AI Gateway and the selected model provider. Atet reads
-`AI_GATEWAY_API_KEY` first or a short-lived `VERCEL_OIDC_TOKEN`; it does not
-store or print either credential.
-
-Atet checks the inputs accepted by its own commands. It is not an
-operating-system sandbox. A Bun workflow or other project code that you
-deliberately run has the same permissions as other code running under your
-user account.
-
-See [SECURITY.md](SECURITY.md) for reporting and supported-version policy, and
-[NOTICE.md](NOTICE.md) for tldraw Offline, VTracer, rendering, and model
-integration terms.
+`@hraness/atet/workflow` for trusted Bun workflows imported by the caller, and
+`@hraness/atet/local/*` for the local media engine. Atet exposes a fixed set of
+typed operations. It does not let a remote caller register and execute
+arbitrary code through the operation registry.
 
 ## Why the name Atet
 
