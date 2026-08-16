@@ -8,7 +8,7 @@ import {
   AtetWorkflowError,
   defineAtetWorkflow,
   runAtetWorkflow
-} from "./index-smffk7h7.js";
+} from "./index-38hzjjaq.js";
 import {
   AtetOperationError,
   DiagramValidationError,
@@ -17,7 +17,6 @@ import {
   atetOperationRegistry,
   builtInIcons,
   executeAtetOperation,
-  executeTransmuteOperation,
   lintDiagram,
   parseAtetOperationInput,
   parseDiagramSource,
@@ -29,31 +28,25 @@ import {
   resolveStackLayout,
   sanitizeIcon,
   searchAtetOperations,
-  searchTransmuteOperations,
   serializeTldr,
   stackLayoutDefaults,
-  transmuteOperationCodes,
-  transmuteOperationRegistry,
   withAtetOperationHostAdmission
-} from "./index-65by8228.js";
+} from "./index-b7xv1v0z.js";
 import {
   VectorizeError,
   nonGatewayChildEnvironment,
   vectorizeHardLimits,
   vectorizeImage
-} from "./index-7jg2r2mc.js";
+} from "./index-zhffnaj1.js";
 import {
   AtetCloudError,
   atetGatewayCredentialStatus,
   generateAtetImage,
-  generateAtetImageFile,
-  generateTransmuteImage,
-  generateTransmuteImageFile,
-  transmuteGatewayCredentialStatus
-} from "./index-41988ev7.js";
+  generateAtetImageFile
+} from "./index-70c7xxz7.js";
 import {
   createDefaultHostResourceCoordinator
-} from "./index-64bhbap5.js";
+} from "./index-6kb9qvnn.js";
 
 // src/artifacts.ts
 import { mkdir, readFile as readFile2, rename, rm, writeFile } from "fs/promises";
@@ -64,10 +57,10 @@ import { readFile } from "fs/promises";
 import { dirname, extname, isAbsolute, resolve } from "path";
 import { pathToFileURL } from "url";
 var configNames = [
-  { current: "atet.config.ts", predecessor: "transmute.config.ts", retired: "diagram.config.ts" },
-  { current: "atet.config.mjs", predecessor: "transmute.config.mjs", retired: "diagram.config.mjs" },
-  { current: "atet.config.js", predecessor: "transmute.config.js", retired: "diagram.config.js" },
-  { current: "atet.config.json", predecessor: "transmute.config.json", retired: "diagram.config.json" }
+  { current: "atet.config.ts", retired: "diagram.config.ts" },
+  { current: "atet.config.mjs", retired: "diagram.config.mjs" },
+  { current: "atet.config.js", retired: "diagram.config.js" },
+  { current: "atet.config.json", retired: "diagram.config.json" }
 ];
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -148,7 +141,6 @@ function parseConfig(value) {
 }
 async function discoverConfig(directory) {
   let current = null;
-  let predecessor = null;
   for (const names of configNames) {
     const candidate = resolve(directory, names.current);
     if (await pathExists(candidate)) {
@@ -156,27 +148,8 @@ async function discoverConfig(directory) {
       break;
     }
   }
-  for (const names of configNames) {
-    const candidate = resolve(directory, names.predecessor);
-    if (await pathExists(candidate)) {
-      predecessor = candidate;
-      break;
-    }
-  }
-  if (current !== null && predecessor !== null) {
-    const [currentBytes, predecessorBytes] = await Promise.all([
-      readFile(current),
-      readFile(predecessor)
-    ]);
-    if (!currentBytes.equals(predecessorBytes)) {
-      throw new Error(`Conflicting Atet configs found at ${current} and ${predecessor}. Remove one or make their bytes identical.`);
-    }
-    return current;
-  }
   if (current !== null)
     return current;
-  if (predecessor !== null)
-    return predecessor;
   for (const names of configNames) {
     const candidate = resolve(directory, names.retired);
     if (await pathExists(candidate)) {
@@ -959,41 +932,6 @@ var atetMcpTools = deepFreeze([
     }
   }
 ]);
-function operationSchemaWithCodes(schema, operationCodes) {
-  const properties = Reflect.get(schema, "properties");
-  const operation = typeof properties === "object" && properties !== null ? Reflect.get(properties, "operation") : undefined;
-  if (typeof properties !== "object" || properties === null || typeof operation !== "object" || operation === null) {
-    throw new Error("Internal MCP operation schema is invalid.");
-  }
-  return {
-    ...schema,
-    properties: {
-      ...properties,
-      operation: { ...operation, enum: operationCodes }
-    }
-  };
-}
-var transmuteMcpTools = deepFreeze(atetMcpTools.map((tool) => {
-  if (tool.name === "search_atet") {
-    return {
-      ...tool,
-      name: "search_transmute",
-      title: "Search Transmute operations",
-      description: "Deprecated v1 alias for search_atet."
-    };
-  }
-  if (tool.name === "execute_atet") {
-    return {
-      ...tool,
-      name: "execute_transmute",
-      title: "Execute Transmute operation",
-      description: "Deprecated v1 alias for execute_atet.",
-      inputSchema: operationSchemaWithCodes(tool.inputSchema, transmuteOperationCodes),
-      outputSchema: tool.outputSchema
-    };
-  }
-  return tool;
-}));
 
 class ToolFailure extends Error {
   code;
@@ -1080,22 +1018,6 @@ function parseExecuteArguments(value) {
     operation: value.operation,
     input: value.input
   };
-}
-function parseTransmuteExecuteArguments(value) {
-  if (!isRecord3(value)) {
-    throw new ToolFailure("INVALID_ARGUMENTS", "Tool arguments must be an object.");
-  }
-  rejectUnknownKeys(value, new Set(["operation", "input"]));
-  if (typeof value.operation !== "string" || !transmuteOperationCodes.includes(value.operation) || !isRecord3(value.input)) {
-    throw new ToolFailure("INVALID_ARGUMENTS", "operation must be an exact Transmute v1 operation code and input must be an object.");
-  }
-  return {
-    operation: value.operation,
-    input: value.input
-  };
-}
-function canonicalAtetOperation(operation) {
-  return operation.replace(/^transmute\./u, "atet.");
 }
 function assertBuiltInIcons(spec) {
   for (const shape of spec.shapes) {
@@ -1267,19 +1189,9 @@ class AtetMcpToolRuntime {
         const operations = searchAtetOperations(options.query, options.limit);
         return successResult(`Found ${operations.length} Atet operation${operations.length === 1 ? "" : "s"}.`, { ok: true, operations });
       }
-      if (name === "search_transmute") {
-        const options = parseSearchArguments(argumentsValue);
-        const operations = searchAtetOperations(options.query.replace(/\btransmute\./gu, "atet."), options.limit);
-        return successResult(`Found ${operations.length} Atet operation${operations.length === 1 ? "" : "s"}.`, { ok: true, operations });
-      }
       if (name === "execute_atet") {
         const options = parseExecuteArguments(argumentsValue);
         return await this.execute(options);
-      }
-      if (name === "execute_transmute") {
-        const options = parseTransmuteExecuteArguments(argumentsValue);
-        const canonical = canonicalAtetOperation(options.operation);
-        return await this.execute({ operation: canonical, input: options.input });
       }
       throw new ToolFailure("UNKNOWN_TOOL", "Requested tool is not available.");
     } catch (error) {
@@ -1425,8 +1337,6 @@ var ATET_VERSION = "2.0.0";
 // src/mcp/server.ts
 var atetMcpProtocolVersion = "2025-11-25";
 var atetMcpServerName = "hraness-atet";
-var transmuteMcpProtocolVersion = atetMcpProtocolVersion;
-var transmuteMcpServerName = "hraness-transmute";
 var maximumMessageBytes = 1024 * 1024;
 function isRecord4(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -1508,7 +1418,7 @@ class AtetMcpSession {
           name: atetMcpServerName,
           version: this.serverVersion
         },
-        instructions: "Use the compatibility check_diagram/render_diagram tools or search_atet followed by execute_atet with an exact registry code and typed JSON. Legacy search_transmute and execute_transmute calls remain accepted but are not listed. Local paths are root-relative; source code is never accepted or evaluated."
+        instructions: "Use check_diagram/render_diagram or search_atet followed by execute_atet with an exact registry code and typed JSON. Local paths are root-relative; source code is never accepted or evaluated."
       });
     }
     if (this.state !== "ready") {
@@ -1525,7 +1435,7 @@ class AtetMcpSession {
     if (request.method === "tools/call") {
       try {
         const toolCall = parseToolCall(request.params);
-        if (!atetMcpTools.some((tool) => tool.name === toolCall.name) && !transmuteMcpTools.some((tool) => tool.name === toolCall.name)) {
+        if (!atetMcpTools.some((tool) => tool.name === toolCall.name)) {
           return failure(id, -32602, "Unknown tool");
         }
         return success(id, await this.runtime.call(toolCall.name, toolCall.argumentsValue));
@@ -1657,17 +1567,7 @@ var atetApi = Object.freeze({
   vectorizeImage,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
-  executeAtetOperation,
-  generateTransmuteImage,
-  generateTransmuteImageFile,
-  transmuteGatewayCredentialStatus,
-  transmuteMcpProtocolVersion,
-  transmuteMcpServerName,
-  transmuteMcpTools,
-  transmuteOperationRegistry,
-  TransmuteMcpToolRuntime: AtetMcpToolRuntime,
-  searchTransmuteOperations,
-  executeTransmuteOperation
+  executeAtetOperation
 });
 var diagramApi = atetApi;
-export { readDiagramFile, checkDiagramFile, renderDiagramFile, artifactSummary, desktopDownloadPage, selectDesktopAsset, getLatestDesktopRelease, installDesktop, findDesktopApplication, desktopStatus, openInDesktop, mcpSourceByteLimit, WorkspaceBoundaryError, WorkspaceBoundary, mcpMaximumScale, mcpMaximumRenderedPixels, atetMcpTools, transmuteMcpTools, AtetMcpToolRuntime, ATET_VERSION, atetMcpProtocolVersion, atetMcpServerName, transmuteMcpProtocolVersion, transmuteMcpServerName, runMcpServer, atetApi, diagramApi };
+export { readDiagramFile, checkDiagramFile, renderDiagramFile, artifactSummary, desktopDownloadPage, selectDesktopAsset, getLatestDesktopRelease, installDesktop, findDesktopApplication, desktopStatus, openInDesktop, mcpSourceByteLimit, WorkspaceBoundaryError, WorkspaceBoundary, mcpMaximumScale, mcpMaximumRenderedPixels, atetMcpTools, AtetMcpToolRuntime, ATET_VERSION, atetMcpProtocolVersion, atetMcpServerName, runMcpServer, atetApi, diagramApi };

@@ -86,7 +86,6 @@ export const AudioEffectsTransformV1Schema = z.strictObject({
   effects: z.array(AudioEffectSchema).min(1).max(16),
   kind: z.union([
     z.literal("atet.audio-effects-transform"),
-    z.literal("transmute.audio-effects-transform"),
     z.literal("studio.audio-effects-transform"),
   ]),
   output: AudioTransformOutputSchema,
@@ -125,7 +124,6 @@ export const ColorGradeTransformV1Schema = z.strictObject({
   inputStreamIndex: z.number().int().safe().nonnegative().optional(),
   kind: z.union([
     z.literal("atet.color-grade-transform"),
-    z.literal("transmute.color-grade-transform"),
     z.literal("studio.color-grade-transform"),
   ]),
   outputProfile: ColorGradeOutputProfileSchema,

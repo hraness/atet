@@ -100,7 +100,6 @@ const ProjectRenderExecutionIdentitySchema = z.strictObject({
 const ProjectRenderPublicationPrecommitBodySchema = z.strictObject({
   kind: z.union([
     z.literal("atet.project-render-publication-precommit"),
-    z.literal("transmute.project-render-publication-precommit"),
     z.literal("studio.project-render-publication-precommit"),
   ]),
   receipt: ProjectRenderReceiptV2Schema,
@@ -149,7 +148,6 @@ const CandidateRenderReuseRecordBodyV1Schema = z.strictObject({
   inputSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   kind: z.union([
     z.literal("atet.candidate-render-reuse-record"),
-    z.literal("transmute.candidate-render-reuse-record"),
   ]),
   output: ProjectRenderOutputReferenceSchema,
   rendererAbi: CandidateProjectRendererAbiSchema,

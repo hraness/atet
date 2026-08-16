@@ -95,7 +95,6 @@ pub const RuntimePaths = struct {
 };
 
 pub const ResolvePathError = error{
-    ConflictingRenamedEnvironment,
     InvalidAbsolutePath,
     MissingDevelopmentRuntimeRoot,
 } || std.mem.Allocator.Error || std.process.ExecutablePathAllocError;
@@ -125,9 +124,9 @@ fn resolveRuntimePathsForExecutable(
 
     if (packaged_root) |root| return runtimePathsFromRoot(allocator, root, .{});
 
-    const gateway_override = options.gateway_path orelse try renamedEnvironment(parent, "ATET_GATEWAY_PATH", "TRANSMUTE_GATEWAY_PATH");
-    const helper_override = options.capture_helper_path orelse try renamedEnvironment(parent, "ATET_CAPTURE_HELPER", "TRANSMUTE_CAPTURE_HELPER");
-    const face_analyzer_override = options.face_analyzer_path orelse try renamedEnvironment(parent, "ATET_FACE_ANALYZER", "TRANSMUTE_FACE_ANALYZER");
+    const gateway_override = options.gateway_path orelse parent.get("ATET_GATEWAY_PATH");
+    const helper_override = options.capture_helper_path orelse parent.get("ATET_CAPTURE_HELPER");
+    const face_analyzer_override = options.face_analyzer_path orelse parent.get("ATET_FACE_ANALYZER");
     const raw_runtime_root = options.runtime_root orelse root: {
         const gateway = gateway_override orelse return error.MissingDevelopmentRuntimeRoot;
         const bin_dir = std.fs.path.dirname(gateway) orelse return error.InvalidAbsolutePath;
@@ -138,19 +137,6 @@ fn resolveRuntimePathsForExecutable(
         .capture_helper_path = helper_override,
         .face_analyzer_path = face_analyzer_override,
     });
-}
-
-fn renamedEnvironment(
-    parent: *const std.process.Environ.Map,
-    canonical: []const u8,
-    predecessor: []const u8,
-) error{ConflictingRenamedEnvironment}!?[]const u8 {
-    const current = parent.get(canonical);
-    const legacy = parent.get(predecessor);
-    if (current != null and legacy != null and !std.mem.eql(u8, current.?, legacy.?)) {
-        return error.ConflictingRenamedEnvironment;
-    }
-    return current orelse legacy;
 }
 
 const ToolOverrides = struct {
@@ -229,14 +215,14 @@ pub fn buildSanitizedEnvironment(
     allocator: std.mem.Allocator,
     parent: *const std.process.Environ.Map,
     paths: *const RuntimePaths,
-) (std.mem.Allocator.Error || error{ConflictingRenamedEnvironment})!std.process.Environ.Map {
+) std.mem.Allocator.Error!std.process.Environ.Map {
     var environment: std.process.Environ.Map = .init(allocator);
     errdefer environment.deinit();
 
     for (inherited_environment_keys) |key| {
         if (parent.get(key)) |value| try environment.put(key, value);
     }
-    if (try renamedEnvironment(parent, "ATET_REPOSITORY_ROOT", "TRANSMUTE_REPOSITORY_ROOT")) |value| {
+    if (parent.get("ATET_REPOSITORY_ROOT")) |value| {
         try environment.put("ATET_REPOSITORY_ROOT", value);
     }
     if (environment.get("TMPDIR") == null) try environment.put("TMPDIR", "/tmp");

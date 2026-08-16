@@ -83,16 +83,7 @@ const MAX_TOOL_BYTES = 16 * 1_024 * 1_024
 const FILE_CHUNK_BYTES = 64 * 1_024
 
 function renamedEnvironmentValue(canonical: `ATET_${string}`): string | undefined {
-  const predecessor = canonical.replace(/^ATET_/u, "TRANSMUTE_")
-  const current = process.env[canonical]
-  const legacy = process.env[predecessor]
-  if (current !== undefined && legacy !== undefined && current !== legacy) {
-    throw new VectorizeError(
-      "invalid_input",
-      `${canonical} and ${predecessor} disagree; remove one or set both to the same value.`,
-    )
-  }
-  return current ?? legacy
+  return process.env[canonical]
 }
 
 export async function ensureVTracer(

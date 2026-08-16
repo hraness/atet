@@ -2,10 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 
 import { ApplicationError } from "../application/errors";
-import type {
-  OperationDefinition,
-  OperationKind,
-  OperationPolicy,
+import {
+  OPERATION_KINDS,
+  type OperationDefinition,
+  type OperationKind,
+  type OperationPolicy,
 } from "../application/operation";
 import { OperationRegistry } from "../application/registry";
 import {
@@ -618,7 +619,7 @@ describe("workflow graph compiler", () => {
     })).toThrow(/topology/u);
   });
 
-  test("verifies predecessor plan hashes before coherent Atet normalization", () => {
+  test("verifies Studio plan hashes before coherent Atet normalization and rejects retired runtime ABIs", () => {
     const canonical = compile(graphFixture(registryFixture()));
     const legacy = JSON.parse(
       JSON.stringify(canonical)
@@ -626,12 +627,7 @@ describe("workflow graph compiler", () => {
         .replaceAll("atet-workflow-ref-v1", "studio-workflow-ref-v1")
         .replaceAll("atet-requirement-envelope-v2", "studio-requirement-envelope-v2")
         .replaceAll("atet-workflow-graph-abi-v2", "studio-workflow-graph-abi-v2")
-        .replaceAll("atet-workflow-compiler-v2", "transmute-workflow-compiler-v2")
-        .replaceAll("atet-workflow-scheduler-v2", "transmute-workflow-scheduler-v2")
-        .replaceAll("atet-code-worker-abi-v4", "transmute-code-worker-abi-v4")
-        .replaceAll("atet-static-bindings-v1", "transmute-static-bindings-v1")
-        .replaceAll("atet-graph-plan-v2", "transmute-graph-plan-v2")
-        .replaceAll("atet-compiler-test", "transmute-compiler-test")
+        .replaceAll("atet-compiler-test", "studio-compiler-test")
         .replaceAll("test.snapshot-input/v1", "studio.operation.project.snapshot.input/v1")
         .replaceAll("test.snapshot-output/v1", "studio.operation.project.snapshot.output/v1")
         .replaceAll("test.faces-input/v1", "studio.operation.analysis.faces.input/v1")
@@ -661,16 +657,30 @@ describe("workflow graph compiler", () => {
     });
     expect(parsed.staticBindings.version).toBe(STATIC_BINDINGS_VERSION);
     expect(parsed.registry.discovery.every(discovery => (
-      !/^(?:studio|transmute)\./u.test(discovery.inputSchemaId)
-      && !/^(?:studio|transmute)\./u.test(discovery.outputSchemaId)
+      discovery.inputSchemaId.startsWith("atet.operation.")
+      && discovery.outputSchemaId.startsWith("atet.operation.")
     ))).toBe(true);
-    expect(JSON.stringify(parsed)).not.toMatch(/studio|transmute/u);
+    expect(parsed.graph.nodes.every(node => (
+      node.executor.kind !== "operation"
+      || OPERATION_KINDS.includes(node.executor.operation.kind as OperationKind)
+    ))).toBe(true);
+
+    for (const [field, value] of [
+      ["codeWorkerAbi", "retired-code-worker-abi"],
+      ["compilerAbi", "retired-compiler-abi"],
+      ["schedulerAbi", "retired-scheduler-abi"],
+    ] as const) {
+      expect(() => parseGraphPlan({
+        ...canonical,
+        runtime: { ...canonical.runtime, [field]: value },
+      })).toThrow(ApplicationError);
+    }
 
     expect(() => parseGraphPlan({
       ...authenticatedLegacy,
       runtime: {
         ...authenticatedLegacy.runtime,
-        applicationBuild: "transmute-tampered",
+        applicationBuild: "retired-tampered",
       },
     })).toThrow("hash does not match");
     const forgedLegacyUnsigned = {

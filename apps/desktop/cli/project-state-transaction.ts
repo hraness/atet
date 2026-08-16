@@ -46,7 +46,6 @@ const TransactionBaseShape = {
   before: GenerationReferenceSchema,
   kind: z.union([
     z.literal("atet.project-state-transaction"),
-    z.literal("transmute.project-state-transaction"),
     z.literal("studio.project-state-transaction"),
   ]),
   projectId: VideoProjectIdSchema,
@@ -103,7 +102,6 @@ export const ProjectStateTransactionSettlementV1Schema = z.strictObject({
   before: GenerationReferenceSchema,
   kind: z.union([
     z.literal("atet.project-state-transaction-settlement"),
-    z.literal("transmute.project-state-transaction-settlement"),
   ]),
   projectId: VideoProjectIdSchema,
   schemaVersion: z.literal(1),

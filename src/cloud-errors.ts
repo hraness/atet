@@ -24,8 +24,3 @@ export class AtetCloudError extends Error {
     this.code = code
   }
 }
-
-/** @deprecated Use {@link AtetCloudErrorCode}. */
-export type TransmuteCloudErrorCode = AtetCloudErrorCode
-/** @deprecated Use {@link AtetCloudError}. */
-export { AtetCloudError as TransmuteCloudError }

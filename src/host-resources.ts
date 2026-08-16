@@ -294,10 +294,7 @@ export function defaultAtetHostResourceProfile(
   }
   const reserve = hostParallelism >= 6 ? 2 : hostParallelism >= 2 ? 1 : 0
   return normalizeHostResourceProfile({
-    // This identifier and state directory are a machine-global coordination
-    // boundary. Keep them shared with Transmute so mixed-version processes
-    // cannot independently over-admit the same host.
-    id: "transmute.host-resources/v1",
+    id: "atet.host-resources/v1",
     capacities: [
       { resource: "cpu", limit: Math.max(1, hostParallelism - reserve) },
       { resource: "local-io", limit: 2 },
@@ -329,7 +326,7 @@ export function defaultAtetHostResourceStateRoot(
       userHome,
       "Library",
       "Application Support",
-      "Transmute",
+      "Atet",
       "cli",
       "host-resources-v1",
     )
@@ -339,17 +336,9 @@ export function defaultAtetHostResourceStateRoot(
     && isAbsolute(configuredStateHome)
     ? configuredStateHome
     : join(userHome, ".local", "state")
-  return join(stateHome, "transmute", "host-resources-v1")
+  return join(stateHome, "atet", "host-resources-v1")
 }
 
-/** @deprecated Use Atet names; these aliases retain the shared coordinator. */
-export const transmuteHostResourceNames = atetHostResourceNames
-/** @deprecated Use {@link AtetHostResourceName}. */
-export type TransmuteHostResourceName = AtetHostResourceName
-/** @deprecated Use {@link defaultAtetHostResourceProfile}. */
-export const defaultTransmuteHostResourceProfile = defaultAtetHostResourceProfile
-/** @deprecated Use {@link defaultAtetHostResourceStateRoot}. */
-export const defaultTransmuteHostResourceStateRoot = defaultAtetHostResourceStateRoot
 
 function canonicalProfile(profile: HostResourceProfile): string {
   return JSON.stringify(profile)

@@ -293,7 +293,6 @@ export const HtmlOverlayAuthoringInputSchema = z.strictObject({
   // normalized to the canonical Atet identity before hashing or render.
   kind: z.union([
     z.literal("atet.html-overlay"),
-    z.literal("transmute.html-overlay"),
     z.literal("studio.html-overlay"),
   ]).overwrite(() => "atet.html-overlay" as const),
   libraries: HtmlOverlayLibrarySelectionSchema.default([]),

@@ -75,18 +75,10 @@ export async function resolveRuntimeRepositoryRoot(options: {
   }
   const homeDirectory = options.homeDirectory ?? process.env.HOME;
   if (homeDirectory === undefined || !isAbsolute(homeDirectory)) return null;
-  const canonicalRoot = join(homeDirectory, "Movies", "Atet");
-  const predecessorRoot = join(homeDirectory, "Movies", "Transmute");
-  const [hasCanonicalRoot, hasPredecessorRoot] = await Promise.all([
-    physicalDirectoryExists(canonicalRoot),
-    physicalDirectoryExists(predecessorRoot),
-  ]);
-  if (hasCanonicalRoot && hasPredecessorRoot) {
-    throw new Error("Both Movies/Atet and Movies/Transmute exist. Select one with ATET_REPOSITORY_ROOT before Atet writes project state.");
+  const projectRoot = join(homeDirectory, "Movies", "Atet");
+  if (!await physicalDirectoryExists(projectRoot)) {
+    await mkdir(projectRoot, { mode: 0o700, recursive: true });
   }
-  if (hasPredecessorRoot) return await realpath(predecessorRoot);
-  const projectRoot = canonicalRoot;
-  await mkdir(projectRoot, { mode: 0o700, recursive: true });
   const details = await lstat(projectRoot);
   if (details.isSymbolicLink() || !details.isDirectory()) {
     throw new Error("Atet workspace must be a physical directory.");

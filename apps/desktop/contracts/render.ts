@@ -55,7 +55,6 @@ export const AnalyzerEvidenceV1Schema = z.strictObject({
   })).min(1),
   kind: z.union([
     z.literal("atet.analyzer-evidence"),
-    z.literal("transmute.analyzer-evidence"),
     z.literal("studio.analyzer-evidence"),
   ]),
   schemaVersion: z.literal(1),
@@ -229,7 +228,6 @@ export const RenderPlanV1Schema = z.strictObject({
   effects: RenderEffectsSchema,
   kind: z.union([
     z.literal("atet.render-plan"),
-    z.literal("transmute.render-plan"),
     z.literal("studio.render-plan"),
   ]),
   composition: z.strictObject({
@@ -288,7 +286,6 @@ export const RecordingRenderReceiptV1Schema = z.strictObject({
   }),
   kind: z.union([
     z.literal("atet.recording-render-receipt"),
-    z.literal("transmute.recording-render-receipt"),
     z.literal("studio.recording-render-receipt"),
   ]),
   output: z.strictObject({

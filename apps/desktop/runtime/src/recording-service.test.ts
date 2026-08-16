@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -366,19 +366,20 @@ async function waitFor(
 }
 
 describe("recording runtime service", () => {
-  test("reuses one predecessor artifact namespace and rejects a split workspace", async () => {
+  test("selects only the physical Atet artifact namespace", async () => {
     const root = await repository();
-    await mkdir(join(root, "artifacts", "transmute"), { recursive: true });
     expect(await resolveRecordingArtifactDirectory(
       root,
       "artifacts/atet/recordings",
-    )).toBe(join(root, "artifacts", "transmute", "recordings"));
+    )).toBe(join(root, "artifacts", "atet", "recordings"));
 
-    await mkdir(join(root, "artifacts", "atet"), { recursive: true });
+    const outside = await repository();
+    await mkdir(join(root, "artifacts"), { recursive: true });
+    await symlink(outside, join(root, "artifacts", "atet"));
     await expect(resolveRecordingArtifactDirectory(
       root,
       "artifacts/atet/recordings",
-    )).rejects.toThrow("Both artifacts/atet and artifacts/transmute exist")
+    )).rejects.toThrow("Atet artifact namespaces must be physical directories")
   });
 
   test("runs the native capability probe with concurrent bounded output and a deadline", async () => {

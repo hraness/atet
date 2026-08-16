@@ -8,19 +8,13 @@ import {
   createProcessLocalHostResourceCoordinator,
   defaultAtetHostResourceProfile,
   defaultAtetHostResourceStateRoot,
-  defaultTransmuteHostResourceProfile,
-  defaultTransmuteHostResourceStateRoot,
   normalizeHostResourceClaims,
-  normalizeHostResourceProfile,
-  transmuteHostResourceNames
-} from "./index-64bhbap5.js";
+  normalizeHostResourceProfile
+} from "./index-6kb9qvnn.js";
 import"./index-z1w83f81.js";
 export {
-  transmuteHostResourceNames,
   normalizeHostResourceProfile,
   normalizeHostResourceClaims,
-  defaultTransmuteHostResourceStateRoot,
-  defaultTransmuteHostResourceProfile,
   defaultAtetHostResourceStateRoot,
   defaultAtetHostResourceProfile,
   createProcessLocalHostResourceCoordinator,

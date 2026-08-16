@@ -22,4 +22,4 @@
 - Parse persisted graphs and plans from `unknown` through strict versioned schemas. Reject duplicate or dangling nodes, schema mismatches, cycles, and configured node, edge, depth, and fan-out limits before execution.
 - Preserve the portable compiler's graph, node, reference, and plan identities. Local planning may bind runtime, bundle, registry, project, and requirement evidence through explicit host extension points, but it must not redefine canonical identity.
 - Keep `/testing` helpers out of production workflow-loading paths. Public authoring, advanced graph access, and testing fixtures remain separate export surfaces.
-- Author local workflows through `@hraness/atet/local/{code,code/advanced,code/workflows,html-overlay}`. Accept only the four exact `@hraness/transmute/local/*` predecessors as input-only migration aliases, and never emit or document them in new templates.
+- Author local workflows through `@hraness/atet/local/{code,code/advanced,code/workflows,html-overlay}` and reject every other bare package import.

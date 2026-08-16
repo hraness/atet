@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 
 import { createApplicationOperationRegistry } from "../application/default-registry";
+import { OPERATION_KINDS, type OperationKind } from "../application/operation";
 import {
   createEmptyCandidateProjectEditBatchV3,
   createCreativeBaseV1,
@@ -52,11 +53,6 @@ describe("built-in workflow catalog", () => {
     expect(BUILT_IN_WORKFLOWS.every(workflow => (
       workflow.inputSchemaId.startsWith("atet.workflow.")
     ))).toBe(true);
-    expect(JSON.stringify(BUILT_IN_WORKFLOWS.map(workflow => ({
-      id: workflow.id,
-      inputSchemaId: workflow.inputSchemaId,
-      version: workflow.version,
-    })))).not.toMatch(/studio|transmute/u);
   });
 
   test("creative iteration fans immutable preview candidates out from one base and stops at a closed matrix", () => {
@@ -86,7 +82,11 @@ describe("built-in workflow catalog", () => {
       runtime: TESTING_WORKFLOW_RUNTIME,
       workflowInput: built.input,
     });
-    expect(JSON.stringify(plan)).not.toMatch(/studio|transmute/u);
+    expect(plan.registry.discovery.every(operation => (
+      OPERATION_KINDS.includes(operation.kind as OperationKind)
+      && operation.inputSchemaId.startsWith("atet.operation.")
+      && operation.outputSchemaId.startsWith("atet.operation.")
+    ))).toBe(true);
 
     expect(plan.topologicalWaves).toEqual([
       ["base"],

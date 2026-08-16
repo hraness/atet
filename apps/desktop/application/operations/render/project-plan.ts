@@ -159,7 +159,7 @@ export function hashProjectCaptionSource(input: {
 }): string {
   return canonicalJsonSha256({
     ...input,
-    domain: "transmute.social-caption-source/v1",
+    domain: "atet.social-caption-source/v1",
   });
 }
 

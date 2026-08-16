@@ -25,7 +25,6 @@ import {
   executeAtetOperation,
   atetOperationCodes,
   isAtetOperationCode,
-  isTransmuteOperationCode,
   searchAtetOperations,
   withAtetOperationHostAdmission,
 } from "./operations.js"
@@ -35,8 +34,6 @@ import { pathExists } from "./fs.js"
 import { ATET_VERSION } from "./version.js"
 
 export const atetCliVersion = ATET_VERSION
-/** @deprecated Use {@link atetCliVersion}. */
-export const transmuteCliVersion = atetCliVersion
 
 const help = `atet ${atetCliVersion}
 
@@ -215,8 +212,6 @@ export interface AtetCliDependencies {
   readonly log?: (value: string) => void
   readonly vectorize?: typeof vectorizeImage
 }
-/** @deprecated Use {@link AtetCliDependencies}. */
-export type TransmuteCliDependencies = AtetCliDependencies
 
 function hostAdmissionOptions(
   dependencies: AtetCliDependencies,
@@ -426,7 +421,7 @@ export async function main(
         parsePositiveInteger(parsed.options.limit, "limit") ??
         atetOperationCodes.length
       const operations = searchAtetOperations(
-        (parsed.positionals[0] ?? "").replace(/\btransmute\./gu, "atet."),
+        parsed.positionals[0] ?? "",
         limit,
       )
       console.log(JSON.stringify({ operations }, null, 2))
@@ -445,9 +440,7 @@ export async function main(
       const requestedOperation = parsed.positionals[0]!
       const operation = isAtetOperationCode(requestedOperation)
         ? requestedOperation
-        : isTransmuteOperationCode(requestedOperation)
-          ? requestedOperation.replace(/^transmute\./u, "atet.") as typeof atetOperationCodes[number]
-          : undefined
+        : undefined
       if (operation === undefined) {
         throw new Error(`Unknown Atet operation code: ${requestedOperation}`)
       }

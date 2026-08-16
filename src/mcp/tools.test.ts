@@ -412,24 +412,6 @@ describe("Atet MCP tools", () => {
           { code: "atet.diagram.render" },
         ],
       })
-      const predecessorSearch = await runtime.call("search_transmute", {
-        query: "transmute.diagram.check",
-      })
-      expect(predecessorSearch.structuredContent).toMatchObject({
-        ok: true,
-        operations: [
-          { code: "atet.diagram.check" },
-        ],
-      })
-      const predecessorExecute = await runtime.call("execute_transmute", {
-        operation: "transmute.diagram.check",
-        input: { path: "flow.diagram.json" },
-      })
-      expect(predecessorExecute.structuredContent).toMatchObject({
-        ok: true,
-        operation: "atet.diagram.check",
-        result: { ok: true, source: "flow.diagram.json" },
-      })
       const execute = await runtime.call("execute_atet", {
         operation: "atet.diagram.check",
         input: {

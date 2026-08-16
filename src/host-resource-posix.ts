@@ -129,8 +129,6 @@ export const atetHostResourcePlatforms = Object.freeze([
   "darwin",
   "linux",
 ] as const)
-/** @deprecated Use {@link atetHostResourcePlatforms}. */
-export const transmuteHostResourcePlatforms = atetHostResourcePlatforms
 
 export function isHostResourcePlatformSupported(
   platform: NodeJS.Platform,

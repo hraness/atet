@@ -11,7 +11,6 @@ var LEGACY_WORKFLOW_GRAPH_VERSION = "studio-workflow-graph-v2";
 var LEGACY_WORKFLOW_REF_VERSION = "studio-workflow-ref-v1";
 var LEGACY_GRAPH_ABI = "studio-workflow-graph-abi-v2";
 var LEGACY_REQUIREMENT_ENVELOPE_VERSION = "studio-requirement-envelope-v2";
-var LEGACY_WORKFLOW_COMPILATION_VERSION = "transmute-workflow-compilation-v1";
 var MAX_SERIALIZED_GRAPH_NODES = 4096;
 var MAX_SERIALIZED_NODE_DEPENDENCIES = 4096;
 var MAX_SERIALIZED_REF_PATH_SEGMENTS = 32;
@@ -313,10 +312,7 @@ var CompiledWorkflowGraphSchema = z.strictObject({
   limits: GraphCompilerLimitsSchema,
   projection: WorkflowRegistryProjectionSchema,
   topologicalWaves: z.array(z.array(NodeKeySchema).min(1)).max(MAX_SERIALIZED_GRAPH_NODES),
-  version: z.union([
-    z.literal(WORKFLOW_COMPILATION_VERSION),
-    z.literal(LEGACY_WORKFLOW_COMPILATION_VERSION)
-  ])
+  version: z.literal(WORKFLOW_COMPILATION_VERSION)
 });
 var TRUSTED_COMPUTE_BRAND = Symbol.for("atet.trusted-compute-definition");
 var LEGACY_TRUSTED_COMPUTE_BRAND = Symbol.for("studio.trusted-compute-definition");
@@ -341,8 +337,6 @@ function asAtetCodeError(error) {
     return error;
   return new AtetCodeError("internal", atetCodeErrorMessage(error));
 }
-var transmuteCodeErrorMessage = atetCodeErrorMessage;
-var asTransmuteCodeError = asAtetCodeError;
 
 // src/code/sha256.ts
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -1281,39 +1275,6 @@ var PORTABLE_ATET_OPERATION_CONTRACTS = Object.freeze({
 function isPortableAtetOperationKind(value) {
   return PORTABLE_ATET_OPERATION_KINDS.includes(value);
 }
-var TransmuteImageModelSchema = AtetImageModelSchema;
-var TransmuteDiagramCheckInputSchema = AtetDiagramCheckInputSchema;
-var TransmuteDiagramRenderInputSchema = AtetDiagramRenderInputSchema;
-var TransmuteImageVectorizeInputSchema = AtetImageVectorizeInputSchema;
-var TransmuteImageGenerateInputSchema = AtetImageGenerateInputSchema;
-var TransmuteLintFindingSchema = AtetLintFindingSchema;
-var TransmuteDiagramCheckOutputSchema = AtetDiagramCheckOutputSchema;
-var TransmuteRenderArtifactsSchema = AtetRenderArtifactsSchema;
-var TransmuteDiagramRenderOutputSchema = AtetDiagramRenderOutputSchema;
-var TransmuteVectorizeQualityReceiptSchema = AtetVectorizeQualityReceiptSchema;
-var TransmuteVectorizeProvenanceSchema = AtetVectorizeProvenanceSchema;
-var TransmuteVectorizeReceiptSchema = AtetVectorizeReceiptSchema;
-var TransmuteImageVectorizeOutputSchema = AtetImageVectorizeOutputSchema;
-var TransmuteImageGenerateOutputSchema = AtetImageGenerateOutputSchema;
-var PORTABLE_TRANSMUTE_OPERATION_KINDS = Object.freeze([
-  "transmute.diagram.check",
-  "transmute.diagram.render",
-  "transmute.image.generate",
-  "transmute.image.vectorize"
-]);
-var PORTABLE_TRANSMUTE_OPERATION_CONTRACTS = Object.freeze(Object.fromEntries(PORTABLE_TRANSMUTE_OPERATION_KINDS.map((kind) => {
-  const canonical = kind.replace(/^transmute\./u, "atet.");
-  const contract = PORTABLE_ATET_OPERATION_CONTRACTS[canonical];
-  return [kind, Object.freeze({
-    ...contract,
-    inputSchemaId: contract.inputSchemaId.replace(/^atet\./u, "transmute."),
-    kind,
-    outputSchemaId: contract.outputSchemaId.replace(/^atet\./u, "transmute.")
-  })];
-})));
-function isPortableTransmuteOperationKind(value) {
-  return PORTABLE_TRANSMUTE_OPERATION_KINDS.includes(value);
-}
 
 // src/code/boundary.ts
 function parseCodeBoundary(schema, input, name) {
@@ -1331,9 +1292,8 @@ function parseCodeBoundary(schema, input, name) {
 }
 
 // src/code/projection.ts
-var WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN = "transmute.workflow.registry-projection/v1";
+var WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN = "atet.workflow.registry-projection/v1";
 var PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID = "atet.workflow.registry.public/v1";
-var LEGACY_PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID = "transmute.workflow.registry.public/v1";
 var OWNED_NORMALIZED_PROJECTIONS = new WeakSet;
 var MAX_OPERATION_DISCOVERY_VALUES = 17 + OPERATION_PREPARATION_KINDS.length + 3 * OPERATION_RESOURCE_KINDS.length;
 var MAX_OPERATION_DISCOVERY_LIST_VALUES = 1 + MAX_OPERATION_DISCOVERY_ENTRIES * MAX_OPERATION_DISCOVERY_VALUES;
@@ -1394,9 +1354,9 @@ function uniqueSorted(values) {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 function canonicalAtetIdentity(value) {
-  if (value === "studio" || value === "transmute")
+  if (value === "studio")
     return "atet";
-  return value.replace(/^studio\./u, "atet.").replace(/^transmute\./u, "atet.");
+  return value.replace(/^studio\./u, "atet.");
 }
 function normalizeOperationDiscoveryPreservingIdentity(input) {
   const normalized = boundedOperationDiscoveryList(input).map((item) => {
@@ -1521,40 +1481,16 @@ function publicDiscovery() {
     };
   });
 }
-function legacyPublicDiscovery() {
-  return PORTABLE_TRANSMUTE_OPERATION_KINDS.map((kind) => {
-    const contract = PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[kind];
-    return {
-      inputSchemaId: contract.inputSchemaId,
-      kind: contract.kind,
-      lifecycle: contract.lifecycle,
-      outputSchemaId: contract.outputSchemaId,
-      policy: contract.policy,
-      version: contract.version
-    };
-  });
-}
 function createPublicWorkflowRegistryProjection() {
   return createWorkflowRegistryProjection(PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID, publicDiscovery(), { trustedCompute: false });
 }
 var PUBLIC_WORKFLOW_REGISTRY_PROJECTION = createPublicWorkflowRegistryProjection();
-var legacyPublicDiscoveryEntries = normalizeOperationDiscoveryPreservingIdentity(legacyPublicDiscovery());
-var PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION = Object.freeze({
-  discovery: freezeDiscovery(legacyPublicDiscoveryEntries),
-  id: LEGACY_PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
-  projectionSha256: workflowRegistryProjectionHashFromNormalized({
-    discovery: legacyPublicDiscoveryEntries,
-    id: LEGACY_PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
-    trustedCompute: false
-  }),
-  trustedCompute: false
-});
 var PUBLIC_ATET_WORKFLOW_PROJECTION = PUBLIC_WORKFLOW_REGISTRY_PROJECTION;
 
 // src/code/compiler.ts
 import { z as z3 } from "zod";
-var WORKFLOW_GRAPH_HASH_DOMAIN = "transmute.workflow.graph/v1";
-var WORKFLOW_COMPILATION_HASH_DOMAIN = "transmute.workflow.compilation/v1";
+var WORKFLOW_GRAPH_HASH_DOMAIN = "atet.workflow.graph/v1";
+var WORKFLOW_COMPILATION_HASH_DOMAIN = "atet.workflow.compilation/v1";
 var DEFAULT_GRAPH_COMPILER_LIMITS = Object.freeze({
   maxDepth: 64,
   maxEdges: 2048,
@@ -1594,9 +1530,9 @@ function uniqueSorted2(values) {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 function canonicalAtetIdentity2(value) {
-  if (value === "studio" || value === "transmute")
+  if (value === "studio")
     return "atet";
-  return value.replace(/^studio\./u, "atet.").replace(/^transmute\./u, "atet.");
+  return value.replace(/^studio\./u, "atet.");
 }
 function safeAdd(left, right, name) {
   const result = left + right;
@@ -2030,10 +1966,7 @@ var ShallowCompiledWorkflowGraphSchema = z3.strictObject({
   limits: RequiredCompilationComponentSchema,
   projection: RequiredCompilationComponentSchema,
   topologicalWaves: RequiredCompilationComponentSchema,
-  version: z3.union([
-    z3.literal(WORKFLOW_COMPILATION_VERSION),
-    z3.literal(LEGACY_WORKFLOW_COMPILATION_VERSION)
-  ])
+  version: z3.literal(WORKFLOW_COMPILATION_VERSION)
 });
 function boundedCompilationInput(input, name) {
   return createBoundedJsonValueSnapshot(input, MAX_WORKFLOW_COMPILATION_BYTES, name, {
@@ -2779,7 +2712,7 @@ function seconds(value) {
 
 // src/code/runtime.ts
 var WORKFLOW_NODE_RECEIPT_VERSION = "atet-workflow-node-receipt-v1";
-var WORKFLOW_NODE_RECEIPT_HASH_DOMAIN = "transmute.workflow.node-receipt/v1";
+var WORKFLOW_NODE_RECEIPT_HASH_DOMAIN = "atet.workflow.node-receipt/v1";
 var MAX_WORKFLOW_RESULT_BYTES = 96 * 1024 * 1024;
 var MAX_WORKFLOW_RESULT_DEPTH = 320;
 var MAX_WORKFLOW_RESULT_VALUES = 1300000;
@@ -3018,40 +2951,5 @@ async function runBuiltWorkflow(built, options) {
 async function runWorkflow(definition, input, options) {
   return await runBuiltWorkflow(buildWorkflow(definition, input), options);
 }
-function transmuteKindFromAtet(kind) {
-  return kind.replace(/^atet\./u, "transmute.");
-}
-function createTransmuteCodeHost(options) {
-  if (typeof options !== "object" || options === null) {
-    throw new AtetCodeError("invalid-data", "A Transmute Code host must be an object.");
-  }
-  const legacyExecute = options.execute;
-  const legacyAdmit = options.admit;
-  if (typeof legacyExecute !== "function") {
-    throw new AtetCodeError("invalid-data", "A Transmute Code host requires an execute function.");
-  }
-  if (legacyAdmit !== undefined && typeof legacyAdmit !== "function") {
-    throw new AtetCodeError("invalid-data", "A Transmute Code host admit value must be a function when provided.");
-  }
-  const execute = async (request, context) => {
-    const legacyKind = transmuteKindFromAtet(request.kind);
-    return await legacyExecute({
-      input: request.input,
-      kind: legacyKind,
-      nodeKey: request.nodeKey,
-      version: 2
-    }, context);
-  };
-  const admit = legacyAdmit === undefined ? undefined : async (request, dispatch, context) => await legacyAdmit({
-    kind: transmuteKindFromAtet(request.kind),
-    nodeKey: request.nodeKey,
-    policy: request.policy,
-    version: 2
-  }, dispatch, context);
-  return createAtetCodeHost({
-    ...admit === undefined ? {} : { admit },
-    execute
-  });
-}
 
-export { WORKFLOW_GRAPH_VERSION, WORKFLOW_REF_VERSION, GRAPH_ABI, REQUIREMENT_ENVELOPE_VERSION, TRUSTED_COMPUTE_VERSION, WORKFLOW_COMPILATION_VERSION, LEGACY_WORKFLOW_GRAPH_VERSION, LEGACY_WORKFLOW_REF_VERSION, LEGACY_GRAPH_ABI, LEGACY_REQUIREMENT_ENVELOPE_VERSION, LEGACY_WORKFLOW_COMPILATION_VERSION, MAX_SERIALIZED_GRAPH_NODES, MAX_SERIALIZED_NODE_DEPENDENCIES, MAX_SERIALIZED_REF_PATH_SEGMENTS, MAX_OPERATION_DISCOVERY_ENTRIES, MAX_TRUSTED_COMPUTE_INPUT_BYTES, MAX_TRUSTED_COMPUTE_OUTPUT_BYTES, MAX_TRUSTED_COMPUTE_DURATION_MS, WorkflowIdSchema, NodeKeySegmentSchema, NodeKeySchema, SchemaIdSchema, ComputeKeySchema, OperationKindSchema, Sha256Schema, PositiveSafeIntegerSchema, NonnegativeSafeIntegerSchema, RefPathSegmentSchema, JsonValueSchema, SerializedRefV1Schema, GraphInputValueSchema, WorkflowOutputBindingSchema, AuthoredOperationIdentitySchema, AuthoredComputeIdentitySchema, AuthoredNodeExecutorSchema, AuthoredGraphNodeV1Schema, isOperationGraphNode, isComputeGraphNode, WorkflowIdentitySchema, AuthoredWorkflowGraphV1Schema, OPERATION_EFFECT_CLASSES, WORKFLOW_EFFECT_CLASSES, OPERATION_RESUME_CLASSES, WORKFLOW_RESUME_CLASSES, OPERATION_PREPARATION_KINDS, OPERATION_LIFECYCLE_KINDS, OPERATION_RESOURCE_KINDS, OperationResourceClaimSchema, OperationPolicySchema, TrustedComputePolicySchema, WorkflowNodePolicySchema, trustedComputePolicy, OperationDiscoverySchema, WorkflowRegistryProjectionSchema, GraphCompilerLimitsSchema, UNRESOLVED_REQUIREMENT_KINDS, RequirementEnvelopeBoundsSchema, RequirementEnvelopeSchema, CompiledWorkflowGraphSchema, TRUSTED_COMPUTE_BRAND, LEGACY_TRUSTED_COMPUTE_BRAND, WORKFLOW_REF_BRAND, AtetCodeError, atetCodeErrorMessage, asAtetCodeError, transmuteCodeErrorMessage, asTransmuteCodeError, createSha256HexHasher, sha256Hex, compareUtf16Strings, boundedCanonicalJson, boundedCanonicalJsonSha256, boundedCanonicalJsonFingerprint, canonicalJson, canonicalJsonSha256, canonicalJsonSha256Prefixed, canonicalJsonFingerprint, AtetImageModelSchema, AtetDiagramCheckInputSchema, AtetDiagramRenderInputSchema, AtetImageVectorizeInputSchema, AtetImageGenerateInputSchema, AtetLintFindingSchema, AtetDiagramCheckOutputSchema, AtetRenderArtifactsSchema, AtetDiagramRenderOutputSchema, AtetVectorizeQualityReceiptSchema, AtetVectorizeProvenanceSchema, AtetVectorizeReceiptSchema, AtetImageVectorizeOutputSchema, AtetImageGenerateOutputSchema, PORTABLE_ATET_OPERATION_KINDS, PORTABLE_ATET_OPERATION_CONTRACTS, isPortableAtetOperationKind, TransmuteImageModelSchema, TransmuteDiagramCheckInputSchema, TransmuteDiagramRenderInputSchema, TransmuteImageVectorizeInputSchema, TransmuteImageGenerateInputSchema, TransmuteLintFindingSchema, TransmuteDiagramCheckOutputSchema, TransmuteRenderArtifactsSchema, TransmuteDiagramRenderOutputSchema, TransmuteVectorizeQualityReceiptSchema, TransmuteVectorizeProvenanceSchema, TransmuteVectorizeReceiptSchema, TransmuteImageVectorizeOutputSchema, TransmuteImageGenerateOutputSchema, PORTABLE_TRANSMUTE_OPERATION_KINDS, PORTABLE_TRANSMUTE_OPERATION_CONTRACTS, isPortableTransmuteOperationKind, WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN, PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID, LEGACY_PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID, boundedOperationDiscoveryList, normalizeOperationDiscovery, createWorkflowRegistryProjectionHash, createWorkflowRegistryProjection, parseWorkflowRegistryProjection, createPublicWorkflowRegistryProjection, PUBLIC_WORKFLOW_REGISTRY_PROJECTION, PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION, PUBLIC_ATET_WORKFLOW_PROJECTION, WORKFLOW_GRAPH_HASH_DOMAIN, WORKFLOW_COMPILATION_HASH_DOMAIN, DEFAULT_GRAPH_COMPILER_LIMITS, normalizeAuthoredWorkflowGraph, createWorkflowGraphHash, createGraphHash, createWorkflowCompilationHash, compileWorkflowGraph, parseCompiledWorkflowGraph, defineWorkflowFragment, operationContract, WorkflowGraphBuilder, definePortableWorkflowFragment, PortableWorkflowBuilder, defineWorkflow, buildWorkflow, buildWorkflowGraph, defineCompute, defineAdvancedWorkflow, buildAdvancedWorkflow, seconds, WORKFLOW_NODE_RECEIPT_VERSION, WORKFLOW_NODE_RECEIPT_HASH_DOMAIN, MAX_WORKFLOW_RESULT_BYTES, MAX_WORKFLOW_RESULT_DEPTH, MAX_WORKFLOW_RESULT_VALUES, createAtetCodeHost, AtetWorkflowRunError, runBuiltWorkflow, runWorkflow, createTransmuteCodeHost };
+export { WORKFLOW_GRAPH_VERSION, WORKFLOW_REF_VERSION, GRAPH_ABI, REQUIREMENT_ENVELOPE_VERSION, TRUSTED_COMPUTE_VERSION, WORKFLOW_COMPILATION_VERSION, LEGACY_WORKFLOW_GRAPH_VERSION, LEGACY_WORKFLOW_REF_VERSION, LEGACY_GRAPH_ABI, LEGACY_REQUIREMENT_ENVELOPE_VERSION, MAX_SERIALIZED_GRAPH_NODES, MAX_SERIALIZED_NODE_DEPENDENCIES, MAX_SERIALIZED_REF_PATH_SEGMENTS, MAX_OPERATION_DISCOVERY_ENTRIES, MAX_TRUSTED_COMPUTE_INPUT_BYTES, MAX_TRUSTED_COMPUTE_OUTPUT_BYTES, MAX_TRUSTED_COMPUTE_DURATION_MS, WorkflowIdSchema, NodeKeySegmentSchema, NodeKeySchema, SchemaIdSchema, ComputeKeySchema, OperationKindSchema, Sha256Schema, PositiveSafeIntegerSchema, NonnegativeSafeIntegerSchema, RefPathSegmentSchema, JsonValueSchema, SerializedRefV1Schema, GraphInputValueSchema, WorkflowOutputBindingSchema, AuthoredOperationIdentitySchema, AuthoredComputeIdentitySchema, AuthoredNodeExecutorSchema, AuthoredGraphNodeV1Schema, isOperationGraphNode, isComputeGraphNode, WorkflowIdentitySchema, AuthoredWorkflowGraphV1Schema, OPERATION_EFFECT_CLASSES, WORKFLOW_EFFECT_CLASSES, OPERATION_RESUME_CLASSES, WORKFLOW_RESUME_CLASSES, OPERATION_PREPARATION_KINDS, OPERATION_LIFECYCLE_KINDS, OPERATION_RESOURCE_KINDS, OperationResourceClaimSchema, OperationPolicySchema, TrustedComputePolicySchema, WorkflowNodePolicySchema, trustedComputePolicy, OperationDiscoverySchema, WorkflowRegistryProjectionSchema, GraphCompilerLimitsSchema, UNRESOLVED_REQUIREMENT_KINDS, RequirementEnvelopeBoundsSchema, RequirementEnvelopeSchema, CompiledWorkflowGraphSchema, TRUSTED_COMPUTE_BRAND, LEGACY_TRUSTED_COMPUTE_BRAND, WORKFLOW_REF_BRAND, AtetCodeError, atetCodeErrorMessage, asAtetCodeError, createSha256HexHasher, sha256Hex, compareUtf16Strings, boundedCanonicalJson, boundedCanonicalJsonSha256, boundedCanonicalJsonFingerprint, canonicalJson, canonicalJsonSha256, canonicalJsonSha256Prefixed, canonicalJsonFingerprint, AtetImageModelSchema, AtetDiagramCheckInputSchema, AtetDiagramRenderInputSchema, AtetImageVectorizeInputSchema, AtetImageGenerateInputSchema, AtetLintFindingSchema, AtetDiagramCheckOutputSchema, AtetRenderArtifactsSchema, AtetDiagramRenderOutputSchema, AtetVectorizeQualityReceiptSchema, AtetVectorizeProvenanceSchema, AtetVectorizeReceiptSchema, AtetImageVectorizeOutputSchema, AtetImageGenerateOutputSchema, PORTABLE_ATET_OPERATION_KINDS, PORTABLE_ATET_OPERATION_CONTRACTS, isPortableAtetOperationKind, WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN, PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID, boundedOperationDiscoveryList, normalizeOperationDiscovery, createWorkflowRegistryProjectionHash, createWorkflowRegistryProjection, parseWorkflowRegistryProjection, createPublicWorkflowRegistryProjection, PUBLIC_WORKFLOW_REGISTRY_PROJECTION, PUBLIC_ATET_WORKFLOW_PROJECTION, WORKFLOW_GRAPH_HASH_DOMAIN, WORKFLOW_COMPILATION_HASH_DOMAIN, DEFAULT_GRAPH_COMPILER_LIMITS, normalizeAuthoredWorkflowGraph, createWorkflowGraphHash, createGraphHash, createWorkflowCompilationHash, compileWorkflowGraph, parseCompiledWorkflowGraph, defineWorkflowFragment, operationContract, WorkflowGraphBuilder, definePortableWorkflowFragment, PortableWorkflowBuilder, defineWorkflow, buildWorkflow, buildWorkflowGraph, defineCompute, defineAdvancedWorkflow, buildAdvancedWorkflow, seconds, WORKFLOW_NODE_RECEIPT_VERSION, WORKFLOW_NODE_RECEIPT_HASH_DOMAIN, MAX_WORKFLOW_RESULT_BYTES, MAX_WORKFLOW_RESULT_DEPTH, MAX_WORKFLOW_RESULT_VALUES, createAtetCodeHost, AtetWorkflowRunError, runBuiltWorkflow, runWorkflow };

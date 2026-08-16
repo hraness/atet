@@ -2989,7 +2989,6 @@ async function loadSpeechReferenceForProject(
   const artifact = await loadAnalysisArtifact(project.fileSystem, reference.path);
   if (
     (artifact.kind !== "atet.speech-analysis"
-      && artifact.kind !== "transmute.speech-analysis"
       && artifact.kind !== "studio.speech-analysis")
     || artifact.analysisId !== reference.analysisId
   ) {
@@ -3128,7 +3127,6 @@ async function projectMusicProtectionRanges(
       const value = await loadAnalysisArtifact(project.fileSystem, reference.path);
       if (
         value.kind !== "atet.music-analysis"
-        && value.kind !== "transmute.music-analysis"
         && value.kind !== "studio.music-analysis"
       ) {
         throw new CliError("invalid-data", `Music sidecar does not match ${reference.analysisId}.`);

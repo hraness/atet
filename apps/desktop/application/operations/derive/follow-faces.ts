@@ -152,7 +152,6 @@ const FaceFollowRevisionDraftBodySchema = z.strictObject({
   cameraMove: ProjectCameraMoveSchema,
   kind: z.union([
     z.literal("atet.face-follow-edit-revision-draft"),
-    z.literal("transmute.face-follow-edit-revision-draft"),
     z.literal("studio.face-follow-edit-revision-draft"),
   ]),
   pixelHeight: z.number().int().safe().positive().max(16_384),

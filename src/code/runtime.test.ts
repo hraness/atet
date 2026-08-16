@@ -14,12 +14,9 @@ import {
 } from "./projection.js"
 import {
   createAtetCodeHost,
-  createTransmuteCodeHost,
   runBuiltWorkflow,
   runWorkflow,
   AtetWorkflowRunError,
-  type TransmuteCodeExecutor,
-  type TransmuteCodeExecutionRequest,
 } from "./runtime.js"
 import type {
   OperationDiscovery,
@@ -125,44 +122,6 @@ async function capturedRunError(
 }
 
 describe("portable ephemeral workflow runtime", () => {
-  test("adapts v1 host requests while retaining canonical graph receipts", async () => {
-    const observed: TransmuteCodeExecutionRequest<"transmute.diagram.check">[] = []
-    const definition = defineWorkflow({
-      build(builder, input: { readonly path: string }) {
-        return builder.diagram.check("check", input)
-      },
-      id: "legacy-host-input",
-      inputSchema: z.strictObject({ path: z.string().min(1) }),
-      inputSchemaId: "atet.workflow.legacy-host-input.input/v1",
-      version: 1,
-    })
-    const host = createTransmuteCodeHost({
-      execute: (async (request) => {
-        if (request.kind !== "transmute.diagram.check") {
-          throw new Error(`Unexpected operation ${request.kind}`)
-        }
-        observed.push(
-          request as TransmuteCodeExecutionRequest<"transmute.diagram.check">,
-        )
-        return { configPath: null, findings: [] }
-      }) as TransmuteCodeExecutor,
-    })
-
-    const result = await runWorkflow(
-      definition,
-      { path: "legacy.diagram.json" },
-      { host },
-    )
-
-    expect(observed).toEqual([{
-      input: { path: "legacy.diagram.json" },
-      kind: "transmute.diagram.check",
-      nodeKey: "check",
-      version: 2,
-    }])
-    expect(result.receipts[0]?.kind).toBe("atet.diagram.check")
-  })
-
   test("composes deeply nested bindings with one resolved node output", async () => {
     const definition = defineWorkflow({
       build(builder) {

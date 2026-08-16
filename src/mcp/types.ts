@@ -37,8 +37,6 @@ export interface McpToolDefinition {
     | "render_diagram"
     | "search_atet"
     | "execute_atet"
-    | "search_transmute"
-    | "execute_transmute"
   readonly title: string
   readonly description: string
   readonly inputSchema: Readonly<Record<string, unknown>>

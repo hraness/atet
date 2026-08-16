@@ -23,7 +23,7 @@
 - Keep `/artifacts/`, `.env`, and `.env.*` ignored. Recordings, imported media, private project metadata, Gateway tokens, and provider options must never enter Git or a package artifact.
 - Treat `vercel env run -- <command>` as the ergonomic local Vercel path. Never shell out to infer or scrape a token from the Vercel CLI.
 - Preserve `.diagram.json` version one and the five same-stem render outputs: `.tldr`, light and dark SVG, and light and dark PNG.
-- Keep one self-contained Atet identity. Version 2 retains `transmute` as a one-major CLI bin alias and accepts reviewed version-1 serialized identifiers plus the four exact `@hraness/transmute/local/*` source imports at explicit input-only compatibility boundaries. Do not emit predecessor branding, package names, source names, or runtime implementations.
+- Keep one self-contained Atet identity. Public APIs, serialized identifiers, source imports, configuration, and runtime surfaces use only Atet names.
 - Preserve every immutable version-1 tag and Release. Never rewrite a historical tag or recreate a repository at the former GitHub path, because doing so would replace GitHub's compatibility redirect.
 - Treat diagram source as authoritative and generated media as replaceable. Defaults may resolve mechanics but must not invent claims, labels, legends, relationships, or decorative meaning.
 - Parse foreign values from `unknown`, keep output deterministic, and test every parser, protocol, operation, path, credential, and compatibility boundary.

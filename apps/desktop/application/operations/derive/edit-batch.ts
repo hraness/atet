@@ -154,7 +154,6 @@ export const ProjectEditBatchInputSchema = z.strictObject({
 const ProjectEditBatchBodySchema = z.strictObject({
   kind: z.union([
     z.literal("atet.project-edit-batch"),
-    z.literal("transmute.project-edit-batch"),
     z.literal("studio.project-edit-batch"),
   ]),
   ordered: z.array(OrderedProjectEditSchema).min(1).max(10_000),
@@ -548,7 +547,6 @@ export const ProjectEditBatchInputV2Schema = z.strictObject({
 const ProjectEditBatchBodyV2Schema = z.strictObject({
   kind: z.union([
     z.literal("atet.project-edit-batch"),
-    z.literal("transmute.project-edit-batch"),
     z.literal("studio.project-edit-batch"),
   ]),
   ordered: z.array(OrderedProjectEditV2Schema).min(1).max(10_000),
@@ -852,7 +850,6 @@ export const ProjectEditBatchInputV3Schema = z.strictObject({
 const ProjectEditBatchBodyV3Schema = z.strictObject({
   kind: z.union([
     z.literal("atet.project-edit-batch"),
-    z.literal("transmute.project-edit-batch"),
     z.literal("studio.project-edit-batch"),
   ]),
   ordered: z.array(OrderedProjectEditV3Schema).min(1).max(10_000),

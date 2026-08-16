@@ -317,7 +317,7 @@ function parseResult(value, model) {
   }
   const gateway = isObject(value.providerMetadata) && isObject(value.providerMetadata.gateway) ? value.providerMetadata.gateway : undefined;
   const foreignGenerationId = gateway !== undefined && typeof gateway.generationId === "string" && gateway.generationId.length > 0 && gateway.generationId.length <= 256 && !/[\u0000-\u001f\u007f]/u.test(gateway.generationId) ? gateway.generationId : randomUUID();
-  const requestId = `sha256:${createHash("sha256").update("transmute.gateway-generation-id/v1\x00").update(foreignGenerationId).digest("hex")}`;
+  const requestId = `sha256:${createHash("sha256").update("atet.gateway-generation-id/v1\x00").update(foreignGenerationId).digest("hex")}`;
   const warnings = Array.isArray(value.warnings) ? value.warnings.slice(0, 100).map(warningReceipt) : [];
   return {
     bytes: image.uint8Array,
@@ -420,13 +420,5 @@ async function generateAtetImageFile(input, dependencies = {}) {
     warnings: generated.response.warnings
   };
 }
-var transmuteGatewayApiBaseUrl = atetGatewayApiBaseUrl;
-var transmuteImageModels = atetImageModels;
-var transmuteResponseMediaTypes = atetResponseMediaTypes;
-var transmuteMaximumPromptBytes = atetMaximumPromptBytes;
-var transmuteMaximumRawImageBytes = atetMaximumRawImageBytes;
-var transmuteGatewayCredentialStatus = atetGatewayCredentialStatus;
-var generateTransmuteImage = generateAtetImage;
-var generateTransmuteImageFile = generateAtetImageFile;
 
-export { AtetCloudError, atetGatewayApiBaseUrl, atetImageModels, atetResponseMediaTypes, atetMaximumPromptBytes, atetMaximumRawImageBytes, atetGatewayCredentialStatus, createFixedGatewayFetch, generateAtetImage, generateAtetImageFile, transmuteGatewayApiBaseUrl, transmuteImageModels, transmuteResponseMediaTypes, transmuteMaximumPromptBytes, transmuteMaximumRawImageBytes, transmuteGatewayCredentialStatus, generateTransmuteImage, generateTransmuteImageFile };
+export { AtetCloudError, atetGatewayApiBaseUrl, atetImageModels, atetResponseMediaTypes, atetMaximumPromptBytes, atetMaximumRawImageBytes, atetGatewayCredentialStatus, createFixedGatewayFetch, generateAtetImage, generateAtetImageFile };

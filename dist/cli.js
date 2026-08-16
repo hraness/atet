@@ -11,29 +11,28 @@ import {
   renderDiagramFile,
   runMcpServer,
   selectDesktopAsset
-} from "./index-nap24380.js";
+} from "./index-9msh93rm.js";
 import {
   installSkill,
   pathExists
 } from "./index-pc34q4wz.js";
-import"./index-smffk7h7.js";
+import"./index-38hzjjaq.js";
 import {
   atetOperationCodes,
   executeAtetOperation,
   isAtetOperationCode,
-  isTransmuteOperationCode,
   searchAtetOperations,
   withAtetOperationHostAdmission
-} from "./index-65by8228.js";
+} from "./index-b7xv1v0z.js";
 import {
   vectorizeImage
-} from "./index-7jg2r2mc.js";
+} from "./index-zhffnaj1.js";
 import {
   atetGatewayCredentialStatus,
   atetImageModels,
   generateAtetImageFile
-} from "./index-41988ev7.js";
-import"./index-64bhbap5.js";
+} from "./index-70c7xxz7.js";
+import"./index-6kb9qvnn.js";
 import {
   __require
 } from "./index-z1w83f81.js";
@@ -43,7 +42,6 @@ import { writeFile } from "fs/promises";
 import { resolve } from "path";
 import { createInterface } from "readline/promises";
 var atetCliVersion = ATET_VERSION;
-var transmuteCliVersion = atetCliVersion;
 var help = `atet ${atetCliVersion}
 
 Turn source material into deterministic diagrams, images, and canvas assets.
@@ -340,7 +338,7 @@ async function main(args, dependencies = {}) {
         throw new Error("Use atet code search [query] [--limit <number>]");
       }
       const limit = parsePositiveInteger(parsed.options.limit, "limit") ?? atetOperationCodes.length;
-      const operations = searchAtetOperations((parsed.positionals[0] ?? "").replace(/\btransmute\./gu, "atet."), limit);
+      const operations = searchAtetOperations(parsed.positionals[0] ?? "", limit);
       console.log(JSON.stringify({ operations }, null, 2));
       return;
     }
@@ -350,7 +348,7 @@ async function main(args, dependencies = {}) {
         throw new Error("Use atet code execute <operation> --input <JSON>");
       }
       const requestedOperation = parsed.positionals[0];
-      const operation = isAtetOperationCode(requestedOperation) ? requestedOperation : isTransmuteOperationCode(requestedOperation) ? requestedOperation.replace(/^transmute\./u, "atet.") : undefined;
+      const operation = isAtetOperationCode(requestedOperation) ? requestedOperation : undefined;
       if (operation === undefined) {
         throw new Error(`Unknown Atet operation code: ${requestedOperation}`);
       }
@@ -475,7 +473,6 @@ if (import.meta.main) {
   }
 }
 export {
-  transmuteCliVersion,
   main,
   atetCliVersion
 };

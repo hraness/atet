@@ -19,18 +19,12 @@ import { createBoundedJsonValueSnapshot } from "./json-snapshot.js"
 import {
   PORTABLE_ATET_OPERATION_CONTRACTS,
   PORTABLE_ATET_OPERATION_KINDS,
-  PORTABLE_TRANSMUTE_OPERATION_CONTRACTS,
-  PORTABLE_TRANSMUTE_OPERATION_KINDS,
 } from "./public-operations.js"
 
 export const WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN =
-  // Stable domain salt for version-one projection hashes. The serialized
-  // projection identity and discovery are canonicalized independently.
-  "transmute.workflow.registry-projection/v1" as const
+  "atet.workflow.registry-projection/v1" as const
 export const PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID =
   "atet.workflow.registry.public/v1" as const
-export const LEGACY_PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID =
-  "transmute.workflow.registry.public/v1" as const
 
 export type WorkflowRegistryProjectionSource =
   | OperationDiscoverySource
@@ -154,10 +148,8 @@ function uniqueSorted<Value extends string>(
 }
 
 function canonicalAtetIdentity(value: string): string {
-  if (value === "studio" || value === "transmute") return "atet"
-  return value
-    .replace(/^studio\./u, "atet.")
-    .replace(/^transmute\./u, "atet.")
+  if (value === "studio") return "atet"
+  return value.replace(/^studio\./u, "atet.")
 }
 
 function normalizeOperationDiscoveryPreservingIdentity(
@@ -371,20 +363,6 @@ function publicDiscovery(): readonly OperationDiscovery[] {
   })
 }
 
-function legacyPublicDiscovery(): readonly OperationDiscovery[] {
-  return PORTABLE_TRANSMUTE_OPERATION_KINDS.map((kind) => {
-    const contract = PORTABLE_TRANSMUTE_OPERATION_CONTRACTS[kind]
-    return {
-      inputSchemaId: contract.inputSchemaId,
-      kind: contract.kind,
-      lifecycle: contract.lifecycle,
-      outputSchemaId: contract.outputSchemaId,
-      policy: contract.policy,
-      version: contract.version,
-    }
-  })
-}
-
 export function createPublicWorkflowRegistryProjection(): WorkflowRegistryProjection {
   return createWorkflowRegistryProjection(
     PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
@@ -396,21 +374,5 @@ export function createPublicWorkflowRegistryProjection(): WorkflowRegistryProjec
 export const PUBLIC_WORKFLOW_REGISTRY_PROJECTION =
   createPublicWorkflowRegistryProjection()
 
-const legacyPublicDiscoveryEntries =
-  normalizeOperationDiscoveryPreservingIdentity(legacyPublicDiscovery())
-
-/** Exact version-one discovery retained only for predecessor readers. */
-export const PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION = Object.freeze({
-  discovery: freezeDiscovery(legacyPublicDiscoveryEntries),
-  id: LEGACY_PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
-  projectionSha256: workflowRegistryProjectionHashFromNormalized({
-    discovery: legacyPublicDiscoveryEntries,
-    id: LEGACY_PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
-    trustedCompute: false,
-  }),
-  trustedCompute: false,
-}) satisfies WorkflowRegistryProjection
-
-/** Compatibility spelling for hosts that identify this as the Atet projection. */
 export const PUBLIC_ATET_WORKFLOW_PROJECTION =
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION

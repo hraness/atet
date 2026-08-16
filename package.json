@@ -136,8 +136,7 @@
     }
   },
   "bin": {
-    "atet": "./apps/desktop/dist/cli/main.js",
-    "transmute": "./apps/desktop/dist/cli/transmute.js"
+    "atet": "./apps/desktop/dist/cli/main.js"
   },
   "main": "./dist/index.js",
   "types": "./src/index.ts",
@@ -190,7 +189,7 @@
     "build": "bun run build:sdk && bun run build:desktop && bun run build:web",
     "build:sdk": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/index.ts ./src/cli.ts ./src/code/index.ts ./src/code/advanced.ts ./src/generate.ts ./src/host-resources.ts ./src/operations.ts ./src/workflow.ts ./src/vectorize/worker.ts --outdir ./dist --root ./src --target bun --format esm --splitting --packages external",
     "build:desktop": "bun run build:desktop:cli && bun run build:desktop:frontend && bun run build:desktop:runtime",
-    "build:desktop:cli": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./apps/desktop/dist/cli\", { recursive: true, force: true })' && bun build --target=bun --minify --sourcemap=none --packages external --external @hraness/atet/cli apps/desktop/cli/main.ts --outdir apps/desktop/dist/cli && bun build --target=bun --minify --sourcemap=none --packages external --external '*main.js' apps/desktop/cli/transmute.ts --outdir apps/desktop/dist/cli",
+    "build:desktop:cli": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./apps/desktop/dist/cli\", { recursive: true, force: true })' && bun build --target=bun --minify --sourcemap=none --packages external --external @hraness/atet/cli apps/desktop/cli/main.ts --outdir apps/desktop/dist/cli",
     "build:desktop:frontend": "vite build --config apps/desktop/frontend/vite.config.ts && bun run check:desktop:direct-boundary",
     "build:desktop:runtime": "bun build --compile --minify --sourcemap=none apps/desktop/runtime/src/main.ts --outfile apps/desktop/runtime/dist/atet-gateway && bun run check:desktop:direct-boundary",
     "build:web": "bun run --cwd apps/web build",

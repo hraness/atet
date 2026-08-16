@@ -451,17 +451,17 @@ describe("durable workflow run store", () => {
     }[] = [
       {
         current: input.runtime,
-        legacyVersion: "transmute-run-store-v2",
+        legacyVersion: "retired-run-store-v2",
         schema: RunRuntimeRecordSchema,
       },
       {
         current: nodePlans.preparation,
-        legacyVersion: "transmute-node-preparation-plan-v2",
+        legacyVersion: "retired-node-preparation-plan-v2",
         schema: NodePreparationPlanSchema,
       },
       {
         current: nodePlans.execution,
-        legacyVersion: "transmute-node-execution-plan-v2",
+        legacyVersion: "retired-node-execution-plan-v2",
         schema: NodeExecutionPlanSchema,
       },
       {
@@ -475,7 +475,7 @@ describe("durable workflow run store", () => {
           status: "ready",
           version: RUN_NODE_VERSION,
         },
-        legacyVersion: "transmute-run-node-v2",
+        legacyVersion: "retired-run-node-v2",
         schema: RunNodeRecordSchema,
       },
       {
@@ -489,7 +489,7 @@ describe("durable workflow run store", () => {
           token: "00000000-0000-4000-8000-000000000001",
           version: RUN_FENCE_VERSION,
         },
-        legacyVersion: "transmute-run-fence-v2",
+        legacyVersion: "retired-run-fence-v2",
         schema: RunFenceSchema,
       },
       {
@@ -502,7 +502,7 @@ describe("durable workflow run store", () => {
           timestamp,
           version: RUN_EVENT_VERSION,
         },
-        legacyVersion: "transmute-run-event-v2",
+        legacyVersion: "retired-run-event-v2",
         schema: RunEventSchema,
       },
       {
@@ -516,7 +516,7 @@ describe("durable workflow run store", () => {
           scopes: ["local-read"],
           version: RUN_GRANT_VERSION,
         },
-        legacyVersion: "transmute-run-grant-v2",
+        legacyVersion: "retired-run-grant-v2",
         schema: RunGrantSchema,
       },
       {
@@ -526,7 +526,7 @@ describe("durable workflow run store", () => {
           runId: input.runId,
           version: RUN_STORE_VERSION,
         },
-        legacyVersion: "transmute-run-store-v2",
+        legacyVersion: "retired-run-store-v2",
         schema: CancellationRequestSchema,
       },
       {
@@ -538,7 +538,7 @@ describe("durable workflow run store", () => {
           updatedAt: timestamp,
           version: RUN_STORE_VERSION,
         },
-        legacyVersion: "transmute-run-store-v2",
+        legacyVersion: "retired-run-store-v2",
         schema: RunSummarySchema,
       },
       {
@@ -550,7 +550,7 @@ describe("durable workflow run store", () => {
           runId: input.runId,
           version: RUN_OUTPUTS_VERSION,
         },
-        legacyVersion: "transmute-run-outputs-v2",
+        legacyVersion: "retired-run-outputs-v2",
         schema: RunOutputsSchema,
       },
     ];
@@ -562,8 +562,6 @@ describe("durable workflow run store", () => {
         version: legacyVersion,
       }).success).toBe(false);
     }
-    expect(JSON.stringify(currentRecords.map(record => record.current)))
-      .not.toMatch(/(?:studio|transmute)[.-]/u);
   });
 
   test("persists exact private identities and initializes digest-addressed nodes", async () => {

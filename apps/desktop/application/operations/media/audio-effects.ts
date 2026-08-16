@@ -57,7 +57,6 @@ export const MediaAudioEffectsReceiptSchema = z.strictObject({
   input: MediaArtifactReferenceSchema,
   kind: z.union([
     z.literal("atet.local-media-transform-receipt"),
-    z.literal("transmute.local-media-transform-receipt"),
     z.literal("studio.local-media-transform-receipt"),
   ]),
   operation: z.literal("audio-effects"),

@@ -135,7 +135,6 @@ export const ProjectRenderEncoderRecipeSchema = z.strictObject({
   filterThreads: z.literal(1),
   kind: z.union([
     z.literal("atet.project-render-encoder-recipe"),
-    z.literal("transmute.project-render-encoder-recipe"),
   ]),
   schemaVersion: z.literal(1),
   tier: ProjectRenderTierSchema,
@@ -449,7 +448,6 @@ export const ProjectRenderPlanV1Schema = z.strictObject({
   effects: RenderEffectsSchema,
   kind: z.union([
     z.literal("atet.project-render-plan"),
-    z.literal("transmute.project-render-plan"),
     z.literal("studio.project-render-plan"),
   ]),
   output: z.strictObject({
@@ -604,7 +602,6 @@ export const ProjectRenderReceiptV1Schema = z.strictObject({
   createdAt: IsoTimestampSchema,
   kind: z.union([
     z.literal("atet.project-render-receipt"),
-    z.literal("transmute.project-render-receipt"),
     z.literal("studio.project-render-receipt"),
   ]),
   output: z.strictObject({

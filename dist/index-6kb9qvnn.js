@@ -259,7 +259,7 @@ function defaultAtetHostResourceProfile(hostParallelism = availableParallelism()
   }
   const reserve = hostParallelism >= 6 ? 2 : hostParallelism >= 2 ? 1 : 0;
   return normalizeHostResourceProfile({
-    id: "transmute.host-resources/v1",
+    id: "atet.host-resources/v1",
     capacities: [
       { resource: "cpu", limit: Math.max(1, hostParallelism - reserve) },
       { resource: "local-io", limit: 2 },
@@ -279,15 +279,12 @@ function defaultAtetHostResourceStateRoot(platform = process.platform, environme
     throw new HostResourceError("UNSUPPORTED_PLATFORM", "Atet host-resource coordination requires Darwin or Linux.");
   }
   if (platform === "darwin") {
-    return join(userHome, "Library", "Application Support", "Transmute", "cli", "host-resources-v1");
+    return join(userHome, "Library", "Application Support", "Atet", "cli", "host-resources-v1");
   }
   const configuredStateHome = environment.XDG_STATE_HOME;
   const stateHome = configuredStateHome !== undefined && isAbsolute(configuredStateHome) ? configuredStateHome : join(userHome, ".local", "state");
-  return join(stateHome, "transmute", "host-resources-v1");
+  return join(stateHome, "atet", "host-resources-v1");
 }
-var transmuteHostResourceNames = atetHostResourceNames;
-var defaultTransmuteHostResourceProfile = defaultAtetHostResourceProfile;
-var defaultTransmuteHostResourceStateRoot = defaultAtetHostResourceStateRoot;
 function canonicalProfile(profile) {
   return JSON.stringify(profile);
 }
@@ -1219,4 +1216,4 @@ function createDefaultHostResourceCoordinator(options = {}, platform = process.p
   });
 }
 
-export { HOST_RESOURCE_MAX_WAIT_MILLISECONDS, atetHostResourceNames, HostResourceError, normalizeHostResourceProfile, normalizeHostResourceClaims, defaultAtetHostResourceProfile, defaultAtetHostResourceStateRoot, transmuteHostResourceNames, defaultTransmuteHostResourceProfile, defaultTransmuteHostResourceStateRoot, createHostResourceCoordinator, createProcessLocalHostResourceCoordinator, createDefaultHostResourceCoordinator };
+export { HOST_RESOURCE_MAX_WAIT_MILLISECONDS, atetHostResourceNames, HostResourceError, normalizeHostResourceProfile, normalizeHostResourceClaims, defaultAtetHostResourceProfile, defaultAtetHostResourceStateRoot, createHostResourceCoordinator, createProcessLocalHostResourceCoordinator, createDefaultHostResourceCoordinator };

@@ -4,10 +4,6 @@ import { z } from "zod"
 import {
   GRAPH_ABI,
   LEGACY_TRUSTED_COMPUTE_BRAND,
-  LEGACY_REQUIREMENT_ENVELOPE_VERSION,
-  LEGACY_WORKFLOW_COMPILATION_VERSION,
-  LEGACY_WORKFLOW_GRAPH_VERSION,
-  LEGACY_WORKFLOW_REF_VERSION,
   MAX_OPERATION_DISCOVERY_ENTRIES,
   MAX_SERIALIZED_NODE_DEPENDENCIES,
   MAX_SERIALIZED_REF_PATH_SEGMENTS,
@@ -34,7 +30,6 @@ import {
   AtetImageGenerateInputSchema,
 } from "./public-operations.js"
 import {
-  PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
   createWorkflowRegistryProjection,
@@ -156,7 +151,7 @@ describe("portable workflow compiler", () => {
       },
     })
     expect(createWorkflowGraphHash(graph)).toBe(
-      "445128153d3745b28c7be36ce2fa8718d3b3bef4c0bf6f3c58b85ccb72de4907",
+      "55ae25dd7f815dab84f354c01fa13826bce34dd8cc3bc97acb15533a85be32e5",
     )
 
     const reversed = { ...graph, nodes: [...graph.nodes].reverse() }
@@ -184,31 +179,32 @@ describe("portable workflow compiler", () => {
     expect(graph.nodes.at(-1)?.dependencies).toEqual(["a_b", "a-b"])
     expect(compiled.topologicalWaves).toEqual([["a_b", "a-b"], ["z"]])
     expect(createWorkflowGraphHash(graph)).toBe(
-      "2f8ecb8884efef558af7c83e5b764f77f71c80a937b674f866d9586907156b1d",
+      "7d58cc33d729df17adade0ad97c9042fd30f41c0092ecf1acbb4b9987cd19e91",
     )
   })
 
   test("binds compilation to a normalized immutable projection, not graph identity", () => {
     const graph = graphFixture()
     const publicCompilation = compileWorkflowGraph({ graph })
-    expect(JSON.stringify(publicCompilation)).not.toMatch(/studio|transmute/u)
-    expect(PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION.id)
-      .toBe("transmute.workflow.registry.public/v1")
-    expect(PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION.discovery.every(operation => (
-      operation.kind.startsWith("transmute.")
-      && operation.inputSchemaId.startsWith("transmute.")
-      && operation.outputSchemaId.startsWith("transmute.")
+    expect(publicCompilation.graph.nodes.every(node => (
+      node.executor.kind !== "operation"
+      || node.executor.operation.kind.startsWith("atet.")
     ))).toBe(true)
-    expect(parseWorkflowRegistryProjection(PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION))
+    expect(PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery.every(operation => (
+      operation.kind.startsWith("atet.")
+      && operation.inputSchemaId.startsWith("atet.")
+      && operation.outputSchemaId.startsWith("atet.")
+    ))).toBe(true)
+    expect(parseWorkflowRegistryProjection(PUBLIC_WORKFLOW_REGISTRY_PROJECTION))
       .toEqual(PUBLIC_WORKFLOW_REGISTRY_PROJECTION)
     expect(createWorkflowRegistryProjectionHash({
-      discovery: PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION.discovery,
-      id: PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION.id,
+      discovery: PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery,
+      id: PUBLIC_WORKFLOW_REGISTRY_PROJECTION.id,
       trustedCompute: false,
     })).toBe(PUBLIC_WORKFLOW_REGISTRY_PROJECTION.projectionSha256)
     expect(() => parseWorkflowRegistryProjection({
-      ...PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION,
-      discovery: PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION.discovery.slice(1),
+      ...PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
+      discovery: PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery.slice(1),
     })).toThrow("hash does not match")
     const desktopProjection = createWorkflowRegistryProjection(
       "atet.workflow.registry.desktop-test/v1",
@@ -371,8 +367,10 @@ describe("portable workflow compiler", () => {
       graph: legacyGraph,
       projection: trusted,
     })
-    expect(JSON.stringify(normalizedLegacyCompilation))
-      .not.toMatch(/studio|transmute/u)
+    expect(normalizedLegacyCompilation.graph.nodes.every(node => (
+      node.executor.kind !== "operation"
+      || node.executor.operation.kind.startsWith("atet.")
+    ))).toBe(true)
   })
 
   test("rejects reserved refs and cyclic authoring values", () => {
@@ -665,58 +663,6 @@ describe("portable workflow compiler", () => {
       expect(error.message).toContain("plain data properties")
     }
     expect(getterExecuted).toBe(false)
-  })
-
-  test("verifies predecessor compilation hashes before canonical identity normalization", () => {
-    const canonical = compileWorkflowGraph({ graph: graphFixture() })
-    const legacyGraph = JSON.parse(
-      JSON.stringify(canonical.graph)
-        .replaceAll("atet-workflow-graph-v2", LEGACY_WORKFLOW_GRAPH_VERSION)
-        .replaceAll("atet-workflow-ref-v1", LEGACY_WORKFLOW_REF_VERSION)
-        .replaceAll("atet.operation.", "transmute.operation.")
-        .replaceAll("atet.workflow.", "transmute.workflow.")
-        .replaceAll("atet.diagram.", "transmute.diagram."),
-    ) as AuthoredWorkflowGraphV1
-    const legacyUnsigned = {
-      envelope: {
-        ...canonical.envelope,
-        operationFamilies: canonical.envelope.operationFamilies.map(family => (
-          family === "atet" ? "transmute" : family
-        )),
-        operationKinds: canonical.envelope.operationKinds.map(kind => (
-          kind.replace(/^atet\./u, "transmute.")
-        )),
-        version: LEGACY_REQUIREMENT_ENVELOPE_VERSION,
-      },
-      graph: legacyGraph,
-      graphSha256: "c6348ca6f5e8950bb84c5c19dcb7f6739d84c94daa6aeee409986407175cc212",
-      limits: canonical.limits,
-      projection: PUBLIC_TRANSMUTE_WORKFLOW_PROJECTION,
-      topologicalWaves: canonical.topologicalWaves,
-      version: LEGACY_WORKFLOW_COMPILATION_VERSION,
-    }
-    const legacy = {
-      ...legacyUnsigned,
-      compilationSha256: createWorkflowCompilationHash(legacyUnsigned),
-    }
-
-    const parsed = parseCompiledWorkflowGraph(legacy)
-    expect(parsed).toEqual(canonical)
-    expect(JSON.stringify(parsed)).not.toMatch(/studio|transmute/u)
-
-    const tamperedUnsigned = {
-      ...legacyUnsigned,
-      graph: {
-        ...legacyGraph,
-        nodes: legacyGraph.nodes.map((node, index) => index === 0
-          ? { ...node, label: "tampered after graph hashing" }
-          : node),
-      },
-    }
-    expect(() => parseCompiledWorkflowGraph({
-      ...tamperedUnsigned,
-      compilationSha256: createWorkflowCompilationHash(tamperedUnsigned),
-    })).toThrow("graph hash does not match")
   })
 
   test("composes a near-authoring-depth graph into a bounded compilation", () => {

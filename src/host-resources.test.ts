@@ -187,7 +187,7 @@ describe("Atet host-resource profiles", () => {
 
   test("reserves one logical processor on two-vCPU hosts", () => {
     const profile = defaultAtetHostResourceProfile(2)
-    expect(profile.id).toBe("transmute.host-resources/v1")
+    expect(profile.id).toBe("atet.host-resources/v1")
     expect(profile.capacities).toContainEqual({
       resource: "cpu",
       limit: 1,

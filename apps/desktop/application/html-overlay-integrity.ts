@@ -145,7 +145,7 @@ function sha256(value: string | Uint8Array): string {
 
 function leafSha256(key: string, value: unknown): string {
   return sha256(canonicalJson({
-    domain: "transmute.html-overlay-integrity-leaf/v1",
+    domain: "atet.html-overlay-integrity-leaf/v1",
     key,
     value,
   }));

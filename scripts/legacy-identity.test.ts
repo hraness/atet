@@ -12,12 +12,12 @@ describe("Atet predecessor identity inventory", () => {
   test("fingerprints exact predecessor-bearing lines and counts every occurrence", () => {
     expect(legacyIdentitySnapshot("fixture.ts", [
       "const canonical = 'atet.video-project';",
-      "const prior = 'transmute.video-project';",
-      "const old = ['studio.video-project', 'studio.edit-plan'];",
+      "const prior = 'studio.video-project';",
+      "const old = ['hraness.graphics', 'studio.edit-plan'];",
       "",
     ].join("\n"))).toEqual({
       identityLineCount: 2,
-      identityLinesSha256: "aee2d9fe6fc55ef3bf80c190d257852d56ca51a104dfb6238d25f81be34de9e0",
+      identityLinesSha256: "3a837a9e204cd0b85fe63e42ae9260a7648557e744a48f9f20234d02bd23bd35",
       occurrenceCount: 3,
       path: "fixture.ts",
     });
@@ -29,16 +29,16 @@ describe("Atet predecessor identity inventory", () => {
     const source = `import { z } from "zod";
       const schema = z.union([
         z.literal("atet.video-project"),
-        z.literal("transmute.video-project"),
+        z.literal("studio.video-project"),
         z.literal("atet.video-project"),
       ]);
       const names = z.enum(["studio", "atet", "studio"]);
-      type Kind = "transmute.render-plan" | "atet.render-plan" | "transmute.render-plan";
+      type Kind = "studio.render-plan" | "atet.render-plan" | "studio.render-plan";
     `;
     expect(duplicateIdentityAlternatives("fixture.ts", source)).toEqual([
       "fixture.ts:2 repeats atet.video-project in z.union",
       "fixture.ts:7 repeats studio in z.enum",
-      "fixture.ts:8 repeats transmute.render-plan in a type union",
+      "fixture.ts:8 repeats studio.render-plan in a type union",
     ]);
   });
 
@@ -46,7 +46,7 @@ describe("Atet predecessor identity inventory", () => {
     const source = [
       `import { z as schema } from "zod";`,
       `      const prose = "z.union([z.literal('studio'), z.literal('studio')])";`,
-      `      const pattern = /z\\.enum\\(\\["transmute", "transmute"\\]\\)/u;`,
+      `      const pattern = /z\\.enum\\(\\["studio", "studio"\\]\\)/u;`,
       `      const template = \`type Hidden = "studio" | "studio"\`;`,
       "      const value = schema.union([",
       `        schema.literal("at\\u0065t.video-project"),`,
@@ -54,7 +54,7 @@ describe("Atet predecessor identity inventory", () => {
       `        schema.literal("atet.video-project"),`,
       "      ]);",
       "      const embedded = `value: ${schema.enum([\"studio\", \"atet\", \"studio\"])}`;",
-      `      type Kind = "transmute.render-plan" | Other | "transmute.render-plan";`,
+      `      type Kind = "studio.render-plan" | Other | "studio.render-plan";`,
       `      const runtime = "studio" | "studio";`,
       "      const unrelated = other.union([other.literal(\"atet\"), other.literal(\"atet\")]);",
       "",
@@ -62,7 +62,7 @@ describe("Atet predecessor identity inventory", () => {
     expect(duplicateIdentityAlternatives("fixture.ts", source)).toEqual([
       "fixture.ts:5 repeats atet.video-project in z.union",
       "fixture.ts:10 repeats studio in z.enum",
-      "fixture.ts:11 repeats transmute.render-plan in a type union",
+      "fixture.ts:11 repeats studio.render-plan in a type union",
     ]);
     expect(duplicateIdentityAlternatives("fixture.md", source)).toEqual([]);
   });

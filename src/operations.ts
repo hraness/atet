@@ -34,20 +34,6 @@ export const atetOperationCodes = [
 
 export type AtetOperationCode = (typeof atetOperationCodes)[number]
 
-/** @deprecated Use {@link AtetOperationCode}. */
-export const transmuteOperationCodes = [
-  "transmute.diagram.check",
-  "transmute.diagram.render",
-  "transmute.image.vectorize",
-  "transmute.image.generate",
-] as const
-/** @deprecated Use {@link AtetOperationCode}. */
-export type TransmuteOperationCode = (typeof transmuteOperationCodes)[number]
-
-function canonicalAtetOperationCode(code: TransmuteOperationCode): AtetOperationCode {
-  return code.replace(/^transmute\./u, "atet.") as AtetOperationCode
-}
-
 export interface AtetOperationDescriptor {
   readonly code: AtetOperationCode
   readonly title: string
@@ -272,22 +258,6 @@ export interface AtetOperationResultMap {
   readonly "atet.image.generate": GeneratedAtetImageFile
 }
 
-/** @deprecated Use {@link AtetOperationInputMap}. */
-export interface TransmuteOperationInputMap {
-  readonly "transmute.diagram.check": CheckAtetOperationInput
-  readonly "transmute.diagram.render": RenderAtetOperationInput
-  readonly "transmute.image.vectorize": VectorizeAtetOperationInput
-  readonly "transmute.image.generate": GenerateAtetOperationInput
-}
-
-/** @deprecated Use {@link AtetOperationResultMap}. */
-export interface TransmuteOperationResultMap {
-  readonly "transmute.diagram.check": AtetOperationResultMap["atet.diagram.check"]
-  readonly "transmute.diagram.render": AtetOperationResultMap["atet.diagram.render"]
-  readonly "transmute.image.vectorize": AtetOperationResultMap["atet.image.vectorize"]
-  readonly "transmute.image.generate": AtetOperationResultMap["atet.image.generate"]
-}
-
 function operationFailure(message: string): never {
   throw new AtetOperationError("INVALID_OPERATION_INPUT", message)
 }
@@ -456,11 +426,6 @@ export function isAtetOperationCode(
   value: string,
 ): value is AtetOperationCode {
   return atetOperationCodes.includes(value as AtetOperationCode)
-}
-
-/** @deprecated Use {@link isAtetOperationCode}. */
-export function isTransmuteOperationCode(value: string): value is TransmuteOperationCode {
-  return transmuteOperationCodes.includes(value as TransmuteOperationCode)
 }
 
 export function atetOperationHostResourceClaims(
@@ -807,96 +772,4 @@ export async function executeAtetOperation<C extends AtetOperationCode>(
     ),
     dependencies,
   )
-}
-
-/** @deprecated Use Atet names for newly authored integrations. */
-export type TransmuteOperationDescriptor = Omit<AtetOperationDescriptor, "code"> & {
-  readonly code: TransmuteOperationCode
-}
-/** @deprecated Use {@link CheckAtetOperationInput}. */
-export type CheckTransmuteOperationInput = CheckAtetOperationInput
-/** @deprecated Use {@link RenderAtetOperationInput}. */
-export type RenderTransmuteOperationInput = RenderAtetOperationInput
-/** @deprecated Use {@link VectorizeAtetOperationInput}. */
-export type VectorizeTransmuteOperationInput = VectorizeAtetOperationInput
-/** @deprecated Use {@link GenerateAtetOperationInput}. */
-export type GenerateTransmuteOperationInput = GenerateAtetOperationInput
-/** @deprecated Use {@link AtetOperationDependencies}. */
-export type TransmuteOperationDependencies = AtetOperationDependencies
-/** @deprecated Use {@link AtetOperationHostAdmissionOptions}. */
-export type TransmuteOperationHostAdmissionOptions = AtetOperationHostAdmissionOptions
-/** @deprecated Use {@link AtetOperationError}. */
-export { AtetOperationError as TransmuteOperationError }
-
-/** @deprecated Use {@link atetOperationRegistry}. */
-export const transmuteOperationRegistry: readonly TransmuteOperationDescriptor[] = Object.freeze(
-  atetOperationRegistry.map(descriptor => Object.freeze({
-    ...descriptor,
-    code: descriptor.code.replace(/^atet\./u, "transmute.") as TransmuteOperationCode,
-  })),
-)
-
-/** @deprecated Use {@link parseAtetOperationInput}. */
-export function parseTransmuteOperationInput<C extends TransmuteOperationCode>(
-  code: C,
-  input: unknown,
-): TransmuteOperationInputMap[C] {
-  return parseAtetOperationInput(canonicalAtetOperationCode(code), input) as TransmuteOperationInputMap[C]
-}
-
-/** @deprecated Use {@link atetOperationHostResourceClaims}. */
-export function transmuteOperationHostResourceClaims(
-  code: TransmuteOperationCode,
-): readonly HostResourceClaim[] {
-  return atetOperationHostResourceClaims(canonicalAtetOperationCode(code))
-}
-
-/** @deprecated Use {@link searchAtetOperations}. */
-export function searchTransmuteOperations(
-  query = "",
-  limit = transmuteOperationRegistry.length,
-): readonly TransmuteOperationDescriptor[] {
-  const normalized = query.replace(/\btransmute\./gu, "atet.")
-  const matches = new Set(searchAtetOperations(normalized, limit).map(item => item.code))
-  return transmuteOperationRegistry.filter(item => matches.has(canonicalAtetOperationCode(item.code)))
-    .slice(0, limit)
-}
-
-/** @deprecated Use {@link withAtetOperationHostAdmission}. */
-export async function withTransmuteOperationHostAdmission<T>(
-  code: TransmuteOperationCode,
-  callback: (lease: HostResourceLease) => T | Promise<T>,
-  options: TransmuteOperationHostAdmissionOptions = {},
-): Promise<T> {
-  return await withAtetOperationHostAdmission(canonicalAtetOperationCode(code), callback, options)
-}
-
-/** @deprecated Use {@link executeAtetOperationWithLease}. */
-export async function executeTransmuteOperationWithLease<
-  C extends TransmuteOperationCode,
->(
-  code: C,
-  value: unknown,
-  lease: HostResourceLease,
-  dependencies: TransmuteOperationDependencies = {},
-): Promise<TransmuteOperationResultMap[C]> {
-  return await executeAtetOperationWithLease(
-    canonicalAtetOperationCode(code),
-    value,
-    lease,
-    dependencies,
-  ) as TransmuteOperationResultMap[C]
-}
-
-/** @deprecated Use {@link executeAtetOperation}. */
-export async function executeTransmuteOperation<C extends TransmuteOperationCode>(
-  code: C,
-  value: unknown,
-  dependencies: TransmuteOperationDependencies = {},
-): Promise<TransmuteOperationResultMap[C]> {
-  return await executeAtetOperation(
-    canonicalAtetOperationCode(code),
-    value,
-    dependencies,
-  ) as TransmuteOperationResultMap[C]
 }

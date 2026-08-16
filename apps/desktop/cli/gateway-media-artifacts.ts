@@ -72,7 +72,6 @@ export interface GatewayMediaReceipt {
   readonly inputs: readonly GatewayMediaInputDigest[];
   readonly kind:
     | "atet.gateway-media-receipt"
-    | "transmute.gateway-media-receipt"
     | "studio.gateway-media-receipt";
   readonly localValidation: Readonly<{
     readonly decodeValidatedOutputs: number;

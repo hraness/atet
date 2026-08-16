@@ -23,11 +23,8 @@ import {
   readDiagramFile,
   renderDiagramFile,
   runMcpServer,
-  selectDesktopAsset,
-  transmuteMcpProtocolVersion,
-  transmuteMcpServerName,
-  transmuteMcpTools
-} from "./index-nap24380.js";
+  selectDesktopAsset
+} from "./index-9msh93rm.js";
 import {
   bundledSkillPath,
   installSkill
@@ -35,10 +32,8 @@ import {
 import {
   AtetWorkflowError,
   defineAtetWorkflow,
-  defineTransmuteWorkflow,
-  runAtetWorkflow,
-  runTransmuteWorkflow
-} from "./index-smffk7h7.js";
+  runAtetWorkflow
+} from "./index-38hzjjaq.js";
 import {
   AtetOperationError,
   DiagramValidationError,
@@ -49,30 +44,21 @@ import {
   builtInIcons,
   executeAtetOperation,
   executeAtetOperationWithLease,
-  executeTransmuteOperation,
-  executeTransmuteOperationWithLease,
   isAtetOperationCode,
-  isTransmuteOperationCode,
   lintDiagram,
   parseAtetOperationInput,
   parseDiagramSource,
   parseDiagramSpec,
-  parseTransmuteOperationInput,
   renderPng,
   renderSvg,
   resolveDiagramSource,
   resolveEdge,
   resolveStackLayout,
   searchAtetOperations,
-  searchTransmuteOperations,
   serializeTldr,
   stackLayoutDefaults,
-  transmuteOperationCodes,
-  transmuteOperationHostResourceClaims,
-  transmuteOperationRegistry,
-  withAtetOperationHostAdmission,
-  withTransmuteOperationHostAdmission
-} from "./index-65by8228.js";
+  withAtetOperationHostAdmission
+} from "./index-b7xv1v0z.js";
 import {
   VTRACER_VERSION,
   VectorizeError,
@@ -81,7 +67,7 @@ import {
   vectorizeImage,
   vectorizeProfileNames,
   vtracerReleases
-} from "./index-7jg2r2mc.js";
+} from "./index-zhffnaj1.js";
 import {
   AtetCloudError,
   atetGatewayApiBaseUrl,
@@ -92,16 +78,8 @@ import {
   atetResponseMediaTypes,
   createFixedGatewayFetch,
   generateAtetImage,
-  generateAtetImageFile,
-  generateTransmuteImage,
-  generateTransmuteImageFile,
-  transmuteGatewayApiBaseUrl,
-  transmuteGatewayCredentialStatus,
-  transmuteImageModels,
-  transmuteMaximumPromptBytes,
-  transmuteMaximumRawImageBytes,
-  transmuteResponseMediaTypes
-} from "./index-41988ev7.js";
+  generateAtetImageFile
+} from "./index-70c7xxz7.js";
 import {
   HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
   HostResourceError,
@@ -111,40 +89,21 @@ import {
   createProcessLocalHostResourceCoordinator,
   defaultAtetHostResourceProfile,
   defaultAtetHostResourceStateRoot,
-  defaultTransmuteHostResourceProfile,
-  defaultTransmuteHostResourceStateRoot,
   normalizeHostResourceClaims,
-  normalizeHostResourceProfile,
-  transmuteHostResourceNames
-} from "./index-64bhbap5.js";
+  normalizeHostResourceProfile
+} from "./index-6kb9qvnn.js";
 import"./index-z1w83f81.js";
 export {
-  withTransmuteOperationHostAdmission,
   withAtetOperationHostAdmission,
   vtracerReleases,
   vectorizeProfileNames,
   vectorizeImage,
   vectorizeHardLimits,
   vectorizeDefaultLimits,
-  transmuteResponseMediaTypes,
-  transmuteOperationRegistry,
-  transmuteOperationHostResourceClaims,
-  transmuteOperationCodes,
-  transmuteMcpTools,
-  transmuteMcpServerName,
-  transmuteMcpProtocolVersion,
-  transmuteMaximumRawImageBytes,
-  transmuteMaximumPromptBytes,
-  transmuteImageModels,
-  transmuteHostResourceNames,
-  transmuteGatewayCredentialStatus,
-  transmuteGatewayApiBaseUrl,
   stackLayoutDefaults,
   serializeTldr,
   selectDesktopAsset,
-  searchTransmuteOperations,
   searchAtetOperations,
-  runTransmuteWorkflow,
   runMcpServer,
   runAtetWorkflow,
   resolveStackLayout,
@@ -154,7 +113,6 @@ export {
   renderPng,
   renderDiagramFile,
   readDiagramFile,
-  parseTransmuteOperationInput,
   parseDiagramSpec,
   parseDiagramSource,
   parseAtetOperationInput,
@@ -165,27 +123,19 @@ export {
   mcpMaximumScale,
   mcpMaximumRenderedPixels,
   lintDiagram,
-  isTransmuteOperationCode,
   isAtetOperationCode,
   installSkill,
   installDesktop,
   getLatestDesktopRelease,
-  generateTransmuteImageFile,
-  generateTransmuteImage,
   generateAtetImageFile,
   generateAtetImage,
   findDesktopApplication,
-  executeTransmuteOperationWithLease,
-  executeTransmuteOperation,
   executeAtetOperationWithLease,
   executeAtetOperation,
   diagramApi,
   desktopStatus,
   desktopDownloadPage,
-  defineTransmuteWorkflow,
   defineAtetWorkflow,
-  defaultTransmuteHostResourceStateRoot,
-  defaultTransmuteHostResourceProfile,
   defaultAtetHostResourceStateRoot,
   defaultAtetHostResourceProfile,
   createProcessLocalHostResourceCoordinator,
@@ -214,10 +164,6 @@ export {
   WorkspaceBoundary,
   VectorizeError,
   VTRACER_VERSION,
-  AtetWorkflowError as TransmuteWorkflowError,
-  AtetOperationError as TransmuteOperationError,
-  AtetMcpToolRuntime as TransmuteMcpToolRuntime,
-  AtetCloudError as TransmuteCloudError,
   StackLayoutError,
   HostResourceError,
   HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
