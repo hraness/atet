@@ -1,4 +1,4 @@
-<!-- kb:context scopes/projects-atet-apps-desktop-cli--76f717380019 -->
+<!-- kb:context scopes/apps-desktop-cli--62c8f275cfa9 -->
 # Contents
 
 - `main.ts` and command modules – the `atet` executable across recording/project reads, diagrams, vectorization, ingest, analysis, edits, rendering, Gateway generation, assets, and diagnostics.

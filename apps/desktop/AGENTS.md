@@ -1,4 +1,4 @@
-<!-- kb:context scopes/projects-atet-apps-desktop--6e0904032a47 -->
+<!-- kb:context scopes/apps-desktop--a98dfc0ab16f -->
 # Contents
 
 - `contracts/`, `core/`, `application/`, `code/`, `workflows/`, `html-overlay/`, and `cli/` – recording/project contracts, local edit and renderer planning, the full host operation projection and durable workflow runtime, deterministic browser-overlay authoring, and agent command surface.
