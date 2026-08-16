@@ -7,9 +7,21 @@
   "trailingSlash": false,
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "hraness.graphics" }],
+      "destination": "https://atet.sh/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "hraness.graphics" }],
       "destination": "https://atet.sh/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "hraness.studio" }],
+      "destination": "https://atet.sh/",
       "permanent": true
     },
     {
@@ -19,9 +31,21 @@
       "permanent": true
     },
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "preview.hraness.graphics" }],
+      "destination": "https://preview.atet.sh/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "preview.hraness.graphics" }],
       "destination": "https://preview.atet.sh/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "preview.hraness.studio" }],
+      "destination": "https://preview.atet.sh/",
       "permanent": true
     },
     {

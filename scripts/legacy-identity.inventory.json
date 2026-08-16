@@ -902,18 +902,18 @@
     ]
   },
   {
-    "identityLineCount": 4,
-    "identityLinesSha256": "7fbcb0f177788b3bf958b4bd4893fc78029475c9f484d8a27893aec630877f78",
-    "occurrenceCount": 4,
+    "identityLineCount": 8,
+    "identityLinesSha256": "bddc096e7f8b2a6d19b94469adb2e1569590688ec0f2fc4fd56a0af54161405a",
+    "occurrenceCount": 8,
     "path": "apps/web/site.test.ts",
     "categories": [
       "test-fixture"
     ]
   },
   {
-    "identityLineCount": 4,
-    "identityLinesSha256": "1b6235f82ccb8fe1e9db1720ed813e1a763b77648482785b7bb41297e9341f07",
-    "occurrenceCount": 4,
+    "identityLineCount": 8,
+    "identityLinesSha256": "5a6404082d3ddde96ed5bd537a9acaae3e34fa6a1d339c382f671abbb00ad5ef",
+    "occurrenceCount": 8,
     "path": "apps/web/vercel.json",
     "categories": [
       "legacy-redirect",
