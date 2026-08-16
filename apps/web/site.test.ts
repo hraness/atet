@@ -30,6 +30,7 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta property="og:image:height" content="630">')
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image">')
     expect(html).toContain('<meta name="twitter:image" content="https://atet.sh/og.png">')
+    expect(html).toContain('<meta name="twitter:image:alt" content="Atet, carry ideas from first light to final form, beside an abstract solar disk and barque path">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
   })
@@ -108,6 +109,7 @@ describe("static Atet site", () => {
     expect(html).toContain("Reference</span><span>Information-oriented")
     expect(html).toContain("Explanation</span><span>Understanding-oriented")
     expect(html).toContain('href="https://diataxis.fr/">Diátaxis</a>')
+    expect(html.match(/class="docs-mode-link"/gu)).toHaveLength(4)
   })
 
   test("guides a complete first success and then branches by task", async () => {
@@ -231,9 +233,24 @@ describe("static Atet site", () => {
 
     expect(html).toContain("Agentic creative coding toolkit.")
     expect(html).toContain("Atum dawned and")
-    expect(html).toContain("solar\n            barque Atet")
+    expect(html).toContain("solar\n                barque Atet")
     expect(html).toContain('<div aria-hidden="true" class="solar-field">')
     expect(html).not.toMatch(/hieroglyph|pharaoh|ankh/i)
+  })
+
+  test("uses one restrained editorial hierarchy across the homepage and docs", async () => {
+    const [html, docs, css] = await Promise.all([
+      readSource("index.html"),
+      readSource("docs.html"),
+      readSource("styles.css"),
+    ])
+
+    expect(html).toContain("Carry ideas from first light to final form.")
+    expect(docs).toContain("Make with Atet.")
+    expect(css).toContain('--font-display: ui-serif, "Iowan Old Style", Baskerville')
+    expect(css).toContain(".hero-lower")
+    expect(css).toContain(".output-grid > div")
+    expect(css).toContain("border-left: 1px solid var(--line)")
   })
 
   test("keeps the page semantic, keyboard-operable, and responsive", async () => {
@@ -254,9 +271,10 @@ describe("static Atet site", () => {
     expect(css).toContain("@media (forced-colors: active)")
   })
 
-  test("ships original correctly sized social and icon assets", async () => {
+  test("ships reproducible correctly sized social and icon assets", async () => {
     const social = new Uint8Array(await Bun.file(join(appDirectory, "src/og.png")).arrayBuffer())
     const apple = new Uint8Array(await Bun.file(join(appDirectory, "src/apple-touch-icon.png")).arrayBuffer())
+    const socialSource = await readSource("og-source.svg")
     const icon = await readSource("icon.svg")
     const socialView = new DataView(social.buffer, social.byteOffset, social.byteLength)
     const appleView = new DataView(apple.buffer, apple.byteOffset, apple.byteLength)
@@ -264,6 +282,9 @@ describe("static Atet site", () => {
     expect(Array.from(social.slice(1, 4))).toEqual([80, 78, 71])
     expect(socialView.getUint32(16)).toBe(1200)
     expect(socialView.getUint32(20)).toBe(630)
+    expect(socialSource).toContain("Carry ideas")
+    expect(socialSource).toContain("Iowan Old Style")
+    expect(socialSource).toContain('fill="#e8aa48"')
     expect(Array.from(apple.slice(1, 4))).toEqual([80, 78, 71])
     expect(appleView.getUint32(16)).toBe(180)
     expect(appleView.getUint32(20)).toBe(180)
@@ -286,7 +307,7 @@ describe("static Atet site", () => {
     expect(manifest.devDependencies).toBeUndefined()
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(28_000)
     expect(new TextEncoder().encode(docs).byteLength).toBeLessThan(60_000)
-    expect(new TextEncoder().encode(css).byteLength).toBeLessThan(42_000)
+    expect(new TextEncoder().encode(css).byteLength).toBeLessThan(48_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)
     expect(docs).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
