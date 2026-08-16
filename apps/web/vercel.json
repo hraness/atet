@@ -53,6 +53,16 @@
       "has": [{ "type": "host", "value": "preview.hraness.studio" }],
       "destination": "https://preview.atet.sh/:path*",
       "permanent": true
+    },
+    {
+      "source": "/docs",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/docs/:path*",
+      "destination": "/",
+      "permanent": true
     }
   ],
   "headers": [
