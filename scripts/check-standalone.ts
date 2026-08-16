@@ -319,7 +319,7 @@ const problems = [
   ...inventoryUpdate.problems,
 ];
 const rootPackage = await readJson(join(ROOT, "package.json"));
-const expectedDescription = "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video.";
+const expectedDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet.";
 if (rootPackage.name !== "@hraness/atet") {
   problems.push("package.json name must be @hraness/atet");
 }

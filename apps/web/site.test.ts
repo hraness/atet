@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 import { buildWebsite } from "./scripts/build"
 
 const appDirectory = dirname(fileURLToPath(import.meta.url))
-const description = "Atet, named for Ra's solar barque, is an open-source TypeScript SDK and Bun CLI for carrying ideas and raw assets into images, diagrams, animated loops, and video."
+const description = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
 beforeAll(async () => {
@@ -21,7 +21,7 @@ describe("static Atet site", () => {
   test("publishes one canonical Atet identity across discovery metadata", async () => {
     const html = await readSource("index.html")
 
-    expect(html).toContain("<title>Atet: code-first visual media from source to final</title>")
+    expect(html).toContain("<title>Atet: agentic creative coding toolkit</title>")
     expect(html).toContain(`<meta name="description" content="${description}">`)
     expect(html).toContain('<link rel="canonical" href="https://atet.sh/">')
     expect(html).toContain('<meta property="og:url" content="https://atet.sh/">')
@@ -66,6 +66,116 @@ describe("static Atet site", () => {
         targetProduct: { "@id": "https://atet.sh/#software" },
       }),
     ]))
+  })
+
+  test("publishes durable documentation with canonical discovery metadata", async () => {
+    const html = await readSource("docs.html")
+    const match = /<script type="application\/ld\+json">([\s\S]+?)<\/script>/u.exec(html)
+    expect(match?.[1]).toBeDefined()
+    const value = JSON.parse(match?.[1] ?? "null") as { "@graph"?: unknown[] }
+
+    expect(html).toContain("<title>Atet documentation: learn, build, and look things up</title>")
+    expect(html).toContain('<link rel="canonical" href="https://atet.sh/docs">')
+    expect(html).toContain('<meta property="og:url" content="https://atet.sh/docs">')
+    expect(html).toContain('<meta property="og:type" content="article">')
+    expect(value["@graph"]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        "@id": "https://atet.sh/docs#page",
+        "@type": ["WebPage", "TechArticle"],
+        about: { "@id": "https://atet.sh/#software" },
+        isPartOf: { "@id": "https://atet.sh/#website" },
+      }),
+      expect.objectContaining({
+        "@type": "BreadcrumbList",
+      }),
+    ]))
+  })
+
+  test("separates learning, task, reference, and explanation modes", async () => {
+    const html = await readSource("docs.html")
+    const modes = [
+      "01 · Learn",
+      "02 · Do",
+      "03 · Look up",
+      "04 · Understand",
+    ]
+    const positions = modes.map(mode => html.indexOf(mode))
+
+    expect(positions.every(position => position >= 0)).toBe(true)
+    expect(positions).toEqual([...positions].sort((left, right) => left - right))
+    expect(html).toContain("Tutorial</span><span>Learning-oriented")
+    expect(html).toContain("How-to guides</span><span>Goal-oriented")
+    expect(html).toContain("Reference</span><span>Information-oriented")
+    expect(html).toContain("Explanation</span><span>Understanding-oriented")
+    expect(html).toContain('href="https://diataxis.fr/">Diátaxis</a>')
+  })
+
+  test("guides a complete first success and then branches by task", async () => {
+    const html = await readSource("docs.html")
+
+    for (const claim of [
+      "bun add --global github:hraness/atet#v2.0.0",
+      "atet diagram init diagrams/journey.diagram.json",
+      "atet diagram check diagrams/journey.diagram.json --strict",
+      "atet diagram render diagrams/journey.diagram.json",
+      "journey.tldr",
+      "journey.light.svg",
+      "journey.dark.svg",
+      "journey.light.png",
+      "journey.dark.png",
+      "Generate an image through Vercel AI Gateway",
+      "Turn caller-owned artwork into inert SVG",
+      "Use Atet from a Bun project",
+      "Compose checked operations into a workflow",
+      "Give an agent a bounded Atet surface",
+      "Build a recording into a media project",
+      "Diagnose common failures",
+    ]) {
+      expect(html).toContain(claim)
+    }
+  })
+
+  test("documents the released feature and machinery surfaces", async () => {
+    const html = await readSource("docs.html")
+
+    for (const claim of [
+      "Feature map",
+      "Animated loops",
+      "Portable operation registry",
+      "atet.diagram.check",
+      "atet.diagram.render",
+      "atet.image.vectorize",
+      "atet.image.generate",
+      "@hraness/atet/code/advanced",
+      "@hraness/atet/local/html-overlay",
+      "AI_GATEWAY_API_KEY",
+      "VERCEL_OIDC_TOKEN",
+      "ATET_VTRACER_PATH",
+      "ATET_CACHE_DIR",
+      "Apple Silicon, macOS 15+",
+      "Cache by proof, not by filename",
+      "Bound work before it starts",
+    ]) {
+      expect(html).toContain(claim)
+    }
+  })
+
+  test("keeps documentation semantic, linkable, and keyboard-operable", async () => {
+    const html = await readSource("docs.html")
+    const css = await readSource("styles.css")
+    const fragmentLinks = [...html.matchAll(/href="#([^"]+)"/gu)].map(match => match[1])
+    const ids = new Set([...html.matchAll(/\sid="([^"]+)"/gu)].map(match => match[1]))
+
+    expect(html.match(/<h1\b/gu)).toHaveLength(1)
+    expect(html).toContain('<a class="skip-link" href="#docs-content">')
+    expect(html).toContain('<nav aria-label="Documentation sections">')
+    expect(html).toContain('aria-current="page" href="/docs"')
+    expect(html).not.toMatch(/<section(?![^>]*aria-labelledby)/)
+    expect(html.match(/class="table-wrap" role="region"/gu)?.length).toBeGreaterThanOrEqual(5)
+    expect(fragmentLinks.every(fragment => ids.has(fragment))).toBe(true)
+    expect(css).toContain(".docs-rail nav")
+    expect(css).toContain("@media (max-width: 72rem)")
+    expect(css).toContain(".docs-section h2")
   })
 
   test("states the four output families in order", async () => {
@@ -116,12 +226,14 @@ describe("static Atet site", () => {
     expect(theme).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
-  test("uses the solar-barque name as a restrained abstract metaphor", async () => {
+  test("pairs the creation story with restrained abstract barque art", async () => {
     const html = await readSource("index.html")
 
-    expect(html).toContain("Atet draws on Ra's solar barque as an abstract")
-    expect(html).toContain("metaphor for passage and transformation")
-    expect(html).not.toMatch(/hieroglyph|pharaoh|pyramid|ankh/i)
+    expect(html).toContain("Agentic creative coding toolkit.")
+    expect(html).toContain("Atum dawned and")
+    expect(html).toContain("solar\n            barque Atet")
+    expect(html).toContain('<div aria-hidden="true" class="solar-field">')
+    expect(html).not.toMatch(/hieroglyph|pharaoh|ankh/i)
   })
 
   test("keeps the page semantic, keyboard-operable, and responsive", async () => {
@@ -162,6 +274,7 @@ describe("static Atet site", () => {
 
   test("keeps the build dependency-free, fingerprinted, and network-inert", async () => {
     const html = await readSource("index.html")
+    const docs = await readSource("docs.html")
     const css = await readSource("styles.css")
     const theme = await readSource("theme.js")
     const build = await readFile(join(appDirectory, "scripts/build.ts"), "utf8")
@@ -172,45 +285,55 @@ describe("static Atet site", () => {
     expect(manifest.dependencies).toBeUndefined()
     expect(manifest.devDependencies).toBeUndefined()
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(28_000)
-    expect(new TextEncoder().encode(css).byteLength).toBeLessThan(30_000)
+    expect(new TextEncoder().encode(docs).byteLength).toBeLessThan(60_000)
+    expect(new TextEncoder().encode(css).byteLength).toBeLessThan(42_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)
+    expect(docs).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
+    expect(docs).toContain('<script src="{{THEME_ASSET}}" defer></script>')
     expect(html).not.toMatch(/analytics|posthog|plausible|segment/i)
+    expect(docs.match(/<script\b/gu)).toHaveLength(2)
     expect(build).toContain('createHash("sha256")')
     expect(build).toContain('"{{CSS_ASSET}}": stylesPath')
     expect(build).toContain('"{{THEME_ASSET}}": themePath')
   })
 
   test("renders a closed static tree with resolved content-hashed assets", async () => {
-    const [html, notFound, rootFiles, assetFiles] = await Promise.all([
+    const [html, docs, notFound, rootFiles, docsFiles, assetFiles] = await Promise.all([
       readFile(join(appDirectory, "dist/index.html"), "utf8"),
+      readFile(join(appDirectory, "dist/docs/index.html"), "utf8"),
       readFile(join(appDirectory, "dist/404.html"), "utf8"),
       readdir(join(appDirectory, "dist")),
+      readdir(join(appDirectory, "dist/docs")),
       readdir(join(appDirectory, "dist/assets")),
     ])
 
     expect(html).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
+    expect(docs).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
     expect(html).toContain(`<script src="${builtAssets.themePath}" defer></script>`)
+    expect(docs).toContain(`<script src="${builtAssets.themePath}" defer></script>`)
     expect(notFound).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
     expect(notFound).toContain(`<script src="${builtAssets.themePath}" defer></script>`)
-    expect(`${html}\n${notFound}`).not.toContain("{{")
+    expect(`${html}\n${docs}\n${notFound}`).not.toContain("{{")
     expect(rootFiles.sort()).toEqual([
       "404.html",
       "apple-touch-icon.png",
       "assets",
+      "docs",
       "icon.svg",
       "index.html",
       "og.png",
       "robots.txt",
       "sitemap.xml",
     ])
+    expect(docsFiles).toEqual(["index.html"])
     expect(assetFiles.sort()).toEqual([
       builtAssets.stylesPath.split("/").at(-1),
       builtAssets.themePath.split("/").at(-1),
     ].sort())
   })
 
-  test("publishes only the canonical homepage to crawler discovery", async () => {
+  test("publishes both durable routes to crawler discovery", async () => {
     const robots = await readSource("robots.txt")
     const sitemap = await readSource("sitemap.xml")
     const notFound = await readSource("404.html")
@@ -218,7 +341,7 @@ describe("static Atet site", () => {
       .map(match => match[1])
 
     expect(robots).toBe("User-agent: *\nAllow: /\n\nSitemap: https://atet.sh/sitemap.xml\n")
-    expect(locations).toEqual(["https://atet.sh/"])
+    expect(locations).toEqual(["https://atet.sh/", "https://atet.sh/docs"])
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
   })
 

@@ -1,8 +1,8 @@
 # Atet web
 
-`atet.sh` is the dependency-free public site for Atet. It presents the SDK,
-Bun CLI, local runtime, and desktop capture shell without adding a server,
-account surface, API route, analytics, remote font, or browser credential path.
+`atet.sh` is the dependency-free public site and documentation for Atet. It
+presents the SDK, Bun CLI, local runtime, and desktop capture shell without
+adding a server, account surface, API route, analytics, remote font, or browser credential path.
 Generation runs from the local Atet SDK or CLI with the operator's Vercel AI
 Gateway access.
 

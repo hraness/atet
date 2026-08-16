@@ -41,8 +41,9 @@ export async function buildWebsite(): Promise<Readonly<{
   stylesPath: string
   themePath: string
 }>> {
-  const [indexTemplate, notFoundTemplate, styles, theme] = await Promise.all([
+  const [indexTemplate, docsTemplate, notFoundTemplate, styles, theme] = await Promise.all([
     readFile(join(sourceDirectory, "index.html"), "utf8"),
+    readFile(join(sourceDirectory, "docs.html"), "utf8"),
     readFile(join(sourceDirectory, "404.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css")),
     readFile(join(sourceDirectory, "theme.js")),
@@ -57,9 +58,11 @@ export async function buildWebsite(): Promise<Readonly<{
 
   await rm(outputDirectory, { force: true, recursive: true })
   await mkdir(join(outputDirectory, "assets"), { recursive: true })
+  await mkdir(join(outputDirectory, "docs"), { recursive: true })
 
   await Promise.all([
     writeFile(join(outputDirectory, "index.html"), renderDocument(indexTemplate, assets)),
+    writeFile(join(outputDirectory, "docs/index.html"), renderDocument(docsTemplate, assets)),
     writeFile(join(outputDirectory, "404.html"), renderDocument(notFoundTemplate, assets)),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
@@ -82,5 +85,5 @@ export async function buildWebsite(): Promise<Readonly<{
 
 if (import.meta.main) {
   await buildWebsite()
-  console.log(`Built ${copiedFiles.length + 4} static files in ${outputDirectory}`)
+  console.log(`Built ${copiedFiles.length + 5} static files in ${outputDirectory}`)
 }
