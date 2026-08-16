@@ -250,7 +250,8 @@ describe("static Atet site", () => {
     expect(html).toContain("A local project your agent can understand.")
     expect(searchableHtml).toContain("your Vercel AI Gateway credential")
     expect(searchableHtml).toContain("There is no Atet account or hosted project database")
-    expect(searchableHtml.toLowerCase()).toContain("it is not an operating-system")
+    expect(searchableHtml).toContain("uploads local media only after explicit acknowledgement")
+    expect(searchableHtml.toLowerCase()).not.toContain("operating-system sandbox")
     expect(html).not.toMatch(/<form|type="password"|\/api\//)
   })
 

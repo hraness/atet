@@ -849,7 +849,6 @@ blockquote {
 }
 
 .plain-aside,
-.boundary-note,
 .reference-block {
   margin-top: 2.7rem;
   padding: 1.5rem;
@@ -859,13 +858,11 @@ blockquote {
 }
 
 .plain-aside h3,
-.boundary-note h3,
 .reference-block h3 {
   font-size: 1.55rem;
 }
 
 .plain-aside p,
-.boundary-note p,
 .reference-block p {
   margin-top: 0.7rem;
   color: var(--muted);
@@ -1252,7 +1249,6 @@ blockquote {
   .button,
   .install-panel,
   .plain-aside,
-  .boundary-note,
   .reference-block,
   .appearance button {
     border: 1px solid CanvasText;
