@@ -75,7 +75,7 @@ describe("static Atet site", () => {
     expect(match?.[1]).toBeDefined()
     const value = JSON.parse(match?.[1] ?? "null") as { "@graph"?: unknown[] }
 
-    expect(html).toContain("<title>Atet documentation: learn, build, and look things up</title>")
+    expect(html).toContain("<title>Atet documentation: install, use, and understand</title>")
     expect(html).toContain('<link rel="canonical" href="https://atet.sh/docs">')
     expect(html).toContain('<meta property="og:url" content="https://atet.sh/docs">')
     expect(html).toContain('<meta property="og:type" content="article">')
@@ -92,74 +92,63 @@ describe("static Atet site", () => {
     ]))
   })
 
-  test("separates learning, task, reference, and explanation modes", async () => {
-    const html = await readSource("docs.html")
-    const modes = [
-      "01 · Learn",
-      "02 · Do",
-      "03 · Look up",
-      "04 · Understand",
+  test("puts the complete agent install in the first viewport on both routes", async () => {
+    const [home, docs] = await Promise.all([
+      readSource("index.html"),
+      readSource("docs.html"),
+    ])
+    const commands = [
+      "bun add --global github:hraness/atet",
+      "atet skill install",
     ]
+
+    for (const html of [home, docs]) {
+      const positions = commands.map(command => html.indexOf(command))
+      expect(positions.every(position => position >= 0)).toBe(true)
+      expect(positions).toEqual([...positions].sort((left, right) => left - right))
+      expect(html.indexOf(commands[0] ?? "")).toBeLessThan(html.indexOf("</section>"))
+    }
+
+    expect(home).toContain("Install Atet. Tell your agent what to make.")
+    expect(home).toContain("Bun 1.3.14+ · two commands")
+    expect(home).toContain("Start a new agent session")
+    expect(docs).toContain("atet doctor")
+    expect(docs).toContain("Run the last from the project")
+    expect(docs).toContain("atet skill install --target claude")
+    expect(docs).toContain("atet skill install --target agents")
+    expect(docs).toContain("--scope project")
+  })
+
+  test("uses an install, use, features, and design information architecture", async () => {
+    const html = await readSource("docs.html")
+    const modes = ["> Install<", "> Use<", "> Features<", "> Design<"]
     const positions = modes.map(mode => html.indexOf(mode))
 
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
-    expect(html).toContain("Tutorial</span><span>Learning-oriented")
-    expect(html).toContain("How-to guides</span><span>Goal-oriented")
-    expect(html).toContain("Reference</span><span>Information-oriented")
-    expect(html).toContain("Explanation</span><span>Understanding-oriented")
-    expect(html).toContain('href="https://diataxis.fr/">Diátaxis</a>')
-    expect(html.match(/class="docs-mode-link"/gu)).toHaveLength(4)
+    expect(html).toContain("How-to</span>")
+    expect(html).toContain("Reference</span>")
+    expect(html).toContain("Explanation</span>")
+    expect(html).not.toContain("Diátaxis")
+    expect(html.match(/class="docs-section/gu)).toHaveLength(4)
   })
 
-  test("guides a complete first success and then branches by task", async () => {
+  test("teaches people through requests instead of a command catalog", async () => {
     const html = await readSource("docs.html")
 
     for (const claim of [
-      "bun add --global github:hraness/atet#v2.0.0",
-      "atet diagram init diagrams/journey.diagram.json",
-      "atet diagram check diagrams/journey.diagram.json --strict",
-      "atet diagram render diagrams/journey.diagram.json",
-      "journey.tldr",
-      "journey.light.svg",
-      "journey.dark.svg",
-      "journey.light.png",
-      "journey.dark.png",
-      "Generate an image through Vercel AI Gateway",
-      "Turn caller-owned artwork into inert SVG",
-      "Use Atet from a Bun project",
-      "Compose checked operations into a workflow",
-      "Give an agent a bounded Atet surface",
-      "Build a recording into a media project",
-      "Diagnose common failures",
+      "turn this repository architecture into a clear diagram",
+      "Vectorize this mark",
+      "Create three image directions",
+      "Build a seamless animated loop",
+      "Atet video project",
     ]) {
       expect(html).toContain(claim)
     }
-  })
 
-  test("documents the released feature and machinery surfaces", async () => {
-    const html = await readSource("docs.html")
-
-    for (const claim of [
-      "Feature map",
-      "Animated loops",
-      "Portable operation registry",
-      "atet.diagram.check",
-      "atet.diagram.render",
-      "atet.image.vectorize",
-      "atet.image.generate",
-      "@hraness/atet/code/advanced",
-      "@hraness/atet/local/html-overlay",
-      "AI_GATEWAY_API_KEY",
-      "VERCEL_OIDC_TOKEN",
-      "ATET_VTRACER_PATH",
-      "ATET_CACHE_DIR",
-      "Apple Silicon, macOS 15+",
-      "Cache by proof, not by filename",
-      "Bound work before it starts",
-    ]) {
-      expect(html).toContain(claim)
-    }
+    expect(html).not.toMatch(/<table\b|class="table-wrap"/)
+    expect(html).not.toMatch(/atet\.diagram\.|atet\.image\.|@hraness\/atet\/code/)
+    expect(html).not.toMatch(/AI_GATEWAY_API_KEY|VERCEL_OIDC_TOKEN|ATET_CACHE_DIR/)
   })
 
   test("keeps documentation semantic, linkable, and keyboard-operable", async () => {
@@ -170,14 +159,13 @@ describe("static Atet site", () => {
 
     expect(html.match(/<h1\b/gu)).toHaveLength(1)
     expect(html).toContain('<a class="skip-link" href="#docs-content">')
-    expect(html).toContain('<nav aria-label="Documentation sections">')
+    expect(html).toContain('<nav aria-label="Documentation sections" class="docs-index">')
     expect(html).toContain('aria-current="page" href="/docs"')
     expect(html).not.toMatch(/<section(?![^>]*aria-labelledby)/)
-    expect(html.match(/class="table-wrap" role="region"/gu)?.length).toBeGreaterThanOrEqual(5)
     expect(fragmentLinks.every(fragment => ids.has(fragment))).toBe(true)
-    expect(css).toContain(".docs-rail nav")
+    expect(css).toContain(".docs-index")
     expect(css).toContain("@media (max-width: 72rem)")
-    expect(css).toContain(".docs-section h2")
+    expect(css).toContain(".docs-section")
   })
 
   test("states the four output families in order", async () => {
@@ -189,52 +177,47 @@ describe("static Atet site", () => {
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
   })
 
-  test("documents the immutable project, cache, candidate, preview, and final contracts", async () => {
-    const html = await readSource("index.html")
+  test("explains the system in four plain-language stages", async () => {
+    const [home, docs] = await Promise.all([
+      readSource("index.html"),
+      readSource("docs.html"),
+    ])
 
-    for (const claim of [
-      "one immutable project graph",
-      "A verified artifact with the same inputs",
-      "A meaningful change creates a new identity",
-      "Agents render independent candidates",
-      "stale promotion fails closed",
-      "complete duration",
-      "Expensive video encodes serialize by default",
-      "partial verified results remain reusable",
-    ]) {
-      expect(html).toContain(claim)
+    for (const claim of ["Your request", "Agent + skill", "Checked work", "Results"]) {
+      expect(home).toContain(claim)
     }
+    for (const claim of ["Intent", "Plan", "Execution", "Result"]) {
+      expect(docs).toContain(claim)
+    }
+    expect(docs).toContain("Several ways in, one underlying system.")
+    expect(docs).toContain("macOS desktop app adds native")
+    expect(docs).toContain("capture without creating a second project model")
   })
 
-  test("keeps SDK, local host, and desktop capture inside one workflow system", async () => {
-    const html = await readSource("index.html")
-
-    expect(html).toContain(">TypeScript SDK<")
-    expect(html).toContain(">Local host<")
-    expect(html).toContain(">Desktop shell<")
-    expect(html).toContain("without creating another workflow engine")
-  })
-
-  test("uses direct local Gateway access without a browser secret path", async () => {
-    const html = await readSource("index.html")
+  test("states the local custody and explicit Gateway boundary without a secret path", async () => {
+    const [home, docs] = await Promise.all([
+      readSource("index.html"),
+      readSource("docs.html"),
+    ])
     const theme = await readSource("theme.js")
 
-    expect(html).toContain("AI_GATEWAY_API_KEY")
-    expect(html).toContain("VERCEL_OIDC_TOKEN")
-    expect(html).toContain('vercel env run -- atet image generate "…"')
-    expect(html).toContain("no hosted account or browser generation service")
-    expect(html).toContain("This site never receives")
-    expect(html).not.toMatch(/<form|type="password"|\/api\//)
+    for (const claim of ["Local custody", "No Atet account", "Source stays primary", "Bounded work"]) {
+      expect(home).toContain(claim)
+    }
+    expect(home).toContain("Model-backed creation goes from your local Atet process through Vercel AI Gateway")
+    expect(docs).toContain("Gateway credentials are supplied by your local process and are not stored by Atet")
+    expect(docs).toContain("Atet does not operate a hosted project database or account system")
+    expect(`${home}\n${docs}`).not.toMatch(/<form|type="password"|\/api\//)
     expect(theme).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
-  test("pairs the creation story with restrained abstract barque art", async () => {
+  test("keeps the approved creation story as quiet identity context", async () => {
     const html = await readSource("index.html")
 
     expect(html).toContain("Agentic creative coding toolkit.")
     expect(html).toContain("Atum dawned and")
-    expect(html).toContain("solar\n                barque Atet")
-    expect(html).toContain('<div aria-hidden="true" class="solar-field">')
+    expect(html).toContain("underworld on the solar barque Atet")
+    expect(html).toContain('<div class="solar-mark" aria-hidden="true">')
     expect(html).not.toMatch(/hieroglyph|pharaoh|ankh/i)
   })
 
@@ -245,11 +228,11 @@ describe("static Atet site", () => {
       readSource("styles.css"),
     ])
 
-    expect(html).toContain("Carry ideas from first light to final form.")
-    expect(docs).toContain("Make with Atet.")
+    expect(html).toContain("Install Atet. Tell your agent what to make.")
+    expect(docs).toContain("Install Atet for your agent.")
     expect(css).toContain('--font-display: ui-serif, "Iowan Old Style", Baskerville')
-    expect(css).toContain(".hero-lower")
-    expect(css).toContain(".output-grid > div")
+    expect(css).toContain(".install-panel")
+    expect(css).toContain(".capability-list > div")
     expect(css).toContain("border-left: 1px solid var(--line)")
   })
 
@@ -261,7 +244,7 @@ describe("static Atet site", () => {
     expect(html).toContain('<a class="skip-link" href="#main">')
     expect(html).toContain('<nav aria-label="Primary">')
     expect(html).toContain('<main id="main" tabindex="-1">')
-    expect(html).toContain('<div aria-hidden="true" class="solar-field">')
+    expect(html).toContain('<div class="solar-mark" aria-hidden="true">')
     expect(html).not.toMatch(/<section(?![^>]*aria-labelledby)/)
     expect(css).toContain(":where(a, button, [tabindex]):focus-visible")
     expect(css).toContain("@media (max-width: 64rem)")
@@ -305,9 +288,9 @@ describe("static Atet site", () => {
 
     expect(manifest.dependencies).toBeUndefined()
     expect(manifest.devDependencies).toBeUndefined()
-    expect(new TextEncoder().encode(html).byteLength).toBeLessThan(28_000)
-    expect(new TextEncoder().encode(docs).byteLength).toBeLessThan(60_000)
-    expect(new TextEncoder().encode(css).byteLength).toBeLessThan(48_000)
+    expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
+    expect(new TextEncoder().encode(docs).byteLength).toBeLessThan(20_000)
+    expect(new TextEncoder().encode(css).byteLength).toBeLessThan(28_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)
     expect(docs).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
@@ -430,6 +413,6 @@ describe("static Atet site", () => {
     expect(html).toContain('href="https://hraness.com"')
     expect(html).toContain('aria-label="hraness"')
     expect(html).toContain("class=\"hraness-mark\"")
-    expect(html).toContain("Atet 2.0.0 · MIT · Local-first visual media.")
+    expect(html).toContain("Atet · MIT · Local-first creative tools.")
   })
 })
