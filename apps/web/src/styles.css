@@ -922,6 +922,22 @@ blockquote {
   color: var(--gold);
 }
 
+.origin-note {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line-strong);
+}
+
+.origin-note h3 {
+  font-size: 1.55rem;
+}
+
+.origin-note p {
+  max-width: 43rem;
+  margin-top: 0.7rem;
+  color: var(--muted);
+}
+
 /* Error route */
 
 .route-state {
@@ -1141,6 +1157,16 @@ blockquote {
 @media (max-width: 34rem) {
   .topbar nav a:first-child:not([aria-current="page"]) {
     display: none;
+  }
+
+  .docs-index {
+    grid-template-columns: repeat(4, minmax(5rem, 1fr));
+  }
+
+  .docs-index a {
+    padding-inline: 0.4rem;
+    gap: 0.4rem;
+    font-size: 0.72rem;
   }
 
   .hero h1,
