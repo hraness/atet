@@ -20,6 +20,6 @@
 - Apply effects only through typed bounded non-destructive transforms. Use argv arrays, owned kernels, and fresh repository-local outputs; never interpolate caller text into filters or overwrite sources. Parse manifests, JSONL, native messages, tool results, and CLI edits from `unknown`.
 - Keep HTML overlays deterministic and transparent: exact approved library locks, local bound assets, integer-microsecond frame time, seeded randomness, fixed browser settings, and denied ambient browser networking. Render them to verified alpha media before the ordinary overlay compositor sees them.
 - Keep ordinary build, lint, typecheck, and TypeScript tests portable. Exercise ScreenCaptureKit, AVFoundation, Vision, and Zig only through explicit `*:macos` commands.
-- Keep `@hraness/direct` development-only and outside production frontend, CLI, gateway, capture, Zig, and packaged graphs.
-- Local Direct verification must allocate a fresh port when the requested port belongs to another process.
+- Keep `@hraness/direct` development-only and outside production frontend, CLI, gateway, capture, Zig, and packaged graphs. Use its `tooling/*` subpaths for product-neutral browser-process, server-lease, artifact, contract-reading, and emitted-bundle mechanics.
+- Keep Atet's Direct document identity, fresh-port allocation, scenarios, assertions, and artifact manifest policy product-owned. Local verification must allocate a fresh port when the requested port belongs to another process.
 - Run macOS builds, packages, tests, and performance benchmarks one at a time. Zig builds must inherit the caller's worker budget through `-j`.
