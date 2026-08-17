@@ -23,6 +23,7 @@
 - Use Bun 1.3.14 and run `bun run check` before handing off a change.
 - Follow `WRITING.md` for internal prose and `STYLE.md` for public prose, preserving facts, exact terms, literals, quotations, links, and necessary uncertainty.
 - Apply unreasonably robust programming when agent work is cheap. Prefer coherent cross-file correctness and focused deterministic evidence while treating production risk, provider coordination, rollout, and observation as real costs.
+- Deliver changes to `main` through a current-head pull request. Keep the stable `Required` CI job green, resolve every review thread, and serialize merges. Human approval stays optional while one regular maintainer would otherwise self-review. Never force-push or bypass the gate.
 - Keep this repository independently buildable. Never depend on sibling paths, Git submodules, or coordinated `main` branches; consume external Hraness packages only through reviewed immutable release tags or commits.
 - Extract a shared package only after a second concrete consumer proves a stable product-neutral contract. Shared packages never import product code.
 - Keep Atet's product and editor presentation local. Add `@hraness/ui` for portable accessible primitives or `@hraness/design-kit` for optional shared presentation only after concrete reuse warrants the dependency; domain layout and content remain Atet-owned.
