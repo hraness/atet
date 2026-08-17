@@ -237,6 +237,10 @@
     "check:sdk": "bun run typecheck:sdk && bun run lint:sdk && bun run build:sdk && bun run test:sdk && bun run check:release-workflows && bun run check:schema && bun run check:skill",
     "check:desktop": "bun run typecheck:desktop && bun run lint:desktop && bun run test:desktop && bun run build:desktop",
     "check:web": "bun run --cwd apps/web check",
+    "kb:refresh": "bunx --bun github:hraness/kb#v0.15.1 refresh --root kb",
+    "kb:check:lane": "bunx --bun github:hraness/kb#v0.15.1 check --root kb --no-catalog",
+    "kb:check": "bunx --bun github:hraness/kb#v0.15.1 check --root kb && bunx --bun github:hraness/kb#v0.15.1 agents check --root kb --repo .",
+    "kb:catalog": "bunx --bun github:hraness/kb#v0.15.1 catalog --root kb",
     "check": "bun run check:standalone && bun run check:sdk && bun run check:desktop && bun run check:web && bun run check:standalone && bun run test:package",
     "prepack": "bun run check"
   },
