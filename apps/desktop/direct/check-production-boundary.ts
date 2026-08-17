@@ -4,7 +4,7 @@ import path from "node:path";
 import {
   checkBundleBoundary,
   type BundleBoundaryResult,
-} from "./bundle-boundary";
+} from "@hraness/direct/tooling/bundle-boundary";
 
 const SOURCE_MARKERS = Object.freeze([
   "@hraness/direct",

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  availableLocalBaseUrl,
   canAutomaticallyStartServer,
   externalOrFailedRequests,
   normalizeBaseUrl,
@@ -17,15 +18,19 @@ import { atetScenarioCatalog } from "./scenarios";
 import { createAtetDirectSession } from "./session";
 
 describe("Atet browser verifier", () => {
-  test("parses a safe local base URL and rejects authority/path tricks", () => {
+  test("uses the shared closed base-URL parser for Atet browser verification", () => {
     expect(parseArguments([])).toEqual({ baseUrl: "http://127.0.0.1:5174", kind: "run" });
     expect(parseArguments(["--base-url", "http://localhost:6000"])).toEqual({
       baseUrl: "http://localhost:6000",
       kind: "run",
     });
-    expect(() => normalizeBaseUrl("file:///tmp/lab")).toThrow("HTTP or HTTPS");
+    expect(() => normalizeBaseUrl("file:///tmp/lab")).toThrow("http: or https:");
     expect(() => normalizeBaseUrl("https://user@example.com/")).toThrow("credentials");
-    expect(() => normalizeBaseUrl("https://example.com/lab")).toThrow("without a path");
+    expect(() => normalizeBaseUrl("https://example.com/lab")).toThrow("server root");
+    expect(() => parseArguments([
+      "--base-url=http://127.0.0.1:5174",
+      "--base-url=http://127.0.0.1:5175",
+    ])).toThrow("only once");
     expect(canAutomaticallyStartServer("http://127.0.0.1:5174")).toBe(true);
     expect(canAutomaticallyStartServer("https://example.com")).toBe(false);
   });
@@ -52,6 +57,23 @@ describe("Atet browser verifier", () => {
         .toBe("other");
     } finally {
       await Promise.all([atet.stop(true), other.stop(true)]);
+    }
+  });
+
+  test("selects a fresh port when another process owns the requested local port", async () => {
+    const occupied = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => new Response("other"),
+    });
+    try {
+      const selected = new URL(await availableLocalBaseUrl(
+        `http://127.0.0.1:${String(occupied.port)}`,
+      ));
+      expect(selected.hostname).toBe("127.0.0.1");
+      expect(selected.port).not.toBe(String(occupied.port));
+    } finally {
+      await occupied.stop(true);
     }
   });
 

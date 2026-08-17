@@ -12,3 +12,4 @@
 - Poll only as a recovery path. Apply bounded runtime events when the bridge supplies them and resnapshot after malformed or missed sequences.
 - Keep buttons keyboard accessible, visibly focused, and at least 44 CSS pixels in both dimensions.
 - Show partial-source and permission failures beside the affected source while preserving control of a valid active recording.
+- Let long source and permission labels shrink within the compact recorder instead of widening the document.

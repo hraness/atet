@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
-import { randomUUID } from "node:crypto";
-import { mkdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { createServer } from "node:net";
-import { dirname, join, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { SCENARIO_QUERY_KEY } from "@hraness/direct";
@@ -13,14 +12,27 @@ import {
   type DirectProbeSnapshot,
   type CoverageEntry,
 } from "@hraness/direct/testing";
-import { z } from "zod";
-
 import {
+  acquireVerificationServer,
   bindDirectBrowserContractEvidence,
   bindDirectScenarioCatalog,
+  canAutomaticallyStartLocalServer,
+  createAgentBrowser,
+  createArtifactRun,
+  normalizeRootHttpOrigin,
+  parseBaseUrlArguments,
   readDirectBrowserContract,
-  type DirectBrowserContract,
-} from "./browser-verification";
+  renderUnknown,
+  spawnVerificationServer,
+  stopVerificationServer,
+  writeJsonAtomically,
+  type AgentBrowser,
+  type BrowserVerificationArguments,
+  type DirectSessionBrowserContract,
+  type ManagedVerificationServer,
+} from "@hraness/direct/tooling/browser-verification";
+import { z } from "zod";
+
 import { atetDirect, atetScenarioCatalog } from "./scenarios";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:5174";
@@ -28,7 +40,6 @@ const ATET_DIRECT_DOCUMENT_MARKERS = Object.freeze([
   'data-atet-surface="product"',
   "<title>Atet Direct</title>",
 ]);
-const LOG_LIMIT = 12_000;
 const SERVER_PROBE_TIMEOUT_MS = 1_500;
 const SERVER_START_TIMEOUT_MS = 30_000;
 const STABLE_PROBE_EXPRESSION = `(() => {
@@ -60,12 +71,6 @@ const STABLE_PROBE_EXPRESSION = `(() => {
   return Date.now() - previous.since >= 150;
 })()`;
 
-const commandEnvelopeSchema = z.object({
-  data: z.unknown(),
-  error: z.unknown(),
-  success: z.boolean(),
-});
-const evaluationSchema = z.object({ result: z.unknown() });
 const remainingWorkSchema = z.object({
   disposed: z.boolean(),
   eventListeners: z.number().int().nonnegative(),
@@ -102,9 +107,7 @@ type ProbeSnapshot = Readonly<
 >;
 export type ResponsiveLayoutMeasurement = z.infer<typeof layoutSchema>;
 
-type ParsedArguments =
-  | { readonly kind: "help" }
-  | { readonly baseUrl: string; readonly kind: "run" };
+type DirectBrowserContract = DirectSessionBrowserContract;
 
 type ScenarioAction =
   | "denied-start"
@@ -350,49 +353,15 @@ export function scenarioAuditFailures(
 }
 
 export function normalizeBaseUrl(input: string): string {
-  let parsed: URL;
-  try {
-    parsed = new URL(input);
-  } catch {
-    throw new Error(`--base-url must be an absolute URL, received ${JSON.stringify(input)}.`);
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("--base-url must use HTTP or HTTPS.");
-  }
-  if (parsed.username !== "" || parsed.password !== "") {
-    throw new Error("--base-url cannot contain credentials.");
-  }
-  if (parsed.pathname !== "/" || parsed.search !== "" || parsed.hash !== "") {
-    throw new Error("--base-url must identify an origin without a path, query, or fragment.");
-  }
-  return parsed.origin;
+  return normalizeRootHttpOrigin(input);
 }
 
-export function parseArguments(arguments_: readonly string[]): ParsedArguments {
-  let baseUrl = DEFAULT_BASE_URL;
-  for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-    if (argument === undefined) continue;
-    if (argument === "--help" || argument === "-h") return { kind: "help" };
-    if (argument.startsWith("--base-url=")) {
-      baseUrl = argument.slice("--base-url=".length);
-      continue;
-    }
-    if (argument === "--base-url") {
-      const value = arguments_[index + 1];
-      if (value === undefined || value.startsWith("-")) throw new Error("--base-url requires a value.");
-      baseUrl = value;
-      index += 1;
-      continue;
-    }
-    throw new Error(`Unknown argument ${JSON.stringify(argument)}.`);
-  }
-  return { baseUrl: normalizeBaseUrl(baseUrl), kind: "run" };
+export function parseArguments(arguments_: readonly string[]): BrowserVerificationArguments {
+  return parseBaseUrlArguments(arguments_, DEFAULT_BASE_URL);
 }
 
 export function canAutomaticallyStartServer(baseUrl: string): boolean {
-  const url = new URL(normalizeBaseUrl(baseUrl));
-  return url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost");
+  return canAutomaticallyStartLocalServer(baseUrl);
 }
 
 export function externalOrFailedRequests(
@@ -440,85 +409,16 @@ function scenarioUrl(baseUrl: string, id: string): string {
   return url.href;
 }
 
-function renderUnknown(value: unknown): string {
-  if (value instanceof Error) return `${value.name}: ${value.message}`;
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value) ?? String(value);
-  } catch {
-    return String(value);
-  }
-}
-
-function tail(value: string): string {
-  return value.length <= LOG_LIMIT ? value : value.slice(-LOG_LIMIT);
-}
-
-function parseAgentBrowserJson(source: string): unknown {
-  let input: unknown;
-  try {
-    input = JSON.parse(source) as unknown;
-  } catch {
-    throw new Error("agent-browser did not return one JSON envelope.");
-  }
-  const envelope = commandEnvelopeSchema.safeParse(input);
-  if (!envelope.success) throw new Error(`agent-browser envelope is invalid: ${envelope.error.message}`);
-  if (!envelope.data.success) throw new Error(`agent-browser failed: ${renderUnknown(envelope.data.error)}`);
-  return envelope.data.data;
-}
-
 function parseData<Value>(schema: z.ZodType<Value>, input: unknown, label: string): Value {
   const parsed = schema.safeParse(input);
   if (!parsed.success) throw new Error(`${label} is invalid: ${parsed.error.message}`);
   return parsed.data;
 }
 
-function createBrowser(repositoryRoot: string) {
-  const binary = join(repositoryRoot, "apps/desktop/node_modules/.bin/agent-browser");
-  const session = `atet-${String(process.pid)}-${randomUUID().slice(0, 6)}`;
-  const environment = {
-    ...process.env,
-    AGENT_BROWSER_DEFAULT_TIMEOUT: "35000",
-    AGENT_BROWSER_NAMESPACE: session,
-    AGENT_BROWSER_RESTORE_SAVE: "never",
-    AGENT_BROWSER_SESSION: session,
-  };
-  let used = false;
-  return {
-    async close(): Promise<void> {
-      if (used) await this.run(["close"]);
-    },
-    async run(arguments_: readonly string[]): Promise<unknown> {
-      used = true;
-      const command = Bun.spawn([binary, "--json", ...arguments_], {
-        cwd: repositoryRoot,
-        env: environment,
-        stderr: "pipe",
-        stdin: "ignore",
-        stdout: "pipe",
-      });
-      const [stdout, stderr, exitCode] = await Promise.all([
-        new Response(command.stdout).text(),
-        new Response(command.stderr).text(),
-        command.exited,
-      ]);
-      if (exitCode !== 0) {
-        throw new Error(`agent-browser ${arguments_.join(" ")} failed: ${tail(stderr.trim() || stdout.trim())}`);
-      }
-      return parseAgentBrowserJson(stdout);
-    },
-  };
-}
-
-type Browser = ReturnType<typeof createBrowser>;
-
-async function evaluate(browser: Browser, expression: string): Promise<unknown> {
-  const result = parseData(evaluationSchema, await browser.run(["eval", expression]), "browser evaluation");
-  return result.result;
-}
+type Browser = AgentBrowser;
 
 async function joinStableProbe(browser: Browser): Promise<void> {
-  await evaluate(browser, "window.__atetDirectVerifierQuiet = undefined");
+  await browser.evaluate("window.__atetDirectVerifierQuiet = undefined");
   await browser.run(["wait", "--fn", STABLE_PROBE_EXPRESSION]);
 }
 
@@ -559,7 +459,7 @@ export async function waitForDirectBridge(
 
 async function readProbe(browser: Browser): Promise<ProbeSnapshot> {
   const parsed = parseDirectProbeSnapshot(
-    await evaluate(browser, "window.__direct.snapshot()"),
+    await browser.evaluate("window.__direct.snapshot()"),
   );
   if (!parsed.ok) throw new Error(`canonical probe is invalid: ${parsed.error.message}`);
   return Object.freeze({
@@ -577,9 +477,7 @@ export function parseAtetDefinitionCoverage(input: unknown) {
 }
 
 async function bodyText(browser: Browser): Promise<string> {
-  const body = await evaluate(browser, "document.body?.innerText ?? ''");
-  if (typeof body !== "string") throw new Error("Browser body evaluation did not return text.");
-  return body;
+  return await browser.readBodyText();
 }
 
 export function visibleTextContains(body: string, expected: string): boolean {
@@ -587,7 +485,7 @@ export function visibleTextContains(body: string, expected: string): boolean {
 }
 
 async function clickExactButton(browser: Browser, label: string): Promise<void> {
-  const clicked = await evaluate(browser, `(() => {
+  const clicked = await browser.evaluate(`(() => {
     const buttons = [...document.querySelectorAll("button")]
       .filter((button) => button.textContent?.trim() === ${JSON.stringify(label)});
     if (buttons.length !== 1) return { count: buttons.length };
@@ -607,7 +505,7 @@ async function clickExactButtonTwiceInOneTask(
   browser: Browser,
   label: string,
 ): Promise<void> {
-  const clicked = await evaluate(browser, `(() => {
+  const clicked = await browser.evaluate(`(() => {
     const buttons = [...document.querySelectorAll("button")]
       .filter((button) => button.textContent?.trim() === ${JSON.stringify(label)});
     if (buttons.length !== 1) return { count: buttons.length };
@@ -726,9 +624,7 @@ async function verifyScenario(options: {
   await waitForDirectBridge(browser, definition.id);
   const authoredScenario = atetScenarioCatalog.resolve(definition.id);
   if (!authoredScenario.ok) throw new Error(authoredScenario.error.message);
-  const contract = await readDirectBrowserContract({
-    evaluate: (expression) => evaluate(browser, expression),
-  }, {
+  const contract = await readDirectBrowserContract(browser, {
     source: "scenario",
     scenario: definition.id,
     route: authoredScenario.value.route,
@@ -745,7 +641,7 @@ async function verifyScenario(options: {
   await joinStableProbe(browser);
   const expectedText = [...definition.expectedText, ...actionEvidence];
 
-  const layout = parseData(layoutSchema, await evaluate(browser, `(() => {
+  const layout = parseData(layoutSchema, await browser.evaluate(`(() => {
     const root = document.documentElement;
     const controls = [...document.querySelectorAll("button, summary")]
       .filter((element) => element.getClientRects().length > 0)
@@ -797,9 +693,7 @@ async function verifyScenario(options: {
   if ((await stat(screenshot)).size < 1_024) throw new Error(`${definition.id} screenshot is unexpectedly small.`);
   const finalContract = bindDirectBrowserContractEvidence(
     contract,
-    await readDirectBrowserContract({
-      evaluate: (expression) => evaluate(browser, expression),
-    }, {
+    await readDirectBrowserContract(browser, {
       source: "scenario",
       scenario: definition.id,
       route: authoredScenario.value.route,
@@ -841,14 +735,9 @@ export async function probeAtetDirectServer(
   }
 }
 
-interface StartedServer {
-  readonly output: Promise<string>;
-  readonly process: ReturnType<typeof Bun.spawn>;
-}
-
 interface AcquiredServer {
   readonly baseUrl: string;
-  readonly server: StartedServer | null;
+  readonly server: ManagedVerificationServer | null;
   readonly source: "reused" | "started";
 }
 
@@ -867,7 +756,7 @@ async function portIsAvailable(port: number, hostname: string): Promise<boolean>
   });
 }
 
-async function availableLocalBaseUrl(baseUrl: string): Promise<string> {
+export async function availableLocalBaseUrl(baseUrl: string): Promise<string> {
   const url = new URL(normalizeBaseUrl(baseUrl));
   const startingPort = Number(url.port || "80");
   for (let offset = 1; offset <= 256; offset += 1) {
@@ -883,45 +772,22 @@ async function availableLocalBaseUrl(baseUrl: string): Promise<string> {
   );
 }
 
-async function collectStream(stream: ReadableStream<Uint8Array>): Promise<string> {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let output = "";
-  for (;;) {
-    const chunk = await reader.read();
-    if (chunk.done) return tail(`${output}${decoder.decode()}`);
-    output = tail(`${output}${decoder.decode(chunk.value, { stream: true })}`);
-  }
-}
-
-function startServer(repositoryRoot: string, baseUrl: string): StartedServer {
-  const desktop = join(repositoryRoot, "apps/desktop");
-  const port = new URL(baseUrl).port || "80";
-  const process_ = Bun.spawn([process.execPath, "run", "dev:direct", "--", "--port", port], {
-    cwd: desktop,
-    env: { ...process.env, CI: "1" },
-    stderr: "pipe",
-    stdin: "ignore",
-    stdout: "pipe",
+function startServer(repositoryRoot: string, baseUrl: string): ManagedVerificationServer {
+  const url = new URL(baseUrl);
+  return spawnVerificationServer({
+    command: [
+      process.execPath,
+      "run",
+      "dev:direct",
+      "--",
+      "--host",
+      url.hostname,
+      "--port",
+      url.port || "80",
+    ],
+    cwd: repositoryRoot,
+    env: { CI: "1" },
   });
-  const output = Promise.all([
-    collectStream(process_.stdout),
-    collectStream(process_.stderr),
-  ]).then(([stdout, stderr]) => tail(`${stdout}\n${stderr}`.trim()));
-  return { output, process: process_ };
-}
-
-async function stopServer(server: StartedServer): Promise<void> {
-  if (server.process.exitCode === null) server.process.kill("SIGTERM");
-  const stopped = await Promise.race([
-    server.process.exited.then(() => true),
-    Bun.sleep(3_000).then(() => false),
-  ]);
-  if (!stopped) {
-    server.process.kill("SIGKILL");
-    await server.process.exited;
-  }
-  await server.output;
 }
 
 async function acquireServer(
@@ -944,42 +810,26 @@ async function acquireServer(
   const baseUrl = initialProbe === "unreachable"
     ? requestedBaseUrl
     : await availableLocalBaseUrl(requestedBaseUrl);
-  const server = startServer(repositoryRoot, baseUrl);
-  try {
-    const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      if (server.process.exitCode !== null) throw new Error(`Direct server exited: ${await server.output}`);
-      if (await probeAtetDirectServer(baseUrl) === "atet") {
-        return { baseUrl, server, source: "started" };
-      }
-      await Bun.sleep(200);
-    }
-    throw new Error(`Direct server did not start within ${String(SERVER_START_TIMEOUT_MS)}ms.`);
-  } catch (reason) {
-    await stopServer(server);
-    throw reason;
-  }
-}
-
-async function writeManifest(path: string, value: unknown): Promise<void> {
-  const temporary = join(dirname(path), `.${String(process.pid)}-${randomUUID()}.tmp`);
-  try {
-    await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-    await rename(temporary, path);
-  } catch (reason) {
-    await rm(temporary, { force: true });
-    throw reason;
-  }
+  const lease = await acquireVerificationServer({
+    baseUrl,
+    isReachable: async (candidate) => await probeAtetDirectServer(candidate) === "atet",
+    label: "Atet Direct server",
+    reuseExistingLocalServer: false,
+    startServer: () => startServer(repositoryRoot, baseUrl),
+    startupTimeoutMs: SERVER_START_TIMEOUT_MS,
+  });
+  return lease.source === "started"
+    ? { baseUrl, server: lease.server, source: "started" }
+    : { baseUrl, server: null, source: "reused" };
 }
 
 async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<string> {
   const artifactRoot = join(repositoryRoot, "artifacts/atet/direct");
-  const generatedAt = new Date().toISOString();
-  const runDirectory = join(artifactRoot, `${generatedAt.replaceAll(/[^0-9A-Za-z]/gu, "-")}-${String(process.pid)}`);
-  await mkdir(runDirectory, { recursive: true });
+  const artifactRun = await createArtifactRun({ artifactRoot });
+  const { generatedAt, manifestPath, runDirectory } = artifactRun;
   const acquiredServer = await acquireServer(repositoryRoot, requestedBaseUrl);
   const { baseUrl, server } = acquiredServer;
-  const browser = createBrowser(repositoryRoot);
+  const browser = createAgentBrowser({ repositoryRoot, sessionPrefix: "atet" });
   const evidence: ScenarioEvidence[] = [];
   const sessionManifests: DirectBrowserContract["manifest"][] = [];
   let failure: unknown = null;
@@ -1026,7 +876,7 @@ async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<st
   }
   if (server !== null) {
     try {
-      await stopServer(server);
+      await stopVerificationServer(server);
     } catch (reason) {
       cleanupFailures.push(reason);
     }
@@ -1038,8 +888,7 @@ async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<st
     );
   }
 
-  const manifestPath = join(artifactRoot, "manifest.json");
-  await writeManifest(manifestPath, {
+  await writeJsonAtomically(manifestPath, {
     $schema: "jungle.direct.web-verification/v1",
     baseUrl,
     coverage,
