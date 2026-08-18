@@ -93,6 +93,10 @@ import {
 } from "./media-ingest";
 import { LocalMediaEffectsService } from "./media-effects-service";
 import {
+  LocalMediaComposeService,
+  parseMediaComposition,
+} from "./media-compose-service";
+import {
   DEFAULT_MUSIC_ANALYSIS_CONFIG,
   analyzeAndPersistProjectMusic,
   assertCompleteMusicAnalysis,
@@ -5426,6 +5430,228 @@ async function handleAiTranscribe(
   });
 }
 
+async function handleMediaCompose(
+  context: CommandContext,
+  command: Extract<CliCommand, { readonly kind: "media-compose" }>,
+): Promise<void> {
+  if (
+    command.output !== undefined
+    && extname(command.output).toLocaleLowerCase("en-US") !== ".mp4"
+  ) {
+    throw new CliError(
+      "usage",
+      "Media composition --output must use the .mp4 extension.",
+    );
+  }
+  const compositionPath = resolve(context.io.cwd(), command.composition);
+  const sourceText = await readGatewayTextFile(
+    context.io.cwd(),
+    command.composition,
+    512 * 1024,
+  );
+  let source: unknown;
+  try {
+    source = JSON.parse(sourceText) as unknown;
+  } catch {
+    throw new CliError(
+      "invalid-data",
+      `Media composition is not valid JSON: ${command.composition}`,
+    );
+  }
+  const composition = parseMediaComposition(source);
+  if (
+    composition.output.encoder === "h264-videotoolbox"
+    && context.io.platform !== "darwin"
+  ) {
+    throw new CliError(
+      "unavailable",
+      "The h264-videotoolbox composition encoder is available only on macOS.",
+    );
+  }
+  const sourceRoot = dirname(await realpath(compositionPath));
+  const sources = [...new Set(
+    composition.segments.map(segment => segment.source),
+  )];
+  const capabilities = await requestedCapabilities(
+    context,
+    ["ffmpeg", "ffprobe"],
+  );
+  const ffmpeg = requireCapability(capabilities, "ffmpeg");
+  const ffprobe = requireCapability(capabilities, "ffprobe");
+  const inspected = await mapBounded(sources, 2, async sourcePath => {
+    const path = await resolveSafePath(sourceRoot, sourcePath);
+    const [identity, probe] = await Promise.all([
+      digestPhysicalFile(path),
+      probeProjectMedia(ffprobe, context.runner, path),
+    ]);
+    return { identity, path, probe, source: sourcePath };
+  });
+  const bySource = new Map(inspected.map(item => [item.source, item]));
+  for (const [index, segment] of composition.segments.entries()) {
+    const input = bySource.get(segment.source);
+    if (input === undefined) {
+      throw new CliError("internal", "Composition input inspection was lost.");
+    }
+    const video = input.probe.streams.filter(
+      stream => stream.codec_type === "video",
+    )[segment.videoStream];
+    const audio = input.probe.streams.filter(
+      stream => stream.codec_type === "audio",
+    )[segment.audioStream];
+    if (video === undefined) {
+      throw new CliError(
+        "usage",
+        `Composition segment ${String(index + 1)} selects missing video stream ${String(segment.videoStream)} in ${segment.source}.`,
+      );
+    }
+    if (audio === undefined) {
+      throw new CliError(
+        "usage",
+        `Composition segment ${String(index + 1)} selects missing audio stream ${String(segment.audioStream)} in ${segment.source}.`,
+      );
+    }
+    if (
+      segment.startUs < video.assetRange.startUs
+      || segment.startUs < audio.assetRange.startUs
+      || segment.endUs > video.assetRange.endUs
+      || segment.endUs > audio.assetRange.endUs
+    ) {
+      throw new CliError(
+        "usage",
+        `Composition segment ${String(index + 1)} exceeds selected audio/video coverage in ${segment.source}.`,
+      );
+    }
+  }
+  const output = await resolveGeneratedOutputPaths(
+    context.paths,
+    "media-compose",
+    command.output,
+    ".mp4",
+  );
+  await assertFreshGeneratedReceiptDestination(
+    compositionPath,
+    output.receiptPath,
+  );
+  const result = await new LocalMediaComposeService({
+    ffmpeg,
+    runner: context.runner,
+  }).render({
+    composition,
+    expectedInputs: new Map(
+      inspected.map(item => [item.source, item.identity]),
+    ),
+    outputPath: output.outputPath,
+    sourceRoot,
+  });
+  const outputIdentity = await generatedOutputIdentity(result.outputPath);
+  const {
+    nextCommands,
+    outputDisplay,
+    receipt,
+    receiptDisplay,
+  } = await (async () => {
+    const outputProbe = await probeProjectMedia(
+      ffprobe,
+      context.runner,
+      result.outputPath,
+    );
+    const video = outputProbe.streams.find(
+      stream => stream.codec_type === "video",
+    );
+    const audio = outputProbe.streams.find(
+      stream => stream.codec_type === "audio",
+    );
+    if (
+      video === undefined
+      || audio === undefined
+      || video.width !== composition.output.width
+      || video.height !== composition.output.height
+      || Math.abs(outputProbe.durationUs - result.durationUs) > 500_000
+    ) {
+      throw new CliError(
+        "invalid-data",
+        "Composed media failed duration, geometry, or audio/video verification.",
+      );
+    }
+    const verifiedOutput = await digestPhysicalFile(result.outputPath);
+    if (
+      verifiedOutput.device !== outputIdentity.device
+      || verifiedOutput.inode !== outputIdentity.inode
+      || verifiedOutput.bytes !== result.bytes
+      || verifiedOutput.sha256 !== result.sha256
+    ) {
+      throw new CliError(
+        "conflict",
+        "Composed media changed before its receipt could be published.",
+      );
+    }
+    const outputDisplay = displayPath(
+      context.paths.repositoryRoot,
+      result.outputPath,
+    );
+    const receiptDisplay = displayPath(
+      context.paths.repositoryRoot,
+      output.receiptPath,
+    );
+    const nextCommands = {
+      addToProject: `transmute project add <project> ${shellArgument(outputDisplay)} --role b-roll`,
+    };
+    const receipt = {
+      composition: result.composition,
+      createdAt: context.io.now().toISOString(),
+      durationUs: result.durationUs,
+      ffmpeg: capabilityByName(capabilities, "ffmpeg").version ?? null,
+      ffprobe: capabilityByName(capabilities, "ffprobe").version ?? null,
+      filterGraph: result.filterGraph,
+      inputs: result.inputs.map(input => ({
+        bytes: input.bytes,
+        path: displayPath(context.paths.repositoryRoot, input.path),
+        sha256: input.sha256,
+        source: input.source,
+      })),
+      kind: "transmute.media-compose-receipt",
+      nextCommands,
+      operation: "media-compose",
+      output: {
+        bytes: result.bytes,
+        durationUs: outputProbe.durationUs,
+        height: video.height,
+        path: outputDisplay,
+        sha256: result.sha256,
+        width: video.width,
+      },
+      schemaVersion: 1,
+    } as const;
+    await publishGeneratedReceipt(context.paths, output.receiptPath, receipt);
+    const receiptIdentity = await generatedOutputIdentity(output.receiptPath);
+    try {
+      const finalOutput = await digestPhysicalFile(result.outputPath);
+      if (!samePhysicalDigest(verifiedOutput, finalOutput)) {
+        throw new CliError(
+          "conflict",
+          "Composed media changed while its receipt was being published.",
+        );
+      }
+    } catch (error) {
+      await removeGeneratedOutputIfSame(output.receiptPath, receiptIdentity);
+      throw error;
+    }
+    return { nextCommands, outputDisplay, receipt, receiptDisplay };
+  })().catch(async (error: unknown) => {
+    await removeGeneratedOutputIfSame(result.outputPath, outputIdentity);
+    throw error;
+  });
+  writeValue(context.io, command.json, {
+    ...receipt,
+    receiptPath: receiptDisplay,
+  }, () => [
+    `media composition ${outputDisplay} ${result.bytes} bytes sha256=${result.sha256}`,
+    `duration ${humanTime(result.durationUs)} segments=${String(composition.segments.length)}`,
+    `receipt ${receiptDisplay}`,
+    `next ${nextCommands.addToProject}`,
+  ].join("\n"));
+}
+
 async function handleMediaAudio(
   context: CommandContext,
   command: Extract<CliCommand, { readonly kind: "media-audio" }>,
@@ -6239,6 +6465,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
     case "ai-transcribe": await handleAiTranscribe(context, command); return;
     case "media-audio": await handleMediaAudio(context, command); return;
     case "media-color": await handleMediaColor(context, command); return;
+    case "media-compose": await handleMediaCompose(context, command); return;
     case "recordings-list": {
       const directories = (await listRecordingDirectories(context.paths.artifactRoot)).slice(0, command.limit);
       const recordings = await Promise.all(directories.map(async ({ id }) => {
@@ -6535,6 +6762,7 @@ function commandMutationReference(command: CliCommand): MutationReference | unde
     case "ai-models-show":
     case "media-audio":
     case "media-color":
+    case "media-compose":
     case "diagram-render":
     case "image-vectorize": return { kind: "workspace-private" };
     case "ai-image-generate":

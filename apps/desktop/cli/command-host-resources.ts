@@ -131,6 +131,13 @@ export function commandHostResourceClaims(
     case "media-audio":
     case "media-color":
       return claims(coordinator, ["cpu", "ffmpeg", "local-io"]);
+    case "media-compose":
+      return claims(coordinator, [
+        "cpu",
+        "ffmpeg",
+        "local-io",
+        "project-render",
+      ]);
     case "analyze-scenes":
       return claims(
         coordinator,

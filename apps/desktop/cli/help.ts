@@ -14,7 +14,7 @@ Commands:
   doctor                         Check local capture, render, and asset capabilities
   ai models|image|video|speech|transcribe
                                  Discover and run Vercel AI Gateway media models
-  media audio|color              Apply local non-destructive audio and video effects
+  media audio|color|compose      Apply effects or compose trimmed local media
   record start|pause|resume|stop|status
                                  Control the repository-local capture session
   recordings list               List recording bundles
@@ -271,6 +271,8 @@ Options: --kind <kind[,kind]> (repeatable) --from <time> --to <time>
         [--output <relative-path>] [--json]
   transmute media color <video-path> [grade] [--video-stream <index>]
         [--output <relative-path>] [--json]
+  transmute media compose <composition.json>
+        [--output <relative-path.mp4>] [--json]
 
 Audio effects may be combined in one deterministic chain:
   --volume-db <-60..24>
@@ -284,6 +286,11 @@ Audio effects may be combined in one deterministic chain:
 Color grading supports --preset <clean|warm|cool|cinematic|vivid|flat|mono> plus independently
 bounded --brightness, --contrast, --saturation, --gamma, --temperature, --tint, and
 --hue-degrees controls.
+
+Composition reads a checked version-one JSON manifest whose paths are relative to the manifest.
+It trims two through thirty-two ordered segments, normalizes portrait or landscape geometry and
+audio, then applies bounded fade/acrossfade transitions. H.264 software encoding is portable;
+the explicit h264-videotoolbox profile provides a faster macOS delivery path.
 
 Transforms call the checked local FFmpeg executable with an argv array, never a shell. They never
 overwrite the source. Each output uses fresh no-replace publication, then post-render verification
@@ -383,7 +390,7 @@ export function completions(words: readonly string[]): readonly string[] {
   if (command === "align") return ["analyze", "apply"];
   if (command === "fillers") return ["list", "apply"];
   if (command === "ai") return ["models", "provider-options", "image", "video", "speech", "transcribe"];
-  if (command === "media") return ["audio", "color"];
+  if (command === "media") return ["audio", "color", "compose"];
   if (command === "render") return ["plan", "run"];
   if (command === "assets") return ["emoji"];
   return [];

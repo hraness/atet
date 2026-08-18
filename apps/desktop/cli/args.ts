@@ -217,6 +217,11 @@ export type CliCommand =
       readonly tint: number | undefined;
       readonly videoStreamIndex: number;
     } & JsonOption)
+  | ({
+      readonly composition: string;
+      readonly kind: "media-compose";
+      readonly output: string | undefined;
+    } & JsonOption)
   | ({ readonly kind: "recordings-list"; readonly limit: number } & JsonOption)
   | ({ readonly kind: "projects-list"; readonly limit: number } & JsonOption)
   | ({
@@ -1250,12 +1255,31 @@ function parseMediaColor(argv: readonly string[]): CliCommand {
   };
 }
 
+function parseMediaCompose(argv: readonly string[]): CliCommand {
+  const parsed = parseOptions(argv, {
+    ...JSON_SPEC,
+    "--output": "value",
+  });
+  const [composition] = exactPositionals(
+    parsed,
+    1,
+    "transmute media compose <composition.json> [--output <path>] [--json]",
+  );
+  return {
+    composition: composition!,
+    json: optionFlag(parsed, "--json"),
+    kind: "media-compose",
+    output: optionString(parsed, "--output"),
+  };
+}
+
 function parseMedia(argv: readonly string[]): CliCommand {
   switch (argv[0]) {
     case "audio": return parseMediaAudio(argv.slice(1));
     case "color": return parseMediaColor(argv.slice(1));
+    case "compose": return parseMediaCompose(argv.slice(1));
     case undefined:
-    default: fail("Usage: transmute media <audio|color> <media-path> [options]");
+    default: fail("Usage: transmute media <audio|color|compose> ...");
   }
 }
 

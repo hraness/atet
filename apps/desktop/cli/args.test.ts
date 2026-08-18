@@ -392,6 +392,16 @@ test("parses the full Gateway media and local effect command surface", () => {
     temperature: 0.15,
     videoStreamIndex: 1,
   });
+  expect(parseCliArgs([
+    "media", "compose", "toro-verde.json",
+    "--output", "trips/toro-verde.mp4", "--json",
+  ])).toEqual({
+    composition: "toro-verde.json",
+    json: true,
+    kind: "media-compose",
+    output: "trips/toro-verde.mp4",
+  });
+  expect(completions(["media", ""])).toEqual(["audio", "color", "compose"]);
 
   expect(() => parseCliArgs([
     "ai", "video", "generate", "--model", "xai/grok-imagine-video",

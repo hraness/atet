@@ -59,6 +59,14 @@ describe("CLI command host-resource policy", () => {
 
   test("serializes video renders and reserves specialized analysis pools", () => {
     expect(commandHostResourceClaims(command({
+      kind: "media-compose",
+    }), coordinator)).toEqual([
+      { amount: 6, resource: "cpu" },
+      { amount: 2, resource: "ffmpeg" },
+      { amount: 1, resource: "local-io" },
+      { amount: 1, resource: "video-encode" },
+    ]);
+    expect(commandHostResourceClaims(command({
       action: "run",
       kind: "project-render",
     }), coordinator)).toEqual([
