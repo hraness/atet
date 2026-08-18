@@ -47,7 +47,7 @@ test("public CI routes independent Atet SDK, local-runtime, site, and native pro
   expect(workflow).toContain("bun run check:standalone")
   expect(workflow).toContain("bun run check:sdk")
   expect(workflow).toContain("bun run check:desktop")
-  expect(workflow).toContain("sudo apt-get install --yes ffmpeg")
+  expect(workflow).toContain("bash scripts/install-ci-ffmpeg.sh")
   expect(workflow).toContain("bun run check:web")
   expect(workflow).toContain("bun run test:package")
   expect(workflow).toContain("bun run test:desktop:macos")
@@ -88,7 +88,7 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).toContain('newest_stable_tag="$(git tag --list')
   expect(workflow).toContain("bun install --frozen-lockfile --ignore-scripts")
   expect(workflow).toContain("bun run check")
-  expect(workflow).toContain("sudo apt-get install --yes ffmpeg")
+  expect(workflow).toContain("bash scripts/install-ci-ffmpeg.sh")
   expect(workflow).toContain("native_macos:\n    name: Atet macOS shell")
   expect(workflow).toContain("bun run test:desktop:macos")
   expect(workflow).toContain("bun run package:desktop:macos")
@@ -121,6 +121,34 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).not.toContain("--clobber")
   expect(workflow).not.toContain("/immutable-releases")
   expect(workflow).not.toContain("administration:")
+})
+
+test("CI FFmpeg setup bounds Ubuntu mirror failures without weakening runtime checks", async () => {
+  const scriptPath = join(import.meta.dir, "install-ci-ffmpeg.sh")
+  const script = await readFile(scriptPath, "utf8")
+  const syntaxCheck = Bun.spawn(["bash", "-n", scriptPath], {
+    stderr: "pipe",
+    stdout: "pipe",
+  })
+  const syntaxError = await new Response(syntaxCheck.stderr).text()
+
+  expect(await syntaxCheck.exited).toBe(0)
+  expect(syntaxError).toBe("")
+
+  expect(script).toContain("https://archive.ubuntu.com/ubuntu/ priority:1")
+  expect(script).toContain("https://security.ubuntu.com/ubuntu/ priority:2")
+  expect(script).toContain("http://azure.archive.ubuntu.com/ubuntu/ priority:3")
+  expect(script).toContain("Acquire::Retries=2")
+  expect(script).toContain("Acquire::http::Timeout=20")
+  expect(script).toContain("Acquire::https::Timeout=20")
+  expect(script).toMatch(
+    /^sudo env DEBIAN_FRONTEND=noninteractive timeout --signal=TERM --kill-after=10s 180s \\\n {2}apt-get "\$\{apt_network_options\[@\]\}" update$/m,
+  )
+  expect(script).toMatch(
+    /^sudo env DEBIAN_FRONTEND=noninteractive timeout --signal=TERM --kill-after=10s 600s \\\n {2}apt-get "\$\{apt_network_options\[@\]\}" install --yes --no-install-recommends ffmpeg$/m,
+  )
+  expect(script).toContain("ffmpeg -version")
+  expect(script).toContain("ffprobe -version")
 })
 
 test("public Atet VTracer workflow verifies every reviewed platform without write permissions", async () => {
