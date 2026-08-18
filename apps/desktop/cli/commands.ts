@@ -97,6 +97,10 @@ import {
   parseMediaComposition,
 } from "./media-compose-service";
 import {
+  LocalMediaCaptionService,
+  MAXIMUM_MEDIA_CAPTION_OUTPUT_BYTES,
+} from "./media-caption-service";
+import {
   DEFAULT_MUSIC_ANALYSIS_CONFIG,
   analyzeAndPersistProjectMusic,
   assertCompleteMusicAnalysis,
@@ -5652,6 +5656,277 @@ async function handleMediaCompose(
   ].join("\n"));
 }
 
+async function handleMediaCaption(
+  context: CommandContext,
+  command: Extract<CliCommand, { readonly kind: "media-caption" }>,
+): Promise<void> {
+  if (
+    command.output !== undefined
+    && extname(command.output).toLocaleLowerCase("en-US") !== ".mp4"
+  ) {
+    throw new CliError("usage", "Media caption --output must use the .mp4 extension.");
+  }
+  const inputPath = resolve(context.io.cwd(), command.input);
+  const before = await digestPhysicalFile(inputPath);
+  const capabilities = await requestedCapabilities(
+    context,
+    ["face-analyzer", "ffmpeg", "ffprobe"],
+  );
+  const faceAnalyzer = requireCapability(capabilities, "face-analyzer");
+  const ffmpeg = requireCapability(capabilities, "ffmpeg");
+  const ffprobe = requireCapability(capabilities, "ffprobe");
+  const configuredExecutable = command.whisper
+    ?? context.io.env.TRANSMUTE_WHISPER_CPP;
+  const executable = configuredExecutable
+    ?? await requireRequestedCapability(context, "whisper-cpp");
+  const defaultModelPath = join(
+    context.paths.privateRoot,
+    "models",
+    "ggml-small.bin",
+  );
+  const modelPathInput = command.model
+    ?? context.io.env.TRANSMUTE_WHISPER_MODEL
+    ?? defaultModelPath;
+  let modelPath: string;
+  try {
+    modelPath = await realpath(modelPathInput);
+    const details = await lstat(modelPath);
+    if (!details.isFile() || details.isSymbolicLink() || details.size <= 0) {
+      throw new Error("not a physical nonempty file");
+    }
+  } catch {
+    throw new CliError(
+      "not-found",
+      `Whisper model is not a physical nonempty file: ${modelPathInput}. Use --model, TRANSMUTE_WHISPER_MODEL, or install the private default model.`,
+    );
+  }
+  const whisperProbe = await context.runner.run(
+    [executable, "--version"],
+    { maxOutputBytes: 64_000 },
+  );
+  if (whisperProbe.exitCode !== 0) {
+    throw new CliError(
+      "unavailable",
+      `whisper.cpp is unavailable: ${whisperProbe.stderr.trim().slice(-2_000) || `exit ${whisperProbe.exitCode}`}`,
+    );
+  }
+  const whisperVersion = firstNonemptyLine(whisperProbe.stdout)
+    ?? firstNonemptyLine(whisperProbe.stderr)
+    ?? "whisper.cpp (version unavailable)";
+  const defaultVadModelPath = join(
+    context.paths.privateRoot,
+    "models",
+    "ggml-silero-v5.1.2.bin",
+  );
+  const configuredVadModel = command.vadModel
+    ?? context.io.env.TRANSMUTE_WHISPER_VAD_MODEL;
+  const configuredVadExecutable = command.whisperVad
+    ?? context.io.env.TRANSMUTE_WHISPER_VAD;
+  let defaultVadExecutable = "whisper-vad-speech-segments";
+  if (executable.includes("/")) {
+    try {
+      defaultVadExecutable = join(dirname(await realpath(executable)), "whisper-vad-speech-segments");
+    } catch {
+      // The completed primary executable probe remains authoritative for its caller-selected path.
+    }
+  }
+  let vad: Readonly<{ executable: string; modelPath: string }> | null = null;
+  const vadModelInput = configuredVadModel ?? defaultVadModelPath;
+  try {
+    const vadModelPath = await realpath(vadModelInput);
+    const details = await lstat(vadModelPath);
+    if (!details.isFile() || details.isSymbolicLink() || details.size <= 0) {
+      throw new Error("not a physical nonempty file");
+    }
+    const vadExecutable = configuredVadExecutable ?? defaultVadExecutable;
+    const vadProbe = await context.runner.run(
+      [vadExecutable, "--help"],
+      { maxOutputBytes: 64_000 },
+    );
+    if (vadProbe.exitCode !== 0) {
+      throw new CliError(
+        "unavailable",
+        `whisper.cpp VAD helper is unavailable: ${vadProbe.stderr.trim().slice(-2_000) || `exit ${vadProbe.exitCode}`}`,
+      );
+    }
+    vad = { executable: vadExecutable, modelPath: vadModelPath };
+  } catch (error) {
+    if (error instanceof CliError) throw error;
+    if (configuredVadModel !== undefined || configuredVadExecutable !== undefined) {
+      throw new CliError(
+        "not-found",
+        `Whisper VAD model is not a physical nonempty file: ${vadModelInput}. Use --vad-model or TRANSMUTE_WHISPER_VAD_MODEL.`,
+      );
+    }
+  }
+  const inputProbe = await probeProjectMedia(ffprobe, context.runner, inputPath);
+  assertLocalEffectsProbeEnvelope(inputProbe);
+  const videoStreams = inputProbe.streams.filter(stream => stream.codec_type === "video");
+  const audioStreams = inputProbe.streams.filter(stream => stream.codec_type === "audio");
+  const video = videoStreams[command.videoStreamIndex];
+  const audio = audioStreams[command.audioStreamIndex];
+  if (video === undefined) {
+    throw new CliError(
+      "usage",
+      `--video-stream ${String(command.videoStreamIndex)} is out of range; the input has ${String(videoStreams.length)} video stream${videoStreams.length === 1 ? "" : "s"}.`,
+    );
+  }
+  if (audio === undefined) {
+    throw new CliError(
+      "usage",
+      `--audio-stream ${String(command.audioStreamIndex)} is out of range; the input has ${String(audioStreams.length)} audio stream${audioStreams.length === 1 ? "" : "s"}.`,
+    );
+  }
+  if (video.width === undefined || video.height === undefined) {
+    throw new CliError("invalid-data", "Caption input omits bounded video geometry.");
+  }
+  const output = await resolveGeneratedOutputPaths(
+    context.paths,
+    "media-caption",
+    command.output,
+    ".mp4",
+  );
+  await assertFreshGeneratedReceiptDestination(inputPath, output.receiptPath);
+  const result = await new LocalMediaCaptionService({
+    faceAnalyzer,
+    ffmpeg,
+    ffprobe,
+    runner: context.runner,
+    vad,
+    whisper: { executable, modelPath, version: whisperVersion },
+  }).render({
+    durationUs: inputProbe.durationUs,
+    expectedInput: before,
+    inputPath,
+    outputPath: output.outputPath,
+    settings: {
+      audioStreamOrdinal: command.audioStreamIndex,
+      encoder: command.encoder,
+      frameHeight: video.height,
+      frameWidth: video.width,
+      language: command.language,
+      maximumOutputBytes: Math.min(
+        MAXIMUM_MEDIA_CAPTION_OUTPUT_BYTES,
+        8 * 1024 * 1024 * 1024,
+      ),
+      processors: command.processors,
+      sampleIntervalUs: Math.max(1_000, Math.round(1_000_000 / command.sampleFps)),
+      threads: command.threads,
+      useGpu: !command.noGpu,
+      videoBitrateKbps: command.videoBitrateKbps,
+      videoStreamIndex: video.index,
+    },
+    workRoot: join(context.paths.privateRoot, "media-caption-work"),
+  });
+  const outputIdentity = await generatedOutputIdentity(result.outputPath);
+  const {
+    nextCommands,
+    outputDisplay,
+    receipt,
+    receiptDisplay,
+  } = await (async () => {
+    const outputProbe = await probeProjectMedia(ffprobe, context.runner, result.outputPath);
+    assertLocalEffectsProbeEnvelope(outputProbe);
+    const outputVideo = outputProbe.streams.find(stream => stream.codec_type === "video");
+    const outputAudio = outputProbe.streams.find(stream => stream.codec_type === "audio");
+    if (
+      outputVideo === undefined
+      || outputAudio === undefined
+      || outputVideo.width !== video.width
+      || outputVideo.height !== video.height
+      || Math.abs(outputProbe.durationUs - inputProbe.durationUs) > 500_000
+    ) {
+      throw new CliError(
+        "invalid-data",
+        "Captioned media failed duration, geometry, or audio/video verification.",
+      );
+    }
+    const after = await digestPhysicalFile(inputPath);
+    if (!samePhysicalDigest(before, after)) {
+      throw new CliError("conflict", "Caption input changed during local processing.");
+    }
+    const verifiedOutput = await digestPhysicalFile(result.outputPath);
+    if (
+      verifiedOutput.device !== outputIdentity.device
+      || verifiedOutput.inode !== outputIdentity.inode
+      || verifiedOutput.bytes !== result.bytes
+      || verifiedOutput.sha256 !== result.sha256
+    ) {
+      throw new CliError(
+        "conflict",
+        "Captioned media changed before its receipt could be published.",
+      );
+    }
+    const outputDisplay = displayPath(context.paths.repositoryRoot, result.outputPath);
+    const receiptDisplay = displayPath(context.paths.repositoryRoot, output.receiptPath);
+    const nextCommands = {
+      addToProject: `transmute project add <project> ${shellArgument(outputDisplay)} --role b-roll`,
+    };
+    const receipt = {
+      assSha256: result.assSha256,
+      captionPlan: result.captionPlan,
+      createdAt: context.io.now().toISOString(),
+      execution: "local-only",
+      faceAnalyzer: capabilityByName(capabilities, "face-analyzer").version ?? null,
+      ffmpeg: capabilityByName(capabilities, "ffmpeg").version ?? null,
+      ffprobe: capabilityByName(capabilities, "ffprobe").version ?? null,
+      filterGraph: result.filterGraph,
+      input: {
+        bytes: before.bytes,
+        path: displayPath(context.paths.repositoryRoot, inputPath),
+        sha256: before.sha256,
+      },
+      kind: "transmute.media-caption-receipt",
+      nextCommands,
+      operation: "media-caption",
+      output: {
+        bytes: result.bytes,
+        durationUs: outputProbe.durationUs,
+        height: outputVideo.height,
+        path: outputDisplay,
+        sha256: result.sha256,
+        width: outputVideo.width,
+      },
+      schemaVersion: 1,
+      whisper: {
+        modelSha256: (await digestPhysicalFile(modelPath)).sha256,
+        vadModelSha256: vad === null
+          ? null
+          : (await digestPhysicalFile(vad.modelPath)).sha256,
+        version: whisperVersion,
+      },
+    } as const;
+    await publishGeneratedReceipt(context.paths, output.receiptPath, receipt);
+    const receiptIdentity = await generatedOutputIdentity(output.receiptPath);
+    try {
+      const finalOutput = await digestPhysicalFile(result.outputPath);
+      if (!samePhysicalDigest(verifiedOutput, finalOutput)) {
+        throw new CliError(
+          "conflict",
+          "Captioned media changed while its receipt was being published.",
+        );
+      }
+    } catch (error) {
+      await removeGeneratedOutputIfSame(output.receiptPath, receiptIdentity);
+      throw error;
+    }
+    return { nextCommands, outputDisplay, receipt, receiptDisplay };
+  })().catch(async (error: unknown) => {
+    await removeGeneratedOutputIfSame(result.outputPath, outputIdentity);
+    throw error;
+  });
+  writeValue(context.io, command.json, {
+    ...receipt,
+    receiptPath: receiptDisplay,
+  }, () => [
+    `media captions ${outputDisplay} ${result.bytes} bytes sha256=${result.sha256}`,
+    `transcript words=${String(result.captionPlan.words)} cues=${String(result.captionPlan.cues.length)} languages=${result.captionPlan.detectedLanguages.join(",") || "unknown"}`,
+    `face-aware frames=${String(result.captionPlan.faceAnalysis.frames)} detections=${String(result.captionPlan.faceAnalysis.detections)} bottom-reserve=32%`,
+    `receipt ${receiptDisplay}`,
+    `next ${nextCommands.addToProject}`,
+  ].join("\n"));
+}
+
 async function handleMediaAudio(
   context: CommandContext,
   command: Extract<CliCommand, { readonly kind: "media-audio" }>,
@@ -6464,6 +6739,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
     case "ai-speech-generate": await handleAiSpeechGenerate(context, command); return;
     case "ai-transcribe": await handleAiTranscribe(context, command); return;
     case "media-audio": await handleMediaAudio(context, command); return;
+    case "media-caption": await handleMediaCaption(context, command); return;
     case "media-color": await handleMediaColor(context, command); return;
     case "media-compose": await handleMediaCompose(context, command); return;
     case "recordings-list": {
@@ -6761,6 +7037,7 @@ function commandMutationReference(command: CliCommand): MutationReference | unde
     case "ai-models-list":
     case "ai-models-show":
     case "media-audio":
+    case "media-caption":
     case "media-color":
     case "media-compose":
     case "diagram-render":

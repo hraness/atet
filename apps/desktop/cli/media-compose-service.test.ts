@@ -38,7 +38,7 @@ test("parses bounded composition defaults and builds exact chained fades", () =>
     width: 1_080,
   });
   expect(parsed.transition).toEqual({ durationUs: 750_000, kind: "fade" });
-  expect(parsed.segments[0]).toMatchObject({ audioStream: 0, videoStream: 0 });
+  expect(parsed.segments[0]).toMatchObject({ audioStream: 0, speed: [], videoStream: 0 });
 
   const firstPath = "/dev/fd/3";
   const secondPath = "/dev/fd/4";
@@ -126,6 +126,47 @@ test("uses VideoToolbox only when the manifest explicitly selects it", () => {
     .toEqual(["-allow_sw", "0"]);
 });
 
+test("expands eased speed ramps, preserves audio tempo, and labels the disclosed rate", () => {
+  const parsed = parseMediaComposition(composition({
+    segments: [
+      {
+        endUs: 9_000_000,
+        source: "ride.mp4",
+        speed: [{
+          endUs: 8_000_000,
+          rampUs: 600_000,
+          rate: 3,
+          startUs: 2_000_000,
+        }],
+        startUs: 1_000_000,
+      },
+      { endUs: 13_000_000, source: "ride.mp4", startUs: 10_000_000 },
+    ],
+    transition: { durationUs: 500_000 },
+  }));
+  const built = buildMediaComposeInvocation({
+    composition: parsed,
+    ffmpeg: "ffmpeg",
+    inputPaths: new Map([["ride.mp4", "/dev/fd/3"]]),
+    outputPath: "/private/output.mp4",
+  });
+
+  expect(parsed.segments[0]!.speed).toEqual([{
+    endUs: 8_000_000,
+    rampUs: 600_000,
+    rate: 3,
+    startUs: 2_000_000,
+  }]);
+  expect(built.durationUs).toBe(6_789_892);
+  expect(built.filterGraph).toContain("concat=n=15:v=1:a=1");
+  expect(built.filterGraph).toContain("setpts=(PTS-STARTPTS)/3");
+  expect(built.filterGraph).toContain("format=yuv420p,settb=AVTB");
+  expect(built.filterGraph).toContain("atempo=3");
+  expect(built.filterGraph).toContain("drawtext=text='3x'");
+  expect(built.filterGraph).toContain("x='w-tw-max(36,w*0.04)'");
+  expect(built.filterGraph).not.toContain("ride.mp4");
+});
+
 test("rejects unsafe paths, invalid ranges, and impossible transitions", () => {
   expect(() => parseMediaComposition(composition({
     segments: [
@@ -157,4 +198,26 @@ test("rejects unsafe paths, invalid ranges, and impossible transitions", () => {
       },
     ],
   }))).toThrow(/last segment/u);
+  expect(() => parseMediaComposition(composition({
+    segments: [
+      {
+        endUs: 5_000_000,
+        source: "first.mp4",
+        speed: [{ endUs: 5_500_000, rampUs: 600_000, rate: 3, startUs: 2_000_000 }],
+        startUs: 1_000_000,
+      },
+      { endUs: 8_000_000, source: "second.mp4", startUs: 6_000_000 },
+    ],
+  }))).toThrow(/contained in its segment/u);
+  expect(() => parseMediaComposition(composition({
+    segments: [
+      {
+        endUs: 5_000_000,
+        source: "first.mp4",
+        speed: [{ endUs: 3_000_000, rampUs: 600_000, rate: 3, startUs: 2_000_000 }],
+        startUs: 1_000_000,
+      },
+      { endUs: 8_000_000, source: "second.mp4", startUs: 6_000_000 },
+    ],
+  }))).toThrow(/leave at least 100ms/u);
 });

@@ -67,6 +67,16 @@ describe("CLI command host-resource policy", () => {
       { amount: 1, resource: "video-encode" },
     ]);
     expect(commandHostResourceClaims(command({
+      kind: "media-caption",
+    }), coordinator)).toEqual([
+      { amount: 6, resource: "cpu" },
+      { amount: 2, resource: "ffmpeg" },
+      { amount: 1, resource: "local-io" },
+      { amount: 1, resource: "video-encode" },
+      { amount: 1, resource: "vision" },
+      { amount: 1, resource: "whisper" },
+    ]);
+    expect(commandHostResourceClaims(command({
       action: "run",
       kind: "project-render",
     }), coordinator)).toEqual([

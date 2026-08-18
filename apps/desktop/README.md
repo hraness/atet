@@ -109,6 +109,7 @@ transmute media audio interview.wav --denoise --compressor --volume-db -2
 transmute media audio screen.mp4 --delay-ms 160 --reverb room
 transmute media color screen.mp4 --preset cinematic --temperature 0.08
 transmute media compose trip.compose.json --output trips/trip.mp4
+transmute media caption trips/trip.mp4 --output trips/trip-captioned.mp4
 
 # Structure local media evidence.
 transmute analyze inactivity <project> --min-duration 3s --handle cut
@@ -513,7 +514,7 @@ Video is one long-lived Gateway SSE request; Gateway does not expose a resumable
 
 `transmute media audio` and `transmute media color` never contact the network. Audio uses one documented deterministic order—denoise, compression, volume, delay, then deterministic multi-tap reverb—while omitting unrequested stages. Color combines seven common presets with brightness, contrast, saturation, gamma, temperature, tint, and hue. Both use bounded typed controls, checked FFmpeg argv, a verified descriptor-pinned input, fresh no-replace output publication, SHA-256 receipts, and leave the source unchanged. A path swap or in-place input mutation before publication fails closed without exposing the derived output. Output publication and receipt publication are sequential rather than one atomic pair: a process crash between them can leave an output without a receipt, and the next run reports a conflict so an agent can inspect and remove that orphan explicitly.
 
-`transmute media compose` trims and joins local audio/video clips in one FFmpeg pass. It reads a checked version-one JSON manifest, resolves source paths relative to that manifest, and supports 2–32 segments drawn from at most eight physical inputs. The root transition supplies the fade used between segments unless a segment defines a shorter `transitionAfter`. Time values are integer microseconds:
+`transmute media compose` trims and joins local audio/video clips in one FFmpeg pass. It reads a checked version-one JSON manifest, resolves source paths relative to that manifest, and supports 2–32 segments drawn from at most eight physical inputs. The root transition supplies the fade used between segments unless a segment defines a shorter `transitionAfter`. A segment may also declare ordered, non-overlapping `speed` ranges in the same absolute source clock. Each range automatically eases from 1× through six bounded pitch-preserving phases, holds the requested rate, eases back to 1×, and displays the derived `Nx` label in the upper-right safe inset. Time values are integer microseconds:
 
 ```json
 {
@@ -529,12 +530,21 @@ Video is one long-lived Gateway SSE request; Gateway does not expose a resumable
   },
   "segments": [
     { "source": "clips/intro.mp4", "startUs": 0, "endUs": 5000000 },
-    { "source": "clips/ride.mp4", "startUs": 12000000, "endUs": 45000000 }
+    {
+      "source": "clips/ride.mp4",
+      "startUs": 12000000,
+      "endUs": 45000000,
+      "speed": [
+        { "startUs": 16000000, "endUs": 40000000, "rate": 3, "rampUs": 600000 }
+      ]
+    }
   ]
 }
 ```
 
 The default software H.264 encoder is portable and quality-targeted. Selecting `h264-videotoolbox` explicitly uses the faster macOS hardware encoder. Composition stays network-silent, passes only inherited descriptors to FFmpeg, removes metadata, bounds output bytes, verifies duration, geometry, streams, and hashes, then publishes the MP4 and receipt below `artifacts/transmute/generated/` without changing any source.
+
+`transmute media caption <video>` is the local social-delivery companion. It uses word-level whisper.cpp transcription and the signed offline Apple Vision face analyzer, packs the words into at most two lines, and chooses among 20 bounded positions per cue. Face rectangles are expanded into conservative person-avoidance regions, caption bottoms never cross 68% of the frame, and the bottom 32% remains clear for platform metadata. The default 4 fps face sample may be changed with `--sample-fps 0.25..8`. Auto language is redetected in short speech windows instead of being fixed for an entire mixed-language recording. When `artifacts/transmute/private/models/ggml-silero-v5.1.2.bin` is installed, the sibling `whisper-vad-speech-segments` helper first limits those windows to locally detected voice activity; `--vad-model`, `--whisper-vad`, `TRANSMUTE_WHISPER_VAD_MODEL`, and `TRANSMUTE_WHISPER_VAD` provide explicit overrides. The command reads its speech model from `--model`, `TRANSMUTE_WHISPER_MODEL`, or `artifacts/transmute/private/models/ggml-small.bin`; it never contacts a network or uploads audio or frames. Generated non-speech descriptions are suppressed, and a failed local GPU transcription automatically retries once on CPU. The receipt records the requested and used backend, VAD/window counts, detected languages, transcript hash, word/cue counts, face evidence counts, selected positions, output hash, and exact model hashes.
 
 Resolved render plans are stored by their full composition hash, including the selected display. Every successful recording or project render writes a strict receipt beside the video that points to the immutable plan and records the output path, byte count, and SHA-256. Failed encodes never relabel an older output, and a receipt-publication failure removes any stale receipt.
 

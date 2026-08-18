@@ -278,6 +278,19 @@ describe("whisper.cpp speech adapter", () => {
       "--output-file", "/tmp/out;still-one-argument",
       "--no-prints",
     ]);
+    const windowed = buildWhisperCppSpeechArgv({
+      config: config(),
+      inputWavPath: "/tmp/in.wav",
+      outputPrefix: "/tmp/window",
+      runtime: { executable: "whisper-cli", modelPath: "/models/model.bin", version: "1.9.2" },
+      suppressNonSpeechTokens: true,
+      window: { durationMs: 32_000, offsetMs: 29_000 },
+    });
+    expect(windowed).toContain("--offset-t");
+    expect(windowed).toContain("29000");
+    expect(windowed).toContain("--duration");
+    expect(windowed).toContain("32000");
+    expect(windowed).toContain("--suppress-nst");
     expect(() => buildWhisperCppSpeechArgv({
       config: { ...config(), language: "en --output-file /tmp/leak" },
       inputWavPath: "/tmp/in.wav",
@@ -307,6 +320,48 @@ describe("whisper.cpp speech adapter", () => {
       result: { language: "en" },
       transcription: [{ offsets: { from: 0, to: 1_000 }, text: "word", tokens: [] }],
     }, 3_000_000)).toThrow(/no matching token probability/u);
+  });
+
+  test("accepts whisper.cpp 1.9 boundary sentinels without treating them as words", () => {
+    expect(parseWhisperCppWordJson({
+      result: { language: "es" },
+      transcription: [
+        {
+          offsets: { from: 400, to: 400 },
+          text: "",
+          tokens: [{ p: 0.999, text: "[_BEG_]" }],
+        },
+        {
+          offsets: { from: 400, to: 800 },
+          text: " Hola",
+          tokens: [
+            { p: 0.97, text: " Hola" },
+            { p: 0.1, text: "[_TT_274]" },
+          ],
+        },
+        {
+          offsets: { from: 800, to: 800 },
+          text: " Hola!",
+          tokens: [{ p: 0.8, text: " Hola" }, { p: 0.7, text: "!" }],
+        },
+      ],
+    }, 1_000_000, { skipZeroDurationWords: true })).toEqual({
+      detectedLanguage: "es",
+      words: [{
+        confidence: 0.97,
+        range: { endUs: 800_000, startUs: 400_000 },
+        speaker: null,
+        text: "Hola",
+      }],
+    });
+    expect(() => parseWhisperCppWordJson({
+      result: { language: "en" },
+      transcription: [{
+        offsets: { from: 400, to: 400 },
+        text: "word",
+        tokens: [{ p: 0.9, text: "word" }],
+      }],
+    }, 1_000_000)).toThrow(/invalid millisecond offsets/u);
   });
 });
 

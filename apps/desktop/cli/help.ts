@@ -14,7 +14,8 @@ Commands:
   doctor                         Check local capture, render, and asset capabilities
   ai models|image|video|speech|transcribe
                                  Discover and run Vercel AI Gateway media models
-  media audio|color|compose      Apply effects or compose trimmed local media
+  media audio|caption|color|compose
+                                 Apply effects, caption, or compose local media
   record start|pause|resume|stop|status
                                  Control the repository-local capture session
   recordings list               List recording bundles
@@ -269,6 +270,10 @@ Options: --kind <kind[,kind]> (repeatable) --from <time> --to <time>
   media: `Usage:
   transmute media audio <media-path> [effects] [--audio-stream <index>]
         [--output <relative-path>] [--json]
+  transmute media caption <video-path> [--model <whisper-model-path>]
+        [--language <auto|tag>] [--sample-fps <0.25..8>]
+        [--vad-model <silero-model-path>] [--whisper-vad <helper-path>]
+        [--encoder <h264|h264-videotoolbox>] [--output <relative-path.mp4>] [--json]
   transmute media color <video-path> [grade] [--video-stream <index>]
         [--output <relative-path>] [--json]
   transmute media compose <composition.json>
@@ -289,8 +294,17 @@ bounded --brightness, --contrast, --saturation, --gamma, --temperature, --tint, 
 
 Composition reads a checked version-one JSON manifest whose paths are relative to the manifest.
 It trims two through thirty-two ordered segments, normalizes portrait or landscape geometry and
-audio, then applies bounded fade/acrossfade transitions. H.264 software encoding is portable;
+audio, applies bounded fade/acrossfade transitions, and supports eased speed ranges with automatic
+upper-right rate labels. H.264 software encoding is portable;
 the explicit h264-videotoolbox profile provides a faster macOS delivery path.
+
+Captioning runs local whisper.cpp word transcription and the offline Apple Vision face analyzer,
+then burns two-line captions into face-avoiding positions above the bottom 32% reserved for social
+platform metadata. Auto language is redetected in short speech windows. If the private Silero model
+at artifacts/transmute/private/models/ggml-silero-v5.1.2.bin is present, local voice activity
+detection skips wind and silent spans; --vad-model and TRANSMUTE_WHISPER_VAD_MODEL override it.
+The speech model uses --model, TRANSMUTE_WHISPER_MODEL, or the private ggml-small.bin default.
+No audio or frames leave the machine.
 
 Transforms call the checked local FFmpeg executable with an argv array, never a shell. They never
 overwrite the source. Each output uses fresh no-replace publication, then post-render verification
@@ -390,7 +404,7 @@ export function completions(words: readonly string[]): readonly string[] {
   if (command === "align") return ["analyze", "apply"];
   if (command === "fillers") return ["list", "apply"];
   if (command === "ai") return ["models", "provider-options", "image", "video", "speech", "transcribe"];
-  if (command === "media") return ["audio", "color", "compose"];
+  if (command === "media") return ["audio", "caption", "color", "compose"];
   if (command === "render") return ["plan", "run"];
   if (command === "assets") return ["emoji"];
   return [];

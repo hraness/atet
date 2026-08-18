@@ -145,6 +145,11 @@ export function buildWhisperCppSpeechArgv(options: {
   readonly inputWavPath: string;
   readonly outputPrefix: string;
   readonly runtime: WhisperCppRuntime;
+  readonly suppressNonSpeechTokens?: boolean;
+  readonly window?: Readonly<{
+    readonly durationMs: number;
+    readonly offsetMs: number;
+  }>;
 }): readonly [string, ...string[]] {
   validateConfig(options.config);
   for (const value of [
@@ -162,6 +167,19 @@ export function buildWhisperCppSpeechArgv(options: {
   }
   const language = whisperLanguage(options.config.language);
   if (language === null) throw new CliError("usage", "Speech language is invalid.");
+  if (options.window !== undefined && (
+    !Number.isSafeInteger(options.window.offsetMs)
+    || options.window.offsetMs < 0
+    || options.window.offsetMs > 86_400_000
+    || !Number.isSafeInteger(options.window.durationMs)
+    || options.window.durationMs < 100
+    || options.window.durationMs > 3_600_000
+  )) {
+    throw new CliError(
+      "usage",
+      "whisper.cpp window offset must be from 0 through 86400000 ms and duration from 100 through 3600000 ms.",
+    );
+  }
   return [
     options.runtime.executable,
     "--model", options.runtime.modelPath,
@@ -169,7 +187,12 @@ export function buildWhisperCppSpeechArgv(options: {
     "--language", language,
     "--threads", String(options.config.threads),
     "--processors", String(options.config.processors),
+    ...(options.window === undefined ? [] : [
+      "--offset-t", String(options.window.offsetMs),
+      "--duration", String(options.window.durationMs),
+    ]),
     ...(options.config.useGpu ? [] : ["--no-gpu"]),
+    ...(options.suppressNonSpeechTokens === true ? ["--suppress-nst"] : []),
     "--split-on-word",
     "--max-len", "1",
     "--output-json-full",
@@ -194,7 +217,26 @@ function boundedWordText(value: unknown): string | null {
 
 function isSpecialWhisperToken(text: string): boolean {
   const trimmed = text.trim();
-  return /^\[_.*_\]$/u.test(trimmed) || /^<\|.*\|>$/u.test(trimmed);
+  return /^\[_[A-Z0-9_]{1,64}\]$/u.test(trimmed) || /^<\|.*\|>$/u.test(trimmed);
+}
+
+function isIgnorableWhisperBoundary(value: Readonly<Record<string, unknown>>): boolean {
+  if (typeof value.text !== "string" || value.text.trim() !== "") return false;
+  if (!isRecord(value.offsets)) return false;
+  const fromMs = value.offsets.from;
+  const toMs = value.offsets.to;
+  if (
+    !Number.isSafeInteger(fromMs)
+    || !Number.isSafeInteger(toMs)
+    || (fromMs as number) < 0
+    || (toMs as number) < (fromMs as number)
+  ) return false;
+  if (!Array.isArray(value.tokens) || value.tokens.length === 0 || value.tokens.length > 64) return false;
+  return value.tokens.every(token => (
+    isRecord(token)
+    && typeof token.text === "string"
+    && (token.text.trim() === "" || isSpecialWhisperToken(token.text))
+  ));
 }
 
 function confidenceFromTokens(value: unknown, segmentText: string): number | null {
@@ -220,6 +262,7 @@ function confidenceFromTokens(value: unknown, segmentText: string): number | nul
 export function parseWhisperCppWordJson(
   input: unknown,
   durationUs: number,
+  options: Readonly<{ skipZeroDurationWords?: boolean }> = {},
 ): ParsedWhisperWordTranscript {
   if (!Number.isSafeInteger(durationUs) || durationUs <= 0) {
     throw new CliError("invalid-data", "Speech analysis duration must be a positive integer number of microseconds.");
@@ -258,6 +301,7 @@ export function parseWhisperCppWordJson(
     if (!isRecord(segment) || !isRecord(segment.offsets)) {
       throw wordTimestampFailure("a transcription item has no numeric offsets");
     }
+    if (isIgnorableWhisperBoundary(segment)) continue;
     const text = boundedWordText(segment.text);
     if (text === null || /\s/u.test(text)) {
       throw wordTimestampFailure("the output contains a segment that is not one word");
@@ -265,11 +309,18 @@ export function parseWhisperCppWordJson(
     const fromMs = segment.offsets.from;
     const toMs = segment.offsets.to;
     if (!Number.isSafeInteger(fromMs) || !Number.isSafeInteger(toMs)
-      || (fromMs as number) < 0 || (toMs as number) <= (fromMs as number)) {
+      || (fromMs as number) < 0 || (toMs as number) < (fromMs as number)) {
       throw wordTimestampFailure("a word has invalid millisecond offsets");
     }
     const startUs = (fromMs as number) * 1_000;
     const endUs = (toMs as number) * 1_000;
+    if (endUs === startUs) {
+      if (
+        options.skipZeroDurationWords === true
+        && confidenceFromTokens(segment.tokens, text) !== null
+      ) continue;
+      throw wordTimestampFailure("a word has invalid millisecond offsets");
+    }
     if (!Number.isSafeInteger(startUs) || !Number.isSafeInteger(endUs)
       || startUs < priorEndUs || endUs > durationUs) {
       throw wordTimestampFailure("word offsets overlap, exceed the asset, or are not safely representable");

@@ -23,6 +23,8 @@ const MAXIMUM_COMPOSE_INPUT_BYTES = 512 * 1024 * 1024 * 1024;
 export const MAXIMUM_MEDIA_COMPOSE_OUTPUT_BYTES = 64 * 1024 * 1024 * 1024;
 const MEDIA_COMPOSE_TIMEOUT_MS = 12 * 60 * 60_000;
 const FIRST_PINNED_CHILD_DESCRIPTOR = 3;
+const SPEED_RAMP_STEPS = 6;
+const MAXIMUM_COMPOSE_SPEED_RANGES = 32;
 
 const PositiveMicrosecondsSchema = z.number().int().safe().positive();
 const EvenDimensionSchema = z.number()
@@ -37,13 +39,54 @@ export const MediaComposeTransitionSchema = z.strictObject({
   kind: z.literal("fade").default("fade"),
 });
 
+export const MediaComposeSpeedRangeSchema = z.strictObject({
+  endUs: PositiveMicrosecondsSchema,
+  rampUs: PositiveMicrosecondsSchema.min(200_000).max(2_000_000).default(600_000),
+  rate: z.number().finite().min(1.25).max(8),
+  startUs: z.number().int().safe().nonnegative(),
+});
+
 export const MediaComposeSegmentSchema = z.strictObject({
   audioStream: z.number().int().safe().min(0).max(255).default(0),
   endUs: PositiveMicrosecondsSchema,
   source: z.string().min(1).max(8_192),
+  speed: z.array(MediaComposeSpeedRangeSchema).max(8).default([]),
   startUs: z.number().int().safe().nonnegative(),
   transitionAfter: MediaComposeTransitionSchema.optional(),
   videoStream: z.number().int().safe().min(0).max(255).default(0),
+}).superRefine((segment, context) => {
+  let priorEndUs = segment.startUs;
+  for (const [index, speed] of segment.speed.entries()) {
+    if (speed.startUs < segment.startUs || speed.endUs > segment.endUs) {
+      context.addIssue({
+        code: "custom",
+        message: "Every speed range must be contained in its segment.",
+        path: ["speed", index],
+      });
+    }
+    if (speed.endUs <= speed.startUs) {
+      context.addIssue({
+        code: "custom",
+        message: "Speed range endUs must be greater than startUs.",
+        path: ["speed", index, "endUs"],
+      });
+    }
+    if (speed.startUs < priorEndUs) {
+      context.addIssue({
+        code: "custom",
+        message: "Speed ranges must be ordered and non-overlapping.",
+        path: ["speed", index],
+      });
+    }
+    if (speed.endUs - speed.startUs < speed.rampUs * 2 + 100_000) {
+      context.addIssue({
+        code: "custom",
+        message: "A speed range must leave at least 100ms at its target rate after both ramps.",
+        path: ["speed", index, "rampUs"],
+      });
+    }
+    priorEndUs = speed.endUs;
+  }
 });
 
 export const MediaComposeOutputSchema = z.strictObject({
@@ -103,8 +146,21 @@ export const MediaCompositionV1Schema = z.strictObject({
     if (index < composition.segments.length - 1) {
       const next = composition.segments[index + 1]!;
       const transition = segment.transitionAfter ?? composition.transition;
-      const durationUs = segment.endUs - segment.startUs;
-      const nextDurationUs = next.endUs - next.startUs;
+      let durationUs = segment.endUs - segment.startUs;
+      let nextDurationUs = next.endUs - next.startUs;
+      try {
+        durationUs = mediaComposePlaybackPhases(segment).reduce(
+          (total, phase) => total + phase.outputDurationUs,
+          0,
+        );
+        nextDurationUs = mediaComposePlaybackPhases(next).reduce(
+          (total, phase) => total + phase.outputDurationUs,
+          0,
+        );
+      } catch {
+        // Nested segment validation owns the actionable issue. Retaining raw
+        // durations here avoids replacing it with a derived-phase error.
+      }
       if (
         transition.durationUs >= durationUs
         || transition.durationUs >= nextDurationUs
@@ -124,6 +180,17 @@ export const MediaCompositionV1Schema = z.strictObject({
       path: ["segments"],
     });
   }
+  const speedRanges = composition.segments.reduce(
+    (total, segment) => total + segment.speed.length,
+    0,
+  );
+  if (speedRanges > MAXIMUM_COMPOSE_SPEED_RANGES) {
+    context.addIssue({
+      code: "custom",
+      message: `A composition may use at most ${String(MAXIMUM_COMPOSE_SPEED_RANGES)} speed ranges.`,
+      path: ["segments"],
+    });
+  }
 });
 
 export type MediaCompositionV1 = z.infer<typeof MediaCompositionV1Schema>;
@@ -139,6 +206,14 @@ export interface BuiltMediaComposeInvocation {
   readonly filterGraph: string;
   readonly inputSources: readonly string[];
   readonly transitions: readonly z.infer<typeof MediaComposeTransitionSchema>[];
+}
+
+export interface MediaComposePlaybackPhase {
+  readonly endUs: number;
+  readonly labelRate: number | null;
+  readonly outputDurationUs: number;
+  readonly rate: number;
+  readonly startUs: number;
 }
 
 export interface MediaComposeResult extends AtomicRenderOutput {
@@ -165,6 +240,94 @@ function decimal(value: number): string {
 
 function seconds(microseconds: number): string {
   return decimal(microseconds / 1_000_000);
+}
+
+function atempo(rate: number): string {
+  const filters: string[] = [];
+  let remaining = rate;
+  while (remaining > 100) {
+    filters.push("atempo=100");
+    remaining /= 100;
+  }
+  while (remaining < 0.5) {
+    filters.push("atempo=0.5");
+    remaining /= 0.5;
+  }
+  filters.push(`atempo=${decimal(remaining)}`);
+  return filters.join(",");
+}
+
+function easedRampRate(from: number, to: number, progress: number): number {
+  const eased = progress * progress * (3 - 2 * progress);
+  return from + (to - from) * eased;
+}
+
+function outputDurationUs(startUs: number, endUs: number, rate: number): number {
+  const durationUs = Math.max(1, Math.round((endUs - startUs) / rate));
+  if (!Number.isSafeInteger(durationUs)) {
+    throw new CliError("invalid-data", "Speed-adjusted media duration is not a safe integer.");
+  }
+  return durationUs;
+}
+
+/**
+ * Expand checked speed ranges into bounded constant-rate phases. Six eased
+ * steps make both video and pitch-preserving FFmpeg audio transition smoothly
+ * without relying on a build-specific runtime filter command.
+ */
+export function mediaComposePlaybackPhases(
+  input: z.infer<typeof MediaComposeSegmentSchema>,
+): readonly MediaComposePlaybackPhase[] {
+  const segment = MediaComposeSegmentSchema.parse(input);
+  const phases: MediaComposePlaybackPhase[] = [];
+  const append = (startUs: number, endUs: number, rate: number, labelRate: number | null): void => {
+    if (endUs <= startUs) return;
+    phases.push({
+      endUs,
+      labelRate,
+      outputDurationUs: outputDurationUs(startUs, endUs, rate),
+      rate,
+      startUs,
+    });
+  };
+  const ramp = (
+    startUs: number,
+    endUs: number,
+    from: number,
+    to: number,
+    labelRate: number,
+  ): void => {
+    const durationUs = endUs - startUs;
+    for (let index = 0; index < SPEED_RAMP_STEPS; index += 1) {
+      const phaseStartUs = startUs + Math.floor(durationUs * index / SPEED_RAMP_STEPS);
+      const phaseEndUs = startUs + Math.floor(durationUs * (index + 1) / SPEED_RAMP_STEPS);
+      append(
+        phaseStartUs,
+        phaseEndUs,
+        easedRampRate(from, to, (index + 0.5) / SPEED_RAMP_STEPS),
+        labelRate,
+      );
+    }
+  };
+
+  let cursorUs = segment.startUs;
+  for (const speed of segment.speed) {
+    append(cursorUs, speed.startUs, 1, null);
+    ramp(speed.startUs, speed.startUs + speed.rampUs, 1, speed.rate, speed.rate);
+    append(
+      speed.startUs + speed.rampUs,
+      speed.endUs - speed.rampUs,
+      speed.rate,
+      speed.rate,
+    );
+    ramp(speed.endUs - speed.rampUs, speed.endUs, speed.rate, 1, speed.rate);
+    cursorUs = speed.endUs;
+  }
+  append(cursorUs, segment.endUs, 1, null);
+  if (phases.length === 0) {
+    throw new CliError("invalid-data", "Composition segment has no playable duration.");
+  }
+  return phases;
 }
 
 function parseComposition(input: unknown): MediaCompositionV1 {
@@ -194,7 +357,10 @@ function compositionDurationUs(
   transitions: readonly z.infer<typeof MediaComposeTransitionSchema>[],
 ): number {
   const segmentDuration = composition.segments.reduce(
-    (total, segment) => total + segment.endUs - segment.startUs,
+    (total, segment) => total + mediaComposePlaybackPhases(segment).reduce(
+      (subtotal, phase) => subtotal + phase.outputDurationUs,
+      0,
+    ),
     0,
   );
   const transitionDuration = transitions.reduce(
@@ -228,7 +394,7 @@ function encodingArguments(composition: MediaCompositionV1): readonly string[] {
   ];
 }
 
-/** Build a numeric-only filter graph; caller paths remain isolated in argv. */
+/** Build a caller-text-free filter graph; caller paths remain isolated in argv. */
 export function buildMediaComposeInvocation(options: {
   readonly composition: unknown;
   readonly ffmpeg: string;
@@ -241,19 +407,72 @@ export function buildMediaComposeInvocation(options: {
   const filters: string[] = [];
   const width = String(composition.output.width);
   const height = String(composition.output.height);
+  const segmentDurationsUs: number[] = [];
   for (const [index, segment] of composition.segments.entries()) {
     const inputIndex = sourceIndex.get(segment.source);
     if (inputIndex === undefined) throw new CliError("internal", "Composition source index was lost.");
+    const phases = mediaComposePlaybackPhases(segment);
+    const segmentDurationUs = phases.reduce((total, phase) => total + phase.outputDurationUs, 0);
+    segmentDurationsUs.push(segmentDurationUs);
+    if (phases.length === 1 && phases[0]!.rate === 1 && phases[0]!.labelRate === null) {
+      filters.push(
+        `[${String(inputIndex)}:v:${String(segment.videoStream)}]trim=start=${seconds(segment.startUs)}:end=${seconds(segment.endUs)},setpts=PTS-STARTPTS,scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${composition.output.frameRate},format=yuv420p,settb=AVTB[v${String(index)}]`,
+        `[${String(inputIndex)}:a:${String(segment.audioStream)}]atrim=start=${seconds(segment.startUs)}:end=${seconds(segment.endUs)},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a${String(index)}]`,
+      );
+      continue;
+    }
+
+    let localOutputUs = 0;
+    const labelRanges: Array<{ readonly endUs: number; readonly rate: number; readonly startUs: number }> = [];
+    for (const [phaseIndex, phase] of phases.entries()) {
+      const videoPhase = `v${String(index)}_p${String(phaseIndex)}`;
+      const audioPhase = `a${String(index)}_p${String(phaseIndex)}`;
+      filters.push(
+        `[${String(inputIndex)}:v:${String(segment.videoStream)}]trim=start=${seconds(phase.startUs)}:end=${seconds(phase.endUs)},setpts=(PTS-STARTPTS)/${decimal(phase.rate)},scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${composition.output.frameRate},trim=duration=${seconds(phase.outputDurationUs)},setpts=PTS-STARTPTS,format=yuv420p,settb=AVTB[${videoPhase}]`,
+        `[${String(inputIndex)}:a:${String(segment.audioStream)}]atrim=start=${seconds(phase.startUs)}:end=${seconds(phase.endUs)},asetpts=PTS-STARTPTS,aresample=48000,${atempo(phase.rate)},atrim=duration=${seconds(phase.outputDurationUs)},asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:channel_layouts=stereo[${audioPhase}]`,
+      );
+      if (phase.labelRate !== null) {
+        const prior = labelRanges.at(-1);
+        if (prior?.rate === phase.labelRate && prior.endUs === localOutputUs) {
+          labelRanges[labelRanges.length - 1] = {
+            ...prior,
+            endUs: localOutputUs + phase.outputDurationUs,
+          };
+        } else {
+          labelRanges.push({
+            endUs: localOutputUs + phase.outputDurationUs,
+            rate: phase.labelRate,
+            startUs: localOutputUs,
+          });
+        }
+      }
+      localOutputUs += phase.outputDurationUs;
+    }
+    const phaseInputs = phases.map((_, phaseIndex) => (
+      `[v${String(index)}_p${String(phaseIndex)}][a${String(index)}_p${String(phaseIndex)}]`
+    )).join("");
+    const concatenatedVideoLabel = `v${String(index)}_concat`;
+    const rawVideoLabel = labelRanges.length === 0 ? `v${String(index)}` : `v${String(index)}_raw`;
     filters.push(
-      `[${String(inputIndex)}:v:${String(segment.videoStream)}]trim=start=${seconds(segment.startUs)}:end=${seconds(segment.endUs)},setpts=PTS-STARTPTS,scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${composition.output.frameRate},format=yuv420p[v${String(index)}]`,
-      `[${String(inputIndex)}:a:${String(segment.audioStream)}]atrim=start=${seconds(segment.startUs)}:end=${seconds(segment.endUs)},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a${String(index)}]`,
+      `${phaseInputs}concat=n=${String(phases.length)}:v=1:a=1[${concatenatedVideoLabel}][a${String(index)}]`,
+      `[${concatenatedVideoLabel}]fps=${composition.output.frameRate},format=yuv420p,settb=AVTB[${rawVideoLabel}]`,
     );
+    let labeledVideo = rawVideoLabel;
+    for (const [labelIndex, label] of labelRanges.entries()) {
+      const next = labelIndex === labelRanges.length - 1
+        ? `v${String(index)}`
+        : `v${String(index)}_label${String(labelIndex)}`;
+      filters.push(
+        `[${labeledVideo}]drawtext=text='${decimal(label.rate)}x':fontcolor=white:fontsize='max(32,h*0.035)':box=1:boxcolor=black@0.72:boxborderw=12:x='w-tw-max(36,w*0.04)':y='max(36,h*0.04)':enable='gte(t,${seconds(label.startUs)})*lt(t,${seconds(label.endUs)})'[${next}]`,
+      );
+      labeledVideo = next;
+    }
   }
 
   const transitions = transitionsFor(composition);
   let videoLabel = "v0";
   let audioLabel = "a0";
-  let timelineDurationUs = composition.segments[0]!.endUs - composition.segments[0]!.startUs;
+  let timelineDurationUs = segmentDurationsUs[0]!;
   for (const [index, transition] of transitions.entries()) {
     const nextIndex = index + 1;
     const outputVideo = `compose_v${String(nextIndex)}`;
@@ -265,9 +484,7 @@ export function buildMediaComposeInvocation(options: {
     );
     videoLabel = outputVideo;
     audioLabel = outputAudio;
-    timelineDurationUs = offsetUs
-      + composition.segments[nextIndex]!.endUs
-      - composition.segments[nextIndex]!.startUs;
+    timelineDurationUs = offsetUs + segmentDurationsUs[nextIndex]!;
   }
   const durationUs = compositionDurationUs(composition, transitions);
   if (timelineDurationUs !== durationUs) {

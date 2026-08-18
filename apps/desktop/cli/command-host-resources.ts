@@ -138,6 +138,15 @@ export function commandHostResourceClaims(
         "local-io",
         "project-render",
       ]);
+    case "media-caption":
+      return claims(coordinator, [
+        "cpu",
+        "ffmpeg",
+        "local-io",
+        "project-render",
+        "vision",
+        "whisper",
+      ]);
     case "analyze-scenes":
       return claims(
         coordinator,

@@ -619,22 +619,23 @@ private func clamp(_ value: CGFloat) -> Double {
 
 private func faceCandidate(_ observation: VNFaceObservation) throws -> DetectionCandidate {
     let box = observation.boundingBox
-    let tolerance: CGFloat = 0.000_1
-    guard box.width > 0,
-          box.height > 0,
-          box.minX >= -tolerance,
-          box.minY >= -tolerance,
-          box.maxX <= 1 + tolerance,
-          box.maxY <= 1 + tolerance
+    guard box.minX.isFinite,
+          box.minY.isFinite,
+          box.maxX.isFinite,
+          box.maxY.isFinite,
+          box.width > 0,
+          box.height > 0
     else {
         throw AnalyzerFailure("vision-failed", "Vision returned a face box outside normalized image bounds.")
     }
     let x = clamp(box.minX)
     let y = clamp(1 - box.maxY)
-    let width = min(clamp(box.width), 1 - x)
-    let height = min(clamp(box.height), 1 - y)
+    let right = clamp(box.maxX)
+    let bottom = clamp(1 - box.minY)
+    let width = right - x
+    let height = bottom - y
     guard width > 0, height > 0 else {
-        throw AnalyzerFailure("vision-failed", "Vision returned an empty face box.")
+        throw AnalyzerFailure("vision-failed", "Vision returned a face box outside the visible normalized image bounds.")
     }
     return DetectionCandidate(
         bounds: NormalizedBounds(height: height, width: width, x: x, y: y),

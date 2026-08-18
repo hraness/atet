@@ -222,6 +222,24 @@ export type CliCommand =
       readonly kind: "media-compose";
       readonly output: string | undefined;
     } & JsonOption)
+  | ({
+      readonly audioStreamIndex: number;
+      readonly encoder: "h264" | "h264-videotoolbox";
+      readonly input: string;
+      readonly kind: "media-caption";
+      readonly language: string;
+      readonly model: string | undefined;
+      readonly noGpu: boolean;
+      readonly output: string | undefined;
+      readonly processors: number;
+      readonly sampleFps: number;
+      readonly threads: number;
+      readonly vadModel: string | undefined;
+      readonly videoBitrateKbps: number;
+      readonly videoStreamIndex: number;
+      readonly whisper: string | undefined;
+      readonly whisperVad: string | undefined;
+    } & JsonOption)
   | ({ readonly kind: "recordings-list"; readonly limit: number } & JsonOption)
   | ({ readonly kind: "projects-list"; readonly limit: number } & JsonOption)
   | ({
@@ -1273,13 +1291,84 @@ function parseMediaCompose(argv: readonly string[]): CliCommand {
   };
 }
 
+function parseMediaCaption(argv: readonly string[]): CliCommand {
+  const parsed = parseOptions(argv, {
+    ...JSON_SPEC,
+    "--audio-stream": "value",
+    "--encoder": "value",
+    "--language": "value",
+    "--model": "value",
+    "--no-gpu": "flag",
+    "--output": "value",
+    "--processors": "value",
+    "--sample-fps": "value",
+    "--threads": "value",
+    "--vad-model": "value",
+    "--video-bitrate-kbps": "value",
+    "--video-stream": "value",
+    "--whisper": "value",
+    "--whisper-vad": "value",
+  });
+  const [input] = exactPositionals(
+    parsed,
+    1,
+    "transmute media caption <video-path> [--model <path>] [--output <path>] [options] [--json]",
+  );
+  const audioStreamIndex = optionalNonNegativeInteger(
+    optionString(parsed, "--audio-stream"),
+    "--audio-stream",
+  ) ?? 0;
+  const videoStreamIndex = optionalNonNegativeInteger(
+    optionString(parsed, "--video-stream"),
+    "--video-stream",
+  ) ?? 0;
+  if (audioStreamIndex > 255 || videoStreamIndex > 255) {
+    fail("Caption audio and video stream indexes must be at most 255.");
+  }
+  const threads = strictInteger(optionString(parsed, "--threads"), "--threads", 4);
+  if (threads < 1 || threads > 256) fail("--threads must be from 1 through 256.");
+  const processors = strictInteger(optionString(parsed, "--processors"), "--processors", 1);
+  if (processors < 1 || processors > 64) fail("--processors must be from 1 through 64.");
+  const videoBitrateKbps = strictInteger(
+    optionString(parsed, "--video-bitrate-kbps"),
+    "--video-bitrate-kbps",
+    12_000,
+  );
+  if (videoBitrateKbps < 500 || videoBitrateKbps > 100_000) {
+    fail("--video-bitrate-kbps must be from 500 through 100000.");
+  }
+  return {
+    audioStreamIndex,
+    encoder: oneOf(optionString(parsed, "--encoder"), "--encoder", [
+      "h264",
+      "h264-videotoolbox",
+    ] as const, "h264"),
+    input: input!,
+    json: optionFlag(parsed, "--json"),
+    kind: "media-caption",
+    language: optionString(parsed, "--language") ?? "auto",
+    model: optionString(parsed, "--model"),
+    noGpu: optionFlag(parsed, "--no-gpu"),
+    output: optionString(parsed, "--output"),
+    processors,
+    sampleFps: boundedNumber(optionString(parsed, "--sample-fps"), "--sample-fps", 0.25, 8, 4),
+    threads,
+    vadModel: optionString(parsed, "--vad-model"),
+    videoBitrateKbps,
+    videoStreamIndex,
+    whisper: optionString(parsed, "--whisper"),
+    whisperVad: optionString(parsed, "--whisper-vad"),
+  };
+}
+
 function parseMedia(argv: readonly string[]): CliCommand {
   switch (argv[0]) {
     case "audio": return parseMediaAudio(argv.slice(1));
+    case "caption": return parseMediaCaption(argv.slice(1));
     case "color": return parseMediaColor(argv.slice(1));
     case "compose": return parseMediaCompose(argv.slice(1));
     case undefined:
-    default: fail("Usage: transmute media <audio|color|compose> ...");
+    default: fail("Usage: transmute media <audio|caption|color|compose> ...");
   }
 }
 

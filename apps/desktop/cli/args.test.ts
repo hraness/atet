@@ -401,7 +401,24 @@ test("parses the full Gateway media and local effect command surface", () => {
     kind: "media-compose",
     output: "trips/toro-verde.mp4",
   });
-  expect(completions(["media", ""])).toEqual(["audio", "color", "compose"]);
+  expect(parseCliArgs([
+    "media", "caption", "/tmp/ride.mp4", "--model", "/tmp/ggml-small.bin",
+    "--encoder", "h264-videotoolbox", "--sample-fps", "2", "--video-bitrate-kbps", "16000",
+    "--vad-model", "/tmp/silero.bin", "--whisper-vad", "/tools/whisper-vad",
+  ])).toMatchObject({
+    audioStreamIndex: 0,
+    encoder: "h264-videotoolbox",
+    input: "/tmp/ride.mp4",
+    kind: "media-caption",
+    language: "auto",
+    model: "/tmp/ggml-small.bin",
+    sampleFps: 2,
+    vadModel: "/tmp/silero.bin",
+    videoBitrateKbps: 16_000,
+    videoStreamIndex: 0,
+    whisperVad: "/tools/whisper-vad",
+  });
+  expect(completions(["media", ""])).toEqual(["audio", "caption", "color", "compose"]);
 
   expect(() => parseCliArgs([
     "ai", "video", "generate", "--model", "xai/grok-imagine-video",
