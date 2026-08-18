@@ -135,9 +135,16 @@ test("CI FFmpeg setup bounds Ubuntu mirror failures without weakening runtime ch
   expect(await syntaxCheck.exited).toBe(0)
   expect(syntaxError).toBe("")
 
-  expect(script).toContain("https://archive.ubuntu.com/ubuntu/ priority:1")
-  expect(script).toContain("https://security.ubuntu.com/ubuntu/ priority:2")
-  expect(script).toContain("http://azure.archive.ubuntu.com/ubuntu/ priority:3")
+  expect(script).toContain("printf '%s\\t%s\\n'")
+  expect(script).toContain(
+    "'https://archive.ubuntu.com/ubuntu/' 'priority:1'",
+  )
+  expect(script).toContain(
+    "'https://security.ubuntu.com/ubuntu/' 'priority:2'",
+  )
+  expect(script).toContain(
+    "'http://azure.archive.ubuntu.com/ubuntu/' 'priority:3'",
+  )
   expect(script).toContain("Acquire::Retries=2")
   expect(script).toContain("Acquire::http::Timeout=20")
   expect(script).toContain("Acquire::https::Timeout=20")

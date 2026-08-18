@@ -10,10 +10,10 @@ fi
 
 readonly apt_mirror_file="/etc/apt/apt-mirrors.txt"
 if [[ -f "$apt_mirror_file" ]]; then
-  printf '%s\n' \
-    'https://archive.ubuntu.com/ubuntu/ priority:1' \
-    'https://security.ubuntu.com/ubuntu/ priority:2' \
-    'http://azure.archive.ubuntu.com/ubuntu/ priority:3' \
+  printf '%s\t%s\n' \
+    'https://archive.ubuntu.com/ubuntu/' 'priority:1' \
+    'https://security.ubuntu.com/ubuntu/' 'priority:2' \
+    'http://azure.archive.ubuntu.com/ubuntu/' 'priority:3' \
     | sudo tee "$apt_mirror_file" >/dev/null
 fi
 
