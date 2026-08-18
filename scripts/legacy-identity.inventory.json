@@ -930,6 +930,15 @@
     ]
   },
   {
+    "identityLineCount": 3,
+    "identityLinesSha256": "da5808d8ec1512f6561e2f63d2516e3c0ccc722bcd5d4ff78961ffc83566289f",
+    "occurrenceCount": 4,
+    "path": "docs/vercel.md",
+    "categories": [
+      "compat-doc"
+    ]
+  },
+  {
     "identityLineCount": 1,
     "identityLinesSha256": "edfa9b1aaf47187cbe4f1de6aa2c6aa45ca71272a975b3a53bc8abf38de6ad28",
     "occurrenceCount": 1,
