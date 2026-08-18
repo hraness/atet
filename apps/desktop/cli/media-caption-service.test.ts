@@ -11,6 +11,7 @@ import {
   parseWhisperVadSpeechSegments,
   removeHallucinatedTranscriptRepetition,
   removeNonDialogueTranscriptWords,
+  resolveMediaCaptionDurationUs,
   selectMediaCaptionWindowWords,
   type MediaCaptionCue,
 } from "./media-caption-service";
@@ -105,6 +106,21 @@ test("builds a caller-text-free descriptor caption filter and explicit hardware 
   expect(built.argv).toContain("16000k");
   expect(built.argv).toContain("0:a:0");
   expect(built.argv.slice(-2)).toEqual(["+faststart", "/private/output.mp4"]);
+});
+
+test("clamps caption analysis to the selected video coverage", () => {
+  expect(resolveMediaCaptionDurationUs(
+    119_100_000,
+    { endUs: 119_085_633, startUs: 0 },
+  )).toBe(119_085_633);
+  expect(resolveMediaCaptionDurationUs(
+    8_000_000,
+    { endUs: 8_500_000, startUs: 500_000 },
+  )).toBe(8_000_000);
+  expect(() => resolveMediaCaptionDurationUs(
+    8_000_000,
+    { endUs: 500_000, startUs: 500_000 },
+  )).toThrow("invalid container or video duration");
 });
 
 test("parses bounded VAD ranges and groups nearby speech into language windows", () => {

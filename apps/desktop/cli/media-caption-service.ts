@@ -828,6 +828,27 @@ export function buildMediaCaptionInvocation(options: {
   return { argv: argv as [string, ...string[]], filterGraph };
 }
 
+export function resolveMediaCaptionDurationUs(
+  containerDurationUs: number,
+  videoRange: Readonly<{ readonly endUs: number; readonly startUs: number }>,
+): number {
+  if (
+    !Number.isSafeInteger(containerDurationUs)
+    || containerDurationUs <= 0
+    || !Number.isSafeInteger(videoRange.startUs)
+    || videoRange.startUs < 0
+    || !Number.isSafeInteger(videoRange.endUs)
+    || videoRange.endUs <= videoRange.startUs
+  ) {
+    throw new CliError("invalid-data", "Caption input has an invalid container or video duration.");
+  }
+  const durationUs = Math.min(containerDurationUs, videoRange.endUs);
+  if (durationUs <= videoRange.startUs) {
+    throw new CliError("invalid-data", "Caption video does not intersect the input timeline.");
+  }
+  return durationUs;
+}
+
 async function readBoundedTranscript(path: string): Promise<string> {
   const stats = await lstat(path);
   if (stats.isSymbolicLink() || !stats.isFile() || stats.size <= 0 || stats.size > MAXIMUM_TRANSCRIPT_BYTES) {

@@ -99,6 +99,7 @@ import {
 import {
   LocalMediaCaptionService,
   MAXIMUM_MEDIA_CAPTION_OUTPUT_BYTES,
+  resolveMediaCaptionDurationUs,
 } from "./media-caption-service";
 import {
   DEFAULT_MUSIC_ANALYSIS_CONFIG,
@@ -5780,6 +5781,10 @@ async function handleMediaCaption(
   if (video.width === undefined || video.height === undefined) {
     throw new CliError("invalid-data", "Caption input omits bounded video geometry.");
   }
+  const captionDurationUs = resolveMediaCaptionDurationUs(
+    inputProbe.durationUs,
+    video.assetRange,
+  );
   const output = await resolveGeneratedOutputPaths(
     context.paths,
     "media-caption",
@@ -5795,7 +5800,7 @@ async function handleMediaCaption(
     vad,
     whisper: { executable, modelPath, version: whisperVersion },
   }).render({
-    durationUs: inputProbe.durationUs,
+    durationUs: captionDurationUs,
     expectedInput: before,
     inputPath,
     outputPath: output.outputPath,
