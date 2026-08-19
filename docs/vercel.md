@@ -16,6 +16,12 @@ Atet's public site deploys from `apps/web` in the existing Hraness Vercel projec
 
 The remote `preview` branch name is provider authority. Do not delete, rename, repurpose, or force-push the branch without a deliberate provider migration. Do not fast-forward it as branch cleanup. Advancing `preview` is a staging release and requires an explicit content decision plus provider verification.
 
+## Production analytics environment
+
+Set `NEXT_PUBLIC_POSTHOG_KEY` only in Vercel's Production environment. It is the public client token for shared PostHog project `543691`, not a personal API key. `NEXT_PUBLIC_POSTHOG_HOST` may be omitted; when present it must equal `https://us.i.posthog.com`.
+
+The build emits no analytics asset when the token is missing or `VERCEL_ENV` is not `production`. The bundled client also checks for the exact `https://atet.sh/` page before it initializes or sends an event, so stable staging, pull-request previews, predecessor hosts, and `404.html` remain inert. Keep PostHog's cookieless server hash mode enabled for the shared project so cookieless pageviews receive privacy-preserving visitor identity.
+
 Production, stable preview, and pull-request previews are separate:
 
 - `main` supplies Production and the production domains.

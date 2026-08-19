@@ -42,3 +42,8 @@ Optional model-backed generation uses
 sent to Vercel AI Gateway and the model provider selected by the caller, under
 those services' terms. Atet does not operate an intermediary generation
 service.
+
+The production `atet.sh` browser bundle includes
+[`posthog-js`](https://github.com/PostHog/posthog-js), distributed under its
+combined Apache License 2.0 and MIT terms. The fingerprinted bundle carries the
+upstream license text generated from the exact locked package.

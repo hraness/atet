@@ -1,8 +1,14 @@
 import { beforeAll, describe, expect, test } from "bun:test"
-import { readFile, readdir } from "node:fs/promises"
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
+import {
+  isCanonicalAnalyticsPage,
+  posthogCookielessDistinctId,
+  sanitizePageview,
+} from "./src/analytics-contract"
 import { buildWebsite } from "./scripts/build"
 
 const appDirectory = dirname(fileURLToPath(import.meta.url))
@@ -12,7 +18,7 @@ const searchDescription = "Atet gives coding agents tools to generate images, vi
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
 beforeAll(async () => {
-  builtAssets = await buildWebsite()
+  builtAssets = await buildWebsite({ environment: {} })
 })
 
 async function readSource(path: string): Promise<string> {
@@ -324,29 +330,174 @@ describe("static Atet site", () => {
     expect(icon).toContain('stop-color="#f6b94a"')
   })
 
-  test("keeps the build dependency-free, fingerprinted, and network-inert", async () => {
+  test("keeps the static shell fingerprinted and analytics explicit", async () => {
     const html = await readSource("index.html")
     const css = await readSource("styles.css")
     const theme = await readSource("theme.js")
+    const analytics = await readSource("analytics.ts")
     const build = await readFile(join(appDirectory, "scripts/build.ts"), "utf8")
     const manifest = JSON.parse(
       await readFile(join(appDirectory, "package.json"), "utf8"),
-    ) as Record<string, unknown>
+    ) as { dependencies?: Record<string, string>; devDependencies?: unknown }
+    const rootManifest = JSON.parse(
+      await readFile(join(repositoryDirectory, "package.json"), "utf8"),
+    ) as { workspaces?: { catalog?: Record<string, string> } }
+    const localLockfile = await readFile(join(appDirectory, "bun.lock"), "utf8")
 
-    expect(manifest.dependencies).toBeUndefined()
+    expect(manifest.dependencies).toEqual({ "posthog-js": "1.413.2" })
     expect(manifest.devDependencies).toBeUndefined()
+    expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
+    expect(localLockfile).toContain('"posthog-js": "1.413.2"')
+    expect(localLockfile).not.toContain("catalog:")
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
     expect(new TextEncoder().encode(css).byteLength).toBeLessThan(28_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)
     expect(html).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
     expect(html).toContain('<script src="{{THEME_ASSET}}" defer></script>')
-    expect(html).not.toMatch(/analytics|posthog|plausible|segment/i)
+    expect(html).toContain("{{ANALYTICS_SCRIPT}}")
     expect(html.match(/<script\b/gu)).toHaveLength(2)
     expect(theme).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
+    expect(analytics).toContain('cookieless_mode: "always"')
+    expect(analytics).toContain('person_profiles: "never"')
+    expect(analytics).toContain("disable_external_dependency_loading: true")
+    expect(analytics).toContain("disable_persistence: true")
+    expect(analytics).toContain("disable_surveys: true")
+    expect(analytics).toContain("disableDeviceModel: true")
+    expect(analytics).toContain("advanced_disable_flags: true")
+    expect(analytics).toContain('posthog.capture("$pageview"')
+    expect(analytics).not.toMatch(/identify\(|autocapture:\s*true|capture_pageleave:\s*true/)
     expect(build).toContain('createHash("sha256")')
+    expect(build).toContain("Bun.build")
+    expect(build).toContain('environment.VERCEL_ENV !== "production"')
     expect(build).not.toContain("docsTemplate")
     expect(build).not.toContain('outputDirectory, "docs"')
+  })
+
+  test("allows only a canonical cookieless Atet pageview", () => {
+    expect(isCanonicalAnalyticsPage({ origin: "https://atet.sh", pathname: "/" })).toBe(true)
+    expect(isCanonicalAnalyticsPage({ origin: "https://preview.atet.sh", pathname: "/" })).toBe(false)
+    expect(isCanonicalAnalyticsPage({ origin: "https://atet.sh", pathname: "/404" })).toBe(false)
+
+    const timestamp = new Date("2026-08-19T12:00:00.000Z")
+    const sanitized = sanitizePageview({
+      event: "$pageview",
+      properties: {
+        $cookieless_mode: true,
+        $current_url: "https://atet.sh/?private=value#fragment",
+        $device_id: "device",
+        $pathname: "/",
+        $referrer: "https://example.com/private",
+        analytics_schema_version: 99,
+        distinct_id: posthogCookielessDistinctId,
+        site_id: "wrong",
+        token: "phc_testtoken",
+      },
+      timestamp,
+      uuid: "0198c6a7-7c00-7000-8000-000000000000",
+    }, "phc_testtoken")
+
+    expect(sanitized).toEqual({
+      event: "$pageview",
+      properties: {
+        $cookieless_mode: true,
+        $process_person_profile: false,
+        analytics_schema_version: 1,
+        distinct_id: posthogCookielessDistinctId,
+        site_id: "atet",
+        token: "phc_testtoken",
+      },
+      timestamp,
+      uuid: "0198c6a7-7c00-7000-8000-000000000000",
+    })
+    expect(sanitizePageview({
+      event: "$autocapture",
+      properties: { distinct_id: posthogCookielessDistinctId, token: "phc_testtoken" },
+      uuid: "0198c6a7-7c00-7000-8000-000000000001",
+    }, "phc_testtoken")).toBeNull()
+    expect(sanitizePageview({
+      event: "$pageview",
+      properties: { distinct_id: "persisted-id", token: "phc_testtoken" },
+      uuid: "0198c6a7-7c00-7000-8000-000000000002",
+    }, "phc_testtoken")).toBeNull()
+    expect(sanitizePageview({
+      event: "$pageview",
+      properties: {
+        distinct_id: posthogCookielessDistinctId,
+        token: "phc_testtoken",
+      },
+      uuid: "0198c6a7-7c00-7000-8000-000000000003",
+    }, "phc_testtoken")).toBeNull()
+    expect(sanitizePageview({
+      event: "$pageview",
+      properties: {
+        $cookieless_mode: false,
+        distinct_id: posthogCookielessDistinctId,
+        token: "phc_testtoken",
+      },
+      uuid: "0198c6a7-7c00-7000-8000-000000000004",
+    }, "phc_testtoken")).toBeNull()
+  })
+
+  test("emits analytics only for a configured Production build", async () => {
+    const productionDirectory = await mkdtemp(join(tmpdir(), "atet-web-production-"))
+    const secondDirectory = await mkdtemp(join(tmpdir(), "atet-web-production-repeat-"))
+    try {
+      const environment = {
+        NEXT_PUBLIC_POSTHOG_HOST: "https://us.i.posthog.com",
+        NEXT_PUBLIC_POSTHOG_KEY: "phc_test-token_value",
+        VERCEL_ENV: "production",
+      } as const
+      const first = await buildWebsite({ environment, outputDirectory: productionDirectory })
+      const second = await buildWebsite({ environment, outputDirectory: secondDirectory })
+      expect(first.analyticsPath).toMatch(/^\/assets\/analytics-[a-f0-9]{12}\.js$/u)
+      expect(second.analyticsPath).toBe(first.analyticsPath)
+
+      const [html, notFound, asset] = await Promise.all([
+        readFile(join(productionDirectory, "index.html"), "utf8"),
+        readFile(join(productionDirectory, "404.html"), "utf8"),
+        readFile(join(productionDirectory, first.analyticsPath?.slice(1) ?? "missing"), "utf8"),
+      ])
+      expect(html).toContain(`<script src="${first.analyticsPath}" type="module"></script>`)
+      expect(notFound).not.toMatch(/analytics-|posthog|phc_test-token_value/i)
+      expect(asset).toContain("phc_test-token_value")
+      expect(asset).toContain("https://us.i.posthog.com")
+      expect(asset).toStartWith("/*! posthog-js 1.413.2")
+      expect(asset).toContain("Apache License\n                           Version 2.0")
+      expect(new TextEncoder().encode(asset).byteLength).toBeLessThan(180_000)
+    } finally {
+      await Promise.all([
+        rm(productionDirectory, { force: true, recursive: true }),
+        rm(secondDirectory, { force: true, recursive: true }),
+      ])
+    }
+  })
+
+  test("keeps missing, Preview, and unsupported-host analytics builds inert", async () => {
+    const outputDirectory = await mkdtemp(join(tmpdir(), "atet-web-inert-"))
+    try {
+      const preview = await buildWebsite({
+        environment: {
+          NEXT_PUBLIC_POSTHOG_KEY: "phc_testtoken",
+          VERCEL_ENV: "preview",
+        },
+        outputDirectory,
+      })
+      expect(preview.analyticsPath).toBeNull()
+      expect(await readFile(join(outputDirectory, "index.html"), "utf8"))
+        .not.toMatch(/analytics-|phc_testtoken/)
+
+      await expect(buildWebsite({
+        environment: {
+          NEXT_PUBLIC_POSTHOG_HOST: "https://example.com",
+          NEXT_PUBLIC_POSTHOG_KEY: "phc_testtoken",
+          VERCEL_ENV: "production",
+        },
+        outputDirectory,
+      })).rejects.toThrow("NEXT_PUBLIC_POSTHOG_HOST must equal https://us.i.posthog.com")
+    } finally {
+      await rm(outputDirectory, { force: true, recursive: true })
+    }
   })
 
   test("renders one closed static page with resolved content-hashed assets", async () => {
@@ -359,6 +510,8 @@ describe("static Atet site", () => {
 
     expect(html).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
     expect(html).toContain(`<script src="${builtAssets.themePath}" defer></script>`)
+    expect(builtAssets.analyticsPath).toBeNull()
+    expect(html).not.toMatch(/analytics-/)
     expect(notFound).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
     expect(notFound).toContain(`<script src="${builtAssets.themePath}" defer></script>`)
     expect(`${html}\n${notFound}`).not.toContain("{{")
@@ -373,8 +526,8 @@ describe("static Atet site", () => {
       "sitemap.xml",
     ])
     expect(assetFiles.sort()).toEqual([
-      builtAssets.stylesPath.split("/").at(-1),
-      builtAssets.themePath.split("/").at(-1),
+      builtAssets.stylesPath.split("/").at(-1)!,
+      builtAssets.themePath.split("/").at(-1)!,
     ].sort())
   })
 
@@ -468,11 +621,12 @@ describe("static Atet site", () => {
     const byKey = new Map(global.map(header => [header.key, header.value]))
     const csp = byKey.get("Content-Security-Policy") ?? ""
 
-    expect(csp).toContain("connect-src 'none'")
+    expect(csp).toContain("connect-src https://us.i.posthog.com")
     expect(csp).toContain("font-src 'none'")
     expect(csp).toContain("form-action 'none'")
     expect(csp).toContain("frame-ancestors 'none'")
     expect(csp).toContain("object-src 'none'")
+    expect(byKey.get("Referrer-Policy")).toBe("no-referrer")
     expect(byKey.get("Strict-Transport-Security")).toContain("includeSubDomains")
     expect(assets).toContainEqual({
       key: "Cache-Control",

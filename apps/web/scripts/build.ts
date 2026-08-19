@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url"
 
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
 const sourceDirectory = join(appDirectory, "src")
-const outputDirectory = join(appDirectory, "dist")
+const defaultOutputDirectory = join(appDirectory, "dist")
+const posthogIngestOrigin = "https://us.i.posthog.com"
+const posthogPackageDirectory = dirname(fileURLToPath(import.meta.resolve("posthog-js/package.json")))
 
 const copiedFiles = [
   "apple-touch-icon.png",
@@ -37,10 +39,75 @@ function renderDocument(template: string, assets: Readonly<Record<string, string
   return rendered
 }
 
-export async function buildWebsite(): Promise<Readonly<{
+type BuildEnvironment = Readonly<Record<string, string | undefined>>
+
+type BuildOptions = Readonly<{
+  environment?: BuildEnvironment
+  outputDirectory?: string
+}>
+
+function productionAnalyticsConfig(environment: BuildEnvironment): Readonly<{
+  host: string
+  key: string
+}> | null {
+  const key = environment.NEXT_PUBLIC_POSTHOG_KEY?.trim()
+  if (environment.VERCEL_ENV !== "production" || key === undefined || key === "") {
+    return null
+  }
+  if (!/^phc_[A-Za-z0-9_-]+$/u.test(key)) {
+    throw new Error("NEXT_PUBLIC_POSTHOG_KEY must be a PostHog project token")
+  }
+
+  const host = environment.NEXT_PUBLIC_POSTHOG_HOST?.trim() || posthogIngestOrigin
+  if (host !== posthogIngestOrigin) {
+    throw new Error(`NEXT_PUBLIC_POSTHOG_HOST must equal ${posthogIngestOrigin}`)
+  }
+  return { host, key }
+}
+
+async function bundleAnalytics(config: Readonly<{ host: string; key: string }>): Promise<Uint8Array> {
+  const [license, manifestSource] = await Promise.all([
+    readFile(join(posthogPackageDirectory, "LICENSE"), "utf8"),
+    readFile(join(posthogPackageDirectory, "package.json"), "utf8"),
+  ])
+  const manifest = JSON.parse(manifestSource) as unknown
+  if (
+    typeof manifest !== "object"
+    || manifest === null
+    || !("version" in manifest)
+    || typeof manifest.version !== "string"
+    || license.includes("*/")
+  ) {
+    throw new Error("The installed PostHog package has an invalid license boundary")
+  }
+  const result = await Bun.build({
+    banner: `/*! posthog-js ${manifest.version}\n${license.trim()}\n*/`,
+    define: {
+      __ATET_POSTHOG_HOST__: JSON.stringify(config.host),
+      __ATET_POSTHOG_KEY__: JSON.stringify(config.key),
+    },
+    entrypoints: [join(sourceDirectory, "analytics.ts")],
+    env: "disable",
+    format: "esm",
+    minify: true,
+    sourcemap: "none",
+    target: "browser",
+  })
+  if (!result.success || result.outputs.length !== 1) {
+    const details = result.logs.map(log => log.message).join("\n")
+    throw new Error(`Could not bundle the analytics client${details === "" ? "" : `: ${details}`}`)
+  }
+  return new Uint8Array(await result.outputs[0].arrayBuffer())
+}
+
+export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly<{
+  analyticsPath: string | null
   stylesPath: string
   themePath: string
 }>> {
+  const environment = options.environment ?? process.env
+  const outputDirectory = options.outputDirectory ?? defaultOutputDirectory
+  const analyticsConfig = productionAnalyticsConfig(environment)
   const [indexTemplate, notFoundTemplate, styles, theme] = await Promise.all([
     readFile(join(sourceDirectory, "index.html"), "utf8"),
     readFile(join(sourceDirectory, "404.html"), "utf8"),
@@ -50,19 +117,30 @@ export async function buildWebsite(): Promise<Readonly<{
 
   const stylesPath = assetPath("styles.css", styles)
   const themePath = assetPath("theme.js", theme)
-  const assets = {
+  const commonAssets = {
     "{{CSS_ASSET}}": stylesPath,
     "{{THEME_ASSET}}": themePath,
+  } as const
+  const analytics = analyticsConfig === null ? null : await bundleAnalytics(analyticsConfig)
+  const analyticsPath = analytics === null ? null : assetPath("analytics.js", analytics)
+  const indexAssets = {
+    ...commonAssets,
+    "{{ANALYTICS_SCRIPT}}": analyticsPath === null
+      ? ""
+      : `<script src="${analyticsPath}" type="module"></script>`,
   } as const
 
   await rm(outputDirectory, { force: true, recursive: true })
   await mkdir(join(outputDirectory, "assets"), { recursive: true })
 
   await Promise.all([
-    writeFile(join(outputDirectory, "index.html"), renderDocument(indexTemplate, assets)),
-    writeFile(join(outputDirectory, "404.html"), renderDocument(notFoundTemplate, assets)),
+    writeFile(join(outputDirectory, "index.html"), renderDocument(indexTemplate, indexAssets)),
+    writeFile(join(outputDirectory, "404.html"), renderDocument(notFoundTemplate, commonAssets)),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
+    ...(analyticsPath === null || analytics === null
+      ? []
+      : [writeFile(join(outputDirectory, analyticsPath.slice(1)), analytics)]),
   ])
 
   for (const file of copiedFiles) {
@@ -77,10 +155,11 @@ export async function buildWebsite(): Promise<Readonly<{
     })
   }
 
-  return { stylesPath, themePath }
+  return { analyticsPath, stylesPath, themePath }
 }
 
 if (import.meta.main) {
-  await buildWebsite()
-  console.log(`Built ${copiedFiles.length + 4} static files in ${outputDirectory}`)
+  const result = await buildWebsite()
+  const generatedFiles = copiedFiles.length + 4 + (result.analyticsPath === null ? 0 : 1)
+  console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
 }
