@@ -16,6 +16,7 @@ build also bundles the pinned PostHog client as a fingerprinted local asset.
 That client sends one anonymous cookieless pageview from `https://atet.sh/` and
 does not run on Preview, alternate hosts, or the not-found page. Configure the
 Vercel project with this directory as its Root Directory. The checked
-`vercel.json` installs from the frozen Bun lockfile, serves only built files
-under a strict CSP, and sends reviewed predecessor hosts to their matching Atet
-production or preview host.
+`vercel.json` installs from this directory's frozen Bun lockfile without relying
+on the parent workspace catalog, serves only built files under a strict CSP,
+and sends reviewed predecessor hosts to their matching Atet production or
+preview host.

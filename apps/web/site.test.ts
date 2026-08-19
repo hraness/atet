@@ -339,9 +339,16 @@ describe("static Atet site", () => {
     const manifest = JSON.parse(
       await readFile(join(appDirectory, "package.json"), "utf8"),
     ) as { dependencies?: Record<string, string>; devDependencies?: unknown }
+    const rootManifest = JSON.parse(
+      await readFile(join(repositoryDirectory, "package.json"), "utf8"),
+    ) as { workspaces?: { catalog?: Record<string, string> } }
+    const localLockfile = await readFile(join(appDirectory, "bun.lock"), "utf8")
 
-    expect(manifest.dependencies).toEqual({ "posthog-js": "catalog:" })
+    expect(manifest.dependencies).toEqual({ "posthog-js": "1.413.2" })
     expect(manifest.devDependencies).toBeUndefined()
+    expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
+    expect(localLockfile).toContain('"posthog-js": "1.413.2"')
+    expect(localLockfile).not.toContain("catalog:")
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
     expect(new TextEncoder().encode(css).byteLength).toBeLessThan(28_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
