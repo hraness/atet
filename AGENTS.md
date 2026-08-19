@@ -3,7 +3,7 @@
 
 - `src/` – portable declarative and imperative workflow SDKs, host-resource admission, diagrams, direct Vercel AI Gateway generation, local vectorization, semantic operations, MCP, and canvas integration.
 - `apps/desktop/` – the canonical `atet` CLI, complete local media host, durable scheduler, HTML and Three.js overlays, native capture helpers, frontend, and desktop shell.
-- `apps/web/` – the dependency-free static `atet.sh` site, with no API, account, or credential surface.
+- `apps/web/` – the static `atet.sh` site, with a local browser bundle and a production-only anonymous pageview boundary but no API, account, or credential surface.
 - `packages/scene/` – the shared local scene-analysis contract.
 - `src/code/` – portable declarative graph authoring, the closed public capability projection, compilation, planning, and execution contracts.
 - `schema/` – version-one diagram JSON Schema.

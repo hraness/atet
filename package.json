@@ -44,6 +44,7 @@
       "motion": "12.42.0",
       "@paper-design/shaders": "0.0.77",
       "playwright-core": "1.62.0",
+      "posthog-js": "1.413.2",
       "react": "19.2.3",
       "react-dom": "19.2.3",
       "three": "0.183.2",
