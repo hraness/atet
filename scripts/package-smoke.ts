@@ -28,7 +28,7 @@ const importSpecifiers = [
   `${packageName}/local/html-overlay`,
 ] as const;
 const verificationPackages = [
-  "@types/bun@^1.3.14",
+  "@types/bun@1.3.14",
   "@types/json-schema@^7.0.15",
   "@types/node@^24.10.0",
   "@types/react@^19.2.14",

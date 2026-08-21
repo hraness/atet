@@ -25,6 +25,10 @@ async function readSource(path: string): Promise<string> {
   return await readFile(join(appDirectory, "src", path), "utf8")
 }
 
+async function readBuilt(path: string): Promise<string> {
+  return await readFile(join(appDirectory, "dist", path), "utf8")
+}
+
 describe("static Atet site", () => {
   test("makes the README a detailed agent guide with natural GitHub discovery terms", async () => {
     const readme = await readFile(join(repositoryDirectory, "README.md"), "utf8")
@@ -281,6 +285,7 @@ describe("static Atet site", () => {
     expect(html.match(/<h1\b/gu)).toHaveLength(1)
     expect(html).toContain('<a class="skip-link" href="#main">')
     expect(html).toContain('<nav aria-label="Primary">')
+    expect(html).toContain('<div class="topbar-actions">')
     expect(html).toContain('<main id="main" tabindex="-1">')
     expect(html).not.toMatch(/<section(?![^>]*aria-labelledby)/)
     expect(fragmentLinks.every(fragment => ids.has(fragment))).toBe(true)
@@ -292,6 +297,35 @@ describe("static Atet site", () => {
     expect(css).toContain("@media (max-width: 34rem)")
     expect(css).toContain("@media (prefers-reduced-motion: reduce)")
     expect(css).toContain("@media (forced-colors: active)")
+  })
+
+  test("owns one shared appearance menu as the final action in every header", async () => {
+    const [html, notFound] = await Promise.all([
+      readBuilt("index.html"),
+      readBuilt("404.html"),
+    ])
+
+    for (const document of [html, notFound]) {
+      expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
+      expect(document).toMatch(
+        /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
+      )
+      expect(document.slice(document.indexOf('<footer class="site-footer">')))
+        .not.toContain("data-hraness-appearance-menu")
+      expect(document).not.toContain('class="appearance"')
+      expect(document).not.toContain("data-theme-choice")
+      expect(document).toContain('aria-label="Appearance: System"')
+      expect(document).toContain('aria-haspopup="menu"')
+      expect(document).toContain('aria-label="Appearance"')
+      expect(document.match(/role="menuitemradio"/gu)).toHaveLength(3)
+      expect([...document.matchAll(/data-theme-value="(light|dark|system)" role="menuitemradio"/gu)]
+        .map(match => match[1])).toEqual(["light", "dark", "system"])
+    }
+
+    expect(notFound).toContain('<a class="skip-link" href="#main">')
+    expect(notFound).toContain('<main class="route-state" id="main" tabindex="-1">')
+    expect(notFound).toContain('<meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)">')
+    expect(notFound).toContain('<meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">')
   })
 
   test("uses a restrained editorial visual system", async () => {
@@ -333,7 +367,7 @@ describe("static Atet site", () => {
   test("keeps the static shell fingerprinted and analytics explicit", async () => {
     const html = await readSource("index.html")
     const css = await readSource("styles.css")
-    const theme = await readSource("theme.js")
+    const theme = await readSource("theme.ts")
     const analytics = await readSource("analytics.ts")
     const build = await readFile(join(appDirectory, "scripts/build.ts"), "utf8")
     const manifest = JSON.parse(
@@ -344,9 +378,14 @@ describe("static Atet site", () => {
     ) as { workspaces?: { catalog?: Record<string, string> } }
     const localLockfile = await readFile(join(appDirectory, "bun.lock"), "utf8")
 
-    expect(manifest.dependencies).toEqual({ "posthog-js": "1.413.2" })
+    expect(manifest.dependencies).toEqual({
+      "@hraness/design-kit": "github:hraness/design-kit#v0.1.8",
+      "posthog-js": "1.413.2",
+    })
     expect(manifest.devDependencies).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
+    expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
+    expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.1.8"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     expect(localLockfile).not.toContain("catalog:")
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
@@ -354,9 +393,14 @@ describe("static Atet site", () => {
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)
     expect(html).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
-    expect(html).toContain('<script src="{{THEME_ASSET}}" defer></script>')
+    expect(html).toContain('<script src="{{THEME_ASSET}}"></script>')
+    expect(html.indexOf('<script src="{{THEME_ASSET}}"></script>'))
+      .toBeLessThan(html.indexOf('<link rel="stylesheet" href="{{CSS_ASSET}}">'))
+    expect(html).toContain("{{APPEARANCE_MENU}}")
     expect(html).toContain("{{ANALYTICS_SCRIPT}}")
     expect(html.match(/<script\b/gu)).toHaveLength(2)
+    expect(theme).toContain('from "@hraness/design-kit/browser"')
+    expect(theme).toContain('storageKey: "atet.appearance"')
     expect(theme).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
     expect(analytics).toContain('cookieless_mode: "always"')
     expect(analytics).toContain('person_profiles: "never"')
@@ -369,6 +413,9 @@ describe("static Atet site", () => {
     expect(analytics).not.toMatch(/identify\(|autocapture:\s*true|capture_pageleave:\s*true/)
     expect(build).toContain('createHash("sha256")')
     expect(build).toContain("Bun.build")
+    expect(build).toContain('format: "iife"')
+    expect(build).toContain('import.meta.resolve("@hraness/design-kit/appearance-menu.css")')
+    expect(build).toContain("renderAppearanceMenu()")
     expect(build).toContain('environment.VERCEL_ENV !== "production"')
     expect(build).not.toContain("docsTemplate")
     expect(build).not.toContain('outputDirectory, "docs"')
@@ -509,11 +556,11 @@ describe("static Atet site", () => {
     ])
 
     expect(html).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
-    expect(html).toContain(`<script src="${builtAssets.themePath}" defer></script>`)
+    expect(html).toContain(`<script src="${builtAssets.themePath}"></script>`)
     expect(builtAssets.analyticsPath).toBeNull()
     expect(html).not.toMatch(/analytics-/)
     expect(notFound).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
-    expect(notFound).toContain(`<script src="${builtAssets.themePath}" defer></script>`)
+    expect(notFound).toContain(`<script src="${builtAssets.themePath}"></script>`)
     expect(`${html}\n${notFound}`).not.toContain("{{")
     expect(rootFiles.sort()).toEqual([
       "404.html",
@@ -529,6 +576,17 @@ describe("static Atet site", () => {
       builtAssets.stylesPath.split("/").at(-1)!,
       builtAssets.themePath.split("/").at(-1)!,
     ].sort())
+
+    const [stylesAsset, themeAsset] = await Promise.all([
+      readFile(join(appDirectory, "dist", builtAssets.stylesPath.slice(1)), "utf8"),
+      readFile(join(appDirectory, "dist", builtAssets.themePath.slice(1)), "utf8"),
+    ])
+    expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
+    expect(stylesAsset).toContain("@media (pointer: coarse)")
+    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(36_000)
+    expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
+    expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
+    expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
   test("publishes only the canonical page to crawler discovery", async () => {

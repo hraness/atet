@@ -22,6 +22,16 @@
   --content-max: 72rem;
   --radius-control: 0.2rem;
   --radius-surface: 0.45rem;
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-surface);
+  --ui-accent: color-mix(in srgb, var(--gold-bright) 18%, var(--paper));
+  --ui-accent-foreground: var(--ink);
+  --ui-background: var(--paper);
+  --ui-foreground: var(--ink);
+  --ui-input: var(--line);
+  --ui-popover: var(--paper-raised);
+  --ui-popover-foreground: var(--ink);
+  --ui-ring: var(--focus);
   color-scheme: light;
 }
 
@@ -178,6 +188,13 @@ blockquote {
   font-size: 1.55rem;
   line-height: 1;
   text-decoration: none;
+}
+
+.topbar-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
 }
 
 .topbar nav {
@@ -591,7 +608,7 @@ blockquote {
   padding: 1.5rem var(--page-inline);
   align-items: center;
   gap: 1.5rem;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto;
 }
 
 .hraness-brand {
@@ -613,41 +630,6 @@ blockquote {
   color: var(--muted);
   font-size: 0.72rem;
   text-align: center;
-}
-
-.appearance {
-  display: flex;
-  padding: 0;
-  border: 0;
-  justify-self: end;
-  gap: 0.2rem;
-}
-
-.appearance legend {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.appearance button {
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  padding: 0 0.65rem;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 0.68rem;
-}
-
-.appearance button:hover,
-.appearance button[aria-pressed="true"] {
-  border-color: var(--line);
-  color: var(--ink);
 }
 
 /* Documentation */
@@ -1075,6 +1057,10 @@ blockquote {
     font-size: 0.75rem;
   }
 
+  .topbar-actions {
+    gap: 0.75rem;
+  }
+
   .nav-github span {
     display: none;
   }
@@ -1227,9 +1213,6 @@ blockquote {
     grid-template-columns: 1fr;
   }
 
-  .appearance {
-    justify-self: start;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1249,21 +1232,13 @@ blockquote {
   .button,
   .install-panel,
   .plain-aside,
-  .reference-block,
-  .appearance button {
+  .reference-block {
     border: 1px solid CanvasText;
   }
 
   .button-primary {
     background: CanvasText;
     color: Canvas;
-  }
-
-  .appearance button[aria-pressed="true"] {
-    background: Highlight;
-    color: HighlightText;
-    outline: 2px solid Highlight;
-    outline-offset: 2px;
   }
 
   .solar-mark {
@@ -1273,7 +1248,6 @@ blockquote {
 
 @media print {
   .topbar,
-  .appearance,
   .docs-index,
   .action-row {
     display: none;

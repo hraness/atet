@@ -8,6 +8,9 @@ const sourceDirectory = join(appDirectory, "src")
 const defaultOutputDirectory = join(appDirectory, "dist")
 const posthogIngestOrigin = "https://us.i.posthog.com"
 const posthogPackageDirectory = dirname(fileURLToPath(import.meta.resolve("posthog-js/package.json")))
+const appearanceMenuStylesPath = fileURLToPath(
+  import.meta.resolve("@hraness/design-kit/appearance-menu.css"),
+)
 
 const copiedFiles = [
   "apple-touch-icon.png",
@@ -37,6 +40,35 @@ function renderDocument(template: string, assets: Readonly<Record<string, string
     throw new Error("Static document contains an unresolved placeholder")
   }
   return rendered
+}
+
+function renderAppearanceMenu(): string {
+  return `<div aria-busy="true" class="hraness-design-theme-toggle"
+      data-display="icons" data-hraness-appearance-menu data-presentation="menu"
+      data-ready="false" data-theme-value="system">
+    <button aria-controls="appearance-menu" aria-expanded="false" aria-haspopup="menu"
+      aria-label="Appearance: System" class="hraness-design-theme-toggle__trigger"
+      disabled type="button">
+      <span aria-hidden="true" data-current-appearance-icon="system"></span>
+    </button>
+    <div class="hraness-design-theme-toggle__popover" hidden>
+      <div aria-label="Appearance" class="hraness-design-theme-toggle__menu"
+        id="appearance-menu" role="menu">
+        <div aria-checked="false" class="hraness-design-theme-toggle__item"
+          data-theme-value="light" role="menuitemradio" tabindex="-1">
+          <span aria-hidden="true" data-appearance-icon="light"></span><span>Light</span>
+        </div>
+        <div aria-checked="false" class="hraness-design-theme-toggle__item"
+          data-theme-value="dark" role="menuitemradio" tabindex="-1">
+          <span aria-hidden="true" data-appearance-icon="dark"></span><span>Dark</span>
+        </div>
+        <div aria-checked="true" class="hraness-design-theme-toggle__item"
+          data-selected="true" data-theme-value="system" role="menuitemradio" tabindex="-1">
+          <span aria-hidden="true" data-appearance-icon="system"></span><span>System</span>
+        </div>
+      </div>
+    </div>
+  </div>`
 }
 
 type BuildEnvironment = Readonly<Record<string, string | undefined>>
@@ -100,6 +132,22 @@ async function bundleAnalytics(config: Readonly<{ host: string; key: string }>):
   return new Uint8Array(await result.outputs[0].arrayBuffer())
 }
 
+async function bundleTheme(): Promise<Uint8Array> {
+  const result = await Bun.build({
+    entrypoints: [join(sourceDirectory, "theme.ts")],
+    env: "disable",
+    format: "iife",
+    minify: true,
+    sourcemap: "none",
+    target: "browser",
+  })
+  if (!result.success || result.outputs.length !== 1) {
+    const details = result.logs.map(log => log.message).join("\n")
+    throw new Error(`Could not bundle the appearance client${details === "" ? "" : `: ${details}`}`)
+  }
+  return new Uint8Array(await result.outputs[0].arrayBuffer())
+}
+
 export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly<{
   analyticsPath: string | null
   stylesPath: string
@@ -108,16 +156,19 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   const environment = options.environment ?? process.env
   const outputDirectory = options.outputDirectory ?? defaultOutputDirectory
   const analyticsConfig = productionAnalyticsConfig(environment)
-  const [indexTemplate, notFoundTemplate, styles, theme] = await Promise.all([
+  const [indexTemplate, notFoundTemplate, productStyles, appearanceStyles, theme] = await Promise.all([
     readFile(join(sourceDirectory, "index.html"), "utf8"),
     readFile(join(sourceDirectory, "404.html"), "utf8"),
-    readFile(join(sourceDirectory, "styles.css")),
-    readFile(join(sourceDirectory, "theme.js")),
+    readFile(join(sourceDirectory, "styles.css"), "utf8"),
+    readFile(appearanceMenuStylesPath, "utf8"),
+    bundleTheme(),
   ])
+  const styles = new TextEncoder().encode(`${productStyles}\n${appearanceStyles}`)
 
   const stylesPath = assetPath("styles.css", styles)
   const themePath = assetPath("theme.js", theme)
   const commonAssets = {
+    "{{APPEARANCE_MENU}}": renderAppearanceMenu(),
     "{{CSS_ASSET}}": stylesPath,
     "{{THEME_ASSET}}": themePath,
   } as const
