@@ -1,6 +1,8 @@
 ---
 name: query-kb
 description: Load scoped repository context, then search and navigate a hraness/kb Markdown vault with hybrid text retrieval, exact metadata, bounded links and typed relationships, backlinks, whole-vault graph reports, and optional Git provenance. Use when an agent needs the applicable repository instructions, rationale, prior knowledge, plans, captures, decisions, concepts, relationships, or evidence before answering, planning, or changing code.
+metadata:
+  internal: true
 ---
 
 # Query the knowledge base
