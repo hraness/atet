@@ -4,15 +4,28 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">
+    <script src="{{THEME_ASSET}}"></script>
     <meta name="robots" content="noindex, nofollow">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="{{CSS_ASSET}}">
-    <script src="{{THEME_ASSET}}" defer></script>
     <title>Not found · Atet</title>
   </head>
   <body>
-    <main class="route-state" id="main">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="topbar">
+      <a aria-label="Atet home" class="wordmark" href="/">Atet</a>
+      <div class="topbar-actions">
+        <nav aria-label="Primary">
+          <a href="/">Home</a>
+          <a class="nav-github" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
+        </nav>
+        {{APPEARANCE_MENU}}
+      </div>
+    </header>
+    <main class="route-state" id="main" tabindex="-1">
       <p class="eyebrow">404 · Route not found</p>
       <h1>This passage ends here.</h1>
       <p>The address may have changed. Atet and its current installation guide remain at the canonical home.</p>
@@ -30,12 +43,6 @@
           </svg>
           <span>hraness</span>
         </a>
-        <fieldset class="appearance" aria-label="Appearance">
-          <legend>Appearance</legend>
-          <button type="button" data-theme-choice="light">Light</button>
-          <button type="button" data-theme-choice="dark">Dark</button>
-          <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
-        </fieldset>
       </div>
     </footer>
   </body>

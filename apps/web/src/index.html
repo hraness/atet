@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#09090d" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">
+    <script src="{{THEME_ASSET}}"></script>
     <title>Atet: AI media generation and video editing for coding agents</title>
     <meta name="description" content="Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos.">
     <meta name="application-name" content="Atet">
@@ -114,17 +115,19 @@
         ]
       }
     </script>
-    <script src="{{THEME_ASSET}}" defer></script>
     {{ANALYTICS_SCRIPT}}
   </head>
   <body class="docs-route">
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="topbar">
       <a aria-label="Atet home" class="wordmark" href="/">Atet</a>
-      <nav aria-label="Primary">
-        <a href="#install">Install</a>
-        <a class="nav-github" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
-      </nav>
+      <div class="topbar-actions">
+        <nav aria-label="Primary">
+          <a href="#install">Install</a>
+          <a class="nav-github" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
+        </nav>
+        {{APPEARANCE_MENU}}
+      </div>
     </header>
 
     <main id="main" tabindex="-1">
@@ -310,12 +313,6 @@
           <span>hraness</span>
         </a>
         <p class="footer-note">Atet · MIT · AI media generation and video editing for coding agents.</p>
-        <fieldset class="appearance" aria-label="Appearance">
-          <legend>Appearance</legend>
-          <button type="button" data-theme-choice="light">Light</button>
-          <button type="button" data-theme-choice="dark">Dark</button>
-          <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
-        </fieldset>
       </div>
     </footer>
   </body>

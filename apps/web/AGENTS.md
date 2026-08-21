@@ -7,6 +7,7 @@
 # Guidelines
 
 - Keep the site static and useful without JavaScript. Browser code may load only fingerprinted local assets. The sole runtime request is the reviewed PostHog pageview boundary below.
+- Use the framework-neutral `@hraness/design-kit` appearance menu as the final action in every ordinary HTML header. Keep exactly one Light, Dark, and System icon-menu control per page, default to System, and never place it inside navigation or a footer.
 - Keep `apps/web` independently installable from its Vercel Root Directory: pin every dependency exactly in this package and commit its local `bun.lock`. Verify an isolated `bun install --frozen-lockfile --ignore-scripts`; do not depend on the parent workspace catalog or lockfile.
 - Describe the released SDK, local host, and desktop capture shell as one Atet system. Do not introduce a hosted account, billing, authentication, or generation service.
 - Keep generation credentials in local SDK or CLI processes. The browser must never accept, store, forward, or render an AI Gateway credential.
