@@ -1,6 +1,7 @@
 # Contents
 
-- `src/` contains the static `atet.sh` homepage and documentation, visual system, appearance control, crawler files, favicons, and social preview.
+- `src/` contains the static `atet.sh` homepage and documentation, visual system, appearance control, crawler files, favicons, social preview, and machine-readable page bodies.
+- `src/negotiate.ts`, `src/negotiate-request.ts`, and `middleware.ts` select HTML or markdown from `Accept` for document routes.
 - `scripts/build.ts` renders fingerprinted local assets into `dist/` from an explicit allowlist and bundles the pinned PostHog browser client only for a configured Production build.
 - `site.test.ts`, `package.json`, and `vercel.json` define the content, identity, accessibility, performance, legacy-host, and deployment contracts.
 
@@ -16,5 +17,7 @@
 - Keep every page semantic, keyboard-operable, readable at 200% zoom, and free of remote fonts and client frameworks. Analytics may emit one anonymous cookieless `$pageview` from `https://atet.sh/` to `https://us.i.posthog.com`, tagged with `site_id=atet` and `analytics_schema_version=1`. Keep persons, persistence, autocapture, replay, flags, surveys, heatmaps, pageleave, web vitals, referrer, URL, query, hash, page text, content, and custom events disabled. Do not initialize analytics on Preview, staging, alternate hosts, or `404.html`.
 - Organize `/docs` by user intent: guided learning, goal-oriented how-to, factual reference, and conceptual explanation. Do not mix those modes into one undifferentiated command catalog.
 - Use the canonical Hraness footer lockup. Include every durable public route in crawler discovery.
+- Publish `/llms.txt` as `text/plain` with an H1, summary, and a when-to-use section. Publish `/sitemap.md` and `/index.md` as markdown. Honor `Accept: text/markdown` on the homepage with `Content-Type: text/markdown; charset=utf-8` and `Vary: Accept`. Return `406` when the request rejects every produced type. Keep unknown routes as real `404` or `410` responses, and give markdown 404s recovery links to the home page, `llms.txt`, and sitemaps.
+- Do not add a public API, OAuth, GraphQL, MCP, account, or commerce surface to the website.
 - Preserve permanent production and preview redirects for every reviewed predecessor host without redirecting canonical Atet hosts.
 - Run `bun run check` in this directory after a site change.

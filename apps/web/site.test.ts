@@ -9,6 +9,21 @@ import {
   posthogCookielessDistinctId,
   sanitizePageview,
 } from "./src/analytics-contract"
+import {
+  homeMarkdown,
+  llmsTxt,
+  notFoundMarkdown,
+  robotsTxt,
+  sitemapMarkdown,
+} from "./src/agent-pages"
+import { notAcceptableBody, preferredRepresentation } from "./src/negotiate"
+import {
+  isHomePath,
+  isNegotiableDocumentPath,
+  isPreservedRedirectPath,
+  negotiateSiteRequest,
+} from "./src/negotiate-request"
+import middleware, { config as middlewareConfig } from "./middleware"
 import { buildWebsite } from "./scripts/build"
 
 const appDirectory = dirname(fileURLToPath(import.meta.url))
@@ -120,6 +135,8 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
     expect(html).not.toContain('<meta name="keywords"')
     expect(html).toContain('<link rel="canonical" href="https://atet.sh/">')
+    expect(html).toContain('<link rel="alternate" type="text/markdown" href="/index.md">')
+    expect(html).toContain('<link rel="describedby" href="/llms.txt">')
     expect(html).toContain('<meta property="og:url" content="https://atet.sh/">')
     expect(html).toContain('<meta property="og:image" content="https://atet.sh/og.png">')
     expect(html).toContain('<meta property="og:image:width" content="1200">')
@@ -353,6 +370,10 @@ describe("static Atet site", () => {
     expect(notFound).toContain('<main class="route-state" id="main" tabindex="-1">')
     expect(notFound).toContain('<meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)">')
     expect(notFound).toContain('<meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">')
+    expect(notFound).toContain('href="/llms.txt"')
+    expect(notFound).toContain('href="/sitemap.md"')
+    expect(notFound).toContain('href="/sitemap.xml"')
+    expect(notFound).toContain("machine-readable site guide")
   })
 
   test("uses a restrained editorial visual system", async () => {
@@ -600,8 +621,11 @@ describe("static Atet site", () => {
       "assets",
       "icon.svg",
       "index.html",
+      "index.md",
+      "llms.txt",
       "og.png",
       "robots.txt",
+      "sitemap.md",
       "sitemap.xml",
     ])
     expect(assetFiles.sort()).toEqual([
@@ -621,21 +645,38 @@ describe("static Atet site", () => {
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
-  test("publishes only the canonical page to crawler discovery", async () => {
-    const robots = await readSource("robots.txt")
-    const sitemap = await readSource("sitemap.xml")
-    const notFound = await readSource("404.html")
+  test("publishes crawler discovery for the home page and its markdown mirror", async () => {
+    const [robots, sitemap, notFound, builtRobots, builtLlms, builtHomeMarkdown, builtSitemapMarkdown] = await Promise.all([
+      Promise.resolve(robotsTxt),
+      readSource("sitemap.xml"),
+      readSource("404.html"),
+      readBuilt("robots.txt"),
+      readBuilt("llms.txt"),
+      readBuilt("index.md"),
+      readBuilt("sitemap.md"),
+    ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
       .map(match => match[1])
 
     expect(robots).toBe([
       "User-agent: OAI-SearchBot",
+      "User-agent: ChatGPT-User",
+      "User-agent: GPTBot",
       "Allow: /",
       "",
       "User-agent: Claude-SearchBot",
+      "User-agent: Claude-User",
+      "User-agent: ClaudeBot",
       "Allow: /",
       "",
-      "User-agent: Claude-User",
+      "User-agent: PerplexityBot",
+      "User-agent: Perplexity-User",
+      "Allow: /",
+      "",
+      "User-agent: Google-Extended",
+      "Allow: /",
+      "",
+      "User-agent: CCBot",
       "Allow: /",
       "",
       "User-agent: *",
@@ -644,8 +685,24 @@ describe("static Atet site", () => {
       "Sitemap: https://atet.sh/sitemap.xml",
       "",
     ].join("\n"))
-    expect(locations).toEqual(["https://atet.sh/"])
+    expect(robots).not.toMatch(/^\s*Disallow:/mu)
+    expect(builtRobots).toBe(robotsTxt)
+    expect(locations).toEqual(["https://atet.sh/", "https://atet.sh/index.md"])
+    expect(sitemap).toContain("<lastmod>2026-08-21</lastmod>")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
+    expect(builtLlms).toBe(llmsTxt)
+    expect(builtHomeMarkdown).toBe(homeMarkdown)
+    expect(builtSitemapMarkdown).toBe(sitemapMarkdown)
+    expect(llmsTxt).toMatch(/^# Atet\n/u)
+    expect(llmsTxt).toContain("> Atet gives coding agents tools")
+    expect(llmsTxt).toContain("## When to use Atet")
+    expect(llmsTxt).toContain("https://atet.sh/index.md")
+    expect(sitemapMarkdown).toContain("# Sitemap")
+    expect(sitemapMarkdown).toContain("https://atet.sh/index.md")
+    expect(homeMarkdown).toContain("## Sitemap")
+    expect(homeMarkdown).toContain("https://atet.sh/sitemap.md")
+    expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
+    expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
   })
 
   test("redirects the retired docs route and each reviewed predecessor host", async () => {
@@ -705,6 +762,11 @@ describe("static Atet site", () => {
       await readFile(join(appDirectory, "vercel.json"), "utf8"),
     ) as {
       headers?: Array<{ source?: string; headers?: Array<{ key?: string; value?: string }> }>
+      rewrites?: Array<{
+        source?: string
+        destination?: string
+        has?: Array<{ type?: string; key?: string; value?: string }>
+      }>
     }
     const global = vercel.headers?.find(entry => entry.source === "/(.*)")?.headers ?? []
     const assets = vercel.headers?.find(entry => entry.source === "/assets/(.*)")?.headers ?? []
@@ -718,10 +780,34 @@ describe("static Atet site", () => {
     expect(csp).toContain("object-src 'none'")
     expect(byKey.get("Referrer-Policy")).toBe("no-referrer")
     expect(byKey.get("Strict-Transport-Security")).toContain("includeSubDomains")
+    expect(byKey.get("Vary")).toBe("Accept, Accept-Encoding")
     expect(assets).toContainEqual({
       key: "Cache-Control",
       value: "public, max-age=31536000, immutable",
     })
+
+    const home = vercel.headers?.find(entry => entry.source === "/")?.headers ?? []
+    const markdown = vercel.headers?.find(entry => entry.source === "/index.md")?.headers ?? []
+    const llms = vercel.headers?.find(entry => entry.source === "/llms.txt")?.headers ?? []
+    expect(home).toContainEqual({
+      key: "Link",
+      value: '</index.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(markdown).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
+    expect(llms).toContainEqual({
+      key: "Content-Type",
+      value: "text/plain; charset=utf-8",
+    })
+    expect(vercel.rewrites).toEqual([
+      {
+        source: "/",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/index.md",
+      },
+    ])
   })
 
   test("preserves the canonical Hraness footer", async () => {
@@ -731,5 +817,84 @@ describe("static Atet site", () => {
     expect(html).toContain('aria-label="hraness"')
     expect(html).toContain('class="hraness-mark"')
     expect(html).toContain("Atet · MIT · AI media generation and video editing for coding agents.")
+  })
+
+  test("selects markdown, HTML, and 406 from Accept quality values", () => {
+    expect(preferredRepresentation(null)).toBe("text/html")
+    expect(preferredRepresentation("")).toBe("text/html")
+    expect(preferredRepresentation("*/*")).toBe("text/html")
+    expect(preferredRepresentation("text/html")).toBe("text/html")
+    expect(preferredRepresentation("text/markdown")).toBe("text/markdown")
+    expect(preferredRepresentation("text/markdown, text/html, */*")).toBe("text/markdown")
+    expect(preferredRepresentation("text/html, text/markdown;q=0.9")).toBe("text/html")
+    expect(preferredRepresentation("text/html;q=0, */*;q=1")).toBe("text/markdown")
+    expect(preferredRepresentation("text/markdown;q=0, text/html;q=0")).toBeNull()
+    expect(preferredRepresentation("application/xml")).toBeNull()
+    expect(preferredRepresentation("application/json, image/png")).toBeNull()
+  })
+
+  test("negotiates homepage markdown, agent-friendly 404s, and 406 without an API route", async () => {
+    expect(isHomePath("/")).toBe(true)
+    expect(isHomePath("/index.html")).toBe(true)
+    expect(isPreservedRedirectPath("/docs")).toBe(true)
+    expect(isPreservedRedirectPath("/docs/install")).toBe(true)
+    expect(isNegotiableDocumentPath("/missing-route")).toBe(true)
+    expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
+    expect(isNegotiableDocumentPath("/index.md")).toBe(false)
+    expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
+
+    const markdownHome = negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownHome).toBeDefined()
+    expect(markdownHome?.status).toBe(200)
+    expect(markdownHome?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownHome?.headers.get("vary")).toBe("Accept, Accept-Encoding")
+    expect(markdownHome?.headers.get("link")).toContain('rel="canonical"')
+    expect(await markdownHome?.text()).toBe(homeMarkdown)
+
+    const htmlHome = negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "text/html" },
+    }))
+    expect(htmlHome).toBeUndefined()
+
+    const docsRedirect = negotiateSiteRequest(new Request("https://atet.sh/docs", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(docsRedirect).toBeUndefined()
+
+    const markdownNotFound = negotiateSiteRequest(new Request("https://atet.sh/this-path-does-not-exist", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownNotFound?.status).toBe(404)
+    expect(markdownNotFound?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownNotFound?.headers.get("vary")).toBe("Accept, Accept-Encoding")
+    expect(markdownNotFound?.headers.get("x-robots-tag")).toBe("noindex")
+    expect(await markdownNotFound?.text()).toBe(notFoundMarkdown)
+
+    const notAcceptable = negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "application/xml" },
+    }))
+    expect(notAcceptable?.status).toBe(406)
+    expect(notAcceptable?.headers.get("content-type")).toBe("text/plain; charset=utf-8")
+    expect(notAcceptable?.headers.get("vary")).toBe("Accept")
+    expect(await notAcceptable?.text()).toBe(notAcceptableBody)
+
+    const staticFile = negotiateSiteRequest(new Request("https://atet.sh/llms.txt", {
+      headers: { Accept: "application/xml" },
+    }))
+    expect(staticFile).toBeUndefined()
+
+    const html = await readSource("index.html")
+    const build = await readFile(join(appDirectory, "scripts/build.ts"), "utf8")
+    expect(html).not.toMatch(/\/api\//)
+    expect(build).not.toMatch(/\/api\//)
+    expect(build).toContain('writeFile(join(outputDirectory, file), contents)')
+    expect(middlewareConfig.matcher).toContain("/")
+    const middlewareMarkdown = middleware(new Request("https://atet.sh/", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(middlewareMarkdown?.status).toBe(200)
+    expect(await middlewareMarkdown?.text()).toBe(homeMarkdown)
   })
 })

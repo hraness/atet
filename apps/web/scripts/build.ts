@@ -3,6 +3,8 @@ import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
+import { homeMarkdown, llmsTxt, robotsTxt, sitemapMarkdown } from "../src/agent-pages"
+
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
 const sourceDirectory = join(appDirectory, "src")
 const defaultOutputDirectory = join(appDirectory, "dist")
@@ -16,9 +18,15 @@ const copiedFiles = [
   "apple-touch-icon.png",
   "icon.svg",
   "og.png",
-  "robots.txt",
   "sitemap.xml",
 ] as const
+
+const generatedTextFiles = {
+  "index.md": homeMarkdown,
+  "llms.txt": llmsTxt,
+  "robots.txt": robotsTxt,
+  "sitemap.md": sitemapMarkdown,
+} as const
 
 function assetPath(name: string, bytes: Uint8Array): string {
   const digest = createHash("sha256").update(bytes).digest("hex").slice(0, 12)
@@ -242,11 +250,18 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     })
   }
 
+  await Promise.all(Object.entries(generatedTextFiles).map(([file, contents]) => (
+    writeFile(join(outputDirectory, file), contents)
+  )))
+
   return { analyticsPath, stylesPath, themePath }
 }
 
 if (import.meta.main) {
   const result = await buildWebsite()
-  const generatedFiles = copiedFiles.length + 4 + (result.analyticsPath === null ? 0 : 1)
+  const generatedFiles = copiedFiles.length
+    + Object.keys(generatedTextFiles).length
+    + 4
+    + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
 }
