@@ -345,10 +345,83 @@ blockquote {
   color: var(--gold-bright);
 }
 
+.copy-command {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  margin-top: 1rem;
+  border: 1px solid var(--night-line);
+  border-radius: var(--radius-control);
+  background: var(--night-raised);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.copy-command__value {
+  min-width: 0;
+  padding: 0.95rem 1rem;
+  overflow-x: auto;
+  color: var(--night-ink);
+  font-size: clamp(0.72rem, 1.2vw, 0.86rem);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.copy-command__button {
+  min-width: 4.4rem;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.9rem;
+  border: 0;
+  border-left: 1px solid var(--night-line);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: transparent;
+  color: var(--night-muted);
+  cursor: pointer;
+  font-size: 0.73rem;
+  font-weight: 750;
+}
+
+.copy-command__button:hover,
+.copy-command__button[data-copy-state="copied"] {
+  background: color-mix(in srgb, var(--gold-bright) 13%, transparent);
+  color: var(--night-ink);
+}
+
+.copy-command__button[data-copy-state="failed"] {
+  color: var(--gold-bright);
+}
+
+.copy-command__note {
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--night-line);
+  color: var(--night-muted);
+  font-size: 0.76rem;
+  grid-column: 1 / -1;
+}
+
+.copy-command__note code {
+  color: var(--night-ink);
+  font-family: var(--font-mono);
+}
+
+.copy-command__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cli-install {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--night-line);
+}
+
 .install-commands {
   position: relative;
   padding: 0;
-  margin-top: 1.6rem;
+  margin-top: 1rem;
   list-style: none;
 }
 
@@ -1199,6 +1272,21 @@ blockquote {
     padding: 1.2rem;
   }
 
+  .copy-command {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .copy-command__button {
+    min-width: 0;
+    border-top: 1px solid var(--night-line);
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .copy-command__note {
+    grid-column: auto;
+  }
+
   .install-commands li {
     gap: 0.5rem;
     grid-template-columns: 1.5rem minmax(0, 1fr);
@@ -1230,6 +1318,7 @@ blockquote {
 
 @media (forced-colors: active) {
   .button,
+  .copy-command,
   .install-panel,
   .plain-aside,
   .reference-block {
@@ -1241,6 +1330,10 @@ blockquote {
     color: Canvas;
   }
 
+  .copy-command__button {
+    border-color: CanvasText;
+  }
+
   .solar-mark {
     display: none;
   }
@@ -1250,6 +1343,10 @@ blockquote {
   .topbar,
   .docs-index,
   .action-row {
+    display: none;
+  }
+
+  .copy-command__button {
     display: none;
   }
 

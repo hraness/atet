@@ -15,4 +15,5 @@
 - Keep these cross-repository workflows vendored and independently usable; never resolve a skill through a sibling checkout or Git submodule.
 - Refresh the KB skills from one reviewed immutable `hraness/kb` release and the orchestration skill from the reviewed portable template, then validate the complete copied directories.
 - Keep product-specific operating skills in the root `skills/` directory when present. Portable repository workflows belong here.
+- Mark every portable repository workflow with `metadata.internal: true` so public `skills add hraness/atet` discovery exposes only the product-owned `atet` skill.
 - Preserve upstream attribution and license notices for adapted public resources.

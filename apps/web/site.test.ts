@@ -178,14 +178,15 @@ describe("static Atet site", () => {
   })
 
   test("puts the complete agent install before the first section ends", async () => {
-    const html = await readSource("index.html")
+    const html = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
     const commands = [
+      "npx skills add hraness/atet",
       "bun add --global github:hraness/atet",
-      "atet skill install",
       "atet doctor",
     ]
     const positions = commands.map(command => html.indexOf(command))
+    const heroHtml = html.slice(0, html.indexOf("</section>") + "</section>".length)
 
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
@@ -195,13 +196,39 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("edit screen recordings and imported footage")
     expect(searchableHtml).toContain("add captions, graphics, and motion")
     expect(searchableHtml).toContain("export finished videos")
-    expect(html).toContain("Requires Bun 1.3.14+ · Installs for Codex by default")
+    expect(html).toContain("Install the Atet Agent Skill")
+    expect(html).toContain("Install the local media tools · Requires Bun 1.3.14+")
+    expect(html).toContain("Using Bun? <code>bunx skills add hraness/atet</code>")
     expect(html).toContain("inside the project you want to work")
     expect(html).toContain("start a new agent session")
+    expect(heroHtml).not.toContain("atet skill install")
+    expect(html).toContain("When that command is not being used")
     expect(html).toContain("atet skill install --target claude")
     expect(html).toContain("atet skill install --target agents")
     expect(html).toContain("--scope project")
     expect(html).not.toContain("github:hraness/atet#")
+  })
+
+  test("renders a progressively enhanced reusable copy command in the hero", async () => {
+    const [html, build, client] = await Promise.all([
+      readBuilt("index.html"),
+      readFile(join(appDirectory, "scripts/build.ts"), "utf8"),
+      readSource("copy-command.ts"),
+    ])
+
+    expect(build).toContain("function renderCopyCommand(options: CopyCommandOptions)")
+    expect(html.match(/data-copy-command(?:>|\s)/gu)).toHaveLength(1)
+    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add hraness/atet</code>')
+    expect(html).toContain("<code>bunx skills add hraness/atet</code>")
+    expect(html).toContain('aria-label="Copy install command"')
+    expect(html).toContain("data-copy-command-button hidden type=\"button\">Copy</button>")
+    expect(html).toContain('aria-live="polite"')
+    expect(html).toContain('aria-describedby="skill-install-copy-status"')
+    expect(client).toContain("button.hidden = false")
+    expect(client).toContain("navigator.clipboard.writeText(value)")
+    expect(client).toContain('ownerDocument.execCommand("copy")')
+    expect(client).toContain('button.addEventListener("click"')
+    expect(client).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
   test("uses one install, examples, workflow, and design information architecture", async () => {
@@ -368,6 +395,7 @@ describe("static Atet site", () => {
     const html = await readSource("index.html")
     const css = await readSource("styles.css")
     const theme = await readSource("theme.ts")
+    const copyCommand = await readSource("copy-command.ts")
     const analytics = await readSource("analytics.ts")
     const build = await readFile(join(appDirectory, "scripts/build.ts"), "utf8")
     const manifest = JSON.parse(
@@ -391,6 +419,7 @@ describe("static Atet site", () => {
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
     expect(new TextEncoder().encode(css).byteLength).toBeLessThan(28_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
+    expect(new TextEncoder().encode(copyCommand).byteLength).toBeLessThan(4_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)
     expect(html).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
     expect(html).toContain('<script src="{{THEME_ASSET}}"></script>')
@@ -401,7 +430,9 @@ describe("static Atet site", () => {
     expect(html.match(/<script\b/gu)).toHaveLength(2)
     expect(theme).toContain('from "@hraness/design-kit/browser"')
     expect(theme).toContain('storageKey: "atet.appearance"')
+    expect(theme).toContain('import { installCopyCommands } from "./copy-command"')
     expect(theme).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
+    expect(copyCommand).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
     expect(analytics).toContain('cookieless_mode: "always"')
     expect(analytics).toContain('person_profiles: "never"')
     expect(analytics).toContain("disable_external_dependency_loading: true")
@@ -416,6 +447,7 @@ describe("static Atet site", () => {
     expect(build).toContain('format: "iife"')
     expect(build).toContain('import.meta.resolve("@hraness/design-kit/appearance-menu.css")')
     expect(build).toContain("renderAppearanceMenu()")
+    expect(build).toContain("renderCopyCommand({")
     expect(build).toContain('environment.VERCEL_ENV !== "production"')
     expect(build).not.toContain("docsTemplate")
     expect(build).not.toContain('outputDirectory, "docs"')

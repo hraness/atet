@@ -8,12 +8,13 @@ const lockUnlock = 0x08
 const interruptedErrno = 4
 
 type NativeFlock = (descriptor: number, operation: number) => number
-type NativeErrnoLocation = () => Pointer | null
+type NativePointer = Pointer | bigint
+type NativeErrnoLocation = () => NativePointer | null
 
 interface NativeLocking {
   readonly errnoLocation: NativeErrnoLocation
   readonly flock: NativeFlock
-  readonly readInt32: (pointer: Pointer) => number
+  readonly readInt32: (pointer: NativePointer) => number
 }
 
 let nativeLocking: NativeLocking | undefined
@@ -75,7 +76,7 @@ function initializeNativeLocking(): NativeLocking {
     nativeLocking = {
       errnoLocation: library.symbols.__error,
       flock: library.symbols.flock,
-      readInt32: read.i32,
+      readInt32: read.i32 as (pointer: NativePointer) => number,
     }
     return nativeLocking
   }
@@ -94,7 +95,7 @@ function initializeNativeLocking(): NativeLocking {
         nativeLocking = {
           errnoLocation: library.symbols.__errno_location,
           flock: library.symbols.flock,
-          readInt32: read.i32,
+          readInt32: read.i32 as (pointer: NativePointer) => number,
         }
         return nativeLocking
       } catch (cause) {

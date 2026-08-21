@@ -71,6 +71,37 @@ function renderAppearanceMenu(): string {
   </div>`
 }
 
+type CopyCommandOptions = Readonly<{
+  alternateCommand: string
+  command: string
+  id: string
+}>
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/gu, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] ?? character)
+}
+
+function renderCopyCommand(options: CopyCommandOptions): string {
+  const alternateCommand = escapeHtml(options.alternateCommand)
+  const command = escapeHtml(options.command)
+  const id = escapeHtml(options.id)
+
+  return `<div class="copy-command" data-copy-command>
+    <code class="copy-command__value" data-copy-command-value>${command}</code>
+    <button aria-describedby="${id}" aria-label="Copy install command" class="copy-command__button"
+      data-copy-command-button hidden type="button">Copy</button>
+    <p class="copy-command__note">Using Bun? <code>${alternateCommand}</code></p>
+    <p aria-atomic="true" aria-live="polite" class="copy-command__status"
+      data-copy-command-status id="${id}"></p>
+  </div>`
+}
+
 type BuildEnvironment = Readonly<Record<string, string | undefined>>
 
 type BuildOptions = Readonly<{
@@ -179,6 +210,11 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     "{{ANALYTICS_SCRIPT}}": analyticsPath === null
       ? ""
       : `<script src="${analyticsPath}" type="module"></script>`,
+    "{{SKILL_INSTALL_COMMAND}}": renderCopyCommand({
+      alternateCommand: "bunx skills add hraness/atet",
+      command: "npx skills add hraness/atet",
+      id: "skill-install-copy-status",
+    }),
   } as const
 
   await rm(outputDirectory, { force: true, recursive: true })

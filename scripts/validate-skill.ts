@@ -1,9 +1,46 @@
-import { access, readFile } from "node:fs/promises"
-import { join } from "node:path"
+import { access, readFile, readdir } from "node:fs/promises"
+import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 
 const root = join(process.cwd(), "skills", "atet")
 const skillPath = join(root, "SKILL.md")
 const text = await readFile(skillPath, "utf8")
+
+const publicSkills = (await readdir(join(process.cwd(), "skills"), { withFileTypes: true }))
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+if (publicSkills.length !== 1 || publicSkills[0] !== "atet") {
+  throw new Error(`Package must expose only skills/atet; found ${publicSkills.join(", ")}`)
+}
+
+async function collectMarkdownFiles(directory: string): Promise<readonly string[]> {
+  const paths: string[] = []
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name)
+    if (entry.isDirectory()) paths.push(...(await collectMarkdownFiles(path)))
+    else if (entry.isFile() && entry.name.endsWith(".md")) paths.push(path)
+  }
+  return paths
+}
+
+async function validateLocalMarkdownLinks(): Promise<void> {
+  for (const markdownPath of await collectMarkdownFiles(root)) {
+    const markdown = await readFile(markdownPath, "utf8")
+    for (const link of markdown.matchAll(/\]\(([^)#]+\.md)(?:#[^)]+)?\)/g)) {
+      const targetText = link[1]
+      if (targetText === undefined || /^[a-z][a-z0-9+.-]*:/iu.test(targetText)) continue
+      const target = resolve(dirname(markdownPath), targetText)
+      const skillRelative = relative(root, target)
+      if (skillRelative.startsWith("..") || isAbsolute(skillRelative)) {
+        throw new Error(`Skill link escapes its bundle: ${targetText}`)
+      }
+      try {
+        await access(target)
+      } catch {
+        throw new Error(`Skill link target is missing: ${targetText}`)
+      }
+    }
+  }
+}
 const match = /^---\n([\s\S]*?)\n---\n/.exec(text)
 if (match === null) throw new Error("SKILL.md must start with YAML frontmatter")
 
@@ -28,20 +65,45 @@ if ((frontmatter.description?.length ?? 0) < 40) {
 if ((frontmatter.description?.length ?? 0) > 1024) {
   throw new Error("Skill description must be at most 1024 characters")
 }
+const linkedReferences = new Set(
+  [...text.matchAll(/\]\((references\/[^)#]+)(?:#[^)]+)?\)/g)]
+    .map((reference) => reference[1])
+    .filter((path): path is string => path !== undefined),
+)
 for (const relativePath of [
-  "agents/openai.yaml",
   "references/customization.md",
+  "references/gateway-media.md",
+  "references/install.md",
   "references/reference-led-3d.md",
+  "references/video-projects.md",
   "references/visual-communication.md",
 ]) {
+  if (!linkedReferences.has(relativePath)) {
+    throw new Error(`SKILL.md must route to ${relativePath}`)
+  }
   try {
     await access(join(root, relativePath))
   } catch {
     throw new Error(`Skill is missing ${relativePath}`)
   }
 }
+try {
+  await access(join(root, "agents", "openai.yaml"))
+} catch {
+  throw new Error("Skill is missing agents/openai.yaml")
+}
 const openai = await readFile(join(root, "agents", "openai.yaml"), "utf8")
 for (const required of ["display_name:", "short_description:", "default_prompt:"]) {
   if (!openai.includes(required)) throw new Error(`agents/openai.yaml is missing ${required}`)
 }
+if (!openai.includes("$atet")) throw new Error("agents/openai.yaml default prompt must invoke $atet")
+const install = await readFile(join(root, "references", "install.md"), "utf8")
+const manifest = JSON.parse(await readFile(join(process.cwd(), "package.json"), "utf8")) as {
+  readonly version?: unknown
+}
+if (typeof manifest.version !== "string") throw new Error("package version is missing")
+if (!install.includes(`github:hraness/atet#v${manifest.version}`)) {
+  throw new Error("Skill install pin must match the package version")
+}
+await validateLocalMarkdownLinks()
 console.log("atet skill is valid")

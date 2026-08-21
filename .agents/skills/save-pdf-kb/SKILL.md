@@ -7,6 +7,8 @@ description: >-
   archive, extract, or turn a PDF into KB Markdown, especially scanned
   documents and PDFs containing screenshots, Slack messages, charts, photos,
   or a mix of native text and images.
+metadata:
+  internal: true
 ---
 
 # Save a PDF to the knowledge base
