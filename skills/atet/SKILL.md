@@ -1,6 +1,6 @@
 ---
 name: atet
-description: Make and edit visual media with the installed Atet CLI. Use for screen and camera recording, non-destructive video editing, pause or filler-word cleanup, speaker framing, screen zooms, captions, overlays, social video variants, AI image or video generation, speech, transcription, editable diagrams, raster-to-SVG conversion, deterministic animated loops, Three.js scenes, semantic Atet operations, or typed Bun workflows.
+description: Use Atet to create, generate, record, edit, and render visual media with a local CLI and coding agent. Trigger for AI image or video generation, screen, camera, microphone, or system-audio recording, non-destructive video editing, silence and filler-word removal, captions or subtitles, speaker framing, screen zooms, overlays, motion graphics, social video variants, voice or speech, transcription, editable diagrams and flowcharts, raster-to-SVG vectorization, Three.js or 3D scenes, transparent animated loops, semantic media operations, and typed Bun workflows.
 ---
 
 # Make and edit visual media with Atet
@@ -8,6 +8,14 @@ description: Make and edit visual media with the installed Atet CLI. Use for scr
 Use the installed `atet` CLI as the execution surface. Begin with the result
 the user asked for, inspect the source and existing Atet project state, then
 choose the narrowest workflow that can produce and verify that result.
+
+## Install or verify Atet
+
+Start with `atet --help`. If the command is unavailable, read
+[installation and readiness](references/install.md) and install the pinned CLI
+before continuing when the user's request includes installing or using Atet.
+Do not guess a source-tree command or initialize a media project merely because
+the skill was installed.
 
 ## Choose the right workflow
 

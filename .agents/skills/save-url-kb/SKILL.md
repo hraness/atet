@@ -8,6 +8,8 @@ description: >-
   YouTube page, or another page already visible in their browser. Supports URL
   capture, the current signed-in tab, temporary browser-profile snapshots,
   saved HTML, media, evidence, honest completeness, and knowledge-base linking.
+metadata:
+  internal: true
 ---
 
 # Capture web content

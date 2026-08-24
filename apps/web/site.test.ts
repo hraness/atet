@@ -9,6 +9,21 @@ import {
   posthogCookielessDistinctId,
   sanitizePageview,
 } from "./src/analytics-contract"
+import {
+  homeMarkdown,
+  llmsTxt,
+  notFoundMarkdown,
+  robotsTxt,
+  sitemapMarkdown,
+} from "./src/agent-pages"
+import { notAcceptableBody, preferredRepresentation } from "./src/negotiate"
+import {
+  isHomePath,
+  isNegotiableDocumentPath,
+  isPreservedRedirectPath,
+  negotiateSiteRequest,
+} from "./src/negotiate-request"
+import middleware, { config as middlewareConfig } from "./middleware"
 import { buildWebsite } from "./scripts/build"
 
 const appDirectory = dirname(fileURLToPath(import.meta.url))
@@ -23,6 +38,10 @@ beforeAll(async () => {
 
 async function readSource(path: string): Promise<string> {
   return await readFile(join(appDirectory, "src", path), "utf8")
+}
+
+async function readBuilt(path: string): Promise<string> {
+  return await readFile(join(appDirectory, "dist", path), "utf8")
 }
 
 describe("static Atet site", () => {
@@ -116,6 +135,8 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
     expect(html).not.toContain('<meta name="keywords"')
     expect(html).toContain('<link rel="canonical" href="https://atet.sh/">')
+    expect(html).toContain('<link rel="alternate" type="text/markdown" href="/index.md">')
+    expect(html).toContain('<link rel="describedby" href="/llms.txt">')
     expect(html).toContain('<meta property="og:url" content="https://atet.sh/">')
     expect(html).toContain('<meta property="og:image" content="https://atet.sh/og.png">')
     expect(html).toContain('<meta property="og:image:width" content="1200">')
@@ -174,14 +195,15 @@ describe("static Atet site", () => {
   })
 
   test("puts the complete agent install before the first section ends", async () => {
-    const html = await readSource("index.html")
+    const html = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
     const commands = [
+      "npx skills add hraness/atet",
       "bun add --global github:hraness/atet",
-      "atet skill install",
       "atet doctor",
     ]
     const positions = commands.map(command => html.indexOf(command))
+    const heroHtml = html.slice(0, html.indexOf("</section>") + "</section>".length)
 
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
@@ -191,13 +213,39 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("edit screen recordings and imported footage")
     expect(searchableHtml).toContain("add captions, graphics, and motion")
     expect(searchableHtml).toContain("export finished videos")
-    expect(html).toContain("Requires Bun 1.3.14+ · Installs for Codex by default")
+    expect(html).toContain("Install the Atet Agent Skill")
+    expect(html).toContain("Install the local media tools · Requires Bun 1.3.14+")
+    expect(html).toContain("Using Bun? <code>bunx skills add hraness/atet</code>")
     expect(html).toContain("inside the project you want to work")
     expect(html).toContain("start a new agent session")
+    expect(heroHtml).not.toContain("atet skill install")
+    expect(html).toContain("When that command is not being used")
     expect(html).toContain("atet skill install --target claude")
     expect(html).toContain("atet skill install --target agents")
     expect(html).toContain("--scope project")
     expect(html).not.toContain("github:hraness/atet#")
+  })
+
+  test("renders a progressively enhanced reusable copy command in the hero", async () => {
+    const [html, build, client] = await Promise.all([
+      readBuilt("index.html"),
+      readFile(join(appDirectory, "scripts/build.ts"), "utf8"),
+      readSource("copy-command.ts"),
+    ])
+
+    expect(build).toContain("function renderCopyCommand(options: CopyCommandOptions)")
+    expect(html.match(/data-copy-command(?:>|\s)/gu)).toHaveLength(1)
+    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add hraness/atet</code>')
+    expect(html).toContain("<code>bunx skills add hraness/atet</code>")
+    expect(html).toContain('aria-label="Copy install command"')
+    expect(html).toContain("data-copy-command-button hidden type=\"button\">Copy</button>")
+    expect(html).toContain('aria-live="polite"')
+    expect(html).toContain('aria-describedby="skill-install-copy-status"')
+    expect(client).toContain("button.hidden = false")
+    expect(client).toContain("navigator.clipboard.writeText(value)")
+    expect(client).toContain('ownerDocument.execCommand("copy")')
+    expect(client).toContain('button.addEventListener("click"')
+    expect(client).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
   test("uses one install, examples, workflow, and design information architecture", async () => {
@@ -281,6 +329,7 @@ describe("static Atet site", () => {
     expect(html.match(/<h1\b/gu)).toHaveLength(1)
     expect(html).toContain('<a class="skip-link" href="#main">')
     expect(html).toContain('<nav aria-label="Primary">')
+    expect(html).toContain('<div class="topbar-actions">')
     expect(html).toContain('<main id="main" tabindex="-1">')
     expect(html).not.toMatch(/<section(?![^>]*aria-labelledby)/)
     expect(fragmentLinks.every(fragment => ids.has(fragment))).toBe(true)
@@ -292,6 +341,39 @@ describe("static Atet site", () => {
     expect(css).toContain("@media (max-width: 34rem)")
     expect(css).toContain("@media (prefers-reduced-motion: reduce)")
     expect(css).toContain("@media (forced-colors: active)")
+  })
+
+  test("owns one shared appearance menu as the final action in every header", async () => {
+    const [html, notFound] = await Promise.all([
+      readBuilt("index.html"),
+      readBuilt("404.html"),
+    ])
+
+    for (const document of [html, notFound]) {
+      expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
+      expect(document).toMatch(
+        /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
+      )
+      expect(document.slice(document.indexOf('<footer class="site-footer">')))
+        .not.toContain("data-hraness-appearance-menu")
+      expect(document).not.toContain('class="appearance"')
+      expect(document).not.toContain("data-theme-choice")
+      expect(document).toContain('aria-label="Appearance: System"')
+      expect(document).toContain('aria-haspopup="menu"')
+      expect(document).toContain('aria-label="Appearance"')
+      expect(document.match(/role="menuitemradio"/gu)).toHaveLength(3)
+      expect([...document.matchAll(/data-theme-value="(light|dark|system)" role="menuitemradio"/gu)]
+        .map(match => match[1])).toEqual(["light", "dark", "system"])
+    }
+
+    expect(notFound).toContain('<a class="skip-link" href="#main">')
+    expect(notFound).toContain('<main class="route-state" id="main" tabindex="-1">')
+    expect(notFound).toContain('<meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)">')
+    expect(notFound).toContain('<meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">')
+    expect(notFound).toContain('href="/llms.txt"')
+    expect(notFound).toContain('href="/sitemap.md"')
+    expect(notFound).toContain('href="/sitemap.xml"')
+    expect(notFound).toContain("machine-readable site guide")
   })
 
   test("uses a restrained editorial visual system", async () => {
@@ -333,7 +415,8 @@ describe("static Atet site", () => {
   test("keeps the static shell fingerprinted and analytics explicit", async () => {
     const html = await readSource("index.html")
     const css = await readSource("styles.css")
-    const theme = await readSource("theme.js")
+    const theme = await readSource("theme.ts")
+    const copyCommand = await readSource("copy-command.ts")
     const analytics = await readSource("analytics.ts")
     const build = await readFile(join(appDirectory, "scripts/build.ts"), "utf8")
     const manifest = JSON.parse(
@@ -344,20 +427,33 @@ describe("static Atet site", () => {
     ) as { workspaces?: { catalog?: Record<string, string> } }
     const localLockfile = await readFile(join(appDirectory, "bun.lock"), "utf8")
 
-    expect(manifest.dependencies).toEqual({ "posthog-js": "1.413.2" })
+    expect(manifest.dependencies).toEqual({
+      "@hraness/design-kit": "github:hraness/design-kit#v0.1.8",
+      "posthog-js": "1.413.2",
+    })
     expect(manifest.devDependencies).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
+    expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
+    expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.1.8"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     expect(localLockfile).not.toContain("catalog:")
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
     expect(new TextEncoder().encode(css).byteLength).toBeLessThan(28_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
+    expect(new TextEncoder().encode(copyCommand).byteLength).toBeLessThan(4_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)
     expect(html).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
-    expect(html).toContain('<script src="{{THEME_ASSET}}" defer></script>')
+    expect(html).toContain('<script src="{{THEME_ASSET}}"></script>')
+    expect(html.indexOf('<script src="{{THEME_ASSET}}"></script>'))
+      .toBeLessThan(html.indexOf('<link rel="stylesheet" href="{{CSS_ASSET}}">'))
+    expect(html).toContain("{{APPEARANCE_MENU}}")
     expect(html).toContain("{{ANALYTICS_SCRIPT}}")
     expect(html.match(/<script\b/gu)).toHaveLength(2)
+    expect(theme).toContain('from "@hraness/design-kit/browser"')
+    expect(theme).toContain('storageKey: "atet.appearance"')
+    expect(theme).toContain('import { installCopyCommands } from "./copy-command"')
     expect(theme).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
+    expect(copyCommand).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
     expect(analytics).toContain('cookieless_mode: "always"')
     expect(analytics).toContain('person_profiles: "never"')
     expect(analytics).toContain("disable_external_dependency_loading: true")
@@ -369,6 +465,10 @@ describe("static Atet site", () => {
     expect(analytics).not.toMatch(/identify\(|autocapture:\s*true|capture_pageleave:\s*true/)
     expect(build).toContain('createHash("sha256")')
     expect(build).toContain("Bun.build")
+    expect(build).toContain('format: "iife"')
+    expect(build).toContain('import.meta.resolve("@hraness/design-kit/appearance-menu.css")')
+    expect(build).toContain("renderAppearanceMenu()")
+    expect(build).toContain("renderCopyCommand({")
     expect(build).toContain('environment.VERCEL_ENV !== "production"')
     expect(build).not.toContain("docsTemplate")
     expect(build).not.toContain('outputDirectory, "docs"')
@@ -509,11 +609,11 @@ describe("static Atet site", () => {
     ])
 
     expect(html).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
-    expect(html).toContain(`<script src="${builtAssets.themePath}" defer></script>`)
+    expect(html).toContain(`<script src="${builtAssets.themePath}"></script>`)
     expect(builtAssets.analyticsPath).toBeNull()
     expect(html).not.toMatch(/analytics-/)
     expect(notFound).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
-    expect(notFound).toContain(`<script src="${builtAssets.themePath}" defer></script>`)
+    expect(notFound).toContain(`<script src="${builtAssets.themePath}"></script>`)
     expect(`${html}\n${notFound}`).not.toContain("{{")
     expect(rootFiles.sort()).toEqual([
       "404.html",
@@ -521,31 +621,62 @@ describe("static Atet site", () => {
       "assets",
       "icon.svg",
       "index.html",
+      "index.md",
+      "llms.txt",
       "og.png",
       "robots.txt",
+      "sitemap.md",
       "sitemap.xml",
     ])
     expect(assetFiles.sort()).toEqual([
       builtAssets.stylesPath.split("/").at(-1)!,
       builtAssets.themePath.split("/").at(-1)!,
     ].sort())
+
+    const [stylesAsset, themeAsset] = await Promise.all([
+      readFile(join(appDirectory, "dist", builtAssets.stylesPath.slice(1)), "utf8"),
+      readFile(join(appDirectory, "dist", builtAssets.themePath.slice(1)), "utf8"),
+    ])
+    expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
+    expect(stylesAsset).toContain("@media (pointer: coarse)")
+    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(36_000)
+    expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
+    expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
+    expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
-  test("publishes only the canonical page to crawler discovery", async () => {
-    const robots = await readSource("robots.txt")
-    const sitemap = await readSource("sitemap.xml")
-    const notFound = await readSource("404.html")
+  test("publishes crawler discovery for the home page and its markdown mirror", async () => {
+    const [robots, sitemap, notFound, builtRobots, builtLlms, builtHomeMarkdown, builtSitemapMarkdown] = await Promise.all([
+      Promise.resolve(robotsTxt),
+      readSource("sitemap.xml"),
+      readSource("404.html"),
+      readBuilt("robots.txt"),
+      readBuilt("llms.txt"),
+      readBuilt("index.md"),
+      readBuilt("sitemap.md"),
+    ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
       .map(match => match[1])
 
     expect(robots).toBe([
       "User-agent: OAI-SearchBot",
+      "User-agent: ChatGPT-User",
+      "User-agent: GPTBot",
       "Allow: /",
       "",
       "User-agent: Claude-SearchBot",
+      "User-agent: Claude-User",
+      "User-agent: ClaudeBot",
       "Allow: /",
       "",
-      "User-agent: Claude-User",
+      "User-agent: PerplexityBot",
+      "User-agent: Perplexity-User",
+      "Allow: /",
+      "",
+      "User-agent: Google-Extended",
+      "Allow: /",
+      "",
+      "User-agent: CCBot",
       "Allow: /",
       "",
       "User-agent: *",
@@ -554,8 +685,24 @@ describe("static Atet site", () => {
       "Sitemap: https://atet.sh/sitemap.xml",
       "",
     ].join("\n"))
-    expect(locations).toEqual(["https://atet.sh/"])
+    expect(robots).not.toMatch(/^\s*Disallow:/mu)
+    expect(builtRobots).toBe(robotsTxt)
+    expect(locations).toEqual(["https://atet.sh/", "https://atet.sh/index.md"])
+    expect(sitemap).toContain("<lastmod>2026-08-21</lastmod>")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
+    expect(builtLlms).toBe(llmsTxt)
+    expect(builtHomeMarkdown).toBe(homeMarkdown)
+    expect(builtSitemapMarkdown).toBe(sitemapMarkdown)
+    expect(llmsTxt).toMatch(/^# Atet\n/u)
+    expect(llmsTxt).toContain("> Atet gives coding agents tools")
+    expect(llmsTxt).toContain("## When to use Atet")
+    expect(llmsTxt).toContain("https://atet.sh/index.md")
+    expect(sitemapMarkdown).toContain("# Sitemap")
+    expect(sitemapMarkdown).toContain("https://atet.sh/index.md")
+    expect(homeMarkdown).toContain("## Sitemap")
+    expect(homeMarkdown).toContain("https://atet.sh/sitemap.md")
+    expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
+    expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
   })
 
   test("redirects the retired docs route and each reviewed predecessor host", async () => {
@@ -615,6 +762,11 @@ describe("static Atet site", () => {
       await readFile(join(appDirectory, "vercel.json"), "utf8"),
     ) as {
       headers?: Array<{ source?: string; headers?: Array<{ key?: string; value?: string }> }>
+      rewrites?: Array<{
+        source?: string
+        destination?: string
+        has?: Array<{ type?: string; key?: string; value?: string }>
+      }>
     }
     const global = vercel.headers?.find(entry => entry.source === "/(.*)")?.headers ?? []
     const assets = vercel.headers?.find(entry => entry.source === "/assets/(.*)")?.headers ?? []
@@ -628,10 +780,34 @@ describe("static Atet site", () => {
     expect(csp).toContain("object-src 'none'")
     expect(byKey.get("Referrer-Policy")).toBe("no-referrer")
     expect(byKey.get("Strict-Transport-Security")).toContain("includeSubDomains")
+    expect(byKey.get("Vary")).toBe("Accept, Accept-Encoding")
     expect(assets).toContainEqual({
       key: "Cache-Control",
       value: "public, max-age=31536000, immutable",
     })
+
+    const home = vercel.headers?.find(entry => entry.source === "/")?.headers ?? []
+    const markdown = vercel.headers?.find(entry => entry.source === "/index.md")?.headers ?? []
+    const llms = vercel.headers?.find(entry => entry.source === "/llms.txt")?.headers ?? []
+    expect(home).toContainEqual({
+      key: "Link",
+      value: '</index.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(markdown).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
+    expect(llms).toContainEqual({
+      key: "Content-Type",
+      value: "text/plain; charset=utf-8",
+    })
+    expect(vercel.rewrites).toEqual([
+      {
+        source: "/",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/index.md",
+      },
+    ])
   })
 
   test("preserves the canonical Hraness footer", async () => {
@@ -641,5 +817,84 @@ describe("static Atet site", () => {
     expect(html).toContain('aria-label="hraness"')
     expect(html).toContain('class="hraness-mark"')
     expect(html).toContain("Atet · MIT · AI media generation and video editing for coding agents.")
+  })
+
+  test("selects markdown, HTML, and 406 from Accept quality values", () => {
+    expect(preferredRepresentation(null)).toBe("text/html")
+    expect(preferredRepresentation("")).toBe("text/html")
+    expect(preferredRepresentation("*/*")).toBe("text/html")
+    expect(preferredRepresentation("text/html")).toBe("text/html")
+    expect(preferredRepresentation("text/markdown")).toBe("text/markdown")
+    expect(preferredRepresentation("text/markdown, text/html, */*")).toBe("text/markdown")
+    expect(preferredRepresentation("text/html, text/markdown;q=0.9")).toBe("text/html")
+    expect(preferredRepresentation("text/html;q=0, */*;q=1")).toBe("text/markdown")
+    expect(preferredRepresentation("text/markdown;q=0, text/html;q=0")).toBeNull()
+    expect(preferredRepresentation("application/xml")).toBeNull()
+    expect(preferredRepresentation("application/json, image/png")).toBeNull()
+  })
+
+  test("negotiates homepage markdown, agent-friendly 404s, and 406 without an API route", async () => {
+    expect(isHomePath("/")).toBe(true)
+    expect(isHomePath("/index.html")).toBe(true)
+    expect(isPreservedRedirectPath("/docs")).toBe(true)
+    expect(isPreservedRedirectPath("/docs/install")).toBe(true)
+    expect(isNegotiableDocumentPath("/missing-route")).toBe(true)
+    expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
+    expect(isNegotiableDocumentPath("/index.md")).toBe(false)
+    expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
+
+    const markdownHome = negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownHome).toBeDefined()
+    expect(markdownHome?.status).toBe(200)
+    expect(markdownHome?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownHome?.headers.get("vary")).toBe("Accept, Accept-Encoding")
+    expect(markdownHome?.headers.get("link")).toContain('rel="canonical"')
+    expect(await markdownHome?.text()).toBe(homeMarkdown)
+
+    const htmlHome = negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "text/html" },
+    }))
+    expect(htmlHome).toBeUndefined()
+
+    const docsRedirect = negotiateSiteRequest(new Request("https://atet.sh/docs", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(docsRedirect).toBeUndefined()
+
+    const markdownNotFound = negotiateSiteRequest(new Request("https://atet.sh/this-path-does-not-exist", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownNotFound?.status).toBe(404)
+    expect(markdownNotFound?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownNotFound?.headers.get("vary")).toBe("Accept, Accept-Encoding")
+    expect(markdownNotFound?.headers.get("x-robots-tag")).toBe("noindex")
+    expect(await markdownNotFound?.text()).toBe(notFoundMarkdown)
+
+    const notAcceptable = negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "application/xml" },
+    }))
+    expect(notAcceptable?.status).toBe(406)
+    expect(notAcceptable?.headers.get("content-type")).toBe("text/plain; charset=utf-8")
+    expect(notAcceptable?.headers.get("vary")).toBe("Accept")
+    expect(await notAcceptable?.text()).toBe(notAcceptableBody)
+
+    const staticFile = negotiateSiteRequest(new Request("https://atet.sh/llms.txt", {
+      headers: { Accept: "application/xml" },
+    }))
+    expect(staticFile).toBeUndefined()
+
+    const html = await readSource("index.html")
+    const build = await readFile(join(appDirectory, "scripts/build.ts"), "utf8")
+    expect(html).not.toMatch(/\/api\//)
+    expect(build).not.toMatch(/\/api\//)
+    expect(build).toContain('writeFile(join(outputDirectory, file), contents)')
+    expect(middlewareConfig.matcher).toContain("/")
+    const middlewareMarkdown = middleware(new Request("https://atet.sh/", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(middlewareMarkdown?.status).toBe(200)
+    expect(await middlewareMarkdown?.text()).toBe(homeMarkdown)
   })
 })

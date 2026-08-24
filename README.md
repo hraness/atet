@@ -2,6 +2,8 @@
 
 [![Atet: AI media generation and video editing for coding agents](https://atet.sh/og.png)](https://atet.sh)
 
+[![skills.sh](https://skills.sh/b/hraness/atet)](https://skills.sh/hraness/atet)
+
 **AI media generation and video editing for coding agents.**
 
 Atet lets Codex, Claude, and other coding agents generate images, video, and
@@ -17,15 +19,30 @@ an Atet service.
 
 ## Install Atet
 
-Atet requires [Bun 1.3.14 or newer](https://bun.sh). Run these commands once:
+Install the single Atet Agent Skill with either runner:
+
+```sh
+npx skills add hraness/atet
+# or
+bunx skills add hraness/atet
+```
+
+Start a new agent session after installing the skill. It teaches Codex, Claude
+Code, Cursor, and other compatible agents how to turn a finished-media request
+into checked Atet operations.
+
+Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
+then inspect the local media host:
 
 ```sh
 bun add --global github:hraness/atet
-atet skill install
+atet doctor
 ```
 
-The first command installs the Atet CLI. The second installs a short guide that
-teaches Codex when and how to use it.
+The CLI carries the guide released with that exact CLI version. Prefer the
+public `skills` command for the current repository guide. Use
+`atet skill install` when you specifically need the CLI's version-matched
+runner installer.
 
 Move into the project where you want Atet to work, then check the available
 recording, rendering, browser, and media tools:
@@ -35,8 +52,9 @@ cd /path/to/your/project
 atet doctor
 ```
 
-Start a new agent session after installing the skill. The default installation
-works with Codex across your user account.
+The public `skills` command follows the scope selected in that installer. If
+you instead use the CLI's version-matched guide, `atet skill install` defaults
+to Codex across your user account.
 
 For Claude Code or another system that reads Agent Skills:
 

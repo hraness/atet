@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#09090d" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">
+    <script src="{{THEME_ASSET}}"></script>
     <title>Atet: AI media generation and video editing for coding agents</title>
     <meta name="description" content="Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos.">
     <meta name="application-name" content="Atet">
@@ -16,6 +17,8 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="{{CSS_ASSET}}">
     <link rel="sitemap" type="application/xml" href="/sitemap.xml">
+    <link rel="alternate" type="text/markdown" href="/index.md">
+    <link rel="describedby" href="/llms.txt">
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Atet">
@@ -114,17 +117,19 @@
         ]
       }
     </script>
-    <script src="{{THEME_ASSET}}" defer></script>
     {{ANALYTICS_SCRIPT}}
   </head>
   <body class="docs-route">
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="topbar">
       <a aria-label="Atet home" class="wordmark" href="/">Atet</a>
-      <nav aria-label="Primary">
-        <a href="#install">Install</a>
-        <a class="nav-github" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
-      </nav>
+      <div class="topbar-actions">
+        <nav aria-label="Primary">
+          <a href="#install">Install</a>
+          <a class="nav-github" href="https://github.com/hraness/atet">GitHub <span aria-hidden="true">↗</span></a>
+        </nav>
+        {{APPEARANCE_MENU}}
+      </div>
     </header>
 
     <main id="main" tabindex="-1">
@@ -140,17 +145,20 @@
           </p>
         </div>
 
-        <div class="install-panel docs-install-panel" aria-label="Install Atet for Codex">
-          <p class="panel-label">Requires Bun 1.3.14+ · Installs for Codex by default</p>
-          <ol class="install-commands">
-            <li><span>01</span><code>bun add --global github:hraness/atet</code></li>
-            <li><span>02</span><code>atet skill install</code></li>
-            <li><span>03</span><code>atet doctor</code></li>
-          </ol>
-          <p class="panel-note">
-            Run <code>atet doctor</code> inside the project you want to work
-            in. Then start a new agent session and describe the finished result.
-          </p>
+        <div class="install-panel docs-install-panel" aria-label="Install Atet for your coding agent">
+          <p class="panel-label">Install the Atet Agent Skill</p>
+          {{SKILL_INSTALL_COMMAND}}
+          <div class="cli-install">
+            <p class="panel-label">Install the local media tools · Requires Bun 1.3.14+</p>
+            <ol class="install-commands">
+              <li><span>01</span><code>bun add --global github:hraness/atet</code></li>
+              <li><span>02</span><code>atet doctor</code></li>
+            </ol>
+            <p class="panel-note">
+              Run <code>atet doctor</code> inside the project you want to work
+              in. Then start a new agent session and describe the finished result.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -163,14 +171,16 @@
 
       <div class="docs-page">
         <section aria-labelledby="targets-title" class="docs-section install-details">
-          <div class="docs-label"><p>Other setups</p></div>
+          <div class="docs-label"><p>Version-matched guide</p></div>
           <div class="docs-prose">
-            <h2 id="targets-title">Install the instructions where your agent can read them.</h2>
+            <h2 id="targets-title">Use the guide shipped with the CLI when you need it.</h2>
             <p>
               The CLI performs the work. The Agent Skill explains the creative
               tools and the decisions an agent should make before it uses them.
-              By default, Atet installs that guide for Codex across your user
-              account.
+              The public skills command above installs the current repository
+              guide. When that command is not being used, <code>atet skill
+              install</code> installs the guide shipped with your CLI for Codex
+              by default.
             </p>
             <dl class="setup-options">
               <div><dt>Claude Code</dt><dd><code>atet skill install --target claude</code></dd></div>
@@ -310,12 +320,6 @@
           <span>hraness</span>
         </a>
         <p class="footer-note">Atet · MIT · AI media generation and video editing for coding agents.</p>
-        <fieldset class="appearance" aria-label="Appearance">
-          <legend>Appearance</legend>
-          <button type="button" data-theme-choice="light">Light</button>
-          <button type="button" data-theme-choice="dark">Dark</button>
-          <button type="button" data-theme-choice="system" aria-pressed="true">System</button>
-        </fieldset>
       </div>
     </footer>
   </body>
