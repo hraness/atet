@@ -742,16 +742,11 @@ describe("static Atet site", () => {
       { source: "/:path*", host: { type: "host", value: "hraness.graphics" }, destination: "https://atet.sh/:path*", permanent: true },
       { source: "/", host: { type: "host", value: "hraness.studio" }, destination: "https://atet.sh/", permanent: true },
       { source: "/:path*", host: { type: "host", value: "hraness.studio" }, destination: "https://atet.sh/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "preview.hraness.graphics" }, destination: "https://preview.atet.sh/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "preview.hraness.graphics" }, destination: "https://preview.atet.sh/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "preview.hraness.studio" }, destination: "https://preview.atet.sh/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "preview.hraness.studio" }, destination: "https://preview.atet.sh/:path*", permanent: true },
     ])
 
     for (const redirect of hostRedirects) {
       const sourceHost = redirect.host?.value
       expect(sourceHost).not.toBe("atet.sh")
-      expect(sourceHost).not.toBe("preview.atet.sh")
       expect(new URL(redirect.destination?.replace(":path*", "") ?? "https://invalid").host)
         .not.toBe(sourceHost)
     }

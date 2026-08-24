@@ -31,30 +31,6 @@
       "permanent": true
     },
     {
-      "source": "/",
-      "has": [{ "type": "host", "value": "preview.hraness.graphics" }],
-      "destination": "https://preview.atet.sh/",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "preview.hraness.graphics" }],
-      "destination": "https://preview.atet.sh/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/",
-      "has": [{ "type": "host", "value": "preview.hraness.studio" }],
-      "destination": "https://preview.atet.sh/",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "preview.hraness.studio" }],
-      "destination": "https://preview.atet.sh/:path*",
-      "permanent": true
-    },
-    {
       "source": "/docs",
       "destination": "/",
       "permanent": true
