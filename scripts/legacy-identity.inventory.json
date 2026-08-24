@@ -902,18 +902,18 @@
     ]
   },
   {
-    "identityLineCount": 8,
-    "identityLinesSha256": "bddc096e7f8b2a6d19b94469adb2e1569590688ec0f2fc4fd56a0af54161405a",
-    "occurrenceCount": 8,
+    "identityLineCount": 4,
+    "identityLinesSha256": "7a896f6e821a179e4dfb6acf5df5615acf6fa20d9f536c4f8a343ed8bd705cac",
+    "occurrenceCount": 4,
     "path": "apps/web/site.test.ts",
     "categories": [
       "test-fixture"
     ]
   },
   {
-    "identityLineCount": 8,
-    "identityLinesSha256": "5a6404082d3ddde96ed5bd537a9acaae3e34fa6a1d339c382f671abbb00ad5ef",
-    "occurrenceCount": 8,
+    "identityLineCount": 4,
+    "identityLinesSha256": "bad6e291def718ece68a5ad2f8ffb0a54149dd53855927cb8f70f2fd9947c9b3",
+    "occurrenceCount": 4,
     "path": "apps/web/vercel.json",
     "categories": [
       "legacy-redirect",
@@ -930,9 +930,9 @@
     ]
   },
   {
-    "identityLineCount": 3,
-    "identityLinesSha256": "da5808d8ec1512f6561e2f63d2516e3c0ccc722bcd5d4ff78961ffc83566289f",
-    "occurrenceCount": 4,
+    "identityLineCount": 1,
+    "identityLinesSha256": "b841265356823e6509c8ab92578ea9582329c7a4dd671c8c9f72b07a8deb3871",
+    "occurrenceCount": 2,
     "path": "docs/vercel.md",
     "categories": [
       "compat-doc"
