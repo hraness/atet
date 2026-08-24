@@ -10,6 +10,7 @@ export * from "./inactivity";
 export * from "./intervals";
 export * from "./plan";
 export * from "./music-analysis";
+export * from "./montage";
 export * from "./project-plan";
 export * from "./project-camera";
 export * from "./project-camera-spatial";
