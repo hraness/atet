@@ -23,6 +23,9 @@ choose the narrowest workflow that can produce and verify that result.
 - For local image-to-SVG conversion, use the vectorization workflow below.
 - For a reference-led Three.js scene, transparent 3D loop, or metallic logo
   treatment, read [reference-led-3d.md](references/reference-led-3d.md).
+- For travel photos turned into rubber-stamp field-note posters (photo left,
+  stamped vignette and typewriter notes on paper right), read
+  [rubber-stamp-field-notes.md](references/rubber-stamp-field-notes.md).
 
 One request may cross these workflows. Generate missing media first, inspect
 it, import the selected artifact into the local project, edit the composition,

@@ -122,3 +122,11 @@ Report:
 - each useful generated output and receipt path;
 - the project import command or imported placement when applicable; and
 - what you inspected before accepting the result.
+
+## Style recipes
+
+For the rubber-stamp travel field-note layout (photograph left, small hand-stamped
+vignette and typewriter notes on paper right), do not ask Gateway to redraw the
+whole poster. Follow [rubber-stamp-field-notes.md](rubber-stamp-field-notes.md):
+generate only the stamp with a reference-capable model, then assemble with the
+local compositor.
