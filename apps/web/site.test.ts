@@ -81,14 +81,14 @@ describe("static Atet site", () => {
 
     expect(searchableReadme).toContain(brandDescription.toLowerCase())
 
-    expect(readme).toContain("bun add --global github:hraness/atet")
+    expect(readme).toContain("bun add --global github:hraness/atet#v2.0.0")
+    expect(readme).toContain("bun add github:hraness/atet#v2.0.0")
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
     expect(readme).toContain("atet ai video generate")
     expect(readme).toContain("atet workflows show social-variants --json")
     expect(readme).not.toMatch(/checked step|checked path|bounded capability|delivery variant/i)
     expect(readme).not.toContain("https://atet.sh/docs")
-    expect(readme).not.toContain("github:hraness/atet#")
   })
 
   test("ships agent instructions for video editing and Gateway media generation", async () => {
