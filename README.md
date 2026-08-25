@@ -35,7 +35,7 @@ Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
 then inspect the local media host:
 
 ```sh
-bun add --global github:hraness/atet
+bun add --global github:hraness/atet#v2.0.0
 atet doctor
 ```
 
@@ -307,7 +307,7 @@ integration terms.
 Add the package to a Bun project:
 
 ```sh
-bun add github:hraness/atet
+bun add github:hraness/atet#v2.0.0
 ```
 
 SDK imports do not start the CLI or inspect local project state:
