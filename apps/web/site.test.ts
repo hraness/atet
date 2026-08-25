@@ -487,6 +487,7 @@ describe("static Atet site", () => {
         $current_url: "https://atet.sh/?private=value#fragment",
         $device_id: "device",
         $pathname: "/",
+        $raw_user_agent: "Atet test browser",
         $referrer: "https://example.com/private",
         analytics_schema_version: 99,
         distinct_id: posthogCookielessDistinctId,
@@ -502,6 +503,7 @@ describe("static Atet site", () => {
       properties: {
         $cookieless_mode: true,
         $process_person_profile: false,
+        $raw_user_agent: "Atet test browser",
         analytics_schema_version: 1,
         distinct_id: posthogCookielessDistinctId,
         site_id: "atet",
@@ -532,10 +534,20 @@ describe("static Atet site", () => {
       event: "$pageview",
       properties: {
         $cookieless_mode: false,
+        $raw_user_agent: "Atet test browser",
         distinct_id: posthogCookielessDistinctId,
         token: "phc_testtoken",
       },
       uuid: "0198c6a7-7c00-7000-8000-000000000004",
+    }, "phc_testtoken")).toBeNull()
+    expect(sanitizePageview({
+      event: "$pageview",
+      properties: {
+        $cookieless_mode: true,
+        distinct_id: posthogCookielessDistinctId,
+        token: "phc_testtoken",
+      },
+      uuid: "0198c6a7-7c00-7000-8000-000000000005",
     }, "phc_testtoken")).toBeNull()
   })
 
