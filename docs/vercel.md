@@ -12,7 +12,10 @@ or production-only variable.
 - Vercel project: `atet`, ID `prj_RvNXCVvEYKYhW71OA1442SAILmAS`.
 - Root directory: `apps/web`.
 - Production branch: `main`.
-- Production domains: `atet.sh`, `hraness.graphics`, and `hraness.studio`.
+- Canonical Production domain: `atet.sh`.
+- Reviewed predecessor redirects: `hraness.graphics`, `hraness.studio`,
+  `transmute.rocks`, and `www.transmute.rocks` permanently redirect the same
+  path to `atet.sh`.
 - Production Vercel alias: `atet-hraness.vercel.app`.
 
 Do not create a custom Vercel environment, a provider-authoritative Preview

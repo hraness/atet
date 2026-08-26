@@ -85,8 +85,9 @@ describe("static Atet site", () => {
 
     expect(searchableReadme).toContain(brandDescription.toLowerCase())
 
-    expect(readme).toContain("bun add --global github:hraness/atet#v2.0.0")
-    expect(readme).toContain("bun add github:hraness/atet#v2.0.0")
+    expect(readme).toContain("npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet")
+    expect(readme).toContain("bun add --global github:hraness/atet#v3.0.0")
+    expect(readme).toContain("bun add github:hraness/atet#v3.0.0")
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
     expect(readme).toContain("atet ai video generate")
@@ -187,6 +188,7 @@ describe("static Atet site", () => {
         installUrl: "https://atet.sh/#install",
         publisher: { "@id": "https://hraness.com/#organization" },
         sameAs: ["https://github.com/hraness/atet"],
+        softwareVersion: "3.0.0",
       }),
       expect.objectContaining({
         "@id": "https://atet.sh/#source",
@@ -194,6 +196,7 @@ describe("static Atet site", () => {
         author: { "@id": "https://hraness.com/#organization" },
         codeRepository: "https://github.com/hraness/atet",
         targetProduct: { "@id": "https://atet.sh/#software" },
+        version: "3.0.0",
       }),
     ]))
   })
@@ -202,8 +205,8 @@ describe("static Atet site", () => {
     const html = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
     const commands = [
-      "npx skills add hraness/atet",
-      "bun add --global github:hraness/atet",
+      "npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet",
+      "bun add --global github:hraness/atet#v3.0.0",
       "atet doctor",
     ]
     const positions = commands.map(command => html.indexOf(command))
@@ -219,7 +222,7 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("export finished videos")
     expect(html).toContain("Install the Atet Agent Skill")
     expect(html).toContain("Install the local media tools · Requires Bun 1.3.14+")
-    expect(html).toContain("Using Bun? <code>bunx skills add hraness/atet</code>")
+    expect(html).toContain("Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet</code>")
     expect(html).toContain("inside the project you want to work")
     expect(html).toContain("start a new agent session")
     expect(heroHtml).not.toContain("atet skill install")
@@ -227,7 +230,7 @@ describe("static Atet site", () => {
     expect(html).toContain("atet skill install --target claude")
     expect(html).toContain("atet skill install --target agents")
     expect(html).toContain("--scope project")
-    expect(html).not.toContain("github:hraness/atet#")
+    expect(html).toContain("github:hraness/atet#v3.0.0")
   })
 
   test("renders a progressively enhanced reusable copy command in the hero", async () => {
@@ -239,8 +242,8 @@ describe("static Atet site", () => {
 
     expect(build).toContain("function renderCopyCommand(options: CopyCommandOptions)")
     expect(html.match(/data-copy-command(?:>|\s)/gu)).toHaveLength(1)
-    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add hraness/atet</code>')
-    expect(html).toContain("<code>bunx skills add hraness/atet</code>")
+    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet</code>')
+    expect(html).toContain("<code>bunx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet</code>")
     expect(html).toContain('aria-label="Copy install command"')
     expect(html).toContain("data-copy-command-button hidden type=\"button\">Copy</button>")
     expect(html).toContain('aria-live="polite"')
@@ -793,6 +796,10 @@ describe("static Atet site", () => {
       { source: "/docs/:path*", destination: "/", permanent: true },
     ])
     expect(hostRedirects).toEqual([
+      { source: "/", host: { type: "host", value: "transmute.rocks" }, destination: "https://atet.sh/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "transmute.rocks" }, destination: "https://atet.sh/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://atet.sh/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://atet.sh/:path*", permanent: true },
       { source: "/", host: { type: "host", value: "hraness.graphics" }, destination: "https://atet.sh/", permanent: true },
       { source: "/:path*", host: { type: "host", value: "hraness.graphics" }, destination: "https://atet.sh/:path*", permanent: true },
       { source: "/", host: { type: "host", value: "hraness.studio" }, destination: "https://atet.sh/", permanent: true },
@@ -805,6 +812,13 @@ describe("static Atet site", () => {
       expect(new URL(redirect.destination?.replace(":path*", "") ?? "https://invalid").host)
         .not.toBe(sourceHost)
     }
+
+    expect(new Set(hostRedirects.map(redirect => redirect.host?.value))).toEqual(new Set([
+      "transmute.rocks",
+      "www.transmute.rocks",
+      "hraness.graphics",
+      "hraness.studio",
+    ]))
   })
 
   test("serves a strict CSP, security headers, and immutable fingerprinted assets", async () => {

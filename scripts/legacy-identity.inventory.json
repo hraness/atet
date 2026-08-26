@@ -848,7 +848,7 @@
   },
   {
     "identityLineCount": 23,
-    "identityLinesSha256": "68c8cfcdf0f226877eca820c7d3f11e2b932eaafa8d10a94181caf321b9c535e",
+    "identityLinesSha256": "26cf9b719e4f0cda2f41a668390290ba46728a5c60c8110860f735f7e33d3ca4",
     "occurrenceCount": 121,
     "path": "apps/desktop/dist/cli/main.js",
     "categories": [
@@ -902,9 +902,9 @@
     ]
   },
   {
-    "identityLineCount": 4,
-    "identityLinesSha256": "7a896f6e821a179e4dfb6acf5df5615acf6fa20d9f536c4f8a343ed8bd705cac",
-    "occurrenceCount": 4,
+    "identityLineCount": 6,
+    "identityLinesSha256": "f11e34e281193df19f31de1dc82c114ba1c445b0e2103c50ebf32e6a0745321d",
+    "occurrenceCount": 6,
     "path": "apps/web/site.test.ts",
     "categories": [
       "test-fixture"
@@ -931,7 +931,7 @@
   },
   {
     "identityLineCount": 1,
-    "identityLinesSha256": "b841265356823e6509c8ab92578ea9582329c7a4dd671c8c9f72b07a8deb3871",
+    "identityLinesSha256": "08fdd1b32c3de3fd145aa6e8a681aeefb99fe7d7cbbbd755ad3cd67da00c07c7",
     "occurrenceCount": 2,
     "path": "docs/vercel.md",
     "categories": [

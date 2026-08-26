@@ -98,7 +98,7 @@ const TEXT_EXTENSIONS = new Set([
 const CANONICAL_TEXT_SENTINELS = [
   {
     path: "src/version.ts",
-    values: ['export const ATET_VERSION = "2.0.0" as const'],
+    values: ['export const ATET_VERSION = "3.0.0" as const'],
   },
   {
     path: "src/operations.ts",
@@ -120,7 +120,7 @@ const CANONICAL_TEXT_SENTINELS = [
   {
     path: "apps/desktop/dist/cli/main.js",
     values: [
-      '"2.0.0"',
+      '"3.0.0"',
       '"atet.diagram.check"',
       '"atet.edit-plan"',
       '"atet.video-project"',
@@ -360,12 +360,17 @@ if (
 const packageVersion = rootPackage.version;
 if (typeof packageVersion !== "string") {
   problems.push("package.json version must be a string");
-} else if (packageVersion !== "2.0.0") {
-  problems.push("package.json version must be 2.0.0 for the Atet identity cutover");
+} else if (packageVersion !== "3.0.0") {
+  problems.push("package.json version must be 3.0.0 after retiring the version-2 CLI compatibility alias");
 } else {
   const versionContracts = [
     ["apps/desktop/app.zon", `.version = ${JSON.stringify(packageVersion)}`],
     ["apps/desktop/build.zig", `{s}-${packageVersion}-{s}-{s}{s}`],
+    ["apps/desktop/build.zig.zon", `.version = ${JSON.stringify(packageVersion)}`],
+    [
+      "apps/desktop/application/operation.ts",
+      `ATET_APPLICATION_TOOL_VERSION = ${JSON.stringify(`atet-${packageVersion}`)}`,
+    ],
     [
       "apps/desktop/capture/Info.plist",
       `<key>CFBundleShortVersionString</key>\n  <string>${packageVersion}</string>`,
@@ -381,6 +386,14 @@ if (typeof packageVersion !== "string") {
     [
       "apps/desktop/runtime/package-macos.ts",
       `atet-${packageVersion}-macos-ReleaseFast.app`,
+    ],
+    [
+      "apps/web/src/index.html",
+      `"softwareVersion": ${JSON.stringify(packageVersion)}`,
+    ],
+    [
+      "schema/diagram.schema.json",
+      `/hraness/atet/v${packageVersion}/schema/diagram.schema.json`,
     ],
     ["src/version.ts", `ATET_VERSION = ${JSON.stringify(packageVersion)}`],
   ] as const;
