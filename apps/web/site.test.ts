@@ -14,6 +14,7 @@ import {
   llmsTxt,
   notFoundMarkdown,
   readingFacesMarkdown,
+  readingFeynobgMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "./src/agent-pages"
@@ -23,6 +24,7 @@ import {
   isNegotiableDocumentPath,
   isPreservedRedirectPath,
   isReadingFacesPath,
+  isReadingFeynobgPath,
   negotiateSiteRequest,
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
@@ -347,13 +349,14 @@ describe("static Atet site", () => {
   })
 
   test("owns one shared appearance menu as the final action in every header", async () => {
-    const [html, notFound, reading] = await Promise.all([
+    const [html, notFound, reading, readingFeynobg] = await Promise.all([
       readBuilt("index.html"),
       readBuilt("404.html"),
       readBuilt("reading/draw-faces-with-javascript.html"),
+      readBuilt("reading/feynobg.html"),
     ])
 
-    for (const document of [html, notFound, reading]) {
+    for (const document of [html, notFound, reading, readingFeynobg]) {
       expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
       expect(document).toMatch(
         /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
@@ -485,6 +488,10 @@ describe("static Atet site", () => {
     expect(isCanonicalAnalyticsPage({
       origin: "https://atet.sh",
       pathname: "/reading/draw-faces-with-javascript",
+    })).toBe(false)
+    expect(isCanonicalAnalyticsPage({
+      origin: "https://atet.sh",
+      pathname: "/reading/feynobg",
     })).toBe(false)
 
     const timestamp = new Date("2026-08-19T12:00:00.000Z")
@@ -667,7 +674,17 @@ describe("static Atet site", () => {
   })
 
   test("publishes crawler discovery for the home page and its markdown mirror", async () => {
-    const [robots, sitemap, notFound, builtRobots, builtLlms, builtHomeMarkdown, builtSitemapMarkdown, builtReadingMarkdown] = await Promise.all([
+    const [
+      robots,
+      sitemap,
+      notFound,
+      builtRobots,
+      builtLlms,
+      builtHomeMarkdown,
+      builtSitemapMarkdown,
+      builtReadingMarkdown,
+      builtFeynobgMarkdown,
+    ] = await Promise.all([
       Promise.resolve(robotsTxt),
       readSource("sitemap.xml"),
       readSource("404.html"),
@@ -676,6 +693,7 @@ describe("static Atet site", () => {
       readBuilt("index.md"),
       readBuilt("sitemap.md"),
       readBuilt("reading/draw-faces-with-javascript.md"),
+      readBuilt("reading/feynobg.md"),
     ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
       .map(match => match[1])
@@ -714,6 +732,8 @@ describe("static Atet site", () => {
       "https://atet.sh/index.md",
       "https://atet.sh/reading/draw-faces-with-javascript",
       "https://atet.sh/reading/draw-faces-with-javascript.md",
+      "https://atet.sh/reading/feynobg",
+      "https://atet.sh/reading/feynobg.md",
     ])
     expect(sitemap).toContain("<lastmod>2026-08-26</lastmod>")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
@@ -721,6 +741,7 @@ describe("static Atet site", () => {
     expect(builtHomeMarkdown).toBe(homeMarkdown)
     expect(builtSitemapMarkdown).toBe(sitemapMarkdown)
     expect(builtReadingMarkdown).toBe(readingFacesMarkdown)
+    expect(builtFeynobgMarkdown).toBe(readingFeynobgMarkdown)
     expect(llmsTxt).toMatch(/^# Atet\n/u)
     expect(llmsTxt).toContain("> Atet gives coding agents tools")
     expect(llmsTxt).toContain("## When to use Atet")
@@ -728,10 +749,13 @@ describe("static Atet site", () => {
     expect(sitemapMarkdown).toContain("# Sitemap")
     expect(sitemapMarkdown).toContain("https://atet.sh/index.md")
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
+    expect(sitemapMarkdown).toContain("https://atet.sh/reading/feynobg.md")
     expect(homeMarkdown).toContain("## Sitemap")
     expect(homeMarkdown).toContain("https://atet.sh/sitemap.md")
     expect(homeMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
+    expect(homeMarkdown).toContain("https://atet.sh/reading/feynobg.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
+    expect(llmsTxt).toContain("https://atet.sh/reading/feynobg.md")
     expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
     expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
   })
@@ -816,6 +840,8 @@ describe("static Atet site", () => {
     const markdown = vercel.headers?.find(entry => entry.source === "/index.md")?.headers ?? []
     const reading = vercel.headers?.find(entry => entry.source === "/reading/draw-faces-with-javascript")?.headers ?? []
     const readingMarkdown = vercel.headers?.find(entry => entry.source === "/reading/draw-faces-with-javascript.md")?.headers ?? []
+    const readingFeynobg = vercel.headers?.find(entry => entry.source === "/reading/feynobg")?.headers ?? []
+    const readingFeynobgMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/feynobg.md")?.headers ?? []
     const llms = vercel.headers?.find(entry => entry.source === "/llms.txt")?.headers ?? []
     expect(home).toContainEqual({
       key: "Link",
@@ -833,6 +859,14 @@ describe("static Atet site", () => {
       key: "Content-Type",
       value: "text/markdown; charset=utf-8",
     })
+    expect(readingFeynobg).toContainEqual({
+      key: "Link",
+      value: '</reading/feynobg.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(readingFeynobgMarkdownHeader).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
     expect(llms).toContainEqual({
       key: "Content-Type",
       value: "text/plain; charset=utf-8",
@@ -847,6 +881,11 @@ describe("static Atet site", () => {
         source: "/reading/draw-faces-with-javascript",
         has: [{ type: "header", key: "accept", value: "^text/markdown" }],
         destination: "/reading/draw-faces-with-javascript.md",
+      },
+      {
+        source: "/reading/feynobg",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/reading/feynobg.md",
       },
     ])
   })
@@ -880,10 +919,14 @@ describe("static Atet site", () => {
     expect(isReadingFacesPath("/reading/draw-faces-with-javascript")).toBe(true)
     expect(isReadingFacesPath("/reading/draw-faces-with-javascript.html")).toBe(true)
     expect(isReadingFacesPath("/reading/missing")).toBe(false)
+    expect(isReadingFeynobgPath("/reading/feynobg")).toBe(true)
+    expect(isReadingFeynobgPath("/reading/feynobg.html")).toBe(true)
+    expect(isReadingFeynobgPath("/reading/missing")).toBe(false)
     expect(isPreservedRedirectPath("/docs")).toBe(true)
     expect(isPreservedRedirectPath("/docs/install")).toBe(true)
     expect(isNegotiableDocumentPath("/missing-route")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/draw-faces-with-javascript")).toBe(true)
+    expect(isNegotiableDocumentPath("/reading/feynobg")).toBe(true)
     expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
     expect(isNegotiableDocumentPath("/index.md")).toBe(false)
     expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
@@ -915,6 +958,19 @@ describe("static Atet site", () => {
       headers: { Accept: "text/html" },
     }))
     expect(htmlReading).toBeUndefined()
+
+    const markdownFeynobg = negotiateSiteRequest(new Request("https://atet.sh/reading/feynobg", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownFeynobg?.status).toBe(200)
+    expect(markdownFeynobg?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownFeynobg?.headers.get("link")).toContain('rel="canonical"')
+    expect(await markdownFeynobg?.text()).toBe(readingFeynobgMarkdown)
+
+    const htmlFeynobg = negotiateSiteRequest(new Request("https://atet.sh/reading/feynobg", {
+      headers: { Accept: "text/html" },
+    }))
+    expect(htmlFeynobg).toBeUndefined()
 
     const docsRedirect = negotiateSiteRequest(new Request("https://atet.sh/docs", {
       headers: { Accept: "text/markdown" },
@@ -992,8 +1048,51 @@ describe("static Atet site", () => {
     expect(readingFiles.sort()).toEqual([
       "draw-faces-with-javascript.html",
       "draw-faces-with-javascript.md",
+      "feynobg.html",
+      "feynobg.md",
     ])
     expect(home).toContain('href="/reading/draw-faces-with-javascript"')
     expect(homeMarkdown).toContain("Keep the source small enough to vary")
+  })
+
+  test("publishes one original reading take on FeyNoBg", async () => {
+    const [html, builtHtml, builtMarkdown] = await Promise.all([
+      readFile(join(appDirectory, "src/reading/feynobg.html"), "utf8"),
+      readBuilt("reading/feynobg.html"),
+      readBuilt("reading/feynobg.md"),
+    ])
+    const home = await readSource("index.html")
+    const searchableHtml = html.replace(/\s+/gu, " ")
+
+    expect(html.match(/<h1\b/gu)).toHaveLength(1)
+    expect(html).toContain("<h1 id=\"page-title\">Keep the cutout from replacing the source</h1>")
+    expect(html).not.toContain("Keep the source small enough to vary</h1>")
+    expect(html).toContain('<link rel="canonical" href="https://atet.sh/reading/feynobg">')
+    expect(html).toContain('<link rel="alternate" type="text/markdown" href="/reading/feynobg.md">')
+    expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
+    expect(html).toContain('href="https://atet.sh/"')
+    expect(html).toContain('href="/reading/draw-faces-with-javascript"')
+    expect(html).toContain('href="https://hraness.com"')
+    expect(html).toContain('href="https://hraness.com/reading/feynobg-a-sota-model-for-background-removal"')
+    expect(html).toContain('href="https://usefeyn.com/blog/feynobg/"')
+    expect(searchableHtml).toContain("Atet does not ship FeyNoBg or a background-removal command")
+    expect(searchableHtml).toContain("There is no Atet account or hosted project database")
+    expect(searchableHtml).toContain("This page does not assign a rank")
+    expect(searchableHtml).toContain("Producing this opacity map requires two skills")
+    expect(searchableHtml).not.toContain("Treat recognition and boundary precision as coupled skills")
+    expect(searchableHtml).not.toContain("Add capacity without discarding prior learning")
+    expect(searchableHtml).not.toContain("263-million-parameter")
+    expect(html).not.toContain("{{ANALYTICS_SCRIPT}}")
+    expect(html).not.toContain("data-copy-command")
+    expect(builtHtml).not.toContain("{{")
+    expect(builtHtml).not.toMatch(/analytics-|posthog|phc_/i)
+    expect(builtMarkdown).toBe(readingFeynobgMarkdown)
+    expect(readingFeynobgMarkdown).toContain("https://atet.sh/")
+    expect(readingFeynobgMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript")
+    expect(readingFeynobgMarkdown).toContain("https://hraness.com")
+    expect(readingFeynobgMarkdown).toContain("https://hraness.com/reading/feynobg-a-sota-model-for-background-removal")
+    expect(readingFeynobgMarkdown).toContain("https://usefeyn.com/blog/feynobg/")
+    expect(home).toContain('href="/reading/feynobg"')
+    expect(homeMarkdown).toContain("Keep the cutout from replacing the source")
   })
 })

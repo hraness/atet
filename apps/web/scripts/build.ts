@@ -7,6 +7,7 @@ import {
   homeMarkdown,
   llmsTxt,
   readingFacesMarkdown,
+  readingFeynobgMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "../src/agent-pages"
@@ -31,6 +32,7 @@ const generatedTextFiles = {
   "index.md": homeMarkdown,
   "llms.txt": llmsTxt,
   "reading/draw-faces-with-javascript.md": readingFacesMarkdown,
+  "reading/feynobg.md": readingFeynobgMarkdown,
   "robots.txt": robotsTxt,
   "sitemap.md": sitemapMarkdown,
 } as const
@@ -202,10 +204,19 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   const environment = options.environment ?? process.env
   const outputDirectory = options.outputDirectory ?? defaultOutputDirectory
   const analyticsConfig = productionAnalyticsConfig(environment)
-  const [indexTemplate, notFoundTemplate, readingFacesTemplate, productStyles, appearanceStyles, theme] = await Promise.all([
+  const [
+    indexTemplate,
+    notFoundTemplate,
+    readingFacesTemplate,
+    readingFeynobgTemplate,
+    productStyles,
+    appearanceStyles,
+    theme,
+  ] = await Promise.all([
     readFile(join(sourceDirectory, "index.html"), "utf8"),
     readFile(join(sourceDirectory, "404.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/draw-faces-with-javascript.html"), "utf8"),
+    readFile(join(sourceDirectory, "reading/feynobg.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(appearanceMenuStylesPath, "utf8"),
     bundleTheme(),
@@ -244,6 +255,10 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       join(outputDirectory, "reading/draw-faces-with-javascript.html"),
       renderDocument(readingFacesTemplate, commonAssets),
     ),
+    writeFile(
+      join(outputDirectory, "reading/feynobg.html"),
+      renderDocument(readingFeynobgTemplate, commonAssets),
+    ),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
     ...(analyticsPath === null || analytics === null
@@ -274,7 +289,7 @@ if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 5
+    + 6
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
 }
