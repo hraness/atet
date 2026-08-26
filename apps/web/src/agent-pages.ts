@@ -84,9 +84,14 @@ The installed Agent Skill and \`atet --help\` describe the exact tools available
 
 Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet.
 
+## Reading
+
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet take on Mannay’s JavaScript faces
+
 ## Sitemap
 
 - [Atet home](https://atet.sh/index.md)
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md)
 - [Machine-readable site guide](https://atet.sh/llms.txt)
 - [Markdown sitemap](https://atet.sh/sitemap.md)
 - [XML sitemap](https://atet.sh/sitemap.xml)
@@ -121,6 +126,7 @@ Install the Agent Skill, then describe the finished result. Do not use Atet as a
 
 ## Optional
 
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
 - [Markdown sitemap](https://atet.sh/sitemap.md): Public Atet pages in markdown
 - [XML sitemap](https://atet.sh/sitemap.xml): Search-engine sitemap
 - [Architecture](https://github.com/hraness/atet/blob/main/docs/architecture.md): Project model and local host
@@ -133,6 +139,7 @@ export const sitemapMarkdown = `# Sitemap
 ## Atet
 
 - [Atet home](https://atet.sh/index.md): Installation, examples, workflow, and design for the local media toolkit
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
 - [Machine-readable site guide](https://atet.sh/llms.txt): When to use Atet and the public indexes
 `
 
@@ -162,8 +169,37 @@ Allow: /
 Sitemap: https://atet.sh/sitemap.xml
 `
 
+export const readingFacesMarkdown = `# Keep the source small enough to vary
+
+Mannay’s published note on [Hraness](https://hraness.com) treats JavaScript as a drawing partner. The sheets of loose, colorful faces change when a few drawable rules change. Atet applies that idea to the files already in a project.
+
+The [Draw faces with JavaScript](https://hraness.com/reading/draw-faces-with-javascript) note collects four grids. Eyes, mouths, outlines, and fills shift a little, and the sheet shifts a lot. You can still name the rules after you look. The source stays a compact visual system.
+
+Atet’s public site describes the same demand for a media project. Original recordings and imported images stay unchanged. Your agent chooses explicit operations. Cuts, timing, framing, overlays, and effects become a revisable project state. Previews and deliveries stay tied to the state that produced them.
+
+## Start from a file you can still point at
+
+The [Atet home](https://atet.sh/) asks you to name the source, the result, and the details that must remain unchanged. One request starts from \`product.png\` and asks for three opening-shot ideas, then a six-second clip that keeps the product shape, colors, and lettering recognizable. Another starts from a screen, camera, microphone, and system-audio recording and asks for a two-minute walkthrough with captions and \`logo.svg\`. A third turns the services in a repository into an editable diagram, then a short animated introduction.
+
+Graphics and motion stay in that toolkit. Atet creates editable diagrams, converts raster artwork to SVG locally, and builds deterministic animated layers with HTML, SVG, shaders, and Three.js. Those outputs can stand alone or join a video project. Atet does not ship a face generator. The transfer from Mannay’s doodles is the inspectable source, not a new drawing command.
+
+## Compare the variations before you keep one
+
+A sheet of faces is useful because you can see the results together. Atet’s design does that for a finished job. Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
+
+Read the source note on [Hraness](https://hraness.com/reading/draw-faces-with-javascript). Then start at the [Atet home](https://atet.sh/) and describe the finished result from the files you already have.
+
+## Related pages
+
+- [Atet home](https://atet.sh/)
+- [Hraness](https://hraness.com)
+- [Draw faces with JavaScript](https://hraness.com/reading/draw-faces-with-javascript)
+`
+
 export const homeCanonicalUrl = "https://atet.sh/"
 export const homeMarkdownUrl = "https://atet.sh/index.md"
+export const readingFacesCanonicalUrl = "https://atet.sh/reading/draw-faces-with-javascript"
+export const readingFacesMarkdownUrl = "https://atet.sh/reading/draw-faces-with-javascript.md"
 export const llmsTxtUrl = "https://atet.sh/llms.txt"
 export const sitemapMarkdownUrl = "https://atet.sh/sitemap.md"
 export const sitemapXmlUrl = "https://atet.sh/sitemap.xml"

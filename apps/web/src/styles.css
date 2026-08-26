@@ -1012,6 +1012,76 @@ blockquote {
   color: var(--muted);
 }
 
+/* Reading take */
+
+.reading-article {
+  width: min(100%, 52rem);
+  margin: 0 auto;
+  padding: clamp(3.5rem, 6vw, 5.25rem) var(--page-inline) clamp(4rem, 8vw, 6rem);
+}
+
+.reading-article h1 {
+  max-width: 16ch;
+  margin-top: 0.9rem;
+  font-size: clamp(2.8rem, 5.2vw, 4.2rem);
+  letter-spacing: -0.05em;
+  line-height: 0.96;
+}
+
+.reading-article .lede {
+  max-width: 40rem;
+  margin-top: 1.5rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 2.1vw, 1.4rem);
+  line-height: 1.45;
+}
+
+.reading-article h2 {
+  max-width: 18ch;
+  margin-top: 2.6rem;
+  font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.reading-article h2 + p,
+.reading-article p + p {
+  max-width: 42rem;
+  margin-top: 1.25rem;
+  color: var(--muted);
+  font-size: 1.03rem;
+}
+
+.reading-links {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line-strong);
+}
+
+.reading-links h2 {
+  margin-top: 0;
+  font-size: 1.55rem;
+}
+
+.reading-links ul {
+  padding: 0;
+  margin-top: 1rem;
+  list-style: none;
+}
+
+.reading-links li + li {
+  margin-top: 0.55rem;
+}
+
+.reading-links a {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.reading-links a:hover {
+  color: var(--gold);
+}
+
 /* Error route */
 
 .route-state {
@@ -1149,6 +1219,14 @@ blockquote {
     font-size: clamp(3rem, 14vw, 4.8rem);
   }
 
+  .reading-article {
+    padding-block: 3rem clamp(3.5rem, 8vw, 5rem);
+  }
+
+  .reading-article h1 {
+    font-size: clamp(2.6rem, 12vw, 3.6rem);
+  }
+
   .hero-deck {
     margin-top: 1.3rem;
   }
@@ -1266,6 +1344,10 @@ blockquote {
 
   .docs-hero h1 {
     font-size: clamp(2.65rem, 12vw, 3.5rem);
+  }
+
+  .reading-article h1 {
+    font-size: clamp(2.4rem, 12vw, 3.2rem);
   }
 
   .install-panel {

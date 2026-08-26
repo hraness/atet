@@ -52,6 +52,17 @@
         }
       ],
       "destination": "/index.md"
+    },
+    {
+      "source": "/reading/draw-faces-with-javascript",
+      "has": [
+        {
+          "type": "header",
+          "key": "accept",
+          "value": "^text/markdown"
+        }
+      ],
+      "destination": "/reading/draw-faces-with-javascript.md"
     }
   ],
   "headers": [
@@ -111,6 +122,28 @@
         {
           "key": "Link",
           "value": "<https://atet.sh/>; rel=\"canonical\""
+        }
+      ]
+    },
+    {
+      "source": "/reading/draw-faces-with-javascript",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reading/draw-faces-with-javascript.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reading/draw-faces-with-javascript.md",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        },
+        {
+          "key": "Link",
+          "value": "<https://atet.sh/reading/draw-faces-with-javascript>; rel=\"canonical\""
         }
       ]
     },

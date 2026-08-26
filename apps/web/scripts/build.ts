@@ -3,7 +3,13 @@ import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { homeMarkdown, llmsTxt, robotsTxt, sitemapMarkdown } from "../src/agent-pages"
+import {
+  homeMarkdown,
+  llmsTxt,
+  readingFacesMarkdown,
+  robotsTxt,
+  sitemapMarkdown,
+} from "../src/agent-pages"
 
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
 const sourceDirectory = join(appDirectory, "src")
@@ -24,6 +30,7 @@ const copiedFiles = [
 const generatedTextFiles = {
   "index.md": homeMarkdown,
   "llms.txt": llmsTxt,
+  "reading/draw-faces-with-javascript.md": readingFacesMarkdown,
   "robots.txt": robotsTxt,
   "sitemap.md": sitemapMarkdown,
 } as const
@@ -195,9 +202,10 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   const environment = options.environment ?? process.env
   const outputDirectory = options.outputDirectory ?? defaultOutputDirectory
   const analyticsConfig = productionAnalyticsConfig(environment)
-  const [indexTemplate, notFoundTemplate, productStyles, appearanceStyles, theme] = await Promise.all([
+  const [indexTemplate, notFoundTemplate, readingFacesTemplate, productStyles, appearanceStyles, theme] = await Promise.all([
     readFile(join(sourceDirectory, "index.html"), "utf8"),
     readFile(join(sourceDirectory, "404.html"), "utf8"),
+    readFile(join(sourceDirectory, "reading/draw-faces-with-javascript.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(appearanceMenuStylesPath, "utf8"),
     bundleTheme(),
@@ -227,10 +235,15 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
 
   await rm(outputDirectory, { force: true, recursive: true })
   await mkdir(join(outputDirectory, "assets"), { recursive: true })
+  await mkdir(join(outputDirectory, "reading"), { recursive: true })
 
   await Promise.all([
     writeFile(join(outputDirectory, "index.html"), renderDocument(indexTemplate, indexAssets)),
     writeFile(join(outputDirectory, "404.html"), renderDocument(notFoundTemplate, commonAssets)),
+    writeFile(
+      join(outputDirectory, "reading/draw-faces-with-javascript.html"),
+      renderDocument(readingFacesTemplate, commonAssets),
+    ),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
     ...(analyticsPath === null || analytics === null
@@ -261,7 +274,7 @@ if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 4
+    + 5
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
 }
