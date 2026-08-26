@@ -13,6 +13,7 @@ import {
   homeMarkdown,
   llmsTxt,
   notFoundMarkdown,
+  readingFacesMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "./src/agent-pages"
@@ -21,6 +22,7 @@ import {
   isHomePath,
   isNegotiableDocumentPath,
   isPreservedRedirectPath,
+  isReadingFacesPath,
   negotiateSiteRequest,
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
@@ -336,6 +338,7 @@ describe("static Atet site", () => {
     expect(css).toContain(":where(a, button, [tabindex]):focus-visible")
     expect(css).toContain(".docs-index")
     expect(css).toContain(".docs-section")
+    expect(css).toContain(".reading-article")
     expect(css).toContain("@media (max-width: 64rem)")
     expect(css).toContain("@media (max-width: 48rem)")
     expect(css).toContain("@media (max-width: 34rem)")
@@ -344,12 +347,13 @@ describe("static Atet site", () => {
   })
 
   test("owns one shared appearance menu as the final action in every header", async () => {
-    const [html, notFound] = await Promise.all([
+    const [html, notFound, reading] = await Promise.all([
       readBuilt("index.html"),
       readBuilt("404.html"),
+      readBuilt("reading/draw-faces-with-javascript.html"),
     ])
 
-    for (const document of [html, notFound]) {
+    for (const document of [html, notFound, reading]) {
       expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
       expect(document).toMatch(
         /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
@@ -478,6 +482,10 @@ describe("static Atet site", () => {
     expect(isCanonicalAnalyticsPage({ origin: "https://atet.sh", pathname: "/" })).toBe(true)
     expect(isCanonicalAnalyticsPage({ origin: "https://preview.atet.sh", pathname: "/" })).toBe(false)
     expect(isCanonicalAnalyticsPage({ origin: "https://atet.sh", pathname: "/404" })).toBe(false)
+    expect(isCanonicalAnalyticsPage({
+      origin: "https://atet.sh",
+      pathname: "/reading/draw-faces-with-javascript",
+    })).toBe(false)
 
     const timestamp = new Date("2026-08-19T12:00:00.000Z")
     const sanitized = sanitizePageview({
@@ -636,6 +644,7 @@ describe("static Atet site", () => {
       "index.md",
       "llms.txt",
       "og.png",
+      "reading",
       "robots.txt",
       "sitemap.md",
       "sitemap.xml",
@@ -658,7 +667,7 @@ describe("static Atet site", () => {
   })
 
   test("publishes crawler discovery for the home page and its markdown mirror", async () => {
-    const [robots, sitemap, notFound, builtRobots, builtLlms, builtHomeMarkdown, builtSitemapMarkdown] = await Promise.all([
+    const [robots, sitemap, notFound, builtRobots, builtLlms, builtHomeMarkdown, builtSitemapMarkdown, builtReadingMarkdown] = await Promise.all([
       Promise.resolve(robotsTxt),
       readSource("sitemap.xml"),
       readSource("404.html"),
@@ -666,6 +675,7 @@ describe("static Atet site", () => {
       readBuilt("llms.txt"),
       readBuilt("index.md"),
       readBuilt("sitemap.md"),
+      readBuilt("reading/draw-faces-with-javascript.md"),
     ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
       .map(match => match[1])
@@ -699,20 +709,29 @@ describe("static Atet site", () => {
     ].join("\n"))
     expect(robots).not.toMatch(/^\s*Disallow:/mu)
     expect(builtRobots).toBe(robotsTxt)
-    expect(locations).toEqual(["https://atet.sh/", "https://atet.sh/index.md"])
-    expect(sitemap).toContain("<lastmod>2026-08-21</lastmod>")
+    expect(locations).toEqual([
+      "https://atet.sh/",
+      "https://atet.sh/index.md",
+      "https://atet.sh/reading/draw-faces-with-javascript",
+      "https://atet.sh/reading/draw-faces-with-javascript.md",
+    ])
+    expect(sitemap).toContain("<lastmod>2026-08-26</lastmod>")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
     expect(builtLlms).toBe(llmsTxt)
     expect(builtHomeMarkdown).toBe(homeMarkdown)
     expect(builtSitemapMarkdown).toBe(sitemapMarkdown)
+    expect(builtReadingMarkdown).toBe(readingFacesMarkdown)
     expect(llmsTxt).toMatch(/^# Atet\n/u)
     expect(llmsTxt).toContain("> Atet gives coding agents tools")
     expect(llmsTxt).toContain("## When to use Atet")
     expect(llmsTxt).toContain("https://atet.sh/index.md")
     expect(sitemapMarkdown).toContain("# Sitemap")
     expect(sitemapMarkdown).toContain("https://atet.sh/index.md")
+    expect(sitemapMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
     expect(homeMarkdown).toContain("## Sitemap")
     expect(homeMarkdown).toContain("https://atet.sh/sitemap.md")
+    expect(homeMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
+    expect(llmsTxt).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
     expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
     expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
   })
@@ -795,12 +814,22 @@ describe("static Atet site", () => {
 
     const home = vercel.headers?.find(entry => entry.source === "/")?.headers ?? []
     const markdown = vercel.headers?.find(entry => entry.source === "/index.md")?.headers ?? []
+    const reading = vercel.headers?.find(entry => entry.source === "/reading/draw-faces-with-javascript")?.headers ?? []
+    const readingMarkdown = vercel.headers?.find(entry => entry.source === "/reading/draw-faces-with-javascript.md")?.headers ?? []
     const llms = vercel.headers?.find(entry => entry.source === "/llms.txt")?.headers ?? []
     expect(home).toContainEqual({
       key: "Link",
       value: '</index.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
     })
     expect(markdown).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
+    expect(reading).toContainEqual({
+      key: "Link",
+      value: '</reading/draw-faces-with-javascript.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(readingMarkdown).toContainEqual({
       key: "Content-Type",
       value: "text/markdown; charset=utf-8",
     })
@@ -813,6 +842,11 @@ describe("static Atet site", () => {
         source: "/",
         has: [{ type: "header", key: "accept", value: "^text/markdown" }],
         destination: "/index.md",
+      },
+      {
+        source: "/reading/draw-faces-with-javascript",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/reading/draw-faces-with-javascript.md",
       },
     ])
   })
@@ -843,9 +877,13 @@ describe("static Atet site", () => {
   test("negotiates homepage markdown, agent-friendly 404s, and 406 without an API route", async () => {
     expect(isHomePath("/")).toBe(true)
     expect(isHomePath("/index.html")).toBe(true)
+    expect(isReadingFacesPath("/reading/draw-faces-with-javascript")).toBe(true)
+    expect(isReadingFacesPath("/reading/draw-faces-with-javascript.html")).toBe(true)
+    expect(isReadingFacesPath("/reading/missing")).toBe(false)
     expect(isPreservedRedirectPath("/docs")).toBe(true)
     expect(isPreservedRedirectPath("/docs/install")).toBe(true)
     expect(isNegotiableDocumentPath("/missing-route")).toBe(true)
+    expect(isNegotiableDocumentPath("/reading/draw-faces-with-javascript")).toBe(true)
     expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
     expect(isNegotiableDocumentPath("/index.md")).toBe(false)
     expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
@@ -864,6 +902,19 @@ describe("static Atet site", () => {
       headers: { Accept: "text/html" },
     }))
     expect(htmlHome).toBeUndefined()
+
+    const markdownReading = negotiateSiteRequest(new Request("https://atet.sh/reading/draw-faces-with-javascript", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownReading?.status).toBe(200)
+    expect(markdownReading?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownReading?.headers.get("link")).toContain('rel="canonical"')
+    expect(await markdownReading?.text()).toBe(readingFacesMarkdown)
+
+    const htmlReading = negotiateSiteRequest(new Request("https://atet.sh/reading/draw-faces-with-javascript", {
+      headers: { Accept: "text/html" },
+    }))
+    expect(htmlReading).toBeUndefined()
 
     const docsRedirect = negotiateSiteRequest(new Request("https://atet.sh/docs", {
       headers: { Accept: "text/markdown" },
@@ -903,5 +954,46 @@ describe("static Atet site", () => {
     }))
     expect(middlewareMarkdown?.status).toBe(200)
     expect(await middlewareMarkdown?.text()).toBe(homeMarkdown)
+  })
+
+  test("publishes one original reading take on Mannay’s JavaScript faces", async () => {
+    const [html, builtHtml, builtMarkdown, readingFiles] = await Promise.all([
+      readFile(join(appDirectory, "src/reading/draw-faces-with-javascript.html"), "utf8"),
+      readBuilt("reading/draw-faces-with-javascript.html"),
+      readBuilt("reading/draw-faces-with-javascript.md"),
+      readdir(join(appDirectory, "dist/reading")),
+    ])
+    const home = await readSource("index.html")
+    const searchableHtml = html.replace(/\s+/gu, " ")
+
+    expect(html.match(/<h1\b/gu)).toHaveLength(1)
+    expect(html).toContain("<h1 id=\"page-title\">Keep the source small enough to vary</h1>")
+    expect(html).toContain('<link rel="canonical" href="https://atet.sh/reading/draw-faces-with-javascript">')
+    expect(html).toContain('<link rel="alternate" type="text/markdown" href="/reading/draw-faces-with-javascript.md">')
+    expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
+    expect(html).toContain('href="https://atet.sh/"')
+    expect(html).toContain('href="https://hraness.com"')
+    expect(html).toContain('href="https://hraness.com/reading/draw-faces-with-javascript"')
+    expect(html).toContain("Atet does not ship a face generator")
+    expect(html).toContain("There is no Atet account or hosted project database")
+    expect(html).toContain("converts raster artwork to SVG locally")
+    expect(html).toContain("HTML, SVG, shaders, and Three.js")
+    expect(html).not.toContain("{{ANALYTICS_SCRIPT}}")
+    expect(html).not.toContain("data-copy-command")
+    expect(html).not.toContain("You can just draw faces with javascript")
+    expect(searchableHtml).not.toContain("background removal")
+    expect(searchableHtml).not.toContain("eigendrum")
+    expect(builtHtml).not.toContain("{{")
+    expect(builtHtml).not.toMatch(/analytics-|posthog|phc_/i)
+    expect(builtMarkdown).toBe(readingFacesMarkdown)
+    expect(readingFacesMarkdown).toContain("https://atet.sh/")
+    expect(readingFacesMarkdown).toContain("https://hraness.com")
+    expect(readingFacesMarkdown).toContain("https://hraness.com/reading/draw-faces-with-javascript")
+    expect(readingFiles.sort()).toEqual([
+      "draw-faces-with-javascript.html",
+      "draw-faces-with-javascript.md",
+    ])
+    expect(home).toContain('href="/reading/draw-faces-with-javascript"')
+    expect(homeMarkdown).toContain("Keep the source small enough to vary")
   })
 })
