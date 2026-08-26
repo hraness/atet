@@ -27,7 +27,7 @@ const parsedSchema: unknown = JSON.parse(await readFile(schemaPath, "utf8"))
 if (!isRecord(parsedSchema)) {
   throw new Error("schema/diagram.schema.json must contain a JSON object.")
 }
-const schemaId = "https://raw.githubusercontent.com/hraness/atet/v2.0.0/schema/diagram.schema.json"
+const schemaId = "https://raw.githubusercontent.com/hraness/atet/v3.0.0/schema/diagram.schema.json"
 if (parsedSchema.$id !== schemaId) {
   throw new Error(`Diagram schema $id must be ${schemaId}.`)
 }
@@ -50,7 +50,7 @@ for (const relativePath of [
     await readFile(join(repository, relativePath), "utf8"),
   )
   if (!isRecord(instance) || instance.$schema !== schemaId) {
-    throw new Error(`${relativePath} must reference the Atet v2.0.0 schema.`)
+    throw new Error(`${relativePath} must reference the Atet v3.0.0 schema.`)
   }
   if (!validate(instance)) {
     throw new Error(

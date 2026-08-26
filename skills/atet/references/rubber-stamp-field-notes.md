@@ -69,7 +69,8 @@ perforations, wax seals, stickers, or collage.
 ```
 
 Pass the source photo first, then one packaged style reference from
-`references/rubber-stamp-examples/stamp-style-1.png` (or `stamp-style-2.png`)
+`references/rubber-stamp-examples/stamp-style-1.png` (or
+`references/rubber-stamp-examples/stamp-style-2.png`)
 so the model copies the hand-stamped ink language without copying that place.
 
 Run through the linked Vercel project:

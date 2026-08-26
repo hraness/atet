@@ -8,6 +8,30 @@
   "redirects": [
     {
       "source": "/",
+      "has": [{ "type": "host", "value": "transmute.rocks" }],
+      "destination": "https://atet.sh/",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "transmute.rocks" }],
+      "destination": "https://atet.sh/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "www.transmute.rocks" }],
+      "destination": "https://atet.sh/",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.transmute.rocks" }],
+      "destination": "https://atet.sh/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/",
       "has": [{ "type": "host", "value": "hraness.graphics" }],
       "destination": "https://atet.sh/",
       "permanent": true

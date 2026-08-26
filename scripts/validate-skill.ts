@@ -75,6 +75,7 @@ for (const relativePath of [
   "references/gateway-media.md",
   "references/install.md",
   "references/reference-led-3d.md",
+  "references/rubber-stamp-field-notes.md",
   "references/video-projects.md",
   "references/visual-communication.md",
 ]) {
@@ -85,6 +86,32 @@ for (const relativePath of [
     await access(join(root, relativePath))
   } catch {
     throw new Error(`Skill is missing ${relativePath}`)
+  }
+}
+for (const relativePath of [
+  "references/rubber-stamp-examples/poster-example-1.jpg",
+  "references/rubber-stamp-examples/poster-example-2.jpg",
+  "references/rubber-stamp-examples/stamp-style-1.png",
+  "references/rubber-stamp-examples/stamp-style-2.png",
+  "scripts/compose-rubber-stamp-field-note.ts",
+]) {
+  try {
+    await access(join(root, relativePath))
+  } catch {
+    throw new Error(`Skill is missing ${relativePath}`)
+  }
+}
+const rubberStampReference = await readFile(
+  join(root, "references", "rubber-stamp-field-notes.md"),
+  "utf8",
+)
+for (const requiredPath of [
+  "references/rubber-stamp-examples/stamp-style-1.png",
+  "references/rubber-stamp-examples/stamp-style-2.png",
+  "skills/atet/scripts/compose-rubber-stamp-field-note.ts",
+]) {
+  if (!rubberStampReference.includes(requiredPath)) {
+    throw new Error(`Rubber-stamp workflow must route to ${requiredPath}`)
   }
 }
 try {

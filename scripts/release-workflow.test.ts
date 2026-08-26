@@ -123,6 +123,43 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).not.toContain("administration:")
 })
 
+test("version 3 publishes one Atet identity with immutable install instructions", async () => {
+  const packageRoot = join(import.meta.dir, "..")
+  const manifest = JSON.parse(
+    await readFile(join(packageRoot, "package.json"), "utf8"),
+  ) as { readonly bin?: unknown; readonly version?: unknown }
+  const [readme, skillInstall, siteBuild, siteMarkdown, siteTemplate] =
+    await Promise.all([
+      readFile(join(packageRoot, "README.md"), "utf8"),
+      readFile(join(packageRoot, "skills", "atet", "references", "install.md"), "utf8"),
+      readFile(join(packageRoot, "apps", "web", "scripts", "build.ts"), "utf8"),
+      readFile(join(packageRoot, "apps", "web", "src", "agent-pages.ts"), "utf8"),
+      readFile(join(packageRoot, "apps", "web", "src", "index.html"), "utf8"),
+    ])
+
+  expect(manifest.version).toBe("3.0.0")
+  expect(manifest.bin).toEqual({
+    atet: "./apps/desktop/dist/cli/main.js",
+  })
+
+  const immutableCliInstall = "github:hraness/atet#v3.0.0"
+  const immutableSkillInstall =
+    "https://github.com/hraness/atet/tree/v3.0.0 --skill atet"
+  for (const source of [readme, skillInstall, siteMarkdown, siteTemplate]) {
+    expect(source).toContain(immutableCliInstall)
+  }
+  for (const source of [readme, siteBuild, siteMarkdown]) {
+    expect(source).toContain(immutableSkillInstall)
+  }
+  expect(siteTemplate).toContain('"softwareVersion": "3.0.0"')
+  expect(siteTemplate).toContain('"version": "3.0.0"')
+
+  for (const source of [readme, skillInstall, siteBuild, siteMarkdown, siteTemplate]) {
+    expect(source).not.toContain("v2.0.0")
+    expect(source).not.toContain('"softwareVersion": "2.0.0"')
+  }
+})
+
 test("CI FFmpeg setup bounds Ubuntu mirror failures without weakening runtime checks", async () => {
   const scriptPath = join(import.meta.dir, "install-ci-ffmpeg.sh")
   const script = await readFile(scriptPath, "utf8")
