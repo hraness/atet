@@ -108,10 +108,24 @@ const rubberStampReference = await readFile(
 for (const requiredPath of [
   "references/rubber-stamp-examples/stamp-style-1.png",
   "references/rubber-stamp-examples/stamp-style-2.png",
-  "skills/atet/scripts/compose-rubber-stamp-field-note.ts",
+  '$skill_root/scripts/compose-rubber-stamp-field-note.ts',
 ]) {
   if (!rubberStampReference.includes(requiredPath)) {
     throw new Error(`Rubber-stamp workflow must route to ${requiredPath}`)
+  }
+}
+if (rubberStampReference.includes("skills/atet/")) {
+  throw new Error("Rubber-stamp workflow must not assume an Atet source checkout")
+}
+if ([...rubberStampReference.matchAll(/skill_root="\$\(atet skill path\)"/gu)].length !== 2) {
+  throw new Error("Each rubber-stamp executable step must resolve its packaged skill root")
+}
+for (const executableBlock of [
+  /```sh\nskill_root="\$\(atet skill path\)"\nvercel env run -- atet ai image generate[\s\S]*?--image "\$skill_root\/references\/rubber-stamp-examples\/stamp-style-1\.png"[\s\S]*?```/u,
+  /```sh\nskill_root="\$\(atet skill path\)"\nbun "\$skill_root\/scripts\/compose-rubber-stamp-field-note\.ts"[\s\S]*?```/u,
+]) {
+  if (!executableBlock.test(rubberStampReference)) {
+    throw new Error("Rubber-stamp executable blocks must be self-contained")
   }
 }
 try {
