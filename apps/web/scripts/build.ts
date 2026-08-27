@@ -214,6 +214,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   const [
     indexTemplate,
     notFoundTemplate,
+    previewTemplate,
     readingFacesTemplate,
     readingFeynobgTemplate,
     readingGaussiansTemplate,
@@ -224,6 +225,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   ] = await Promise.all([
     readFile(join(sourceDirectory, "index.html"), "utf8"),
     readFile(join(sourceDirectory, "404.html"), "utf8"),
+    readFile(join(sourceDirectory, "preview.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/draw-faces-with-javascript.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/feynobg.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/painting-with-gaussians.html"), "utf8"),
@@ -257,6 +259,9 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       id: "skill-install-copy-status",
     }),
   } as const
+  const previewAssets = {
+    "{{CSS_ASSET}}": stylesPath,
+  } as const
 
   await rm(outputDirectory, { force: true, recursive: true })
   await mkdir(join(outputDirectory, "assets"), { recursive: true })
@@ -265,6 +270,10 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   await Promise.all([
     writeFile(join(outputDirectory, "index.html"), renderDocument(indexTemplate, indexAssets)),
     writeFile(join(outputDirectory, "404.html"), renderDocument(notFoundTemplate, commonAssets)),
+    writeFile(
+      join(outputDirectory, "preview.html"),
+      renderDocument(previewTemplate, previewAssets),
+    ),
     writeFile(
       join(outputDirectory, "reading/draw-faces-with-javascript.html"),
       renderDocument(readingFacesTemplate, commonAssets),
@@ -307,7 +316,7 @@ if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 7
+    + 8
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
 }
