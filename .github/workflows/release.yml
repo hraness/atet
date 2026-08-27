@@ -34,7 +34,9 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.3.14"
-      - run: npm install --global npm@11.19.0
+      - run: >-
+          npm install --global --ignore-scripts npm@11.19.0
+          --registry=https://registry.npmjs.org
       - name: Install FFmpeg
         run: bash scripts/install-ci-ffmpeg.sh
       - name: Verify release identity
@@ -62,26 +64,87 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME is not newer than $newest_stable_tag"
             exit 1
           fi
-          registry_version="$(npm view "@hraness/atet@$package_version" version --json | node -e '
-            const value = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
-            if (typeof value !== "string") process.exit(1);
-            process.stdout.write(value);
-          ')"
-          if [[ "$registry_version" != "$package_version" ]]; then
-            echo "::error::npm delivered $registry_version, expected $package_version"
-            exit 1
-          fi
           printf 'tag=%s\n' "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run check
-      - run: |
-          generated_status="$(git status --porcelain --untracked-files=all -- dist apps/desktop/dist/cli bun.lock)"
-          if [[ -n "$generated_status" ]]; then
-            printf '%s\n' "$generated_status"
+      - name: Verify clean source tree
+        run: |
+          set -euo pipefail
+          source_status="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "$source_status" ]]; then
+            printf '%s\n' "$source_status"
             exit 1
           fi
-      - run: npm pack --dry-run --ignore-scripts --json
-      - run: node --input-type=module -e 'await Promise.all(["./dist/index.js", "./dist/cli.js", "./dist/code/index.js", "./dist/code/advanced.js", "./dist/generate.js", "./dist/host-resources.js", "./dist/operations.js", "./dist/workflow.js"].map((specifier) => import(specifier)))'
+      - name: Verify exact public npm artifact
+        run: |
+          set -euo pipefail
+          package_name="$(node -p 'require("./package.json").name')"
+          package_version="$(node -p 'require("./package.json").version')"
+          archive_name="hraness-atet-$package_version.tgz"
+          source_directory="$RUNNER_TEMP/npm-source"
+          registry_directory="$RUNNER_TEMP/npm-registry"
+          source_metadata="$source_directory/npm-pack.json"
+          registry_metadata="$registry_directory/npm-pack.json"
+          mkdir -p "$source_directory" "$registry_directory"
+          npm pack --ignore-scripts --json \
+            --pack-destination "$source_directory" \
+            --registry=https://registry.npmjs.org \
+            > "$source_metadata"
+          npm pack "$package_name@$package_version" \
+            --ignore-scripts --json \
+            --pack-destination "$registry_directory" \
+            --registry=https://registry.npmjs.org \
+            > "$registry_metadata"
+          cat "$source_metadata"
+          cat "$registry_metadata"
+          source_archive="$source_directory/$archive_name"
+          registry_archive="$registry_directory/$archive_name"
+          node -e '
+            const { createHash } = require("node:crypto");
+            const { readFileSync } = require("node:fs");
+            const [sourceMetadata, registryMetadata, sourceArchive, registryArchive, expectedName, expectedVersion, expectedFilename] = process.argv.slice(1);
+            const readResult = (path, label) => {
+              const value = JSON.parse(readFileSync(path, "utf8"));
+              if (!Array.isArray(value) || value.length !== 1 || typeof value[0] !== "object" || value[0] === null) {
+                console.error(`::error::${label} npm pack metadata must contain exactly one package`);
+                process.exit(1);
+              }
+              return value[0];
+            };
+            const source = readResult(sourceMetadata, "source");
+            const registry = readResult(registryMetadata, "registry");
+            for (const [label, value] of [["source", source], ["registry", registry]]) {
+              if (value.name !== expectedName || value.version !== expectedVersion || value.filename !== expectedFilename) {
+                console.error(`::error::${label} npm package identity differs from ${expectedName}@${expectedVersion}`);
+                process.exit(1);
+              }
+              const bytes = readFileSync(label === "source" ? sourceArchive : registryArchive);
+              const integrity = `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
+              const shasum = createHash("sha1").update(bytes).digest("hex");
+              if (value.size !== bytes.length || value.integrity !== integrity || value.shasum !== shasum) {
+                console.error(`::error::${label} npm metadata does not identify its exact archive bytes`);
+                process.exit(1);
+              }
+            }
+            for (const field of ["entryCount", "filename", "integrity", "name", "shasum", "size", "unpackedSize"]) {
+              if (source[field] !== registry[field]) {
+                console.error(`::error::published npm ${field} differs from the checked source artifact`);
+                process.exit(1);
+              }
+            }
+            const inventory = value => JSON.stringify(value.files.map(({ mode, path, size }) => ({ mode, path, size })));
+            if (!Array.isArray(source.files) || !Array.isArray(registry.files) || inventory(source) !== inventory(registry)) {
+              console.error("::error::published npm inventory differs from the checked source artifact");
+              process.exit(1);
+            }
+          ' "$source_metadata" "$registry_metadata" \
+            "$source_archive" "$registry_archive" \
+            "$package_name" "$package_version" "$archive_name"
+          cmp --silent "$source_archive" "$registry_archive"
+          sha512sum "$source_archive" "$registry_archive"
+          bun run ./scripts/package-smoke.ts \
+            --archive "$registry_archive" \
+            --pack-json "$registry_metadata"
 
   official_vtracer:
     name: Atet VTracer (${{ matrix.target }})

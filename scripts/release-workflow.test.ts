@@ -88,9 +88,19 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).toContain('newest_stable_tag="$(git tag --list')
   expect(workflow).toContain("bun install --frozen-lockfile --ignore-scripts")
   expect(workflow).toContain("bun run check")
-  expect(workflow).toContain("npm install --global npm@11.19.0")
-  expect(workflow).toContain('npm view "@hraness/atet@$package_version" version --json')
-  expect(workflow).toContain("npm delivered $registry_version, expected $package_version")
+  expect(workflow).toContain("npm install --global --ignore-scripts npm@11.19.0")
+  expect(workflow).toContain("Verify exact public npm artifact")
+  expect(workflow).toContain('npm pack "$package_name@$package_version"')
+  expect(workflow).toContain("--registry=https://registry.npmjs.org")
+  expect(workflow).toContain('const { createHash } = require("node:crypto")')
+  expect(workflow).toContain('value.integrity !== integrity || value.shasum !== shasum')
+  expect(workflow).toContain('"entryCount", "filename", "integrity", "name", "shasum", "size", "unpackedSize"')
+  expect(workflow).toContain("published npm inventory differs from the checked source artifact")
+  expect(workflow).toContain('cmp --silent "$source_archive" "$registry_archive"')
+  expect(workflow).toContain("sha512sum \"$source_archive\" \"$registry_archive\"")
+  expect(workflow).toContain("bun run ./scripts/package-smoke.ts")
+  expect(workflow).toContain('--archive "$registry_archive"')
+  expect(workflow).toContain('--pack-json "$registry_metadata"')
   expect(workflow).toContain("bash scripts/install-ci-ffmpeg.sh")
   expect(workflow).toContain("native_macos:\n    name: Atet macOS shell")
   expect(workflow).toContain("bun run test:desktop:macos")
@@ -100,14 +110,8 @@ test("version tags pass the complete immutable release gate", async () => {
   )
   expect(workflow).toContain('version: "0.16.0"')
   expect(workflow).toContain("needs: [verify, official_vtracer, native_macos]")
-  expect(workflow).toContain(
-    "git status --porcelain --untracked-files=all -- dist apps/desktop/dist/cli bun.lock",
-  )
-  expect(workflow).toContain("npm pack --dry-run --ignore-scripts --json")
-  expect(workflow).toContain('"./dist/code/index.js"')
-  expect(workflow).toContain('"./dist/code/advanced.js"')
-  expect(workflow).toContain('"./dist/workflow.js"')
-  expect(workflow).toContain('"./dist/generate.js"')
+  expect(workflow).toContain("Verify clean source tree")
+  expect(workflow).toContain("git status --porcelain --untracked-files=all")
   expect(workflow).toContain("is not newer than")
   expect(workflow).toContain('gh release create "$GITHUB_REF_NAME"')
   expect(workflow).toContain("--verify-tag")
@@ -136,25 +140,35 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   expect(workflow).toContain("runs-on: ubuntu-24.04")
   expect(workflow).toContain('node-version: "24"')
   expect(workflow).toContain('bun-version: "1.3.14"')
-  expect(workflow).toContain("npm install --global npm@11.19.0")
+  expect(workflow).toContain("npm install --global --ignore-scripts npm@11.19.0")
   expect(workflow).toContain('[[ "$(npm --version)" == "11.19.0" ]]')
   expect(workflow).toContain('if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]')
   expect(workflow).toContain('if [[ "$GITHUB_SHA" != "$default_sha" ]]')
   expect(workflow).toContain('npm view "$package_name" name --json')
   expect(workflow).toContain('npm view "$package_name@$package_version" version --json')
+  expect(workflow).toContain("--registry=https://registry.npmjs.org")
   expect(workflow).toContain("bun install --frozen-lockfile --ignore-scripts")
   expect(workflow).toContain("bun run check")
-  expect(workflow).toContain("npm pack --ignore-scripts --json --pack-destination")
-  expect(workflow).toContain('bun run ./scripts/package-smoke.ts "$archive"')
+  expect(workflow).toContain("Verify clean source tree")
+  expect(workflow).toContain("git status --porcelain --untracked-files=all")
+  expect(workflow).toContain("npm pack --ignore-scripts --json")
+  expect(workflow).toContain('> "$metadata"')
+  expect(workflow).toContain('cat "$metadata"')
+  expect(workflow).toContain("bun run ./scripts/package-smoke.ts")
+  expect(workflow).toContain('--archive "$archive"')
+  expect(workflow).toContain('--pack-json "$metadata"')
+  expect(workflow).toContain("sha512sum \"$archive\"")
   expect(workflow).toContain("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02")
+  expect(workflow).toContain("npm-package-${{ github.sha }}")
   expect(workflow).toContain("Default branch advanced to $current_default_sha after verification")
   expect(workflow.lastIndexOf('git fetch --no-tags origin "$DEFAULT_BRANCH"')).toBeGreaterThan(
     workflow.indexOf("Pack and verify the exact artifact"),
   )
   expect(workflow.lastIndexOf('if [[ "$GITHUB_SHA" != "$current_default_sha" ]]')).toBeLessThan(
-    workflow.indexOf('npm stage publish "${{ steps.pack.outputs.archive }}" --access public'),
+    workflow.indexOf('npm stage publish "${{ steps.pack.outputs.archive }}"'),
   )
-  expect(workflow).toContain('npm stage publish "${{ steps.pack.outputs.archive }}" --access public')
+  expect(workflow).toContain('npm stage publish "${{ steps.pack.outputs.archive }}"')
+  expect(workflow).toContain("--access public")
   expect(workflow).not.toContain("NPM_TOKEN")
   expect(workflow).not.toMatch(/npm publish(?:\s|$)/u)
   expect(workflow).not.toContain("push:")
@@ -165,9 +179,12 @@ test("version 3.0.2 publishes one Atet identity with npm install instructions", 
   const manifest = JSON.parse(
     await readFile(join(packageRoot, "package.json"), "utf8"),
   ) as { readonly bin?: unknown; readonly version?: unknown }
-  const [readme, skillInstall, siteBuild, siteMarkdown, siteTemplate] =
+  const [disclosure, publishing, readme, security, skillInstall, siteBuild, siteMarkdown, siteTemplate] =
     await Promise.all([
+      readFile(join(packageRoot, "DISCLOSURE"), "utf8"),
+      readFile(join(packageRoot, "docs", "publishing.md"), "utf8"),
       readFile(join(packageRoot, "README.md"), "utf8"),
+      readFile(join(packageRoot, "SECURITY.md"), "utf8"),
       readFile(join(packageRoot, "skills", "atet", "references", "install.md"), "utf8"),
       readFile(join(packageRoot, "apps", "web", "scripts", "build.ts"), "utf8"),
       readFile(join(packageRoot, "apps", "web", "src", "agent-pages.ts"), "utf8"),
@@ -177,6 +194,9 @@ test("version 3.0.2 publishes one Atet identity with npm install instructions", 
   expect(manifest.version).toBe("3.0.2")
   expect(manifest.bin).toEqual({
     atet: "./apps/desktop/dist/cli/main.js",
+  })
+  expect((manifest as { readonly contentPolicy?: unknown }).contentPolicy).toEqual({
+    class: "dual-use",
   })
 
   const npmCliInstall = "@hraness/atet@3.0.2"
@@ -191,6 +211,22 @@ test("version 3.0.2 publishes one Atet identity with npm install instructions", 
   expect(siteTemplate).toContain('"softwareVersion": "3.0.2"')
   expect(siteTemplate).toContain('"version": "3.0.2"')
   expect(readme).toContain("github:hraness/atet#v3.0.2")
+  for (const capability of [
+    "screen",
+    "camera",
+    "microphone",
+    "system audio",
+    "typed text",
+  ]) {
+    expect(disclosure.toLowerCase()).toContain(capability)
+  }
+  expect(readme).toContain("[`DISCLOSURE`](DISCLOSURE)")
+  expect(security).toContain("[`DISCLOSURE`](DISCLOSURE)")
+  expect(publishing).toContain("npm stage publish <reviewed-tarball>")
+  expect(publishing).toContain("allowed action: `npm stage publish` only")
+  expect(publishing).toContain("Require two-factor authentication and")
+  expect(publishing).toContain("disallow tokens")
+  expect(publishing).toContain("Do not create the matching Git tag yet")
 
   for (const source of [readme, skillInstall, siteBuild, siteMarkdown, siteTemplate]) {
     expect(source).not.toContain("v3.0.1")
@@ -198,6 +234,29 @@ test("version 3.0.2 publishes one Atet identity with npm install instructions", 
     expect(source).not.toContain("v2.0.0")
     expect(source).not.toContain('"softwareVersion": "2.0.0"')
   }
+})
+
+test("the package smoke proves metadata and bounded import side effects", async () => {
+  const packageRoot = join(import.meta.dir, "..")
+  const smoke = await readFile(join(packageRoot, "scripts", "package-smoke.ts"), "utf8")
+
+  for (const required of [
+    '"DISCLOSURE"',
+    "contentPolicy.class=dual-use",
+    "--pack-json",
+    "npm pack SHA-512 integrity does not match the exact archive bytes",
+    "npm pack SHA-1 shasum does not match the exact archive bytes",
+    'patch("node:child_process"',
+    'patch("node:fs"',
+    'patch("node:http"',
+    'deny("globalThis.fetch")',
+    '"--permission"',
+    '"--allow-fs-read=*"',
+    "package imports changed the controlled consumer filesystem",
+  ]) {
+    expect(smoke).toContain(required)
+  }
+  expect(smoke).not.toContain('await Promise.all(${JSON.stringify(importSpecifiers)}.map(specifier => import(specifier)))`')
 })
 
 test("CI FFmpeg setup bounds Ubuntu mirror failures without weakening runtime checks", async () => {

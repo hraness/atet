@@ -4,10 +4,12 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  readlink,
   realpath,
   rm,
   writeFile,
 } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import {
   basename,
@@ -41,6 +43,7 @@ const maximumPackedFiles = 350;
 const maximumPackedBytes = 2_750_000;
 const maximumUnpackedBytes = 7_500_000;
 const requiredPackedPaths = [
+  "DISCLOSURE",
   "LICENSE",
   "NOTICE.md",
   "README.md",
@@ -130,21 +133,37 @@ const forbiddenPackageText = [
 
 interface PackedPackageStats {
   readonly fileCount: number;
+  readonly fileSizes: ReadonlyMap<string, number>;
   readonly paths: ReadonlySet<string>;
   readonly unpackedBytes: number;
 }
 
+interface NpmPackFile {
+  readonly mode: number;
+  readonly path: string;
+  readonly size: number;
+}
+
 interface NpmPackResult {
   readonly entryCount: number;
+  readonly files: readonly NpmPackFile[];
   readonly filename: string;
+  readonly integrity: string;
   readonly name: string;
+  readonly shasum: string;
   readonly size: number;
   readonly unpackedSize: number;
   readonly version: string;
 }
 
+interface PackageSmokeArguments {
+  readonly archive?: string;
+  readonly packJson?: string;
+}
+
 async function scanPackedPackage(directory: string): Promise<PackedPackageStats> {
   const problems: string[] = [];
+  const fileSizes = new Map<string, number>();
   const paths = new Set<string>();
   let unpackedBytes = 0;
   async function visit(path: string): Promise<void> {
@@ -160,6 +179,7 @@ async function scanPackedPackage(directory: string): Promise<PackedPackageStats>
     if (!info.isFile()) return;
     const packedPath = relative(directory, path).split(sep).join("/");
     paths.add(packedPath);
+    fileSizes.set(packedPath, info.size);
     unpackedBytes += info.size;
     for (const rule of forbiddenPackedPaths) {
       if (rule.pattern.test(packedPath)) {
@@ -190,7 +210,7 @@ async function scanPackedPackage(directory: string): Promise<PackedPackageStats>
   if (problems.length > 0) {
     throw new Error(`Packed standalone boundary failed:\n${problems.sort().join("\n")}`);
   }
-  return { fileCount: paths.size, paths, unpackedBytes };
+  return { fileCount: paths.size, fileSizes, paths, unpackedBytes };
 }
 
 async function run(
@@ -334,6 +354,24 @@ async function verifyPackedRuntimeClosure(
     JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8")) as unknown,
     "packed package.json",
   );
+  const contentPolicy = record(manifest.contentPolicy, "package.json contentPolicy");
+  if (contentPolicy.class !== "dual-use") {
+    throw new Error("packed package.json must retain contentPolicy.class=dual-use.");
+  }
+  const publishConfig = record(manifest.publishConfig, "package.json publishConfig");
+  if (
+    publishConfig.access !== "public"
+    || publishConfig.registry !== "https://registry.npmjs.org"
+  ) {
+    throw new Error("packed package.json must publish publicly through the canonical npm registry.");
+  }
+  const [sourceDisclosure, packedDisclosure] = await Promise.all([
+    readFile(join(process.cwd(), "DISCLOSURE")),
+    readFile(join(packageRoot, "DISCLOSURE")),
+  ]);
+  if (!sourceDisclosure.equals(packedDisclosure)) {
+    throw new Error("packed DISCLOSURE differs from the reviewed source disclosure.");
+  }
   const entryTargets = new Set<string>();
   for (const [key, value] of Object.entries(record(manifest.exports, "package.json exports"))) {
     if (typeof value === "string") entryTargets.add(value);
@@ -407,12 +445,97 @@ function parseNpmPackResult(value: unknown): NpmPackResult {
       throw new Error(`npm pack result ${field} must be a nonnegative safe integer.`);
     }
   }
-  for (const field of ["filename", "name", "version"] as const) {
+  for (const field of ["filename", "integrity", "name", "shasum", "version"] as const) {
     if (typeof result[field] !== "string" || result[field].length === 0) {
       throw new Error(`npm pack result ${field} must be a nonempty string.`);
     }
   }
-  return result as unknown as NpmPackResult;
+  if (result.name !== packageName) {
+    throw new Error(`npm pack reported package ${String(result.name)} instead of ${packageName}.`);
+  }
+  if (!/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.test(String(result.version))) {
+    throw new Error(`npm pack reported non-stable version ${String(result.version)}.`);
+  }
+  const expectedFilename = `hraness-atet-${String(result.version)}.tgz`;
+  if (result.filename !== expectedFilename) {
+    throw new Error(
+      `npm pack reported filename ${String(result.filename)} instead of ${expectedFilename}.`,
+    );
+  }
+  if (!/^sha512-[A-Za-z0-9+/]+={0,2}$/u.test(String(result.integrity))) {
+    throw new Error("npm pack result integrity must be a SHA-512 SRI value.");
+  }
+  if (!/^[a-f0-9]{40}$/u.test(String(result.shasum))) {
+    throw new Error("npm pack result shasum must be a lowercase SHA-1 digest.");
+  }
+  if (!Array.isArray(result.files) || result.files.length !== result.entryCount) {
+    throw new Error("npm pack files must match entryCount.");
+  }
+  const files: NpmPackFile[] = [];
+  const seen = new Set<string>();
+  for (const [index, value] of result.files.entries()) {
+    const file = record(value, `npm pack result file ${String(index + 1)}`);
+    if (typeof file.path !== "string" || file.path.length === 0 || seen.has(file.path)) {
+      throw new Error(`npm pack result file ${String(index + 1)} has an invalid path.`);
+    }
+    for (const field of ["mode", "size"] as const) {
+      if (!Number.isSafeInteger(file[field]) || Number(file[field]) < 0) {
+        throw new Error(
+          `npm pack result file ${String(index + 1)} ${field} must be a nonnegative safe integer.`,
+        );
+      }
+    }
+    seen.add(file.path);
+    files.push(file as unknown as NpmPackFile);
+  }
+  return { ...(result as unknown as NpmPackResult), files };
+}
+
+async function verifyNpmPackResult(
+  archive: string,
+  archiveBytes: Uint8Array,
+  result: NpmPackResult,
+  stats: PackedPackageStats,
+): Promise<void> {
+  const problems: string[] = [];
+  if (basename(archive) !== result.filename) {
+    problems.push(`archive filename ${basename(archive)} differs from ${result.filename}`);
+  }
+  if (result.entryCount !== stats.fileCount) {
+    problems.push(
+      `npm pack reported ${String(result.entryCount)} files, but the clean install contains ${String(stats.fileCount)}`,
+    );
+  }
+  if (result.size !== archiveBytes.byteLength) {
+    problems.push(
+      `npm pack reported ${String(result.size)} packed bytes, but the archive has ${String(archiveBytes.byteLength)}`,
+    );
+  }
+  if (result.unpackedSize !== stats.unpackedBytes) {
+    problems.push(
+      `npm pack reported ${String(result.unpackedSize)} unpacked bytes, but the clean install contains ${String(stats.unpackedBytes)}`,
+    );
+  }
+  const actualIntegrity = `sha512-${createHash("sha512").update(archiveBytes).digest("base64")}`;
+  if (actualIntegrity !== result.integrity) {
+    problems.push("npm pack SHA-512 integrity does not match the exact archive bytes");
+  }
+  const actualShasum = createHash("sha1").update(archiveBytes).digest("hex");
+  if (actualShasum !== result.shasum) {
+    problems.push("npm pack SHA-1 shasum does not match the exact archive bytes");
+  }
+  const metadataFiles = new Map(result.files.map(file => [file.path, file.size] as const));
+  for (const [path, size] of stats.fileSizes) {
+    if (metadataFiles.get(path) !== size) {
+      problems.push(`npm pack inventory differs for ${path}`);
+    }
+  }
+  for (const path of metadataFiles.keys()) {
+    if (!stats.fileSizes.has(path)) problems.push(`npm pack inventory contains absent path ${path}`);
+  }
+  if (problems.length > 0) {
+    throw new Error(`npm pack metadata verification failed:\n${problems.sort().join("\n")}`);
+  }
 }
 
 async function createNpmArchive(
@@ -428,18 +551,227 @@ async function createNpmArchive(
     "--json",
     "--pack-destination",
     packDirectory,
+    "--registry=https://registry.npmjs.org",
   ], repository, environment);
   const result = parseNpmPackResult(JSON.parse(output) as unknown);
   return { archive: join(packDirectory, result.filename), result };
 }
 
-const repository = process.cwd();
-if (process.argv.length > 3) {
-  throw new Error("Usage: bun scripts/package-smoke.ts [package.tgz]");
+function parseArguments(args: readonly string[]): PackageSmokeArguments {
+  if (args.length === 0) return {};
+  const values = new Map<string, string>();
+  for (let index = 0; index < args.length; index += 2) {
+    const option = args[index];
+    const value = args[index + 1];
+    if (
+      (option !== "--archive" && option !== "--pack-json")
+      || value === undefined
+      || value.length === 0
+      || values.has(option)
+    ) {
+      throw new Error(
+        "Usage: bun scripts/package-smoke.ts [--archive package.tgz --pack-json npm-pack.json]",
+      );
+    }
+    values.set(option, value);
+  }
+  const archive = values.get("--archive");
+  const packJson = values.get("--pack-json");
+  if (archive === undefined || packJson === undefined || values.size !== 2) {
+    throw new Error(
+      "An external archive requires both --archive and --pack-json so its exact metadata can be verified.",
+    );
+  }
+  return { archive: resolve(process.cwd(), archive), packJson: resolve(process.cwd(), packJson) };
 }
-const providedArchive = process.argv[2] === undefined
+
+async function snapshotDirectory(root: string): Promise<string> {
+  const rows: string[] = [];
+  async function visit(directory: string, prefix: string): Promise<void> {
+    const entries = (await readdir(directory, { withFileTypes: true }))
+      .toSorted((left, right) => left.name.localeCompare(right.name));
+    for (const entry of entries) {
+      const path = join(directory, entry.name);
+      const relativePath = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
+      const info = await lstat(path);
+      if (info.isSymbolicLink()) {
+        rows.push(`link\t${relativePath}\t${await readlink(path)}`);
+      } else if (info.isDirectory()) {
+        rows.push(`directory\t${relativePath}\t${String(info.mode)}`);
+        await visit(path, relativePath);
+      } else if (info.isFile()) {
+        rows.push(
+          `file\t${relativePath}\t${String(info.mode)}\t${String(info.size)}\t${String(info.mtimeMs)}`,
+        );
+      } else {
+        rows.push(`other\t${relativePath}\t${String(info.mode)}`);
+      }
+    }
+  }
+  await visit(root, "");
+  return rows.join("\n");
+}
+
+function describeSnapshotChanges(before: string, after: string): string {
+  const beforeRows = new Set(before.split("\n").filter(Boolean));
+  const afterRows = new Set(after.split("\n").filter(Boolean));
+  const removed = [...beforeRows].filter(row => !afterRows.has(row)).map(row => `- ${row}`);
+  const added = [...afterRows].filter(row => !beforeRows.has(row)).map(row => `+ ${row}`);
+  return [...removed, ...added].slice(0, 40).join("\n");
+}
+
+function importSideEffectProbeSource(specifiers: readonly string[]): string {
+  return `
+import { createRequire, syncBuiltinESMExports } from "node:module";
+
+const attempts = [];
+const deny = name => (..._arguments) => {
+  attempts.push(name);
+  throw new Error("package import attempted " + name);
+};
+const require = createRequire(import.meta.url);
+const patch = (specifier, names) => {
+  const target = require(specifier);
+  for (const name of names) {
+    if (typeof target[name] !== "function") continue;
+    try {
+      target[name] = deny(specifier + "." + name);
+    } catch {
+      // Runtime permissions and the filesystem snapshot remain independent guards.
+    }
+  }
+};
+
+patch("node:child_process", [
+  "exec", "execFile", "execFileSync", "execSync", "fork", "spawn", "spawnSync",
+]);
+patch("node:worker_threads", ["Worker"]);
+patch("node:fs", [
+  "appendFile", "appendFileSync", "chmod", "chmodSync", "chown", "chownSync",
+  "copyFile", "copyFileSync", "cp", "cpSync", "createWriteStream", "fchmod",
+  "fchmodSync", "fchown", "fchownSync", "fdatasync", "fdatasyncSync", "ftruncate",
+  "ftruncateSync", "futimes", "futimesSync", "link", "linkSync", "lchmod",
+  "lchmodSync", "lchown", "lchownSync", "lutimes", "lutimesSync", "mkdir",
+  "mkdirSync", "mkdtemp", "mkdtempSync", "rename", "renameSync", "rm", "rmSync",
+  "rmdir", "rmdirSync", "symlink", "symlinkSync", "truncate", "truncateSync",
+  "unlink", "unlinkSync", "utimes", "utimesSync", "write", "writeFile",
+  "writeFileSync", "writeSync",
+]);
+patch("node:fs/promises", [
+  "appendFile", "chmod", "chown", "copyFile", "cp", "lchmod", "lchown", "link",
+  "lutimes", "mkdir", "mkdtemp", "rename", "rm", "rmdir", "symlink", "truncate",
+  "unlink", "utimes", "writeFile",
+]);
+patch("node:http", ["createServer", "get", "request"]);
+patch("node:https", ["createServer", "get", "request"]);
+patch("node:http2", ["connect", "createSecureServer", "createServer"]);
+patch("node:net", ["connect", "createConnection", "createServer"]);
+patch("node:tls", ["connect", "createSecureContext", "createServer"]);
+patch("node:dgram", ["createSocket"]);
+patch("node:dns", [
+  "lookup", "lookupService", "resolve", "resolve4", "resolve6", "resolveAny",
+  "resolveCaa", "resolveCname", "resolveMx", "resolveNaptr", "resolveNs", "resolvePtr",
+  "resolveSoa", "resolveSrv", "resolveTxt", "reverse",
+]);
+patch("node:dns/promises", [
+  "lookup", "lookupService", "resolve", "resolve4", "resolve6", "resolveAny",
+  "resolveCaa", "resolveCname", "resolveMx", "resolveNaptr", "resolveNs", "resolvePtr",
+  "resolveSoa", "resolveSrv", "resolveTxt", "reverse",
+]);
+syncBuiltinESMExports();
+
+for (const [name, value] of [
+  ["fetch", deny("globalThis.fetch")],
+  ["WebSocket", deny("globalThis.WebSocket")],
+  ["EventSource", deny("globalThis.EventSource")],
+]) {
+  try {
+    Object.defineProperty(globalThis, name, { configurable: true, value, writable: true });
+  } catch {
+    // The patched Node/Bun modules and permission boundary still apply.
+  }
+}
+try {
+  process.chdir = deny("process.chdir");
+} catch {
+  // The directory snapshot still detects writes below the controlled roots.
+}
+if (typeof Bun !== "undefined") {
+  for (const name of ["connect", "listen", "serve", "spawn", "spawnSync", "udpSocket", "write"]) {
+    if (typeof Bun[name] !== "function") continue;
+    try {
+      Bun[name] = deny("Bun." + name);
+    } catch {
+      // Node-compatible hooks above remain active in this runtime.
+    }
+  }
+}
+
+await Promise.all(${JSON.stringify(specifiers)}.map(specifier => import(specifier)));
+if (attempts.length > 0) {
+  throw new Error("package imports attempted side effects: " + attempts.join(", "));
+}
+`;
+}
+
+async function verifySideEffectFreeImports(
+  consumer: string,
+  specifiers: readonly string[],
+  runtime: "bun" | "node",
+  environment: Readonly<Record<string, string | undefined>>,
+): Promise<void> {
+  const stateRoot = join(consumer, `.atet-${runtime}-import-state`);
+  for (const directory of [
+    stateRoot,
+    join(stateRoot, "cache"),
+    join(stateRoot, "config"),
+    join(stateRoot, "data"),
+    join(stateRoot, "home"),
+    join(stateRoot, "tmp"),
+  ]) {
+    await mkdir(directory, { recursive: true });
+  }
+  const probe = join(consumer, `.atet-${runtime}-import-probe.mjs`);
+  await writeFile(probe, importSideEffectProbeSource(specifiers));
+  const probeEnvironment = {
+    ...environment,
+    ATET_CACHE_DIR: join(stateRoot, "cache", "atet"),
+    ATET_TEST_STATE_ROOT: join(stateRoot, "data", "atet"),
+    BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
+    HOME: join(stateRoot, "home"),
+    TMPDIR: join(stateRoot, "tmp"),
+    XDG_CACHE_HOME: join(stateRoot, "cache"),
+    XDG_CONFIG_HOME: join(stateRoot, "config"),
+    XDG_DATA_HOME: join(stateRoot, "data"),
+  };
+  const before = await snapshotDirectory(consumer);
+  if (runtime === "bun") {
+    await run([process.execPath, probe], consumer, probeEnvironment);
+  } else {
+    await run([
+      "node",
+      "--permission",
+      "--allow-addons",
+      "--allow-fs-read=*",
+      probe,
+    ], consumer, probeEnvironment);
+  }
+  const after = await snapshotDirectory(consumer);
+  if (after !== before) {
+    throw new Error(
+      `${runtime} package imports changed the controlled consumer filesystem:\n${describeSnapshotChanges(before, after)}`,
+    );
+  }
+}
+
+const repository = process.cwd();
+const arguments_ = parseArguments(process.argv.slice(2));
+const providedArchive = arguments_.archive;
+const providedPackResult = arguments_.packJson === undefined
   ? undefined
-  : resolve(repository, process.argv[2]);
+  : parseNpmPackResult(
+    JSON.parse(await readFile(arguments_.packJson, "utf8")) as unknown,
+  );
 const work = await mkdtemp(join(tmpdir(), "atet-package-smoke-"));
 try {
   const packageEnvironment = {
@@ -447,12 +779,24 @@ try {
     BUN_INSTALL_CACHE_DIR: join(work, "bun-cache"),
     TMPDIR: work,
     npm_config_cache: join(work, "npm-cache"),
+    npm_config_registry: "https://registry.npmjs.org",
   };
   const packed = providedArchive === undefined
     ? await createNpmArchive(repository, join(work, "pack"), packageEnvironment)
     : undefined;
   const archive = packed?.archive ?? providedArchive;
+  const packResult = packed?.result ?? providedPackResult;
   if (archive === undefined) throw new Error("Packed archive path is unavailable.");
+  if (packResult === undefined) throw new Error("npm pack metadata is unavailable.");
+  const packageJson = record(
+    JSON.parse(await readFile(join(repository, "package.json"), "utf8")) as unknown,
+    "package.json",
+  );
+  if (packResult.version !== packageJson.version) {
+    throw new Error(
+      `npm pack reported version ${packResult.version} instead of ${String(packageJson.version)}.`,
+    );
+  }
   const archiveInfo = await lstat(archive);
   if (!archiveInfo.isFile() || archiveInfo.size === 0) {
     throw new Error(`Packed archive is not a nonempty regular file: ${archive}`);
@@ -462,6 +806,7 @@ try {
       `Packed archive is ${String(archiveInfo.size)} bytes; maximum is ${String(maximumPackedBytes)}.`,
     );
   }
+  const archiveBytes = await readFile(archive);
   const consumer = join(work, "consumer");
   await mkdir(consumer);
   await writeFile(
@@ -478,31 +823,13 @@ try {
   );
   const packedStats = await scanPackedPackage(installedPackage);
   await verifyPackedRuntimeClosure(installedPackage, packedStats);
-  if (packed !== undefined) {
-    if (packed.result.name !== packageName) {
-      throw new Error(`npm pack reported package ${packed.result.name} instead of ${packageName}.`);
-    }
-    if (packed.result.entryCount !== packedStats.fileCount) {
-      throw new Error(
-        `npm pack reported ${String(packed.result.entryCount)} files, but the clean install contains ${String(packedStats.fileCount)}.`,
-      );
-    }
-    if (packed.result.size !== archiveInfo.size) {
-      throw new Error(
-        `npm pack reported ${String(packed.result.size)} packed bytes, but the archive has ${String(archiveInfo.size)}.`,
-      );
-    }
-    if (packed.result.unpackedSize !== packedStats.unpackedBytes) {
-      throw new Error(
-        `npm pack reported ${String(packed.result.unpackedSize)} unpacked bytes, but the clean install contains ${String(packedStats.unpackedBytes)}.`,
-      );
-    }
-  }
-  await run([
-    process.execPath,
-    "-e",
-    `await Promise.all(${JSON.stringify(importSpecifiers)}.map(specifier => import(specifier)))`,
-  ], consumer);
+  await verifyNpmPackResult(archive, archiveBytes, packResult, packedStats);
+  await verifySideEffectFreeImports(
+    consumer,
+    importSpecifiers,
+    "bun",
+    packageEnvironment,
+  );
   await run([
     join(consumer, "node_modules", ".bin", "atet"),
     "--help",
@@ -519,10 +846,6 @@ try {
       `Packed CLI resolved repositoryRoot ${JSON.stringify(doctor.repositoryRoot)} instead of caller root ${JSON.stringify(consumerRoot)}.`,
     );
   }
-  const packageJson = record(
-    JSON.parse(await readFile(join(repository, "package.json"), "utf8")) as unknown,
-    "package.json",
-  );
   if (doctor.version !== packageJson.version) {
     throw new Error(
       `Packed CLI reports version ${JSON.stringify(doctor.version)} instead of package version ${JSON.stringify(packageJson.version)}.`,
@@ -718,6 +1041,7 @@ void [
     "--no-audit",
     "--no-fund",
     "--package-lock=false",
+    "--registry=https://registry.npmjs.org",
   ], npmConsumer, packageEnvironment);
   const npmInstalledPackage = await realpath(
     join(npmConsumer, "node_modules", "@hraness", "atet"),
@@ -730,12 +1054,12 @@ void [
   ) {
     throw new Error("npm and Bun consumers installed different Atet package contents.");
   }
-  await run([
+  await verifySideEffectFreeImports(
+    npmConsumer,
+    nodeImportSpecifiers,
     "node",
-    "--input-type=module",
-    "-e",
-    `await Promise.all(${JSON.stringify(nodeImportSpecifiers)}.map(specifier => import(specifier)))`,
-  ], npmConsumer, packageEnvironment);
+    packageEnvironment,
+  );
   await run([
     join(npmConsumer, "node_modules", ".bin", "atet"),
     "--version",

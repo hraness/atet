@@ -3,6 +3,9 @@
   "version": "3.0.2",
   "description": "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet.",
   "license": "MIT",
+  "contentPolicy": {
+    "class": "dual-use"
+  },
   "type": "module",
   "sideEffects": [
     "./src/cli.ts",
@@ -179,6 +182,7 @@
     "schema",
     "skills",
     "README.md",
+    "DISCLOSURE",
     "SECURITY.md",
     "LICENSE"
   ],
@@ -276,6 +280,6 @@
   },
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org/"
+    "registry": "https://registry.npmjs.org"
   }
 }

@@ -34,7 +34,8 @@ jobs:
       - name: Install npm 11.19.0
         run: |
           set -euo pipefail
-          npm install --global npm@11.19.0
+          npm install --global --ignore-scripts npm@11.19.0 \
+            --registry=https://registry.npmjs.org
           [[ "$(npm --version)" == "11.19.0" ]]
           [[ "$(node --version)" == v24.* ]]
       - name: Verify default-branch package identity
@@ -66,9 +67,11 @@ jobs:
             echo "::error::Create v$package_version only after npm delivery is verified"
             exit 1
           fi
-          npm view "$package_name" name --json >/dev/null
+          npm view "$package_name" name --json \
+            --registry=https://registry.npmjs.org >/dev/null
           set +e
-          registry_result="$(npm view "$package_name@$package_version" version --json 2>&1)"
+          registry_result="$(npm view "$package_name@$package_version" version --json \
+            --registry=https://registry.npmjs.org 2>&1)"
           registry_status=$?
           set -e
           if [[ $registry_status -eq 0 ]]; then
@@ -84,12 +87,12 @@ jobs:
         run: bash scripts/install-ci-ffmpeg.sh
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run check
-      - name: Verify committed generated output
+      - name: Verify clean source tree
         run: |
           set -euo pipefail
-          generated_status="$(git status --porcelain --untracked-files=all -- dist apps/desktop/dist/cli bun.lock)"
-          if [[ -n "$generated_status" ]]; then
-            printf '%s\n' "$generated_status"
+          source_status="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "$source_status" ]]; then
+            printf '%s\n' "$source_status"
             exit 1
           fi
       - name: Pack and verify the exact artifact
@@ -97,23 +100,34 @@ jobs:
         run: |
           set -euo pipefail
           archive_directory="$RUNNER_TEMP/atet-npm"
+          metadata="$archive_directory/npm-pack.json"
           mkdir -p "$archive_directory"
-          pack_result="$(npm pack --ignore-scripts --json --pack-destination "$archive_directory")"
-          archive_name="$(printf '%s' "$pack_result" | node -e '
-            const input = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+          npm pack --ignore-scripts --json \
+            --pack-destination "$archive_directory" \
+            --registry=https://registry.npmjs.org \
+            > "$metadata"
+          cat "$metadata"
+          archive_name="$(node -e '
+            const input = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
             if (!Array.isArray(input) || input.length !== 1 || typeof input[0]?.filename !== "string") process.exit(1);
             process.stdout.write(input[0].filename);
-          ')"
+          ' "$metadata")"
           archive="$archive_directory/$archive_name"
-          bun run ./scripts/package-smoke.ts "$archive"
-          sha256sum "$archive"
+          bun run ./scripts/package-smoke.ts \
+            --archive "$archive" \
+            --pack-json "$metadata"
+          sha512sum "$archive"
           printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
           printf 'archive_name=%s\n' "$archive_name" >> "$GITHUB_OUTPUT"
+          printf 'metadata=%s\n' "$metadata" >> "$GITHUB_OUTPUT"
       - name: Upload reviewed package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ${{ steps.pack.outputs.archive_name }}
-          path: ${{ steps.pack.outputs.archive }}
+          name: npm-package-${{ github.sha }}
+          path: |
+            ${{ steps.pack.outputs.archive }}
+            ${{ steps.pack.outputs.metadata }}
+          compression-level: 0
           if-no-files-found: error
           retention-days: 7
       - name: Stage reviewed package
@@ -127,4 +141,6 @@ jobs:
             echo "::error::Default branch advanced to $current_default_sha after verification; rerun this workflow"
             exit 1
           fi
-          npm stage publish "${{ steps.pack.outputs.archive }}" --access public
+          npm stage publish "${{ steps.pack.outputs.archive }}" \
+            --access public \
+            --registry=https://registry.npmjs.org

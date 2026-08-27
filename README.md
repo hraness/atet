@@ -72,6 +72,15 @@ The npm package and immutable GitHub release contain the same versioned CLI and
 Agent Skill. You can use `github:hraness/atet#v3.0.2` when you need to install
 the source tag directly.
 
+Atet declares dual-use functionality because its macOS host can request access
+to selected displays, system audio, a camera, a microphone, and input-event
+metadata such as cursor movement, clicks, key activity, focused-input bounds,
+display topology, and changed-window snapshots. Typed-text capture is
+separately opt-in, and secure fields remain suppressed. Read
+[`DISCLOSURE`](DISCLOSURE) for the intended-use and consent boundary and
+[`SECURITY.md`](SECURITY.md) for the runtime trust boundary before recording
+sensitive material.
+
 ## Start with a finished job
 
 Open the project that contains your footage, artwork, script, or other source
@@ -358,6 +367,15 @@ bun run check
 The full check verifies the standalone public boundary, SDK, local runtime,
 schema, Agent Skill, generated entrypoints, static site, deterministic tests,
 property tests, and a clean packed consumer.
+
+The package check imports every public surface with Bun and the compiled public
+subset with Node in controlled clean consumers. It blocks common Bun and Node
+filesystem-write, network, worker, and subprocess entry points, runs Node with
+filesystem writes, child processes, and workers denied by its permission
+model, and compares the controlled consumer tree before and after import. This
+proves the checked import-time boundary through those hooks. It is not an
+operating-system sandbox, and calling an exported operation can perform the
+documented local or Gateway work.
 
 ## License
 
