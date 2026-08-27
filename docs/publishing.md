@@ -38,9 +38,9 @@ enabled. Do not create the matching Git tag yet.
      > "$atet_npm_artifact/npm-pack.json"
    cat "$atet_npm_artifact/npm-pack.json"
    bun run ./scripts/package-smoke.ts \
-     --archive "$atet_npm_artifact/hraness-atet-3.0.2.tgz" \
+     --archive "$atet_npm_artifact/hraness-atet-3.1.1.tgz" \
      --pack-json "$atet_npm_artifact/npm-pack.json"
-   shasum -a 512 "$atet_npm_artifact/hraness-atet-3.0.2.tgz"
+   shasum -a 512 "$atet_npm_artifact/hraness-atet-3.1.1.tgz"
    ```
 
    Review the filename, package identity, version, inventory, file count,
@@ -52,7 +52,7 @@ enabled. Do not create the matching Git tag yet.
 4. Publish that reviewed tarball from the signed-in maintainer session.
 
    ```sh
-   npm publish "$atet_npm_artifact/hraness-atet-3.0.2.tgz" \
+   npm publish "$atet_npm_artifact/hraness-atet-3.1.1.tgz" \
      --access public \
      --ignore-scripts \
      --registry=https://registry.npmjs.org
@@ -68,26 +68,26 @@ enabled. Do not create the matching Git tag yet.
 
    ```sh
    atet_npm_registry="$(mktemp -d)"
-   npm pack @hraness/atet@3.0.2 \
+   npm pack @hraness/atet@3.1.1 \
      --ignore-scripts --json \
      --pack-destination "$atet_npm_registry" \
      --registry=https://registry.npmjs.org \
      > "$atet_npm_registry/npm-pack.json"
-   cmp "$atet_npm_artifact/hraness-atet-3.0.2.tgz" \
-     "$atet_npm_registry/hraness-atet-3.0.2.tgz"
+   cmp "$atet_npm_artifact/hraness-atet-3.1.1.tgz" \
+     "$atet_npm_registry/hraness-atet-3.1.1.tgz"
    bun run ./scripts/package-smoke.ts \
-     --archive "$atet_npm_registry/hraness-atet-3.0.2.tgz" \
+     --archive "$atet_npm_registry/hraness-atet-3.1.1.tgz" \
      --pack-json "$atet_npm_registry/npm-pack.json"
-   npm view @hraness/atet@3.0.2 version dist.integrity dist.shasum \
+   npm view @hraness/atet@3.1.1 version dist.integrity dist.shasum \
      --json --registry=https://registry.npmjs.org
    npm view @hraness/atet dist-tags.latest \
      --json --registry=https://registry.npmjs.org
    ```
 
    Continue only when the archives are byte-identical, the metadata and smoke
-   pass, and `latest` names `3.0.2`.
+   pass, and `latest` names `3.1.1`.
 
-6. Create and push `v3.0.2` on that same `main` commit. The tag workflow
+6. Create and push `v3.1.1` on that same `main` commit. The tag workflow
    repeats the canonical-registry byte, integrity, and package checks before it
    creates the immutable GitHub Release.
 

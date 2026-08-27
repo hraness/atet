@@ -8,7 +8,7 @@ import {
   AtetWorkflowError,
   defineAtetWorkflow,
   runAtetWorkflow
-} from "./index-gjt20mz5.js";
+} from "./index-teykmg59.js";
 import {
   AtetOperationError,
   DiagramValidationError,
@@ -31,7 +31,7 @@ import {
   serializeTldr,
   stackLayoutDefaults,
   withAtetOperationHostAdmission
-} from "./index-9t36v857.js";
+} from "./index-aq5m7dnx.js";
 import {
   VectorizeError,
   nonGatewayChildEnvironment,
@@ -72,6 +72,9 @@ function parseFont(value, at) {
   if (value.files !== undefined && !Array.isArray(value.files)) {
     throw new Error(`${at}.files must be an array`);
   }
+  if (value.monoFamily !== undefined && (typeof value.monoFamily !== "string" || value.monoFamily.trim() === "")) {
+    throw new Error(`${at}.monoFamily must be a non-empty string when present`);
+  }
   const files = (value.files ?? []).map((file, index) => {
     if (!isRecord(file) || typeof file.path !== "string" || file.path.trim() === "") {
       throw new Error(`${at}.files[${index}].path must be a non-empty string`);
@@ -93,7 +96,11 @@ function parseFont(value, at) {
       ...file.embed === undefined ? {} : { embed: file.embed }
     };
   });
-  return { family: value.family, ...files.length === 0 ? {} : { files } };
+  return {
+    family: value.family,
+    ...value.monoFamily === undefined ? {} : { monoFamily: value.monoFamily },
+    ...files.length === 0 ? {} : { files }
+  };
 }
 function parseIcons(value, at) {
   if (!isRecord(value))
@@ -1332,7 +1339,7 @@ class AtetMcpToolRuntime {
 }
 
 // src/version.ts
-var ATET_VERSION = "3.0.2";
+var ATET_VERSION = "3.1.1";
 
 // src/mcp/server.ts
 var atetMcpProtocolVersion = "2025-11-25";

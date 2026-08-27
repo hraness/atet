@@ -22,9 +22,9 @@ an Atet service.
 Install the single Atet Agent Skill with either runner:
 
 ```sh
-npx skills add https://github.com/hraness/atet/tree/v3.0.2 --skill atet
+npx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet
 # or
-bunx skills add https://github.com/hraness/atet/tree/v3.0.2 --skill atet
+bunx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet
 ```
 
 Start a new agent session after installing the skill. It teaches Codex, Claude
@@ -35,7 +35,7 @@ Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
 then inspect the local media host:
 
 ```sh
-bun add --global @hraness/atet@3.0.2
+bun add --global @hraness/atet@3.1.1
 atet doctor
 ```
 
@@ -69,7 +69,7 @@ To install the guide only for the current repository, run
 packaged guide for inspection.
 
 The npm package and immutable GitHub release contain the same versioned CLI and
-Agent Skill. You can use `github:hraness/atet#v3.0.2` when you need to install
+Agent Skill. You can use `github:hraness/atet#v3.1.1` when you need to install
 the source tag directly.
 
 Atet declares dual-use functionality because its macOS host can request access
@@ -172,6 +172,11 @@ outputs and receipts under `artifacts/atet/generated/`.
   SVG, Motion, Paper Shaders, or Three.js.
 - Use an existing image as the visual reference for a reviewed 3D scene or
   branded material treatment.
+
+Diagram sources support measured mixed-style label rows, primary and mono type
+roles, positioned connector ports, and independently styled relation labels.
+The same checked source produces editable tldraw interchange plus matching
+light and dark SVG and PNG exports.
 
 An image can become a video reference, an animated scene can become an
 overlay, and one approved edit can become every delivery format. The same
@@ -318,7 +323,7 @@ integration terms.
 Add the package to a Bun project:
 
 ```sh
-bun add @hraness/atet@3.0.2
+bun add @hraness/atet@3.1.1
 ```
 
 SDK imports do not start the CLI or inspect local project state:

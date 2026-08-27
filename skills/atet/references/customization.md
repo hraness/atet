@@ -12,6 +12,7 @@ import type { DiagramConfig } from "@hraness/atet"
 export default {
   font: {
     family: "Your Font",
+    monoFamily: "Your Mono, ui-monospace, monospace",
     files: [
       {
         path: "./fonts/YourFont-Regular.ttf",
@@ -33,9 +34,13 @@ the family but does not copy font bytes; serve the font through the website or
 fall back through CSS. Set `embed: true` only when the font license permits
 redistribution and self-contained SVG is worth the added file size.
 
+`monoFamily` names a system or site-provided CSS fallback stack for source
+fields that use `"fontFamily": "mono"`. Font files in this config belong to
+the primary `family`; Atet does not embed separate mono-family files. The
+editable `.tldr` export maps the two source roles to tldraw's `sans` and `mono`
+families while the SVG and PNG adapter owns the configured typography.
+
 Do not commit a commercial font merely because it exists on the local machine.
-The editable `.tldr` interchange intentionally uses tldraw's normal sans font;
-the export adapter owns custom typography.
 
 ## Custom icon
 

@@ -174,7 +174,7 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   expect(workflow).not.toContain("push:")
 })
 
-test("version 3.0.2 publishes one Atet identity with npm install instructions", async () => {
+test("version 3.1.1 publishes one Atet identity with npm install instructions", async () => {
   const packageRoot = join(import.meta.dir, "..")
   const manifest = JSON.parse(
     await readFile(join(packageRoot, "package.json"), "utf8"),
@@ -191,7 +191,7 @@ test("version 3.0.2 publishes one Atet identity with npm install instructions", 
       readFile(join(packageRoot, "apps", "web", "src", "index.html"), "utf8"),
     ])
 
-  expect(manifest.version).toBe("3.0.2")
+  expect(manifest.version).toBe("3.1.1")
   expect(manifest.bin).toEqual({
     atet: "./apps/desktop/dist/cli/main.js",
   })
@@ -199,18 +199,18 @@ test("version 3.0.2 publishes one Atet identity with npm install instructions", 
     class: "dual-use",
   })
 
-  const npmCliInstall = "@hraness/atet@3.0.2"
+  const npmCliInstall = "@hraness/atet@3.1.1"
   const immutableSkillInstall =
-    "https://github.com/hraness/atet/tree/v3.0.2 --skill atet"
+    "https://github.com/hraness/atet/tree/v3.1.1 --skill atet"
   for (const source of [readme, skillInstall, siteMarkdown, siteTemplate]) {
     expect(source).toContain(npmCliInstall)
   }
   for (const source of [readme, siteBuild, siteMarkdown]) {
     expect(source).toContain(immutableSkillInstall)
   }
-  expect(siteTemplate).toContain('"softwareVersion": "3.0.2"')
-  expect(siteTemplate).toContain('"version": "3.0.2"')
-  expect(readme).toContain("github:hraness/atet#v3.0.2")
+  expect(siteTemplate).toContain('"softwareVersion": "3.1.1"')
+  expect(siteTemplate).toContain('"version": "3.1.1"')
+  expect(readme).toContain("github:hraness/atet#v3.1.1")
   for (const capability of [
     "screen",
     "camera",
@@ -229,7 +229,7 @@ test("version 3.0.2 publishes one Atet identity with npm install instructions", 
   expect(publishing).toContain("Do not create the matching Git tag yet")
 
   for (const source of [readme, skillInstall, siteBuild, siteMarkdown, siteTemplate]) {
-    expect(source).not.toContain("v3.0.1")
+    expect(source).not.toContain("v3.1.0")
     expect(source).not.toContain("v3.0.0")
     expect(source).not.toContain("v2.0.0")
     expect(source).not.toContain('"softwareVersion": "2.0.0"')
