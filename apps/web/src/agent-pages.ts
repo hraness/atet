@@ -88,12 +88,14 @@ Agentic creative coding toolkit. At the beginning of time, when there was nothin
 
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet take on Mannay’s JavaScript faces
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet take on FeyNoBg
+- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet take on Sotnikov’s painterly Gaussian renderer
 
 ## Sitemap
 
 - [Atet home](https://atet.sh/index.md)
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md)
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md)
+- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md)
 - [Machine-readable site guide](https://atet.sh/llms.txt)
 - [Markdown sitemap](https://atet.sh/sitemap.md)
 - [XML sitemap](https://atet.sh/sitemap.xml)
@@ -130,6 +132,7 @@ Install the Agent Skill, then describe the finished result. Do not use Atet as a
 
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet reading take on FeyNoBg
+- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet reading take on Sotnikov’s painterly Gaussian renderer
 - [Markdown sitemap](https://atet.sh/sitemap.md): Public Atet pages in markdown
 - [XML sitemap](https://atet.sh/sitemap.xml): Search-engine sitemap
 - [Architecture](https://github.com/hraness/atet/blob/main/docs/architecture.md): Project model and local host
@@ -144,6 +147,7 @@ export const sitemapMarkdown = `# Sitemap
 - [Atet home](https://atet.sh/index.md): Installation, examples, workflow, and design for the local media toolkit
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet reading take on FeyNoBg
+- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet reading take on Sotnikov’s painterly Gaussian renderer
 - [Machine-readable site guide](https://atet.sh/llms.txt): When to use Atet and the public indexes
 `
 
@@ -197,6 +201,7 @@ Read the source note on [Hraness](https://hraness.com/reading/draw-faces-with-ja
 
 - [Atet home](https://atet.sh/)
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
+- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians)
 - [Hraness](https://hraness.com)
 - [Draw faces with JavaScript](https://hraness.com/reading/draw-faces-with-javascript)
 `
@@ -217,7 +222,7 @@ Atet’s public site keeps those failures visible by refusing to replace the sou
 
 ## Vary the operation, then deliver
 
-The other public take, [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript), is about compact drawable rules. This take is about a later temptation: a model output that looks finished enough to replace the file you started from. If the transparent PNG becomes the project’s only image, the walkthrough that must keep you framed and the opening shot that must keep product shape, colors, and lettering recognizable both lose the file they were asked to protect.
+One public take, [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript), is about compact drawable rules. [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians) keeps brushwork in a tunable renderer after an agent proposes marks. This take is about a later temptation: a model output that looks finished enough to replace the file you started from. If the transparent PNG becomes the project’s only image, the walkthrough that must keep you framed and the opening shot that must keep product shape, colors, and lettering recognizable both lose the file they were asked to protect.
 
 Atet does not ship FeyNoBg or a background-removal command. The transfer is the inspectable original and the named operation. Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
 
@@ -227,6 +232,7 @@ Read the field note on [Feyn](https://usefeyn.com/blog/feynobg/) and the collect
 
 - [Atet home](https://atet.sh/)
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
+- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians)
 - [Hraness](https://hraness.com)
 - [FeyNoBg on Hraness](https://hraness.com/reading/feynobg-a-sota-model-for-background-removal)
 - [FeyNoBg on Feyn](https://usefeyn.com/blog/feynobg/)
@@ -234,10 +240,44 @@ Read the field note on [Feyn](https://usefeyn.com/blog/feynobg/) and the collect
 
 export const homeCanonicalUrl = "https://atet.sh/"
 export const homeMarkdownUrl = "https://atet.sh/index.md"
+export const readingGaussiansMarkdown = `# Keep the stroke decision in the renderer
+
+Dmitri Sotnikov published [Painting with Gaussians](https://yogthos.net/posts/2026-08-03-splat-painter.html) on 3 August 2026. [Hraness](https://hraness.com) collected the note. Atet is an agentic creative-coding toolkit. The transfer is the place where a mark is decided. An agent can propose marks. The stroke decision stays in a renderer you can still inspect.
+
+The essay builds a painterly image from 2D Gaussian splats. A color-aware structure tensor points each splat along a contour. A wavelet detail map spends small strokes on texture and keeps broad marks in smooth areas. Opaque underpainting covers the canvas, then translucent layers restore form. The work is classical image analysis. Sotnikov writes that seeding random splats and fitting them to a target is “slow and opaque,” and that the fitted field “ends up being simply a lossy reconstruction of the input image rather than looking like any sort of a painting.” The [Hraness reading](https://hraness.com/reading/painting-with-gaussians) is the collected source note.
+
+That diagnosis matters once a coding agent can sample a picture. A generated opening shot can look finished while hiding every stroke decision. You can no longer ask which edge rule kept the lettering, or which layer restored the product silhouette. The [Atet home](https://atet.sh/) asks you to name the source, the result, and the details that must remain unchanged. Those names need a renderer that still answers.
+
+## Spend marks from the photograph
+
+Sotnikov writes that “analyzing edges and textures of an image to extract its structure gives a lot of the same information a painter uses to decide where to put brush strokes.” The sliders stay attached to those measurements. Atet’s public site keeps a similar split. Original recordings and imported images stay unchanged. Your agent chooses explicit operations. Cuts, timing, framing, overlays, and effects become a revisable project state. Previews, alternatives, and deliveries stay tied to the state that produced them. After a generation step you can still point at \`product.png\` and see what the renderer or the model changed.
+
+Graphics and motion stay in that toolkit. Atet creates editable diagrams, converts raster artwork to SVG locally, and builds deterministic animated layers with HTML, SVG, shaders, and Three.js. Those outputs can stand alone or join a video project. Atet does not ship a Gaussian painter or a splat-painter command. The transfer is the inspectable source and the controllable renderer.
+
+## Leave the sampled picture on the timeline
+
+[Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript) treats JavaScript faces as compact drawable rules. [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg) keeps a background-removal output from becoming the only file. This page is about a later habit: accepting a generated picture as the painting. If the opening-shot sample replaces \`product.png\`, the six-second clip that must keep product shape, colors, and lettering recognizable has no renderer left to retune.
+
+Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
+
+Read the essay on [yogthos.net](https://yogthos.net/posts/2026-08-03-splat-painter.html) and the collected page on [Hraness](https://hraness.com/reading/painting-with-gaussians). Then start at the [Atet home](https://atet.sh/) and keep the stroke decision in a renderer you can still tune.
+
+## Related pages
+
+- [Atet home](https://atet.sh/)
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
+- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
+- [Hraness](https://hraness.com)
+- [Painting with Gaussians on Hraness](https://hraness.com/reading/painting-with-gaussians)
+- [Painting with Gaussians on yogthos.net](https://yogthos.net/posts/2026-08-03-splat-painter.html)
+`
+
 export const readingFacesCanonicalUrl = "https://atet.sh/reading/draw-faces-with-javascript"
 export const readingFacesMarkdownUrl = "https://atet.sh/reading/draw-faces-with-javascript.md"
 export const readingFeynobgCanonicalUrl = "https://atet.sh/reading/feynobg"
 export const readingFeynobgMarkdownUrl = "https://atet.sh/reading/feynobg.md"
+export const readingGaussiansCanonicalUrl = "https://atet.sh/reading/painting-with-gaussians"
+export const readingGaussiansMarkdownUrl = "https://atet.sh/reading/painting-with-gaussians.md"
 export const llmsTxtUrl = "https://atet.sh/llms.txt"
 export const sitemapMarkdownUrl = "https://atet.sh/sitemap.md"
 export const sitemapXmlUrl = "https://atet.sh/sitemap.xml"

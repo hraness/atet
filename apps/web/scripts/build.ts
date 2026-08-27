@@ -10,6 +10,7 @@ import {
   llmsTxt,
   readingFacesMarkdown,
   readingFeynobgMarkdown,
+  readingGaussiansMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "../src/agent-pages"
@@ -38,6 +39,7 @@ const generatedTextFiles = {
   "llms.txt": llmsTxt,
   "reading/draw-faces-with-javascript.md": readingFacesMarkdown,
   "reading/feynobg.md": readingFeynobgMarkdown,
+  "reading/painting-with-gaussians.md": readingGaussiansMarkdown,
   "robots.txt": robotsTxt,
   "sitemap.md": sitemapMarkdown,
 } as const
@@ -214,6 +216,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     notFoundTemplate,
     readingFacesTemplate,
     readingFeynobgTemplate,
+    readingGaussiansTemplate,
     productStyles,
     appearanceStyles,
     hranessSiteFooterStyles,
@@ -223,6 +226,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readFile(join(sourceDirectory, "404.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/draw-faces-with-javascript.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/feynobg.html"), "utf8"),
+    readFile(join(sourceDirectory, "reading/painting-with-gaussians.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(appearanceMenuStylesPath, "utf8"),
     readFile(hranessSiteFooterStylesPath, "utf8"),
@@ -269,6 +273,10 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       join(outputDirectory, "reading/feynobg.html"),
       renderDocument(readingFeynobgTemplate, commonAssets),
     ),
+    writeFile(
+      join(outputDirectory, "reading/painting-with-gaussians.html"),
+      renderDocument(readingGaussiansTemplate, commonAssets),
+    ),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
     ...(analyticsPath === null || analytics === null
@@ -299,7 +307,7 @@ if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 6
+    + 7
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
 }
