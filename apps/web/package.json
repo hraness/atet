@@ -7,7 +7,7 @@
   "packageManager": "bun@1.3.14",
   "dependencies": {
     "@hraness/design-kit": "github:hraness/design-kit#v0.1.8",
-    "@hraness/site-footer": "github:hraness/site-footer#v0.2.1",
+    "@hraness/site-footer": "github:hraness/site-footer#v0.2.2",
     "posthog-js": "1.413.2"
   },
   "scripts": {
