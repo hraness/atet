@@ -445,6 +445,13 @@ jobs:
             echo "::error::Default branch advanced to $current_default_sha after verification; rerun this workflow"
             exit 1
           fi
+          current_archive_sha256="$(sha256sum "$TARBALL" | cut -d ' ' -f 1)"
+          current_metadata_sha256="$(sha256sum "${TARBALL%/*}/npm-pack.json" | cut -d ' ' -f 1)"
+          if [[ "$current_archive_sha256" != "$EXPECTED_ARCHIVE_SHA256" || \
+                "$current_metadata_sha256" != "$EXPECTED_METADATA_SHA256" ]]; then
+            echo "::error::Downloaded package changed after current-main verification"
+            exit 1
+          fi
           tag_ref="refs/tags/v$EXPECTED_VERSION"
           tag_error="$RUNNER_TEMP/atet-current-tag-error.txt"
           set +e
@@ -473,13 +480,6 @@ jobs:
               exit 1
               ;;
           esac
-          current_archive_sha256="$(sha256sum "$TARBALL" | cut -d ' ' -f 1)"
-          current_metadata_sha256="$(sha256sum "${TARBALL%/*}/npm-pack.json" | cut -d ' ' -f 1)"
-          if [[ "$current_archive_sha256" != "$EXPECTED_ARCHIVE_SHA256" || \
-                "$current_metadata_sha256" != "$EXPECTED_METADATA_SHA256" ]]; then
-            echo "::error::Downloaded package changed after current-main verification"
-            exit 1
-          fi
           npm stage publish "$TARBALL" \
             --access public \
             --ignore-scripts \

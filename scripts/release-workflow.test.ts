@@ -467,9 +467,9 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   expect(artifactReferenceIndex).toBeLessThan(downloadIndex)
   expect(downloadIndex).toBeLessThan(rebindIndex)
   expect(rebindIndex).toBeLessThan(fetchIndex)
-  expect(fetchIndex).toBeLessThan(tagIndex)
-  expect(tagIndex).toBeLessThan(rehashIndex)
-  expect(rehashIndex).toBeLessThan(stageIndex)
+  expect(fetchIndex).toBeLessThan(rehashIndex)
+  expect(rehashIndex).toBeLessThan(tagIndex)
+  expect(tagIndex).toBeLessThan(stageIndex)
   expect(stageIndex).toBeGreaterThan(-1)
   expect(stageJob.slice(stageIndex)).toContain("--access public")
   expect(stageJob.slice(stageIndex)).toContain("--ignore-scripts")
@@ -570,9 +570,9 @@ printf 'staged\\n' > "$PUBLISH_MARKER"
     const hashIndex = commands.indexOf("sha256sum")
     const publishIndex = commands.indexOf("npm stage publish")
     expect(fetchIndex).toBeGreaterThan(-1)
-    expect(tagIndex).toBeGreaterThan(fetchIndex)
-    expect(hashIndex).toBeGreaterThan(tagIndex)
-    expect(publishIndex).toBeGreaterThan(hashIndex)
+    expect(hashIndex).toBeGreaterThan(fetchIndex)
+    expect(tagIndex).toBeGreaterThan(hashIndex)
+    expect(publishIndex).toBeGreaterThan(tagIndex)
 
     for (const [status, message] of [
       ["present", "npm delivery must precede the Git tag"],
