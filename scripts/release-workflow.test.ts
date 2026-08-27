@@ -654,7 +654,9 @@ test("version 3.1.1 publishes one Atet identity with npm install instructions", 
   expect(publishing).toContain("only job with OIDC authority")
   expect(publishing).toContain("checks out no source and runs no repository code")
   expect(publishing).toContain("npm-package.sha256")
-  expect(publishing).toContain("proves the matching Git tag is still absent")
+  expect(publishing.replace(/\s+/gu, " ")).toContain(
+    "rehashes the package, proves the matching Git tag is still absent, and only then runs the exact stage-only command",
+  )
   expect(publishing).toContain("npm-package-identity.ts")
   expect(publishing).toContain("different gzip or tar bytes")
   expect(publishing).not.toContain("archives are byte-identical")

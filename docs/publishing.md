@@ -140,8 +140,8 @@ npm stage publish <reviewed-tarball> \
    disclosure. The dependent staging job is the only job with OIDC authority.
    It checks out no source and runs no repository code. It downloads and
    revalidates those three files, fetches the current default-branch head into
-   a new bare Git directory, proves the matching Git tag is still absent,
-   rehashes the package, and only then runs the exact stage-only command.
+   a new bare Git directory, rehashes the package, proves the matching Git tag
+   is still absent, and only then runs the exact stage-only command.
 4. Inspect the staged package with
    `npm stage view <stage-id> --registry=https://registry.npmjs.org` and
    download it with
