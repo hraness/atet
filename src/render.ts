@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises"
 import { extname } from "node:path"
 import { Resvg } from "@resvg/resvg-js"
 import { sanitizeIcon } from "./icons.js"
+import { layoutBoxContent, wrapDiagramText } from "./label-layout.js"
 import { resolveTheme } from "./theme.js"
 import type {
   Anchor,
@@ -16,6 +17,11 @@ import type {
   TextShape,
   ThemeColors,
 } from "./types.js"
+
+interface FontFamilies {
+  readonly default: string
+  readonly mono: string
+}
 
 const escapeXml = (value: string): string =>
   value
@@ -51,31 +57,6 @@ async function fontCss(config: DiagramConfig): Promise<string> {
   return faces.join("")
 }
 
-function wrapText(text: string, maxWidth: number, fontSize: number): readonly string[] {
-  const explicitLines = text.split("\n")
-  const maxCharacters = Math.max(1, Math.floor(maxWidth / (fontSize * 0.56)))
-  const lines: string[] = []
-  for (const explicitLine of explicitLines) {
-    if (explicitLine.length <= maxCharacters) {
-      lines.push(explicitLine)
-      continue
-    }
-    const words = explicitLine.split(/\s+/)
-    let current = ""
-    for (const word of words) {
-      const candidate = current === "" ? word : `${current} ${word}`
-      if (candidate.length <= maxCharacters || current === "") {
-        current = candidate
-      } else {
-        lines.push(current)
-        current = word
-      }
-    }
-    if (current !== "") lines.push(current)
-  }
-  return lines.length === 0 ? [""] : lines
-}
-
 function textSvg(options: {
   readonly text: string
   readonly x: number
@@ -88,8 +69,10 @@ function textSvg(options: {
   readonly opacity: number
   readonly family: string
   readonly lineHeight?: number
+  readonly lines?: readonly string[]
+  readonly centerLineBoxes?: boolean
 }): string {
-  const lines = wrapText(options.text, options.width, options.fontSize)
+  const lines = options.lines ?? wrapDiagramText(options.text, options.width, options.fontSize)
   const lineHeight = options.lineHeight ?? options.fontSize * 1.25
   const anchor = options.align
   const x =
@@ -98,10 +81,12 @@ function textSvg(options: {
       : anchor === "end"
         ? options.x + options.width
         : options.x
-  return `<text x="${x}" y="${options.y}" text-anchor="${anchor}" dominant-baseline="hanging" fill="${options.color}" opacity="${options.opacity}" font-family="${escapeXml(options.family)}" font-size="${options.fontSize}" font-weight="${options.weight}">${lines
-    .map(
-      (line, index) =>
-        `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`,
+  const dominantBaseline = options.centerLineBoxes ? "central" : "hanging"
+  return `<text x="${x}" y="${options.y}" text-anchor="${anchor}" dominant-baseline="${dominantBaseline}" fill="${options.color}" opacity="${options.opacity}" font-family="${escapeXml(options.family)}" font-size="${options.fontSize}" font-weight="${options.weight}">${lines
+    .map((line, index) =>
+      options.centerLineBoxes
+        ? `<tspan x="${x}" y="${options.y + (index + 0.5) * lineHeight}">${escapeXml(line)}</tspan>`
+        : `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`,
     )
     .join("")}</text>`
 }
@@ -125,7 +110,7 @@ function iconSvg(options: {
 function boxSvg(
   shape: BoxShape,
   theme: ThemeColors,
-  family: string,
+  families: FontFamilies,
   icons: Readonly<Record<string, IconDefinition>>,
 ): string {
   const tone = theme.tones[shape.tone ?? "neutral"]
@@ -141,39 +126,37 @@ function boxSvg(
     throw new Error(`Unknown icon "${shape.icon}" on shape ${shape.id}`)
   }
   const iconSize = Math.min(shape.iconSize ?? 52, shape.height * 0.45, shape.width * 0.32)
+  const content = layoutBoxContent(shape, icon === undefined ? undefined : iconSize)
   const iconMarkup =
-    icon === undefined
+    icon === undefined || content.icon === undefined
       ? ""
       : iconSvg({
           icon,
-          x: shape.x + (shape.width - iconSize) / 2,
-          y:
-            shape.label === undefined
-              ? shape.y + (shape.height - iconSize) / 2
-              : shape.y + shape.height * 0.18,
-          size: iconSize,
+          x: content.icon.x,
+          y: content.icon.y,
+          size: content.icon.size,
           color: tone.text,
-          opacity,
+          opacity: 1,
         })
-  const labelMarkup =
-    shape.label === undefined
-      ? ""
-      : textSvg({
-          text: shape.label,
+  const labelMarkup = content.rows
+    .map((row) =>
+      textSvg({
+          text: row.text,
           x: shape.x + 16,
-          y:
-            icon === undefined
-              ? shape.y + shape.height / 2 -
-                (shape.labelFontSize === undefined ? 12 : shape.labelFontSize * 0.55)
-              : shape.y + shape.height * 0.68,
+          y: row.y,
           width: shape.width - 32,
-          fontSize: shape.labelFontSize ?? 22,
-          weight: 600,
+          fontSize: row.fontSize,
+          weight: row.weight,
           align: "middle",
           color: tone.text,
-          opacity,
-          family,
-        })
+          opacity: 1,
+          family: families[row.fontFamily],
+          lineHeight: row.lineHeight,
+          lines: row.lines,
+          centerLineBoxes: true,
+        }),
+    )
+    .join("")
   return `<g data-shape-id="${escapeXml(shape.id)}" opacity="${opacity}">${geometry}${iconMarkup}${labelMarkup}</g>`
 }
 
@@ -181,6 +164,7 @@ function pointForAnchor(
   shape: BoxShape,
   anchor: Anchor | undefined,
   toward: { readonly x: number; readonly y: number },
+  position: number | undefined,
 ): { readonly x: number; readonly y: number; readonly normalized: { readonly x: number; readonly y: number } } {
   const center = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 }
   let resolved = anchor ?? "auto"
@@ -196,23 +180,49 @@ function pointForAnchor(
           ? "bottom"
           : "top"
   }
+  const resolvedPosition = position ?? 0.5
+  if (shape.type === "ellipse") {
+    const projected = (resolvedPosition - 0.5) * 2
+    const radial = Math.sqrt(Math.max(0, 1 - projected * projected)) / 2
+    const normalized =
+      resolved === "top"
+        ? { x: resolvedPosition, y: 0.5 - radial }
+        : resolved === "bottom"
+          ? { x: resolvedPosition, y: 0.5 + radial }
+          : resolved === "left"
+            ? { x: 0.5 - radial, y: resolvedPosition }
+            : { x: 0.5 + radial, y: resolvedPosition }
+    return {
+      x: shape.x + shape.width * normalized.x,
+      y: shape.y + shape.height * normalized.y,
+      normalized,
+    }
+  }
   switch (resolved) {
     case "top":
-      return { x: center.x, y: shape.y, normalized: { x: 0.5, y: 0 } }
+      return {
+        x: shape.x + shape.width * resolvedPosition,
+        y: shape.y,
+        normalized: { x: resolvedPosition, y: 0 },
+      }
     case "right":
       return {
         x: shape.x + shape.width,
-        y: center.y,
-        normalized: { x: 1, y: 0.5 },
+        y: shape.y + shape.height * resolvedPosition,
+        normalized: { x: 1, y: resolvedPosition },
       }
     case "bottom":
       return {
-        x: center.x,
+        x: shape.x + shape.width * resolvedPosition,
         y: shape.y + shape.height,
-        normalized: { x: 0.5, y: 1 },
+        normalized: { x: resolvedPosition, y: 1 },
       }
     case "left":
-      return { x: shape.x, y: center.y, normalized: { x: 0, y: 0.5 } }
+      return {
+        x: shape.x,
+        y: shape.y + shape.height * resolvedPosition,
+        normalized: { x: 0, y: resolvedPosition },
+      }
   }
 }
 
@@ -238,8 +248,8 @@ export function resolveEdge(spec: DiagramSpec, edge: DiagramEdge): ResolvedEdge 
   }
   const fromCenter = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
   const toCenter = { x: to.x + to.width / 2, y: to.y + to.height / 2 }
-  const start = pointForAnchor(from, edge.start, toCenter)
-  const end = pointForAnchor(to, edge.end, fromCenter)
+  const start = pointForAnchor(from, edge.start, toCenter, edge.startPosition)
+  const end = pointForAnchor(to, edge.end, fromCenter, edge.endPosition)
   const dx = end.x - start.x
   const dy = end.y - start.y
   const length = Math.hypot(dx, dy) || 1
@@ -257,7 +267,30 @@ export function resolveEdge(spec: DiagramSpec, edge: DiagramEdge): ResolvedEdge 
   }
 }
 
-function edgeSvg(resolved: ResolvedEdge, theme: ThemeColors, family: string): string {
+export function resolveEdgeLabel(resolved: ResolvedEdge): {
+  readonly x: number
+  readonly y: number
+} {
+  const { edge, start, end, control } = resolved
+  const t = edge.labelPosition ?? 0.5
+  const oneMinusT = 1 - t
+  const point = {
+    x: oneMinusT * oneMinusT * start.x + 2 * oneMinusT * t * control.x + t * t * end.x,
+    y: oneMinusT * oneMinusT * start.y + 2 * oneMinusT * t * control.y + t * t * end.y,
+  }
+  const tangent = {
+    x: 2 * oneMinusT * (control.x - start.x) + 2 * t * (end.x - control.x),
+    y: 2 * oneMinusT * (control.y - start.y) + 2 * t * (end.y - control.y),
+  }
+  const length = Math.hypot(tangent.x, tangent.y) || 1
+  const offset = edge.labelOffset ?? -14
+  return {
+    x: point.x + (-tangent.y / length) * offset,
+    y: point.y + (tangent.x / length) * offset,
+  }
+}
+
+function edgeSvg(resolved: ResolvedEdge, theme: ThemeColors, families: FontFamilies): string {
   const { edge, start, end, control } = resolved
   const toneName = edge.tone ?? "neutral"
   const tone = theme.tones[toneName]
@@ -268,21 +301,22 @@ function edgeSvg(resolved: ResolvedEdge, theme: ThemeColors, family: string): st
         ? `url(#arrow-triangle-${toneName})`
         : `url(#arrow-open-${toneName})`
   const path = `M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`
+  const labelPoint = resolveEdgeLabel(resolved)
   const label =
     edge.label === undefined
       ? ""
-      : `<text x="${control.x}" y="${control.y - 10}" text-anchor="middle" fill="${tone.text}" stroke="${theme.background}" stroke-width="6" paint-order="stroke" font-family="${escapeXml(family)}" font-size="18" font-weight="600">${escapeXml(edge.label)}</text>`
+      : `<text x="${labelPoint.x}" y="${labelPoint.y}" text-anchor="middle" dominant-baseline="central" fill="${tone.text}" stroke="${theme.background}" stroke-width="6" paint-order="stroke" font-family="${escapeXml(families[edge.labelFontFamily ?? "default"])}" font-size="${edge.labelFontSize ?? 18}" font-weight="${edge.labelWeight ?? 600}">${escapeXml(edge.label)}</text>`
   return `<g data-edge-id="${escapeXml(edge.id)}"><path d="${path}" fill="none" stroke="${tone.stroke}" stroke-width="3" stroke-linecap="round" marker-end="${marker}"/>${label}</g>`
 }
 
 function shapeSvg(
   shape: DiagramShape,
   theme: ThemeColors,
-  family: string,
+  families: FontFamilies,
   icons: Readonly<Record<string, IconDefinition>>,
 ): string {
   if (shape.type === "rect" || shape.type === "ellipse") {
-    return boxSvg(shape, theme, family, icons)
+    return boxSvg(shape, theme, families, icons)
   }
   if (shape.type === "line") {
     return `<line data-shape-id="${escapeXml(shape.id)}" x1="${shape.x}" y1="${shape.y}" x2="${shape.x2}" y2="${shape.y2}" stroke="${theme.tones[shape.tone ?? "neutral"].stroke}" stroke-width="${shape.strokeWidth ?? 3}" stroke-linecap="round" opacity="${shape.opacity ?? 1}"/>`
@@ -298,7 +332,7 @@ function shapeSvg(
     align: text.align ?? "start",
     color: theme.tones[text.tone ?? "neutral"].text,
     opacity: text.opacity ?? 1,
-    family,
+    family: families[text.fontFamily ?? "default"],
   })
 }
 
@@ -308,7 +342,12 @@ export async function renderSvg(
   config: DiagramConfig,
 ): Promise<RenderedDiagram> {
   const theme = resolveTheme(mode, config)
-  const family = config.font?.family ?? "system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+  const families: FontFamilies = {
+    default: config.font?.family ?? "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+    mono:
+      config.font?.monoFamily ??
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace",
+  }
   const icons = config.icons ?? {}
   const embeddedFonts = await fontCss(config)
   const markerDefinitions = Object.entries(theme.tones)
@@ -318,9 +357,11 @@ export async function renderSvg(
     )
     .join("")
   const edgeMarkup = (spec.edges ?? [])
-    .map((edge) => edgeSvg(resolveEdge(spec, edge), theme, family))
+    .map((edge) => edgeSvg(resolveEdge(spec, edge), theme, families))
     .join("")
-  const shapeMarkup = spec.shapes.map((shape) => shapeSvg(shape, theme, family, icons)).join("")
+  const shapeMarkup = spec.shapes
+    .map((shape) => shapeSvg(shape, theme, families, icons))
+    .join("")
   const svg = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${spec.canvas.width}" height="${spec.canvas.height}" viewBox="0 0 ${spec.canvas.width} ${spec.canvas.height}" role="img" aria-labelledby="diagram-title" color-scheme="${mode}">`,
     `<title id="diagram-title">${escapeXml(spec.name)}</title>`,

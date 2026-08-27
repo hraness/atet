@@ -375,7 +375,7 @@ describe("Atet MCP tools", () => {
       expect(structured.summary).toEqual({
         shapeCount: mcpMaximumShapes,
         edgeCount: 0,
-        findingCount: mcpMaximumShapes * 3 + 1,
+        findingCount: mcpMaximumShapes * 4 + 1,
         returnedFindingCount: mcpMaximumReturnedFindings,
         findingsTruncated: true,
       })

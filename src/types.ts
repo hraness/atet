@@ -11,8 +11,10 @@ export type Tone =
 
 export type Anchor = "auto" | "top" | "right" | "bottom" | "left"
 export type ColorMode = "light" | "dark"
+export type DiagramFontFamily = "default" | "mono"
 export type StackDirection = "horizontal" | "vertical"
 export type StackAlign = "start" | "center" | "end"
+export type TextWeight = 400 | 500 | 600 | 700
 
 export interface DiagramCanvas {
   readonly width: number
@@ -28,17 +30,31 @@ interface BaseShape {
   readonly opacity?: number
 }
 
-export interface BoxShape extends BaseShape {
+export interface BoxLabelRow {
+  readonly text: string
+  readonly fontSize?: number
+  readonly fontFamily?: DiagramFontFamily
+  readonly weight?: TextWeight
+}
+
+interface BoxGeometry {
   readonly type: "rect" | "ellipse"
   readonly width: number
   readonly height: number
   readonly radius?: number
-  readonly label?: string
-  readonly labelFontSize?: number
   readonly icon?: string
   readonly iconSize?: number
   readonly strokeWidth?: number
   readonly fill?: boolean
+}
+
+export interface BoxShape extends BaseShape, BoxGeometry {
+  readonly label?: string
+  readonly labelFontSize?: number
+  readonly labelFontFamily?: DiagramFontFamily
+  readonly labelWeight?: TextWeight
+  readonly labelRows?: readonly [BoxLabelRow, ...BoxLabelRow[]]
+  readonly labelRowGap?: number
 }
 
 export interface TextShape extends BaseShape {
@@ -46,7 +62,8 @@ export interface TextShape extends BaseShape {
   readonly text: string
   readonly width?: number
   readonly fontSize?: number
-  readonly weight?: 400 | 500 | 600 | 700
+  readonly fontFamily?: DiagramFontFamily
+  readonly weight?: TextWeight
   readonly align?: "start" | "middle" | "end"
 }
 
@@ -70,13 +87,25 @@ export interface DiagramEdge {
   readonly end?: Anchor
   readonly bend?: number
   readonly arrowhead?: "arrow" | "triangle" | "none"
+  readonly startPosition?: number
+  readonly endPosition?: number
+  readonly labelFontSize?: number
+  readonly labelFontFamily?: DiagramFontFamily
+  readonly labelWeight?: TextWeight
+  readonly labelPosition?: number
+  readonly labelOffset?: number
 }
 
 export interface StackDiagramEdge
-  extends Omit<DiagramEdge, "start" | "end" | "bend"> {
+  extends Omit<
+    DiagramEdge,
+    "start" | "end" | "bend" | "startPosition" | "endPosition"
+  > {
   readonly start?: "auto"
   readonly end?: "auto"
   readonly bend?: 0
+  readonly startPosition?: never
+  readonly endPosition?: never
 }
 
 export interface DiagramSpec {
@@ -121,6 +150,7 @@ export interface FontFile {
 
 export interface FontConfig {
   readonly family: string
+  readonly monoFamily?: string
   readonly files?: readonly FontFile[]
 }
 

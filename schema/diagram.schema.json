@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/hraness/atet/v3.0.1/schema/diagram.schema.json",
+  "$id": "https://raw.githubusercontent.com/hraness/atet/v3.1.0/schema/diagram.schema.json",
   "title": "Diagram source",
   "description": "A positioned diagram or a coordinate-free stack diagram. Both source forms resolve to the positioned DiagramSpec used by renderers.",
   "oneOf": [
@@ -10,6 +10,23 @@
   "$defs": {
     "tone": {
       "enum": ["neutral", "blue", "orange", "green", "red", "purple", "yellow"]
+    },
+    "fontFamily": {
+      "enum": ["default", "mono"]
+    },
+    "textWeight": {
+      "enum": [400, 500, 600, 700]
+    },
+    "labelRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "fontSize": { "type": "number", "exclusiveMinimum": 0 },
+        "fontFamily": { "$ref": "#/$defs/fontFamily" },
+        "weight": { "$ref": "#/$defs/textWeight" }
+      }
     },
     "canvas": {
       "type": "object",
@@ -37,6 +54,15 @@
           "exclusiveMinimum": 0,
           "description": "Font size in pixels for this box's label."
         },
+        "labelFontFamily": { "$ref": "#/$defs/fontFamily" },
+        "labelWeight": { "$ref": "#/$defs/textWeight" },
+        "labelRows": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/labelRow" }
+        },
+        "labelRowGap": { "type": "number", "minimum": 0 },
         "icon": { "type": "string" },
         "iconSize": { "type": "number", "exclusiveMinimum": 0 },
         "strokeWidth": { "type": "number", "minimum": 0 },
@@ -47,6 +73,20 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "type", "x", "y", "width", "height"],
+      "dependentRequired": {
+        "labelFontSize": ["label"],
+        "labelFontFamily": ["label"],
+        "labelWeight": ["label"],
+        "labelRowGap": ["labelRows"]
+      },
+      "allOf": [
+        {
+          "not": {
+            "properties": { "label": {}, "labelRows": {} },
+            "required": ["label", "labelRows"]
+          }
+        }
+      ],
       "properties": {
         "id": { "$ref": "#/$defs/baseBoxProperties/properties/id" },
         "type": { "$ref": "#/$defs/baseBoxProperties/properties/type" },
@@ -59,6 +99,10 @@
         "radius": { "$ref": "#/$defs/baseBoxProperties/properties/radius" },
         "label": { "$ref": "#/$defs/baseBoxProperties/properties/label" },
         "labelFontSize": { "$ref": "#/$defs/baseBoxProperties/properties/labelFontSize" },
+        "labelFontFamily": { "$ref": "#/$defs/baseBoxProperties/properties/labelFontFamily" },
+        "labelWeight": { "$ref": "#/$defs/baseBoxProperties/properties/labelWeight" },
+        "labelRows": { "$ref": "#/$defs/baseBoxProperties/properties/labelRows" },
+        "labelRowGap": { "$ref": "#/$defs/baseBoxProperties/properties/labelRowGap" },
         "icon": { "$ref": "#/$defs/baseBoxProperties/properties/icon" },
         "iconSize": { "$ref": "#/$defs/baseBoxProperties/properties/iconSize" },
         "strokeWidth": { "$ref": "#/$defs/baseBoxProperties/properties/strokeWidth" },
@@ -69,6 +113,20 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "type", "width", "height"],
+      "dependentRequired": {
+        "labelFontSize": ["label"],
+        "labelFontFamily": ["label"],
+        "labelWeight": ["label"],
+        "labelRowGap": ["labelRows"]
+      },
+      "allOf": [
+        {
+          "not": {
+            "properties": { "label": {}, "labelRows": {} },
+            "required": ["label", "labelRows"]
+          }
+        }
+      ],
       "properties": {
         "id": { "$ref": "#/$defs/baseBoxProperties/properties/id" },
         "type": { "$ref": "#/$defs/baseBoxProperties/properties/type" },
@@ -79,6 +137,10 @@
         "radius": { "$ref": "#/$defs/baseBoxProperties/properties/radius" },
         "label": { "$ref": "#/$defs/baseBoxProperties/properties/label" },
         "labelFontSize": { "$ref": "#/$defs/baseBoxProperties/properties/labelFontSize" },
+        "labelFontFamily": { "$ref": "#/$defs/baseBoxProperties/properties/labelFontFamily" },
+        "labelWeight": { "$ref": "#/$defs/baseBoxProperties/properties/labelWeight" },
+        "labelRows": { "$ref": "#/$defs/baseBoxProperties/properties/labelRows" },
+        "labelRowGap": { "$ref": "#/$defs/baseBoxProperties/properties/labelRowGap" },
         "icon": { "$ref": "#/$defs/baseBoxProperties/properties/icon" },
         "iconSize": { "$ref": "#/$defs/baseBoxProperties/properties/iconSize" },
         "strokeWidth": { "$ref": "#/$defs/baseBoxProperties/properties/strokeWidth" },
@@ -99,7 +161,8 @@
         "text": { "type": "string" },
         "width": { "type": "number", "exclusiveMinimum": 0 },
         "fontSize": { "type": "number", "exclusiveMinimum": 0 },
-        "weight": { "enum": [400, 500, 600, 700] },
+        "fontFamily": { "$ref": "#/$defs/fontFamily" },
+        "weight": { "$ref": "#/$defs/textWeight" },
         "align": { "enum": ["start", "middle", "end"] }
       }
     },
@@ -137,13 +200,27 @@
         "start": { "enum": ["auto", "top", "right", "bottom", "left"] },
         "end": { "enum": ["auto", "top", "right", "bottom", "left"] },
         "bend": { "type": "number" },
-        "arrowhead": { "enum": ["arrow", "triangle", "none"] }
+        "arrowhead": { "enum": ["arrow", "triangle", "none"] },
+        "startPosition": { "type": "number", "minimum": 0, "maximum": 1 },
+        "endPosition": { "type": "number", "minimum": 0, "maximum": 1 },
+        "labelFontSize": { "type": "number", "exclusiveMinimum": 0 },
+        "labelFontFamily": { "$ref": "#/$defs/fontFamily" },
+        "labelWeight": { "$ref": "#/$defs/textWeight" },
+        "labelPosition": { "type": "number", "minimum": 0, "maximum": 1 },
+        "labelOffset": { "type": "number" }
       }
     },
     "edge": {
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "from", "to"],
+      "dependentRequired": {
+        "labelFontSize": ["label"],
+        "labelFontFamily": ["label"],
+        "labelWeight": ["label"],
+        "labelPosition": ["label"],
+        "labelOffset": ["label"]
+      },
       "properties": {
         "id": { "$ref": "#/$defs/edgeProperties/properties/id" },
         "from": { "$ref": "#/$defs/edgeProperties/properties/from" },
@@ -153,13 +230,27 @@
         "start": { "$ref": "#/$defs/edgeProperties/properties/start" },
         "end": { "$ref": "#/$defs/edgeProperties/properties/end" },
         "bend": { "$ref": "#/$defs/edgeProperties/properties/bend" },
-        "arrowhead": { "$ref": "#/$defs/edgeProperties/properties/arrowhead" }
+        "arrowhead": { "$ref": "#/$defs/edgeProperties/properties/arrowhead" },
+        "startPosition": { "$ref": "#/$defs/edgeProperties/properties/startPosition" },
+        "endPosition": { "$ref": "#/$defs/edgeProperties/properties/endPosition" },
+        "labelFontSize": { "$ref": "#/$defs/edgeProperties/properties/labelFontSize" },
+        "labelFontFamily": { "$ref": "#/$defs/edgeProperties/properties/labelFontFamily" },
+        "labelWeight": { "$ref": "#/$defs/edgeProperties/properties/labelWeight" },
+        "labelPosition": { "$ref": "#/$defs/edgeProperties/properties/labelPosition" },
+        "labelOffset": { "$ref": "#/$defs/edgeProperties/properties/labelOffset" }
       }
     },
     "stackEdge": {
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "from", "to"],
+      "dependentRequired": {
+        "labelFontSize": ["label"],
+        "labelFontFamily": ["label"],
+        "labelWeight": ["label"],
+        "labelPosition": ["label"],
+        "labelOffset": ["label"]
+      },
       "properties": {
         "id": { "$ref": "#/$defs/edgeProperties/properties/id" },
         "from": { "$ref": "#/$defs/edgeProperties/properties/from" },
@@ -169,7 +260,12 @@
         "start": { "const": "auto" },
         "end": { "const": "auto" },
         "bend": { "const": 0 },
-        "arrowhead": { "$ref": "#/$defs/edgeProperties/properties/arrowhead" }
+        "arrowhead": { "$ref": "#/$defs/edgeProperties/properties/arrowhead" },
+        "labelFontSize": { "$ref": "#/$defs/edgeProperties/properties/labelFontSize" },
+        "labelFontFamily": { "$ref": "#/$defs/edgeProperties/properties/labelFontFamily" },
+        "labelWeight": { "$ref": "#/$defs/edgeProperties/properties/labelWeight" },
+        "labelPosition": { "$ref": "#/$defs/edgeProperties/properties/labelPosition" },
+        "labelOffset": { "$ref": "#/$defs/edgeProperties/properties/labelOffset" }
       }
     },
     "stackLayout": {

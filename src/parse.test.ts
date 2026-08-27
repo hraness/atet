@@ -52,6 +52,101 @@ describe("parseDiagramSpec", () => {
     }
   })
 
+  test("parses mixed box rows, mono text, edge label styles, and distinct ports", () => {
+    const parsed = parseDiagramSpec({
+      ...valid,
+      shapes: [
+        {
+          ...valid.shapes[0],
+          label: undefined,
+          labelRows: [
+            { text: "ENTITY", fontSize: 15, fontFamily: "mono", weight: 700 },
+            { text: "Aβ*56 assembly", fontSize: 20, weight: 500 },
+          ],
+          labelRowGap: 7,
+        },
+        { ...valid.shapes[1], label: "B", labelFontFamily: "mono" },
+        {
+          id: "caption",
+          type: "text",
+          x: 320,
+          y: 40,
+          text: "typed relation",
+          fontFamily: "mono",
+        },
+      ],
+      edges: [
+        {
+          id: "a-b",
+          from: "a",
+          to: "b",
+          label: "supports",
+          labelFontSize: 19,
+          labelFontFamily: "mono",
+          labelWeight: 700,
+          labelPosition: 0.42,
+          labelOffset: -18,
+          startPosition: 0.3,
+          endPosition: 0.7,
+        },
+      ],
+    })
+
+    expect(parsed.shapes[0]).toMatchObject({ labelRowGap: 7 })
+    expect(parsed.shapes[0]).toHaveProperty("labelRows.0.fontFamily", "mono")
+    expect(parsed.shapes[0]).toHaveProperty("labelRows.0.text", "ENTITY")
+    expect(parsed.shapes[0]).toHaveProperty("labelRows.0.weight", 700)
+    expect(parsed.shapes[2]).toMatchObject({ fontFamily: "mono" })
+    expect(parsed.edges?.[0]).toMatchObject({
+      endPosition: 0.7,
+      labelFontFamily: "mono",
+      labelOffset: -18,
+      startPosition: 0.3,
+    })
+  })
+
+  test("rejects empty or conflicting rows and orphaned label styling", () => {
+    try {
+      parseDiagramSpec({
+        ...valid,
+        shapes: [
+          { ...valid.shapes[0], labelRows: [] },
+          {
+            id: "unstyled",
+            type: "rect",
+            x: 620,
+            y: 120,
+            width: 220,
+            height: 140,
+            labelFontFamily: "mono",
+            labelRowGap: 4,
+          },
+        ],
+        edges: [
+          {
+            id: "a-b",
+            from: "a",
+            to: "unstyled",
+            labelFontSize: 18,
+            startPosition: -0.1,
+            endPosition: 1.1,
+          },
+        ],
+      })
+      throw new Error("expected rich label parsing to fail")
+    } catch (error) {
+      expect(error).toBeInstanceOf(DiagramValidationError)
+      const issues = (error as DiagramValidationError).issues
+      expect(issues).toContain("shapes[0].labelRows must contain between 1 and 4 rows")
+      expect(issues).toContain("shapes[0].label and shapes[0].labelRows are mutually exclusive")
+      expect(issues).toContain("shapes[1] cannot style a label that is not present")
+      expect(issues).toContain("shapes[1].labelRowGap requires labelRows")
+      expect(issues).toContain("edges[0].startPosition must be zero or greater")
+      expect(issues).toContain("edges[0].endPosition must not exceed 1")
+      expect(issues).toContain("edges[0] cannot style or position a label that is not present")
+    }
+  })
+
   test("rejects unknown keys and unresolved relationships", () => {
     expect(() =>
       parseDiagramSpec({
