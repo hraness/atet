@@ -3,7 +3,16 @@ import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { homeMarkdown, llmsTxt, robotsTxt, sitemapMarkdown } from "../src/agent-pages"
+import { renderHranessSiteFooter } from "@hraness/site-footer"
+
+import {
+  homeMarkdown,
+  llmsTxt,
+  readingFacesMarkdown,
+  readingFeynobgMarkdown,
+  robotsTxt,
+  sitemapMarkdown,
+} from "../src/agent-pages"
 
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
 const sourceDirectory = join(appDirectory, "src")
@@ -12,6 +21,9 @@ const posthogIngestOrigin = "https://us.i.posthog.com"
 const posthogPackageDirectory = dirname(fileURLToPath(import.meta.resolve("posthog-js/package.json")))
 const appearanceMenuStylesPath = fileURLToPath(
   import.meta.resolve("@hraness/design-kit/appearance-menu.css"),
+)
+const hranessSiteFooterStylesPath = fileURLToPath(
+  import.meta.resolve("@hraness/site-footer/styles.css"),
 )
 
 const copiedFiles = [
@@ -24,6 +36,8 @@ const copiedFiles = [
 const generatedTextFiles = {
   "index.md": homeMarkdown,
   "llms.txt": llmsTxt,
+  "reading/draw-faces-with-javascript.md": readingFacesMarkdown,
+  "reading/feynobg.md": readingFeynobgMarkdown,
   "robots.txt": robotsTxt,
   "sitemap.md": sitemapMarkdown,
 } as const
@@ -195,20 +209,35 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   const environment = options.environment ?? process.env
   const outputDirectory = options.outputDirectory ?? defaultOutputDirectory
   const analyticsConfig = productionAnalyticsConfig(environment)
-  const [indexTemplate, notFoundTemplate, productStyles, appearanceStyles, theme] = await Promise.all([
+  const [
+    indexTemplate,
+    notFoundTemplate,
+    readingFacesTemplate,
+    readingFeynobgTemplate,
+    productStyles,
+    appearanceStyles,
+    hranessSiteFooterStyles,
+    theme,
+  ] = await Promise.all([
     readFile(join(sourceDirectory, "index.html"), "utf8"),
     readFile(join(sourceDirectory, "404.html"), "utf8"),
+    readFile(join(sourceDirectory, "reading/draw-faces-with-javascript.html"), "utf8"),
+    readFile(join(sourceDirectory, "reading/feynobg.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(appearanceMenuStylesPath, "utf8"),
+    readFile(hranessSiteFooterStylesPath, "utf8"),
     bundleTheme(),
   ])
-  const styles = new TextEncoder().encode(`${productStyles}\n${appearanceStyles}`)
+  const styles = new TextEncoder().encode(
+    `${productStyles.trimEnd()}\n\n${appearanceStyles.trim()}\n\n${hranessSiteFooterStyles.trim()}\n`,
+  )
 
   const stylesPath = assetPath("styles.css", styles)
   const themePath = assetPath("theme.js", theme)
   const commonAssets = {
     "{{APPEARANCE_MENU}}": renderAppearanceMenu(),
     "{{CSS_ASSET}}": stylesPath,
+    "{{HRANESS_SITE_FOOTER}}": renderHranessSiteFooter(),
     "{{THEME_ASSET}}": themePath,
   } as const
   const analytics = analyticsConfig === null ? null : await bundleAnalytics(analyticsConfig)
@@ -219,18 +248,27 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       ? ""
       : `<script src="${analyticsPath}" type="module"></script>`,
     "{{SKILL_INSTALL_COMMAND}}": renderCopyCommand({
-      alternateCommand: "bunx skills add hraness/atet",
-      command: "npx skills add hraness/atet",
+      alternateCommand: "bunx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet",
+      command: "npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet",
       id: "skill-install-copy-status",
     }),
   } as const
 
   await rm(outputDirectory, { force: true, recursive: true })
   await mkdir(join(outputDirectory, "assets"), { recursive: true })
+  await mkdir(join(outputDirectory, "reading"), { recursive: true })
 
   await Promise.all([
     writeFile(join(outputDirectory, "index.html"), renderDocument(indexTemplate, indexAssets)),
     writeFile(join(outputDirectory, "404.html"), renderDocument(notFoundTemplate, commonAssets)),
+    writeFile(
+      join(outputDirectory, "reading/draw-faces-with-javascript.html"),
+      renderDocument(readingFacesTemplate, commonAssets),
+    ),
+    writeFile(
+      join(outputDirectory, "reading/feynobg.html"),
+      renderDocument(readingFeynobgTemplate, commonAssets),
+    ),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
     ...(analyticsPath === null || analytics === null
@@ -261,7 +299,7 @@ if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 4
+    + 6
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
 }

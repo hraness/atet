@@ -8,6 +8,30 @@
   "redirects": [
     {
       "source": "/",
+      "has": [{ "type": "host", "value": "transmute.rocks" }],
+      "destination": "https://atet.sh/",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "transmute.rocks" }],
+      "destination": "https://atet.sh/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "www.transmute.rocks" }],
+      "destination": "https://atet.sh/",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.transmute.rocks" }],
+      "destination": "https://atet.sh/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/",
       "has": [{ "type": "host", "value": "hraness.graphics" }],
       "destination": "https://atet.sh/",
       "permanent": true
@@ -28,30 +52,6 @@
       "source": "/:path*",
       "has": [{ "type": "host", "value": "hraness.studio" }],
       "destination": "https://atet.sh/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/",
-      "has": [{ "type": "host", "value": "preview.hraness.graphics" }],
-      "destination": "https://preview.atet.sh/",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "preview.hraness.graphics" }],
-      "destination": "https://preview.atet.sh/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/",
-      "has": [{ "type": "host", "value": "preview.hraness.studio" }],
-      "destination": "https://preview.atet.sh/",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "preview.hraness.studio" }],
-      "destination": "https://preview.atet.sh/:path*",
       "permanent": true
     },
     {
@@ -76,8 +76,30 @@
         }
       ],
       "destination": "/index.md"
-    }
-  ],
+    },
+      {
+        "source": "/reading/draw-faces-with-javascript",
+        "has": [
+          {
+            "type": "header",
+            "key": "accept",
+            "value": "^text/markdown"
+          }
+        ],
+        "destination": "/reading/draw-faces-with-javascript.md"
+      },
+      {
+        "source": "/reading/feynobg",
+        "has": [
+          {
+            "type": "header",
+            "key": "accept",
+            "value": "^text/markdown"
+          }
+        ],
+        "destination": "/reading/feynobg.md"
+      }
+    ],
   "headers": [
     {
       "source": "/(.*)",
@@ -135,6 +157,50 @@
         {
           "key": "Link",
           "value": "<https://atet.sh/>; rel=\"canonical\""
+        }
+      ]
+    },
+    {
+      "source": "/reading/draw-faces-with-javascript",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reading/draw-faces-with-javascript.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reading/draw-faces-with-javascript.md",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        },
+        {
+          "key": "Link",
+          "value": "<https://atet.sh/reading/draw-faces-with-javascript>; rel=\"canonical\""
+        }
+      ]
+    },
+    {
+      "source": "/reading/feynobg",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reading/feynobg.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reading/feynobg.md",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        },
+        {
+          "key": "Link",
+          "value": "<https://atet.sh/reading/feynobg>; rel=\"canonical\""
         }
       ]
     },

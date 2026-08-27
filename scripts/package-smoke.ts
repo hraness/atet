@@ -256,6 +256,89 @@ try {
   if (!installedSkill.startsWith(`${installedPackage}${sep}`)) {
     throw new Error(`Packed CLI resolved a skill outside its install: ${skillPath}`);
   }
+  const rubberStampReferencePath = join(
+    installedSkill,
+    "references",
+    "rubber-stamp-field-notes.md",
+  );
+  const rubberStampReference = await readFile(rubberStampReferencePath, "utf8");
+  for (const required of [
+    '$skill_root/references/rubber-stamp-examples/stamp-style-1.png',
+    '$skill_root/scripts/compose-rubber-stamp-field-note.ts',
+  ]) {
+    if (!rubberStampReference.includes(required)) {
+      throw new Error(`Packed rubber-stamp workflow is missing ${required}.`);
+    }
+  }
+  if ([...rubberStampReference.matchAll(/skill_root="\$\(atet skill path\)"/gu)].length !== 2) {
+    throw new Error("Packed rubber-stamp steps do not resolve their skill root independently.");
+  }
+  const posterExample = join(
+    installedSkill,
+    "references",
+    "rubber-stamp-examples",
+    "poster-example-1.jpg",
+  );
+  const stampStyle = join(
+    installedSkill,
+    "references",
+    "rubber-stamp-examples",
+    "stamp-style-1.png",
+  );
+  const compositor = join(
+    installedSkill,
+    "scripts",
+    "compose-rubber-stamp-field-note.ts",
+  );
+  const compositorOutput = join(consumer, "atet-rubber-stamp-smoke.jpg");
+  await run([
+    process.execPath,
+    compositor,
+    "--photo",
+    posterExample,
+    "--stamp",
+    stampStyle,
+    "--output",
+    compositorOutput,
+    "--place",
+    "TEST",
+    "--number",
+    "01",
+    "--keywords",
+    "installed / skill / proof",
+    "--year",
+    "2026",
+    "--width",
+    "640",
+    "--height",
+    "480",
+  ], consumer);
+  const compositorOutputStat = await lstat(compositorOutput);
+  if (!compositorOutputStat.isFile() || compositorOutputStat.size === 0) {
+    throw new Error("Packed rubber-stamp compositor did not produce a JPEG.");
+  }
+  await run([
+    join(consumer, "node_modules", ".bin", "atet"),
+    "skill",
+    "install",
+    "--target",
+    "agents",
+    "--scope",
+    "project",
+    "--project",
+    consumer,
+  ], consumer);
+  const runnerSkill = await realpath(join(consumer, ".agents", "skills", "atet"));
+  if (runnerSkill.startsWith(`${installedPackage}${sep}`)) {
+    throw new Error("Packed skill install did not exercise a runner-specific copied layout.");
+  }
+  const runnerRubberStampReference = await readFile(
+    join(runnerSkill, "references", "rubber-stamp-field-notes.md"),
+    "utf8",
+  );
+  if ([...runnerRubberStampReference.matchAll(/skill_root="\$\(atet skill path\)"/gu)].length !== 2) {
+    throw new Error("Runner-installed skill lost packaged-resource discovery.");
+  }
   const canvasStatus = record(JSON.parse(await runOutput([
     join(consumer, "node_modules", ".bin", "atet"),
     "canvas",

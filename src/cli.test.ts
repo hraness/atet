@@ -54,11 +54,11 @@ async function runCli(
 }
 
 describe("Atet CLI", () => {
-  test("reports v2.0.0 and documents namespaced media surfaces", async () => {
+  test("reports v3.0.0 and documents namespaced media surfaces", async () => {
     const version = await runCli(["--version"], process.cwd())
     expect(version).toEqual({
       exitCode: 0,
-      stdout: "2.0.0\n",
+      stdout: "3.0.0\n",
       stderr: "",
     })
     const help = await runCli(["--help"], process.cwd())
@@ -79,7 +79,7 @@ describe("Atet CLI", () => {
     expect(help.stdout).not.toContain("atet auth")
   })
 
-  test("initializes diagrams against the canonical v2 schema", async () => {
+  test("initializes diagrams against the version-one schema in the v3 release", async () => {
     const root = await mkdtemp(join(tmpdir(), "atet-cli-init-"))
     try {
       const result = await runCli(["diagram", "init", "system.diagram.json"], root)
@@ -87,7 +87,7 @@ describe("Atet CLI", () => {
       expect(result.stderr).toBe("")
       const diagram = JSON.parse(await readFile(join(root, "system.diagram.json"), "utf8"))
       expect(diagram.$schema).toBe(
-        "https://raw.githubusercontent.com/hraness/atet/v2.0.0/schema/diagram.schema.json",
+        "https://raw.githubusercontent.com/hraness/atet/v3.0.0/schema/diagram.schema.json",
       )
     } finally {
       await rm(root, { recursive: true, force: true })

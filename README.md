@@ -22,9 +22,9 @@ an Atet service.
 Install the single Atet Agent Skill with either runner:
 
 ```sh
-npx skills add hraness/atet
+npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet
 # or
-bunx skills add hraness/atet
+bunx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet
 ```
 
 Start a new agent session after installing the skill. It teaches Codex, Claude
@@ -35,12 +35,12 @@ Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
 then inspect the local media host:
 
 ```sh
-bun add --global github:hraness/atet
+bun add --global github:hraness/atet#v3.0.0
 atet doctor
 ```
 
-The CLI carries the guide released with that exact CLI version. Prefer the
-public `skills` command for the current repository guide. Use
+The CLI carries the guide released with that exact CLI version. The public
+`skills` command above installs the same immutable release. Use
 `atet skill install` when you specifically need the CLI's version-matched
 runner installer.
 
@@ -53,8 +53,8 @@ atet doctor
 ```
 
 The public `skills` command follows the scope selected in that installer. If
-you instead use the CLI's version-matched guide, `atet skill install` defaults
-to Codex across your user account.
+you use the CLI's packaged guide, `atet skill install` defaults to Codex across
+your user account.
 
 For Claude Code or another system that reads Agent Skills:
 
@@ -307,7 +307,7 @@ integration terms.
 Add the package to a Bun project:
 
 ```sh
-bun add github:hraness/atet
+bun add github:hraness/atet#v3.0.0
 ```
 
 SDK imports do not start the CLI or inspect local project state:

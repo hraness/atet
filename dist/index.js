@@ -24,7 +24,7 @@ import {
   renderDiagramFile,
   runMcpServer,
   selectDesktopAsset
-} from "./index-9msh93rm.js";
+} from "./index-m1bf6vnz.js";
 import {
   bundledSkillPath,
   installSkill

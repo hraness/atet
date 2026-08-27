@@ -1,79 +1,77 @@
 # Vercel provider runbook
 
-Atet's public site deploys from `apps/web` in the existing Hraness Vercel project. The provider project, stable-preview environment, domains, and Git refs form one serving contract. Preserve them in place.
+Atet's public site deploys from `apps/web` in one existing Hraness Vercel
+project. Production is its only durable remote environment. Vercel's built-in
+Preview target may build pull requests at disposable generated URLs, but it
+does not own a persistent branch, custom environment, domain, alias, database,
+or production-only variable.
 
 ## Provider identity
 
 - GitHub source: `hraness/atet`.
-- Vercel project: `atet`, ID `prj_RvNXCVvEYKYhW71OA1442SAILmAS`, root directory `apps/web`.
+- Vercel project: `atet`, ID `prj_RvNXCVvEYKYhW71OA1442SAILmAS`.
+- Root directory: `apps/web`.
 - Production branch: `main`.
-- Production domains: `atet.sh`, `hraness.graphics`, and `hraness.studio`.
+- Canonical Production domain: `atet.sh`.
+- Reviewed predecessor redirects: `hraness.graphics`, `hraness.studio`,
+  `transmute.rocks`, and `www.transmute.rocks` permanently redirect the same
+  path to `atet.sh`.
 - Production Vercel alias: `atet-hraness.vercel.app`.
-- Stable-preview custom environment: `staging`, ID `env_h9oyPAG0ZOwx0qFQxk0QByLL8c2D`.
-- Stable-preview branch matcher: exact branch name `preview`.
-- Stable-preview domains: `preview.atet.sh` and `preview.hraness.graphics`.
-- Stable-preview Vercel alias: `atet-env-staging-hraness.vercel.app`.
 
-The remote `preview` branch name is provider authority. Do not delete, rename, repurpose, or force-push the branch without a deliberate provider migration. Do not fast-forward it as branch cleanup. Advancing `preview` is a staging release and requires an explicit content decision plus provider verification.
+Do not create a custom Vercel environment, a provider-authoritative Preview
+branch, or a persistent Preview domain. A branch Preview is disposable
+application evidence. It must not become a release channel or another durable
+backend.
 
-## Production analytics environment
+## Production analytics
 
-Set `NEXT_PUBLIC_POSTHOG_KEY` only in Vercel's Production environment. It is the public client token for shared PostHog project `543691`, not a personal API key. `NEXT_PUBLIC_POSTHOG_HOST` may be omitted; when present it must equal `https://us.i.posthog.com`.
+Set `NEXT_PUBLIC_POSTHOG_KEY` only in Vercel's Production environment. It is
+the public client token for shared PostHog project `543691`, not a personal API
+key. `NEXT_PUBLIC_POSTHOG_HOST` may be omitted; when present it must equal
+`https://us.i.posthog.com`.
 
-The build emits no analytics asset when the token is missing or `VERCEL_ENV` is not `production`. The bundled client also checks for the exact `https://atet.sh/` page before it initializes or sends an event, so stable staging, pull-request previews, predecessor hosts, and `404.html` remain inert. Keep PostHog's cookieless server hash mode enabled for the shared project so cookieless pageviews receive privacy-preserving visitor identity.
+The build emits no analytics asset when the token is missing or `VERCEL_ENV`
+is not `production`. The bundled client also checks for the exact
+`https://atet.sh/` page before it initializes or sends an event. Built-in
+Preview deployments, predecessor hosts, and `404.html` remain inert. Keep
+PostHog's cookieless server hash mode enabled.
 
-Production, stable preview, and pull-request previews are separate:
+## Provider audit
 
-- `main` supplies Production and the production domains.
-- `preview` is the exact matcher for the durable `staging` custom environment.
-- Pull requests whose head branch is not `preview` use Vercel's built-in Preview environment and ephemeral branch aliases. Any push to `preview`, including while it is a pull-request head, matches `staging` and is a staging release that can move the stable-preview aliases.
+Audit before changing the project, domains, Git connection, or environment
+variables. These reads must not print variable values.
 
-A custom-environment matcher does not prove which Git ref produced the deployment currently behind an alias. Vercel can point the stable-preview domains at a Ready `staging` deployment whose recorded Git ref is `main`. Treat a branch update and an alias assignment as separate provider changes.
-
-## Pre-change audit
-
-Run this audit before changing the `preview` ref, the custom environment, a stable-preview domain, or an alias. It is read-only.
-
-1. Inspect the project and custom environment.
+1. Inspect the project and require the immutable ID, `apps/web` root, `main`
+   production branch, and an empty `customEnvironments` list.
 
    ```sh
    vercel project inspect atet --scope hraness
-   vercel api /v9/projects/prj_RvNXCVvEYKYhW71OA1442SAILmAS/custom-environments/staging --scope hraness --raw
+   vercel api /v9/projects/prj_RvNXCVvEYKYhW71OA1442SAILmAS --scope hraness --raw
    ```
 
-   Confirm the project ID and root directory. Confirm that `staging` has ID `env_h9oyPAG0ZOwx0qFQxk0QByLL8c2D` and an `equals` branch matcher whose pattern is `preview`.
-
-2. Inspect every project-domain binding.
+2. Inspect every project-domain binding. Require only reviewed Production
+   domains and no `customEnvironmentId`.
 
    ```sh
    vercel api /v9/projects/prj_RvNXCVvEYKYhW71OA1442SAILmAS/domains --scope hraness --raw
    ```
 
-   Confirm that both stable-preview domains are verified and carry the exact `customEnvironmentId`. Confirm that production domains remain on the same project without a custom-environment binding.
+3. Inspect environment-variable metadata without reading values. Production
+   may own the public PostHog key. No record may target a custom environment,
+   and built-in Preview must not receive production-only configuration.
 
-3. Resolve the aliases to their deployment IDs.
+4. Resolve each Production alias to a Ready deployment from `main`, then read
+   that deployment's exact Git commit. A deployment's historical alias list is
+   not proof of current ownership.
 
-   ```sh
-   vercel api '/v4/aliases?projectId=prj_RvNXCVvEYKYhW71OA1442SAILmAS&limit=100' --scope hraness --raw
-   vercel inspect <stable-preview-deployment-id> --scope hraness
-   vercel api /v13/deployments/<stable-preview-deployment-id> --scope hraness --raw
-   ```
-
-   Confirm that `preview.atet.sh`, `preview.hraness.graphics`, and `atet-env-staging-hraness.vercel.app` resolve to the same Ready deployment. Read its custom-environment ID, target, `meta.githubCommitRef`, and `meta.githubCommitSha`; do not infer them from the domain or matcher.
-
-4. Refresh and record the exact remote Git refs without changing a worktree.
+5. Confirm that GitHub has `main` and no durable `preview` branch.
 
    ```sh
    git ls-remote --heads origin main preview
-   git fetch origin refs/heads/main:refs/remotes/origin/main refs/heads/preview:refs/remotes/origin/preview
-   git rev-parse origin/main origin/main^{tree} origin/preview origin/preview^{tree}
-   git rev-list --left-right --count origin/main...origin/preview
    ```
 
-   Review the commits unique to each branch before deciding whether staging content should change. A stale or divergent `preview` ref is not sufficient reason to delete or synchronize it.
-
-Record the exact provider IDs, deployment ID, deployment Git ref and SHA, domain bindings, alias mapping, remote commit IDs, tree IDs, and ahead/behind counts in the change or pull request that performs a provider migration.
-
-## Migration order
-
-If the stable-preview branch name must change, keep `preview` intact until the replacement ref, custom-environment matcher, domains, and alias target have been verified together. Change one authority at a time, verify the resulting deployment metadata and public responses, then retire the former ref through an ordinary reviewed deletion. Never use a force-push to perform the migration.
+Provider cleanup must address exact immutable IDs. Remove an obsolete custom
+environment's domains, variables, and deployments explicitly before deleting
+the environment; Vercel does not document those resources as cascading. Read
+the project, domains, aliases, deployments, environment metadata, and remote
+branches back afterward. Never infer cleanup from a successful DELETE alone.

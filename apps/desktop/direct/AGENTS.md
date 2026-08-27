@@ -3,6 +3,7 @@
 - deterministic recording worlds, synchronized multi-asset project fixtures, local face-box evidence, camera-operation receipts, compiled workflow/run evidence, scenario definitions, definition-owned sessions, pre-render browser mounts, and scripted runtime/analyzer adapters.
 - browser workbench and fixed Vite entry.
 - product-owned production-boundary policy and browser verification runner over the released Direct tooling.
+- `bombadil-campaign.ts` and `fuzz-browser.ts` – product-owned properties, conservative actions, and one bounded diagnostic fuzz campaign for the frame-only idle recorder.
 - colocated scenario, transport, and world-law tests.
 
 # Guidelines
@@ -19,3 +20,4 @@
 - Browser verification must atomically bind the v2 schema, `scenario` source, requested ID, product route, and matching activation hashes, and it must retain one catalog hash across the run.
 - Prove with a boundary check that no Direct module enters production frontend, gateway, CLI, capture, Zig, or package graphs.
 - Keep generic bundle scanning, browser processes, server lifecycle, contract reading, and atomic artifact mechanics in `@hraness/direct/tooling/*`. Keep Atet server identity, fresh-port selection, product interactions, assertions, and the `jungle.direct.web-verification/v1` manifest here.
+- Keep Bombadil diagnostic and separate from semantic browser evidence. Pin 0.7.2 exactly, start `idle-ready` in the existing `directFrame=1` view, retain the shared Direct invariants, and keep Atet surface assertions in the campaign. The conservative action generator excludes navigation and submission, so ordinary fuzz actions cannot drop the URL-bound frame-only state.

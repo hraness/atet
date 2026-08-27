@@ -848,7 +848,7 @@
   },
   {
     "identityLineCount": 23,
-    "identityLinesSha256": "68c8cfcdf0f226877eca820c7d3f11e2b932eaafa8d10a94181caf321b9c535e",
+    "identityLinesSha256": "26cf9b719e4f0cda2f41a668390290ba46728a5c60c8110860f735f7e33d3ca4",
     "occurrenceCount": 121,
     "path": "apps/desktop/dist/cli/main.js",
     "categories": [
@@ -902,18 +902,18 @@
     ]
   },
   {
-    "identityLineCount": 8,
-    "identityLinesSha256": "bddc096e7f8b2a6d19b94469adb2e1569590688ec0f2fc4fd56a0af54161405a",
-    "occurrenceCount": 8,
+    "identityLineCount": 6,
+    "identityLinesSha256": "f11e34e281193df19f31de1dc82c114ba1c445b0e2103c50ebf32e6a0745321d",
+    "occurrenceCount": 6,
     "path": "apps/web/site.test.ts",
     "categories": [
       "test-fixture"
     ]
   },
   {
-    "identityLineCount": 8,
-    "identityLinesSha256": "5a6404082d3ddde96ed5bd537a9acaae3e34fa6a1d339c382f671abbb00ad5ef",
-    "occurrenceCount": 8,
+    "identityLineCount": 4,
+    "identityLinesSha256": "bad6e291def718ece68a5ad2f8ffb0a54149dd53855927cb8f70f2fd9947c9b3",
+    "occurrenceCount": 4,
     "path": "apps/web/vercel.json",
     "categories": [
       "legacy-redirect",
@@ -930,9 +930,9 @@
     ]
   },
   {
-    "identityLineCount": 3,
-    "identityLinesSha256": "da5808d8ec1512f6561e2f63d2516e3c0ccc722bcd5d4ff78961ffc83566289f",
-    "occurrenceCount": 4,
+    "identityLineCount": 1,
+    "identityLinesSha256": "08fdd1b32c3de3fd145aa6e8a681aeefb99fe7d7cbbbd755ad3cd67da00c07c7",
+    "occurrenceCount": 2,
     "path": "docs/vercel.md",
     "categories": [
       "compat-doc"

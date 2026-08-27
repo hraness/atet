@@ -69,17 +69,21 @@ perforations, wax seals, stickers, or collage.
 ```
 
 Pass the source photo first, then one packaged style reference from
-`references/rubber-stamp-examples/stamp-style-1.png` (or `stamp-style-2.png`)
+`references/rubber-stamp-examples/stamp-style-1.png` (or
+`references/rubber-stamp-examples/stamp-style-2.png`)
 so the model copies the hand-stamped ink language without copying that place.
 
-Run through the linked Vercel project:
+Resolve the version-matched packaged skill inside each executable shell step.
+Do not assume the current directory is an Atet source checkout or use the
+agent runner's copied skill path. Run through the linked Vercel project:
 
 ```sh
+skill_root="$(atet skill path)"
 vercel env run -- atet ai image generate \
   --model bfl/flux-kontext-pro \
   --prompt-file stamp-brief.txt \
   --image /absolute/source-photo.png \
-  --image skills/atet/references/rubber-stamp-examples/stamp-style-1.png \
+  --image "$skill_root/references/rubber-stamp-examples/stamp-style-1.png" \
   --aspect-ratio 1:1 \
   --allow-cloud-upload \
   --json --timeout 180s
@@ -95,7 +99,8 @@ Assemble the final poster with the packaged compositor so the photograph stays
 literal:
 
 ```sh
-bun skills/atet/scripts/compose-rubber-stamp-field-note.ts \
+skill_root="$(atet skill path)"
+bun "$skill_root/scripts/compose-rubber-stamp-field-note.ts" \
   --photo /absolute/source-photo.jpg \
   --stamp /absolute/generated-stamp.png \
   --output /absolute/field-note.jpg \

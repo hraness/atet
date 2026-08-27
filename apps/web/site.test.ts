@@ -5,6 +5,12 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import {
+  HRANESS_HOME_URL,
+  HRANESS_NEWSLETTER_URL,
+  hranessSocialLinks,
+} from "@hraness/site-footer"
+
+import {
   isCanonicalAnalyticsPage,
   posthogCookielessDistinctId,
   sanitizePageview,
@@ -13,6 +19,8 @@ import {
   homeMarkdown,
   llmsTxt,
   notFoundMarkdown,
+  readingFacesMarkdown,
+  readingFeynobgMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "./src/agent-pages"
@@ -21,6 +29,8 @@ import {
   isHomePath,
   isNegotiableDocumentPath,
   isPreservedRedirectPath,
+  isReadingFacesPath,
+  isReadingFeynobgPath,
   negotiateSiteRequest,
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
@@ -81,14 +91,15 @@ describe("static Atet site", () => {
 
     expect(searchableReadme).toContain(brandDescription.toLowerCase())
 
-    expect(readme).toContain("bun add --global github:hraness/atet")
+    expect(readme).toContain("npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet")
+    expect(readme).toContain("bun add --global github:hraness/atet#v3.0.0")
+    expect(readme).toContain("bun add github:hraness/atet#v3.0.0")
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
     expect(readme).toContain("atet ai video generate")
     expect(readme).toContain("atet workflows show social-variants --json")
     expect(readme).not.toMatch(/checked step|checked path|bounded capability|delivery variant/i)
     expect(readme).not.toContain("https://atet.sh/docs")
-    expect(readme).not.toContain("github:hraness/atet#")
   })
 
   test("ships agent instructions for video editing and Gateway media generation", async () => {
@@ -183,6 +194,7 @@ describe("static Atet site", () => {
         installUrl: "https://atet.sh/#install",
         publisher: { "@id": "https://hraness.com/#organization" },
         sameAs: ["https://github.com/hraness/atet"],
+        softwareVersion: "3.0.0",
       }),
       expect.objectContaining({
         "@id": "https://atet.sh/#source",
@@ -190,6 +202,7 @@ describe("static Atet site", () => {
         author: { "@id": "https://hraness.com/#organization" },
         codeRepository: "https://github.com/hraness/atet",
         targetProduct: { "@id": "https://atet.sh/#software" },
+        version: "3.0.0",
       }),
     ]))
   })
@@ -198,8 +211,8 @@ describe("static Atet site", () => {
     const html = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
     const commands = [
-      "npx skills add hraness/atet",
-      "bun add --global github:hraness/atet",
+      "npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet",
+      "bun add --global github:hraness/atet#v3.0.0",
       "atet doctor",
     ]
     const positions = commands.map(command => html.indexOf(command))
@@ -215,7 +228,7 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("export finished videos")
     expect(html).toContain("Install the Atet Agent Skill")
     expect(html).toContain("Install the local media tools · Requires Bun 1.3.14+")
-    expect(html).toContain("Using Bun? <code>bunx skills add hraness/atet</code>")
+    expect(html).toContain("Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet</code>")
     expect(html).toContain("inside the project you want to work")
     expect(html).toContain("start a new agent session")
     expect(heroHtml).not.toContain("atet skill install")
@@ -223,7 +236,7 @@ describe("static Atet site", () => {
     expect(html).toContain("atet skill install --target claude")
     expect(html).toContain("atet skill install --target agents")
     expect(html).toContain("--scope project")
-    expect(html).not.toContain("github:hraness/atet#")
+    expect(html).toContain("github:hraness/atet#v3.0.0")
   })
 
   test("renders a progressively enhanced reusable copy command in the hero", async () => {
@@ -235,8 +248,8 @@ describe("static Atet site", () => {
 
     expect(build).toContain("function renderCopyCommand(options: CopyCommandOptions)")
     expect(html.match(/data-copy-command(?:>|\s)/gu)).toHaveLength(1)
-    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add hraness/atet</code>')
-    expect(html).toContain("<code>bunx skills add hraness/atet</code>")
+    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet</code>')
+    expect(html).toContain("<code>bunx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet</code>")
     expect(html).toContain('aria-label="Copy install command"')
     expect(html).toContain("data-copy-command-button hidden type=\"button\">Copy</button>")
     expect(html).toContain('aria-live="polite"')
@@ -336,6 +349,7 @@ describe("static Atet site", () => {
     expect(css).toContain(":where(a, button, [tabindex]):focus-visible")
     expect(css).toContain(".docs-index")
     expect(css).toContain(".docs-section")
+    expect(css).toContain(".reading-article")
     expect(css).toContain("@media (max-width: 64rem)")
     expect(css).toContain("@media (max-width: 48rem)")
     expect(css).toContain("@media (max-width: 34rem)")
@@ -344,17 +358,19 @@ describe("static Atet site", () => {
   })
 
   test("owns one shared appearance menu as the final action in every header", async () => {
-    const [html, notFound] = await Promise.all([
+    const [html, notFound, reading, readingFeynobg] = await Promise.all([
       readBuilt("index.html"),
       readBuilt("404.html"),
+      readBuilt("reading/draw-faces-with-javascript.html"),
+      readBuilt("reading/feynobg.html"),
     ])
 
-    for (const document of [html, notFound]) {
+    for (const document of [html, notFound, reading, readingFeynobg]) {
       expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
       expect(document).toMatch(
         /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
       )
-      expect(document.slice(document.indexOf('<footer class="site-footer">')))
+      expect(document.slice(document.indexOf('data-slot="hraness-site-footer"')))
         .not.toContain("data-hraness-appearance-menu")
       expect(document).not.toContain('class="appearance"')
       expect(document).not.toContain("data-theme-choice")
@@ -429,12 +445,16 @@ describe("static Atet site", () => {
 
     expect(manifest.dependencies).toEqual({
       "@hraness/design-kit": "github:hraness/design-kit#v0.1.8",
+      "@hraness/site-footer": "github:hraness/site-footer#v0.1.0",
       "posthog-js": "1.413.2",
     })
     expect(manifest.devDependencies).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
     expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.1.8"')
+    expect(localLockfile).toContain(
+      '"@hraness/site-footer": "github:hraness/site-footer#v0.1.0"',
+    )
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     expect(localLockfile).not.toContain("catalog:")
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
@@ -478,6 +498,14 @@ describe("static Atet site", () => {
     expect(isCanonicalAnalyticsPage({ origin: "https://atet.sh", pathname: "/" })).toBe(true)
     expect(isCanonicalAnalyticsPage({ origin: "https://preview.atet.sh", pathname: "/" })).toBe(false)
     expect(isCanonicalAnalyticsPage({ origin: "https://atet.sh", pathname: "/404" })).toBe(false)
+    expect(isCanonicalAnalyticsPage({
+      origin: "https://atet.sh",
+      pathname: "/reading/draw-faces-with-javascript",
+    })).toBe(false)
+    expect(isCanonicalAnalyticsPage({
+      origin: "https://atet.sh",
+      pathname: "/reading/feynobg",
+    })).toBe(false)
 
     const timestamp = new Date("2026-08-19T12:00:00.000Z")
     const sanitized = sanitizePageview({
@@ -487,6 +515,7 @@ describe("static Atet site", () => {
         $current_url: "https://atet.sh/?private=value#fragment",
         $device_id: "device",
         $pathname: "/",
+        $raw_user_agent: "Atet test browser",
         $referrer: "https://example.com/private",
         analytics_schema_version: 99,
         distinct_id: posthogCookielessDistinctId,
@@ -502,6 +531,7 @@ describe("static Atet site", () => {
       properties: {
         $cookieless_mode: true,
         $process_person_profile: false,
+        $raw_user_agent: "Atet test browser",
         analytics_schema_version: 1,
         distinct_id: posthogCookielessDistinctId,
         site_id: "atet",
@@ -532,10 +562,20 @@ describe("static Atet site", () => {
       event: "$pageview",
       properties: {
         $cookieless_mode: false,
+        $raw_user_agent: "Atet test browser",
         distinct_id: posthogCookielessDistinctId,
         token: "phc_testtoken",
       },
       uuid: "0198c6a7-7c00-7000-8000-000000000004",
+    }, "phc_testtoken")).toBeNull()
+    expect(sanitizePageview({
+      event: "$pageview",
+      properties: {
+        $cookieless_mode: true,
+        distinct_id: posthogCookielessDistinctId,
+        token: "phc_testtoken",
+      },
+      uuid: "0198c6a7-7c00-7000-8000-000000000005",
     }, "phc_testtoken")).toBeNull()
   })
 
@@ -624,6 +664,7 @@ describe("static Atet site", () => {
       "index.md",
       "llms.txt",
       "og.png",
+      "reading",
       "robots.txt",
       "sitemap.md",
       "sitemap.xml",
@@ -638,15 +679,26 @@ describe("static Atet site", () => {
       readFile(join(appDirectory, "dist", builtAssets.themePath.slice(1)), "utf8"),
     ])
     expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
+    expect(stylesAsset).toContain(".hraness-site-footer {")
     expect(stylesAsset).toContain("@media (pointer: coarse)")
-    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(36_000)
+    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(40_000)
     expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
     expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
   test("publishes crawler discovery for the home page and its markdown mirror", async () => {
-    const [robots, sitemap, notFound, builtRobots, builtLlms, builtHomeMarkdown, builtSitemapMarkdown] = await Promise.all([
+    const [
+      robots,
+      sitemap,
+      notFound,
+      builtRobots,
+      builtLlms,
+      builtHomeMarkdown,
+      builtSitemapMarkdown,
+      builtReadingMarkdown,
+      builtFeynobgMarkdown,
+    ] = await Promise.all([
       Promise.resolve(robotsTxt),
       readSource("sitemap.xml"),
       readSource("404.html"),
@@ -654,6 +706,8 @@ describe("static Atet site", () => {
       readBuilt("llms.txt"),
       readBuilt("index.md"),
       readBuilt("sitemap.md"),
+      readBuilt("reading/draw-faces-with-javascript.md"),
+      readBuilt("reading/feynobg.md"),
     ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
       .map(match => match[1])
@@ -687,20 +741,35 @@ describe("static Atet site", () => {
     ].join("\n"))
     expect(robots).not.toMatch(/^\s*Disallow:/mu)
     expect(builtRobots).toBe(robotsTxt)
-    expect(locations).toEqual(["https://atet.sh/", "https://atet.sh/index.md"])
-    expect(sitemap).toContain("<lastmod>2026-08-21</lastmod>")
+    expect(locations).toEqual([
+      "https://atet.sh/",
+      "https://atet.sh/index.md",
+      "https://atet.sh/reading/draw-faces-with-javascript",
+      "https://atet.sh/reading/draw-faces-with-javascript.md",
+      "https://atet.sh/reading/feynobg",
+      "https://atet.sh/reading/feynobg.md",
+    ])
+    expect(sitemap).toContain("<lastmod>2026-08-26</lastmod>")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
     expect(builtLlms).toBe(llmsTxt)
     expect(builtHomeMarkdown).toBe(homeMarkdown)
     expect(builtSitemapMarkdown).toBe(sitemapMarkdown)
+    expect(builtReadingMarkdown).toBe(readingFacesMarkdown)
+    expect(builtFeynobgMarkdown).toBe(readingFeynobgMarkdown)
     expect(llmsTxt).toMatch(/^# Atet\n/u)
     expect(llmsTxt).toContain("> Atet gives coding agents tools")
     expect(llmsTxt).toContain("## When to use Atet")
     expect(llmsTxt).toContain("https://atet.sh/index.md")
     expect(sitemapMarkdown).toContain("# Sitemap")
     expect(sitemapMarkdown).toContain("https://atet.sh/index.md")
+    expect(sitemapMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
+    expect(sitemapMarkdown).toContain("https://atet.sh/reading/feynobg.md")
     expect(homeMarkdown).toContain("## Sitemap")
     expect(homeMarkdown).toContain("https://atet.sh/sitemap.md")
+    expect(homeMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
+    expect(homeMarkdown).toContain("https://atet.sh/reading/feynobg.md")
+    expect(llmsTxt).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
+    expect(llmsTxt).toContain("https://atet.sh/reading/feynobg.md")
     expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
     expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
   })
@@ -738,23 +807,29 @@ describe("static Atet site", () => {
       { source: "/docs/:path*", destination: "/", permanent: true },
     ])
     expect(hostRedirects).toEqual([
+      { source: "/", host: { type: "host", value: "transmute.rocks" }, destination: "https://atet.sh/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "transmute.rocks" }, destination: "https://atet.sh/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://atet.sh/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://atet.sh/:path*", permanent: true },
       { source: "/", host: { type: "host", value: "hraness.graphics" }, destination: "https://atet.sh/", permanent: true },
       { source: "/:path*", host: { type: "host", value: "hraness.graphics" }, destination: "https://atet.sh/:path*", permanent: true },
       { source: "/", host: { type: "host", value: "hraness.studio" }, destination: "https://atet.sh/", permanent: true },
       { source: "/:path*", host: { type: "host", value: "hraness.studio" }, destination: "https://atet.sh/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "preview.hraness.graphics" }, destination: "https://preview.atet.sh/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "preview.hraness.graphics" }, destination: "https://preview.atet.sh/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "preview.hraness.studio" }, destination: "https://preview.atet.sh/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "preview.hraness.studio" }, destination: "https://preview.atet.sh/:path*", permanent: true },
     ])
 
     for (const redirect of hostRedirects) {
       const sourceHost = redirect.host?.value
       expect(sourceHost).not.toBe("atet.sh")
-      expect(sourceHost).not.toBe("preview.atet.sh")
       expect(new URL(redirect.destination?.replace(":path*", "") ?? "https://invalid").host)
         .not.toBe(sourceHost)
     }
+
+    expect(new Set(hostRedirects.map(redirect => redirect.host?.value))).toEqual(new Set([
+      "transmute.rocks",
+      "www.transmute.rocks",
+      "hraness.graphics",
+      "hraness.studio",
+    ]))
   })
 
   test("serves a strict CSP, security headers, and immutable fingerprinted assets", async () => {
@@ -788,12 +863,32 @@ describe("static Atet site", () => {
 
     const home = vercel.headers?.find(entry => entry.source === "/")?.headers ?? []
     const markdown = vercel.headers?.find(entry => entry.source === "/index.md")?.headers ?? []
+    const reading = vercel.headers?.find(entry => entry.source === "/reading/draw-faces-with-javascript")?.headers ?? []
+    const readingMarkdown = vercel.headers?.find(entry => entry.source === "/reading/draw-faces-with-javascript.md")?.headers ?? []
+    const readingFeynobg = vercel.headers?.find(entry => entry.source === "/reading/feynobg")?.headers ?? []
+    const readingFeynobgMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/feynobg.md")?.headers ?? []
     const llms = vercel.headers?.find(entry => entry.source === "/llms.txt")?.headers ?? []
     expect(home).toContainEqual({
       key: "Link",
       value: '</index.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
     })
     expect(markdown).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
+    expect(reading).toContainEqual({
+      key: "Link",
+      value: '</reading/draw-faces-with-javascript.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(readingMarkdown).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
+    expect(readingFeynobg).toContainEqual({
+      key: "Link",
+      value: '</reading/feynobg.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(readingFeynobgMarkdownHeader).toContainEqual({
       key: "Content-Type",
       value: "text/markdown; charset=utf-8",
     })
@@ -807,16 +902,43 @@ describe("static Atet site", () => {
         has: [{ type: "header", key: "accept", value: "^text/markdown" }],
         destination: "/index.md",
       },
+      {
+        source: "/reading/draw-faces-with-javascript",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/reading/draw-faces-with-javascript.md",
+      },
+      {
+        source: "/reading/feynobg",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/reading/feynobg.md",
+      },
     ])
   })
 
-  test("preserves the canonical Hraness footer", async () => {
-    const html = await readSource("index.html")
+  test("renders the canonical Hraness network footer on every HTML page", async () => {
+    const documents = await Promise.all([
+      readBuilt("index.html"),
+      readBuilt("404.html"),
+      readBuilt("reading/draw-faces-with-javascript.html"),
+      readBuilt("reading/feynobg.html"),
+    ])
+    const expectedHrefs = [
+      HRANESS_HOME_URL,
+      HRANESS_NEWSLETTER_URL,
+      ...hranessSocialLinks.map(({ href }) => href),
+    ]
 
-    expect(html).toContain('href="https://hraness.com"')
-    expect(html).toContain('aria-label="hraness"')
-    expect(html).toContain('class="hraness-mark"')
-    expect(html).toContain("Atet · MIT · AI media generation and video editing for coding agents.")
+    for (const document of documents) {
+      expect(document.match(/<footer\b/gu)).toHaveLength(1)
+      const footer = /<footer\b[\s\S]*?<\/footer>/u.exec(document)?.[0]
+      expect(footer).toContain('data-slot="hraness-site-footer"')
+      expect(footer?.match(/data-slot="hraness-mark"/gu)).toHaveLength(1)
+      expect(footer?.match(/data-slot="social-icon"/gu)).toHaveLength(10)
+      expect(
+        [...(footer?.matchAll(/<a\b[^>]*\shref="([^"]+)"/gu) ?? [])]
+          .map(match => match[1]),
+      ).toEqual(expectedHrefs)
+    }
   })
 
   test("selects markdown, HTML, and 406 from Accept quality values", () => {
@@ -836,9 +958,17 @@ describe("static Atet site", () => {
   test("negotiates homepage markdown, agent-friendly 404s, and 406 without an API route", async () => {
     expect(isHomePath("/")).toBe(true)
     expect(isHomePath("/index.html")).toBe(true)
+    expect(isReadingFacesPath("/reading/draw-faces-with-javascript")).toBe(true)
+    expect(isReadingFacesPath("/reading/draw-faces-with-javascript.html")).toBe(true)
+    expect(isReadingFacesPath("/reading/missing")).toBe(false)
+    expect(isReadingFeynobgPath("/reading/feynobg")).toBe(true)
+    expect(isReadingFeynobgPath("/reading/feynobg.html")).toBe(true)
+    expect(isReadingFeynobgPath("/reading/missing")).toBe(false)
     expect(isPreservedRedirectPath("/docs")).toBe(true)
     expect(isPreservedRedirectPath("/docs/install")).toBe(true)
     expect(isNegotiableDocumentPath("/missing-route")).toBe(true)
+    expect(isNegotiableDocumentPath("/reading/draw-faces-with-javascript")).toBe(true)
+    expect(isNegotiableDocumentPath("/reading/feynobg")).toBe(true)
     expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
     expect(isNegotiableDocumentPath("/index.md")).toBe(false)
     expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
@@ -857,6 +987,32 @@ describe("static Atet site", () => {
       headers: { Accept: "text/html" },
     }))
     expect(htmlHome).toBeUndefined()
+
+    const markdownReading = negotiateSiteRequest(new Request("https://atet.sh/reading/draw-faces-with-javascript", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownReading?.status).toBe(200)
+    expect(markdownReading?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownReading?.headers.get("link")).toContain('rel="canonical"')
+    expect(await markdownReading?.text()).toBe(readingFacesMarkdown)
+
+    const htmlReading = negotiateSiteRequest(new Request("https://atet.sh/reading/draw-faces-with-javascript", {
+      headers: { Accept: "text/html" },
+    }))
+    expect(htmlReading).toBeUndefined()
+
+    const markdownFeynobg = negotiateSiteRequest(new Request("https://atet.sh/reading/feynobg", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownFeynobg?.status).toBe(200)
+    expect(markdownFeynobg?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownFeynobg?.headers.get("link")).toContain('rel="canonical"')
+    expect(await markdownFeynobg?.text()).toBe(readingFeynobgMarkdown)
+
+    const htmlFeynobg = negotiateSiteRequest(new Request("https://atet.sh/reading/feynobg", {
+      headers: { Accept: "text/html" },
+    }))
+    expect(htmlFeynobg).toBeUndefined()
 
     const docsRedirect = negotiateSiteRequest(new Request("https://atet.sh/docs", {
       headers: { Accept: "text/markdown" },
@@ -896,5 +1052,89 @@ describe("static Atet site", () => {
     }))
     expect(middlewareMarkdown?.status).toBe(200)
     expect(await middlewareMarkdown?.text()).toBe(homeMarkdown)
+  })
+
+  test("publishes one original reading take on Mannay’s JavaScript faces", async () => {
+    const [html, builtHtml, builtMarkdown, readingFiles] = await Promise.all([
+      readFile(join(appDirectory, "src/reading/draw-faces-with-javascript.html"), "utf8"),
+      readBuilt("reading/draw-faces-with-javascript.html"),
+      readBuilt("reading/draw-faces-with-javascript.md"),
+      readdir(join(appDirectory, "dist/reading")),
+    ])
+    const home = await readSource("index.html")
+    const searchableHtml = html.replace(/\s+/gu, " ")
+
+    expect(html.match(/<h1\b/gu)).toHaveLength(1)
+    expect(html).toContain("<h1 id=\"page-title\">Keep the source small enough to vary</h1>")
+    expect(html).toContain('<link rel="canonical" href="https://atet.sh/reading/draw-faces-with-javascript">')
+    expect(html).toContain('<link rel="alternate" type="text/markdown" href="/reading/draw-faces-with-javascript.md">')
+    expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
+    expect(html).toContain('href="https://atet.sh/"')
+    expect(html).toContain('href="https://hraness.com"')
+    expect(html).toContain('href="https://hraness.com/reading/draw-faces-with-javascript"')
+    expect(searchableHtml).toContain("Atet does not ship a face generator")
+    expect(searchableHtml).toContain("There is no Atet account or hosted project database")
+    expect(searchableHtml).toContain("converts raster artwork to SVG locally")
+    expect(searchableHtml).toContain("HTML, SVG, shaders, and Three.js")
+    expect(html).not.toContain("{{ANALYTICS_SCRIPT}}")
+    expect(html).not.toContain("data-copy-command")
+    expect(html).not.toContain("You can just draw faces with javascript")
+    expect(searchableHtml).not.toContain("background removal")
+    expect(searchableHtml).not.toContain("eigendrum")
+    expect(builtHtml).not.toContain("{{")
+    expect(builtHtml).not.toMatch(/analytics-|posthog|phc_/i)
+    expect(builtMarkdown).toBe(readingFacesMarkdown)
+    expect(readingFacesMarkdown).toContain("https://atet.sh/")
+    expect(readingFacesMarkdown).toContain("https://hraness.com")
+    expect(readingFacesMarkdown).toContain("https://hraness.com/reading/draw-faces-with-javascript")
+    expect(readingFiles.sort()).toEqual([
+      "draw-faces-with-javascript.html",
+      "draw-faces-with-javascript.md",
+      "feynobg.html",
+      "feynobg.md",
+    ])
+    expect(home).toContain('href="/reading/draw-faces-with-javascript"')
+    expect(homeMarkdown).toContain("Keep the source small enough to vary")
+  })
+
+  test("publishes one original reading take on FeyNoBg", async () => {
+    const [html, builtHtml, builtMarkdown] = await Promise.all([
+      readFile(join(appDirectory, "src/reading/feynobg.html"), "utf8"),
+      readBuilt("reading/feynobg.html"),
+      readBuilt("reading/feynobg.md"),
+    ])
+    const home = await readSource("index.html")
+    const searchableHtml = html.replace(/\s+/gu, " ")
+
+    expect(html.match(/<h1\b/gu)).toHaveLength(1)
+    expect(html).toContain("<h1 id=\"page-title\">Keep the cutout from replacing the source</h1>")
+    expect(html).not.toContain("Keep the source small enough to vary</h1>")
+    expect(html).toContain('<link rel="canonical" href="https://atet.sh/reading/feynobg">')
+    expect(html).toContain('<link rel="alternate" type="text/markdown" href="/reading/feynobg.md">')
+    expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
+    expect(html).toContain('href="https://atet.sh/"')
+    expect(html).toContain('href="/reading/draw-faces-with-javascript"')
+    expect(html).toContain('href="https://hraness.com"')
+    expect(html).toContain('href="https://hraness.com/reading/feynobg-a-sota-model-for-background-removal"')
+    expect(html).toContain('href="https://usefeyn.com/blog/feynobg/"')
+    expect(searchableHtml).toContain("Atet does not ship FeyNoBg or a background-removal command")
+    expect(searchableHtml).toContain("There is no Atet account or hosted project database")
+    expect(searchableHtml).toContain("This page does not assign a rank")
+    expect(searchableHtml).toContain("Producing this opacity map requires two skills")
+    expect(searchableHtml).not.toContain("Treat recognition and boundary precision as coupled skills")
+    expect(searchableHtml).not.toContain("Add capacity without discarding prior learning")
+    expect(searchableHtml).not.toContain("263-million-parameter")
+    expect(html).not.toContain("{{ANALYTICS_SCRIPT}}")
+    expect(html).not.toContain("data-copy-command")
+    expect(builtHtml).not.toContain("{{")
+    expect(builtHtml).not.toMatch(/analytics-|posthog|phc_/i)
+    expect(builtMarkdown).toBe(readingFeynobgMarkdown)
+    expect(readingFeynobgMarkdown).toContain("https://atet.sh/")
+    expect(readingFeynobgMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript")
+    expect(readingFeynobgMarkdown).toContain("https://hraness.com")
+    expect(readingFeynobgMarkdown).toContain("https://hraness.com/reading/feynobg-a-sota-model-for-background-removal")
+    expect(readingFeynobgMarkdown).toContain("https://usefeyn.com/blog/feynobg/")
+    expect(home).toContain('href="/reading/feynobg"')
+    expect(homeMarkdown).toContain("Keep the cutout from replacing the source")
   })
 })

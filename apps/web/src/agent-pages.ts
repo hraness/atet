@@ -7,19 +7,19 @@ Atet lets Codex, Claude, and other coding agents generate images, video, and voi
 Install the Atet Agent Skill, then install the local media tools. Atet requires Bun 1.3.14 or newer.
 
 \`\`\`sh
-npx skills add hraness/atet
+npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet
 # or
-bunx skills add hraness/atet
+bunx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet
 \`\`\`
 
 \`\`\`sh
-bun add --global github:hraness/atet
+bun add --global github:hraness/atet#v3.0.0
 atet doctor
 \`\`\`
 
 Run \`atet doctor\` inside the project you want to work in. Then start a new agent session and describe the finished result.
 
-The public skills command installs the current repository guide. When that command is not being used, \`atet skill install\` installs the guide shipped with your CLI for Codex by default.
+The public skills command installs the immutable v3.0.0 guide. When that command is not being used, \`atet skill install\` installs the guide shipped with your CLI for Codex by default.
 
 - Claude Code: \`atet skill install --target claude\`
 - Other Agent Skill readers: \`atet skill install --target agents\`
@@ -84,9 +84,16 @@ The installed Agent Skill and \`atet --help\` describe the exact tools available
 
 Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet.
 
+## Reading
+
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet take on Mannay’s JavaScript faces
+- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet take on FeyNoBg
+
 ## Sitemap
 
 - [Atet home](https://atet.sh/index.md)
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md)
+- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md)
 - [Machine-readable site guide](https://atet.sh/llms.txt)
 - [Markdown sitemap](https://atet.sh/sitemap.md)
 - [XML sitemap](https://atet.sh/sitemap.xml)
@@ -121,6 +128,8 @@ Install the Agent Skill, then describe the finished result. Do not use Atet as a
 
 ## Optional
 
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
+- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet reading take on FeyNoBg
 - [Markdown sitemap](https://atet.sh/sitemap.md): Public Atet pages in markdown
 - [XML sitemap](https://atet.sh/sitemap.xml): Search-engine sitemap
 - [Architecture](https://github.com/hraness/atet/blob/main/docs/architecture.md): Project model and local host
@@ -133,6 +142,8 @@ export const sitemapMarkdown = `# Sitemap
 ## Atet
 
 - [Atet home](https://atet.sh/index.md): Installation, examples, workflow, and design for the local media toolkit
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
+- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet reading take on FeyNoBg
 - [Machine-readable site guide](https://atet.sh/llms.txt): When to use Atet and the public indexes
 `
 
@@ -162,8 +173,71 @@ Allow: /
 Sitemap: https://atet.sh/sitemap.xml
 `
 
+export const readingFacesMarkdown = `# Keep the source small enough to vary
+
+Mannay’s published note on [Hraness](https://hraness.com) treats JavaScript as a drawing partner. The sheets of loose, colorful faces change when a few drawable rules change. Atet applies that idea to the files already in a project.
+
+The [Draw faces with JavaScript](https://hraness.com/reading/draw-faces-with-javascript) note collects four grids. Eyes, mouths, outlines, and fills shift a little, and the sheet shifts a lot. You can still name the rules after you look. The source stays a compact visual system.
+
+Atet’s public site describes the same demand for a media project. Original recordings and imported images stay unchanged. Your agent chooses explicit operations. Cuts, timing, framing, overlays, and effects become a revisable project state. Previews and deliveries stay tied to the state that produced them.
+
+## Start from a file you can still point at
+
+The [Atet home](https://atet.sh/) asks you to name the source, the result, and the details that must remain unchanged. One request starts from \`product.png\` and asks for three opening-shot ideas, then a six-second clip that keeps the product shape, colors, and lettering recognizable. Another starts from a screen, camera, microphone, and system-audio recording and asks for a two-minute walkthrough with captions and \`logo.svg\`. A third turns the services in a repository into an editable diagram, then a short animated introduction.
+
+Graphics and motion stay in that toolkit. Atet creates editable diagrams, converts raster artwork to SVG locally, and builds deterministic animated layers with HTML, SVG, shaders, and Three.js. Those outputs can stand alone or join a video project. Atet does not ship a face generator. The transfer from Mannay’s doodles is the inspectable source, not a new drawing command.
+
+## Compare the variations before you keep one
+
+A sheet of faces is useful because you can see the results together. Atet’s design does that for a finished job. Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
+
+Read the source note on [Hraness](https://hraness.com/reading/draw-faces-with-javascript). Then start at the [Atet home](https://atet.sh/) and describe the finished result from the files you already have.
+
+## Related pages
+
+- [Atet home](https://atet.sh/)
+- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
+- [Hraness](https://hraness.com)
+- [Draw faces with JavaScript](https://hraness.com/reading/draw-faces-with-javascript)
+`
+
+export const readingFeynobgMarkdown = `# Keep the cutout from replacing the source
+
+Feyn published FeyNoBg as a field note. [Hraness](https://hraness.com) collected it. The transferable claim for a media project is that foreground recognition and boundary precision are two skills in one opacity map. Atet applies that to the files already in a project. The original stays. The cutout stays an operation you can inspect and revise.
+
+The [FeyNoBg](https://usefeyn.com/blog/feynobg/) note by Hafedh Hichri and Shreyash Nigam says, “Producing this opacity map requires two skills.” The model has to find the subject, then trace a boundary. “Hair, fur, thin wires, and motion blur can blend foreground and background elements together.” Feyn reports, “Across eight benchmarks, it posts the best published S-measure on four and comes within 2% of the leader on the rest.” That sentence is their published comparison. This page does not assign a rank. The [Hraness reading](https://hraness.com/reading/feynobg-a-sota-model-for-background-removal) is the collected source note.
+
+A pipeline fails when the cutout becomes the only inspectable image. You can no longer see whether the model missed the subject or chewed the edge. You also cannot vary the operation and keep the original file the [Atet home](https://atet.sh/) asks you to name.
+
+## Keep both failures on the timeline
+
+Feyn writes, “A poor training mix can produce unbalanced models where improvements in one skill come at the expense of the other.” “Outputs either miss parts of the subject or lack clean edges.” A later choice removes the soft edge a composite often needs: “The matting datasets therefore contributed precisely outlined subjects, not soft-opacity supervision.”
+
+Atet’s public site keeps those failures visible by refusing to replace the source. Original recordings and imported images stay unchanged. Cuts, timing, framing, overlays, and effects become a revisable project state. Previews, alternatives, and deliveries stay tied to the state that produced them. After a removal step, that split is what lets you still point at \`product.png\` or the screen, camera, microphone, and system-audio recording and see what the model changed.
+
+## Vary the operation, then deliver
+
+The other public take, [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript), is about compact drawable rules. This take is about a later temptation: a model output that looks finished enough to replace the file you started from. If the transparent PNG becomes the project’s only image, the walkthrough that must keep you framed and the opening shot that must keep product shape, colors, and lettering recognizable both lose the file they were asked to protect.
+
+Atet does not ship FeyNoBg or a background-removal command. The transfer is the inspectable original and the named operation. Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
+
+Read the field note on [Feyn](https://usefeyn.com/blog/feynobg/) and the collected page on [Hraness](https://hraness.com/reading/feynobg-a-sota-model-for-background-removal). Then start at the [Atet home](https://atet.sh/) and keep the source file in the project after the model runs.
+
+## Related pages
+
+- [Atet home](https://atet.sh/)
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
+- [Hraness](https://hraness.com)
+- [FeyNoBg on Hraness](https://hraness.com/reading/feynobg-a-sota-model-for-background-removal)
+- [FeyNoBg on Feyn](https://usefeyn.com/blog/feynobg/)
+`
+
 export const homeCanonicalUrl = "https://atet.sh/"
 export const homeMarkdownUrl = "https://atet.sh/index.md"
+export const readingFacesCanonicalUrl = "https://atet.sh/reading/draw-faces-with-javascript"
+export const readingFacesMarkdownUrl = "https://atet.sh/reading/draw-faces-with-javascript.md"
+export const readingFeynobgCanonicalUrl = "https://atet.sh/reading/feynobg"
+export const readingFeynobgMarkdownUrl = "https://atet.sh/reading/feynobg.md"
 export const llmsTxtUrl = "https://atet.sh/llms.txt"
 export const sitemapMarkdownUrl = "https://atet.sh/sitemap.md"
 export const sitemapXmlUrl = "https://atet.sh/sitemap.xml"
