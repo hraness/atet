@@ -478,6 +478,20 @@ describe("project caption text layout", () => {
     expect(card.svg).toContain('fill="#ffffff"');
   });
 
+  test("leaves the canonical font payload to the raster boundary while naming the exact face", () => {
+    const card = renderSocialCaptionSvg({
+      lines: ["More is more"],
+      outputRange: { endUs: 1_000_000, startUs: 0 },
+      projectRange: { endUs: 1_000_000, startUs: 0 },
+      sourceWordIndices: [0, 1, 2],
+    }, { pixelHeight: 1_080, pixelWidth: 1_920 });
+    expect(card.svg).not.toContain("@font-face");
+    expect(card.svg).not.toContain("data:font/woff2");
+    expect(card.svg).toContain('font-family="Nebula Sans"');
+    expect(card.svg).toContain('font-weight="700"');
+    expect(card.svg).not.toContain("system-ui");
+  });
+
   test("adapts card size and bottom safety for landscape, square/feed, and portrait", () => {
     const cue: ProjectCaptionCue = {
       lines: ["Safe caption"],

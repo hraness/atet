@@ -9,6 +9,7 @@ import { resolveRepositoryPaths } from "./paths";
 import {
   canonicalizeUnifiedCliArgs,
   runPortableSurface,
+  type PortableSurfaceDependencies,
 } from "./portable-surface";
 import { RecordingDaemonClient, runRecordingDaemon } from "./recording-daemon";
 import { renamedEnvironmentValue } from "./renamed-environment";
@@ -41,7 +42,10 @@ export function isEmbeddedVectorizeWorkerInvocation(
     && argv[0].endsWith("/vectorize/worker.js");
 }
 
-export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<number> {
+export async function main(
+  argv: readonly string[] = process.argv.slice(2),
+  portableDependencies: PortableSurfaceDependencies = {},
+): Promise<number> {
   if (isEmbeddedVectorizeWorkerInvocation(argv)) {
     // The bundled headless supervisor preserves process isolation by spawning
     // this compiled executable with its virtual worker path. Loading the
@@ -66,7 +70,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     return 0;
   }
   const unifiedArgv = canonicalizeUnifiedCliArgs(argv);
-  const portableExitCode = await runPortableSurface(unifiedArgv);
+  const portableExitCode = await runPortableSurface(unifiedArgv, portableDependencies);
   if (portableExitCode !== undefined) return portableExitCode;
   const earlyCommand = parseCliArgs(unifiedArgv);
   if (earlyCommand.kind === "help" || earlyCommand.kind === "version" || earlyCommand.kind === "complete") {
@@ -88,9 +92,11 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   });
 }
 
-export async function runMainEntrypoint(): Promise<void> {
+export async function runMainEntrypoint(
+  portableDependencies: PortableSurfaceDependencies = {},
+): Promise<void> {
   try {
-    process.exitCode = await main();
+    process.exitCode = await main(process.argv.slice(2), portableDependencies);
   } catch (error) {
     const failure = asCliError(error);
     process.stderr.write(`atet: ${failure.message}\n`);

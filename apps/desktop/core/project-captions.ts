@@ -881,7 +881,7 @@ export function renderSocialCaptionSvg(
   const svg = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${intrinsicWidth}" height="${intrinsicHeight}" viewBox="0 0 ${intrinsicWidth} ${intrinsicHeight}" fill="none">`,
     `<rect x="${strokeWidth / 2}" y="${strokeWidth / 2}" width="${Math.max(0, intrinsicWidth - strokeWidth)}" height="${Math.max(0, intrinsicHeight - strokeWidth)}" rx="${radius}" fill="#050505" fill-opacity="0.9" stroke="#ffffff" stroke-opacity="0.2" stroke-width="${strokeWidth}"/>`,
-    `<text fill="#ffffff" stroke="#000000" stroke-opacity="0.72" stroke-width="${textStrokeWidth}" paint-order="stroke fill" font-family="system-ui, sans-serif" font-size="${profile.fontSize}" font-weight="800" text-anchor="middle">${text}</text>`,
+    `<text fill="#ffffff" stroke="#000000" stroke-opacity="0.72" stroke-width="${textStrokeWidth}" paint-order="stroke fill" font-family="Nebula Sans" font-size="${profile.fontSize}" font-weight="700" text-anchor="middle">${text}</text>`,
     "</svg>",
   ].join("");
   return { bottomSafeMargin, intrinsicHeight, intrinsicWidth, svg };

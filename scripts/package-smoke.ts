@@ -40,8 +40,8 @@ const importSpecifiers = [
 ] as const;
 const nodeImportSpecifiers = importSpecifiers.slice(0, 8);
 const maximumPackedFiles = 350;
-const maximumPackedBytes = 2_750_000;
-const maximumUnpackedBytes = 7_500_000;
+const maximumPackedBytes = 3_750_000;
+const maximumUnpackedBytes = 8_900_000;
 const requiredPackedPaths = [
   "DISCLOSURE",
   "LICENSE",
@@ -54,12 +54,26 @@ const requiredPackedPaths = [
   "apps/desktop/code/worker-lease-guardian.ts",
   "apps/desktop/code/worker-process-identity.ts",
   "apps/desktop/dist/cli/main.js",
+  "apps/desktop/dist/cli/NebulaSans-Bold-26se8aek.otf",
+  "apps/desktop/dist/cli/NebulaSans-Bold-bcz7y08t.woff2",
+  "apps/desktop/dist/cli/NebulaSans-Book-5ax05zvn.woff2",
+  "apps/desktop/dist/cli/NebulaSans-Book-8cenzchw.otf",
+  "dist/NebulaSans-Bold-26se8aek.otf",
+  "dist/NebulaSans-Bold-bcz7y08t.woff2",
+  "dist/NebulaSans-Book-5ax05zvn.woff2",
+  "dist/NebulaSans-Book-8cenzchw.otf",
   "package.json",
   "schema/diagram.schema.json",
   "skills/atet/SKILL.md",
   "skills/atet/references/rubber-stamp-examples/poster-example-1.jpg",
   "skills/atet/references/rubber-stamp-examples/stamp-style-1.png",
   "skills/atet/scripts/compose-rubber-stamp-field-note.ts",
+  "src/assets/fonts/nebula-sans/LICENSE.txt",
+  "src/assets/fonts/nebula-sans/NebulaSans-Bold.otf",
+  "src/assets/fonts/nebula-sans/NebulaSans-Bold.woff2",
+  "src/assets/fonts/nebula-sans/NebulaSans-Book.otf",
+  "src/assets/fonts/nebula-sans/NebulaSans-Book.woff2",
+  "src/assets/fonts/nebula-sans/PROVENANCE.md",
 ] as const;
 const forbiddenPackedPaths = [
   { label: "repository agent guide", pattern: /(?:^|\/)AGENTS\.md$/u },
@@ -830,6 +844,24 @@ try {
     "bun",
     packageEnvironment,
   );
+  await run([
+    process.execPath,
+    "-e",
+    `const { renderPng, renderSvg } = await import("@hraness/atet");
+const source = weight => ({ version: 1, name: \`installed-font-proof-\${weight}\`, canvas: { width: 320, height: 120 }, shapes: [{ id: "label", type: "text", x: 16, y: 16, text: "Nebula Sans", fontSize: 42, weight }] });
+const blank = await renderSvg({ version: 1, name: "installed-font-blank", canvas: { width: 320, height: 120 }, shapes: [] }, "light", {});
+const blankPng = renderPng(blank, {}, 1);
+const pngs = [];
+for (const weight of [400, 700]) {
+  const rendered = await renderSvg(source(weight), "light", {});
+  if (!rendered.svg.includes('font-family="Nebula Sans"') || (rendered.svg.match(/data:font\\/woff2;base64,/g) ?? []).length !== 2) throw new Error("Packed SDK did not embed both Nebula Sans web faces.");
+  const png = renderPng(rendered, {}, 1);
+  if (png[0] !== 137 || png[1] !== 80 || png[2] !== 78 || png[3] !== 71) throw new Error("Packed SDK did not render a PNG with its bundled font.");
+  if (Buffer.from(png).equals(Buffer.from(blankPng))) throw new Error(\`Packed SDK did not render visible Nebula Sans \${weight} glyphs.\`);
+  pngs.push(png);
+}
+if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed SDK did not preserve distinct Book and Bold raster faces.");`,
+  ], consumer);
   await run([
     join(consumer, "node_modules", ".bin", "atet"),
     "--help",

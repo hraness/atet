@@ -164,8 +164,21 @@ function layoutBoxContent(shape, resolvedIconSize) {
 
 // src/render.ts
 import { readFile } from "fs/promises";
-import { extname } from "path";
+import { extname, isAbsolute } from "path";
+import { fileURLToPath } from "url";
 import { Resvg } from "@resvg/resvg-js";
+
+// src/assets/fonts/nebula-sans/NebulaSans-Bold.otf
+var NebulaSans_Bold_default = "./NebulaSans-Bold-26se8aek.otf";
+
+// src/assets/fonts/nebula-sans/NebulaSans-Bold.woff2
+var NebulaSans_Bold_default2 = "./NebulaSans-Bold-bcz7y08t.woff2";
+
+// src/assets/fonts/nebula-sans/NebulaSans-Book.otf
+var NebulaSans_Book_default = "./NebulaSans-Book-8cenzchw.otf";
+
+// src/assets/fonts/nebula-sans/NebulaSans-Book.woff2
+var NebulaSans_Book_default2 = "./NebulaSans-Book-5ax05zvn.woff2";
 
 // src/theme.ts
 var tones = [
@@ -232,6 +245,36 @@ function resolveTheme(mode, config) {
 }
 
 // src/render.ts
+var bundledAssetPath = (asset) => isAbsolute(asset) ? asset : fileURLToPath(new URL(asset, import.meta.url));
+var defaultFont = Object.freeze({
+  family: "Nebula Sans",
+  files: Object.freeze([
+    Object.freeze({
+      embed: true,
+      path: bundledAssetPath(NebulaSans_Book_default2),
+      style: "normal",
+      weight: 400
+    }),
+    Object.freeze({
+      embed: true,
+      path: bundledAssetPath(NebulaSans_Bold_default2),
+      style: "normal",
+      weight: 700
+    }),
+    Object.freeze({
+      embed: false,
+      path: bundledAssetPath(NebulaSans_Book_default),
+      style: "normal",
+      weight: 400
+    }),
+    Object.freeze({
+      embed: false,
+      path: bundledAssetPath(NebulaSans_Bold_default),
+      style: "normal",
+      weight: 700
+    })
+  ])
+});
 var escapeXml = (value) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
 function fontMime(filePath) {
   switch (extname(filePath).toLowerCase()) {
@@ -245,12 +288,12 @@ function fontMime(filePath) {
       return "font/ttf";
   }
 }
-async function fontCss(config) {
-  if (config.font?.files === undefined)
+async function fontCss(font) {
+  if (font.files === undefined)
     return "";
-  const faces = await Promise.all(config.font.files.filter((file) => file.embed === true).map(async (file) => {
+  const faces = await Promise.all(font.files.filter((file) => file.embed === true).map(async (file) => {
     const encoded = (await readFile(file.path)).toString("base64");
-    return `@font-face{font-family:"${escapeXml(config.font.family)}";src:url(data:${fontMime(file.path)};base64,${encoded});font-weight:${file.weight ?? 400};font-style:${file.style ?? "normal"};}`;
+    return `@font-face{font-family:"${escapeXml(font.family)}";src:url(data:${fontMime(file.path)};base64,${encoded});font-weight:${file.weight ?? 400};font-style:${file.style ?? "normal"};}`;
   }));
   return faces.join("");
 }
@@ -432,12 +475,13 @@ function shapeSvg(shape, theme, families, icons) {
 }
 async function renderSvg(spec, mode, config) {
   const theme = resolveTheme(mode, config);
+  const font = config.font ?? defaultFont;
   const families = {
-    default: config.font?.family ?? "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-    mono: config.font?.monoFamily ?? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace"
+    default: font.family,
+    mono: font.monoFamily ?? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace"
   };
   const icons = config.icons ?? {};
-  const embeddedFonts = await fontCss(config);
+  const embeddedFonts = await fontCss(font);
   const markerDefinitions = Object.entries(theme.tones).map(([toneName, tone]) => `<marker id="arrow-open-${toneName}" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth"><path d="M2 2 10 6 2 10" fill="none" stroke="${tone.stroke}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="arrow-triangle-${toneName}" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto" markerUnits="strokeWidth"><path d="M1 1 10 5.5 1 10z" fill="${tone.stroke}"/></marker>`).join("");
   const edgeMarkup = (spec.edges ?? []).map((edge) => edgeSvg(resolveEdge(spec, edge), theme, families)).join("");
   const shapeMarkup = spec.shapes.map((shape) => shapeSvg(shape, theme, families, icons)).join("");
@@ -454,13 +498,14 @@ async function renderSvg(spec, mode, config) {
   return { mode, svg, width: spec.canvas.width, height: spec.canvas.height };
 }
 function renderPng(rendered, config, scale = 2) {
-  const fontFiles = config.font?.files?.map((file) => file.path) ?? [];
+  const font = config.font ?? defaultFont;
+  const fontFiles = font.files?.map((file) => file.path) ?? [];
   const renderer = new Resvg(rendered.svg, {
     fitTo: { mode: "zoom", value: scale },
     font: {
       loadSystemFonts: true,
       ...fontFiles.length === 0 ? {} : { fontFiles },
-      defaultFontFamily: config.font?.family ?? "sans-serif"
+      defaultFontFamily: font.family
     }
   });
   return renderer.render().asPng();

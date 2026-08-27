@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { createTLSchema, parseTldrawJsonFile } from "tldraw"
+import sharp from "sharp"
 import { builtInIcons } from "./icons.ts"
 import { sanitizeIcon } from "./icons.ts"
 import { parseDiagramSpec } from "./parse.ts"
@@ -125,22 +126,61 @@ const richLabelConfig = {
   icons: builtInIcons,
 }
 
+const textOnlySpec = (weight: 400 | 700) => parseDiagramSpec({
+  version: 1,
+  name: `deterministic-nebula-${weight}`,
+  canvas: { width: 420, height: 160 },
+  shapes: [{
+    id: "caption",
+    type: "text",
+    x: 20,
+    y: 40,
+    width: 380,
+    text: "More is more",
+    fontSize: 48,
+    weight,
+  }],
+})
+
 describe("headless rendering", () => {
-  test("creates rounded, theme-aware SVG without a bundled commercial font", async () => {
+  test("creates rounded, theme-aware SVG with canonical embedded Nebula Sans", async () => {
     const [light, dark] = await Promise.all([
       renderSvg(spec, "light", config),
       renderSvg(spec, "dark", config),
     ])
     expect(light.svg).toContain('rx="24"')
     expect(light.svg).toContain('data-edge-id="source-result"')
+    expect(light.svg).toContain('font-family="Nebula Sans"')
     expect(light.svg).not.toContain("MonoLisa")
+    expect(light.svg).not.toContain("system-ui")
+    const payloads = [...light.svg.matchAll(/data:font\/woff2;base64,([^)]*)/gu)]
+      .map((match) => Buffer.from(match[1] ?? "", "base64"))
+    expect(payloads.map((payload) => payload.byteLength)).toEqual([70_652, 73_168])
+    expect(payloads.map((payload) => new Bun.CryptoHasher("sha256")
+      .update(payload)
+      .digest("hex"))).toEqual([
+      "4d396c7c7f93b3f9d8e90d5a8c5e28b29266243946d4320783abc3628d9ef8df",
+      "0801b78a64e731db50c2a0badac7bc1e9138a8916e8f4774aeb8de6f86c6f1fd",
+    ])
     expect(light.svg).not.toBe(dark.svg)
   })
 
-  test("creates a valid PNG", async () => {
-    const light = await renderSvg(spec, "light", config)
-    const png = renderPng(light, config, 1)
-    expect([...png.slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10])
+  test("creates a byte-stable PNG from the bundled proportional fonts", async () => {
+    const pngs: Uint8Array[] = []
+    for (const weight of [400, 700] as const) {
+      const light = await renderSvg(textOnlySpec(weight), "light", config)
+      const png = renderPng(light, config, 1)
+      expect([...png.slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10])
+      const pixels = await sharp(png).ensureAlpha().raw().toBuffer()
+      const colors = new Set<string>()
+      for (let index = 0; index < pixels.length; index += 4) {
+        colors.add(`${pixels[index]}:${pixels[index + 1]}:${pixels[index + 2]}:${pixels[index + 3]}`)
+      }
+      expect(colors.size).toBeGreaterThan(1)
+      expect(renderPng(light, config, 1)).toEqual(png)
+      pngs.push(png)
+    }
+    expect(pngs[0]).not.toEqual(pngs[1])
   })
 
   test("applies a per-box label font size to SVG and tldraw", async () => {
@@ -195,6 +235,12 @@ describe("headless rendering", () => {
   })
 
   test("renders mixed label rows, mono predicates, and separated edge ports", async () => {
+    const defaultFamilies = await renderSvg(richLabelSpec, "light", config)
+    expect(defaultFamilies.svg).toContain('font-family="Nebula Sans" font-size="20"')
+    expect(defaultFamilies.svg).toContain(
+      'font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace" font-size="15"',
+    )
+
     const light = await renderSvg(richLabelSpec, "light", richLabelConfig)
     expect(light.svg).toContain('font-family="Interface Mono, monospace" font-size="15"')
     expect(light.svg).toContain('font-family="Editorial Serif" font-size="20"')

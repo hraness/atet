@@ -55,5 +55,6 @@ if (process.env[NATIVE_ROOT_ENV] === undefined) {
 } else {
   await import("./native-media-runtime.macos");
   const { runMainEntrypoint } = await import("./main");
-  await runMainEntrypoint();
+  const { main: runHeadlessAtetCli } = await import("../../../src/cli");
+  await runMainEntrypoint({ runHeadless: runHeadlessAtetCli });
 }

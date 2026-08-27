@@ -4,6 +4,8 @@ import { mkdir, mkdtemp, readFile, realpath, readdir, rm, stat, symlink, writeFi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import sharp from "sharp";
+
 import {
   OverlayOperationSchema,
   ProjectRenderPlanV1Schema,
@@ -279,6 +281,121 @@ test("reuses one SVG sprite input across independently timed caption crops", asy
     expect(filter.match(/crop=w=/gu)).toHaveLength(2);
     expect(filter).toContain("between(t,0.1,0.9)");
     expect(filter).toContain("between(t,1.1,1.9)");
+  } finally {
+    await rm(repositoryRoot, { force: true, recursive: true });
+  }
+});
+
+test("rasterizes owned caption sprites deterministically with Resvg and the vendored font", async () => {
+  const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-caption-resvg-renderer-"));
+  try {
+    const requestedProjectDirectory = join(
+      repositoryRoot,
+      "artifacts/atet/projects/project_captionresvg",
+    );
+    await Promise.all([
+      mkdir(join(requestedProjectDirectory, "renders/caption-assets"), { recursive: true }),
+      mkdir(join(requestedProjectDirectory, "renders"), { recursive: true }),
+    ]);
+    const projectDirectory = await realpath(requestedProjectDirectory);
+    const spriteContents = [
+      '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="128" viewBox="0 0 256 128" fill="none">',
+      '<text x="128" y="78" fill="#ffffff" font-family="Nebula Sans" font-size="40" font-weight="700" text-anchor="middle">More is more</text>',
+      "</svg>",
+    ].join("");
+    const spriteIntegrity = integrity(spriteContents);
+    const spritePath = `renders/caption-assets/${spriteIntegrity.sha256}.svg`;
+    await writeFile(join(projectDirectory, spritePath), spriteContents);
+    const operation: OverlayOperation = {
+      ...overlay("overlay_caption_resvg01", 10, {
+        asset: {
+          ...spriteIntegrity,
+          mediaType: "image/svg+xml",
+          path: spritePath,
+          provenance: {
+            command: ["atet", "caption", "social-block-v1"],
+            generator: "atet-social-caption-sprite",
+            generatorVersion: "1",
+            kind: "generated",
+            sourceSha256: HASH,
+          },
+        },
+        kind: "svg",
+      }),
+      intrinsicSize: { height: 128, width: 256 },
+    };
+    const plan = renderPlan({ overlays: [resolved(operation)] });
+    const options = {
+      ffmpeg: "ffmpeg",
+      outputPath: join(projectDirectory, "renders/output.mp4"),
+      projectDirectory,
+      repositoryRoot,
+    } as const;
+
+    const first = await buildProjectFfmpegInvocation(plan, options);
+    const firstInput = first.argv[first.argv.indexOf("-i") + 1];
+    expect(firstInput).toBeDefined();
+    const firstPng = await readFile(firstInput!);
+    const firstDigest = createHash("sha256").update(firstPng).digest("hex");
+    expect(firstDigest).toBe("7b943454e799258c646a52800112866f1bbe73c4c2f3834cfed4c5f9fe220fca");
+    const metadata = await sharp(firstPng).metadata();
+    const visiblePixels = (await sharp(firstPng).ensureAlpha().raw().toBuffer())
+      .reduce((count, value, index) => count + (index % 4 === 3 && value > 0 ? 1 : 0), 0);
+    expect(metadata.width).toBe(256);
+    expect(metadata.height).toBe(128);
+    expect(visiblePixels).toBeGreaterThan(100);
+
+    const cacheDirectory = join(projectDirectory, "renders/.overlay-cache");
+    const manifestName = (await readdir(cacheDirectory)).find(name => name.endsWith(".json"));
+    expect(manifestName).toBeDefined();
+    const manifest = JSON.parse(await readFile(join(cacheDirectory, manifestName!), "utf8")) as {
+      readonly recipe: {
+        readonly arguments: {
+          readonly defaultFontFamily: string;
+          readonly fontBytes: number;
+          readonly fontSha256: string;
+          readonly fontWeight: number;
+          readonly loadSystemFonts: boolean;
+        };
+        readonly renderer: string;
+        readonly rendererVersion: string;
+        readonly source: {
+          readonly bytes: number;
+          readonly mediaType: string;
+          readonly pixelHeight: number;
+          readonly pixelWidth: number;
+          readonly sha256: string;
+        };
+        readonly version: string;
+      };
+    };
+    expect(manifest.recipe).toEqual({
+      arguments: {
+        defaultFontFamily: "Nebula Sans",
+        fontBytes: 145_348,
+        fontSha256: "91617d3e2281e8213f64f6bf359f387022d3149b35000b38365c32130a25bfa8",
+        fontWeight: 700,
+        loadSystemFonts: false,
+      },
+      renderer: "@resvg/resvg-js",
+      rendererVersion: "2.6.2",
+      source: {
+        bytes: spriteIntegrity.bytes,
+        mediaType: "image/svg+xml",
+        pixelHeight: 128,
+        pixelWidth: 256,
+        sha256: spriteIntegrity.sha256,
+      },
+      version: "atet-caption-resvg-v1",
+    });
+
+    await rm(cacheDirectory, { recursive: true });
+    const second = await buildProjectFfmpegInvocation(plan, options);
+    const secondInput = second.argv[second.argv.indexOf("-i") + 1];
+    expect(secondInput).toBeDefined();
+    const secondPng = await readFile(secondInput!);
+    expect(createHash("sha256").update(secondPng).digest("hex")).toBe(firstDigest);
+    expect(secondPng).toEqual(firstPng);
   } finally {
     await rm(repositoryRoot, { force: true, recursive: true });
   }

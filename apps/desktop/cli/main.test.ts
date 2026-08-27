@@ -5,6 +5,7 @@ import { assertAppleSiliconMacosCompiledCliHost } from "./build-compiled";
 import {
   daemonCommandFor,
   isEmbeddedVectorizeWorkerInvocation,
+  main,
 } from "./main";
 
 test("self-spawns source and compiled CLI entrypoints without shell interpolation", () => {
@@ -29,6 +30,17 @@ test("accepts only the compiled bundle's exact internal vectorizer worker invoca
     ["/$bunfs/root/vectorize/worker.js"],
     "/repo/cli/main.ts",
   )).toBe(false);
+});
+
+test("lets the compiled bootstrap bind the bundled headless CLI", async () => {
+  const delegated: string[][] = [];
+  expect(await main(["diagram", "init", "smoke.diagram.json"], {
+    runHeadless: argv => {
+      delegated.push([...argv]);
+      return Promise.resolve();
+    },
+  })).toBe(0);
+  expect(delegated).toEqual([["diagram", "init", "smoke.diagram.json"]]);
 });
 
 test("keeps the copied native CLI behind its exact Apple Silicon macOS boundary", () => {

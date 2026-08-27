@@ -22,6 +22,11 @@ Raster output uses
 Mozilla Public License 2.0. It is installed as a separate runtime dependency
 and is not relicensed by this project.
 
+Default diagram and caption typography uses the unmodified Nebula Sans Book
+and Bold fonts, distributed under the SIL Open Font License 1.1. The npm
+package retains the upstream license and provenance in
+`src/assets/fonts/nebula-sans/`.
+
 Raster-to-SVG conversion uses
 [`VTracer`](https://github.com/visioncortex/vtracer), distributed under the MIT
 License. The package does not bundle VTracer. On first use it downloads an

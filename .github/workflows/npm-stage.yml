@@ -263,8 +263,8 @@ jobs:
 
           const maximumFiles = 350;
           const maximumMetadataBytes = 1_000_000;
-          const maximumPackedBytes = 2_750_000;
-          const maximumUnpackedBytes = 7_500_000;
+          const maximumPackedBytes = 3_750_000;
+          const maximumUnpackedBytes = 8_900_000;
           const expectedName = "@hraness/atet";
           const expectedVersion = process.env.EXPECTED_VERSION;
           const expectedFilename = process.env.EXPECTED_TARBALL_NAME;
@@ -385,8 +385,22 @@ jobs:
             "README.md",
             "SECURITY.md",
             "apps/desktop/dist/cli/main.js",
+            "apps/desktop/dist/cli/NebulaSans-Bold-26se8aek.otf",
+            "apps/desktop/dist/cli/NebulaSans-Bold-bcz7y08t.woff2",
+            "apps/desktop/dist/cli/NebulaSans-Book-5ax05zvn.woff2",
+            "apps/desktop/dist/cli/NebulaSans-Book-8cenzchw.otf",
+            "dist/NebulaSans-Bold-26se8aek.otf",
+            "dist/NebulaSans-Bold-bcz7y08t.woff2",
+            "dist/NebulaSans-Book-5ax05zvn.woff2",
+            "dist/NebulaSans-Book-8cenzchw.otf",
             "package.json",
             "skills/atet/SKILL.md",
+            "src/assets/fonts/nebula-sans/LICENSE.txt",
+            "src/assets/fonts/nebula-sans/NebulaSans-Bold.otf",
+            "src/assets/fonts/nebula-sans/NebulaSans-Bold.woff2",
+            "src/assets/fonts/nebula-sans/NebulaSans-Book.otf",
+            "src/assets/fonts/nebula-sans/NebulaSans-Book.woff2",
+            "src/assets/fonts/nebula-sans/PROVENANCE.md",
           ]) {
             if (!paths.has(requiredPath)) {
               throw new Error(`npm-pack.json is missing required package path ${requiredPath}`);
