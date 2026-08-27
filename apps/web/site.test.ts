@@ -519,7 +519,7 @@ describe("static Atet site", () => {
 
     expect(manifest.dependencies).toEqual({
       "@hraness/design-kit": "github:hraness/design-kit#v0.2.1",
-      "@hraness/site-footer": "github:hraness/site-footer#v0.3.0",
+      "@hraness/site-footer": "github:hraness/site-footer#v0.3.1",
       "@resvg/resvg-js": "2.6.2",
       "posthog-js": "1.413.2",
     })
@@ -528,7 +528,7 @@ describe("static Atet site", () => {
     expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
     expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.2.1"')
     expect(localLockfile).toContain(
-      '"@hraness/site-footer": "github:hraness/site-footer#v0.3.0"',
+      '"@hraness/site-footer": "github:hraness/site-footer#v0.3.1"',
     )
     expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
