@@ -39,7 +39,14 @@ export function isPreservedRedirectPath(pathname: string): boolean {
   return pathname === "/docs" || pathname.startsWith("/docs/")
 }
 
+export function isPreviewPath(pathname: string): boolean {
+  return pathname === "/preview" || pathname === "/preview.html"
+}
+
 export function isNegotiableDocumentPath(pathname: string): boolean {
+  if (isPreviewPath(pathname)) {
+    return false
+  }
   if (
     isHomePath(pathname)
     || isReadingFacesPath(pathname)
