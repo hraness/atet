@@ -24,6 +24,34 @@ describe("parseDiagramSpec", () => {
     expect(parsed.edges).toHaveLength(1)
   })
 
+  test("parses a positive label font size on positioned boxes", () => {
+    const parsed = parseDiagramSpec({
+      ...valid,
+      shapes: valid.shapes.map((shape, index) =>
+        index === 0 ? { ...shape, labelFontSize: 16 } : shape,
+      ),
+    })
+
+    expect(parsed.shapes[0]).toMatchObject({ labelFontSize: 16 })
+  })
+
+  test("rejects a non-positive box label font size", () => {
+    try {
+      parseDiagramSpec({
+        ...valid,
+        shapes: valid.shapes.map((shape, index) =>
+          index === 0 ? { ...shape, labelFontSize: 0 } : shape,
+        ),
+      })
+      throw new Error("expected box label parsing to fail")
+    } catch (error) {
+      expect(error).toBeInstanceOf(DiagramValidationError)
+      expect((error as DiagramValidationError).issues).toContain(
+        "shapes[0].labelFontSize must be greater than zero",
+      )
+    }
+  })
+
   test("rejects unknown keys and unresolved relationships", () => {
     expect(() =>
       parseDiagramSpec({
@@ -63,7 +91,14 @@ describe("parseDiagramSpec", () => {
       canvas: { width: 900, height: 400 },
       layout: { type: "stack", direction: "horizontal" },
       shapes: [
-        { id: "a", type: "rect", width: 180, height: 100 },
+        {
+          id: "a",
+          type: "rect",
+          width: 180,
+          height: 100,
+          label: "Alpha",
+          labelFontSize: 16,
+        },
         { id: "b", type: "ellipse", width: 180, height: 100 },
       ],
       edges: [{ id: "a-b", from: "a", to: "b" }],
@@ -72,7 +107,16 @@ describe("parseDiagramSpec", () => {
     expect("layout" in source).toBe(true)
     expect(source.shapes[0]).not.toHaveProperty("x")
     expect(parseDiagramSpec(source).shapes).toEqual([
-      { id: "a", type: "rect", x: 190, y: 150, width: 180, height: 100 },
+      {
+        id: "a",
+        type: "rect",
+        x: 190,
+        y: 150,
+        width: 180,
+        height: 100,
+        label: "Alpha",
+        labelFontSize: 16,
+      },
       { id: "b", type: "ellipse", x: 530, y: 150, width: 180, height: 100 },
     ])
   })

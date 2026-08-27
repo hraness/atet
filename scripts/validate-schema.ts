@@ -59,4 +59,36 @@ for (const relativePath of [
   }
 }
 
-process.stdout.write("diagram schema is valid and accepts the shipped examples\n")
+const sizedBoxLabel = {
+  version: 1,
+  name: "sized-box-label",
+  canvas: { width: 320, height: 200 },
+  shapes: [
+    {
+      id: "evidence",
+      type: "rect",
+      x: 40,
+      y: 40,
+      width: 240,
+      height: 120,
+      label: "Evidence packet",
+      labelFontSize: 16,
+    },
+  ],
+}
+if (!validate(sizedBoxLabel)) {
+  throw new Error(
+    `Diagram schema must accept a positive box labelFontSize:\n${formatErrors(validate.errors)}`,
+  )
+}
+const invalidSizedBoxLabel = {
+  ...sizedBoxLabel,
+  shapes: [{ ...sizedBoxLabel.shapes[0], labelFontSize: 0 }],
+}
+if (validate(invalidSizedBoxLabel)) {
+  throw new Error("Diagram schema must reject a non-positive box labelFontSize.")
+}
+
+process.stdout.write(
+  "diagram schema is valid, accepts the shipped examples, and bounds box label font size\n",
+)

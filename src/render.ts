@@ -163,10 +163,11 @@ function boxSvg(
           x: shape.x + 16,
           y:
             icon === undefined
-              ? shape.y + shape.height / 2 - 12
+              ? shape.y + shape.height / 2 -
+                (shape.labelFontSize === undefined ? 12 : shape.labelFontSize * 0.55)
               : shape.y + shape.height * 0.68,
           width: shape.width - 32,
-          fontSize: 22,
+          fontSize: shape.labelFontSize ?? 22,
           weight: 600,
           align: "middle",
           color: tone.text,

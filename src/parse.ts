@@ -198,6 +198,7 @@ function parseShape(value: unknown, index: number, issues: string[]): DiagramSha
         "height",
         "radius",
         "label",
+        "labelFontSize",
         "icon",
         "iconSize",
         "strokeWidth",
@@ -222,6 +223,9 @@ function parseShape(value: unknown, index: number, issues: string[]): DiagramSha
       ...(readOptionalString(value, "label", at, issues) === undefined
         ? {}
         : { label: value.label as string }),
+      ...(readOptionalNumber(value, "labelFontSize", at, issues, { positive: true }) === undefined
+        ? {}
+        : { labelFontSize: value.labelFontSize as number }),
       ...(readOptionalString(value, "icon", at, issues) === undefined
         ? {}
         : { icon: value.icon as string }),
@@ -321,6 +325,7 @@ function parseStackShape(value: unknown, index: number, issues: string[]): Stack
       "height",
       "radius",
       "label",
+      "labelFontSize",
       "icon",
       "iconSize",
       "strokeWidth",
@@ -344,6 +349,9 @@ function parseStackShape(value: unknown, index: number, issues: string[]): Stack
   if (opacity !== undefined && opacity > 1) issues.push(`${at}.opacity must not exceed 1`)
   const radius = readOptionalNumber(value, "radius", at, issues, { nonNegative: true })
   const label = readOptionalString(value, "label", at, issues)
+  const labelFontSize = readOptionalNumber(value, "labelFontSize", at, issues, {
+    positive: true,
+  })
   const icon = readOptionalString(value, "icon", at, issues)
   const iconSize = readOptionalNumber(value, "iconSize", at, issues, { positive: true })
   const strokeWidth = readOptionalNumber(value, "strokeWidth", at, issues, {
@@ -368,6 +376,7 @@ function parseStackShape(value: unknown, index: number, issues: string[]): Stack
     ...(opacity === undefined ? {} : { opacity }),
     ...(radius === undefined ? {} : { radius }),
     ...(label === undefined ? {} : { label }),
+    ...(labelFontSize === undefined ? {} : { labelFontSize }),
     ...(icon === undefined ? {} : { icon }),
     ...(iconSize === undefined ? {} : { iconSize }),
     ...(strokeWidth === undefined ? {} : { strokeWidth }),
