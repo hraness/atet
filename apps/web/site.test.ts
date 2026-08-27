@@ -1217,7 +1217,16 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("There is no Atet account or hosted project database")
     expect(searchableHtml).toContain("classical image analysis")
     expect(searchableHtml).toContain("An agent can propose marks")
-    expect(searchableHtml).toContain("lossy reconstruction of the input image")
+    expect(searchableHtml).toContain("randomly seeded splats optimized against a target")
+    expect(searchableHtml).toContain("contour and texture measurements")
+    for (const quotedExcerpt of [
+      "slow and opaque",
+      "ends up being simply a lossy reconstruction",
+      "analyzing edges and textures of an image",
+    ]) {
+      expect(searchableHtml).not.toContain(quotedExcerpt)
+      expect(readingGaussiansMarkdown).not.toContain(quotedExcerpt)
+    }
     expect(searchableHtml).not.toContain("Treat recognition and boundary precision as coupled skills")
     expect(searchableHtml).not.toContain("You can just draw faces with javascript")
     expect(searchableHtml).not.toContain("Add capacity without discarding prior learning")
