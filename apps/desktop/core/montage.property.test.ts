@@ -4,19 +4,15 @@ import { assertProperty, fc } from "../testing/property";
 import { planContainedMosaic, planMontageSequence } from "./montage";
 
 assertProperty(fc.property(
-  fc.integer({ min: 1, max: 8_192 }),
-  fc.integer({ min: 1, max: 8_192 }),
-  fc.nat(),
-  fc.nat(),
-  (canvasWidthUnits, canvasHeightUnits, sourceWidthSeed, sourceHeightSeed) => {
-    const canvas = {
-      height: canvasHeightUnits * 2,
-      width: canvasWidthUnits * 2,
-    };
-    const source = {
-      height: 2 * (1 + sourceHeightSeed % canvasHeightUnits),
-      width: 2 * (1 + sourceWidthSeed % canvasWidthUnits),
-    };
+  fc.integer({ min: 1, max: 1_024 }),
+  fc.integer({ min: 1, max: 1_024 }),
+  fc.integer({ min: 1, max: 8 }),
+  fc.boolean(),
+  (baseWidthUnits, baseHeightUnits, scale, shrink) => {
+    const base = { height: baseHeightUnits * 2, width: baseWidthUnits * 2 };
+    const scaled = { height: base.height * scale, width: base.width * scale };
+    const canvas = shrink ? base : scaled;
+    const source = shrink ? scaled : base;
     const panel = planContainedMosaic({
       canvas,
       panels: [{
@@ -32,6 +28,7 @@ assertProperty(fc.property(
     expect(panel.content.height).toBeGreaterThanOrEqual(2);
     expect(panel.content.width % 2).toBe(0);
     expect(panel.content.height % 2).toBe(0);
+    expect(panel.content).toEqual({ ...canvas, x: 0, y: 0 });
     expect(panel.content.x).toBeGreaterThanOrEqual(panel.cell.x);
     expect(panel.content.y).toBeGreaterThanOrEqual(panel.cell.y);
     expect(panel.content.x + panel.content.width)
