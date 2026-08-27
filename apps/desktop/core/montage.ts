@@ -148,8 +148,7 @@ export interface MontageSequencePlan {
 }
 
 function evenFloor(value: number): number {
-  const integer = Math.max(1, Math.floor(value));
-  if (integer <= 2) return integer;
+  const integer = Math.floor(value);
   return integer % 2 === 0 ? integer : integer - 1;
 }
 
@@ -169,6 +168,11 @@ export function planContainedMosaic(input: unknown): ContainedMosaicPlan {
       );
       const width = Math.min(panel.cell.width, evenFloor(panel.source.width * scale));
       const height = Math.min(panel.cell.height, evenFloor(panel.source.height * scale));
+      if (width < 2 || height < 2) {
+        throw new RangeError(
+          `Montage panel ${panel.panelId} cannot fit encoder-safe even content inside its cell.`,
+        );
+      }
       return {
         cell: panel.cell,
         content: {

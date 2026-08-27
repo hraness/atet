@@ -67,6 +67,19 @@ describe("contained montage layout", () => {
       ],
     })).toThrow(/even/u);
   });
+
+  test("rejects cells that cannot contain encoder-safe even content", () => {
+    expect(() => planContainedMosaic({
+      canvas: { height: 100, width: 100 },
+      panels: [
+        {
+          cell: { height: 100, width: 1, x: 0, y: 0 },
+          panelId: "degenerate",
+          source: { height: 100, width: 1 },
+        },
+      ],
+    })).toThrow(/encoder-safe even content/u);
+  });
 });
 
 describe("montage sequence transitions", () => {
