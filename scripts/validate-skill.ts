@@ -143,8 +143,8 @@ const manifest = JSON.parse(await readFile(join(process.cwd(), "package.json"), 
   readonly version?: unknown
 }
 if (typeof manifest.version !== "string") throw new Error("package version is missing")
-if (!install.includes(`github:hraness/atet#v${manifest.version}`)) {
-  throw new Error("Skill install pin must match the package version")
+if (!install.includes(`@hraness/atet@${manifest.version}`)) {
+  throw new Error("Skill npm install pin must match the package version")
 }
 await validateLocalMarkdownLinks()
 console.log("atet skill is valid")

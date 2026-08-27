@@ -1155,7 +1155,7 @@ test("drives one long-lived helper through start, pause, resume, stop, and stric
     expect(manifest).toMatchObject({
       state: "stopped",
       timeline: { durationUs: 2_000_000 },
-      tool: { name: "atet", version: "3.0.1" },
+      tool: { name: "atet", version: "3.0.2" },
     });
     expect(manifest.tracks.map(({ kind }) => kind).sort()).toEqual(["display-video", "system-audio"]);
     expect(manifest.tracks.every(({ segments }) => segments.length === 2)).toBeTrue();

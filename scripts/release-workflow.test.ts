@@ -88,6 +88,9 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).toContain('newest_stable_tag="$(git tag --list')
   expect(workflow).toContain("bun install --frozen-lockfile --ignore-scripts")
   expect(workflow).toContain("bun run check")
+  expect(workflow).toContain("npm install --global npm@11.19.0")
+  expect(workflow).toContain('npm view "@hraness/atet@$package_version" version --json')
+  expect(workflow).toContain("npm delivered $registry_version, expected $package_version")
   expect(workflow).toContain("bash scripts/install-ci-ffmpeg.sh")
   expect(workflow).toContain("native_macos:\n    name: Atet macOS shell")
   expect(workflow).toContain("bun run test:desktop:macos")
@@ -100,7 +103,7 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).toContain(
     "git status --porcelain --untracked-files=all -- dist apps/desktop/dist/cli bun.lock",
   )
-  expect(workflow).toContain("bun pm pack --dry-run --ignore-scripts")
+  expect(workflow).toContain("npm pack --dry-run --ignore-scripts --json")
   expect(workflow).toContain('"./dist/code/index.js"')
   expect(workflow).toContain('"./dist/code/advanced.js"')
   expect(workflow).toContain('"./dist/workflow.js"')
@@ -123,7 +126,41 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).not.toContain("administration:")
 })
 
-test("version 3.0.1 publishes one Atet identity with immutable install instructions", async () => {
+test("the default-branch workflow stages one exact npm artifact through OIDC", async () => {
+  const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
+
+  expect(workflow).toContain("workflow_dispatch:")
+  expect(workflow).toContain("stage:\n    name: Verify and stage")
+  expect(workflow).toContain("contents: read")
+  expect(workflow).toContain("id-token: write")
+  expect(workflow).toContain("runs-on: ubuntu-24.04")
+  expect(workflow).toContain('node-version: "24"')
+  expect(workflow).toContain('bun-version: "1.3.14"')
+  expect(workflow).toContain("npm install --global npm@11.19.0")
+  expect(workflow).toContain('[[ "$(npm --version)" == "11.19.0" ]]')
+  expect(workflow).toContain('if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]')
+  expect(workflow).toContain('if [[ "$GITHUB_SHA" != "$default_sha" ]]')
+  expect(workflow).toContain('npm view "$package_name" name --json')
+  expect(workflow).toContain('npm view "$package_name@$package_version" version --json')
+  expect(workflow).toContain("bun install --frozen-lockfile --ignore-scripts")
+  expect(workflow).toContain("bun run check")
+  expect(workflow).toContain("npm pack --ignore-scripts --json --pack-destination")
+  expect(workflow).toContain('bun run ./scripts/package-smoke.ts "$archive"')
+  expect(workflow).toContain("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02")
+  expect(workflow).toContain("Default branch advanced to $current_default_sha after verification")
+  expect(workflow.lastIndexOf('git fetch --no-tags origin "$DEFAULT_BRANCH"')).toBeGreaterThan(
+    workflow.indexOf("Pack and verify the exact artifact"),
+  )
+  expect(workflow.lastIndexOf('if [[ "$GITHUB_SHA" != "$current_default_sha" ]]')).toBeLessThan(
+    workflow.indexOf('npm stage publish "${{ steps.pack.outputs.archive }}" --access public'),
+  )
+  expect(workflow).toContain('npm stage publish "${{ steps.pack.outputs.archive }}" --access public')
+  expect(workflow).not.toContain("NPM_TOKEN")
+  expect(workflow).not.toMatch(/npm publish(?:\s|$)/u)
+  expect(workflow).not.toContain("push:")
+})
+
+test("version 3.0.2 publishes one Atet identity with npm install instructions", async () => {
   const packageRoot = join(import.meta.dir, "..")
   const manifest = JSON.parse(
     await readFile(join(packageRoot, "package.json"), "utf8"),
@@ -137,24 +174,26 @@ test("version 3.0.1 publishes one Atet identity with immutable install instructi
       readFile(join(packageRoot, "apps", "web", "src", "index.html"), "utf8"),
     ])
 
-  expect(manifest.version).toBe("3.0.1")
+  expect(manifest.version).toBe("3.0.2")
   expect(manifest.bin).toEqual({
     atet: "./apps/desktop/dist/cli/main.js",
   })
 
-  const immutableCliInstall = "github:hraness/atet#v3.0.1"
+  const npmCliInstall = "@hraness/atet@3.0.2"
   const immutableSkillInstall =
-    "https://github.com/hraness/atet/tree/v3.0.1 --skill atet"
+    "https://github.com/hraness/atet/tree/v3.0.2 --skill atet"
   for (const source of [readme, skillInstall, siteMarkdown, siteTemplate]) {
-    expect(source).toContain(immutableCliInstall)
+    expect(source).toContain(npmCliInstall)
   }
   for (const source of [readme, siteBuild, siteMarkdown]) {
     expect(source).toContain(immutableSkillInstall)
   }
-  expect(siteTemplate).toContain('"softwareVersion": "3.0.1"')
-  expect(siteTemplate).toContain('"version": "3.0.1"')
+  expect(siteTemplate).toContain('"softwareVersion": "3.0.2"')
+  expect(siteTemplate).toContain('"version": "3.0.2"')
+  expect(readme).toContain("github:hraness/atet#v3.0.2")
 
   for (const source of [readme, skillInstall, siteBuild, siteMarkdown, siteTemplate]) {
+    expect(source).not.toContain("v3.0.1")
     expect(source).not.toContain("v3.0.0")
     expect(source).not.toContain("v2.0.0")
     expect(source).not.toContain('"softwareVersion": "2.0.0"')

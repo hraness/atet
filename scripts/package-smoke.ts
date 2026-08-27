@@ -9,7 +9,16 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join, sep } from "node:path";
+import {
+  basename,
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 
 const packageName = "@hraness/atet";
 const importSpecifiers = [
@@ -26,6 +35,45 @@ const importSpecifiers = [
   `${packageName}/local/code/advanced`,
   `${packageName}/local/code/workflows`,
   `${packageName}/local/html-overlay`,
+] as const;
+const nodeImportSpecifiers = importSpecifiers.slice(0, 8);
+const maximumPackedFiles = 350;
+const maximumPackedBytes = 2_750_000;
+const maximumUnpackedBytes = 7_500_000;
+const requiredPackedPaths = [
+  "LICENSE",
+  "NOTICE.md",
+  "README.md",
+  "SECURITY.md",
+  "apps/desktop/analysis/protocol.ts",
+  "apps/desktop/capture/protocol.ts",
+  "apps/desktop/code/worker-entry.ts",
+  "apps/desktop/code/worker-lease-guardian.ts",
+  "apps/desktop/code/worker-process-identity.ts",
+  "apps/desktop/dist/cli/main.js",
+  "package.json",
+  "schema/diagram.schema.json",
+  "skills/atet/SKILL.md",
+  "skills/atet/references/rubber-stamp-examples/poster-example-1.jpg",
+  "skills/atet/references/rubber-stamp-examples/stamp-style-1.png",
+  "skills/atet/scripts/compose-rubber-stamp-field-note.ts",
+] as const;
+const forbiddenPackedPaths = [
+  { label: "repository agent guide", pattern: /(?:^|\/)AGENTS\.md$/u },
+  { label: "test source", pattern: /\.test\.[cm]?[jt]sx?$/u },
+  { label: "test support", pattern: /(?:^|\/)test-support\.[cm]?[jt]sx?$/u },
+  {
+    label: "desktop capture build tree",
+    pattern: /^apps\/desktop\/capture\/(?!protocol\.ts$)/u,
+  },
+  { label: "Direct workbench", pattern: /^apps\/desktop\/direct\//u },
+  { label: "frontend workbench", pattern: /^apps\/desktop\/frontend\//u },
+  { label: "native runtime build tree", pattern: /^apps\/desktop\/runtime\//u },
+  { label: "native shell source", pattern: /^apps\/desktop\/src\//u },
+  { label: "property-test support", pattern: /^apps\/desktop\/testing\//u },
+  { label: "development example", pattern: /^examples\//u },
+  { label: "native application manifest", pattern: /^apps\/desktop\/app\.zon$/u },
+  { label: "native build graph", pattern: /^apps\/desktop\/build\.zig(?:\.zon)?$/u },
 ] as const;
 const verificationPackages = [
   "@types/bun@^1.3.14",
@@ -80,8 +128,25 @@ const forbiddenPackageText = [
   { label: "legacy Graphics runtime", pattern: /graphics-compat/iu },
 ] as const;
 
-async function scanPackedPackage(directory: string): Promise<void> {
+interface PackedPackageStats {
+  readonly fileCount: number;
+  readonly paths: ReadonlySet<string>;
+  readonly unpackedBytes: number;
+}
+
+interface NpmPackResult {
+  readonly entryCount: number;
+  readonly filename: string;
+  readonly name: string;
+  readonly size: number;
+  readonly unpackedSize: number;
+  readonly version: string;
+}
+
+async function scanPackedPackage(directory: string): Promise<PackedPackageStats> {
   const problems: string[] = [];
+  const paths = new Set<string>();
+  let unpackedBytes = 0;
   async function visit(path: string): Promise<void> {
     const info = await lstat(path);
     if (info.isSymbolicLink()) {
@@ -93,6 +158,14 @@ async function scanPackedPackage(directory: string): Promise<void> {
       return;
     }
     if (!info.isFile()) return;
+    const packedPath = relative(directory, path).split(sep).join("/");
+    paths.add(packedPath);
+    unpackedBytes += info.size;
+    for (const rule of forbiddenPackedPaths) {
+      if (rule.pattern.test(packedPath)) {
+        problems.push(`${packedPath} contains ${rule.label}`);
+      }
+    }
     const extension = /\.[^./]+$/u.exec(path)?.[0] ?? "";
     if (!packageTextExtensions.has(extension) && basename(path) !== "LICENSE") return;
     const text = await readFile(path, "utf8");
@@ -101,14 +174,33 @@ async function scanPackedPackage(directory: string): Promise<void> {
     }
   }
   await visit(directory);
+  for (const required of requiredPackedPaths) {
+    if (!paths.has(required)) problems.push(`${required} is missing from the packed package`);
+  }
+  if (paths.size > maximumPackedFiles) {
+    problems.push(
+      `packed package has ${String(paths.size)} files; maximum is ${String(maximumPackedFiles)}`,
+    );
+  }
+  if (unpackedBytes > maximumUnpackedBytes) {
+    problems.push(
+      `packed package is ${String(unpackedBytes)} unpacked bytes; maximum is ${String(maximumUnpackedBytes)}`,
+    );
+  }
   if (problems.length > 0) {
     throw new Error(`Packed standalone boundary failed:\n${problems.sort().join("\n")}`);
   }
+  return { fileCount: paths.size, paths, unpackedBytes };
 }
 
-async function run(command: string[], cwd: string): Promise<void> {
+async function run(
+  command: string[],
+  cwd: string,
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): Promise<void> {
   const child = Bun.spawn(command, {
     cwd,
+    env: environment,
     stderr: "inherit",
     stdout: "inherit",
   });
@@ -118,9 +210,14 @@ async function run(command: string[], cwd: string): Promise<void> {
   }
 }
 
-async function runOutput(command: string[], cwd: string): Promise<string> {
+async function runOutput(
+  command: string[],
+  cwd: string,
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): Promise<string> {
   const child = Bun.spawn(command, {
     cwd,
+    env: environment,
     stderr: "inherit",
     stdout: "pipe",
   });
@@ -138,9 +235,11 @@ async function runFailure(
   command: string[],
   cwd: string,
   expectedDiagnostic: string,
+  environment: Readonly<Record<string, string | undefined>> = process.env,
 ): Promise<void> {
   const child = Bun.spawn(command, {
     cwd,
+    env: environment,
     stderr: "pipe",
     stdout: "pipe",
   });
@@ -166,30 +265,239 @@ function record(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+async function existingFile(candidates: readonly string[]): Promise<string | undefined> {
+  for (const candidate of candidates) {
+    try {
+      if ((await lstat(candidate)).isFile()) return candidate;
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+    }
+  }
+  return undefined;
+}
+
+function isMissingFile(error: unknown): boolean {
+  return (
+    typeof error === "object"
+    && error !== null
+    && "code" in error
+    && Reflect.get(error, "code") === "ENOENT"
+  );
+}
+
+async function resolvePackedImport(
+  packageRoot: string,
+  manifest: Record<string, unknown>,
+  importer: string,
+  specifier: string,
+): Promise<string | undefined> {
+  let unresolved: string;
+  if (specifier === packageName || specifier.startsWith(`${packageName}/`)) {
+    const exports = record(manifest.exports, "package.json exports");
+    const key = specifier === packageName ? "." : `.${specifier.slice(packageName.length)}`;
+    const targetValue = exports[key];
+    if (typeof targetValue === "string") unresolved = resolve(packageRoot, targetValue);
+    else {
+      const target = record(targetValue, `package.json exports ${key}`);
+      if (typeof target.import !== "string") return undefined;
+      unresolved = resolve(packageRoot, target.import);
+    }
+  } else {
+    if (!specifier.startsWith(".")) return undefined;
+    unresolved = resolve(dirname(importer), specifier);
+  }
+
+  const candidates = [unresolved];
+  const extension = extname(unresolved);
+  if (extension === ".js") {
+    candidates.push(`${unresolved.slice(0, -3)}.ts`, `${unresolved.slice(0, -3)}.tsx`);
+  }
+  if (extension.length === 0) {
+    candidates.push(
+      `${unresolved}.ts`,
+      `${unresolved}.tsx`,
+      `${unresolved}.js`,
+      `${unresolved}.json`,
+      join(unresolved, "index.ts"),
+      join(unresolved, "index.tsx"),
+      join(unresolved, "index.js"),
+    );
+  }
+  return await existingFile(candidates);
+}
+
+async function verifyPackedRuntimeClosure(
+  packageRoot: string,
+  stats: PackedPackageStats,
+): Promise<void> {
+  const manifest = record(
+    JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8")) as unknown,
+    "packed package.json",
+  );
+  const entryTargets = new Set<string>();
+  for (const [key, value] of Object.entries(record(manifest.exports, "package.json exports"))) {
+    if (typeof value === "string") entryTargets.add(value);
+    else {
+      for (const target of Object.values(record(value, `package.json exports ${key}`))) {
+        if (typeof target === "string") entryTargets.add(target);
+      }
+    }
+  }
+  for (const value of Object.values(record(manifest.bin, "package.json bin"))) {
+    if (typeof value === "string") entryTargets.add(value);
+  }
+  if (typeof manifest.main === "string") entryTargets.add(manifest.main);
+  if (typeof manifest.types === "string") entryTargets.add(manifest.types);
+  if (!Array.isArray(manifest.sideEffects)) {
+    throw new Error("packed package.json sideEffects must be an array.");
+  }
+  for (const sideEffect of manifest.sideEffects) {
+    if (typeof sideEffect !== "string") {
+      throw new Error("packed package.json sideEffects entries must be strings.");
+    }
+    entryTargets.add(sideEffect);
+  }
+
+  const problems: string[] = [];
+  for (const target of entryTargets) {
+    const targetPath = target.replace(/^\.\//u, "");
+    if (!stats.paths.has(targetPath)) problems.push(`package entry target ${target} is missing`);
+  }
+
+  for (const packedPath of [...stats.paths].sort()) {
+    const extension = extname(packedPath);
+    if (![".cjs", ".js", ".mjs", ".ts", ".tsx"].includes(extension)) continue;
+    const absolutePath = join(packageRoot, packedPath);
+    const loader = extension === ".tsx" ? "tsx" : extension === ".ts" ? "ts" : "js";
+    const source = (await readFile(absolutePath, "utf8")).replace(/^#![^\n]*(?:\n|$)/u, "");
+    for (const imported of new Bun.Transpiler({ loader }).scanImports(source)) {
+      if (!imported.path.startsWith(".") && !imported.path.startsWith(packageName)) continue;
+      const resolvedImport = await resolvePackedImport(
+        packageRoot,
+        manifest,
+        absolutePath,
+        imported.path,
+      );
+      if (resolvedImport === undefined) {
+        problems.push(`${packedPath} has unresolved packed import ${imported.path}`);
+        continue;
+      }
+      const relativeImport = relative(packageRoot, resolvedImport);
+      if (
+        relativeImport === ".."
+        || relativeImport.startsWith(`..${sep}`)
+        || isAbsolute(relativeImport)
+      ) {
+        problems.push(`${packedPath} resolves ${imported.path} outside the package`);
+      }
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(`Packed runtime closure failed:\n${problems.sort().join("\n")}`);
+  }
+}
+
+function parseNpmPackResult(value: unknown): NpmPackResult {
+  if (!Array.isArray(value) || value.length !== 1) {
+    throw new Error("npm pack must report exactly one package.");
+  }
+  const result = record(value[0], "npm pack result");
+  for (const field of ["entryCount", "size", "unpackedSize"] as const) {
+    if (!Number.isSafeInteger(result[field]) || Number(result[field]) < 0) {
+      throw new Error(`npm pack result ${field} must be a nonnegative safe integer.`);
+    }
+  }
+  for (const field of ["filename", "name", "version"] as const) {
+    if (typeof result[field] !== "string" || result[field].length === 0) {
+      throw new Error(`npm pack result ${field} must be a nonempty string.`);
+    }
+  }
+  return result as unknown as NpmPackResult;
+}
+
+async function createNpmArchive(
+  repository: string,
+  packDirectory: string,
+  environment: Readonly<Record<string, string | undefined>>,
+): Promise<{ readonly archive: string; readonly result: NpmPackResult }> {
+  await mkdir(packDirectory, { recursive: true });
+  const output = await runOutput([
+    "npm",
+    "pack",
+    "--ignore-scripts",
+    "--json",
+    "--pack-destination",
+    packDirectory,
+  ], repository, environment);
+  const result = parseNpmPackResult(JSON.parse(output) as unknown);
+  return { archive: join(packDirectory, result.filename), result };
+}
+
 const repository = process.cwd();
+if (process.argv.length > 3) {
+  throw new Error("Usage: bun scripts/package-smoke.ts [package.tgz]");
+}
+const providedArchive = process.argv[2] === undefined
+  ? undefined
+  : resolve(repository, process.argv[2]);
 const work = await mkdtemp(join(tmpdir(), "atet-package-smoke-"));
 try {
-  const archive = join(work, "package.tgz");
+  const packageEnvironment = {
+    ...process.env,
+    BUN_INSTALL_CACHE_DIR: join(work, "bun-cache"),
+    TMPDIR: work,
+    npm_config_cache: join(work, "npm-cache"),
+  };
+  const packed = providedArchive === undefined
+    ? await createNpmArchive(repository, join(work, "pack"), packageEnvironment)
+    : undefined;
+  const archive = packed?.archive ?? providedArchive;
+  if (archive === undefined) throw new Error("Packed archive path is unavailable.");
+  const archiveInfo = await lstat(archive);
+  if (!archiveInfo.isFile() || archiveInfo.size === 0) {
+    throw new Error(`Packed archive is not a nonempty regular file: ${archive}`);
+  }
+  if (archiveInfo.size > maximumPackedBytes) {
+    throw new Error(
+      `Packed archive is ${String(archiveInfo.size)} bytes; maximum is ${String(maximumPackedBytes)}.`,
+    );
+  }
   const consumer = join(work, "consumer");
   await mkdir(consumer);
-  await run([
-    process.execPath,
-    "pm",
-    "pack",
-    "--filename",
-    archive,
-    "--ignore-scripts",
-    "--quiet",
-  ], repository);
   await writeFile(
     join(consumer, "package.json"),
     `${JSON.stringify({ private: true, type: "module" }, null, 2)}\n`,
   );
-  await run([process.execPath, "add", archive, "--ignore-scripts"], consumer);
+  await run(
+    [process.execPath, "add", archive, "--ignore-scripts"],
+    consumer,
+    packageEnvironment,
+  );
   const installedPackage = await realpath(
     join(consumer, "node_modules", "@hraness", "atet"),
   );
-  await scanPackedPackage(installedPackage);
+  const packedStats = await scanPackedPackage(installedPackage);
+  await verifyPackedRuntimeClosure(installedPackage, packedStats);
+  if (packed !== undefined) {
+    if (packed.result.name !== packageName) {
+      throw new Error(`npm pack reported package ${packed.result.name} instead of ${packageName}.`);
+    }
+    if (packed.result.entryCount !== packedStats.fileCount) {
+      throw new Error(
+        `npm pack reported ${String(packed.result.entryCount)} files, but the clean install contains ${String(packedStats.fileCount)}.`,
+      );
+    }
+    if (packed.result.size !== archiveInfo.size) {
+      throw new Error(
+        `npm pack reported ${String(packed.result.size)} packed bytes, but the archive has ${String(archiveInfo.size)}.`,
+      );
+    }
+    if (packed.result.unpackedSize !== packedStats.unpackedBytes) {
+      throw new Error(
+        `npm pack reported ${String(packed.result.unpackedSize)} unpacked bytes, but the clean install contains ${String(packedStats.unpackedBytes)}.`,
+      );
+    }
+  }
   await run([
     process.execPath,
     "-e",
@@ -395,6 +703,46 @@ void [
     }, null, 2)}\n`,
   );
   await run([process.execPath, "x", "tsc", "-p", "./tsconfig.json"], consumer);
+
+  const npmConsumer = join(work, "npm-consumer");
+  await mkdir(npmConsumer);
+  await writeFile(
+    join(npmConsumer, "package.json"),
+    `${JSON.stringify({ private: true, type: "module" }, null, 2)}\n`,
+  );
+  await run([
+    "npm",
+    "install",
+    archive,
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    "--package-lock=false",
+  ], npmConsumer, packageEnvironment);
+  const npmInstalledPackage = await realpath(
+    join(npmConsumer, "node_modules", "@hraness", "atet"),
+  );
+  const npmPackedStats = await scanPackedPackage(npmInstalledPackage);
+  await verifyPackedRuntimeClosure(npmInstalledPackage, npmPackedStats);
+  if (
+    npmPackedStats.fileCount !== packedStats.fileCount
+    || npmPackedStats.unpackedBytes !== packedStats.unpackedBytes
+  ) {
+    throw new Error("npm and Bun consumers installed different Atet package contents.");
+  }
+  await run([
+    "node",
+    "--input-type=module",
+    "-e",
+    `await Promise.all(${JSON.stringify(nodeImportSpecifiers)}.map(specifier => import(specifier)))`,
+  ], npmConsumer, packageEnvironment);
+  await run([
+    join(npmConsumer, "node_modules", ".bin", "atet"),
+    "--version",
+  ], npmConsumer, packageEnvironment);
+  console.log(
+    `Verified ${String(packedStats.fileCount)} packed files, ${String(archiveInfo.size)} packed bytes, and ${String(packedStats.unpackedBytes)} unpacked bytes.`,
+  );
 } finally {
   await rm(work, { force: true, recursive: true });
 }

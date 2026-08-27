@@ -163,7 +163,7 @@ function printFindings(findings: Awaited<ReturnType<typeof checkDiagramFile>>["f
 }
 
 const starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/atet/v3.0.1/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/atet/v3.0.2/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },

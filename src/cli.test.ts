@@ -54,11 +54,11 @@ async function runCli(
 }
 
 describe("Atet CLI", () => {
-  test("reports v3.0.1 and documents namespaced media surfaces", async () => {
+  test("reports v3.0.2 and documents namespaced media surfaces", async () => {
     const version = await runCli(["--version"], process.cwd())
     expect(version).toEqual({
       exitCode: 0,
-      stdout: "3.0.1\n",
+      stdout: "3.0.2\n",
       stderr: "",
     })
     const help = await runCli(["--help"], process.cwd())
@@ -87,7 +87,7 @@ describe("Atet CLI", () => {
       expect(result.stderr).toBe("")
       const diagram = JSON.parse(await readFile(join(root, "system.diagram.json"), "utf8"))
       expect(diagram.$schema).toBe(
-        "https://raw.githubusercontent.com/hraness/atet/v3.0.1/schema/diagram.schema.json",
+        "https://raw.githubusercontent.com/hraness/atet/v3.0.2/schema/diagram.schema.json",
       )
     } finally {
       await rm(root, { recursive: true, force: true })

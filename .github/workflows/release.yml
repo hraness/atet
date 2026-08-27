@@ -26,9 +26,15 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+          registry-url: "https://registry.npmjs.org"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.3.14"
+      - run: npm install --global npm@11.19.0
       - name: Install FFmpeg
         run: bash scripts/install-ci-ffmpeg.sh
       - name: Verify release identity
@@ -56,6 +62,15 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME is not newer than $newest_stable_tag"
             exit 1
           fi
+          registry_version="$(npm view "@hraness/atet@$package_version" version --json | node -e '
+            const value = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+            if (typeof value !== "string") process.exit(1);
+            process.stdout.write(value);
+          ')"
+          if [[ "$registry_version" != "$package_version" ]]; then
+            echo "::error::npm delivered $registry_version, expected $package_version"
+            exit 1
+          fi
           printf 'tag=%s\n' "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run check
@@ -65,7 +80,7 @@ jobs:
             printf '%s\n' "$generated_status"
             exit 1
           fi
-      - run: bun pm pack --dry-run --ignore-scripts
+      - run: npm pack --dry-run --ignore-scripts --json
       - run: node --input-type=module -e 'await Promise.all(["./dist/index.js", "./dist/cli.js", "./dist/code/index.js", "./dist/code/advanced.js", "./dist/generate.js", "./dist/host-resources.js", "./dist/operations.js", "./dist/workflow.js"].map((specifier) => import(specifier)))'
 
   official_vtracer:
