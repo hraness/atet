@@ -60,7 +60,39 @@ function cues(count: number): readonly ProjectCaptionCue[] {
   }));
 }
 
+function compactCues(count: number): readonly ProjectCaptionCue[] {
+  return Array.from({ length: count }, (_, index) => ({
+    lines: ["More is more"],
+    outputRange: { endUs: index + 1, startUs: index },
+    projectRange: { endUs: index + 1, startUs: index },
+    sourceWordIndices: [index],
+  }));
+}
+
 describe("caption sprite resource planning", () => {
+  test("keeps hundreds of cues bounded without repeating a font payload", () => {
+    const prepared = prepareProjectCaptionPlan({
+      cues: compactCues(680),
+      plan: emptyPlan(680),
+      sourceSha256: "b".repeat(64),
+      style: "social-block-v1",
+    });
+    const totalBytes = prepared.artifacts.reduce(
+      (sum, artifact) => sum + Buffer.byteLength(artifact.contents, "utf8"),
+      0,
+    );
+
+    expect(prepared.plan.overlays).toHaveLength(680);
+    expect(prepared.artifacts.length).toBeGreaterThan(1);
+    expect(totalBytes).toBeLessThan(512 * 1_024);
+    expect(totalBytes).toBeLessThan(PROJECT_CAPTION_SPRITE_LIMITS.maximumTotalSvgBytes);
+    for (const artifact of prepared.artifacts) {
+      expect(artifact.contents).not.toContain("@font-face");
+      expect(artifact.contents).not.toContain("data:font/");
+      expect(artifact.contents).toContain('font-family="Nebula Sans"');
+    }
+  });
+
   test("bounds cumulative raster work before producing an unbounded overlay plan", () => {
     expect(PROJECT_CAPTION_SPRITE_LIMITS.maximumTotalPixels).toBe(
       64 * 1_024 * 1_024,

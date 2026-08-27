@@ -117,7 +117,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'none'; connect-src https://us.i.posthog.com; font-src 'none'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'; upgrade-insecure-requests"
+          "value": "default-src 'self'; base-uri 'none'; connect-src https://us.i.posthog.com; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'; upgrade-insecure-requests"
         },
         {
           "key": "Permissions-Policy",
@@ -154,7 +154,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'none'; form-action 'none'; frame-ancestors https://hraness.com https://www.hraness.com; img-src 'none'; object-src 'none'; script-src 'none'; style-src 'self'; upgrade-insecure-requests"
+          "value": "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'self'; form-action 'none'; frame-ancestors https://hraness.com https://www.hraness.com; img-src 'none'; object-src 'none'; script-src 'none'; style-src 'self'; upgrade-insecure-requests"
         },
         {
           "key": "Permissions-Policy",
