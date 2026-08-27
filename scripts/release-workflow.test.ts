@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test"
 import { createHash } from "node:crypto"
-import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises"
+import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
+import { fileURLToPath } from "node:url"
 import { gzipSync } from "node:zlib"
 
 import { verifyNpmPackageIdentity } from "./npm-package-identity"
@@ -32,6 +33,39 @@ function isMissingFile(error: unknown): boolean {
     "code" in error &&
     error.code === "ENOENT"
   )
+}
+
+function workflowStepScript(workflow: string, name: string): string {
+  const stepMarker = `      - name: ${name}\n`
+  const stepStart = workflow.indexOf(stepMarker)
+  if (stepStart < 0) throw new Error(`Workflow step not found: ${name}`)
+  const runMarker = "        run: |\n"
+  const runStart = workflow.indexOf(runMarker, stepStart)
+  if (runStart < 0) throw new Error(`Workflow step has no run script: ${name}`)
+  const script: string[] = []
+  for (const line of workflow.slice(runStart + runMarker.length).split("\n")) {
+    if (!line.startsWith("          ")) break
+    script.push(line.slice(10))
+  }
+  return script.join("\n")
+}
+
+async function runWorkflowScript(
+  script: string,
+  environment: Readonly<Record<string, string>>,
+): Promise<Readonly<{ exitCode: number; stderr: string; stdout: string }>> {
+  const child = Bun.spawn(["/bin/bash", "-c", script], {
+    cwd: fileURLToPath(new URL("../", import.meta.url)),
+    env: { ...process.env, ...environment },
+    stderr: "pipe",
+    stdout: "pipe",
+  })
+  const [exitCode, stderr, stdout] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+    new Response(child.stdout).text(),
+  ])
+  return Object.freeze({ exitCode, stderr, stdout })
 }
 
 test("public CI routes independent Atet SDK, local-runtime, site, and native proofs", async () => {
@@ -414,17 +448,26 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   expect(stageJob).toContain('git init --quiet --bare "$current_main"')
   expect(stageJob).toContain('"https://github.com/$GITHUB_REPOSITORY.git"')
   expect(stageJob).toContain("Default branch advanced to $current_default_sha after verification")
+  expect(stageJob).toContain('tag_ref="refs/tags/v$EXPECTED_VERSION"')
+  expect(stageJob).toContain("git ls-remote --exit-code --refs")
+  expect(stageJob).toContain('case "$tag_lookup_status" in')
+  expect(stageJob).toContain('if [[ -n "$tag_lookup_output" ]]')
+  expect(stageJob).toContain("Remote tag lookup returned an ambiguous absence result")
+  expect(stageJob).toContain("npm delivery must precede the Git tag")
+  expect(stageJob).toContain("Could not prove that tag v$EXPECTED_VERSION is absent")
 
   const artifactReferenceIndex = stageJob.indexOf("Bind artifact reference")
   const downloadIndex = stageJob.indexOf("Download reviewed package")
   const rebindIndex = stageJob.indexOf("Rebind downloaded package")
   const fetchIndex = stageJob.lastIndexOf('git --git-dir="$current_main" fetch')
+  const tagIndex = stageJob.lastIndexOf("git ls-remote --exit-code --refs")
   const rehashIndex = stageJob.lastIndexOf('current_archive_sha256="$(sha256sum "$TARBALL"')
   const stageIndex = stageJob.indexOf('npm stage publish "$TARBALL"')
   expect(artifactReferenceIndex).toBeLessThan(downloadIndex)
   expect(downloadIndex).toBeLessThan(rebindIndex)
   expect(rebindIndex).toBeLessThan(fetchIndex)
-  expect(fetchIndex).toBeLessThan(rehashIndex)
+  expect(fetchIndex).toBeLessThan(tagIndex)
+  expect(tagIndex).toBeLessThan(rehashIndex)
   expect(rehashIndex).toBeLessThan(stageIndex)
   expect(stageIndex).toBeGreaterThan(-1)
   expect(stageJob.slice(stageIndex)).toContain("--access public")
@@ -436,6 +479,120 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   expect(workflow).not.toContain("NPM_TOKEN")
   expect(workflow).not.toMatch(/npm publish(?:\s|$)/u)
   expect(workflow).not.toContain("push:")
+})
+
+test("the terminal npm stage rejects present, ambiguous, and failed remote tag lookups", async () => {
+  const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
+  const script = workflowStepScript(
+    workflow,
+    "Revalidate current main and stage exact package",
+  )
+  const directory = await mkdtemp(join(tmpdir(), "atet-stage-tag-"))
+  const binaryDirectory = join(directory, "bin")
+  const commandLog = join(directory, "commands.log")
+  const publishMarker = join(directory, "published.txt")
+  const tarball = join(directory, "hraness-atet-3.1.1.tgz")
+  const metadata = join(directory, "npm-pack.json")
+  const sourceSha = "b".repeat(40)
+  const archiveSha256 = "c".repeat(64)
+  const metadataSha256 = "d".repeat(64)
+
+  try {
+    await mkdir(binaryDirectory, { recursive: true })
+    await Promise.all([
+      writeFile(tarball, "reviewed archive fixture\n", "utf8"),
+      writeFile(metadata, "reviewed metadata fixture\n", "utf8"),
+      writeFile(join(binaryDirectory, "git"), `#!/bin/bash
+set -euo pipefail
+printf 'git %s\\n' "$*" >> "$COMMAND_LOG"
+if [[ "\${1-}" == "ls-remote" ]]; then
+  case "$GIT_TAG_STATUS" in
+    absent) exit 2 ;;
+    ambiguous) printf 'ambiguous lookup output\\n'; exit 2 ;;
+    present) printf '%s\\trefs/tags/v3.1.1\\n' "$GITHUB_SHA"; exit 0 ;;
+    failure) echo 'simulated remote lookup failure' >&2; exit 128 ;;
+  esac
+fi
+if [[ "$*" == *"rev-parse FETCH_HEAD"* ]]; then
+  printf '%s\\n' "$GITHUB_SHA"
+fi
+`, "utf8"),
+      writeFile(join(binaryDirectory, "sha256sum"), `#!/bin/bash
+set -euo pipefail
+printf 'sha256sum %s\\n' "$*" >> "$COMMAND_LOG"
+if [[ "$1" == "$TARBALL" ]]; then
+  printf '%s  %s\\n' "$EXPECTED_ARCHIVE_SHA256" "$1"
+elif [[ "$1" == "$METADATA" ]]; then
+  printf '%s  %s\\n' "$EXPECTED_METADATA_SHA256" "$1"
+else
+  exit 1
+fi
+`, "utf8"),
+      writeFile(join(binaryDirectory, "npm"), `#!/bin/bash
+set -euo pipefail
+printf 'npm %s\\n' "$*" >> "$COMMAND_LOG"
+printf 'staged\\n' > "$PUBLISH_MARKER"
+`, "utf8"),
+    ])
+    await Promise.all([
+      chmod(join(binaryDirectory, "git"), 0o755),
+      chmod(join(binaryDirectory, "npm"), 0o755),
+      chmod(join(binaryDirectory, "sha256sum"), 0o755),
+    ])
+
+    const baseEnvironment = Object.freeze({
+      COMMAND_LOG: commandLog,
+      DEFAULT_BRANCH: "main",
+      EXPECTED_ARCHIVE_SHA256: archiveSha256,
+      EXPECTED_METADATA_SHA256: metadataSha256,
+      EXPECTED_SOURCE_SHA: sourceSha,
+      EXPECTED_VERSION: "3.1.1",
+      GITHUB_REF: "refs/heads/main",
+      GITHUB_REPOSITORY: "hraness/atet",
+      GITHUB_SHA: sourceSha,
+      METADATA: metadata,
+      PATH: `${binaryDirectory}:${process.env.PATH ?? ""}`,
+      PUBLISH_MARKER: publishMarker,
+      RUNNER_TEMP: directory,
+      TARBALL: tarball,
+    })
+
+    const accepted = await runWorkflowScript(script, {
+      ...baseEnvironment,
+      GIT_TAG_STATUS: "absent",
+    })
+    expect(accepted.exitCode).toBe(0)
+    expect(await readFile(publishMarker, "utf8")).toBe("staged\n")
+    const commands = await readFile(commandLog, "utf8")
+    const fetchIndex = commands.indexOf("fetch --quiet --no-tags --depth=1")
+    const tagIndex = commands.indexOf("git ls-remote --exit-code --refs")
+    const hashIndex = commands.indexOf("sha256sum")
+    const publishIndex = commands.indexOf("npm stage publish")
+    expect(fetchIndex).toBeGreaterThan(-1)
+    expect(tagIndex).toBeGreaterThan(fetchIndex)
+    expect(hashIndex).toBeGreaterThan(tagIndex)
+    expect(publishIndex).toBeGreaterThan(hashIndex)
+
+    for (const [status, message] of [
+      ["present", "npm delivery must precede the Git tag"],
+      ["ambiguous", "ambiguous absence result"],
+      ["failure", "Could not prove that tag v3.1.1 is absent"],
+    ] as const) {
+      await Promise.all([
+        rm(commandLog, { force: true }),
+        rm(publishMarker, { force: true }),
+      ])
+      const rejected = await runWorkflowScript(script, {
+        ...baseEnvironment,
+        GIT_TAG_STATUS: status,
+      })
+      expect(rejected.exitCode).not.toBe(0)
+      expect(`${rejected.stdout}${rejected.stderr}`).toContain(message)
+      expect(await Bun.file(publishMarker).exists()).toBe(false)
+    }
+  } finally {
+    await rm(directory, { force: true, recursive: true })
+  }
 })
 
 test("version 3.1.1 publishes one Atet identity with npm install instructions", async () => {
@@ -496,6 +653,7 @@ test("version 3.1.1 publishes one Atet identity with npm install instructions", 
   expect(publishing).toContain("only job with OIDC authority")
   expect(publishing).toContain("checks out no source and runs no repository code")
   expect(publishing).toContain("npm-package.sha256")
+  expect(publishing).toContain("proves the matching Git tag is still absent")
   expect(publishing).toContain("npm-package-identity.ts")
   expect(publishing).toContain("different gzip or tar bytes")
   expect(publishing).not.toContain("archives are byte-identical")
