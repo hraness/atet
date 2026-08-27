@@ -12,6 +12,9 @@ test("tldr serialization is deterministic for finite box layouts", () => {
           y: fc.integer({ min: 0, max: 900 }),
           width: fc.integer({ min: 120, max: 400 }),
           height: fc.integer({ min: 64, max: 240 }),
+          labelFontSize: fc.option(fc.integer({ min: 8, max: 64 }), {
+            nil: undefined,
+          }),
         }),
         { minLength: 1, maxLength: 20 },
       ),

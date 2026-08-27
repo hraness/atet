@@ -34,6 +34,7 @@ export interface BoxShape extends BaseShape {
   readonly height: number
   readonly radius?: number
   readonly label?: string
+  readonly labelFontSize?: number
   readonly icon?: string
   readonly iconSize?: number
   readonly strokeWidth?: number

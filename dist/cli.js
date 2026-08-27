@@ -11,19 +11,19 @@ import {
   renderDiagramFile,
   runMcpServer,
   selectDesktopAsset
-} from "./index-m1bf6vnz.js";
+} from "./index-c7ww66eb.js";
 import {
   installSkill,
   pathExists
 } from "./index-pc34q4wz.js";
-import"./index-38hzjjaq.js";
+import"./index-gjt20mz5.js";
 import {
   atetOperationCodes,
   executeAtetOperation,
   isAtetOperationCode,
   searchAtetOperations,
   withAtetOperationHostAdmission
-} from "./index-b7xv1v0z.js";
+} from "./index-9t36v857.js";
 import {
   vectorizeImage
 } from "./index-zhffnaj1.js";
@@ -159,7 +159,7 @@ function printFindings(findings) {
   }
 }
 var starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/atet/v3.0.0/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/atet/v3.0.1/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },

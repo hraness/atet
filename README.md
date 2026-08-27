@@ -22,9 +22,9 @@ an Atet service.
 Install the single Atet Agent Skill with either runner:
 
 ```sh
-npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet
+npx skills add https://github.com/hraness/atet/tree/v3.0.1 --skill atet
 # or
-bunx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet
+bunx skills add https://github.com/hraness/atet/tree/v3.0.1 --skill atet
 ```
 
 Start a new agent session after installing the skill. It teaches Codex, Claude
@@ -35,7 +35,7 @@ Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
 then inspect the local media host:
 
 ```sh
-bun add --global github:hraness/atet#v3.0.0
+bun add --global github:hraness/atet#v3.0.1
 atet doctor
 ```
 
@@ -307,7 +307,7 @@ integration terms.
 Add the package to a Bun project:
 
 ```sh
-bun add github:hraness/atet#v3.0.0
+bun add github:hraness/atet#v3.0.1
 ```
 
 SDK imports do not start the CLI or inspect local project state:

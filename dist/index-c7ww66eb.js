@@ -8,7 +8,7 @@ import {
   AtetWorkflowError,
   defineAtetWorkflow,
   runAtetWorkflow
-} from "./index-38hzjjaq.js";
+} from "./index-gjt20mz5.js";
 import {
   AtetOperationError,
   DiagramValidationError,
@@ -31,7 +31,7 @@ import {
   serializeTldr,
   stackLayoutDefaults,
   withAtetOperationHostAdmission
-} from "./index-b7xv1v0z.js";
+} from "./index-9t36v857.js";
 import {
   VectorizeError,
   nonGatewayChildEnvironment,
@@ -1332,7 +1332,7 @@ class AtetMcpToolRuntime {
 }
 
 // src/version.ts
-var ATET_VERSION = "3.0.0";
+var ATET_VERSION = "3.0.1";
 
 // src/mcp/server.ts
 var atetMcpProtocolVersion = "2025-11-25";
