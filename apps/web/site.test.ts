@@ -38,6 +38,7 @@ import {
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
 import { buildWebsite } from "./scripts/build"
+import { renderAtetSocialImage } from "./scripts/generate-og"
 
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
@@ -433,30 +434,66 @@ describe("static Atet site", () => {
     const css = await readSource("styles.css")
 
     expect(css).toContain('--font-display: ui-serif, "Iowan Old Style", Baskerville')
+    expect(css).toContain('--font-body: "Nebula Sans", ui-sans-serif, system-ui')
+    expect(css).toContain("--font-sans: var(--font-body)")
     expect(css).toContain("--radius-control: 0.2rem")
     expect(css).toContain("--radius-surface: 0.45rem")
     expect(css).toContain(".install-panel")
     expect(css).toContain(".feature-list > div")
     expect(css).toContain(".origin-note")
     expect(css).not.toMatch(/@font-face|url\([^)]*\.woff/)
+    const builtCss = await readBuilt(builtAssets.stylesPath.slice(1))
+    expect(builtCss).toContain('font-family: "Nebula Sans";')
+    expect(builtCss).toContain('./fonts/nebula-sans/NebulaSans-Book.woff2')
+    expect((await readFile(
+      join(appDirectory, "dist/assets/fonts/nebula-sans/NebulaSans-Book.woff2"),
+    )).byteLength).toBeGreaterThan(60_000)
+    expect(await readBuilt("assets/fonts/nebula-sans/PROVENANCE.md"))
+      .toContain("https://www.nebulasans.com/download/NebulaSans-1.010.zip")
   })
 
   test("ships reproducible correctly sized social and icon assets", async () => {
     const social = new Uint8Array(await Bun.file(join(appDirectory, "src/og.png")).arrayBuffer())
+    const generatedSocial = await renderAtetSocialImage()
+    const serifHero = new Uint8Array(await Bun.file(
+      join(appDirectory, "src/og-serif-hero.png"),
+    ).arrayBuffer())
     const apple = new Uint8Array(await Bun.file(join(appDirectory, "src/apple-touch-icon.png")).arrayBuffer())
     const socialSource = await readSource("og-source.svg")
+    const socialGenerator = await readFile(join(appDirectory, "scripts/generate-og.ts"), "utf8")
     const icon = await readSource("icon.svg")
     const socialView = new DataView(social.buffer, social.byteOffset, social.byteLength)
+    const serifHeroView = new DataView(
+      serifHero.buffer,
+      serifHero.byteOffset,
+      serifHero.byteLength,
+    )
     const appleView = new DataView(apple.buffer, apple.byteOffset, apple.byteLength)
 
+    expect(generatedSocial).toEqual(social)
+    expect(new Bun.CryptoHasher("sha256").update(social).digest("hex")).toBe(
+      "d040e1483849836e42ef4209a12cff0e84a9933af947f18bd143381a496d8da5",
+    )
     expect(Array.from(social.slice(1, 4))).toEqual([80, 78, 71])
     expect(socialView.getUint32(16)).toBe(1200)
     expect(socialView.getUint32(20)).toBe(630)
     expect(socialSource).toContain("Make and edit")
     expect(socialSource).toContain("visual media")
     expect(socialSource).toContain("with your agent.")
-    expect(socialSource).toContain("Iowan Old Style")
+    expect(socialSource).toContain('href="og-serif-hero.png"')
+    expect(socialSource.match(/font-family="Nebula Sans"/gu)).toHaveLength(4)
+    expect(socialSource).not.toMatch(/system-ui|-apple-system|sans-serif/u)
     expect(socialSource).toContain('fill="#e8aa48"')
+    expect(serifHeroView.getUint32(16)).toBe(1200)
+    expect(serifHeroView.getUint32(20)).toBe(630)
+    expect(new Bun.CryptoHasher("sha256").update(serifHero).digest("hex")).toBe(
+      "4a4a132a6f8fd781df0c5804797799dc4179e56ab819de79f33fbeecc99b2f52",
+    )
+    expect(socialGenerator).toContain('loadSystemFonts: false')
+    expect(socialGenerator).toContain("NebulaSans-Book.otf")
+    expect(socialGenerator).toContain("NebulaSans-Bold.otf")
+    expect(socialGenerator).toContain("4cc650f856591af1affc4add4f50e260c8239a2542bafe77909b78006023f091")
+    expect(socialGenerator).toContain("91617d3e2281e8213f64f6bf359f387022d3149b35000b38365c32130a25bfa8")
     expect(Array.from(apple.slice(1, 4))).toEqual([80, 78, 71])
     expect(appleView.getUint32(16)).toBe(180)
     expect(appleView.getUint32(20)).toBe(180)
@@ -481,17 +518,19 @@ describe("static Atet site", () => {
     const localLockfile = await readFile(join(appDirectory, "bun.lock"), "utf8")
 
     expect(manifest.dependencies).toEqual({
-      "@hraness/design-kit": "github:hraness/design-kit#v0.1.8",
+      "@hraness/design-kit": "github:hraness/design-kit#v0.2.1",
       "@hraness/site-footer": "github:hraness/site-footer#v0.3.1",
+      "@resvg/resvg-js": "2.6.2",
       "posthog-js": "1.413.2",
     })
     expect(manifest.devDependencies).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
-    expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.1.8"')
+    expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.2.1"')
     expect(localLockfile).toContain(
       '"@hraness/site-footer": "github:hraness/site-footer#v0.3.1"',
     )
+    expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     expect(localLockfile).not.toContain("catalog:")
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
@@ -524,6 +563,7 @@ describe("static Atet site", () => {
     expect(build).toContain("Bun.build")
     expect(build).toContain('format: "iife"')
     expect(build).toContain('import.meta.resolve("@hraness/design-kit/appearance-menu.css")')
+    expect(build).toContain('import.meta.resolve("@hraness/design-kit/fonts.css")')
     expect(build).toContain("renderAppearanceMenu()")
     expect(build).toContain("renderCopyCommand({")
     expect(build).toContain('environment.VERCEL_ENV !== "production"')
@@ -714,6 +754,7 @@ describe("static Atet site", () => {
       "sitemap.xml",
     ])
     expect(assetFiles.sort()).toEqual([
+      "fonts",
       builtAssets.stylesPath.split("/").at(-1)!,
       builtAssets.themePath.split("/").at(-1)!,
     ].sort())
@@ -725,7 +766,7 @@ describe("static Atet site", () => {
     expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
     expect(stylesAsset).toContain(".hraness-site-footer {")
     expect(stylesAsset).toContain("@media (pointer: coarse)")
-    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(40_000)
+    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(45_000)
     expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
     expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
@@ -912,7 +953,8 @@ describe("static Atet site", () => {
 
     expect(vercel.headers?.find(entry => entry.source === "/(.*)")).toBeUndefined()
     expect(csp).toContain("connect-src https://us.i.posthog.com")
-    expect(csp).toContain("font-src 'none'")
+    expect(csp).toContain("font-src 'self'")
+    expect(csp).not.toMatch(/font-src[^;]*(?:https?:|data:)/u)
     expect(csp).toContain("form-action 'none'")
     expect(csp).toContain("frame-ancestors 'none'")
     expect(csp).toContain("object-src 'none'")
@@ -921,11 +963,12 @@ describe("static Atet site", () => {
     expect(byKey.get("Strict-Transport-Security")).toContain("includeSubDomains")
     expect(byKey.get("Vary")).toBe("Accept, Accept-Encoding")
     expect(previewCsp).toBe(
-      "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'none'; "
+      "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'self'; "
       + "form-action 'none'; frame-ancestors https://hraness.com https://www.hraness.com; "
       + "img-src 'none'; object-src 'none'; script-src 'none'; style-src 'self'; "
       + "upgrade-insecure-requests",
     )
+    expect(previewCsp).not.toMatch(/font-src[^;]*(?:https?:|data:)/u)
     expect(previewByKey.get("X-Frame-Options")).toBeUndefined()
     expect(previewByKey.get("X-Robots-Tag")).toBe(
       "noindex, nofollow, noarchive, nosnippet",

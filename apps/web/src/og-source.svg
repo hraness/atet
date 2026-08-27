@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>Atet, agentic creative coding toolkit</title>
+  <desc>Make and edit visual media with your agent.</desc>
   <rect width="1200" height="630" fill="#09090d"/>
   <path d="M0 64H1200M0 566H1200" stroke="#f4f1e8" stroke-opacity=".13"/>
   <path d="M750 484C884 457 1024 363 1094 189" fill="none" stroke="#e8aa48" stroke-width="2"/>
   <circle cx="1051" cy="129" r="54" fill="#e8aa48"/>
-  <text x="72" y="116" fill="#e8aa48" font-family="system-ui, -apple-system, sans-serif" font-size="19" font-weight="600" letter-spacing="3">ATET</text>
-  <text x="72" y="232" fill="#f4f1e8" font-family="Iowan Old Style, Baskerville, Times New Roman, serif" font-size="84" letter-spacing="-4">Make and edit</text>
-  <text x="72" y="318" fill="#f4f1e8" font-family="Iowan Old Style, Baskerville, Times New Roman, serif" font-size="84" letter-spacing="-4">visual media</text>
-  <text x="72" y="404" fill="#f4f1e8" font-family="Iowan Old Style, Baskerville, Times New Roman, serif" font-size="84" letter-spacing="-4">with your agent.</text>
-  <text x="72" y="525" fill="#9d9b97" font-family="system-ui, -apple-system, sans-serif" font-size="21">AI media · video editing · motion graphics · diagrams</text>
-  <text x="72" y="590" fill="#f4f1e8" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" letter-spacing="2.4">AGENTIC CREATIVE CODING TOOLKIT</text>
-  <text x="1128" y="590" fill="#9d9b97" font-family="system-ui, -apple-system, sans-serif" font-size="16" text-anchor="end">atet.sh</text>
+  <text x="72" y="116" fill="#e8aa48" font-family="Nebula Sans" font-size="19" font-weight="700" letter-spacing="3">ATET</text>
+  <image href="og-serif-hero.png" x="0" y="0" width="1200" height="630"/>
+  <text x="72" y="525" fill="#9d9b97" font-family="Nebula Sans" font-size="21" font-weight="400">AI media · video editing · motion graphics · diagrams</text>
+  <text x="72" y="590" fill="#f4f1e8" font-family="Nebula Sans" font-size="16" font-weight="700" letter-spacing="2.4">AGENTIC CREATIVE CODING TOOLKIT</text>
+  <text x="1128" y="590" fill="#9d9b97" font-family="Nebula Sans" font-size="16" font-weight="400" text-anchor="end">atet.sh</text>
 </svg>

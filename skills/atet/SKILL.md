@@ -161,8 +161,10 @@ connectors instead of guessing their sign.
 
 If the repository uses its own font or icon package, read
 [customization.md](references/customization.md). Do not add MonoLisa or another
-licensed font to the repository. Default rendering uses the system sans-serif
-stack.
+proprietary or restricted font to the repository. Default SVG rendering embeds
+the bundled Nebula Sans Book and Bold faces. PNG rendering loads those exact
+assets for ordinary proportional text while retaining host discovery for
+explicit mono and custom font roles.
 
 ## Provide a Vercel AI Gateway credential
 

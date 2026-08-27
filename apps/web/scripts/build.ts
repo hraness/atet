@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 
 import { renderHranessSiteFooter } from "@hraness/site-footer"
 
+import { renderAtetSocialImage } from "./generate-og"
 import {
   homeMarkdown,
   llmsTxt,
@@ -23,6 +24,10 @@ const posthogPackageDirectory = dirname(fileURLToPath(import.meta.resolve("posth
 const appearanceMenuStylesPath = fileURLToPath(
   import.meta.resolve("@hraness/design-kit/appearance-menu.css"),
 )
+const designKitFontsStylesPath = fileURLToPath(
+  import.meta.resolve("@hraness/design-kit/fonts.css"),
+)
+const designKitFontsDirectory = join(dirname(designKitFontsStylesPath), "fonts")
 const hranessSiteFooterStylesPath = fileURLToPath(
   import.meta.resolve("@hraness/site-footer/styles.css"),
 )
@@ -30,7 +35,6 @@ const hranessSiteFooterStylesPath = fileURLToPath(
 const copiedFiles = [
   "apple-touch-icon.png",
   "icon.svg",
-  "og.png",
   "sitemap.xml",
 ] as const
 
@@ -219,9 +223,11 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readingFeynobgTemplate,
     readingGaussiansTemplate,
     productStyles,
+    designKitFontsStyles,
     appearanceStyles,
     hranessSiteFooterStyles,
     theme,
+    socialImage,
   ] = await Promise.all([
     readFile(join(sourceDirectory, "index.html"), "utf8"),
     readFile(join(sourceDirectory, "404.html"), "utf8"),
@@ -230,12 +236,14 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readFile(join(sourceDirectory, "reading/feynobg.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/painting-with-gaussians.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
+    readFile(designKitFontsStylesPath, "utf8"),
     readFile(appearanceMenuStylesPath, "utf8"),
     readFile(hranessSiteFooterStylesPath, "utf8"),
     bundleTheme(),
+    renderAtetSocialImage(),
   ])
   const styles = new TextEncoder().encode(
-    `${productStyles.trimEnd()}\n\n${appearanceStyles.trim()}\n\n${hranessSiteFooterStyles.trim()}\n`,
+    `${designKitFontsStyles.trim()}\n\n${productStyles.trimEnd()}\n\n${appearanceStyles.trim()}\n\n${hranessSiteFooterStyles.trim()}\n`,
   )
 
   const stylesPath = assetPath("styles.css", styles)
@@ -268,6 +276,10 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   await mkdir(join(outputDirectory, "reading"), { recursive: true })
 
   await Promise.all([
+    cp(designKitFontsDirectory, join(outputDirectory, "assets/fonts"), {
+      dereference: true,
+      recursive: true,
+    }),
     writeFile(join(outputDirectory, "index.html"), renderDocument(indexTemplate, indexAssets)),
     writeFile(join(outputDirectory, "404.html"), renderDocument(notFoundTemplate, commonAssets)),
     writeFile(
@@ -288,6 +300,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     ),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
+    writeFile(join(outputDirectory, "og.png"), socialImage),
     ...(analyticsPath === null || analytics === null
       ? []
       : [writeFile(join(outputDirectory, analyticsPath.slice(1)), analytics)]),
