@@ -86,21 +86,25 @@ function matchingEntry(
   return matched
 }
 
-export function preferredRepresentation(header: string | null): ProducedMediaType | null {
+export function preferredRepresentationFrom(
+  header: string | null,
+  candidates: readonly ProducedMediaType[],
+): ProducedMediaType | null {
+  const defaultType = candidates[0] ?? null
   if (header === null || header.trim() === "") {
-    return htmlMediaType
+    return defaultType
   }
 
   const entries = parseAccept(header)
   if (entries.length === 0) {
-    return htmlMediaType
+    return defaultType
   }
 
   let bestType: ProducedMediaType | null = null
   let bestQ = -1
   let bestPosition = Number.POSITIVE_INFINITY
 
-  for (const candidate of producedMediaTypes) {
+  for (const candidate of candidates) {
     const matched = matchingEntry(entries, candidate)
     if (matched === null || matched.q <= 0) {
       continue
@@ -113,6 +117,10 @@ export function preferredRepresentation(header: string | null): ProducedMediaTyp
   }
 
   return bestType
+}
+
+export function preferredRepresentation(header: string | null): ProducedMediaType | null {
+  return preferredRepresentationFrom(header, producedMediaTypes)
 }
 
 export const notAcceptableBody = "Not Acceptable\n\nAvailable: text/html, text/markdown\n"

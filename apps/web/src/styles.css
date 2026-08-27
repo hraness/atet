@@ -1081,8 +1081,9 @@ blockquote {
 .preview-route {
   display: grid;
   min-height: 100svh;
-  place-items: center;
-  overflow: hidden;
+  place-items: safe center;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: clamp(1rem, 4vw, 3rem);
   background:
     radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--gold-bright) 18%, transparent), transparent 30rem),
@@ -1095,7 +1096,6 @@ blockquote {
   width: min(100%, 54rem);
   min-height: min(38rem, calc(100svh - 2rem));
   align-content: center;
-  overflow: hidden;
   padding: clamp(1.5rem, 6vw, 5rem);
   border: 1px solid var(--line);
   border-radius: var(--radius-surface);

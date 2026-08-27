@@ -6,13 +6,16 @@ import {
   readingGaussiansMarkdown,
 } from "./agent-pages"
 import {
+  htmlMediaType,
   markdownMediaType,
   notAcceptableBody,
   preferredRepresentation,
+  preferredRepresentationFrom,
 } from "./negotiate"
 
 const markdownContentType = "text/markdown; charset=utf-8"
 const notAcceptableContentType = "text/plain; charset=utf-8"
+const previewNotAcceptableBody = "Not Acceptable\n\nAvailable: text/html\n"
 const varyAccept = "Accept"
 const varyAcceptAndEncoding = "Accept, Accept-Encoding"
 
@@ -45,7 +48,7 @@ export function isPreviewPath(pathname: string): boolean {
 
 export function isNegotiableDocumentPath(pathname: string): boolean {
   if (isPreviewPath(pathname)) {
-    return false
+    return true
   }
   if (
     isHomePath(pathname)
@@ -85,7 +88,10 @@ export function negotiateSiteRequest(request: Request): Response | undefined {
   }
 
   const accept = request.headers.get("accept")
-  const chosen = preferredRepresentation(accept)
+  const preview = isPreviewPath(pathname)
+  const chosen = preview
+    ? preferredRepresentationFrom(accept, [htmlMediaType])
+    : preferredRepresentation(accept)
 
   if (chosen === markdownMediaType) {
     if (isHomePath(pathname)) {
@@ -144,7 +150,7 @@ export function negotiateSiteRequest(request: Request): Response | undefined {
   }
 
   if (chosen === null && accept !== null && accept.trim() !== "") {
-    return new Response(notAcceptableBody, {
+    return new Response(preview ? previewNotAcceptableBody : notAcceptableBody, {
       headers: {
         "Content-Type": notAcceptableContentType,
         "Vary": varyAccept,
