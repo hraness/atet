@@ -121,9 +121,15 @@ npm stage publish <reviewed-tarball> \
 2. Dispatch **Stage npm package** from the current `main` HEAD. The workflow
    rejects a tag, another branch, a stale commit, an existing version, or a
    branch that advances before staging.
-3. Review the uploaded tarball and `npm-pack.json`. Confirm the source commit,
-   version, inventory, sizes, SHA-1, SHA-512 integrity, dual-use declaration,
-   and disclosure.
+3. Review the uniquely named artifact from the read-only verification job. It
+   contains exactly the tarball, `npm-pack.json`, and `npm-package.sha256`.
+   Confirm the source commit, version, inventory, sizes, SHA-1, SHA-512
+   integrity, independent SHA-256 digests, dual-use declaration, and
+   disclosure. The dependent staging job is the only job with OIDC authority.
+   It checks out no source and runs no repository code. It downloads and
+   revalidates those three files, fetches the current default-branch head into
+   a new bare Git directory, rehashes the package, and only then runs the exact
+   stage-only command.
 4. Inspect the staged package with
    `npm stage view <stage-id> --registry=https://registry.npmjs.org` and
    download it with
