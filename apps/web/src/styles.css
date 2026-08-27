@@ -669,42 +669,6 @@ blockquote {
   line-height: 1.55;
 }
 
-.site-footer {
-  border-top: 1px solid var(--line);
-}
-
-.footer-inner {
-  width: min(100%, var(--page-max));
-  min-height: 7rem;
-  display: grid;
-  margin: 0 auto;
-  padding: 1.5rem var(--page-inline);
-  align-items: center;
-  gap: 1.5rem;
-  grid-template-columns: 1fr auto;
-}
-
-.hraness-brand {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  gap: 0.6rem;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  text-decoration: none;
-}
-
-.hraness-mark {
-  width: 1.55rem;
-  height: 1.55rem;
-}
-
-.footer-note {
-  color: var(--muted);
-  font-size: 0.72rem;
-  text-align: center;
-}
-
 /* Documentation */
 
 .docs-hero {
@@ -1177,13 +1141,6 @@ blockquote {
     padding-top: 0;
   }
 
-  .footer-inner {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .footer-note {
-    display: none;
-  }
 }
 
 @media (max-width: 48rem) {
@@ -1376,11 +1333,6 @@ blockquote {
 
   .install-commands code {
     font-size: 0.7rem;
-  }
-
-  .footer-inner {
-    min-height: 9rem;
-    grid-template-columns: 1fr;
   }
 
 }

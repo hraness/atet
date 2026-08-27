@@ -3,6 +3,8 @@ import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
+import { renderHranessSiteFooter } from "@hraness/site-footer"
+
 import {
   homeMarkdown,
   llmsTxt,
@@ -19,6 +21,9 @@ const posthogIngestOrigin = "https://us.i.posthog.com"
 const posthogPackageDirectory = dirname(fileURLToPath(import.meta.resolve("posthog-js/package.json")))
 const appearanceMenuStylesPath = fileURLToPath(
   import.meta.resolve("@hraness/design-kit/appearance-menu.css"),
+)
+const hranessSiteFooterStylesPath = fileURLToPath(
+  import.meta.resolve("@hraness/site-footer/styles.css"),
 )
 
 const copiedFiles = [
@@ -211,6 +216,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readingFeynobgTemplate,
     productStyles,
     appearanceStyles,
+    hranessSiteFooterStyles,
     theme,
   ] = await Promise.all([
     readFile(join(sourceDirectory, "index.html"), "utf8"),
@@ -219,15 +225,19 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readFile(join(sourceDirectory, "reading/feynobg.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(appearanceMenuStylesPath, "utf8"),
+    readFile(hranessSiteFooterStylesPath, "utf8"),
     bundleTheme(),
   ])
-  const styles = new TextEncoder().encode(`${productStyles}\n${appearanceStyles}`)
+  const styles = new TextEncoder().encode(
+    `${productStyles.trimEnd()}\n\n${appearanceStyles.trim()}\n\n${hranessSiteFooterStyles.trim()}\n`,
+  )
 
   const stylesPath = assetPath("styles.css", styles)
   const themePath = assetPath("theme.js", theme)
   const commonAssets = {
     "{{APPEARANCE_MENU}}": renderAppearanceMenu(),
     "{{CSS_ASSET}}": stylesPath,
+    "{{HRANESS_SITE_FOOTER}}": renderHranessSiteFooter(),
     "{{THEME_ASSET}}": themePath,
   } as const
   const analytics = analyticsConfig === null ? null : await bundleAnalytics(analyticsConfig)

@@ -5,6 +5,12 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import {
+  HRANESS_HOME_URL,
+  HRANESS_NEWSLETTER_URL,
+  hranessSocialLinks,
+} from "@hraness/site-footer"
+
+import {
   isCanonicalAnalyticsPage,
   posthogCookielessDistinctId,
   sanitizePageview,
@@ -364,7 +370,7 @@ describe("static Atet site", () => {
       expect(document).toMatch(
         /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
       )
-      expect(document.slice(document.indexOf('<footer class="site-footer">')))
+      expect(document.slice(document.indexOf('data-slot="hraness-site-footer"')))
         .not.toContain("data-hraness-appearance-menu")
       expect(document).not.toContain('class="appearance"')
       expect(document).not.toContain("data-theme-choice")
@@ -439,12 +445,16 @@ describe("static Atet site", () => {
 
     expect(manifest.dependencies).toEqual({
       "@hraness/design-kit": "github:hraness/design-kit#v0.1.8",
+      "@hraness/site-footer": "github:hraness/site-footer#v0.1.0",
       "posthog-js": "1.413.2",
     })
     expect(manifest.devDependencies).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
     expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.1.8"')
+    expect(localLockfile).toContain(
+      '"@hraness/site-footer": "github:hraness/site-footer#v0.1.0"',
+    )
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     expect(localLockfile).not.toContain("catalog:")
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
@@ -669,8 +679,9 @@ describe("static Atet site", () => {
       readFile(join(appDirectory, "dist", builtAssets.themePath.slice(1)), "utf8"),
     ])
     expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
+    expect(stylesAsset).toContain(".hraness-site-footer {")
     expect(stylesAsset).toContain("@media (pointer: coarse)")
-    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(36_000)
+    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(40_000)
     expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
     expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
@@ -904,13 +915,30 @@ describe("static Atet site", () => {
     ])
   })
 
-  test("preserves the canonical Hraness footer", async () => {
-    const html = await readSource("index.html")
+  test("renders the canonical Hraness network footer on every HTML page", async () => {
+    const documents = await Promise.all([
+      readBuilt("index.html"),
+      readBuilt("404.html"),
+      readBuilt("reading/draw-faces-with-javascript.html"),
+      readBuilt("reading/feynobg.html"),
+    ])
+    const expectedHrefs = [
+      HRANESS_HOME_URL,
+      HRANESS_NEWSLETTER_URL,
+      ...hranessSocialLinks.map(({ href }) => href),
+    ]
 
-    expect(html).toContain('href="https://hraness.com"')
-    expect(html).toContain('aria-label="hraness"')
-    expect(html).toContain('class="hraness-mark"')
-    expect(html).toContain("Atet · MIT · AI media generation and video editing for coding agents.")
+    for (const document of documents) {
+      expect(document.match(/<footer\b/gu)).toHaveLength(1)
+      const footer = /<footer\b[\s\S]*?<\/footer>/u.exec(document)?.[0]
+      expect(footer).toContain('data-slot="hraness-site-footer"')
+      expect(footer?.match(/data-slot="hraness-mark"/gu)).toHaveLength(1)
+      expect(footer?.match(/data-slot="social-icon"/gu)).toHaveLength(10)
+      expect(
+        [...(footer?.matchAll(/<a\b[^>]*\shref="([^"]+)"/gu) ?? [])]
+          .map(match => match[1]),
+      ).toEqual(expectedHrefs)
+    }
   })
 
   test("selects markdown, HTML, and 406 from Accept quality values", () => {
