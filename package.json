@@ -203,6 +203,7 @@
     "build:web": "bun run --cwd apps/web build",
     "dev:frontend": "vite --config apps/desktop/frontend/vite.config.ts",
     "dev:direct": "vite --config apps/desktop/direct/vite.config.ts",
+    "fuzz:direct": "bun run ./apps/desktop/direct/fuzz-browser.ts",
     "dev:desktop": "bun run build:desktop:runtime && bun run ./apps/desktop/runtime/run-native.ts dev",
     "typecheck": "bun run typecheck:sdk && bun run typecheck:desktop",
     "typecheck:sdk": "tsc --noEmit -p tsconfig.json",
@@ -266,8 +267,9 @@
     "@img/sharp-darwin-arm64": "0.35.3"
   },
   "devDependencies": {
+    "@antithesishq/bombadil": "0.7.2",
     "@eslint/js": "^9.39.2",
-    "@hraness/direct": "github:hraness/direct#v0.7.0",
+    "@hraness/direct": "github:hraness/direct#v0.7.4",
     "@native-sdk/cli": "0.5.3",
     "@types/bun": "^1.3.14",
     "@types/json-schema": "^7.0.15",
