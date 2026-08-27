@@ -196,6 +196,24 @@ try {
     `await Promise.all(${JSON.stringify(importSpecifiers)}.map(specifier => import(specifier)))`,
   ], consumer);
   await run([
+    process.execPath,
+    "-e",
+    `const { renderPng, renderSvg } = await import("@hraness/atet");
+const source = weight => ({ version: 1, name: \`installed-font-proof-\${weight}\`, canvas: { width: 320, height: 120 }, shapes: [{ id: "label", type: "text", x: 16, y: 16, text: "Nebula Sans", fontSize: 42, weight }] });
+const blank = await renderSvg({ version: 1, name: "installed-font-blank", canvas: { width: 320, height: 120 }, shapes: [] }, "light", {});
+const blankPng = renderPng(blank, {}, 1);
+const pngs = [];
+for (const weight of [400, 700]) {
+  const rendered = await renderSvg(source(weight), "light", {});
+  if (!rendered.svg.includes('font-family="Nebula Sans"') || (rendered.svg.match(/data:font\\/woff2;base64,/g) ?? []).length !== 2) throw new Error("Packed SDK did not embed both Nebula Sans web faces.");
+  const png = renderPng(rendered, {}, 1);
+  if (png[0] !== 137 || png[1] !== 80 || png[2] !== 78 || png[3] !== 71) throw new Error("Packed SDK did not render a PNG with its bundled font.");
+  if (Buffer.from(png).equals(Buffer.from(blankPng))) throw new Error(\`Packed SDK did not render visible Nebula Sans \${weight} glyphs.\`);
+  pngs.push(png);
+}
+if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed SDK did not preserve distinct Book and Bold raster faces.");`,
+  ], consumer);
+  await run([
     join(consumer, "node_modules", ".bin", "atet"),
     "--help",
   ], consumer);

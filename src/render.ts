@@ -1,6 +1,14 @@
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference -- packed source types must include Bun asset modules
+/// <reference path="./assets.d.ts" />
+
 import { readFile } from "node:fs/promises"
-import { extname } from "node:path"
+import { extname, isAbsolute } from "node:path"
+import { fileURLToPath } from "node:url"
 import { Resvg } from "@resvg/resvg-js"
+import nebulaSansBoldOtfAsset from "./assets/fonts/nebula-sans/NebulaSans-Bold.otf" with { type: "file" }
+import nebulaSansBoldAsset from "./assets/fonts/nebula-sans/NebulaSans-Bold.woff2" with { type: "file" }
+import nebulaSansBookOtfAsset from "./assets/fonts/nebula-sans/NebulaSans-Book.otf" with { type: "file" }
+import nebulaSansBookAsset from "./assets/fonts/nebula-sans/NebulaSans-Book.woff2" with { type: "file" }
 import { sanitizeIcon } from "./icons.js"
 import { layoutBoxContent, wrapDiagramText } from "./label-layout.js"
 import { resolveTheme } from "./theme.js"
@@ -12,6 +20,7 @@ import type {
   DiagramEdge,
   DiagramShape,
   DiagramSpec,
+  FontConfig,
   IconDefinition,
   RenderedDiagram,
   TextShape,
@@ -22,6 +31,39 @@ interface FontFamilies {
   readonly default: string
   readonly mono: string
 }
+
+const bundledAssetPath = (asset: string): string =>
+  isAbsolute(asset) ? asset : fileURLToPath(new URL(asset, import.meta.url))
+
+const defaultFont: FontConfig = Object.freeze({
+  family: "Nebula Sans",
+  files: Object.freeze([
+    Object.freeze({
+      embed: true,
+      path: bundledAssetPath(nebulaSansBookAsset),
+      style: "normal" as const,
+      weight: 400,
+    }),
+    Object.freeze({
+      embed: true,
+      path: bundledAssetPath(nebulaSansBoldAsset),
+      style: "normal" as const,
+      weight: 700,
+    }),
+    Object.freeze({
+      embed: false,
+      path: bundledAssetPath(nebulaSansBookOtfAsset),
+      style: "normal" as const,
+      weight: 400,
+    }),
+    Object.freeze({
+      embed: false,
+      path: bundledAssetPath(nebulaSansBoldOtfAsset),
+      style: "normal" as const,
+      weight: 700,
+    }),
+  ]),
+})
 
 const escapeXml = (value: string): string =>
   value
@@ -44,14 +86,14 @@ function fontMime(filePath: string): string {
   }
 }
 
-async function fontCss(config: DiagramConfig): Promise<string> {
-  if (config.font?.files === undefined) return ""
+async function fontCss(font: FontConfig): Promise<string> {
+  if (font.files === undefined) return ""
   const faces = await Promise.all(
-    config.font.files
+    font.files
       .filter((file) => file.embed === true)
       .map(async (file) => {
         const encoded = (await readFile(file.path)).toString("base64")
-        return `@font-face{font-family:"${escapeXml(config.font!.family)}";src:url(data:${fontMime(file.path)};base64,${encoded});font-weight:${file.weight ?? 400};font-style:${file.style ?? "normal"};}`
+        return `@font-face{font-family:"${escapeXml(font.family)}";src:url(data:${fontMime(file.path)};base64,${encoded});font-weight:${file.weight ?? 400};font-style:${file.style ?? "normal"};}`
       }),
   )
   return faces.join("")
@@ -342,14 +384,15 @@ export async function renderSvg(
   config: DiagramConfig,
 ): Promise<RenderedDiagram> {
   const theme = resolveTheme(mode, config)
+  const font = config.font ?? defaultFont
   const families: FontFamilies = {
-    default: config.font?.family ?? "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+    default: font.family,
     mono:
-      config.font?.monoFamily ??
+      font.monoFamily ??
       "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace",
   }
   const icons = config.icons ?? {}
-  const embeddedFonts = await fontCss(config)
+  const embeddedFonts = await fontCss(font)
   const markerDefinitions = Object.entries(theme.tones)
     .map(
       ([toneName, tone]) =>
@@ -380,13 +423,14 @@ export function renderPng(
   config: DiagramConfig,
   scale = 2,
 ): Uint8Array {
-  const fontFiles = config.font?.files?.map((file) => file.path) ?? []
+  const font = config.font ?? defaultFont
+  const fontFiles = font.files?.map((file) => file.path) ?? []
   const renderer = new Resvg(rendered.svg, {
     fitTo: { mode: "zoom", value: scale },
     font: {
       loadSystemFonts: true,
       ...(fontFiles.length === 0 ? {} : { fontFiles }),
-      defaultFontFamily: config.font?.family ?? "sans-serif",
+      defaultFontFamily: font.family,
     },
   })
   return renderer.render().asPng()

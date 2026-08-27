@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference -- packed source types must include Bun asset modules
+/// <reference path="../../../src/assets.d.ts" />
+
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import {
@@ -5,14 +8,18 @@ import {
   link,
   lstat,
   open,
+  readFile,
   realpath,
   rename,
   rm,
   writeFile,
 } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
+import { Resvg } from "@resvg/resvg-js";
 import { z } from "zod";
+import nebulaSansBoldAsset from "../../../src/assets/fonts/nebula-sans/NebulaSans-Bold.otf" with { type: "file" };
 
 import {
   ProjectRenderInvocationSchema,
@@ -59,6 +66,51 @@ import { applyMetadataEffects } from "./renderer";
 const MAXIMUM_SVG_CACHE_MANIFEST_BYTES = 64 * 1_024;
 const MAXIMUM_SVG_DERIVATIVE_BYTES = 512 * 1_024 * 1_024;
 const SVG_RASTER_RECIPE_VERSION = "atet-rsvg-convert-v1";
+const CAPTION_SVG_RASTER_RECIPE_VERSION = "atet-caption-resvg-v1";
+const CAPTION_RESVG_RENDERER_VERSION = "2.6.2";
+const CAPTION_FONT = Object.freeze({
+  bytes: 145_348,
+  family: "Nebula Sans",
+  sha256: "91617d3e2281e8213f64f6bf359f387022d3149b35000b38365c32130a25bfa8",
+  weight: 700,
+});
+
+const SvgRasterSourceSchema = z.strictObject({
+  bytes: z.number().int().safe().positive(),
+  mediaType: z.literal("image/svg+xml"),
+  pixelHeight: z.number().int().safe().positive().max(16_384),
+  pixelWidth: z.number().int().safe().positive().max(16_384),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+});
+
+const SvgRasterRecipeSchema = z.discriminatedUnion("renderer", [
+  z.strictObject({
+    arguments: z.tuple([
+      z.literal("--keep-aspect-ratio"),
+      z.literal("--width"),
+      z.string().regex(/^[1-9][0-9]{0,4}$/u),
+      z.literal("--height"),
+      z.string().regex(/^[1-9][0-9]{0,4}$/u),
+    ]),
+    renderer: z.literal("rsvg-convert"),
+    rendererVersion: z.string().trim().min(1).max(300),
+    source: SvgRasterSourceSchema,
+    version: z.literal(SVG_RASTER_RECIPE_VERSION),
+  }),
+  z.strictObject({
+    arguments: z.strictObject({
+      defaultFontFamily: z.literal(CAPTION_FONT.family),
+      fontBytes: z.literal(CAPTION_FONT.bytes),
+      fontSha256: z.literal(CAPTION_FONT.sha256),
+      fontWeight: z.literal(CAPTION_FONT.weight),
+      loadSystemFonts: z.literal(false),
+    }),
+    renderer: z.literal("@resvg/resvg-js"),
+    rendererVersion: z.literal(CAPTION_RESVG_RENDERER_VERSION),
+    source: SvgRasterSourceSchema,
+    version: z.literal(CAPTION_SVG_RASTER_RECIPE_VERSION),
+  }),
+]);
 
 const SvgCacheManifestSchema = z.strictObject({
   derivative: z.strictObject({
@@ -70,25 +122,7 @@ const SvgCacheManifestSchema = z.strictObject({
     z.literal("atet.svg-raster-cache"),
     z.literal("studio.svg-raster-cache"),
   ]),
-  recipe: z.strictObject({
-    arguments: z.tuple([
-      z.literal("--keep-aspect-ratio"),
-      z.literal("--width"),
-      z.string().regex(/^[1-9][0-9]{0,4}$/u),
-      z.literal("--height"),
-      z.string().regex(/^[1-9][0-9]{0,4}$/u),
-    ]),
-    renderer: z.literal("rsvg-convert"),
-    rendererVersion: z.string().trim().min(1).max(300),
-    source: z.strictObject({
-      bytes: z.number().int().safe().positive(),
-      mediaType: z.literal("image/svg+xml"),
-      pixelHeight: z.number().int().safe().positive().max(16_384),
-      pixelWidth: z.number().int().safe().positive().max(16_384),
-      sha256: z.string().regex(/^[a-f0-9]{64}$/u),
-    }),
-    version: z.literal(SVG_RASTER_RECIPE_VERSION),
-  }),
+  recipe: SvgRasterRecipeSchema,
   recipeSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   schemaVersion: z.literal(2),
 });
@@ -202,6 +236,49 @@ function svgRasterRecipe(overlay: OverlayOperation, rendererVersion: string) {
   });
 }
 
+function isOwnedCaptionSprite(overlay: OverlayOperation): boolean {
+  const asset = overlay.source.asset;
+  const provenance = asset.provenance;
+  return overlay.source.kind === "svg"
+    && asset.path === `renders/caption-assets/${asset.sha256}.svg`
+    && provenance.kind === "generated"
+    && provenance.generator === "atet-social-caption-sprite"
+    && provenance.generatorVersion === "1"
+    && provenance.command.length === 3
+    && provenance.command[0] === "atet"
+    && provenance.command[1] === "caption"
+    && provenance.command[2] === "social-block-v1";
+}
+
+function captionSvgRasterRecipe(overlay: OverlayOperation) {
+  const asset = overlay.source.asset;
+  return SvgCacheManifestSchema.shape.recipe.parse({
+    arguments: {
+      defaultFontFamily: CAPTION_FONT.family,
+      fontBytes: CAPTION_FONT.bytes,
+      fontSha256: CAPTION_FONT.sha256,
+      fontWeight: CAPTION_FONT.weight,
+      loadSystemFonts: false,
+    },
+    renderer: "@resvg/resvg-js",
+    rendererVersion: CAPTION_RESVG_RENDERER_VERSION,
+    source: {
+      bytes: asset.bytes,
+      mediaType: "image/svg+xml",
+      pixelHeight: overlay.intrinsicSize.height,
+      pixelWidth: overlay.intrinsicSize.width,
+      sha256: asset.sha256,
+    },
+    version: CAPTION_SVG_RASTER_RECIPE_VERSION,
+  });
+}
+
+function bundledCaptionFontPath(): string {
+  return isAbsolute(nebulaSansBoldAsset)
+    ? nebulaSansBoldAsset
+    : fileURLToPath(new URL(nebulaSansBoldAsset, import.meta.url));
+}
+
 async function reusableSvgDerivative(
   cacheDirectory: string,
   recipeSha256: string,
@@ -239,20 +316,49 @@ async function createSvgDerivative(
   recipeSha256: string,
   options: ProjectRenderBuildOptions,
 ): Promise<string> {
-  if (options.rsvgConvert === undefined || options.runner === undefined) {
+  if (
+    recipe.renderer === "rsvg-convert"
+    && (options.rsvgConvert === undefined || options.runner === undefined)
+  ) {
     throw new CliError("unavailable", "SVG overlays require rsvg-convert.");
   }
   const temporaryOutput = join(cacheDirectory, `.raster-${randomUUID()}.png`);
   const temporaryManifest = join(cacheDirectory, `.manifest-${randomUUID()}.json`);
   try {
-    const result = await options.runner.run([
-      options.rsvgConvert,
-      ...recipe.arguments,
-      "-o", temporaryOutput,
-      input,
-    ], { maxOutputBytes: 1_000_000 });
-    if (result.exitCode !== 0) {
-      throw new CliError("subprocess", `rsvg-convert failed: ${result.stderr.trim().slice(-4_000) || `exit ${result.exitCode}`}`);
+    if (recipe.renderer === "rsvg-convert") {
+      const result = await options.runner!.run([
+        options.rsvgConvert!,
+        ...recipe.arguments,
+        "-o", temporaryOutput,
+        input,
+      ], { maxOutputBytes: 1_000_000 });
+      if (result.exitCode !== 0) {
+        throw new CliError("subprocess", `rsvg-convert failed: ${result.stderr.trim().slice(-4_000) || `exit ${result.exitCode}`}`);
+      }
+    } else {
+      const fontPath = await verifyPhysicalProjectMedia(
+        bundledCaptionFontPath(),
+        CAPTION_FONT,
+        "Bundled Nebula Sans Bold caption font",
+      );
+      try {
+        const rendered = new Resvg(await readFile(input), {
+          font: {
+            defaultFontFamily: recipe.arguments.defaultFontFamily,
+            fontFiles: [fontPath],
+            loadSystemFonts: recipe.arguments.loadSystemFonts,
+          },
+        }).render().asPng();
+        if (rendered.byteLength <= 0 || rendered.byteLength > MAXIMUM_SVG_DERIVATIVE_BYTES) {
+          throw new CliError("invalid-data", "Caption SVG derivative exceeds its byte bound.");
+        }
+        await writeFile(temporaryOutput, rendered, { flag: "wx", mode: 0o600 });
+      } catch (error) {
+        if (error instanceof CliError) throw error;
+        throw new CliError("subprocess", "Resvg could not rasterize the generated caption sprite.", {
+          cause: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
     const generated = await fingerprintPhysicalProjectMedia(temporaryOutput, MAXIMUM_SVG_DERIVATIVE_BYTES);
     const generatedSize = await inspectPngIntrinsicSize(temporaryOutput);
@@ -369,18 +475,21 @@ async function prepareProjectOverlayMedia(
   if (svgSize.width !== overlay.intrinsicSize.width || svgSize.height !== overlay.intrinsicSize.height) {
     throw new CliError("invalid-data", `Overlay ${overlay.overlayId} intrinsic dimensions do not match its SVG.`);
   }
-  if (
+  const captionSprite = isOwnedCaptionSprite(overlay);
+  if (!captionSprite && (
     options.rsvgConvert === undefined
     || options.rsvgConvertVersion === undefined
     || options.runner === undefined
-  ) {
+  )) {
     throw new CliError("unavailable", `SVG overlay ${overlay.overlayId} requires rsvg-convert with a probed version.`);
   }
   const cacheDirectory = await physicalOverlayCacheDirectory(
     options.projectDirectory,
     options.workspaceDirectory,
   );
-  const recipe = svgRasterRecipe(overlay, options.rsvgConvertVersion);
+  const recipe = captionSprite
+    ? captionSvgRasterRecipe(overlay)
+    : svgRasterRecipe(overlay, options.rsvgConvertVersion!);
   const recipeSha256 = canonicalJsonSha256(recipe);
   const cached = await reusableSvgDerivative(cacheDirectory, recipeSha256, overlay.intrinsicSize);
   if (cached !== null) {

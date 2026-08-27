@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 
+import "@hraness/design-kit/fonts.css";
 import "../frontend/src/index.css";
 import "./workbench.css";
 

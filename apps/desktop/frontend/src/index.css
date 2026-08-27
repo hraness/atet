@@ -9,7 +9,7 @@
   --atet-active: #ff665c;
   --atet-warning: #e5bc6c;
   --atet-success: #76c895;
-  --font-text: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-text: "Nebula Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   background: var(--atet-bg);
   color: var(--atet-text);
