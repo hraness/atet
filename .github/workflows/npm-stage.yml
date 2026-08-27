@@ -428,6 +428,7 @@ jobs:
           EXPECTED_ARCHIVE_SHA256: ${{ steps.artifact.outputs.archive_sha256 }}
           EXPECTED_METADATA_SHA256: ${{ steps.artifact.outputs.metadata_sha256 }}
           EXPECTED_SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+          EXPECTED_VERSION: ${{ needs.verify.outputs.package_version }}
           TARBALL: ${{ steps.artifact.outputs.tarball }}
         run: |
           set -euo pipefail

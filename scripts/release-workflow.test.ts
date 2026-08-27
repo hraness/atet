@@ -448,6 +448,7 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   expect(stageJob).toContain('git init --quiet --bare "$current_main"')
   expect(stageJob).toContain('"https://github.com/$GITHUB_REPOSITORY.git"')
   expect(stageJob).toContain("Default branch advanced to $current_default_sha after verification")
+  expect(stageJob).toContain("EXPECTED_VERSION: ${{ needs.verify.outputs.package_version }}")
   expect(stageJob).toContain('tag_ref="refs/tags/v$EXPECTED_VERSION"')
   expect(stageJob).toContain("git ls-remote --exit-code --refs")
   expect(stageJob).toContain('case "$tag_lookup_status" in')
