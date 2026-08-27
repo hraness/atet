@@ -113,7 +113,7 @@
     ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!preview$).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -146,6 +146,47 @@
         {
           "key": "Vary",
           "value": "Accept, Accept-Encoding"
+        }
+      ]
+    },
+    {
+      "source": "/preview",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'none'; form-action 'none'; frame-ancestors https://hraness.com https://www.hraness.com; img-src 'none'; object-src 'none'; script-src 'none'; style-src 'self'; upgrade-insecure-requests"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), display-capture=(), geolocation=(), microphone=(), payment=(), usb=()"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "Vary",
+          "value": "Accept, Accept-Encoding"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive, nosnippet"
+        },
+        {
+          "key": "Link",
+          "value": "<https://atet.sh/>; rel=\"canonical\""
         }
       ]
     },

@@ -30,6 +30,7 @@ import {
   isHomePath,
   isNegotiableDocumentPath,
   isPreservedRedirectPath,
+  isPreviewPath,
   isReadingFacesPath,
   isReadingFeynobgPath,
   isReadingGaussiansPath,
@@ -159,6 +160,39 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta name="twitter:image:alt" content="Atet, AI media generation and video editing for coding agents, beside an abstract solar disk and barque path">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
+  })
+
+  test("builds an inert noindex Atet preview with the homepage as canonical", async () => {
+    const [source, built, css] = await Promise.all([
+      readSource("preview.html"),
+      readBuilt("preview.html"),
+      readSource("styles.css"),
+    ])
+
+    for (const html of [source, built]) {
+      expect(html.match(/<h1\b/gu)).toHaveLength(1)
+      expect(html).toContain("<h1 id=\"preview-title\">Atet</h1>")
+      expect(html).toContain("Make and edit visual media with your coding agent.")
+      expect(html).toContain('<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">')
+      expect(html).toContain('<link rel="canonical" href="https://atet.sh/">')
+      expect(html).not.toMatch(/<script\b|<a\b|<button\b|<form\b|<input\b|<select\b|<textarea\b|contenteditable/iu)
+      expect(html).not.toMatch(/analytics|posthog|account|authentication|authorization|sign[ -]?in|user data/iu)
+      expect(html).not.toContain('rel="alternate"')
+      expect(html).not.toContain('rel="sitemap"')
+      expect(html).not.toContain('rel="describedby"')
+      expect(html).not.toContain("data-hraness-appearance-menu")
+      expect(html).not.toContain('data-slot="hraness-site-footer"')
+    }
+
+    expect(source).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
+    expect(built).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
+    expect(built).not.toContain("{{")
+    expect([...built.matchAll(/<li><span>0[1-4]<\/span>([^<]+)<\/li>/gu)]
+      .map(match => match[1])).toEqual(["images", "diagrams", "animated loops", "video"])
+    expect(css).toContain(".preview-route")
+    expect(css).toContain(".preview-shell")
+    expect(css).toContain(".preview-mark__sun")
+    expect(css).toContain(".preview-outputs")
   })
 
   test("links the website, product, and source in structured data", async () => {
@@ -600,13 +634,15 @@ describe("static Atet site", () => {
       expect(first.analyticsPath).toMatch(/^\/assets\/analytics-[a-f0-9]{12}\.js$/u)
       expect(second.analyticsPath).toBe(first.analyticsPath)
 
-      const [html, notFound, asset] = await Promise.all([
+      const [html, notFound, preview, asset] = await Promise.all([
         readFile(join(productionDirectory, "index.html"), "utf8"),
         readFile(join(productionDirectory, "404.html"), "utf8"),
+        readFile(join(productionDirectory, "preview.html"), "utf8"),
         readFile(join(productionDirectory, first.analyticsPath?.slice(1) ?? "missing"), "utf8"),
       ])
       expect(html).toContain(`<script src="${first.analyticsPath}" type="module"></script>`)
       expect(notFound).not.toMatch(/analytics-|posthog|phc_test-token_value/i)
+      expect(preview).not.toMatch(/<script\b|analytics-|posthog|phc_test-token_value/iu)
       expect(asset).toContain("phc_test-token_value")
       expect(asset).toContain("https://us.i.posthog.com")
       expect(asset).toStartWith("/*! posthog-js 1.413.2")
@@ -671,6 +707,7 @@ describe("static Atet site", () => {
       "index.md",
       "llms.txt",
       "og.png",
+      "preview.html",
       "reading",
       "robots.txt",
       "sitemap.md",
@@ -760,6 +797,9 @@ describe("static Atet site", () => {
       "https://atet.sh/reading/painting-with-gaussians",
       "https://atet.sh/reading/painting-with-gaussians.md",
     ])
+    for (const discoveryDocument of [sitemap, builtLlms, builtHomeMarkdown, builtSitemapMarkdown]) {
+      expect(discoveryDocument).not.toContain("/preview")
+    }
     expect(sitemap).toContain("<lastmod>2026-08-26</lastmod>")
     expect(sitemap).toContain("<lastmod>2026-08-27</lastmod>")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
@@ -852,26 +892,76 @@ describe("static Atet site", () => {
     const vercel = JSON.parse(
       await readFile(join(appDirectory, "vercel.json"), "utf8"),
     ) as {
+      cleanUrls?: boolean
       headers?: Array<{ source?: string; headers?: Array<{ key?: string; value?: string }> }>
       rewrites?: Array<{
         source?: string
         destination?: string
         has?: Array<{ type?: string; key?: string; value?: string }>
       }>
+      trailingSlash?: boolean
     }
-    const global = vercel.headers?.find(entry => entry.source === "/(.*)")?.headers ?? []
+    const ordinary = vercel.headers
+      ?.find(entry => entry.source === "/((?!preview$).*)")?.headers ?? []
+    const preview = vercel.headers?.find(entry => entry.source === "/preview")?.headers ?? []
     const assets = vercel.headers?.find(entry => entry.source === "/assets/(.*)")?.headers ?? []
-    const byKey = new Map(global.map(header => [header.key, header.value]))
+    const byKey = new Map(ordinary.map(header => [header.key, header.value]))
+    const previewByKey = new Map(preview.map(header => [header.key, header.value]))
     const csp = byKey.get("Content-Security-Policy") ?? ""
+    const previewCsp = previewByKey.get("Content-Security-Policy") ?? ""
 
+    expect(vercel.headers?.find(entry => entry.source === "/(.*)")).toBeUndefined()
     expect(csp).toContain("connect-src https://us.i.posthog.com")
     expect(csp).toContain("font-src 'none'")
     expect(csp).toContain("form-action 'none'")
     expect(csp).toContain("frame-ancestors 'none'")
     expect(csp).toContain("object-src 'none'")
+    expect(byKey.get("X-Frame-Options")).toBe("DENY")
     expect(byKey.get("Referrer-Policy")).toBe("no-referrer")
     expect(byKey.get("Strict-Transport-Security")).toContain("includeSubDomains")
     expect(byKey.get("Vary")).toBe("Accept, Accept-Encoding")
+    expect(previewCsp).toBe(
+      "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'none'; "
+      + "form-action 'none'; frame-ancestors https://hraness.com https://www.hraness.com; "
+      + "img-src 'none'; object-src 'none'; script-src 'none'; style-src 'self'; "
+      + "upgrade-insecure-requests",
+    )
+    expect(previewByKey.get("X-Frame-Options")).toBeUndefined()
+    expect(previewByKey.get("X-Robots-Tag")).toBe(
+      "noindex, nofollow, noarchive, nosnippet",
+    )
+    expect(previewByKey.get("Link")).toBe('<https://atet.sh/>; rel="canonical"')
+    expect(vercel.cleanUrls).toBe(true)
+    expect(vercel.trailingSlash).toBe(false)
+    for (const key of [
+      "Permissions-Policy",
+      "Referrer-Policy",
+      "X-Content-Type-Options",
+      "Cross-Origin-Opener-Policy",
+      "Strict-Transport-Security",
+      "Vary",
+    ]) {
+      expect(previewByKey.get(key)).toBe(byKey.get(key))
+    }
+    expect(vercel.headers
+      ?.filter(entry => entry.headers?.some(header => (
+        header.key === "Content-Security-Policy"
+      )))
+      .map(entry => entry.source)).toEqual(["/((?!preview$).*)", "/preview"])
+    const ordinaryPathPattern = /^\/((?!preview$).*)$/u
+    expect(ordinaryPathPattern.test("/preview")).toBe(false)
+    for (const pathname of [
+      "/",
+      "/Preview",
+      "/preview.html",
+      "/preview/",
+      "/preview/child",
+      "/reading/feynobg",
+      "/assets/example.css",
+      "/missing",
+    ]) {
+      expect(ordinaryPathPattern.test(pathname)).toBe(true)
+    }
     expect(assets).toContainEqual({
       key: "Cache-Control",
       value: "public, max-age=31536000, immutable",
@@ -946,7 +1036,7 @@ describe("static Atet site", () => {
     ])
   })
 
-  test("renders the canonical Hraness network footer on every HTML page", async () => {
+  test("renders the canonical Hraness network footer on every ordinary HTML page", async () => {
     const documents = await Promise.all([
       readBuilt("index.html"),
       readBuilt("404.html"),
@@ -1001,6 +1091,9 @@ describe("static Atet site", () => {
     expect(isReadingGaussiansPath("/reading/missing")).toBe(false)
     expect(isPreservedRedirectPath("/docs")).toBe(true)
     expect(isPreservedRedirectPath("/docs/install")).toBe(true)
+    expect(isPreviewPath("/preview")).toBe(true)
+    expect(isPreviewPath("/preview.html")).toBe(true)
+    expect(isPreviewPath("/preview/child")).toBe(false)
     expect(isNegotiableDocumentPath("/missing-route")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/draw-faces-with-javascript")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/feynobg")).toBe(true)
@@ -1008,6 +1101,8 @@ describe("static Atet site", () => {
     expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
     expect(isNegotiableDocumentPath("/index.md")).toBe(false)
     expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
+    expect(isNegotiableDocumentPath("/preview")).toBe(false)
+    expect(isNegotiableDocumentPath("/preview.html")).toBe(false)
 
     const markdownHome = negotiateSiteRequest(new Request("https://atet.sh/", {
       headers: { Accept: "text/markdown" },
@@ -1089,6 +1184,14 @@ describe("static Atet site", () => {
       headers: { Accept: "application/xml" },
     }))
     expect(staticFile).toBeUndefined()
+
+    for (const accept of ["text/markdown", "application/xml"]) {
+      const preview = new Request("https://atet.sh/preview", {
+        headers: { Accept: accept },
+      })
+      expect(negotiateSiteRequest(preview)).toBeUndefined()
+      expect(middleware(preview)).toBeUndefined()
+    }
 
     const html = await readSource("index.html")
     const build = await readFile(join(appDirectory, "scripts/build.ts"), "utf8")
