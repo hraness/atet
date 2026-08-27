@@ -453,4 +453,6 @@ jobs:
           fi
           npm stage publish "$TARBALL" \
             --access public \
+            --ignore-scripts \
+            --provenance \
             --registry=https://registry.npmjs.org

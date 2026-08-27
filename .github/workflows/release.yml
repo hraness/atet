@@ -85,6 +85,7 @@ jobs:
           registry_directory="$RUNNER_TEMP/npm-registry"
           source_metadata="$source_directory/npm-pack.json"
           registry_metadata="$registry_directory/npm-pack.json"
+          registry_view="$registry_directory/npm-view.json"
           mkdir -p "$source_directory" "$registry_directory"
           npm pack --ignore-scripts --json \
             --pack-destination "$source_directory" \
@@ -95,53 +96,19 @@ jobs:
             --pack-destination "$registry_directory" \
             --registry=https://registry.npmjs.org \
             > "$registry_metadata"
+          npm view "$package_name@$package_version" name version dist --json \
+            --registry=https://registry.npmjs.org \
+            > "$registry_view"
           cat "$source_metadata"
           cat "$registry_metadata"
+          cat "$registry_view"
           source_archive="$source_directory/$archive_name"
           registry_archive="$registry_directory/$archive_name"
-          node -e '
-            const { createHash } = require("node:crypto");
-            const { readFileSync } = require("node:fs");
-            const [sourceMetadata, registryMetadata, sourceArchive, registryArchive, expectedName, expectedVersion, expectedFilename] = process.argv.slice(1);
-            const readResult = (path, label) => {
-              const value = JSON.parse(readFileSync(path, "utf8"));
-              if (!Array.isArray(value) || value.length !== 1 || typeof value[0] !== "object" || value[0] === null) {
-                console.error(`::error::${label} npm pack metadata must contain exactly one package`);
-                process.exit(1);
-              }
-              return value[0];
-            };
-            const source = readResult(sourceMetadata, "source");
-            const registry = readResult(registryMetadata, "registry");
-            for (const [label, value] of [["source", source], ["registry", registry]]) {
-              if (value.name !== expectedName || value.version !== expectedVersion || value.filename !== expectedFilename) {
-                console.error(`::error::${label} npm package identity differs from ${expectedName}@${expectedVersion}`);
-                process.exit(1);
-              }
-              const bytes = readFileSync(label === "source" ? sourceArchive : registryArchive);
-              const integrity = `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
-              const shasum = createHash("sha1").update(bytes).digest("hex");
-              if (value.size !== bytes.length || value.integrity !== integrity || value.shasum !== shasum) {
-                console.error(`::error::${label} npm metadata does not identify its exact archive bytes`);
-                process.exit(1);
-              }
-            }
-            for (const field of ["entryCount", "filename", "integrity", "name", "shasum", "size", "unpackedSize"]) {
-              if (source[field] !== registry[field]) {
-                console.error(`::error::published npm ${field} differs from the checked source artifact`);
-                process.exit(1);
-              }
-            }
-            const inventory = value => JSON.stringify(value.files.map(({ mode, path, size }) => ({ mode, path, size })));
-            if (!Array.isArray(source.files) || !Array.isArray(registry.files) || inventory(source) !== inventory(registry)) {
-              console.error("::error::published npm inventory differs from the checked source artifact");
-              process.exit(1);
-            }
-          ' "$source_metadata" "$registry_metadata" \
-            "$source_archive" "$registry_archive" \
+          bun run ./scripts/npm-package-identity.ts \
+            "$source_metadata" "$source_archive" \
+            "$registry_metadata" "$registry_archive" \
+            "$registry_view" \
             "$package_name" "$package_version" "$archive_name"
-          cmp --silent "$source_archive" "$registry_archive"
-          sha512sum "$source_archive" "$registry_archive"
           bun run ./scripts/package-smoke.ts \
             --archive "$registry_archive" \
             --pack-json "$registry_metadata"

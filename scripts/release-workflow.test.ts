@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test"
-import { access, readFile } from "node:fs/promises"
+import { createHash } from "node:crypto"
+import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises"
 import { join } from "node:path"
+import { tmpdir } from "node:os"
+import { gzipSync } from "node:zlib"
+
+import { verifyNpmPackageIdentity } from "./npm-package-identity"
 
 async function readWorkflow(
   sourceName: string,
@@ -92,12 +97,15 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).toContain("Verify exact public npm artifact")
   expect(workflow).toContain('npm pack "$package_name@$package_version"')
   expect(workflow).toContain("--registry=https://registry.npmjs.org")
-  expect(workflow).toContain('const { createHash } = require("node:crypto")')
-  expect(workflow).toContain('value.integrity !== integrity || value.shasum !== shasum')
-  expect(workflow).toContain('"entryCount", "filename", "integrity", "name", "shasum", "size", "unpackedSize"')
-  expect(workflow).toContain("published npm inventory differs from the checked source artifact")
-  expect(workflow).toContain('cmp --silent "$source_archive" "$registry_archive"')
-  expect(workflow).toContain("sha512sum \"$source_archive\" \"$registry_archive\"")
+  expect(workflow).toContain(
+    'npm view "$package_name@$package_version" name version dist --json',
+  )
+  expect(workflow).toContain("bun run ./scripts/npm-package-identity.ts")
+  expect(workflow).toContain('"$source_metadata" "$source_archive"')
+  expect(workflow).toContain('"$registry_metadata" "$registry_archive"')
+  expect(workflow).toContain('"$registry_view"')
+  expect(workflow).not.toContain('cmp --silent "$source_archive" "$registry_archive"')
+  expect(workflow).not.toContain('source[field] !== registry[field]')
   expect(workflow).toContain("bun run ./scripts/package-smoke.ts")
   expect(workflow).toContain('--archive "$registry_archive"')
   expect(workflow).toContain('--pack-json "$registry_metadata"')
@@ -128,6 +136,208 @@ test("version tags pass the complete immutable release gate", async () => {
   expect(workflow).not.toContain("--clobber")
   expect(workflow).not.toContain("/immutable-releases")
   expect(workflow).not.toContain("administration:")
+})
+
+interface PackageFixtureEntry {
+  readonly body: string
+  readonly mode: number
+  readonly path: string
+  readonly type?: "file" | "symbolic-link"
+}
+
+function writeTarOctal(
+  header: Buffer,
+  start: number,
+  length: number,
+  value: number,
+): void {
+  const digits = value.toString(8).padStart(length - 1, "0")
+  header.write(`${digits}\0`, start, length, "ascii")
+}
+
+function packageFixtureTar(
+  entries: readonly PackageFixtureEntry[],
+  transportVariant = false,
+): Buffer {
+  const blocks: Buffer[] = []
+  for (const entry of transportVariant ? entries.toReversed() : entries) {
+    const header = Buffer.alloc(512)
+    const path = `package/${entry.path}`
+    header.write(path, 0, 100, "utf8")
+    writeTarOctal(header, 100, 8, entry.mode)
+    writeTarOctal(header, 108, 8, transportVariant ? 501 : 0)
+    writeTarOctal(header, 116, 8, transportVariant ? 20 : 0)
+    const body = entry.type === "symbolic-link" ? Buffer.alloc(0) : Buffer.from(entry.body)
+    writeTarOctal(header, 124, 12, body.length)
+    writeTarOctal(header, 136, 12, transportVariant ? 1_800_000_000 : 0)
+    header.fill(32, 148, 156)
+    header[156] = entry.type === "symbolic-link" ? "2".charCodeAt(0) : "0".charCodeAt(0)
+    if (entry.type === "symbolic-link") header.write(entry.body, 157, 100, "utf8")
+    header.write("ustar\0", 257, 6, "ascii")
+    header.write("00", 263, 2, "ascii")
+    if (transportVariant) {
+      header.write("publisher", 265, 32, "utf8")
+      header.write("staff", 297, 32, "utf8")
+    }
+    const checksum = header.reduce((total, byte) => total + byte, 0)
+    header.write(checksum.toString(8).padStart(6, "0"), 148, 6, "ascii")
+    header[154] = 0
+    header[155] = 32
+    blocks.push(header, body)
+    const padding = (512 - (body.length % 512)) % 512
+    if (padding > 0) blocks.push(Buffer.alloc(padding))
+  }
+  blocks.push(Buffer.alloc(1024))
+  return Buffer.concat(blocks)
+}
+
+function npmPackFixture(
+  archive: Buffer,
+  entries: readonly PackageFixtureEntry[],
+  reverseFiles = false,
+): readonly Record<string, unknown>[] {
+  const files = entries.map(entry => ({
+    mode: entry.mode,
+    path: entry.path,
+    size: entry.type === "symbolic-link" ? 0 : Buffer.byteLength(entry.body),
+  }))
+  if (reverseFiles) files.reverse()
+  return [{
+    bundled: [],
+    entryCount: files.length,
+    filename: "hraness-atet-3.1.1.tgz",
+    files,
+    integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
+    name: "@hraness/atet",
+    shasum: createHash("sha1").update(archive).digest("hex"),
+    size: archive.length,
+    unpackedSize: files.reduce((total, file) => total + file.size, 0),
+    version: "3.1.1",
+  }]
+}
+
+async function writePackageIdentityFixture(
+  root: string,
+  sourceEntries: readonly PackageFixtureEntry[],
+  registryEntries: readonly PackageFixtureEntry[],
+  transportOnlyDifference: boolean,
+): Promise<Parameters<typeof verifyNpmPackageIdentity>[0]> {
+  const sourceArchive = gzipSync(packageFixtureTar(sourceEntries), { level: 9 })
+  const registryArchive = gzipSync(
+    packageFixtureTar(registryEntries, transportOnlyDifference),
+    { level: transportOnlyDifference ? 1 : 9 },
+  )
+  if (transportOnlyDifference) {
+    registryArchive[9] = registryArchive[9] === 3 ? 0 : 3
+  }
+  const sourcePack = npmPackFixture(sourceArchive, sourceEntries)
+  // npm's metadata order is transport output, not part of package identity.
+  const registryPack = npmPackFixture(registryArchive, registryEntries, true)
+  const registryResult = registryPack[0] ?? {}
+  const registryView = {
+    dist: {
+      fileCount: registryResult.entryCount,
+      integrity: registryResult.integrity,
+      shasum: registryResult.shasum,
+      tarball: "https://registry.npmjs.org/@hraness/atet/-/atet-3.1.1.tgz",
+      unpackedSize: registryResult.unpackedSize,
+    },
+    name: "@hraness/atet",
+    version: "3.1.1",
+  }
+  const paths = {
+    registryArchive: join(root, "registry", "hraness-atet-3.1.1.tgz"),
+    registryMetadata: join(root, "registry", "npm-pack.json"),
+    registryView: join(root, "registry", "npm-view.json"),
+    sourceArchive: join(root, "source", "hraness-atet-3.1.1.tgz"),
+    sourceMetadata: join(root, "source", "npm-pack.json"),
+  }
+  await Promise.all([
+    mkdir(join(root, "registry"), { recursive: true }),
+    mkdir(join(root, "source"), { recursive: true }),
+  ])
+  await Promise.all([
+    Bun.write(paths.sourceArchive, sourceArchive),
+    Bun.write(paths.sourceMetadata, JSON.stringify(sourcePack)),
+    Bun.write(paths.registryArchive, registryArchive),
+    Bun.write(paths.registryMetadata, JSON.stringify(registryPack)),
+    Bun.write(paths.registryView, JSON.stringify(registryView)),
+  ])
+  return {
+    expectedFilename: "hraness-atet-3.1.1.tgz",
+    expectedName: "@hraness/atet",
+    expectedVersion: "3.1.1",
+    ...paths,
+  }
+}
+
+test("npm release identity ignores transport metadata but binds contents, modes, and entry types", async () => {
+  const root = await mkdtemp(join(tmpdir(), "atet-npm-identity-"))
+  const ordinary = [
+    { body: "read me\n", mode: 0o644, path: "README.md" },
+    { body: '{"name":"@hraness/atet","version":"3.1.1"}\n', mode: 0o644, path: "package.json" },
+  ] as const
+  try {
+    const transportDifference = await writePackageIdentityFixture(
+      join(root, "transport"),
+      ordinary,
+      ordinary,
+      true,
+    )
+    expect(await readFile(transportDifference.sourceArchive)).not.toEqual(
+      await readFile(transportDifference.registryArchive),
+    )
+    await expect(verifyNpmPackageIdentity(transportDifference)).resolves.toBeUndefined()
+    const tamperedView = JSON.parse(
+      await readFile(transportDifference.registryView, "utf8"),
+    ) as { dist: { shasum: string } }
+    tamperedView.dist.shasum = "0".repeat(40)
+    await Bun.write(transportDifference.registryView, JSON.stringify(tamperedView))
+    await expect(verifyNpmPackageIdentity(transportDifference)).rejects.toThrow(
+      "Canonical npm registry dist metadata differs from the downloaded registry archive",
+    )
+
+    const changedContents = await writePackageIdentityFixture(
+      join(root, "contents"),
+      ordinary,
+      [
+        { body: "changed\n", mode: 0o644, path: "README.md" },
+        ordinary[1],
+      ],
+      false,
+    )
+    await expect(verifyNpmPackageIdentity(changedContents)).rejects.toThrow(
+      "Published npm package contents differ at package/README.md",
+    )
+
+    const changedMode = await writePackageIdentityFixture(
+      join(root, "mode"),
+      ordinary,
+      [
+        { ...ordinary[0], mode: 0o755 },
+        ordinary[1],
+      ],
+      false,
+    )
+    await expect(verifyNpmPackageIdentity(changedMode)).rejects.toThrow(
+      "Published npm metadata inventory differs from the checked source package",
+    )
+
+    const linked = await writePackageIdentityFixture(
+      join(root, "link"),
+      ordinary,
+      [
+        ...ordinary,
+        { body: "README.md", mode: 0o777, path: "linked-readme", type: "symbolic-link" },
+      ],
+      false,
+    )
+    await expect(verifyNpmPackageIdentity(linked)).rejects.toThrow(
+      "unsupported symbolic link entry package/linked-readme",
+    )
+  } finally {
+    await rm(root, { force: true, recursive: true })
+  }
 })
 
 test("the default-branch workflow stages one exact npm artifact through OIDC", async () => {
@@ -218,7 +428,10 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   expect(rehashIndex).toBeLessThan(stageIndex)
   expect(stageIndex).toBeGreaterThan(-1)
   expect(stageJob.slice(stageIndex)).toContain("--access public")
+  expect(stageJob.slice(stageIndex)).toContain("--ignore-scripts")
+  expect(stageJob.slice(stageIndex)).toContain("--provenance")
   expect(stageJob.slice(stageIndex)).toContain("--registry=https://registry.npmjs.org")
+  expect(stageJob.match(/--provenance/gu)).toHaveLength(1)
   expect(workflow.match(/--registry=https:\/\/registry\.npmjs\.org/gu)?.length).toBeGreaterThanOrEqual(5)
   expect(workflow).not.toContain("NPM_TOKEN")
   expect(workflow).not.toMatch(/npm publish(?:\s|$)/u)
@@ -274,6 +487,8 @@ test("version 3.1.1 publishes one Atet identity with npm install instructions", 
   expect(readme).toContain("[`DISCLOSURE`](DISCLOSURE)")
   expect(security).toContain("[`DISCLOSURE`](DISCLOSURE)")
   expect(publishing).toContain("npm stage publish <reviewed-tarball>")
+  expect(publishing).toContain("--ignore-scripts")
+  expect(publishing).toContain("--provenance")
   expect(publishing).toContain("allowed action: `npm stage publish` only")
   expect(publishing).toContain("Require two-factor authentication and")
   expect(publishing).toContain("disallow tokens")
@@ -281,6 +496,9 @@ test("version 3.1.1 publishes one Atet identity with npm install instructions", 
   expect(publishing).toContain("only job with OIDC authority")
   expect(publishing).toContain("checks out no source and runs no repository code")
   expect(publishing).toContain("npm-package.sha256")
+  expect(publishing).toContain("npm-package-identity.ts")
+  expect(publishing).toContain("different gzip or tar bytes")
+  expect(publishing).not.toContain("archives are byte-identical")
 
   for (const source of [readme, skillInstall, siteBuild, siteMarkdown, siteTemplate]) {
     expect(source).not.toContain("v3.1.0")

@@ -63,8 +63,8 @@ enabled. Do not create the matching Git tag yet.
    password, recovery code, session cookie, or token in Git, a workflow, a task
    file, or chat.
 
-5. Download the public registry artifact and compare it with the reviewed
-   source tarball.
+5. Download the public registry artifact and compare its canonical package
+   identity with the reviewed source tarball.
 
    ```sh
    atet_npm_registry="$(mktemp -d)"
@@ -73,23 +73,33 @@ enabled. Do not create the matching Git tag yet.
      --pack-destination "$atet_npm_registry" \
      --registry=https://registry.npmjs.org \
      > "$atet_npm_registry/npm-pack.json"
-   cmp "$atet_npm_artifact/hraness-atet-3.1.1.tgz" \
-     "$atet_npm_registry/hraness-atet-3.1.1.tgz"
+   npm view @hraness/atet@3.1.1 name version dist --json \
+     --registry=https://registry.npmjs.org \
+     > "$atet_npm_registry/npm-view.json"
+   bun run ./scripts/npm-package-identity.ts \
+     "$atet_npm_artifact/npm-pack.json" \
+     "$atet_npm_artifact/hraness-atet-3.1.1.tgz" \
+     "$atet_npm_registry/npm-pack.json" \
+     "$atet_npm_registry/hraness-atet-3.1.1.tgz" \
+     "$atet_npm_registry/npm-view.json" \
+     @hraness/atet 3.1.1 hraness-atet-3.1.1.tgz
    bun run ./scripts/package-smoke.ts \
      --archive "$atet_npm_registry/hraness-atet-3.1.1.tgz" \
      --pack-json "$atet_npm_registry/npm-pack.json"
-   npm view @hraness/atet@3.1.1 version dist.integrity dist.shasum \
-     --json --registry=https://registry.npmjs.org
    npm view @hraness/atet dist-tags.latest \
      --json --registry=https://registry.npmjs.org
    ```
 
-   Continue only when the archives are byte-identical, the metadata and smoke
-   pass, and `latest` names `3.1.1`.
+   npm can encode equivalent package contents into different gzip or tar bytes
+   on different operating systems. Continue only when the comparator proves
+   the complete safe path, entry type, mode, size, and file-hash identity;
+   each archive matches its own npm metadata; the downloaded archive matches
+   the canonical registry `dist` metadata; the package smoke passes; and
+   `latest` names `3.1.1`.
 
 6. Create and push `v3.1.1` on that same `main` commit. The tag workflow
-   repeats the canonical-registry byte, integrity, and package checks before it
-   creates the immutable GitHub Release.
+   repeats the canonical content-identity, registry integrity, and package
+   checks before it creates the immutable GitHub Release.
 
 ## Configure trusted publishing
 
@@ -112,6 +122,8 @@ The trusted workflow's only registry mutation is equivalent to:
 ```sh
 npm stage publish <reviewed-tarball> \
   --access public \
+  --ignore-scripts \
+  --provenance \
   --registry=https://registry.npmjs.org
 ```
 
