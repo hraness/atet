@@ -21,6 +21,7 @@ import {
   notFoundMarkdown,
   readingFacesMarkdown,
   readingFeynobgMarkdown,
+  readingGaussiansMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "./src/agent-pages"
@@ -31,6 +32,7 @@ import {
   isPreservedRedirectPath,
   isReadingFacesPath,
   isReadingFeynobgPath,
+  isReadingGaussiansPath,
   negotiateSiteRequest,
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
@@ -91,9 +93,9 @@ describe("static Atet site", () => {
 
     expect(searchableReadme).toContain(brandDescription.toLowerCase())
 
-    expect(readme).toContain("npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet")
-    expect(readme).toContain("bun add --global github:hraness/atet#v3.0.0")
-    expect(readme).toContain("bun add github:hraness/atet#v3.0.0")
+    expect(readme).toContain("npx skills add https://github.com/hraness/atet/tree/v3.0.1 --skill atet")
+    expect(readme).toContain("bun add --global github:hraness/atet#v3.0.1")
+    expect(readme).toContain("bun add github:hraness/atet#v3.0.1")
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
     expect(readme).toContain("atet ai video generate")
@@ -194,7 +196,7 @@ describe("static Atet site", () => {
         installUrl: "https://atet.sh/#install",
         publisher: { "@id": "https://hraness.com/#organization" },
         sameAs: ["https://github.com/hraness/atet"],
-        softwareVersion: "3.0.0",
+        softwareVersion: "3.0.1",
       }),
       expect.objectContaining({
         "@id": "https://atet.sh/#source",
@@ -202,7 +204,7 @@ describe("static Atet site", () => {
         author: { "@id": "https://hraness.com/#organization" },
         codeRepository: "https://github.com/hraness/atet",
         targetProduct: { "@id": "https://atet.sh/#software" },
-        version: "3.0.0",
+        version: "3.0.1",
       }),
     ]))
   })
@@ -211,8 +213,8 @@ describe("static Atet site", () => {
     const html = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
     const commands = [
-      "npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet",
-      "bun add --global github:hraness/atet#v3.0.0",
+      "npx skills add https://github.com/hraness/atet/tree/v3.0.1 --skill atet",
+      "bun add --global github:hraness/atet#v3.0.1",
       "atet doctor",
     ]
     const positions = commands.map(command => html.indexOf(command))
@@ -228,7 +230,7 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("export finished videos")
     expect(html).toContain("Install the Atet Agent Skill")
     expect(html).toContain("Install the local media tools · Requires Bun 1.3.14+")
-    expect(html).toContain("Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet</code>")
+    expect(html).toContain("Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v3.0.1 --skill atet</code>")
     expect(html).toContain("inside the project you want to work")
     expect(html).toContain("start a new agent session")
     expect(heroHtml).not.toContain("atet skill install")
@@ -236,7 +238,7 @@ describe("static Atet site", () => {
     expect(html).toContain("atet skill install --target claude")
     expect(html).toContain("atet skill install --target agents")
     expect(html).toContain("--scope project")
-    expect(html).toContain("github:hraness/atet#v3.0.0")
+    expect(html).toContain("github:hraness/atet#v3.0.1")
   })
 
   test("renders a progressively enhanced reusable copy command in the hero", async () => {
@@ -248,8 +250,8 @@ describe("static Atet site", () => {
 
     expect(build).toContain("function renderCopyCommand(options: CopyCommandOptions)")
     expect(html.match(/data-copy-command(?:>|\s)/gu)).toHaveLength(1)
-    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet</code>')
-    expect(html).toContain("<code>bunx skills add https://github.com/hraness/atet/tree/v3.0.0 --skill atet</code>")
+    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add https://github.com/hraness/atet/tree/v3.0.1 --skill atet</code>')
+    expect(html).toContain("<code>bunx skills add https://github.com/hraness/atet/tree/v3.0.1 --skill atet</code>")
     expect(html).toContain('aria-label="Copy install command"')
     expect(html).toContain("data-copy-command-button hidden type=\"button\">Copy</button>")
     expect(html).toContain('aria-live="polite"')
@@ -358,14 +360,15 @@ describe("static Atet site", () => {
   })
 
   test("owns one shared appearance menu as the final action in every header", async () => {
-    const [html, notFound, reading, readingFeynobg] = await Promise.all([
+    const [html, notFound, reading, readingFeynobg, readingGaussians] = await Promise.all([
       readBuilt("index.html"),
       readBuilt("404.html"),
       readBuilt("reading/draw-faces-with-javascript.html"),
       readBuilt("reading/feynobg.html"),
+      readBuilt("reading/painting-with-gaussians.html"),
     ])
 
-    for (const document of [html, notFound, reading, readingFeynobg]) {
+    for (const document of [html, notFound, reading, readingFeynobg, readingGaussians]) {
       expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
       expect(document).toMatch(
         /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
@@ -505,6 +508,10 @@ describe("static Atet site", () => {
     expect(isCanonicalAnalyticsPage({
       origin: "https://atet.sh",
       pathname: "/reading/feynobg",
+    })).toBe(false)
+    expect(isCanonicalAnalyticsPage({
+      origin: "https://atet.sh",
+      pathname: "/reading/painting-with-gaussians",
     })).toBe(false)
 
     const timestamp = new Date("2026-08-19T12:00:00.000Z")
@@ -698,6 +705,7 @@ describe("static Atet site", () => {
       builtSitemapMarkdown,
       builtReadingMarkdown,
       builtFeynobgMarkdown,
+      builtGaussiansMarkdown,
     ] = await Promise.all([
       Promise.resolve(robotsTxt),
       readSource("sitemap.xml"),
@@ -708,6 +716,7 @@ describe("static Atet site", () => {
       readBuilt("sitemap.md"),
       readBuilt("reading/draw-faces-with-javascript.md"),
       readBuilt("reading/feynobg.md"),
+      readBuilt("reading/painting-with-gaussians.md"),
     ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
       .map(match => match[1])
@@ -748,14 +757,18 @@ describe("static Atet site", () => {
       "https://atet.sh/reading/draw-faces-with-javascript.md",
       "https://atet.sh/reading/feynobg",
       "https://atet.sh/reading/feynobg.md",
+      "https://atet.sh/reading/painting-with-gaussians",
+      "https://atet.sh/reading/painting-with-gaussians.md",
     ])
     expect(sitemap).toContain("<lastmod>2026-08-26</lastmod>")
+    expect(sitemap).toContain("<lastmod>2026-08-27</lastmod>")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
     expect(builtLlms).toBe(llmsTxt)
     expect(builtHomeMarkdown).toBe(homeMarkdown)
     expect(builtSitemapMarkdown).toBe(sitemapMarkdown)
     expect(builtReadingMarkdown).toBe(readingFacesMarkdown)
     expect(builtFeynobgMarkdown).toBe(readingFeynobgMarkdown)
+    expect(builtGaussiansMarkdown).toBe(readingGaussiansMarkdown)
     expect(llmsTxt).toMatch(/^# Atet\n/u)
     expect(llmsTxt).toContain("> Atet gives coding agents tools")
     expect(llmsTxt).toContain("## When to use Atet")
@@ -764,12 +777,15 @@ describe("static Atet site", () => {
     expect(sitemapMarkdown).toContain("https://atet.sh/index.md")
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/feynobg.md")
+    expect(sitemapMarkdown).toContain("https://atet.sh/reading/painting-with-gaussians.md")
     expect(homeMarkdown).toContain("## Sitemap")
     expect(homeMarkdown).toContain("https://atet.sh/sitemap.md")
     expect(homeMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
     expect(homeMarkdown).toContain("https://atet.sh/reading/feynobg.md")
+    expect(homeMarkdown).toContain("https://atet.sh/reading/painting-with-gaussians.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/feynobg.md")
+    expect(llmsTxt).toContain("https://atet.sh/reading/painting-with-gaussians.md")
     expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
     expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
   })
@@ -867,6 +883,8 @@ describe("static Atet site", () => {
     const readingMarkdown = vercel.headers?.find(entry => entry.source === "/reading/draw-faces-with-javascript.md")?.headers ?? []
     const readingFeynobg = vercel.headers?.find(entry => entry.source === "/reading/feynobg")?.headers ?? []
     const readingFeynobgMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/feynobg.md")?.headers ?? []
+    const readingGaussians = vercel.headers?.find(entry => entry.source === "/reading/painting-with-gaussians")?.headers ?? []
+    const readingGaussiansMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/painting-with-gaussians.md")?.headers ?? []
     const llms = vercel.headers?.find(entry => entry.source === "/llms.txt")?.headers ?? []
     expect(home).toContainEqual({
       key: "Link",
@@ -892,6 +910,14 @@ describe("static Atet site", () => {
       key: "Content-Type",
       value: "text/markdown; charset=utf-8",
     })
+    expect(readingGaussians).toContainEqual({
+      key: "Link",
+      value: '</reading/painting-with-gaussians.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(readingGaussiansMarkdownHeader).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
     expect(llms).toContainEqual({
       key: "Content-Type",
       value: "text/plain; charset=utf-8",
@@ -912,6 +938,11 @@ describe("static Atet site", () => {
         has: [{ type: "header", key: "accept", value: "^text/markdown" }],
         destination: "/reading/feynobg.md",
       },
+      {
+        source: "/reading/painting-with-gaussians",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/reading/painting-with-gaussians.md",
+      },
     ])
   })
 
@@ -921,6 +952,7 @@ describe("static Atet site", () => {
       readBuilt("404.html"),
       readBuilt("reading/draw-faces-with-javascript.html"),
       readBuilt("reading/feynobg.html"),
+      readBuilt("reading/painting-with-gaussians.html"),
     ])
     const expectedHrefs = [
       HRANESS_HOME_URL,
@@ -964,11 +996,15 @@ describe("static Atet site", () => {
     expect(isReadingFeynobgPath("/reading/feynobg")).toBe(true)
     expect(isReadingFeynobgPath("/reading/feynobg.html")).toBe(true)
     expect(isReadingFeynobgPath("/reading/missing")).toBe(false)
+    expect(isReadingGaussiansPath("/reading/painting-with-gaussians")).toBe(true)
+    expect(isReadingGaussiansPath("/reading/painting-with-gaussians.html")).toBe(true)
+    expect(isReadingGaussiansPath("/reading/missing")).toBe(false)
     expect(isPreservedRedirectPath("/docs")).toBe(true)
     expect(isPreservedRedirectPath("/docs/install")).toBe(true)
     expect(isNegotiableDocumentPath("/missing-route")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/draw-faces-with-javascript")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/feynobg")).toBe(true)
+    expect(isNegotiableDocumentPath("/reading/painting-with-gaussians")).toBe(true)
     expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
     expect(isNegotiableDocumentPath("/index.md")).toBe(false)
     expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
@@ -1013,6 +1049,19 @@ describe("static Atet site", () => {
       headers: { Accept: "text/html" },
     }))
     expect(htmlFeynobg).toBeUndefined()
+
+    const markdownGaussians = negotiateSiteRequest(new Request("https://atet.sh/reading/painting-with-gaussians", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownGaussians?.status).toBe(200)
+    expect(markdownGaussians?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownGaussians?.headers.get("link")).toContain('rel="canonical"')
+    expect(await markdownGaussians?.text()).toBe(readingGaussiansMarkdown)
+
+    const htmlGaussians = negotiateSiteRequest(new Request("https://atet.sh/reading/painting-with-gaussians", {
+      headers: { Accept: "text/html" },
+    }))
+    expect(htmlGaussians).toBeUndefined()
 
     const docsRedirect = negotiateSiteRequest(new Request("https://atet.sh/docs", {
       headers: { Accept: "text/markdown" },
@@ -1092,6 +1141,8 @@ describe("static Atet site", () => {
       "draw-faces-with-javascript.md",
       "feynobg.html",
       "feynobg.md",
+      "painting-with-gaussians.html",
+      "painting-with-gaussians.md",
     ])
     expect(home).toContain('href="/reading/draw-faces-with-javascript"')
     expect(homeMarkdown).toContain("Keep the source small enough to vary")
@@ -1114,6 +1165,7 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
     expect(html).toContain('href="https://atet.sh/"')
     expect(html).toContain('href="/reading/draw-faces-with-javascript"')
+    expect(html).toContain('href="/reading/painting-with-gaussians"')
     expect(html).toContain('href="https://hraness.com"')
     expect(html).toContain('href="https://hraness.com/reading/feynobg-a-sota-model-for-background-removal"')
     expect(html).toContain('href="https://usefeyn.com/blog/feynobg/"')
@@ -1131,10 +1183,66 @@ describe("static Atet site", () => {
     expect(builtMarkdown).toBe(readingFeynobgMarkdown)
     expect(readingFeynobgMarkdown).toContain("https://atet.sh/")
     expect(readingFeynobgMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript")
+    expect(readingFeynobgMarkdown).toContain("https://atet.sh/reading/painting-with-gaussians")
     expect(readingFeynobgMarkdown).toContain("https://hraness.com")
     expect(readingFeynobgMarkdown).toContain("https://hraness.com/reading/feynobg-a-sota-model-for-background-removal")
     expect(readingFeynobgMarkdown).toContain("https://usefeyn.com/blog/feynobg/")
     expect(home).toContain('href="/reading/feynobg"')
     expect(homeMarkdown).toContain("Keep the cutout from replacing the source")
+  })
+
+  test("publishes one original reading take on Sotnikov’s painterly Gaussian renderer", async () => {
+    const [html, builtHtml, builtMarkdown] = await Promise.all([
+      readFile(join(appDirectory, "src/reading/painting-with-gaussians.html"), "utf8"),
+      readBuilt("reading/painting-with-gaussians.html"),
+      readBuilt("reading/painting-with-gaussians.md"),
+    ])
+    const home = await readSource("index.html")
+    const searchableHtml = html.replace(/\s+/gu, " ")
+
+    expect(html.match(/<h1\b/gu)).toHaveLength(1)
+    expect(html).toContain("<h1 id=\"page-title\">Keep the stroke decision in the renderer</h1>")
+    expect(html).not.toContain("Keep the source small enough to vary</h1>")
+    expect(html).not.toContain("Keep the cutout from replacing the source</h1>")
+    expect(html).toContain('<link rel="canonical" href="https://atet.sh/reading/painting-with-gaussians">')
+    expect(html).toContain('<link rel="alternate" type="text/markdown" href="/reading/painting-with-gaussians.md">')
+    expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
+    expect(html).toContain('href="https://atet.sh/"')
+    expect(html).toContain('href="/reading/draw-faces-with-javascript"')
+    expect(html).toContain('href="/reading/feynobg"')
+    expect(html).toContain('href="https://hraness.com"')
+    expect(html).toContain('href="https://hraness.com/reading/painting-with-gaussians"')
+    expect(html).toContain('href="https://yogthos.net/posts/2026-08-03-splat-painter.html"')
+    expect(searchableHtml).toContain("Atet does not ship a Gaussian painter or a splat-painter command")
+    expect(searchableHtml).toContain("There is no Atet account or hosted project database")
+    expect(searchableHtml).toContain("classical image analysis")
+    expect(searchableHtml).toContain("An agent can propose marks")
+    expect(searchableHtml).toContain("randomly seeded splats optimized against a target")
+    expect(searchableHtml).toContain("contour and texture measurements")
+    for (const quotedExcerpt of [
+      "slow and opaque",
+      "ends up being simply a lossy reconstruction",
+      "analyzing edges and textures of an image",
+    ]) {
+      expect(searchableHtml).not.toContain(quotedExcerpt)
+      expect(readingGaussiansMarkdown).not.toContain(quotedExcerpt)
+    }
+    expect(searchableHtml).not.toContain("Treat recognition and boundary precision as coupled skills")
+    expect(searchableHtml).not.toContain("You can just draw faces with javascript")
+    expect(searchableHtml).not.toContain("Add capacity without discarding prior learning")
+    expect(html).not.toMatch(/Zo\b|stripedex\.com|spongeresearch\.com/i)
+    expect(html).not.toContain("{{ANALYTICS_SCRIPT}}")
+    expect(html).not.toContain("data-copy-command")
+    expect(builtHtml).not.toContain("{{")
+    expect(builtHtml).not.toMatch(/analytics-|posthog|phc_/i)
+    expect(builtMarkdown).toBe(readingGaussiansMarkdown)
+    expect(readingGaussiansMarkdown).toContain("https://atet.sh/")
+    expect(readingGaussiansMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript")
+    expect(readingGaussiansMarkdown).toContain("https://atet.sh/reading/feynobg")
+    expect(readingGaussiansMarkdown).toContain("https://hraness.com")
+    expect(readingGaussiansMarkdown).toContain("https://hraness.com/reading/painting-with-gaussians")
+    expect(readingGaussiansMarkdown).toContain("https://yogthos.net/posts/2026-08-03-splat-painter.html")
+    expect(home).toContain('href="/reading/painting-with-gaussians"')
+    expect(homeMarkdown).toContain("Keep the stroke decision in the renderer")
   })
 })

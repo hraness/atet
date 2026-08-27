@@ -114,6 +114,7 @@ function textShape(options: {
   readonly align: "start" | "middle" | "end"
   readonly index: number
   readonly opacity?: number
+  readonly scale?: number
 }): TldrawRecord {
   return {
     x: options.x,
@@ -131,7 +132,7 @@ function textShape(options: {
       font: "sans",
       textAlign: options.align,
       autoSize: false,
-      scale: 1,
+      scale: options.scale ?? 1,
       richText: richText(options.text),
     },
     parentId: "page:page",
@@ -150,6 +151,21 @@ function tldrawSize(fontSize: number | undefined): "s" | "m" | "l" | "xl" {
   if (fontSize === undefined || fontSize < 20) return "m"
   if (fontSize < 28) return "l"
   return "xl"
+}
+
+const tldrawTextFontSizes = {
+  s: 18,
+  m: 24,
+  l: 36,
+  xl: 44,
+} as const
+
+function scaledTldrawSize(fontSize: number): {
+  readonly size: keyof typeof tldrawTextFontSizes
+  readonly scale: number
+} {
+  const size = fontSize < 21 ? "s" : fontSize < 30 ? "m" : fontSize < 40 ? "l" : "xl"
+  return { size, scale: fontSize / tldrawTextFontSizes[size] }
 }
 
 export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string {
@@ -178,6 +194,8 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
     if (shape.type === "rect" || shape.type === "ellipse") {
       const box = shape as BoxShape
       const hasIcon = box.icon !== undefined
+      const hasSeparateLabel =
+        box.label !== undefined && (hasIcon || box.labelFontSize !== undefined)
       records.push({
         ...baseShape(box, generatedIndex),
         type: "geo",
@@ -196,7 +214,7 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
           font: "sans",
           align: "middle",
           verticalAlign: "middle",
-          richText: richText(hasIcon ? "" : (box.label ?? "")),
+          richText: richText(hasSeparateLabel ? "" : (box.label ?? "")),
         },
       })
       if (box.icon !== undefined) {
@@ -246,24 +264,32 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
           index: indexKey(generatedIndex),
           typeName: "shape",
         })
-        if (box.label !== undefined) {
-          generatedIndex += 1
-          records.push(
-            textShape({
-              id: `${box.id}-label`,
-              sourceId: box.id,
-              x: box.x + 16,
-              y: box.y + box.height * 0.68,
-              width: box.width - 32,
-              text: box.label,
-              tone: box.tone ?? "neutral",
-              size: "l",
-              align: "middle",
-              index: generatedIndex,
-              ...(box.opacity === undefined ? {} : { opacity: box.opacity }),
-            }),
-          )
-        }
+      }
+      if (hasSeparateLabel && box.label !== undefined) {
+        const textStyle =
+          box.labelFontSize === undefined
+            ? { size: "l" as const, scale: 1 }
+            : scaledTldrawSize(box.labelFontSize)
+        generatedIndex += 1
+        records.push(
+          textShape({
+            id: `${box.id}-label`,
+            sourceId: box.id,
+            x: box.x + 16,
+            y:
+              hasIcon
+                ? box.y + box.height * 0.68
+                : box.y + box.height / 2 - (box.labelFontSize ?? 22) * 0.55,
+            width: (box.width - 32) / textStyle.scale,
+            text: box.label,
+            tone: box.tone ?? "neutral",
+            size: textStyle.size,
+            align: "middle",
+            index: generatedIndex,
+            scale: textStyle.scale,
+            ...(box.opacity === undefined ? {} : { opacity: box.opacity }),
+          }),
+        )
       }
       continue
     }

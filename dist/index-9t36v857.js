@@ -225,9 +225,9 @@ function boxSvg(shape, theme, family, icons) {
   const labelMarkup = shape.label === undefined ? "" : textSvg({
     text: shape.label,
     x: shape.x + 16,
-    y: icon === undefined ? shape.y + shape.height / 2 - 12 : shape.y + shape.height * 0.68,
+    y: icon === undefined ? shape.y + shape.height / 2 - (shape.labelFontSize === undefined ? 12 : shape.labelFontSize * 0.55) : shape.y + shape.height * 0.68,
     width: shape.width - 32,
-    fontSize: 22,
+    fontSize: shape.labelFontSize ?? 22,
     weight: 600,
     align: "middle",
     color: tone.text,
@@ -782,6 +782,7 @@ function parseShape(value, index, issues) {
       "height",
       "radius",
       "label",
+      "labelFontSize",
       "icon",
       "iconSize",
       "strokeWidth",
@@ -801,6 +802,7 @@ function parseShape(value, index, issues) {
       height,
       ...readOptionalNumber(value, "radius", at, issues, { nonNegative: true }) === undefined ? {} : { radius: value.radius },
       ...readOptionalString(value, "label", at, issues) === undefined ? {} : { label: value.label },
+      ...readOptionalNumber(value, "labelFontSize", at, issues, { positive: true }) === undefined ? {} : { labelFontSize: value.labelFontSize },
       ...readOptionalString(value, "icon", at, issues) === undefined ? {} : { icon: value.icon },
       ...readOptionalNumber(value, "iconSize", at, issues, { positive: true }) === undefined ? {} : { iconSize: value.iconSize },
       ...readOptionalNumber(value, "strokeWidth", at, issues, { nonNegative: true }) === undefined ? {} : { strokeWidth: value.strokeWidth },
@@ -874,6 +876,7 @@ function parseStackShape(value, index, issues) {
     "height",
     "radius",
     "label",
+    "labelFontSize",
     "icon",
     "iconSize",
     "strokeWidth",
@@ -895,6 +898,9 @@ function parseStackShape(value, index, issues) {
     issues.push(`${at}.opacity must not exceed 1`);
   const radius = readOptionalNumber(value, "radius", at, issues, { nonNegative: true });
   const label = readOptionalString(value, "label", at, issues);
+  const labelFontSize = readOptionalNumber(value, "labelFontSize", at, issues, {
+    positive: true
+  });
   const icon = readOptionalString(value, "icon", at, issues);
   const iconSize = readOptionalNumber(value, "iconSize", at, issues, { positive: true });
   const strokeWidth = readOptionalNumber(value, "strokeWidth", at, issues, {
@@ -915,6 +921,7 @@ function parseStackShape(value, index, issues) {
     ...opacity === undefined ? {} : { opacity },
     ...radius === undefined ? {} : { radius },
     ...label === undefined ? {} : { label },
+    ...labelFontSize === undefined ? {} : { labelFontSize },
     ...icon === undefined ? {} : { icon },
     ...iconSize === undefined ? {} : { iconSize },
     ...strokeWidth === undefined ? {} : { strokeWidth },
@@ -1241,7 +1248,7 @@ function textShape(options) {
       font: "sans",
       textAlign: options.align,
       autoSize: false,
-      scale: 1,
+      scale: options.scale ?? 1,
       richText: richText(options.text)
     },
     parentId: "page:page",
@@ -1260,6 +1267,16 @@ function tldrawSize(fontSize) {
   if (fontSize < 28)
     return "l";
   return "xl";
+}
+var tldrawTextFontSizes = {
+  s: 18,
+  m: 24,
+  l: 36,
+  xl: 44
+};
+function scaledTldrawSize(fontSize) {
+  const size = fontSize < 21 ? "s" : fontSize < 30 ? "m" : fontSize < 40 ? "l" : "xl";
+  return { size, scale: fontSize / tldrawTextFontSizes[size] };
 }
 function serializeTldr(spec, config) {
   const records = [
@@ -1286,6 +1303,7 @@ function serializeTldr(spec, config) {
     if (shape.type === "rect" || shape.type === "ellipse") {
       const box = shape;
       const hasIcon = box.icon !== undefined;
+      const hasSeparateLabel = box.label !== undefined && (hasIcon || box.labelFontSize !== undefined);
       records.push({
         ...baseShape(box, generatedIndex),
         type: "geo",
@@ -1304,7 +1322,7 @@ function serializeTldr(spec, config) {
           font: "sans",
           align: "middle",
           verticalAlign: "middle",
-          richText: richText(hasIcon ? "" : box.label ?? "")
+          richText: richText(hasSeparateLabel ? "" : box.label ?? "")
         }
       });
       if (box.icon !== undefined) {
@@ -1352,22 +1370,24 @@ function serializeTldr(spec, config) {
           index: indexKey(generatedIndex),
           typeName: "shape"
         });
-        if (box.label !== undefined) {
-          generatedIndex += 1;
-          records.push(textShape({
-            id: `${box.id}-label`,
-            sourceId: box.id,
-            x: box.x + 16,
-            y: box.y + box.height * 0.68,
-            width: box.width - 32,
-            text: box.label,
-            tone: box.tone ?? "neutral",
-            size: "l",
-            align: "middle",
-            index: generatedIndex,
-            ...box.opacity === undefined ? {} : { opacity: box.opacity }
-          }));
-        }
+      }
+      if (hasSeparateLabel && box.label !== undefined) {
+        const textStyle = box.labelFontSize === undefined ? { size: "l", scale: 1 } : scaledTldrawSize(box.labelFontSize);
+        generatedIndex += 1;
+        records.push(textShape({
+          id: `${box.id}-label`,
+          sourceId: box.id,
+          x: box.x + 16,
+          y: hasIcon ? box.y + box.height * 0.68 : box.y + box.height / 2 - (box.labelFontSize ?? 22) * 0.55,
+          width: (box.width - 32) / textStyle.scale,
+          text: box.label,
+          tone: box.tone ?? "neutral",
+          size: textStyle.size,
+          align: "middle",
+          index: generatedIndex,
+          scale: textStyle.scale,
+          ...box.opacity === undefined ? {} : { opacity: box.opacity }
+        }));
       }
       continue;
     }

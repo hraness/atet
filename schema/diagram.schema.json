@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/hraness/atet/v3.0.0/schema/diagram.schema.json",
+  "$id": "https://raw.githubusercontent.com/hraness/atet/v3.0.1/schema/diagram.schema.json",
   "title": "Diagram source",
   "description": "A positioned diagram or a coordinate-free stack diagram. Both source forms resolve to the positioned DiagramSpec used by renderers.",
   "oneOf": [
@@ -32,6 +32,11 @@
         "height": { "type": "number", "exclusiveMinimum": 0 },
         "radius": { "type": "number", "minimum": 0 },
         "label": { "type": "string" },
+        "labelFontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Font size in pixels for this box's label."
+        },
         "icon": { "type": "string" },
         "iconSize": { "type": "number", "exclusiveMinimum": 0 },
         "strokeWidth": { "type": "number", "minimum": 0 },
@@ -53,6 +58,7 @@
         "height": { "$ref": "#/$defs/baseBoxProperties/properties/height" },
         "radius": { "$ref": "#/$defs/baseBoxProperties/properties/radius" },
         "label": { "$ref": "#/$defs/baseBoxProperties/properties/label" },
+        "labelFontSize": { "$ref": "#/$defs/baseBoxProperties/properties/labelFontSize" },
         "icon": { "$ref": "#/$defs/baseBoxProperties/properties/icon" },
         "iconSize": { "$ref": "#/$defs/baseBoxProperties/properties/iconSize" },
         "strokeWidth": { "$ref": "#/$defs/baseBoxProperties/properties/strokeWidth" },
@@ -72,6 +78,7 @@
         "height": { "$ref": "#/$defs/baseBoxProperties/properties/height" },
         "radius": { "$ref": "#/$defs/baseBoxProperties/properties/radius" },
         "label": { "$ref": "#/$defs/baseBoxProperties/properties/label" },
+        "labelFontSize": { "$ref": "#/$defs/baseBoxProperties/properties/labelFontSize" },
         "icon": { "$ref": "#/$defs/baseBoxProperties/properties/icon" },
         "iconSize": { "$ref": "#/$defs/baseBoxProperties/properties/iconSize" },
         "strokeWidth": { "$ref": "#/$defs/baseBoxProperties/properties/strokeWidth" },

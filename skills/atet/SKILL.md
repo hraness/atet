@@ -96,6 +96,9 @@ Apply these defaults deeply:
 - Keep icons supportive: a label must still carry the meaning.
 - Prefer one visible boundary per object and one visible stroke per axis or
   connector.
+- Set `labelFontSize` on an individual rectangle or ellipse when its label
+  needs a different pixel size. Omit it to retain the existing box-label
+  treatment.
 
 Do not “improve” literal data to satisfy these preferences. The prompt wins.
 

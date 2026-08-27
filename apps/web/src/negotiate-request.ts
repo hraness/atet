@@ -3,6 +3,7 @@ import {
   notFoundMarkdown,
   readingFacesMarkdown,
   readingFeynobgMarkdown,
+  readingGaussiansMarkdown,
 } from "./agent-pages"
 import {
   markdownMediaType,
@@ -29,6 +30,11 @@ export function isReadingFeynobgPath(pathname: string): boolean {
     || pathname === "/reading/feynobg.html"
 }
 
+export function isReadingGaussiansPath(pathname: string): boolean {
+  return pathname === "/reading/painting-with-gaussians"
+    || pathname === "/reading/painting-with-gaussians.html"
+}
+
 export function isPreservedRedirectPath(pathname: string): boolean {
   return pathname === "/docs" || pathname.startsWith("/docs/")
 }
@@ -38,6 +44,7 @@ export function isNegotiableDocumentPath(pathname: string): boolean {
     isHomePath(pathname)
     || isReadingFacesPath(pathname)
     || isReadingFeynobgPath(pathname)
+    || isReadingGaussiansPath(pathname)
     || isPreservedRedirectPath(pathname)
   ) {
     return true
@@ -58,6 +65,10 @@ function canonicalReadingFacesUrl(request: Request): string {
 
 function canonicalReadingFeynobgUrl(request: Request): string {
   return new URL("/reading/feynobg", request.url).href
+}
+
+function canonicalReadingGaussiansUrl(request: Request): string {
+  return new URL("/reading/painting-with-gaussians", request.url).href
 }
 
 export function negotiateSiteRequest(request: Request): Response | undefined {
@@ -97,6 +108,17 @@ export function negotiateSiteRequest(request: Request): Response | undefined {
         headers: {
           "Content-Type": markdownContentType,
           "Link": `<${canonicalReadingFeynobgUrl(request)}>; rel="canonical", </reading/feynobg.md>; rel="alternate"; type="text/markdown"`,
+          "Vary": varyAcceptAndEncoding,
+        },
+        status: 200,
+      })
+    }
+
+    if (isReadingGaussiansPath(pathname)) {
+      return new Response(readingGaussiansMarkdown, {
+        headers: {
+          "Content-Type": markdownContentType,
+          "Link": `<${canonicalReadingGaussiansUrl(request)}>; rel="canonical", </reading/painting-with-gaussians.md>; rel="alternate"; type="text/markdown"`,
           "Vary": varyAcceptAndEncoding,
         },
         status: 200,
