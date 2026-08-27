@@ -136,6 +136,7 @@ class GatedGatewayInspectionRunner implements ProcessRunner {
   )[] = [];
   readonly validationCapabilityInheritedFileDescriptors: (readonly number[])[] = [];
   readonly validationInheritedFileDescriptors: (readonly number[])[] = [];
+  readonly delegatedArgv: (readonly string[])[] = [];
   #inspection = 0;
 
   constructor(
@@ -189,10 +190,18 @@ class GatedGatewayInspectionRunner implements ProcessRunner {
       );
       return { exitCode: 0, stderr: "", stdout: `${argv[0]} test-version\n` };
     }
+    if (argv.includes("--version") || argv.includes("--help")) {
+      return {
+        exitCode: 127,
+        stderr: `test capability unavailable: ${argv[0]}`,
+        stdout: "",
+      };
+    }
     if (argv[0] === "ffmpeg") {
       return { exitCode: 0, stderr: "", stdout: "" };
     }
     if (this.#delegate !== undefined) {
+      this.delegatedArgv.push(argv);
       return await this.#delegate.run(argv, options);
     }
     return { exitCode: 127, stderr: `unexpected command: ${argv[0]}`, stdout: "" };
@@ -1050,6 +1059,9 @@ describe("Gateway CLI commands", () => {
       expect(asRecord(parseJsonRecord(completed.stdout).summary).status)
         .toBe("completed");
       expect(coordinator.activeClaims()).toEqual([]);
+      expect(runner.delegatedArgv.every(argv => (
+        !argv.includes("--version") && !argv.includes("--help")
+      ))).toBe(true);
       const localEvents = coordinator.events.filter(event => (
         event.claims.some(claim => claim.resource === "ffmpeg")
       ));

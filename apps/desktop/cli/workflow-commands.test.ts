@@ -47,18 +47,24 @@ class WorkflowTestRunner implements ProcessRunner {
     argv: readonly [string, ...string[]],
     options?: Parameters<ProcessRunner["run"]>[1],
   ) {
-    if (
-      argv[0]
-      === "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    ) {
+    if (argv.includes("--version") || argv.includes("--help")) {
       return Promise.resolve({
-        exitCode: 1,
-        stderr: "HTML browser is intentionally unavailable in this fixture.",
+        exitCode: 127,
+        stderr: `Host capability is intentionally unavailable in this fixture: ${argv[0]}`,
         stdout: "",
       });
     }
     return this.#delegate.run(argv, options);
   }
+}
+
+function createWorkflowTestCliRunner(invocation: number) {
+  const runCli = createCliTestRunner(import.meta.url, invocation);
+  const runner = new WorkflowTestRunner();
+  return async (
+    argv: Parameters<typeof runCli>[0],
+    dependencies: NonNullable<Parameters<typeof runCli>[1]> = {},
+  ) => await runCli(argv, { runner, ...dependencies });
 }
 
 async function repositoryFixture(): Promise<{
@@ -260,7 +266,7 @@ export default defineWorkflow({
 
 describe("workflow CLI", () => {
   test("discovers operations and initializes source without overwriting", async () => {
-    const runCli = createCliTestRunner(import.meta.url, 1);
+    const runCli = createWorkflowTestCliRunner(1);
     const fixture = await repositoryFixture();
     try {
       const discovery = testIo(fixture.root);
@@ -373,7 +379,7 @@ describe("workflow CLI", () => {
   }, 30_000);
 
   test("rejects repository JSON paths that cross a symlink", async () => {
-    const runCli = createCliTestRunner(import.meta.url, 2);
+    const runCli = createWorkflowTestCliRunner(2);
     const fixture = await repositoryFixture();
     const outside = await mkdtemp(join(tmpdir(), "atet-workflow-outside-"));
     try {
@@ -397,7 +403,7 @@ describe("workflow CLI", () => {
   }, 30_000);
 
   test("semantic-checks custom source before check or plan can succeed", async () => {
-    const runCli = createCliTestRunner(import.meta.url, 3);
+    const runCli = createWorkflowTestCliRunner(3);
     const fixture = await repositoryFixture();
     try {
       await writeFile(join(fixture.root, "invalid.ts"), TYPE_INVALID_WORKFLOW);
@@ -421,7 +427,7 @@ describe("workflow CLI", () => {
   }, 30_000);
 
   test("plans and durably executes a pure custom workflow", async () => {
-    const runCli = createCliTestRunner(import.meta.url, 4);
+    const runCli = createWorkflowTestCliRunner(4);
     const fixture = await repositoryFixture();
     try {
       await writeFile(join(fixture.root, "workflow.ts"), PURE_WORKFLOW);
@@ -478,7 +484,7 @@ describe("workflow CLI", () => {
   }, 60_000);
 
   test("executes a schema-bound trusted compute callback in the retained worker", async () => {
-    const runCli = createCliTestRunner(import.meta.url, 5);
+    const runCli = createWorkflowTestCliRunner(5);
     const fixture = await repositoryFixture();
     try {
       await writeFile(join(fixture.root, "compute.ts"), COMPUTE_WORKFLOW);
@@ -511,7 +517,7 @@ describe("workflow CLI", () => {
   }, 60_000);
 
   test("--jobs bounds a verified worker pool while independent compute nodes overlap", async () => {
-    const runCli = createCliTestRunner(import.meta.url, 6);
+    const runCli = createWorkflowTestCliRunner(6);
     const fixture = await repositoryFixture();
     try {
       const marker = join(fixture.root, "parallel-events.jsonl");
@@ -566,7 +572,7 @@ describe("workflow CLI", () => {
   }, 60_000);
 
   test("loads persisted code only for an exact explicitly replayed compute node", async () => {
-    const runCli = createCliTestRunner(import.meta.url, 7);
+    const runCli = createWorkflowTestCliRunner(7);
     const fixture = await repositoryFixture();
     const runner = new WorkflowTestRunner();
     try {
@@ -650,7 +656,7 @@ describe("workflow CLI", () => {
   }, 180_000);
 
   test("executes a generation-checked project commit under the shared physical lease", async () => {
-    const runCli = createCliTestRunner(import.meta.url, 8);
+    const runCli = createWorkflowTestCliRunner(8);
     const fixture = await repositoryFixture();
     try {
       const project = await createOperationProjectFixture(fixture.root);

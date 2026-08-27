@@ -70,6 +70,98 @@ function sanitizeIcon(icon) {
   return icon;
 }
 
+// src/label-layout.ts
+var defaultLabelFontSize = 22;
+var defaultLabelWeight = 600;
+var defaultLineHeightRatio = 1.35;
+var defaultRowGap = 8;
+var iconLabelGap = 12;
+function characterWidthRatio(fontFamily) {
+  return fontFamily === "mono" ? 0.62 : 0.56;
+}
+function estimateDiagramTextWidth(text, fontSize, fontFamily = "default") {
+  return text.length * fontSize * characterWidthRatio(fontFamily);
+}
+function wrapDiagramText(text, maxWidth, fontSize, fontFamily = "default") {
+  const explicitLines = text.split(`
+`);
+  const maxCharacters = Math.max(1, Math.floor(maxWidth / (fontSize * characterWidthRatio(fontFamily))));
+  const lines = [];
+  for (const explicitLine of explicitLines) {
+    if (explicitLine.length <= maxCharacters) {
+      lines.push(explicitLine);
+      continue;
+    }
+    const words = explicitLine.split(/\s+/);
+    let current = "";
+    for (const word of words) {
+      const candidate = current === "" ? word : `${current} ${word}`;
+      if (candidate.length <= maxCharacters || current === "") {
+        current = candidate;
+      } else {
+        lines.push(current);
+        current = word;
+      }
+    }
+    if (current !== "")
+      lines.push(current);
+  }
+  return lines.length === 0 ? [""] : lines;
+}
+function resolveRows(shape) {
+  if (shape.labelRows !== undefined) {
+    return shape.labelRows.map((row) => ({
+      text: row.text,
+      fontSize: row.fontSize ?? defaultLabelFontSize,
+      fontFamily: row.fontFamily ?? "default",
+      weight: row.weight ?? defaultLabelWeight,
+      lineHeight: (row.fontSize ?? defaultLabelFontSize) * defaultLineHeightRatio
+    }));
+  }
+  if (shape.label === undefined)
+    return [];
+  const fontSize = shape.labelFontSize ?? defaultLabelFontSize;
+  return [
+    {
+      text: shape.label,
+      fontSize,
+      fontFamily: shape.labelFontFamily ?? "default",
+      weight: shape.labelWeight ?? defaultLabelWeight,
+      lineHeight: fontSize * defaultLineHeightRatio
+    }
+  ];
+}
+function layoutBoxContent(shape, resolvedIconSize) {
+  const textWidth = Math.max(1, shape.width - 32);
+  const pendingRows = resolveRows(shape).map((row) => {
+    const lines = wrapDiagramText(row.text, textWidth, row.fontSize, row.fontFamily);
+    const height = lines.length * row.lineHeight;
+    return { ...row, lines, height };
+  });
+  const rowGap = shape.labelRows === undefined ? 0 : shape.labelRowGap ?? defaultRowGap;
+  const rowsHeight = pendingRows.reduce((total, row) => total + row.height, 0) + Math.max(0, pendingRows.length - 1) * rowGap;
+  const hasIcon = resolvedIconSize !== undefined;
+  const gap = hasIcon && pendingRows.length > 0 ? iconLabelGap : 0;
+  const contentHeight = (resolvedIconSize ?? 0) + gap + rowsHeight;
+  let cursorY = shape.y + (shape.height - contentHeight) / 2;
+  const icon = resolvedIconSize === undefined ? undefined : {
+    x: shape.x + (shape.width - resolvedIconSize) / 2,
+    y: cursorY,
+    size: resolvedIconSize
+  };
+  if (hasIcon)
+    cursorY += resolvedIconSize + gap;
+  const rows = pendingRows.map((row) => {
+    const resolved = { ...row, y: cursorY };
+    cursorY += row.height + rowGap;
+    return resolved;
+  });
+  return {
+    ...icon === undefined ? {} : { icon },
+    rows
+  };
+}
+
 // src/render.ts
 import { readFile } from "fs/promises";
 import { extname } from "path";
@@ -162,38 +254,13 @@ async function fontCss(config) {
   }));
   return faces.join("");
 }
-function wrapText(text, maxWidth, fontSize) {
-  const explicitLines = text.split(`
-`);
-  const maxCharacters = Math.max(1, Math.floor(maxWidth / (fontSize * 0.56)));
-  const lines = [];
-  for (const explicitLine of explicitLines) {
-    if (explicitLine.length <= maxCharacters) {
-      lines.push(explicitLine);
-      continue;
-    }
-    const words = explicitLine.split(/\s+/);
-    let current = "";
-    for (const word of words) {
-      const candidate = current === "" ? word : `${current} ${word}`;
-      if (candidate.length <= maxCharacters || current === "") {
-        current = candidate;
-      } else {
-        lines.push(current);
-        current = word;
-      }
-    }
-    if (current !== "")
-      lines.push(current);
-  }
-  return lines.length === 0 ? [""] : lines;
-}
 function textSvg(options) {
-  const lines = wrapText(options.text, options.width, options.fontSize);
+  const lines = options.lines ?? wrapDiagramText(options.text, options.width, options.fontSize);
   const lineHeight = options.lineHeight ?? options.fontSize * 1.25;
   const anchor = options.align;
   const x = anchor === "middle" ? options.x + options.width / 2 : anchor === "end" ? options.x + options.width : options.x;
-  return `<text x="${x}" y="${options.y}" text-anchor="${anchor}" dominant-baseline="hanging" fill="${options.color}" opacity="${options.opacity}" font-family="${escapeXml(options.family)}" font-size="${options.fontSize}" font-weight="${options.weight}">${lines.map((line, index) => `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`).join("")}</text>`;
+  const dominantBaseline = options.centerLineBoxes ? "central" : "hanging";
+  return `<text x="${x}" y="${options.y}" text-anchor="${anchor}" dominant-baseline="${dominantBaseline}" fill="${options.color}" opacity="${options.opacity}" font-family="${escapeXml(options.family)}" font-size="${options.fontSize}" font-weight="${options.weight}">${lines.map((line, index) => options.centerLineBoxes ? `<tspan x="${x}" y="${options.y + (index + 0.5) * lineHeight}">${escapeXml(line)}</tspan>` : `<tspan x="${x}" dy="${index === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`).join("")}</text>`;
 }
 function iconSvg(options) {
   const icon = sanitizeIcon(options.icon);
@@ -203,7 +270,7 @@ function iconSvg(options) {
   const scale = options.size / Math.max(width, height);
   return `<g color="${options.color}" opacity="${options.opacity}" transform="translate(${options.x} ${options.y}) scale(${scale}) translate(${-Number(parts[0] ?? 0)} ${-Number(parts[1] ?? 0)})">${icon.body}</g>`;
 }
-function boxSvg(shape, theme, family, icons) {
+function boxSvg(shape, theme, families, icons) {
   const tone = theme.tones[shape.tone ?? "neutral"];
   const strokeWidth = shape.strokeWidth ?? 2;
   const opacity = shape.opacity ?? 1;
@@ -214,29 +281,33 @@ function boxSvg(shape, theme, family, icons) {
     throw new Error(`Unknown icon "${shape.icon}" on shape ${shape.id}`);
   }
   const iconSize = Math.min(shape.iconSize ?? 52, shape.height * 0.45, shape.width * 0.32);
-  const iconMarkup = icon === undefined ? "" : iconSvg({
+  const content = layoutBoxContent(shape, icon === undefined ? undefined : iconSize);
+  const iconMarkup = icon === undefined || content.icon === undefined ? "" : iconSvg({
     icon,
-    x: shape.x + (shape.width - iconSize) / 2,
-    y: shape.label === undefined ? shape.y + (shape.height - iconSize) / 2 : shape.y + shape.height * 0.18,
-    size: iconSize,
+    x: content.icon.x,
+    y: content.icon.y,
+    size: content.icon.size,
     color: tone.text,
-    opacity
+    opacity: 1
   });
-  const labelMarkup = shape.label === undefined ? "" : textSvg({
-    text: shape.label,
+  const labelMarkup = content.rows.map((row) => textSvg({
+    text: row.text,
     x: shape.x + 16,
-    y: icon === undefined ? shape.y + shape.height / 2 - (shape.labelFontSize === undefined ? 12 : shape.labelFontSize * 0.55) : shape.y + shape.height * 0.68,
+    y: row.y,
     width: shape.width - 32,
-    fontSize: shape.labelFontSize ?? 22,
-    weight: 600,
+    fontSize: row.fontSize,
+    weight: row.weight,
     align: "middle",
     color: tone.text,
-    opacity,
-    family
-  });
+    opacity: 1,
+    family: families[row.fontFamily],
+    lineHeight: row.lineHeight,
+    lines: row.lines,
+    centerLineBoxes: true
+  })).join("");
   return `<g data-shape-id="${escapeXml(shape.id)}" opacity="${opacity}">${geometry}${iconMarkup}${labelMarkup}</g>`;
 }
-function pointForAnchor(shape, anchor, toward) {
+function pointForAnchor(shape, anchor, toward, position) {
   const center = { x: shape.x + shape.width / 2, y: shape.y + shape.height / 2 };
   let resolved = anchor ?? "auto";
   if (resolved === "auto") {
@@ -244,23 +315,42 @@ function pointForAnchor(shape, anchor, toward) {
     const dy = toward.y - center.y;
     resolved = Math.abs(dx / shape.width) >= Math.abs(dy / shape.height) ? dx >= 0 ? "right" : "left" : dy >= 0 ? "bottom" : "top";
   }
+  const resolvedPosition = position ?? 0.5;
+  if (shape.type === "ellipse") {
+    const projected = (resolvedPosition - 0.5) * 2;
+    const radial = Math.sqrt(Math.max(0, 1 - projected * projected)) / 2;
+    const normalized = resolved === "top" ? { x: resolvedPosition, y: 0.5 - radial } : resolved === "bottom" ? { x: resolvedPosition, y: 0.5 + radial } : resolved === "left" ? { x: 0.5 - radial, y: resolvedPosition } : { x: 0.5 + radial, y: resolvedPosition };
+    return {
+      x: shape.x + shape.width * normalized.x,
+      y: shape.y + shape.height * normalized.y,
+      normalized
+    };
+  }
   switch (resolved) {
     case "top":
-      return { x: center.x, y: shape.y, normalized: { x: 0.5, y: 0 } };
+      return {
+        x: shape.x + shape.width * resolvedPosition,
+        y: shape.y,
+        normalized: { x: resolvedPosition, y: 0 }
+      };
     case "right":
       return {
         x: shape.x + shape.width,
-        y: center.y,
-        normalized: { x: 1, y: 0.5 }
+        y: shape.y + shape.height * resolvedPosition,
+        normalized: { x: 1, y: resolvedPosition }
       };
     case "bottom":
       return {
-        x: center.x,
+        x: shape.x + shape.width * resolvedPosition,
         y: shape.y + shape.height,
-        normalized: { x: 0.5, y: 1 }
+        normalized: { x: resolvedPosition, y: 1 }
       };
     case "left":
-      return { x: shape.x, y: center.y, normalized: { x: 0, y: 0.5 } };
+      return {
+        x: shape.x,
+        y: shape.y + shape.height * resolvedPosition,
+        normalized: { x: 0, y: resolvedPosition }
+      };
   }
 }
 function resolveEdge(spec, edge) {
@@ -272,8 +362,8 @@ function resolveEdge(spec, edge) {
   }
   const fromCenter = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
   const toCenter = { x: to.x + to.width / 2, y: to.y + to.height / 2 };
-  const start = pointForAnchor(from, edge.start, toCenter);
-  const end = pointForAnchor(to, edge.end, fromCenter);
+  const start = pointForAnchor(from, edge.start, toCenter, edge.startPosition);
+  const end = pointForAnchor(to, edge.end, fromCenter, edge.endPosition);
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   const length = Math.hypot(dx, dy) || 1;
@@ -290,18 +380,38 @@ function resolveEdge(spec, edge) {
     }
   };
 }
-function edgeSvg(resolved, theme, family) {
+function resolveEdgeLabel(resolved) {
+  const { edge, start, end, control } = resolved;
+  const t = edge.labelPosition ?? 0.5;
+  const oneMinusT = 1 - t;
+  const point = {
+    x: oneMinusT * oneMinusT * start.x + 2 * oneMinusT * t * control.x + t * t * end.x,
+    y: oneMinusT * oneMinusT * start.y + 2 * oneMinusT * t * control.y + t * t * end.y
+  };
+  const tangent = {
+    x: 2 * oneMinusT * (control.x - start.x) + 2 * t * (end.x - control.x),
+    y: 2 * oneMinusT * (control.y - start.y) + 2 * t * (end.y - control.y)
+  };
+  const length = Math.hypot(tangent.x, tangent.y) || 1;
+  const offset = edge.labelOffset ?? -14;
+  return {
+    x: point.x + -tangent.y / length * offset,
+    y: point.y + tangent.x / length * offset
+  };
+}
+function edgeSvg(resolved, theme, families) {
   const { edge, start, end, control } = resolved;
   const toneName = edge.tone ?? "neutral";
   const tone = theme.tones[toneName];
   const marker = edge.arrowhead === "none" ? "" : edge.arrowhead === "triangle" ? `url(#arrow-triangle-${toneName})` : `url(#arrow-open-${toneName})`;
   const path = `M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`;
-  const label = edge.label === undefined ? "" : `<text x="${control.x}" y="${control.y - 10}" text-anchor="middle" fill="${tone.text}" stroke="${theme.background}" stroke-width="6" paint-order="stroke" font-family="${escapeXml(family)}" font-size="18" font-weight="600">${escapeXml(edge.label)}</text>`;
+  const labelPoint = resolveEdgeLabel(resolved);
+  const label = edge.label === undefined ? "" : `<text x="${labelPoint.x}" y="${labelPoint.y}" text-anchor="middle" dominant-baseline="central" fill="${tone.text}" stroke="${theme.background}" stroke-width="6" paint-order="stroke" font-family="${escapeXml(families[edge.labelFontFamily ?? "default"])}" font-size="${edge.labelFontSize ?? 18}" font-weight="${edge.labelWeight ?? 600}">${escapeXml(edge.label)}</text>`;
   return `<g data-edge-id="${escapeXml(edge.id)}"><path d="${path}" fill="none" stroke="${tone.stroke}" stroke-width="3" stroke-linecap="round" marker-end="${marker}"/>${label}</g>`;
 }
-function shapeSvg(shape, theme, family, icons) {
+function shapeSvg(shape, theme, families, icons) {
   if (shape.type === "rect" || shape.type === "ellipse") {
-    return boxSvg(shape, theme, family, icons);
+    return boxSvg(shape, theme, families, icons);
   }
   if (shape.type === "line") {
     return `<line data-shape-id="${escapeXml(shape.id)}" x1="${shape.x}" y1="${shape.y}" x2="${shape.x2}" y2="${shape.y2}" stroke="${theme.tones[shape.tone ?? "neutral"].stroke}" stroke-width="${shape.strokeWidth ?? 3}" stroke-linecap="round" opacity="${shape.opacity ?? 1}"/>`;
@@ -317,17 +427,20 @@ function shapeSvg(shape, theme, family, icons) {
     align: text.align ?? "start",
     color: theme.tones[text.tone ?? "neutral"].text,
     opacity: text.opacity ?? 1,
-    family
+    family: families[text.fontFamily ?? "default"]
   });
 }
 async function renderSvg(spec, mode, config) {
   const theme = resolveTheme(mode, config);
-  const family = config.font?.family ?? "system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  const families = {
+    default: config.font?.family ?? "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+    mono: config.font?.monoFamily ?? "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace"
+  };
   const icons = config.icons ?? {};
   const embeddedFonts = await fontCss(config);
   const markerDefinitions = Object.entries(theme.tones).map(([toneName, tone]) => `<marker id="arrow-open-${toneName}" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth"><path d="M2 2 10 6 2 10" fill="none" stroke="${tone.stroke}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="arrow-triangle-${toneName}" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto" markerUnits="strokeWidth"><path d="M1 1 10 5.5 1 10z" fill="${tone.stroke}"/></marker>`).join("");
-  const edgeMarkup = (spec.edges ?? []).map((edge) => edgeSvg(resolveEdge(spec, edge), theme, family)).join("");
-  const shapeMarkup = spec.shapes.map((shape) => shapeSvg(shape, theme, family, icons)).join("");
+  const edgeMarkup = (spec.edges ?? []).map((edge) => edgeSvg(resolveEdge(spec, edge), theme, families)).join("");
+  const shapeMarkup = spec.shapes.map((shape) => shapeSvg(shape, theme, families, icons)).join("");
   const svg = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${spec.canvas.width}" height="${spec.canvas.height}" viewBox="0 0 ${spec.canvas.width} ${spec.canvas.height}" role="img" aria-labelledby="diagram-title" color-scheme="${mode}">`,
     `<title id="diagram-title">${escapeXml(spec.name)}</title>`,
@@ -368,10 +481,26 @@ function lintDiagram(spec) {
         shapeIds: [shape.id]
       });
     }
-    if (shape.label !== undefined && shape.label.length > 32) {
+    const labels = shape.labelRows?.map((row) => row.text) ?? (shape.label === undefined ? [] : [shape.label]);
+    const longLabel = labels.find((label) => label.length > 32);
+    if (longLabel !== undefined) {
       findings.push({
         code: "long-label",
-        message: `${shape.id} has a ${shape.label.length}-character label; prefer a short noun phrase`,
+        message: `${shape.id} has a ${longLabel.length}-character label; prefer a short noun phrase`,
+        shapeIds: [shape.id]
+      });
+    }
+    const iconSize = shape.icon === undefined ? undefined : Math.min(shape.iconSize ?? 52, shape.height * 0.45, shape.width * 0.32);
+    const content = layoutBoxContent(shape, iconSize);
+    const contentTop = content.icon?.y ?? content.rows[0]?.y;
+    const finalRow = content.rows.at(-1);
+    const contentBottom = finalRow === undefined ? content.icon === undefined ? undefined : content.icon.y + content.icon.size : finalRow.y + finalRow.height;
+    const contentWidth = Math.max(1, shape.width - 32);
+    const exceedsWidth = content.rows.some((row) => row.lines.some((line) => estimateDiagramTextWidth(line, row.fontSize, row.fontFamily) > contentWidth));
+    if (contentTop !== undefined && contentBottom !== undefined && (contentTop < shape.y || contentBottom > shape.y + shape.height || exceedsWidth)) {
+      findings.push({
+        code: "label-overflow",
+        message: `${shape.id} label and icon content exceeds the box bounds; increase the box or reduce authored sizes`,
         shapeIds: [shape.id]
       });
     }
@@ -390,8 +519,18 @@ function lintDiagram(spec) {
       shapeIds: boxes.map((shape) => shape.id)
     });
   }
+  const sharedTerminals = new Map;
   for (const edge of spec.edges ?? []) {
     const resolved = resolveEdge(spec, edge);
+    for (const terminal of [
+      { kind: "start", point: resolved.start, shapeId: edge.from },
+      { kind: "end", point: resolved.end, shapeId: edge.to }
+    ]) {
+      const key = `${terminal.kind}:${terminal.shapeId}:${terminal.point.x.toFixed(3)}:${terminal.point.y.toFixed(3)}`;
+      const group = sharedTerminals.get(key) ?? [];
+      group.push({ edgeId: edge.id, shapeId: terminal.shapeId });
+      sharedTerminals.set(key, group);
+    }
     const length = Math.hypot(resolved.end.x - resolved.start.x, resolved.end.y - resolved.start.y);
     if (length < 96) {
       findings.push({
@@ -407,6 +546,15 @@ function lintDiagram(spec) {
         shapeIds: [edge.from, edge.to]
       });
     }
+  }
+  for (const group of sharedTerminals.values()) {
+    if (group.length < 2)
+      continue;
+    findings.push({
+      code: "shared-edge-port",
+      message: `${group.map(({ edgeId }) => edgeId).join(", ")} share one connector port; set distinct startPosition or endPosition values`,
+      shapeIds: [group[0].shapeId]
+    });
   }
   return findings;
 }
@@ -660,6 +808,7 @@ var tones2 = new Set([
   "yellow"
 ]);
 var anchors = new Set(["auto", "top", "right", "bottom", "left"]);
+var fontFamilies = new Set(["default", "mono"]);
 var stackDirections = new Set(["horizontal", "vertical"]);
 var stackAlignments = new Set(["start", "center", "end"]);
 var idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
@@ -727,11 +876,106 @@ function readOptionalTone(record, key, at, issues) {
   }
   return value;
 }
+function readOptionalFontFamily(record, key, at, issues) {
+  const value = record[key];
+  if (value === undefined)
+    return;
+  if (typeof value !== "string" || !fontFamilies.has(value)) {
+    issues.push(`${at}.${key} must be default or mono`);
+    return;
+  }
+  return value;
+}
+function readOptionalWeight(record, key, at, issues) {
+  const value = record[key];
+  if (value === undefined)
+    return;
+  if (typeof value !== "number" || ![400, 500, 600, 700].includes(value)) {
+    issues.push(`${at}.${key} must be 400, 500, 600, or 700`);
+    return;
+  }
+  return value;
+}
+function parseLabelRows(value, at, issues) {
+  if (value === undefined)
+    return;
+  if (!Array.isArray(value)) {
+    issues.push(`${at}.labelRows must be an array when present`);
+    return;
+  }
+  if (value.length < 1 || value.length > 4) {
+    issues.push(`${at}.labelRows must contain between 1 and 4 rows`);
+  }
+  const rows = [];
+  for (const [index, candidate] of value.entries()) {
+    const rowAt = `${at}.labelRows[${index}]`;
+    if (!isRecord(candidate)) {
+      issues.push(`${rowAt} must be an object`);
+      continue;
+    }
+    validateKnownKeys(candidate, new Set(["text", "fontSize", "fontFamily", "weight"]), rowAt, issues);
+    const text = readString(candidate, "text", rowAt, issues);
+    const fontSize = readOptionalNumber(candidate, "fontSize", rowAt, issues, {
+      positive: true
+    });
+    const fontFamily = readOptionalFontFamily(candidate, "fontFamily", rowAt, issues);
+    const weight = readOptionalWeight(candidate, "weight", rowAt, issues);
+    if (text !== undefined) {
+      rows.push({
+        text,
+        ...fontSize === undefined ? {} : { fontSize },
+        ...fontFamily === undefined ? {} : { fontFamily },
+        ...weight === undefined ? {} : { weight }
+      });
+    }
+  }
+  return rows.length === 0 ? undefined : rows;
+}
 function validateKnownKeys(record, allowed, at, issues) {
   for (const key of Object.keys(record)) {
     if (!allowed.has(key))
       issues.push(`${at}.${key} is not supported`);
   }
+}
+function parseBoxLabelContent(value, at, issues) {
+  const label = readOptionalString(value, "label", at, issues);
+  const labelFontSize = readOptionalNumber(value, "labelFontSize", at, issues, {
+    positive: true
+  });
+  const labelFontFamily = readOptionalFontFamily(value, "labelFontFamily", at, issues);
+  const labelWeight = readOptionalWeight(value, "labelWeight", at, issues);
+  const labelRows = parseLabelRows(value.labelRows, at, issues);
+  const labelRowGap = readOptionalNumber(value, "labelRowGap", at, issues, {
+    nonNegative: true
+  });
+  const hasLegacyStyle = value.labelFontSize !== undefined || value.labelFontFamily !== undefined || value.labelWeight !== undefined;
+  if (value.label === undefined && hasLegacyStyle) {
+    issues.push(`${at} cannot style a label that is not present`);
+  }
+  if (value.labelRows !== undefined && value.label !== undefined) {
+    issues.push(`${at}.label and ${at}.labelRows are mutually exclusive`);
+  }
+  if (value.labelRows !== undefined && hasLegacyStyle) {
+    issues.push(`${at}.labelRows cannot be combined with legacy label styling`);
+  }
+  if (value.labelRows === undefined && value.labelRowGap !== undefined) {
+    issues.push(`${at}.labelRowGap requires labelRows`);
+  }
+  if (labelRows !== undefined) {
+    return {
+      labelRows,
+      ...labelRowGap === undefined ? {} : { labelRowGap }
+    };
+  }
+  if (label !== undefined) {
+    return {
+      label,
+      ...labelFontSize === undefined ? {} : { labelFontSize },
+      ...labelFontFamily === undefined ? {} : { labelFontFamily },
+      ...labelWeight === undefined ? {} : { labelWeight }
+    };
+  }
+  return {};
 }
 function parseBase(record, at, issues) {
   const id = readString(record, "id", at, issues);
@@ -783,6 +1027,10 @@ function parseShape(value, index, issues) {
       "radius",
       "label",
       "labelFontSize",
+      "labelFontFamily",
+      "labelWeight",
+      "labelRows",
+      "labelRowGap",
       "icon",
       "iconSize",
       "strokeWidth",
@@ -790,6 +1038,7 @@ function parseShape(value, index, issues) {
     ]), at, issues);
     const width = readNumber(value, "width", at, issues, { positive: true });
     const height = readNumber(value, "height", at, issues, { positive: true });
+    const labelContent = parseBoxLabelContent(value, at, issues);
     const fill = value.fill;
     if (fill !== undefined && typeof fill !== "boolean")
       issues.push(`${at}.fill must be a boolean`);
@@ -801,8 +1050,7 @@ function parseShape(value, index, issues) {
       width,
       height,
       ...readOptionalNumber(value, "radius", at, issues, { nonNegative: true }) === undefined ? {} : { radius: value.radius },
-      ...readOptionalString(value, "label", at, issues) === undefined ? {} : { label: value.label },
-      ...readOptionalNumber(value, "labelFontSize", at, issues, { positive: true }) === undefined ? {} : { labelFontSize: value.labelFontSize },
+      ...labelContent,
       ...readOptionalString(value, "icon", at, issues) === undefined ? {} : { icon: value.icon },
       ...readOptionalNumber(value, "iconSize", at, issues, { positive: true }) === undefined ? {} : { iconSize: value.iconSize },
       ...readOptionalNumber(value, "strokeWidth", at, issues, { nonNegative: true }) === undefined ? {} : { strokeWidth: value.strokeWidth },
@@ -820,14 +1068,13 @@ function parseShape(value, index, issues) {
       "text",
       "width",
       "fontSize",
+      "fontFamily",
       "weight",
       "align"
     ]), at, issues);
     const text = readString(value, "text", at, issues);
-    const weight = value.weight;
-    if (weight !== undefined && ![400, 500, 600, 700].includes(weight)) {
-      issues.push(`${at}.weight must be 400, 500, 600, or 700`);
-    }
+    const fontFamily = readOptionalFontFamily(value, "fontFamily", at, issues);
+    const weight = readOptionalWeight(value, "weight", at, issues);
     const align = value.align;
     if (align !== undefined && !["start", "middle", "end"].includes(align)) {
       issues.push(`${at}.align must be start, middle, or end`);
@@ -840,6 +1087,7 @@ function parseShape(value, index, issues) {
       text,
       ...readOptionalNumber(value, "width", at, issues, { positive: true }) === undefined ? {} : { width: value.width },
       ...readOptionalNumber(value, "fontSize", at, issues, { positive: true }) === undefined ? {} : { fontSize: value.fontSize },
+      ...fontFamily === undefined ? {} : { fontFamily },
       ...weight === undefined ? {} : { weight },
       ...align === undefined ? {} : { align }
     };
@@ -877,6 +1125,10 @@ function parseStackShape(value, index, issues) {
     "radius",
     "label",
     "labelFontSize",
+    "labelFontFamily",
+    "labelWeight",
+    "labelRows",
+    "labelRowGap",
     "icon",
     "iconSize",
     "strokeWidth",
@@ -892,15 +1144,12 @@ function parseStackShape(value, index, issues) {
   }
   const width = readNumber(value, "width", at, issues, { positive: true });
   const height = readNumber(value, "height", at, issues, { positive: true });
+  const labelContent = parseBoxLabelContent(value, at, issues);
   const tone = readOptionalTone(value, "tone", at, issues);
   const opacity = readOptionalNumber(value, "opacity", at, issues, { nonNegative: true });
   if (opacity !== undefined && opacity > 1)
     issues.push(`${at}.opacity must not exceed 1`);
   const radius = readOptionalNumber(value, "radius", at, issues, { nonNegative: true });
-  const label = readOptionalString(value, "label", at, issues);
-  const labelFontSize = readOptionalNumber(value, "labelFontSize", at, issues, {
-    positive: true
-  });
   const icon = readOptionalString(value, "icon", at, issues);
   const iconSize = readOptionalNumber(value, "iconSize", at, issues, { positive: true });
   const strokeWidth = readOptionalNumber(value, "strokeWidth", at, issues, {
@@ -920,8 +1169,7 @@ function parseStackShape(value, index, issues) {
     ...tone === undefined ? {} : { tone },
     ...opacity === undefined ? {} : { opacity },
     ...radius === undefined ? {} : { radius },
-    ...label === undefined ? {} : { label },
-    ...labelFontSize === undefined ? {} : { labelFontSize },
+    ...labelContent,
     ...icon === undefined ? {} : { icon },
     ...iconSize === undefined ? {} : { iconSize },
     ...strokeWidth === undefined ? {} : { strokeWidth },
@@ -934,7 +1182,24 @@ function parseEdge(value, index, issues) {
     issues.push(`${at} must be an object`);
     return null;
   }
-  validateKnownKeys(value, new Set(["id", "from", "to", "label", "tone", "start", "end", "bend", "arrowhead"]), at, issues);
+  validateKnownKeys(value, new Set([
+    "id",
+    "from",
+    "to",
+    "label",
+    "tone",
+    "start",
+    "end",
+    "bend",
+    "arrowhead",
+    "startPosition",
+    "endPosition",
+    "labelFontSize",
+    "labelFontFamily",
+    "labelWeight",
+    "labelPosition",
+    "labelOffset"
+  ]), at, issues);
   const id = readString(value, "id", at, issues);
   const from = readString(value, "from", at, issues);
   const to = readString(value, "to", at, issues);
@@ -948,9 +1213,43 @@ function parseEdge(value, index, issues) {
   if (end !== undefined && (typeof end !== "string" || !anchors.has(end))) {
     issues.push(`${at}.end must be auto, top, right, bottom, or left`);
   }
+  const startPosition = readOptionalNumber(value, "startPosition", at, issues, {
+    nonNegative: true
+  });
+  if (startPosition !== undefined && startPosition > 1) {
+    issues.push(`${at}.startPosition must not exceed 1`);
+  }
+  const endPosition = readOptionalNumber(value, "endPosition", at, issues, {
+    nonNegative: true
+  });
+  if (endPosition !== undefined && endPosition > 1) {
+    issues.push(`${at}.endPosition must not exceed 1`);
+  }
   const arrowhead = value.arrowhead;
   if (arrowhead !== undefined && !["arrow", "triangle", "none"].includes(arrowhead)) {
     issues.push(`${at}.arrowhead must be arrow, triangle, or none`);
+  }
+  const label = readOptionalString(value, "label", at, issues);
+  const labelFontSize = readOptionalNumber(value, "labelFontSize", at, issues, {
+    positive: true
+  });
+  const labelFontFamily = readOptionalFontFamily(value, "labelFontFamily", at, issues);
+  const labelWeight = readOptionalWeight(value, "labelWeight", at, issues);
+  const labelPosition = readOptionalNumber(value, "labelPosition", at, issues, {
+    nonNegative: true
+  });
+  if (labelPosition !== undefined && labelPosition > 1) {
+    issues.push(`${at}.labelPosition must not exceed 1`);
+  }
+  const labelOffset = readOptionalNumber(value, "labelOffset", at, issues);
+  if (value.label === undefined && [
+    value.labelFontSize,
+    value.labelFontFamily,
+    value.labelWeight,
+    value.labelPosition,
+    value.labelOffset
+  ].some((candidate) => candidate !== undefined)) {
+    issues.push(`${at} cannot style or position a label that is not present`);
   }
   if (id === undefined || from === undefined || to === undefined)
     return null;
@@ -958,10 +1257,19 @@ function parseEdge(value, index, issues) {
     id,
     from,
     to,
-    ...readOptionalString(value, "label", at, issues) === undefined ? {} : { label: value.label },
+    ...label === undefined ? {} : {
+      label,
+      ...labelFontSize === undefined ? {} : { labelFontSize },
+      ...labelFontFamily === undefined ? {} : { labelFontFamily },
+      ...labelWeight === undefined ? {} : { labelWeight },
+      ...labelPosition === undefined ? {} : { labelPosition },
+      ...labelOffset === undefined ? {} : { labelOffset }
+    },
     ...readOptionalTone(value, "tone", at, issues) === undefined ? {} : { tone: value.tone },
     ...start === undefined ? {} : { start },
     ...end === undefined ? {} : { end },
+    ...startPosition === undefined ? {} : { startPosition },
+    ...endPosition === undefined ? {} : { endPosition },
     ...readOptionalNumber(value, "bend", at, issues) === undefined ? {} : { bend: value.bend },
     ...arrowhead === undefined ? {} : { arrowhead }
   };
@@ -1109,6 +1417,12 @@ function parseDiagramSource(value) {
       if (edge.bend !== undefined && edge.bend !== 0) {
         issues.push(`edge ${edge.id}.bend must be 0 or omitted in a stack layout`);
       }
+      if (edge.startPosition !== undefined) {
+        issues.push(`edge ${edge.id}.startPosition is not supported in a stack layout`);
+      }
+      if (edge.endPosition !== undefined) {
+        issues.push(`edge ${edge.id}.endPosition is not supported in a stack layout`);
+      }
     }
   }
   if (issues.length > 0 || name === undefined || canvas === null || isStackSource && layout === null) {
@@ -1130,7 +1444,14 @@ function parseDiagramSource(value) {
       ...edge.start === "auto" ? { start: edge.start } : {},
       ...edge.end === "auto" ? { end: edge.end } : {},
       ...edge.bend === 0 ? { bend: edge.bend } : {},
-      ...edge.arrowhead === undefined ? {} : { arrowhead: edge.arrowhead }
+      ...edge.arrowhead === undefined ? {} : { arrowhead: edge.arrowhead },
+      ...edge.label === undefined ? {} : {
+        ...edge.labelFontSize === undefined ? {} : { labelFontSize: edge.labelFontSize },
+        ...edge.labelFontFamily === undefined ? {} : { labelFontFamily: edge.labelFontFamily },
+        ...edge.labelWeight === undefined ? {} : { labelWeight: edge.labelWeight },
+        ...edge.labelPosition === undefined ? {} : { labelPosition: edge.labelPosition },
+        ...edge.labelOffset === undefined ? {} : { labelOffset: edge.labelOffset }
+      }
     }));
     return {
       ...common,
@@ -1192,30 +1513,55 @@ var tldrawColors = {
   purple: "violet",
   yellow: "yellow"
 };
-function richText(text) {
+function richText(text, weight = 400) {
   return {
     type: "doc",
-    content: [
-      {
-        type: "paragraph",
-        ...text === "" ? {} : { content: [{ type: "text", text }] }
+    content: text.split(`
+`).map((line) => ({
+      type: "paragraph",
+      ...line === "" ? {} : {
+        content: [
+          {
+            type: "text",
+            text: line,
+            ...weight < 600 ? {} : { marks: [{ type: "bold" }] }
+          }
+        ]
       }
-    ]
+    }))
   };
 }
-function shapeId(id) {
+function authoredShapeId(id) {
   return `shape:${id}`;
+}
+function generatedShapeId(kind, id) {
+  return `shape:atet:${kind}:${id}`;
 }
 function shapeMeta(sourceId) {
   return { diagram: { version: 1, sourceId } };
 }
 function indexKey(index) {
-  const alphabet = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-  const value = alphabet[index];
-  if (value === undefined) {
-    throw new Error("A .tldr export currently supports at most 61 generated records");
+  if (!Number.isSafeInteger(index) || index < 0) {
+    throw new Error(`A .tldr index must be a non-negative safe integer, received ${index}`);
   }
-  return `a${value}`;
+  const digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  let width = 1;
+  let remaining = index;
+  let capacity = digits.length;
+  while (remaining >= capacity) {
+    remaining -= capacity;
+    width += 1;
+    capacity *= digits.length;
+    if (width > 26 || !Number.isSafeInteger(capacity)) {
+      throw new Error("A .tldr export contains too many generated records");
+    }
+  }
+  let suffix = "";
+  for (let place = 0;place < width; place += 1) {
+    suffix = `${digits[remaining % digits.length]}${suffix}`;
+    remaining = Math.floor(remaining / digits.length);
+  }
+  return `${String.fromCharCode(97 + width - 1)}${suffix}`;
 }
 function baseShape(shape, index) {
   return {
@@ -1225,7 +1571,7 @@ function baseShape(shape, index) {
     isLocked: false,
     opacity: shape.opacity ?? 1,
     meta: shapeMeta(shape.id),
-    id: shapeId(shape.id),
+    id: authoredShapeId(shape.id),
     parentId: "page:page",
     index: indexKey(index),
     typeName: "shape"
@@ -1239,17 +1585,17 @@ function textShape(options) {
     isLocked: false,
     opacity: options.opacity ?? 1,
     meta: shapeMeta(options.sourceId),
-    id: shapeId(options.id),
+    id: options.recordId,
     type: "text",
     props: {
       color: tldrawColors[options.tone],
       size: options.size,
       w: options.width,
-      font: "sans",
+      font: options.fontFamily === "mono" ? "mono" : "sans",
       textAlign: options.align,
       autoSize: false,
       scale: options.scale ?? 1,
-      richText: richText(options.text)
+      richText: richText(options.text, options.weight)
     },
     parentId: "page:page",
     index: indexKey(options.index),
@@ -1260,13 +1606,6 @@ function svgIconAsset(icon, color) {
   const clean = sanitizeIcon(icon);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="${clean.viewBox}" fill="none" color="${color}">${clean.body}</svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
-}
-function tldrawSize(fontSize) {
-  if (fontSize === undefined || fontSize < 20)
-    return "m";
-  if (fontSize < 28)
-    return "l";
-  return "xl";
 }
 var tldrawTextFontSizes = {
   s: 18,
@@ -1303,7 +1642,7 @@ function serializeTldr(spec, config) {
     if (shape.type === "rect" || shape.type === "ellipse") {
       const box = shape;
       const hasIcon = box.icon !== undefined;
-      const hasSeparateLabel = box.label !== undefined && (hasIcon || box.labelFontSize !== undefined);
+      const hasSeparateLabel = box.labelRows !== undefined || box.label !== undefined && (hasIcon || box.labelFontSize !== undefined || box.labelFontFamily !== undefined || box.labelWeight !== undefined);
       records.push({
         ...baseShape(box, generatedIndex),
         type: "geo",
@@ -1322,14 +1661,17 @@ function serializeTldr(spec, config) {
           font: "sans",
           align: "middle",
           verticalAlign: "middle",
-          richText: richText(hasSeparateLabel ? "" : box.label ?? "")
+          richText: richText(hasSeparateLabel ? "" : box.label ?? "", box.labelWeight)
         }
       });
+      const iconSize = Math.min(box.iconSize ?? 52, box.height * 0.45, box.width * 0.32);
+      const content = layoutBoxContent(box, hasIcon ? iconSize : undefined);
       if (box.icon !== undefined) {
         const icon = icons[box.icon];
         if (icon === undefined)
           throw new Error(`Unknown icon "${box.icon}" on shape ${box.id}`);
-        const iconSize = Math.min(box.iconSize ?? 52, box.height * 0.45, box.width * 0.32);
+        if (content.icon === undefined)
+          throw new Error(`Missing icon layout for shape ${box.id}`);
         const assetId = `asset:icon-${box.id}`;
         records.push({
           id: assetId,
@@ -1347,13 +1689,13 @@ function serializeTldr(spec, config) {
         });
         generatedIndex += 1;
         records.push({
-          x: box.x + (box.width - iconSize) / 2,
-          y: box.label === undefined ? box.y + (box.height - iconSize) / 2 : box.y + box.height * 0.18,
+          x: content.icon.x,
+          y: content.icon.y,
           rotation: 0,
           isLocked: false,
           opacity: box.opacity ?? 1,
           meta: shapeMeta(box.id),
-          id: shapeId(`${box.id}-icon`),
+          id: generatedShapeId("box-icon", box.id),
           type: "image",
           props: {
             w: iconSize,
@@ -1364,46 +1706,57 @@ function serializeTldr(spec, config) {
             crop: null,
             flipX: false,
             flipY: false,
-            altText: box.label ?? box.icon
+            altText: box.labelRows?.map((row) => row.text).join(" ") ?? box.label ?? box.icon
           },
           parentId: "page:page",
           index: indexKey(generatedIndex),
           typeName: "shape"
         });
       }
-      if (hasSeparateLabel && box.label !== undefined) {
-        const textStyle = box.labelFontSize === undefined ? { size: "l", scale: 1 } : scaledTldrawSize(box.labelFontSize);
-        generatedIndex += 1;
-        records.push(textShape({
-          id: `${box.id}-label`,
-          sourceId: box.id,
-          x: box.x + 16,
-          y: hasIcon ? box.y + box.height * 0.68 : box.y + box.height / 2 - (box.labelFontSize ?? 22) * 0.55,
-          width: (box.width - 32) / textStyle.scale,
-          text: box.label,
-          tone: box.tone ?? "neutral",
-          size: textStyle.size,
-          align: "middle",
-          index: generatedIndex,
-          scale: textStyle.scale,
-          ...box.opacity === undefined ? {} : { opacity: box.opacity }
-        }));
+      if (hasSeparateLabel) {
+        for (const [rowIndex, row] of content.rows.entries()) {
+          const textStyle = scaledTldrawSize(row.fontSize);
+          generatedIndex += 1;
+          records.push(textShape({
+            recordId: generatedShapeId("box-label", `${box.id}:${rowIndex + 1}`),
+            sourceId: box.id,
+            x: box.x + 16,
+            y: row.y,
+            width: Math.max(1, box.width - 32) / textStyle.scale,
+            text: row.lines.join(`
+`),
+            tone: box.tone ?? "neutral",
+            size: textStyle.size,
+            align: "middle",
+            index: generatedIndex,
+            scale: textStyle.scale,
+            fontFamily: row.fontFamily,
+            weight: row.weight,
+            ...box.opacity === undefined ? {} : { opacity: box.opacity }
+          }));
+        }
       }
       continue;
     }
     if (shape.type === "text") {
       const text = shape;
+      const fontSize = text.fontSize ?? 24;
+      const textStyle = scaledTldrawSize(fontSize);
+      const width = text.width ?? Math.max(8, text.text.length * fontSize * 0.58);
       records.push(textShape({
-        id: text.id,
+        recordId: authoredShapeId(text.id),
         sourceId: text.id,
         x: text.x,
         y: text.y,
-        width: text.width ?? Math.max(8, text.text.length * (text.fontSize ?? 24) * 0.58),
+        width: width / textStyle.scale,
         text: text.text,
         tone: text.tone ?? "neutral",
-        size: tldrawSize(text.fontSize),
+        size: textStyle.size,
         align: text.align ?? "start",
         index: generatedIndex,
+        scale: textStyle.scale,
+        ...text.fontFamily === undefined ? {} : { fontFamily: text.fontFamily },
+        ...text.weight === undefined ? {} : { weight: text.weight },
         ...text.opacity === undefined ? {} : { opacity: text.opacity }
       }));
       continue;
@@ -1433,7 +1786,7 @@ function serializeTldr(spec, config) {
   for (const edge of spec.edges ?? []) {
     const resolved = resolveEdge(spec, edge);
     generatedIndex += 1;
-    const arrowId = shapeId(edge.id);
+    const arrowId = authoredShapeId(edge.id);
     records.push({
       x: resolved.start.x,
       y: resolved.start.y,
@@ -1451,7 +1804,7 @@ function serializeTldr(spec, config) {
         fill: "none",
         color: tldrawColors[edge.tone ?? "neutral"],
         labelColor: tldrawColors[edge.tone ?? "neutral"],
-        bend: edge.bend ?? 0,
+        bend: (edge.bend ?? 0) / 2,
         start: { x: 0, y: 0 },
         end: {
           x: resolved.end.x - resolved.start.x,
@@ -1459,23 +1812,47 @@ function serializeTldr(spec, config) {
         },
         arrowheadStart: "none",
         arrowheadEnd: edge.arrowhead ?? "arrow",
-        richText: richText(edge.label ?? ""),
-        labelPosition: 0.5,
-        font: "sans",
+        richText: richText(""),
+        labelPosition: edge.labelPosition ?? 0.5,
+        font: edge.labelFontFamily === "mono" ? "mono" : "sans",
         scale: 1
       },
       parentId: "page:page",
       index: indexKey(generatedIndex),
       typeName: "shape"
     });
+    if (edge.label !== undefined) {
+      const labelPoint = resolveEdgeLabel(resolved);
+      const fontSize = edge.labelFontSize ?? 18;
+      const fontFamily = edge.labelFontFamily ?? "default";
+      const textStyle = scaledTldrawSize(fontSize);
+      const widthRatio = fontFamily === "mono" ? 0.62 : 0.56;
+      const width = Math.max(fontSize, edge.label.length * fontSize * widthRatio);
+      generatedIndex += 1;
+      records.push(textShape({
+        recordId: generatedShapeId("edge-label", edge.id),
+        sourceId: edge.id,
+        x: labelPoint.x - width / 2,
+        y: labelPoint.y - fontSize * 1.35 / 2,
+        width: width / textStyle.scale,
+        text: edge.label,
+        tone: edge.tone ?? "neutral",
+        size: textStyle.size,
+        align: "middle",
+        index: generatedIndex,
+        scale: textStyle.scale,
+        fontFamily,
+        weight: edge.labelWeight ?? 600
+      }));
+    }
     records.push({
       meta: {},
       id: `binding:${edge.id}-start`,
       fromId: arrowId,
-      toId: shapeId(edge.from),
+      toId: authoredShapeId(edge.from),
       type: "arrow",
       props: {
-        isPrecise: false,
+        isPrecise: edge.startPosition !== undefined,
         isExact: false,
         normalizedAnchor: resolved.start.normalized,
         snap: "none",
@@ -1486,10 +1863,10 @@ function serializeTldr(spec, config) {
       meta: {},
       id: `binding:${edge.id}-end`,
       fromId: arrowId,
-      toId: shapeId(edge.to),
+      toId: authoredShapeId(edge.to),
       type: "arrow",
       props: {
-        isPrecise: false,
+        isPrecise: edge.endPosition !== undefined,
         isExact: false,
         normalizedAnchor: resolved.end.normalized,
         snap: "none",

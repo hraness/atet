@@ -86,7 +86,7 @@ describe("operation registry", () => {
     const descriptions = registry.list().map(operation => (
       registry.describe(operation.kind, operation.version)
     ));
-    expect(ATET_APPLICATION_TOOL_VERSION).toBe("atet-3.0.1");
+    expect(ATET_APPLICATION_TOOL_VERSION).toBe("atet-3.1.0");
     expect(registry.list().every(operation => (
       operation.inputSchemaId.startsWith("atet.operation.")
       && operation.outputSchemaId.startsWith("atet.operation.")

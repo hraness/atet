@@ -1,14 +1,17 @@
 import { sanitizeIcon } from "./icons.js"
-import { resolveEdge } from "./render.js"
+import { layoutBoxContent } from "./label-layout.js"
+import { resolveEdge, resolveEdgeLabel } from "./render.js"
 import { resolveTheme } from "./theme.js"
 import type {
   BoxShape,
   DiagramConfig,
+  DiagramFontFamily,
   DiagramShape,
   DiagramSpec,
   IconDefinition,
   LineShape,
   TextShape,
+  TextWeight,
   Tone,
 } from "./types.js"
 
@@ -58,20 +61,32 @@ const tldrawColors: Readonly<Record<Tone, string>> = {
   yellow: "yellow",
 }
 
-function richText(text: string): Readonly<Record<string, unknown>> {
+function richText(text: string, weight: TextWeight = 400): Readonly<Record<string, unknown>> {
   return {
     type: "doc",
-    content: [
-      {
-        type: "paragraph",
-        ...(text === "" ? {} : { content: [{ type: "text", text }] }),
-      },
-    ],
+    content: text.split("\n").map((line) => ({
+      type: "paragraph",
+      ...(line === ""
+        ? {}
+        : {
+            content: [
+              {
+                type: "text",
+                text: line,
+                ...(weight < 600 ? {} : { marks: [{ type: "bold" }] }),
+              },
+            ],
+          }),
+    })),
   }
 }
 
-function shapeId(id: string): string {
+function authoredShapeId(id: string): string {
   return `shape:${id}`
+}
+
+function generatedShapeId(kind: "box-icon" | "box-label" | "edge-label", id: string): string {
+  return `shape:atet:${kind}:${id}`
 }
 
 function shapeMeta(sourceId: string): Readonly<Record<string, unknown>> {
@@ -79,12 +94,27 @@ function shapeMeta(sourceId: string): Readonly<Record<string, unknown>> {
 }
 
 function indexKey(index: number): string {
-  const alphabet = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-  const value = alphabet[index]
-  if (value === undefined) {
-    throw new Error("A .tldr export currently supports at most 61 generated records")
+  if (!Number.isSafeInteger(index) || index < 0) {
+    throw new Error(`A .tldr index must be a non-negative safe integer, received ${index}`)
   }
-  return `a${value}`
+  const digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+  let width = 1
+  let remaining = index
+  let capacity = digits.length
+  while (remaining >= capacity) {
+    remaining -= capacity
+    width += 1
+    capacity *= digits.length
+    if (width > 26 || !Number.isSafeInteger(capacity)) {
+      throw new Error("A .tldr export contains too many generated records")
+    }
+  }
+  let suffix = ""
+  for (let place = 0; place < width; place += 1) {
+    suffix = `${digits[remaining % digits.length]}${suffix}`
+    remaining = Math.floor(remaining / digits.length)
+  }
+  return `${String.fromCharCode("a".charCodeAt(0) + width - 1)}${suffix}`
 }
 
 function baseShape(shape: DiagramShape, index: number): TldrawRecord {
@@ -95,7 +125,7 @@ function baseShape(shape: DiagramShape, index: number): TldrawRecord {
     isLocked: false,
     opacity: shape.opacity ?? 1,
     meta: shapeMeta(shape.id),
-    id: shapeId(shape.id),
+    id: authoredShapeId(shape.id),
     parentId: "page:page",
     index: indexKey(index),
     typeName: "shape",
@@ -103,7 +133,7 @@ function baseShape(shape: DiagramShape, index: number): TldrawRecord {
 }
 
 function textShape(options: {
-  readonly id: string
+  readonly recordId: string
   readonly sourceId: string
   readonly x: number
   readonly y: number
@@ -115,6 +145,8 @@ function textShape(options: {
   readonly index: number
   readonly opacity?: number
   readonly scale?: number
+  readonly fontFamily?: DiagramFontFamily
+  readonly weight?: TextWeight
 }): TldrawRecord {
   return {
     x: options.x,
@@ -123,17 +155,17 @@ function textShape(options: {
     isLocked: false,
     opacity: options.opacity ?? 1,
     meta: shapeMeta(options.sourceId),
-    id: shapeId(options.id),
+    id: options.recordId,
     type: "text",
     props: {
       color: tldrawColors[options.tone],
       size: options.size,
       w: options.width,
-      font: "sans",
+      font: options.fontFamily === "mono" ? "mono" : "sans",
       textAlign: options.align,
       autoSize: false,
       scale: options.scale ?? 1,
-      richText: richText(options.text),
+      richText: richText(options.text, options.weight),
     },
     parentId: "page:page",
     index: indexKey(options.index),
@@ -145,12 +177,6 @@ function svgIconAsset(icon: IconDefinition, color: string): string {
   const clean = sanitizeIcon(icon)
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="${clean.viewBox}" fill="none" color="${color}">${clean.body}</svg>`
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`
-}
-
-function tldrawSize(fontSize: number | undefined): "s" | "m" | "l" | "xl" {
-  if (fontSize === undefined || fontSize < 20) return "m"
-  if (fontSize < 28) return "l"
-  return "xl"
 }
 
 const tldrawTextFontSizes = {
@@ -195,7 +221,12 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
       const box = shape as BoxShape
       const hasIcon = box.icon !== undefined
       const hasSeparateLabel =
-        box.label !== undefined && (hasIcon || box.labelFontSize !== undefined)
+        box.labelRows !== undefined ||
+        (box.label !== undefined &&
+          (hasIcon ||
+            box.labelFontSize !== undefined ||
+            box.labelFontFamily !== undefined ||
+            box.labelWeight !== undefined))
       records.push({
         ...baseShape(box, generatedIndex),
         type: "geo",
@@ -214,13 +245,15 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
           font: "sans",
           align: "middle",
           verticalAlign: "middle",
-          richText: richText(hasSeparateLabel ? "" : (box.label ?? "")),
+          richText: richText(hasSeparateLabel ? "" : (box.label ?? ""), box.labelWeight),
         },
       })
+      const iconSize = Math.min(box.iconSize ?? 52, box.height * 0.45, box.width * 0.32)
+      const content = layoutBoxContent(box, hasIcon ? iconSize : undefined)
       if (box.icon !== undefined) {
         const icon = icons[box.icon]
         if (icon === undefined) throw new Error(`Unknown icon "${box.icon}" on shape ${box.id}`)
-        const iconSize = Math.min(box.iconSize ?? 52, box.height * 0.45, box.width * 0.32)
+        if (content.icon === undefined) throw new Error(`Missing icon layout for shape ${box.id}`)
         const assetId = `asset:icon-${box.id}`
         records.push({
           id: assetId,
@@ -238,16 +271,13 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
         })
         generatedIndex += 1
         records.push({
-          x: box.x + (box.width - iconSize) / 2,
-          y:
-            box.label === undefined
-              ? box.y + (box.height - iconSize) / 2
-              : box.y + box.height * 0.18,
+          x: content.icon.x,
+          y: content.icon.y,
           rotation: 0,
           isLocked: false,
           opacity: box.opacity ?? 1,
           meta: shapeMeta(box.id),
-          id: shapeId(`${box.id}-icon`),
+          id: generatedShapeId("box-icon", box.id),
           type: "image",
           props: {
             w: iconSize,
@@ -258,56 +288,61 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
             crop: null,
             flipX: false,
             flipY: false,
-            altText: box.label ?? box.icon,
+            altText:
+              box.labelRows?.map((row) => row.text).join(" ") ?? box.label ?? box.icon,
           },
           parentId: "page:page",
           index: indexKey(generatedIndex),
           typeName: "shape",
         })
       }
-      if (hasSeparateLabel && box.label !== undefined) {
-        const textStyle =
-          box.labelFontSize === undefined
-            ? { size: "l" as const, scale: 1 }
-            : scaledTldrawSize(box.labelFontSize)
-        generatedIndex += 1
-        records.push(
-          textShape({
-            id: `${box.id}-label`,
-            sourceId: box.id,
-            x: box.x + 16,
-            y:
-              hasIcon
-                ? box.y + box.height * 0.68
-                : box.y + box.height / 2 - (box.labelFontSize ?? 22) * 0.55,
-            width: (box.width - 32) / textStyle.scale,
-            text: box.label,
-            tone: box.tone ?? "neutral",
-            size: textStyle.size,
-            align: "middle",
-            index: generatedIndex,
-            scale: textStyle.scale,
-            ...(box.opacity === undefined ? {} : { opacity: box.opacity }),
-          }),
-        )
+      if (hasSeparateLabel) {
+        for (const [rowIndex, row] of content.rows.entries()) {
+          const textStyle = scaledTldrawSize(row.fontSize)
+          generatedIndex += 1
+          records.push(
+            textShape({
+              recordId: generatedShapeId("box-label", `${box.id}:${rowIndex + 1}`),
+              sourceId: box.id,
+              x: box.x + 16,
+              y: row.y,
+              width: Math.max(1, box.width - 32) / textStyle.scale,
+              text: row.lines.join("\n"),
+              tone: box.tone ?? "neutral",
+              size: textStyle.size,
+              align: "middle",
+              index: generatedIndex,
+              scale: textStyle.scale,
+              fontFamily: row.fontFamily,
+              weight: row.weight,
+              ...(box.opacity === undefined ? {} : { opacity: box.opacity }),
+            }),
+          )
+        }
       }
       continue
     }
 
     if (shape.type === "text") {
       const text = shape as TextShape
+      const fontSize = text.fontSize ?? 24
+      const textStyle = scaledTldrawSize(fontSize)
+      const width = text.width ?? Math.max(8, text.text.length * fontSize * 0.58)
       records.push(
         textShape({
-          id: text.id,
+          recordId: authoredShapeId(text.id),
           sourceId: text.id,
           x: text.x,
           y: text.y,
-          width: text.width ?? Math.max(8, text.text.length * (text.fontSize ?? 24) * 0.58),
+          width: width / textStyle.scale,
           text: text.text,
           tone: text.tone ?? "neutral",
-          size: tldrawSize(text.fontSize),
+          size: textStyle.size,
           align: text.align ?? "start",
           index: generatedIndex,
+          scale: textStyle.scale,
+          ...(text.fontFamily === undefined ? {} : { fontFamily: text.fontFamily }),
+          ...(text.weight === undefined ? {} : { weight: text.weight }),
           ...(text.opacity === undefined ? {} : { opacity: text.opacity }),
         }),
       )
@@ -340,7 +375,7 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
   for (const edge of spec.edges ?? []) {
     const resolved = resolveEdge(spec, edge)
     generatedIndex += 1
-    const arrowId = shapeId(edge.id)
+    const arrowId = authoredShapeId(edge.id)
     records.push({
       x: resolved.start.x,
       y: resolved.start.y,
@@ -358,7 +393,7 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
         fill: "none",
         color: tldrawColors[edge.tone ?? "neutral"],
         labelColor: tldrawColors[edge.tone ?? "neutral"],
-        bend: edge.bend ?? 0,
+        bend: (edge.bend ?? 0) / 2,
         start: { x: 0, y: 0 },
         end: {
           x: resolved.end.x - resolved.start.x,
@@ -366,24 +401,50 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
         },
         arrowheadStart: "none",
         arrowheadEnd: edge.arrowhead ?? "arrow",
-        richText: richText(edge.label ?? ""),
-        labelPosition: 0.5,
-        font: "sans",
+        richText: richText(""),
+        labelPosition: edge.labelPosition ?? 0.5,
+        font: edge.labelFontFamily === "mono" ? "mono" : "sans",
         scale: 1,
       },
       parentId: "page:page",
       index: indexKey(generatedIndex),
       typeName: "shape",
     })
+    if (edge.label !== undefined) {
+      const labelPoint = resolveEdgeLabel(resolved)
+      const fontSize = edge.labelFontSize ?? 18
+      const fontFamily = edge.labelFontFamily ?? "default"
+      const textStyle = scaledTldrawSize(fontSize)
+      const widthRatio = fontFamily === "mono" ? 0.62 : 0.56
+      const width = Math.max(fontSize, edge.label.length * fontSize * widthRatio)
+      generatedIndex += 1
+      records.push(
+        textShape({
+          recordId: generatedShapeId("edge-label", edge.id),
+          sourceId: edge.id,
+          x: labelPoint.x - width / 2,
+          y: labelPoint.y - (fontSize * 1.35) / 2,
+          width: width / textStyle.scale,
+          text: edge.label,
+          tone: edge.tone ?? "neutral",
+          size: textStyle.size,
+          align: "middle",
+          index: generatedIndex,
+          scale: textStyle.scale,
+          fontFamily,
+          weight: edge.labelWeight ?? 600,
+        }),
+      )
+    }
     records.push(
       {
         meta: {},
         id: `binding:${edge.id}-start`,
         fromId: arrowId,
-        toId: shapeId(edge.from),
+        toId: authoredShapeId(edge.from),
         type: "arrow",
         props: {
-          isPrecise: false,
+          isPrecise: edge.startPosition !== undefined,
           isExact: false,
           normalizedAnchor: resolved.start.normalized,
           snap: "none",
@@ -395,10 +456,10 @@ export function serializeTldr(spec: DiagramSpec, config: DiagramConfig): string 
         meta: {},
         id: `binding:${edge.id}-end`,
         fromId: arrowId,
-        toId: shapeId(edge.to),
+        toId: authoredShapeId(edge.to),
         type: "arrow",
         props: {
-          isPrecise: false,
+          isPrecise: edge.endPosition !== undefined,
           isExact: false,
           normalizedAnchor: resolved.end.normalized,
           snap: "none",

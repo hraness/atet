@@ -27,7 +27,7 @@ const parsedSchema: unknown = JSON.parse(await readFile(schemaPath, "utf8"))
 if (!isRecord(parsedSchema)) {
   throw new Error("schema/diagram.schema.json must contain a JSON object.")
 }
-const schemaId = "https://raw.githubusercontent.com/hraness/atet/v3.0.1/schema/diagram.schema.json"
+const schemaId = "https://raw.githubusercontent.com/hraness/atet/v3.1.0/schema/diagram.schema.json"
 if (parsedSchema.$id !== schemaId) {
   throw new Error(`Diagram schema $id must be ${schemaId}.`)
 }
@@ -50,7 +50,7 @@ for (const relativePath of [
     await readFile(join(repository, relativePath), "utf8"),
   )
   if (!isRecord(instance) || instance.$schema !== schemaId) {
-    throw new Error(`${relativePath} must reference the Atet v3.0.1 schema.`)
+    throw new Error(`${relativePath} must reference the Atet v3.1.0 schema.`)
   }
   if (!validate(instance)) {
     throw new Error(
@@ -89,6 +89,64 @@ if (validate(invalidSizedBoxLabel)) {
   throw new Error("Diagram schema must reject a non-positive box labelFontSize.")
 }
 
+const richDiagram = {
+  version: 1,
+  name: "rich-labels-and-ports",
+  canvas: { width: 720, height: 320 },
+  shapes: [
+    {
+      id: "source",
+      type: "rect",
+      x: 40,
+      y: 80,
+      width: 220,
+      height: 160,
+      labelRows: [
+        { text: "ENTITY", fontSize: 15, fontFamily: "mono", weight: 700 },
+        { text: "Aβ*56 assembly", fontSize: 20, weight: 500 },
+      ],
+      labelRowGap: 8,
+    },
+    { id: "target", type: "rect", x: 460, y: 80, width: 220, height: 160 },
+  ],
+  edges: [
+    {
+      id: "source-target",
+      from: "source",
+      to: "target",
+      startPosition: 0.3,
+      endPosition: 0.7,
+      label: "supports",
+      labelFontFamily: "mono",
+      labelFontSize: 19,
+      labelWeight: 700,
+      labelPosition: 0.45,
+      labelOffset: -16,
+    },
+  ],
+}
+if (!validate(richDiagram)) {
+  throw new Error(
+    `Diagram schema must accept rich labels and positioned ports:\n${formatErrors(validate.errors)}`,
+  )
+}
+if (
+  validate({
+    ...richDiagram,
+    shapes: [{ ...richDiagram.shapes[0], label: "conflict" }, richDiagram.shapes[1]],
+  })
+) {
+  throw new Error("Diagram schema must reject a box that combines label and labelRows.")
+}
+if (
+  validate({
+    ...richDiagram,
+    edges: [{ id: "source-target", from: "source", to: "target", labelFontSize: 18 }],
+  })
+) {
+  throw new Error("Diagram schema must reject label styling without an edge label.")
+}
+
 process.stdout.write(
-  "diagram schema is valid, accepts the shipped examples, and bounds box label font size\n",
+  "diagram schema is valid, accepts rich labels and ports, and rejects conflicting text states\n",
 )

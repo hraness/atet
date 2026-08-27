@@ -91,14 +91,26 @@ Apply these defaults deeply:
 - Use three to seven primary elements when the prompt permits abstraction.
 - Establish a clear reading order and align peers to a shared grid.
 - Use whitespace before borders, colors, or prose to separate groups.
-- Use color for at most one semantic distinction. Never make arbitrary size or
-  styling changes that imply a difference the prompt did not supply.
+- Use one color distinction by default. A supplied system with several stable
+  roles may use a small repeated semantic palette, but every role must remain
+  legible through its label, icon, or position without hue.
 - Keep icons supportive: a label must still carry the meaning.
 - Prefer one visible boundary per object and one visible stroke per axis or
   connector.
-- Set `labelFontSize` on an individual rectangle or ellipse when its label
-  needs a different pixel size. Omit it to retain the existing box-label
-  treatment.
+- Box content is vertically centered as one measured icon-and-text group. Do
+  not compensate with source-coordinate nudges.
+- Set `labelFontSize`, `labelFontFamily`, or `labelWeight` when one box label
+  needs a different treatment. Use `"fontFamily": "mono"` for a supplied
+  identifier, type, or relation, not as decoration.
+- Use `labelRows` for two to four supplied text roles inside one box. Each row
+  can set `text`, `fontSize`, `fontFamily`, and `weight`; `labelRowGap` controls
+  the measured gap. Do not combine `labelRows` with the legacy `label` fields.
+- Edge labels support the same font family, size, and weight controls plus
+  `labelPosition` and `labelOffset`. Keep relation labels short.
+- In positioned diagrams, distribute fan-in or fan-out connectors with
+  `startPosition` and `endPosition` from `0` to `1`. On left and right sides,
+  zero is the top and one is the bottom. On top and bottom sides, zero is the
+  left and one is the right.
 
 Do not “improve” literal data to satisfy these preferences. The prompt wins.
 
@@ -140,6 +152,12 @@ atet diagram render diagrams/<slug>.diagram.json
 The render command overwrites the consistent same-stem exports. Inspect both
 light and dark output when layout or contrast is uncertain. Address all useful
 lint findings; change the source, then rerender.
+
+For a directed connector, positive `bend` moves its quadratic control point to
+the viewer's right side of the source-to-target chord; negative moves it left.
+For a left-to-right connector, positive bends down and negative bends up. The
+visible midpoint moves by half the authored bend value. Inspect branching
+connectors instead of guessing their sign.
 
 If the repository uses its own font or icon package, read
 [customization.md](references/customization.md). Do not add MonoLisa or another

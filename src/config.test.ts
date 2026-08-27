@@ -26,7 +26,10 @@ describe("Atet config discovery", () => {
     const current = join(directory, "atet.config.json")
     try {
       await Promise.all([
-        writeFile(current, JSON.stringify({ font: { family: "Atet" } })),
+        writeFile(
+          current,
+          JSON.stringify({ font: { family: "Atet", monoFamily: "Atet Mono, monospace" } }),
+        ),
         writeFile(
           join(directory, "diagram.config.json"),
           JSON.stringify({ font: { family: "Legacy" } }),
@@ -35,6 +38,20 @@ describe("Atet config discovery", () => {
       const loaded = await loadDiagramConfig({ searchDirectory: directory })
       expect(loaded.filePath).toBe(current)
       expect(loaded.value.font?.family).toBe("Atet")
+      expect(loaded.value.font?.monoFamily).toBe("Atet Mono, monospace")
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it("rejects an empty mono font family", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "atet-config-mono-family-"))
+    const current = join(directory, "atet.config.json")
+    try {
+      await writeFile(current, JSON.stringify({ font: { family: "Atet", monoFamily: " " } }))
+      await expect(loadDiagramConfig({ searchDirectory: directory })).rejects.toThrow(
+        "font.monoFamily must be a non-empty string when present",
+      )
     } finally {
       await rm(directory, { recursive: true, force: true })
     }

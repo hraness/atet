@@ -1,8 +1,10 @@
 import {
   diagramVersion,
   type Anchor,
+  type BoxLabelRow,
   type BoxShape,
   type DiagramEdge,
+  type DiagramFontFamily,
   type DiagramSource,
   type DiagramShape,
   type DiagramSpec,
@@ -14,6 +16,7 @@ import {
   type StackLayout,
   type StackShape,
   type TextShape,
+  type TextWeight,
   type Tone,
 } from "./types.js"
 import { resolveDiagramSource } from "./layout.js"
@@ -28,6 +31,7 @@ const tones = new Set<Tone>([
   "yellow",
 ])
 const anchors = new Set<Anchor>(["auto", "top", "right", "bottom", "left"])
+const fontFamilies = new Set<DiagramFontFamily>(["default", "mono"])
 const stackDirections = new Set<StackDirection>(["horizontal", "vertical"])
 const stackAlignments = new Set<StackAlign>(["start", "center", "end"])
 const idPattern = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
@@ -125,6 +129,80 @@ function readOptionalTone(
   return value as Tone
 }
 
+function readOptionalFontFamily(
+  record: Record<string, unknown>,
+  key: string,
+  at: string,
+  issues: string[],
+): DiagramFontFamily | undefined {
+  const value = record[key]
+  if (value === undefined) return undefined
+  if (typeof value !== "string" || !fontFamilies.has(value as DiagramFontFamily)) {
+    issues.push(`${at}.${key} must be default or mono`)
+    return undefined
+  }
+  return value as DiagramFontFamily
+}
+
+function readOptionalWeight(
+  record: Record<string, unknown>,
+  key: string,
+  at: string,
+  issues: string[],
+): TextWeight | undefined {
+  const value = record[key]
+  if (value === undefined) return undefined
+  if (typeof value !== "number" || ![400, 500, 600, 700].includes(value)) {
+    issues.push(`${at}.${key} must be 400, 500, 600, or 700`)
+    return undefined
+  }
+  return value as TextWeight
+}
+
+function parseLabelRows(
+  value: unknown,
+  at: string,
+  issues: string[],
+): readonly [BoxLabelRow, ...BoxLabelRow[]] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value)) {
+    issues.push(`${at}.labelRows must be an array when present`)
+    return undefined
+  }
+  if (value.length < 1 || value.length > 4) {
+    issues.push(`${at}.labelRows must contain between 1 and 4 rows`)
+  }
+  const rows: BoxLabelRow[] = []
+  for (const [index, candidate] of value.entries()) {
+    const rowAt = `${at}.labelRows[${index}]`
+    if (!isRecord(candidate)) {
+      issues.push(`${rowAt} must be an object`)
+      continue
+    }
+    validateKnownKeys(
+      candidate,
+      new Set(["text", "fontSize", "fontFamily", "weight"]),
+      rowAt,
+      issues,
+    )
+    const text = readString(candidate, "text", rowAt, issues)
+    const fontSize = readOptionalNumber(candidate, "fontSize", rowAt, issues, {
+      positive: true,
+    })
+    const fontFamily = readOptionalFontFamily(candidate, "fontFamily", rowAt, issues)
+    const weight = readOptionalWeight(candidate, "weight", rowAt, issues)
+    if (text !== undefined) {
+      rows.push({
+        text,
+        ...(fontSize === undefined ? {} : { fontSize }),
+        ...(fontFamily === undefined ? {} : { fontFamily }),
+        ...(weight === undefined ? {} : { weight }),
+      })
+    }
+  }
+  return rows.length === 0 ? undefined : (rows as [BoxLabelRow, ...BoxLabelRow[]])
+}
+
 function validateKnownKeys(
   record: Record<string, unknown>,
   allowed: ReadonlySet<string>,
@@ -134,6 +212,54 @@ function validateKnownKeys(
   for (const key of Object.keys(record)) {
     if (!allowed.has(key)) issues.push(`${at}.${key} is not supported`)
   }
+}
+
+function parseBoxLabelContent(
+  value: Record<string, unknown>,
+  at: string,
+  issues: string[],
+): Readonly<Record<string, unknown>> {
+  const label = readOptionalString(value, "label", at, issues)
+  const labelFontSize = readOptionalNumber(value, "labelFontSize", at, issues, {
+    positive: true,
+  })
+  const labelFontFamily = readOptionalFontFamily(value, "labelFontFamily", at, issues)
+  const labelWeight = readOptionalWeight(value, "labelWeight", at, issues)
+  const labelRows = parseLabelRows(value.labelRows, at, issues)
+  const labelRowGap = readOptionalNumber(value, "labelRowGap", at, issues, {
+    nonNegative: true,
+  })
+  const hasLegacyStyle =
+    value.labelFontSize !== undefined ||
+    value.labelFontFamily !== undefined ||
+    value.labelWeight !== undefined
+  if (value.label === undefined && hasLegacyStyle) {
+    issues.push(`${at} cannot style a label that is not present`)
+  }
+  if (value.labelRows !== undefined && value.label !== undefined) {
+    issues.push(`${at}.label and ${at}.labelRows are mutually exclusive`)
+  }
+  if (value.labelRows !== undefined && hasLegacyStyle) {
+    issues.push(`${at}.labelRows cannot be combined with legacy label styling`)
+  }
+  if (value.labelRows === undefined && value.labelRowGap !== undefined) {
+    issues.push(`${at}.labelRowGap requires labelRows`)
+  }
+  if (labelRows !== undefined) {
+    return {
+      labelRows,
+      ...(labelRowGap === undefined ? {} : { labelRowGap }),
+    }
+  }
+  if (label !== undefined) {
+    return {
+      label,
+      ...(labelFontSize === undefined ? {} : { labelFontSize }),
+      ...(labelFontFamily === undefined ? {} : { labelFontFamily }),
+      ...(labelWeight === undefined ? {} : { labelWeight }),
+    }
+  }
+  return {}
 }
 
 function parseBase(
@@ -199,6 +325,10 @@ function parseShape(value: unknown, index: number, issues: string[]): DiagramSha
         "radius",
         "label",
         "labelFontSize",
+        "labelFontFamily",
+        "labelWeight",
+        "labelRows",
+        "labelRowGap",
         "icon",
         "iconSize",
         "strokeWidth",
@@ -209,6 +339,7 @@ function parseShape(value: unknown, index: number, issues: string[]): DiagramSha
     )
     const width = readNumber(value, "width", at, issues, { positive: true })
     const height = readNumber(value, "height", at, issues, { positive: true })
+    const labelContent = parseBoxLabelContent(value, at, issues)
     const fill = value.fill
     if (fill !== undefined && typeof fill !== "boolean") issues.push(`${at}.fill must be a boolean`)
     if (width === undefined || height === undefined) return null
@@ -220,12 +351,7 @@ function parseShape(value: unknown, index: number, issues: string[]): DiagramSha
       ...(readOptionalNumber(value, "radius", at, issues, { nonNegative: true }) === undefined
         ? {}
         : { radius: value.radius as number }),
-      ...(readOptionalString(value, "label", at, issues) === undefined
-        ? {}
-        : { label: value.label as string }),
-      ...(readOptionalNumber(value, "labelFontSize", at, issues, { positive: true }) === undefined
-        ? {}
-        : { labelFontSize: value.labelFontSize as number }),
+      ...labelContent,
       ...(readOptionalString(value, "icon", at, issues) === undefined
         ? {}
         : { icon: value.icon as string }),
@@ -236,7 +362,7 @@ function parseShape(value: unknown, index: number, issues: string[]): DiagramSha
         ? {}
         : { strokeWidth: value.strokeWidth as number }),
       ...(typeof fill === "boolean" ? { fill } : {}),
-    } satisfies BoxShape
+    } as BoxShape
   }
 
   if (type === "text") {
@@ -252,6 +378,7 @@ function parseShape(value: unknown, index: number, issues: string[]): DiagramSha
         "text",
         "width",
         "fontSize",
+        "fontFamily",
         "weight",
         "align",
       ]),
@@ -259,10 +386,8 @@ function parseShape(value: unknown, index: number, issues: string[]): DiagramSha
       issues,
     )
     const text = readString(value, "text", at, issues)
-    const weight = value.weight
-    if (weight !== undefined && ![400, 500, 600, 700].includes(weight as number)) {
-      issues.push(`${at}.weight must be 400, 500, 600, or 700`)
-    }
+    const fontFamily = readOptionalFontFamily(value, "fontFamily", at, issues)
+    const weight = readOptionalWeight(value, "weight", at, issues)
     const align = value.align
     if (align !== undefined && !["start", "middle", "end"].includes(align as string)) {
       issues.push(`${at}.align must be start, middle, or end`)
@@ -278,7 +403,8 @@ function parseShape(value: unknown, index: number, issues: string[]): DiagramSha
       ...(readOptionalNumber(value, "fontSize", at, issues, { positive: true }) === undefined
         ? {}
         : { fontSize: value.fontSize as number }),
-      ...(weight === undefined ? {} : { weight: weight as 400 | 500 | 600 | 700 }),
+      ...(fontFamily === undefined ? {} : { fontFamily }),
+      ...(weight === undefined ? {} : { weight }),
       ...(align === undefined ? {} : { align: align as "start" | "middle" | "end" }),
     } satisfies TextShape
   }
@@ -326,6 +452,10 @@ function parseStackShape(value: unknown, index: number, issues: string[]): Stack
       "radius",
       "label",
       "labelFontSize",
+      "labelFontFamily",
+      "labelWeight",
+      "labelRows",
+      "labelRowGap",
       "icon",
       "iconSize",
       "strokeWidth",
@@ -344,14 +474,11 @@ function parseStackShape(value: unknown, index: number, issues: string[]): Stack
   }
   const width = readNumber(value, "width", at, issues, { positive: true })
   const height = readNumber(value, "height", at, issues, { positive: true })
+  const labelContent = parseBoxLabelContent(value, at, issues)
   const tone = readOptionalTone(value, "tone", at, issues)
   const opacity = readOptionalNumber(value, "opacity", at, issues, { nonNegative: true })
   if (opacity !== undefined && opacity > 1) issues.push(`${at}.opacity must not exceed 1`)
   const radius = readOptionalNumber(value, "radius", at, issues, { nonNegative: true })
-  const label = readOptionalString(value, "label", at, issues)
-  const labelFontSize = readOptionalNumber(value, "labelFontSize", at, issues, {
-    positive: true,
-  })
   const icon = readOptionalString(value, "icon", at, issues)
   const iconSize = readOptionalNumber(value, "iconSize", at, issues, { positive: true })
   const strokeWidth = readOptionalNumber(value, "strokeWidth", at, issues, {
@@ -375,13 +502,12 @@ function parseStackShape(value: unknown, index: number, issues: string[]): Stack
     ...(tone === undefined ? {} : { tone }),
     ...(opacity === undefined ? {} : { opacity }),
     ...(radius === undefined ? {} : { radius }),
-    ...(label === undefined ? {} : { label }),
-    ...(labelFontSize === undefined ? {} : { labelFontSize }),
+    ...labelContent,
     ...(icon === undefined ? {} : { icon }),
     ...(iconSize === undefined ? {} : { iconSize }),
     ...(strokeWidth === undefined ? {} : { strokeWidth }),
     ...(typeof fill === "boolean" ? { fill } : {}),
-  }
+  } as StackShape
 }
 
 function parseEdge(value: unknown, index: number, issues: string[]): DiagramEdge | null {
@@ -392,7 +518,24 @@ function parseEdge(value: unknown, index: number, issues: string[]): DiagramEdge
   }
   validateKnownKeys(
     value,
-    new Set(["id", "from", "to", "label", "tone", "start", "end", "bend", "arrowhead"]),
+    new Set([
+      "id",
+      "from",
+      "to",
+      "label",
+      "tone",
+      "start",
+      "end",
+      "bend",
+      "arrowhead",
+      "startPosition",
+      "endPosition",
+      "labelFontSize",
+      "labelFontFamily",
+      "labelWeight",
+      "labelPosition",
+      "labelOffset",
+    ]),
     at,
     issues,
   )
@@ -408,6 +551,18 @@ function parseEdge(value: unknown, index: number, issues: string[]): DiagramEdge
   if (end !== undefined && (typeof end !== "string" || !anchors.has(end as Anchor))) {
     issues.push(`${at}.end must be auto, top, right, bottom, or left`)
   }
+  const startPosition = readOptionalNumber(value, "startPosition", at, issues, {
+    nonNegative: true,
+  })
+  if (startPosition !== undefined && startPosition > 1) {
+    issues.push(`${at}.startPosition must not exceed 1`)
+  }
+  const endPosition = readOptionalNumber(value, "endPosition", at, issues, {
+    nonNegative: true,
+  })
+  if (endPosition !== undefined && endPosition > 1) {
+    issues.push(`${at}.endPosition must not exceed 1`)
+  }
   const arrowhead = value.arrowhead
   if (
     arrowhead !== undefined &&
@@ -415,26 +570,60 @@ function parseEdge(value: unknown, index: number, issues: string[]): DiagramEdge
   ) {
     issues.push(`${at}.arrowhead must be arrow, triangle, or none`)
   }
+  const label = readOptionalString(value, "label", at, issues)
+  const labelFontSize = readOptionalNumber(value, "labelFontSize", at, issues, {
+    positive: true,
+  })
+  const labelFontFamily = readOptionalFontFamily(value, "labelFontFamily", at, issues)
+  const labelWeight = readOptionalWeight(value, "labelWeight", at, issues)
+  const labelPosition = readOptionalNumber(value, "labelPosition", at, issues, {
+    nonNegative: true,
+  })
+  if (labelPosition !== undefined && labelPosition > 1) {
+    issues.push(`${at}.labelPosition must not exceed 1`)
+  }
+  const labelOffset = readOptionalNumber(value, "labelOffset", at, issues)
+  if (
+    value.label === undefined &&
+    [
+      value.labelFontSize,
+      value.labelFontFamily,
+      value.labelWeight,
+      value.labelPosition,
+      value.labelOffset,
+    ].some((candidate) => candidate !== undefined)
+  ) {
+    issues.push(`${at} cannot style or position a label that is not present`)
+  }
   if (id === undefined || from === undefined || to === undefined) return null
   return {
     id,
     from,
     to,
-    ...(readOptionalString(value, "label", at, issues) === undefined
+    ...(label === undefined
       ? {}
-      : { label: value.label as string }),
+      : {
+          label,
+          ...(labelFontSize === undefined ? {} : { labelFontSize }),
+          ...(labelFontFamily === undefined ? {} : { labelFontFamily }),
+          ...(labelWeight === undefined ? {} : { labelWeight }),
+          ...(labelPosition === undefined ? {} : { labelPosition }),
+          ...(labelOffset === undefined ? {} : { labelOffset }),
+        }),
     ...(readOptionalTone(value, "tone", at, issues) === undefined
       ? {}
       : { tone: value.tone as Tone }),
     ...(start === undefined ? {} : { start: start as Anchor }),
     ...(end === undefined ? {} : { end: end as Anchor }),
+    ...(startPosition === undefined ? {} : { startPosition }),
+    ...(endPosition === undefined ? {} : { endPosition }),
     ...(readOptionalNumber(value, "bend", at, issues) === undefined
       ? {}
       : { bend: value.bend as number }),
     ...(arrowhead === undefined
       ? {}
       : { arrowhead: arrowhead as "arrow" | "triangle" | "none" }),
-  }
+  } as DiagramEdge
 }
 
 function parseStackLayout(value: unknown, issues: string[]): StackLayout | null {
@@ -605,6 +794,12 @@ export function parseDiagramSource(value: unknown): DiagramSource {
       if (edge.bend !== undefined && edge.bend !== 0) {
         issues.push(`edge ${edge.id}.bend must be 0 or omitted in a stack layout`)
       }
+      if (edge.startPosition !== undefined) {
+        issues.push(`edge ${edge.id}.startPosition is not supported in a stack layout`)
+      }
+      if (edge.endPosition !== undefined) {
+        issues.push(`edge ${edge.id}.endPosition is not supported in a stack layout`)
+      }
     }
   }
 
@@ -633,7 +828,20 @@ export function parseDiagramSource(value: unknown): DiagramSource {
       ...(edge.end === "auto" ? { end: edge.end } : {}),
       ...(edge.bend === 0 ? { bend: edge.bend } : {}),
       ...(edge.arrowhead === undefined ? {} : { arrowhead: edge.arrowhead }),
-    }))
+      ...(edge.label === undefined
+        ? {}
+        : {
+            ...(edge.labelFontSize === undefined ? {} : { labelFontSize: edge.labelFontSize }),
+            ...(edge.labelFontFamily === undefined
+              ? {}
+              : { labelFontFamily: edge.labelFontFamily }),
+            ...(edge.labelWeight === undefined ? {} : { labelWeight: edge.labelWeight }),
+            ...(edge.labelPosition === undefined
+              ? {}
+              : { labelPosition: edge.labelPosition }),
+            ...(edge.labelOffset === undefined ? {} : { labelOffset: edge.labelOffset }),
+          }),
+    })) as readonly StackDiagramEdge[]
     return {
       ...common,
       layout: layout as StackLayout,

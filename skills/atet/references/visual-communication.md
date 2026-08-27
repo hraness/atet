@@ -45,6 +45,13 @@ Connectors need room to be seen as connectors.
 - Avoid crossings. If a crossing is unavoidable, change the layout before
   adding bridge decorations.
 - Keep connector labels short and off the path.
+- Separate repeated fan-in and fan-out arrowheads with distinct endpoint
+  positions. A shared side-center port makes several relationships look like
+  one heavy or broken connector.
+- Looking from a source toward a target, positive bend is on the viewer's
+  right side of the chord and negative bend is on the left. For a
+  left-to-right chord, that means positive bends down and negative bends up.
+  Reverse paired signs when branches should bow toward their open interior.
 - Do not use an arrow where proximity or containment already states the
   relationship.
 
@@ -66,6 +73,26 @@ Use position, whitespace, and restrained contrast before size or saturation.
 Make the important path visually continuous. Keep supporting objects quieter.
 Avoid shadows, gradients, textures, and ornamental strokes unless they encode
 requested meaning.
+
+When one supplied object contains two distinct text roles, use measured label
+rows rather than punctuation or manual vertical offsets. A compact mono row can
+name a type, identifier, or relation while a larger default-family row carries
+the human-readable value. Keep peer rows consistent and center the complete
+icon, gaps, and wrapped line boxes as one group.
+
+Use one color distinction by default. When the supplied system contains stable
+roles across several diagrams, a restrained family palette can reduce relearning:
+
+- blue for sources, evidence, and observed records;
+- purple for proposed structure, transforms, or system-generated candidates;
+- yellow for named-human review or authority;
+- green for accepted, versioned, or published outputs;
+- red or orange for correction, retraction, or failure; and
+- neutral for ordinary supporting objects.
+
+Use only the roles the content actually supplies. Preserve the same mapping
+throughout the diagram family, and keep text or icons sufficient when color is
+unavailable.
 
 For light and dark variants:
 
