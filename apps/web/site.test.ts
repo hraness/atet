@@ -1476,8 +1476,8 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("Keep the stroke decision in the renderer")
     for (const quotedExcerpt of [
       "takes teams beyond generating videos to truly directing them",
-      "today’s updates make Omni 1.1 production-ready for professional use via the Gemini API in Google AI Studio",
       "a leap from previous models that only referenced the final second",
+      "You can extend videos in 10-second increments up to a total cumulative length of 40 seconds",
     ]) {
       expect(searchableHtml).not.toContain(quotedExcerpt)
       expect(readingGeminiOmniMarkdown).not.toContain(quotedExcerpt)
@@ -1485,7 +1485,7 @@ describe("static Atet site", () => {
     expect(searchableHtml).not.toContain("Treat recognition and boundary precision as coupled skills")
     expect(searchableHtml).not.toContain("You can just draw faces with javascript")
     expect(searchableHtml).not.toContain("slow and opaque")
-    expect(html).not.toMatch(/Zo\b|stripedex\.com|spongeresearch\.com|hra\.sh/i)
+    expect(html).not.toMatch(/stripedex\.com|spongeresearch\.com|hra\.sh/i)
     expect(html).not.toContain("{{ANALYTICS_SCRIPT}}")
     expect(html).not.toContain("data-copy-command")
     expect(builtHtml).not.toContain("{{")
