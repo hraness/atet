@@ -115,12 +115,14 @@ the npm package settings with this exact identity:
 - allowed action: `npm stage publish` only
 - environment: `npm-stage`
 
-Create a protected GitHub environment named `npm-stage`. Require approval from
-the repository maintainer `0thernet` before deployment, allow that maintainer
-to approve their own initiating run (`prevent_self_review: false`), and add no
-environment secret. Only the minimal staging job may reference this environment
-or request an OIDC token. The npm trusted-publisher environment must match
-`npm-stage` exactly.
+Create a GitHub environment named `npm-stage`. Restrict its deployment branches
+to the selected branch `main`, configure no required deployment reviewers, and
+add no environment secret. After the read-only verification job succeeds, the
+dependent staging job must start automatically. This GitHub environment binds
+the trusted-publisher identity and branch without adding a separate human gate;
+staging does not make the package public. Only the minimal staging job may
+reference this environment or request an OIDC token. The npm trusted-publisher
+environment must match `npm-stage` exactly.
 
 Set package publishing access to **Require two-factor authentication and
 disallow tokens**. Remove traditional publishing tokens. Do not add an npm
@@ -144,36 +146,35 @@ npm stage publish <reviewed-tarball> \
    repeats the complete gate before it can hand an artifact to the OIDC job. A
    `package.json` edit that leaves the stable version unchanged exits
    successfully without building, uploading, or staging a package.
-2. Let the automatic workflow finish. If it fails because `main` advanced or a
-   transient dependency was unavailable, dispatch **Stage npm package** from
-   the current `main` HEAD to recover through the same checks. Automatic and
-   manual runs both reject a tag, another branch, a stale commit, an existing
-   version, or a branch that advances before staging. A push-triggered version
-   must also increase strictly from the preceding `main` version.
+2. Let the automatic workflow verify and stage the package. The dependent OIDC
+   job starts without GitHub deployment approval. It checks out no source and
+   runs no repository code. It downloads and revalidates the three verified
+   files, fetches the current default-branch head into a new bare Git directory,
+   rehashes the package, proves the matching Git tag is still absent, and only
+   then runs the exact stage-only command. If the workflow fails because `main`
+   advanced or a transient dependency was unavailable, dispatch **Stage npm
+   package** from the current `main` HEAD to recover through the same checks.
+   Automatic and manual runs both reject a tag, another branch, a stale commit,
+   an existing version, or a branch that advances before staging. A
+   push-triggered version must also increase strictly from the preceding `main`
+   version.
 3. Review the uniquely named artifact from the read-only verification job. It
    contains exactly the tarball, `npm-pack.json`, and `npm-package.sha256`.
    Confirm the source commit, version, inventory, sizes, SHA-1, SHA-512
    integrity, independent SHA-256 digests, dual-use declaration, and
    disclosure.
-4. Approve the protected `npm-stage` environment as a required maintainer. This
-   approval permits only the dependent staging job to request OIDC authority;
-   it does not publish the package. The job checks out no source and runs no
-   repository code. It downloads and revalidates the three reviewed files,
-   fetches the current default-branch head into a new bare Git directory,
-   rehashes the package, proves the matching Git tag is still absent, and only
-   then runs the exact stage-only command.
-5. Inspect the staged package with
+4. Inspect the staged package with
    `npm stage view <stage-id> --registry=https://registry.npmjs.org` and
    download it with
    `npm stage download <stage-id> --registry=https://registry.npmjs.org` when
    an independent local inspection is required.
-6. Approve the exact stage with
+5. Approve the exact stage with
    `npm stage approve <stage-id> --registry=https://registry.npmjs.org` or
-   npmjs.com and complete two-factor authentication. This npm approval is
-   separate from the earlier GitHub environment review and is the action that
+   npmjs.com and complete two-factor authentication. This mandatory npm
+   approval is the only human approval in the pipeline and is the action that
    makes the staged package public.
-7. Download and verify the public registry artifact in a clean consumer.
-8. Create and push the matching `v<version>` tag on the same `main` commit. The
+6. Download and verify the public registry artifact in a clean consumer.
+7. Create and push the matching `v<version>` tag on the same `main` commit. The
    tag workflow verifies npm delivery before it creates the immutable GitHub
    Release.
 

@@ -374,7 +374,7 @@ test("npm release identity ignores transport metadata but binds contents, modes,
   }
 })
 
-test("a stable version reaching main stages one exact npm artifact through OIDC", async () => {
+test("a stable version reaching main automatically stages one exact npm artifact through OIDC", async () => {
   const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
 
   const verifyStart = workflow.indexOf("  verify:\n")
@@ -792,8 +792,12 @@ test("version 3.1.2 publishes one Atet identity with npm install instructions", 
   expect(publishing).toContain("--provenance")
   expect(publishing).toContain("allowed action: `npm stage publish` only")
   expect(publishing).toContain("environment: `npm-stage`")
-  expect(publishing).toContain("repository maintainer `0thernet`")
-  expect(publishing).toContain("`prevent_self_review: false`")
+  expect(normalizedPublishing).toContain(
+    "Restrict its deployment branches to the selected branch `main`",
+  )
+  expect(normalizedPublishing).toContain("configure no required deployment reviewers")
+  expect(publishing).not.toContain("repository maintainer `0thernet`")
+  expect(publishing).not.toContain("prevent_self_review")
   expect(normalizedPublishing).toContain("must match `npm-stage` exactly")
   expect(publishing).toContain("Require two-factor authentication and")
   expect(publishing).toContain("disallow tokens")
@@ -802,12 +806,17 @@ test("version 3.1.2 publishes one Atet identity with npm install instructions", 
   expect(normalizedPublishing).toContain("interactive path for a later release")
   expect(publishing).toContain("starts **Stage npm package** automatically")
   expect(publishing).toContain("leaves the stable version unchanged exits")
-  expect(publishing).toContain("dispatch **Stage npm package** from")
+  expect(normalizedPublishing).toContain("dispatch **Stage npm package** from")
   expect(normalizedPublishing).toContain(
     "Only the minimal staging job may reference this environment",
   )
+  expect(normalizedPublishing).toContain(
+    "The dependent OIDC job starts without GitHub deployment approval",
+  )
   expect(normalizedPublishing).toContain("checks out no source and runs no repository code")
-  expect(normalizedPublishing).toContain("separate from the earlier GitHub environment review")
+  expect(normalizedPublishing).toContain(
+    "This mandatory npm approval is the only human approval in the pipeline",
+  )
   expect(publishing).toContain("npm-package.sha256")
   expect(normalizedPublishing).toContain(
     "rehashes the package, proves the matching Git tag is still absent, and only then runs the exact stage-only command",
