@@ -13,8 +13,9 @@
   },
   "scripts": {
     "build": "bun run ./scripts/build.ts",
-    "check": "bun run test && bun run build",
+    "check": "bun run test && bun run build && bun run verify:preview",
     "generate:og": "bun run ./scripts/generate-og.ts",
-    "test": "bun test ./site.test.ts"
+    "test": "bun test ./site.test.ts",
+    "verify:preview": "bun run ./scripts/verify-preview-layout.ts"
   }
 }
