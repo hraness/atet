@@ -1,6 +1,11 @@
 name: Stage npm package
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - package.json
   workflow_dispatch:
 
 permissions:
@@ -21,6 +26,7 @@ jobs:
       artifact_name: ${{ steps.pack.outputs.artifact_name }}
       package_version: ${{ steps.pack.outputs.package_version }}
       source_sha: ${{ steps.identity.outputs.source_sha }}
+      stage_required: ${{ steps.identity.outputs.stage_required }}
       tarball_name: ${{ steps.pack.outputs.tarball_name }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -46,10 +52,11 @@ jobs:
         id: identity
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
           if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
-            echo "::error::Dispatch this workflow from $DEFAULT_BRANCH"
+            echo "::error::Run this workflow from $DEFAULT_BRANCH"
             exit 1
           fi
           git fetch --no-tags origin \
@@ -57,7 +64,7 @@ jobs:
           default_sha="$(git rev-parse "origin/$DEFAULT_BRANCH")"
           checked_out_sha="$(git rev-parse HEAD)"
           if [[ "$GITHUB_SHA" != "$default_sha" || "$checked_out_sha" != "$default_sha" ]]; then
-            echo "::error::Dispatch SHA $GITHUB_SHA is not current $DEFAULT_BRANCH HEAD $default_sha"
+            echo "::error::Workflow SHA $GITHUB_SHA is not current $DEFAULT_BRANCH HEAD $default_sha"
             exit 1
           fi
           package_name="$(node -p 'require("./package.json").name')"
@@ -70,6 +77,67 @@ jobs:
             echo "::error::Package version $package_version is not stable semver"
             exit 1
           fi
+          case "$GITHUB_EVENT_NAME" in
+            push)
+              if [[ ! "$PUSH_BEFORE" =~ ^[a-f0-9]{40}$ || \
+                    "$PUSH_BEFORE" == 0000000000000000000000000000000000000000 ]]; then
+                echo "::error::Push event does not identify the previous $DEFAULT_BRANCH commit"
+                exit 1
+              fi
+              if ! git cat-file -e "$PUSH_BEFORE^{commit}"; then
+                echo "::error::Previous $DEFAULT_BRANCH commit $PUSH_BEFORE is unavailable"
+                exit 1
+              fi
+              if ! git merge-base --is-ancestor "$PUSH_BEFORE" "$GITHUB_SHA"; then
+                echo "::error::Push event does not advance $DEFAULT_BRANCH from $PUSH_BEFORE"
+                exit 1
+              fi
+              previous_manifest="$(mktemp "$RUNNER_TEMP/atet-previous-package.XXXXXX")"
+              if ! git show "$PUSH_BEFORE:package.json" > "$previous_manifest"; then
+                echo "::error::Previous $DEFAULT_BRANCH commit has no readable package.json"
+                exit 1
+              fi
+              previous_name="$(node -e 'const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(value.name)' "$previous_manifest")"
+              previous_version="$(node -e 'const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(value.version)' "$previous_manifest")"
+              if [[ "$previous_name" != "$package_name" ]]; then
+                echo "::error::Package name changed from $previous_name to $package_name"
+                exit 1
+              fi
+              if [[ ! "$previous_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+                echo "::error::Previous package version $previous_version is not stable semver"
+                exit 1
+              fi
+              if [[ "$previous_version" == "$package_version" ]]; then
+                printf 'stage_required=false\n' >> "$GITHUB_OUTPUT"
+                echo "::notice::package.json changed without changing version $package_version; npm staging is not required"
+                exit 0
+              fi
+              PREVIOUS_VERSION="$previous_version" PACKAGE_VERSION="$package_version" node -e '
+                const pattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
+                const parse = (value) => pattern.exec(value).slice(1).map(BigInt);
+                const previous = parse(process.env.PREVIOUS_VERSION);
+                const next = parse(process.env.PACKAGE_VERSION);
+                const comparison = next[0] === previous[0]
+                  ? next[1] === previous[1]
+                    ? next[2] === previous[2]
+                      ? 0
+                      : next[2] > previous[2] ? 1 : -1
+                    : next[1] > previous[1] ? 1 : -1
+                  : next[0] > previous[0] ? 1 : -1;
+                if (comparison <= 0) {
+                  console.error(`::error::Package version ${process.env.PACKAGE_VERSION} must be newer than ${process.env.PREVIOUS_VERSION}`);
+                  process.exit(1);
+                }
+              '
+              ;;
+            workflow_dispatch)
+              ;;
+            *)
+              echo "::error::Unsupported npm staging event $GITHUB_EVENT_NAME"
+              exit 1
+              ;;
+          esac
+          printf 'stage_required=true\n' >> "$GITHUB_OUTPUT"
           if git rev-parse --verify --quiet "refs/tags/v$package_version" >/dev/null; then
             echo "::error::Create v$package_version only after npm delivery is verified"
             exit 1
@@ -92,10 +160,14 @@ jobs:
           fi
           printf 'source_sha=%s\n' "$default_sha" >> "$GITHUB_OUTPUT"
       - name: Install FFmpeg
+        if: steps.identity.outputs.stage_required == 'true'
         run: bash scripts/install-ci-ffmpeg.sh
-      - run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run check
+      - if: steps.identity.outputs.stage_required == 'true'
+        run: bun install --frozen-lockfile --ignore-scripts
+      - if: steps.identity.outputs.stage_required == 'true'
+        run: bun run check
       - name: Verify clean source tree
+        if: steps.identity.outputs.stage_required == 'true'
         run: |
           set -euo pipefail
           source_status="$(git status --porcelain --untracked-files=all)"
@@ -104,6 +176,7 @@ jobs:
             exit 1
           fi
       - name: Pack and verify the exact artifact
+        if: steps.identity.outputs.stage_required == 'true'
         id: pack
         run: |
           set -euo pipefail
@@ -159,6 +232,7 @@ jobs:
             "$artifact_directory" "$artifact_name" "$package_version" "$archive_name" \
             >> "$GITHUB_OUTPUT"
       - name: Upload reviewed package
+        if: steps.identity.outputs.stage_required == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ steps.pack.outputs.artifact_name }}
@@ -170,6 +244,9 @@ jobs:
   stage:
     name: Stage exact package
     needs: verify
+    if: needs.verify.outputs.stage_required == 'true'
+    environment:
+      name: npm-stage
     permissions:
       id-token: write
     runs-on: ubuntu-24.04
