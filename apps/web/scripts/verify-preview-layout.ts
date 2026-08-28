@@ -30,8 +30,11 @@ interface PreviewLayoutEvidence {
 
 const measurementScript = String.raw`<script>
 (() => {
+  const evidenceTarget = window.parent === window
+    ? document.body
+    : window.parent.document.body;
   const recordError = (error) => {
-    document.body.dataset.previewLayoutError = encodeURIComponent(String(error?.stack || error));
+    evidenceTarget.dataset.previewLayoutError = encodeURIComponent(String(error?.stack || error));
   };
   const measure = () => {
     if (document.fonts.status !== "loaded") {
@@ -68,7 +71,11 @@ const measurementScript = String.raw`<script>
       if (rect.left < -0.5 || rect.right > viewportWidth + 0.5) {
         horizontalFailures.push(name + " leaves the horizontal viewport");
       }
-      if (element.scrollWidth > element.clientWidth + 1) {
+      const overflowX = getComputedStyle(element).overflowX;
+      if (
+        element.scrollWidth > element.clientWidth + 1
+        && (overflowX !== "visible" || rect.left + element.scrollWidth > viewportWidth + 0.5)
+      ) {
         horizontalFailures.push(name + " clips its own horizontal content");
       }
     });
@@ -107,7 +114,7 @@ const measurementScript = String.raw`<script>
       viewportHeight: window.innerHeight,
       viewportWidth: window.innerWidth,
     };
-    body.dataset.previewLayout = encodeURIComponent(JSON.stringify(result));
+    evidenceTarget.dataset.previewLayout = encodeURIComponent(JSON.stringify(result));
   };
 
   document.fonts.ready.then(measure).catch(recordError);
@@ -187,11 +194,23 @@ function assertEvidence(evidence: PreviewLayoutEvidence): void {
 
 const profileDirectory = await mkdtemp(join(tmpdir(), "atet-preview-layout-"))
 const preview = instrumentPreview(await readFile(join(outputDirectory, "preview.html"), "utf8"))
+const harness = `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>Atet preview layout harness</title></head>
+  <body style="margin:0">
+    <iframe src="/preview" title="Atet preview" style="width:${viewport.width}px;height:${viewport.height}px;border:0"></iframe>
+  </body>
+</html>`
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
   async fetch(request) {
     const url = new URL(request.url)
+    if (url.pathname === "/harness") {
+      return new Response(harness, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      })
+    }
     if (url.pathname === "/preview" || url.pathname === "/preview.html") {
       return new Response(preview, {
         headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -233,9 +252,9 @@ try {
     "--run-all-compositor-stages-before-draw",
     `--user-data-dir=${profileDirectory}`,
     "--virtual-time-budget=5000",
-    `--window-size=${viewport.width},${viewport.height}`,
+    "--window-size=800,600",
     "--dump-dom",
-    new URL("/preview", server.url).href,
+    new URL("/harness", server.url).href,
   ], {
     stderr: "pipe",
     stdout: "pipe",
