@@ -30,7 +30,13 @@ interface PreviewLayoutEvidence {
 
 const measurementScript = String.raw`<script>
 (() => {
-  try {
+  const recordError = (error) => {
+    document.body.dataset.previewLayoutError = encodeURIComponent(String(error?.stack || error));
+  };
+  const measure = () => {
+    if (document.fonts.status !== "loaded") {
+      throw new Error("Preview fonts did not finish loading");
+    }
     const root = document.documentElement;
     const body = document.body;
     root.style.scrollBehavior = "auto";
@@ -102,9 +108,9 @@ const measurementScript = String.raw`<script>
       viewportWidth: window.innerWidth,
     };
     body.dataset.previewLayout = encodeURIComponent(JSON.stringify(result));
-  } catch (error) {
-    document.body.dataset.previewLayoutError = encodeURIComponent(String(error?.stack || error));
-  }
+  };
+
+  document.fonts.ready.then(measure).catch(recordError);
 })();
 </script>`
 
