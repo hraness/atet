@@ -4,6 +4,7 @@ import {
   readingFacesMarkdown,
   readingFeynobgMarkdown,
   readingGaussiansMarkdown,
+  readingGeminiOmniMarkdown,
 } from "./agent-pages"
 import {
   markdownMediaType,
@@ -35,6 +36,11 @@ export function isReadingGaussiansPath(pathname: string): boolean {
     || pathname === "/reading/painting-with-gaussians.html"
 }
 
+export function isReadingGeminiOmniPath(pathname: string): boolean {
+  return pathname === "/reading/gemini-omni"
+    || pathname === "/reading/gemini-omni.html"
+}
+
 export function isPreservedRedirectPath(pathname: string): boolean {
   return pathname === "/docs" || pathname.startsWith("/docs/")
 }
@@ -52,6 +58,7 @@ export function isNegotiableDocumentPath(pathname: string): boolean {
     || isReadingFacesPath(pathname)
     || isReadingFeynobgPath(pathname)
     || isReadingGaussiansPath(pathname)
+    || isReadingGeminiOmniPath(pathname)
     || isPreservedRedirectPath(pathname)
   ) {
     return true
@@ -76,6 +83,10 @@ function canonicalReadingFeynobgUrl(request: Request): string {
 
 function canonicalReadingGaussiansUrl(request: Request): string {
   return new URL("/reading/painting-with-gaussians", request.url).href
+}
+
+function canonicalReadingGeminiOmniUrl(request: Request): string {
+  return new URL("/reading/gemini-omni", request.url).href
 }
 
 export function negotiateSiteRequest(request: Request): Response | undefined {
@@ -126,6 +137,17 @@ export function negotiateSiteRequest(request: Request): Response | undefined {
         headers: {
           "Content-Type": markdownContentType,
           "Link": `<${canonicalReadingGaussiansUrl(request)}>; rel="canonical", </reading/painting-with-gaussians.md>; rel="alternate"; type="text/markdown"`,
+          "Vary": varyAcceptAndEncoding,
+        },
+        status: 200,
+      })
+    }
+
+    if (isReadingGeminiOmniPath(pathname)) {
+      return new Response(readingGeminiOmniMarkdown, {
+        headers: {
+          "Content-Type": markdownContentType,
+          "Link": `<${canonicalReadingGeminiOmniUrl(request)}>; rel="canonical", </reading/gemini-omni.md>; rel="alternate"; type="text/markdown"`,
           "Vary": varyAcceptAndEncoding,
         },
         status: 200,

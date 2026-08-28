@@ -12,6 +12,7 @@ import {
   readingFacesMarkdown,
   readingFeynobgMarkdown,
   readingGaussiansMarkdown,
+  readingGeminiOmniMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "../src/agent-pages"
@@ -44,6 +45,7 @@ const generatedTextFiles = {
   "reading/draw-faces-with-javascript.md": readingFacesMarkdown,
   "reading/feynobg.md": readingFeynobgMarkdown,
   "reading/painting-with-gaussians.md": readingGaussiansMarkdown,
+  "reading/gemini-omni.md": readingGeminiOmniMarkdown,
   "robots.txt": robotsTxt,
   "sitemap.md": sitemapMarkdown,
 } as const
@@ -222,6 +224,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readingFacesTemplate,
     readingFeynobgTemplate,
     readingGaussiansTemplate,
+    readingGeminiOmniTemplate,
     productStyles,
     designKitFontsStyles,
     appearanceStyles,
@@ -235,6 +238,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readFile(join(sourceDirectory, "reading/draw-faces-with-javascript.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/feynobg.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/painting-with-gaussians.html"), "utf8"),
+    readFile(join(sourceDirectory, "reading/gemini-omni.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(designKitFontsStylesPath, "utf8"),
     readFile(appearanceMenuStylesPath, "utf8"),
@@ -298,6 +302,10 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       join(outputDirectory, "reading/painting-with-gaussians.html"),
       renderDocument(readingGaussiansTemplate, commonAssets),
     ),
+    writeFile(
+      join(outputDirectory, "reading/gemini-omni.html"),
+      renderDocument(readingGeminiOmniTemplate, commonAssets),
+    ),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
     writeFile(join(outputDirectory, "og.png"), socialImage),
@@ -329,7 +337,7 @@ if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 8
+    + 9
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
 }
