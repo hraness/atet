@@ -167,6 +167,8 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta name="twitter:image:alt" content="Atet, AI media generation and video editing for coding agents, beside an abstract solar disk and barque path">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
+    expect(html).toContain('<a href="https://www.npmjs.com/package/@hraness/atet">@hraness/atet npm package</a>')
+    expect(html).toContain('<a href="https://skills.sh/hraness/atet">Atet Agent Skill</a>')
   })
 
   test("builds an inert noindex Atet preview with the homepage as canonical", async () => {
