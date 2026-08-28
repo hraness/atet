@@ -1,7 +1,7 @@
 {
   "name": "@hraness/atet",
-  "version": "3.1.1",
-  "description": "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet.",
+  "version": "3.1.2",
+  "description": "Local-first AI media generation and video editing toolkit for coding agents, with a Bun CLI, TypeScript SDK, MCP server, and Agent Skill.",
   "license": "MIT",
   "contentPolicy": {
     "class": "dual-use"
@@ -63,33 +63,25 @@
     "url": "https://github.com/hraness/atet/issues"
   },
   "keywords": [
-    "atet",
-    "visual-media",
-    "creative-tools",
-    "typescript",
-    "bun",
-    "cli",
-    "local-first",
     "ai-media-generation",
     "ai-video-generation",
-    "image-generation",
-    "image-vectorization",
-    "diagram",
-    "animation",
-    "animated-loops",
-    "video",
+    "video-generation",
     "video-editing",
+    "image-generation",
     "screen-recording",
-    "speech-generation",
-    "transcription",
     "motion-graphics",
     "captions",
-    "threejs",
-    "tldraw",
+    "speech-generation",
+    "transcription",
+    "diagrams",
+    "creative-coding",
+    "coding-agents",
     "agent-skill",
-    "mcp",
-    "workflow",
-    "vercel-ai-gateway"
+    "mcp-server",
+    "cli",
+    "typescript",
+    "bun",
+    "local-first"
   ],
   "exports": {
     ".": {

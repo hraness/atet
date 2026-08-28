@@ -4,7 +4,8 @@
 
 [![skills.sh](https://skills.sh/b/hraness/atet)](https://skills.sh/hraness/atet)
 
-**AI media generation and video editing for coding agents.**
+**Local-first AI media generation and video editing for coding agents, with a
+Bun CLI, TypeScript SDK, MCP server, and Agent Skill.**
 
 Atet lets Codex, Claude, and other coding agents generate images, video, and
 voice; edit screen recordings and imported footage; add captions, graphics,
@@ -15,16 +16,16 @@ how to use the Bun CLI, local media engine, and Vercel AI Gateway as one
 creative workflow. Atet has no account system and does not upload a project to
 an Atet service.
 
-[Install](#install-atet) · [Try a request](#start-with-a-finished-job) · [Capabilities](#what-atet-does) · [Design](#how-atet-works) · [atet.sh](https://atet.sh) · [Security](SECURITY.md)
+[Install](#install-atet) · [Try a request](#start-with-a-finished-job) · [Capabilities](#what-atet-does) · [Design](#how-atet-works) · [npm package](https://www.npmjs.com/package/@hraness/atet) · [atet.sh](https://atet.sh) · [Security](SECURITY.md)
 
 ## Install Atet
 
 Install the single Atet Agent Skill with either runner:
 
 ```sh
-npx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet
+npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet
 # or
-bunx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet
+bunx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet
 ```
 
 Start a new agent session after installing the skill. It teaches Codex, Claude
@@ -35,7 +36,7 @@ Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
 then inspect the local media host:
 
 ```sh
-bun add --global @hraness/atet@3.1.1
+bun add --global @hraness/atet@3.1.2
 atet doctor
 ```
 
@@ -69,7 +70,7 @@ To install the guide only for the current repository, run
 packaged guide for inspection.
 
 The npm package and immutable GitHub release contain the same versioned CLI and
-Agent Skill. You can use `github:hraness/atet#v3.1.1` when you need to install
+Agent Skill. You can use `github:hraness/atet#v3.1.2` when you need to install
 the source tag directly.
 
 Atet declares dual-use functionality because its macOS host can request access
@@ -323,7 +324,7 @@ integration terms.
 Add the package to a Bun project:
 
 ```sh
-bun add @hraness/atet@3.1.1
+bun add @hraness/atet@3.1.2
 ```
 
 SDK imports do not start the CLI or inspect local project state:

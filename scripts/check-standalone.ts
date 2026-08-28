@@ -98,7 +98,7 @@ const TEXT_EXTENSIONS = new Set([
 const CANONICAL_TEXT_SENTINELS = [
   {
     path: "src/version.ts",
-    values: ['export const ATET_VERSION = "3.1.1" as const'],
+    values: ['export const ATET_VERSION = "3.1.2" as const'],
   },
   {
     path: "src/operations.ts",
@@ -120,7 +120,7 @@ const CANONICAL_TEXT_SENTINELS = [
   {
     path: "apps/desktop/dist/cli/main.js",
     values: [
-      '"3.1.1"',
+      '"3.1.2"',
       '"atet.diagram.check"',
       '"atet.edit-plan"',
       '"atet.video-project"',
@@ -319,12 +319,36 @@ const problems = [
   ...inventoryUpdate.problems,
 ];
 const rootPackage = await readJson(join(ROOT, "package.json"));
-const expectedDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet.";
+const expectedDescription = "Local-first AI media generation and video editing toolkit for coding agents, with a Bun CLI, TypeScript SDK, MCP server, and Agent Skill.";
+const expectedKeywords = [
+  "ai-media-generation",
+  "ai-video-generation",
+  "video-generation",
+  "video-editing",
+  "image-generation",
+  "screen-recording",
+  "motion-graphics",
+  "captions",
+  "speech-generation",
+  "transcription",
+  "diagrams",
+  "creative-coding",
+  "coding-agents",
+  "agent-skill",
+  "mcp-server",
+  "cli",
+  "typescript",
+  "bun",
+  "local-first",
+] as const;
 if (rootPackage.name !== "@hraness/atet") {
   problems.push("package.json name must be @hraness/atet");
 }
 if (rootPackage.description !== expectedDescription) {
   problems.push("package.json description does not match the canonical Atet description");
+}
+if (JSON.stringify(rootPackage.keywords) !== JSON.stringify(expectedKeywords)) {
+  problems.push("package.json keywords do not match the focused Atet discovery vocabulary");
 }
 if (rootPackage.homepage !== "https://atet.sh/") {
   problems.push("package.json homepage must be https://atet.sh/");
@@ -360,8 +384,8 @@ if (
 const packageVersion = rootPackage.version;
 if (typeof packageVersion !== "string") {
   problems.push("package.json version must be a string");
-} else if (packageVersion !== "3.1.1") {
-  problems.push("package.json version must be 3.1.1 for the current release");
+} else if (packageVersion !== "3.1.2") {
+  problems.push("package.json version must be 3.1.2 for the current release");
 } else {
   const versionContracts = [
     ["apps/desktop/app.zon", `.version = ${JSON.stringify(packageVersion)}`],

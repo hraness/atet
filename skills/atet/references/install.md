@@ -21,7 +21,7 @@ When the user asked to install or use Atet, install the current immutable
 release, then inspect its real capabilities:
 
 ```sh
-bun add --global @hraness/atet@3.1.1
+bun add --global @hraness/atet@3.1.2
 atet --help
 atet doctor --json
 atet workflows list --json

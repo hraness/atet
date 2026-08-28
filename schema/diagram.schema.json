@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/hraness/atet/v3.1.1/schema/diagram.schema.json",
+  "$id": "https://raw.githubusercontent.com/hraness/atet/v3.1.2/schema/diagram.schema.json",
   "title": "Diagram source",
   "description": "A positioned diagram or a coordinate-free stack diagram. Both source forms resolve to the positioned DiagramSpec used by renderers.",
   "oneOf": [
