@@ -374,7 +374,7 @@ test("npm release identity ignores transport metadata but binds contents, modes,
   }
 })
 
-test("the default-branch workflow stages one exact npm artifact through OIDC", async () => {
+test("a stable version reaching main stages one exact npm artifact through OIDC", async () => {
   const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
 
   const verifyStart = workflow.indexOf("  verify:\n")
@@ -384,10 +384,13 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   const verifyJob = workflow.slice(verifyStart, stageStart)
   const stageJob = workflow.slice(stageStart)
 
+  expect(workflow).toContain("push:\n    branches:\n      - main\n    paths:\n      - package.json")
   expect(workflow).toContain("workflow_dispatch:")
+  expect(workflow).toContain("stage_required: ${{ steps.identity.outputs.stage_required }}")
   expect(verifyJob).toContain("name: Verify exact package")
   expect(verifyJob).toContain("permissions:\n      contents: read")
   expect(verifyJob).not.toContain("id-token: write")
+  expect(verifyJob).not.toContain("environment:")
   expect(verifyJob).toContain("actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0")
   expect(verifyJob).toContain('node-version: "24"')
   expect(verifyJob).toContain('bun-version: "1.3.14"')
@@ -395,6 +398,14 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   expect(verifyJob).toContain('[[ "$(npm --version)" == "11.19.0" ]]')
   expect(verifyJob).toContain('if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]')
   expect(verifyJob).toContain('"$GITHUB_SHA" != "$default_sha" || "$checked_out_sha" != "$default_sha"')
+  expect(verifyJob).toContain('case "$GITHUB_EVENT_NAME" in')
+  expect(verifyJob).toContain('git cat-file -e "$PUSH_BEFORE^{commit}"')
+  expect(verifyJob).toContain('git merge-base --is-ancestor "$PUSH_BEFORE" "$GITHUB_SHA"')
+  expect(verifyJob).toContain('git show "$PUSH_BEFORE:package.json"')
+  expect(verifyJob).toContain("package.json changed without changing version")
+  expect(verifyJob).toContain("stage_required=false")
+  expect(verifyJob).toContain("stage_required=true")
+  expect(verifyJob).toContain("must be newer than")
   expect(verifyJob).toContain('npm view "$package_name" name --json')
   expect(verifyJob).toContain('npm view "$package_name@$package_version" version --json')
   expect(verifyJob).toContain("bun install --frozen-lockfile --ignore-scripts")
@@ -412,10 +423,14 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   expect(verifyJob).toContain('sha256sum "$metadata"')
   expect(verifyJob).toContain("$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT")
   expect(verifyJob).toContain("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02")
+  expect(verifyJob.match(/if: steps\.identity\.outputs\.stage_required == 'true'/gu)).toHaveLength(6)
 
   expect(stageJob).toContain("name: Stage exact package")
   expect(stageJob).toContain("needs: verify")
+  expect(stageJob).toContain("if: needs.verify.outputs.stage_required == 'true'")
+  expect(stageJob).toContain("environment:\n      name: npm-stage")
   expect(stageJob).toContain("permissions:\n      id-token: write")
+  expect(workflow.match(/environment:\n {6}name: npm-stage/gu)).toHaveLength(1)
   expect(workflow.match(/id-token: write/gu)).toHaveLength(1)
   expect(stageJob).not.toContain("actions/checkout@")
   expect(stageJob).not.toContain("setup-bun@")
@@ -479,7 +494,134 @@ test("the default-branch workflow stages one exact npm artifact through OIDC", a
   expect(workflow.match(/--registry=https:\/\/registry\.npmjs\.org/gu)?.length).toBeGreaterThanOrEqual(5)
   expect(workflow).not.toContain("NPM_TOKEN")
   expect(workflow).not.toMatch(/npm publish(?:\s|$)/u)
-  expect(workflow).not.toContain("push:")
+  expect(workflow).not.toContain("tags:")
+})
+
+test("automatic npm staging distinguishes version changes from package metadata edits", async () => {
+  const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
+  const script = workflowStepScript(
+    workflow,
+    "Verify default-branch package identity",
+  )
+  const directory = await mkdtemp(join(tmpdir(), "atet-stage-identity-"))
+  const binaryDirectory = join(directory, "bin")
+  const gitLog = join(directory, "git.log")
+  const npmLog = join(directory, "npm.log")
+  const output = join(directory, "github-output.txt")
+  const sourceSha = "b".repeat(40)
+  const previousSha = "a".repeat(40)
+
+  try {
+    await mkdir(binaryDirectory, { recursive: true })
+    await Promise.all([
+      writeFile(join(binaryDirectory, "git"), `#!/bin/bash
+set -euo pipefail
+printf 'git %s\\n' "$*" >> "$GIT_COMMAND_LOG"
+case "\${1-}" in
+  fetch|cat-file|merge-base) exit 0 ;;
+  show)
+    printf '{"name":"@hraness/atet","version":"%s"}\\n' "$MOCK_PREVIOUS_VERSION"
+    exit 0
+    ;;
+  rev-parse)
+    case "$*" in
+      "rev-parse origin/main"|"rev-parse HEAD") printf '%s\\n' "$GITHUB_SHA"; exit 0 ;;
+      "rev-parse --verify --quiet refs/tags/v3.1.1") exit 1 ;;
+    esac
+    ;;
+esac
+echo "unexpected git command: $*" >&2
+exit 64
+`, "utf8"),
+      writeFile(join(binaryDirectory, "npm"), `#!/bin/bash
+set -euo pipefail
+printf 'npm %s\\n' "$*" >> "$NPM_COMMAND_LOG"
+case "$*" in
+  "view @hraness/atet name --json --registry=https://registry.npmjs.org")
+    printf '"@hraness/atet"\\n'
+    exit 0
+    ;;
+  "view @hraness/atet@3.1.1 version --json --registry=https://registry.npmjs.org")
+    echo 'npm error code E404' >&2
+    exit 1
+    ;;
+esac
+echo "unexpected npm command: $*" >&2
+exit 64
+`, "utf8"),
+    ])
+    await Promise.all([
+      chmod(join(binaryDirectory, "git"), 0o755),
+      chmod(join(binaryDirectory, "npm"), 0o755),
+    ])
+
+    const runIdentity = async (
+      eventName: "push" | "workflow_dispatch",
+      previousVersion: string,
+    ) => {
+      await Promise.all([
+        rm(gitLog, { force: true }),
+        rm(npmLog, { force: true }),
+        rm(output, { force: true }),
+      ])
+      const result = await runWorkflowScript(script, {
+        DEFAULT_BRANCH: "main",
+        GIT_COMMAND_LOG: gitLog,
+        GITHUB_EVENT_NAME: eventName,
+        GITHUB_OUTPUT: output,
+        GITHUB_REF: "refs/heads/main",
+        GITHUB_SHA: sourceSha,
+        MOCK_PREVIOUS_VERSION: previousVersion,
+        NPM_COMMAND_LOG: npmLog,
+        PATH: `${binaryDirectory}:${process.env.PATH ?? ""}`,
+        PUSH_BEFORE: eventName === "push" ? previousSha : "",
+        RUNNER_TEMP: directory,
+      })
+      return Object.freeze({
+        ...result,
+        npmCommands: await Bun.file(npmLog).exists()
+          ? await readFile(npmLog, "utf8")
+          : "",
+        outputs: await Bun.file(output).exists()
+          ? await readFile(output, "utf8")
+          : "",
+      })
+    }
+
+    const unchanged = await runIdentity("push", "3.1.1")
+    expect(unchanged.exitCode).toBe(0)
+    expect(unchanged.outputs).toBe("stage_required=false\n")
+    expect(unchanged.npmCommands).toBe("")
+    expect(`${unchanged.stdout}${unchanged.stderr}`).toContain(
+      "package.json changed without changing version 3.1.1",
+    )
+
+    const increased = await runIdentity("push", "3.1.0")
+    expect(increased.exitCode).toBe(0)
+    expect(increased.outputs).toBe(
+      `stage_required=true\nsource_sha=${sourceSha}\n`,
+    )
+    expect(increased.npmCommands).toContain("npm view @hraness/atet name --json")
+    expect(increased.npmCommands).toContain(
+      "npm view @hraness/atet@3.1.1 version --json",
+    )
+
+    const decreased = await runIdentity("push", "3.2.0")
+    expect(decreased.exitCode).not.toBe(0)
+    expect(`${decreased.stdout}${decreased.stderr}`).toContain(
+      "Package version 3.1.1 must be newer than 3.2.0",
+    )
+    expect(decreased.npmCommands).toBe("")
+
+    const recovered = await runIdentity("workflow_dispatch", "3.1.1")
+    expect(recovered.exitCode).toBe(0)
+    expect(recovered.outputs).toBe(
+      `stage_required=true\nsource_sha=${sourceSha}\n`,
+    )
+    expect(recovered.npmCommands).toContain("npm view @hraness/atet name --json")
+  } finally {
+    await rm(directory, { force: true, recursive: true })
+  }
 })
 
 test("the terminal npm stage rejects present, ambiguous, and failed remote tag lookups", async () => {
@@ -644,17 +786,28 @@ test("version 3.1.1 publishes one Atet identity with npm install instructions", 
   }
   expect(readme).toContain("[`DISCLOSURE`](DISCLOSURE)")
   expect(security).toContain("[`DISCLOSURE`](DISCLOSURE)")
+  const normalizedPublishing = publishing.replace(/\s+/gu, " ")
   expect(publishing).toContain("npm stage publish <reviewed-tarball>")
   expect(publishing).toContain("--ignore-scripts")
   expect(publishing).toContain("--provenance")
   expect(publishing).toContain("allowed action: `npm stage publish` only")
+  expect(publishing).toContain("environment: `npm-stage`")
+  expect(publishing).toContain("repository maintainer `0thernet`")
+  expect(publishing).toContain("`prevent_self_review: false`")
+  expect(normalizedPublishing).toContain("must match `npm-stage` exactly")
   expect(publishing).toContain("Require two-factor authentication and")
   expect(publishing).toContain("disallow tokens")
   expect(publishing).toContain("Do not create the matching Git tag yet")
-  expect(publishing).toContain("only job with OIDC authority")
-  expect(publishing).toContain("checks out no source and runs no repository code")
+  expect(publishing).toContain("starts **Stage npm package** automatically")
+  expect(publishing).toContain("leaves the stable version unchanged exits")
+  expect(publishing).toContain("dispatch **Stage npm package** from")
+  expect(normalizedPublishing).toContain(
+    "Only the minimal staging job may reference this environment",
+  )
+  expect(normalizedPublishing).toContain("checks out no source and runs no repository code")
+  expect(normalizedPublishing).toContain("separate from the earlier GitHub environment review")
   expect(publishing).toContain("npm-package.sha256")
-  expect(publishing.replace(/\s+/gu, " ")).toContain(
+  expect(normalizedPublishing).toContain(
     "rehashes the package, proves the matching Git tag is still absent, and only then runs the exact stage-only command",
   )
   expect(publishing).toContain("npm-package-identity.ts")
