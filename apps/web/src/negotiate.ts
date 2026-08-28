@@ -11,15 +11,27 @@ type AcceptEntry = Readonly<{
   type: string
 }>
 
-function parseQuality(value: string | undefined): number {
-  if (value === undefined) {
-    return 1
+const mediaToken = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u
+const qualityValue = /^(?:0(?:\.[0-9]{0,3})?|1(?:\.0{0,3})?)$/u
+
+function parseQuality(value: string): number | null {
+  return qualityValue.test(value) ? Number(value) : null
+}
+
+function isMediaRange(value: string): boolean {
+  if (value === "*/*") {
+    return true
   }
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed)) {
-    return 1
+  const segments = value.split("/")
+  if (segments.length !== 2) {
+    return false
   }
-  return Math.max(0, Math.min(1, parsed))
+  const [type, subtype] = segments
+  return type !== undefined
+    && subtype !== undefined
+    && type !== "*"
+    && mediaToken.test(type)
+    && (subtype === "*" || mediaToken.test(subtype))
 }
 
 function specificityFor(type: string): number {
@@ -31,20 +43,29 @@ function specificityFor(type: string): number {
 
 export function parseAccept(header: string): readonly AcceptEntry[] {
   return header.split(",").flatMap((raw, position) => {
-    const parts = raw.trim().split(";").map(part => part.trim()).filter(part => part.length > 0)
+    const parts = raw.trim().split(";").map(part => part.trim())
     const type = parts[0]?.toLowerCase()
-    if (type === undefined || type.length === 0) {
+    if (type === undefined || !isMediaRange(type)) {
       return []
     }
 
     let q = 1
+    let sawQuality = false
     for (const parameter of parts.slice(1)) {
       const separator = parameter.indexOf("=")
-      const name = (separator === -1 ? parameter : parameter.slice(0, separator)).trim().toLowerCase()
-      if (name !== "q") {
-        continue
+      if (separator <= 0) {
+        return []
       }
-      q = parseQuality(separator === -1 ? undefined : parameter.slice(separator + 1).trim())
+      const name = parameter.slice(0, separator).trim().toLowerCase()
+      if (name !== "q" || sawQuality) {
+        return []
+      }
+      const parsedQuality = parseQuality(parameter.slice(separator + 1).trim())
+      if (parsedQuality === null) {
+        return []
+      }
+      q = parsedQuality
+      sawQuality = true
     }
 
     return [{
@@ -97,7 +118,7 @@ export function preferredRepresentationFrom(
 
   const entries = parseAccept(header)
   if (entries.length === 0) {
-    return defaultType
+    return null
   }
 
   let bestType: ProducedMediaType | null = null
