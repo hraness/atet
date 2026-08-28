@@ -26,7 +26,11 @@ import {
   robotsTxt,
   sitemapMarkdown,
 } from "./src/agent-pages"
-import { notAcceptableBody, preferredRepresentation } from "./src/negotiate"
+import {
+  notAcceptableBody,
+  preferredRepresentation,
+  preferredRepresentationFrom,
+} from "./src/negotiate"
 import {
   isHomePath,
   isNegotiableDocumentPath,
@@ -196,6 +200,9 @@ describe("static Atet site", () => {
     expect(css).toContain(".preview-shell")
     expect(css).toContain(".preview-mark__sun")
     expect(css).toContain(".preview-outputs")
+    expect(css).toMatch(/\.preview-route\s*\{[^}]*place-items:\s*safe center;[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/su)
+    expect(css).toMatch(/\.preview-shell\s*\{[^}]*min-height:\s*min\(38rem, calc\(100svh - 2rem\)\);/su)
+    expect(css).not.toMatch(/\.preview-(?:route|shell)\s*\{[^}]*overflow:\s*hidden;/su)
   })
 
   test("links the website, product, and source in structured data", async () => {
@@ -1150,6 +1157,34 @@ describe("static Atet site", () => {
     expect(preferredRepresentation("text/markdown;q=0, text/html;q=0")).toBeNull()
     expect(preferredRepresentation("application/xml")).toBeNull()
     expect(preferredRepresentation("application/json, image/png")).toBeNull()
+    expect(preferredRepresentationFrom(null, ["text/html"])).toBe("text/html")
+    expect(preferredRepresentationFrom("text/html", ["text/html"])).toBe("text/html")
+    expect(preferredRepresentationFrom("*/*", ["text/html"])).toBe("text/html")
+    expect(preferredRepresentationFrom("text/markdown", ["text/html"])).toBeNull()
+    expect(preferredRepresentationFrom("text/html;q=0, */*;q=1", ["text/html"])).toBeNull()
+    expect(preferredRepresentation("text/html; q = 0.5")).toBe("text/html")
+    expect(preferredRepresentation("text/html;level=1, text/markdown;q=0.4")).toBe("text/markdown")
+
+    for (const malformed of [
+      ",",
+      "text/html;",
+      "text/html;q",
+      "text/html;q=",
+      "text/html;q=wat",
+      "text/html;q=.5",
+      "text/html;q=00.5",
+      "text/html;q=-0.1",
+      "text/html;q=1.001",
+      "text/html;q=2",
+      "text/html;q=0.0000",
+      "text/html;q=0.5;q=0.4",
+      "text/html;level=1",
+      "text/html;charset=utf-8",
+      "text/html;q=0.5;extension=unsupported",
+    ]) {
+      expect(preferredRepresentation(malformed)).toBeNull()
+      expect(preferredRepresentationFrom(malformed, ["text/html"])).toBeNull()
+    }
   })
 
   test("negotiates homepage markdown, agent-friendly 404s, and 406 without an API route", async () => {
@@ -1180,8 +1215,8 @@ describe("static Atet site", () => {
     expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
     expect(isNegotiableDocumentPath("/index.md")).toBe(false)
     expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
-    expect(isNegotiableDocumentPath("/preview")).toBe(false)
-    expect(isNegotiableDocumentPath("/preview.html")).toBe(false)
+    expect(isNegotiableDocumentPath("/preview")).toBe(true)
+    expect(isNegotiableDocumentPath("/preview.html")).toBe(true)
 
     const markdownHome = negotiateSiteRequest(new Request("https://atet.sh/", {
       headers: { Accept: "text/markdown" },
@@ -1277,12 +1312,75 @@ describe("static Atet site", () => {
     }))
     expect(staticFile).toBeUndefined()
 
-    for (const accept of ["text/markdown", "application/xml"]) {
+    for (const accept of ["text/markdown", "application/xml", "text/html;q=0, */*;q=1"]) {
+      const preview = new Request("https://atet.sh/preview", {
+        headers: { Accept: accept },
+      })
+      const negotiated = negotiateSiteRequest(preview)
+      expect(negotiated?.status).toBe(406)
+      expect(negotiated?.headers.get("content-type")).toBe("text/plain; charset=utf-8")
+      expect(negotiated?.headers.get("vary")).toBe("Accept")
+      expect(await negotiated?.text()).toBe("Not Acceptable\n\nAvailable: text/html\n")
+
+      const middlewareResponse = middleware(preview)
+      expect(middlewareResponse?.status).toBe(406)
+      expect(await middlewareResponse?.text()).toBe("Not Acceptable\n\nAvailable: text/html\n")
+    }
+
+    for (const accept of ["text/html", "*/*"]) {
       const preview = new Request("https://atet.sh/preview", {
         headers: { Accept: accept },
       })
       expect(negotiateSiteRequest(preview)).toBeUndefined()
       expect(middleware(preview)).toBeUndefined()
+    }
+
+    const headMarkdown = negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "text/markdown" },
+      method: "HEAD",
+    }))
+    expect(headMarkdown?.status).toBe(200)
+    expect(headMarkdown?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(await headMarkdown?.text()).toBe("")
+
+    const headNotFound = negotiateSiteRequest(new Request("https://atet.sh/missing-route", {
+      headers: { Accept: "text/markdown" },
+      method: "HEAD",
+    }))
+    expect(headNotFound?.status).toBe(404)
+    expect(await headNotFound?.text()).toBe("")
+
+    for (const path of ["/", "/preview"]) {
+      const headNotAcceptable = negotiateSiteRequest(new Request(`https://atet.sh${path}`, {
+        headers: { Accept: "application/xml" },
+        method: "HEAD",
+      }))
+      expect(headNotAcceptable?.status).toBe(406)
+      expect(headNotAcceptable?.headers.get("vary")).toBe("Accept")
+      expect(await headNotAcceptable?.text()).toBe("")
+
+      const headHtml = new Request(`https://atet.sh${path}`, {
+        headers: { Accept: "text/html" },
+        method: "HEAD",
+      })
+      expect(negotiateSiteRequest(headHtml)).toBeUndefined()
+      expect(middleware(headHtml)).toBeUndefined()
+    }
+
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      for (const path of ["/", "/missing-route", "/preview"]) {
+        for (const accept of ["text/markdown", "application/xml", "text/html"]) {
+          const url = `https://atet.sh${path}`
+          expect(negotiateSiteRequest(new Request(url, {
+            headers: { Accept: accept },
+            method,
+          }))).toBeUndefined()
+          expect(middleware(new Request(url, {
+            headers: { Accept: accept },
+            method,
+          }))).toBeUndefined()
+        }
+      }
     }
 
     const html = await readSource("index.html")
