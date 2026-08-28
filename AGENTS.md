@@ -14,7 +14,7 @@
 - `scripts/` – schema, skill, package, release, and official-vectorizer verification.
 - `dist/` and `apps/desktop/dist/cli/` – committed Bun-targeted entrypoints consumed by package and Git installs.
 - `.github/workflows/` – routed SDK, local-host, static-site, macOS-native, official VTracer, and immutable release checks.
-- `docs/` – current architecture and Vercel provider runbooks.
+- `docs/` – current architecture, npm publication, and Vercel provider runbooks.
 - `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`, and `NOTICE.md` – public documentation, policy, and terms.
 - `WRITING.md` and `STYLE.md` – internal and public prose contracts.
 - `package.json`, `tsconfig.json`, and `bun.lock` – standalone package and verification configuration.
@@ -50,4 +50,5 @@
 - Keep semantic SDK, CLI, MCP, and workflow resource admission machine-global and crash-safe on macOS and Linux, with a truthful process-local fallback elsewhere. Preserve profile identity, FIFO admission for overlapping claims, callback-settlement ownership, and inherited lease descriptors through spawned vectorizer processes.
 - Keep MCP paths root-relative and capability-small. Bound source bytes, arrays, shapes, edges, scale, pixels, findings, subprocess duration, and output bytes before execution.
 - Keep vectorization fail-closed with checksum-pinned VTracer archives, inert rebuilt SVG, measured fidelity, and full provenance receipts. Do not add an embedded-raster fallback, upscaling model, or bundled commercial font.
-- Treat a `v*` tag as a release request. Keep the tag equal to `v<package.json version>` on `main`, wait for read-only verification and the official VTracer matrix, and let only the dependent publisher create the immutable Release. Verify that it is non-draft and Latest before creating another tag.
+- Follow `docs/publishing.md` for the interactive npm bootstrap and later releases. Preserve `contentPolicy.class=dual-use` and the root `DISCLOSURE` in every package. After bootstrap, trust only `.github/workflows/npm-stage.yml` with `npm stage publish` permission, disallow traditional publishing tokens, review the staged artifact, and require two-factor authentication for approval.
+- Treat a `v*` tag as a release request. Publish and verify the exact npm artifact first. Keep the tag equal to `v<package.json version>` on `main`, wait for read-only source-versus-registry verification and the official VTracer matrix, and let only the dependent publisher create the immutable Release. Verify that it is non-draft and Latest before creating another tag.

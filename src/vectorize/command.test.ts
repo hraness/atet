@@ -17,6 +17,11 @@ import {
 } from "./command.ts"
 import { VectorizeError } from "./types.ts"
 
+// These fixtures prove post-exit replacement detection, not timeout behavior.
+// Leave enough wall-clock budget for a freshly spawned Bun process to run on a
+// contended CI host without changing the production command's fail-closed cap.
+const CLEANUP_REPLACEMENT_FIXTURE_TIMEOUT_MS = 10_000
+
 test("bounded commands terminate after the declared time limit", async () => {
   await expect(
     runBoundedCommand(
@@ -196,7 +201,7 @@ test("bounded pathname cleanup refuses a replaced output inode", async () => {
           outputPath = path
           return [process.execPath, "-e", program, path]
         },
-        1_000,
+        CLEANUP_REPLACEMENT_FIXTURE_TIMEOUT_MS,
         "trace_failed",
         {
           maxOutputBytes: 1_024,
@@ -236,7 +241,7 @@ test("bounded pathname cleanup never follows a replaced output directory", async
           outputPath = path
           return [process.execPath, "-e", program, path]
         },
-        1_000,
+        CLEANUP_REPLACEMENT_FIXTURE_TIMEOUT_MS,
         "trace_failed",
         {
           maxOutputBytes: 1_024,

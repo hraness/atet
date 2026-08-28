@@ -1354,7 +1354,7 @@ export class CaptureHelperRecordingController implements RecordingController {
         helperVersion: this.#helperVersion,
         now: this.#now,
         recordingId,
-        toolVersion: "3.1.0",
+        toolVersion: "3.1.1",
         verifier: this.#verifier,
       });
       await this.#bundleWriter.initialize();

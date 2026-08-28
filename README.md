@@ -22,9 +22,9 @@ an Atet service.
 Install the single Atet Agent Skill with either runner:
 
 ```sh
-npx skills add https://github.com/hraness/atet/tree/v3.1.0 --skill atet
+npx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet
 # or
-bunx skills add https://github.com/hraness/atet/tree/v3.1.0 --skill atet
+bunx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet
 ```
 
 Start a new agent session after installing the skill. It teaches Codex, Claude
@@ -35,7 +35,7 @@ Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
 then inspect the local media host:
 
 ```sh
-bun add --global github:hraness/atet#v3.1.0
+bun add --global @hraness/atet@3.1.1
 atet doctor
 ```
 
@@ -68,7 +68,18 @@ To install the guide only for the current repository, run
 `--project <path>` to name a different repository. `atet skill path` prints the
 packaged guide for inspection.
 
-Atet is distributed directly through GitHub and is not published to npm.
+The npm package and immutable GitHub release contain the same versioned CLI and
+Agent Skill. You can use `github:hraness/atet#v3.1.1` when you need to install
+the source tag directly.
+
+Atet declares dual-use functionality because its macOS host can request access
+to selected displays, system audio, a camera, a microphone, and input-event
+metadata such as cursor movement, clicks, key activity, focused-input bounds,
+display topology, and changed-window snapshots. Typed-text capture is
+separately opt-in, and secure fields remain suppressed. Read
+[`DISCLOSURE`](DISCLOSURE) for the intended-use and consent boundary and
+[`SECURITY.md`](SECURITY.md) for the runtime trust boundary before recording
+sensitive material.
 
 ## Start with a finished job
 
@@ -312,7 +323,7 @@ integration terms.
 Add the package to a Bun project:
 
 ```sh
-bun add github:hraness/atet#v3.1.0
+bun add @hraness/atet@3.1.1
 ```
 
 SDK imports do not start the CLI or inspect local project state:
@@ -361,6 +372,15 @@ bun run check
 The full check verifies the standalone public boundary, SDK, local runtime,
 schema, Agent Skill, generated entrypoints, static site, deterministic tests,
 property tests, and a clean packed consumer.
+
+The package check imports every public surface with Bun and the compiled public
+subset with Node in controlled clean consumers. It blocks common Bun and Node
+filesystem-write, network, worker, and subprocess entry points, runs Node with
+filesystem writes, child processes, and workers denied by its permission
+model, and compares the controlled consumer tree before and after import. This
+proves the checked import-time boundary through those hooks. It is not an
+operating-system sandbox, and calling an exported operation can perform the
+documented local or Gateway work.
 
 ## License
 

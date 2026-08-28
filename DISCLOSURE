@@ -1,0 +1,46 @@
+# Dual-use functionality disclosure
+
+`@hraness/atet` is a local-first media authoring toolkit for work that the
+operator owns or is authorized to record, import, edit, analyze, and publish.
+It includes security-relevant capabilities that can be used for legitimate
+creative work or abused to collect sensitive information.
+
+On macOS, Atet can request permission to record selected displays, system
+audio, a selected camera, and a selected microphone. When interaction metadata
+is enabled, it can record cursor positions, clicks, key activity, focused-input
+bounds, display topology, and changed window snapshots. Typed-text collection
+is separately opt-in. Atet suppresses secure fields even when typed-text
+collection is enabled.
+
+Atet can also read caller-selected local media and project files, invoke
+bounded local browser and media subprocesses, analyze faces locally without
+identifying them, and write recordings, derived media, metadata, previews, and
+receipts below a caller-selected project. Its local MCP server and workflow
+host expose fixed, typed operations to an authorized local agent. Explicitly
+imported imperative workflow modules are trusted current-user Bun code rather
+than sandboxed input.
+
+Generation and model-backed media analysis can send an explicit prompt and
+caller-selected media to Vercel AI Gateway. Local media upload requires the
+matching command acknowledgement. Local vectorization, face detection,
+ordinary media editing, diagram rendering, and capture remain local. Atet does
+not provide an account service and does not upload a project to an Atet
+service.
+
+Use Atet only on devices, accounts, displays, conversations, and media that you
+are entitled and permitted to capture or process. Obtain any consent required
+by law, contract, workplace policy, or platform rules. Do not use Atet to
+surveil another person, collect credentials, bypass operating-system
+permissions or access controls, capture protected communications without
+authorization, or publish private media without permission.
+
+Screen recordings, camera and microphone media, system audio, cursor and input
+events, typed text, window titles, focus state, project paths, model prompts,
+and generated receipts can contain credentials, private communications,
+personal data, or proprietary material. Review captured and derived artifacts
+before committing, sharing, uploading, or publishing them. Keep Gateway
+credentials in the process environment and remove secrets and private media
+from vulnerability reports.
+
+Report suspected vulnerabilities through GitHub private vulnerability
+reporting at https://github.com/hraness/atet/security/advisories/new.

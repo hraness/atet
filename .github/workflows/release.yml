@@ -26,9 +26,17 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+          registry-url: "https://registry.npmjs.org"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.3.14"
+      - run: >-
+          npm install --global --ignore-scripts npm@11.19.0
+          --registry=https://registry.npmjs.org
       - name: Install FFmpeg
         run: bash scripts/install-ci-ffmpeg.sh
       - name: Verify release identity
@@ -59,14 +67,51 @@ jobs:
           printf 'tag=%s\n' "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run check
-      - run: |
-          generated_status="$(git status --porcelain --untracked-files=all -- dist apps/desktop/dist/cli bun.lock)"
-          if [[ -n "$generated_status" ]]; then
-            printf '%s\n' "$generated_status"
+      - name: Verify clean source tree
+        run: |
+          set -euo pipefail
+          source_status="$(git status --porcelain --untracked-files=all)"
+          if [[ -n "$source_status" ]]; then
+            printf '%s\n' "$source_status"
             exit 1
           fi
-      - run: bun pm pack --dry-run --ignore-scripts
-      - run: node --input-type=module -e 'await Promise.all(["./dist/index.js", "./dist/cli.js", "./dist/code/index.js", "./dist/code/advanced.js", "./dist/generate.js", "./dist/host-resources.js", "./dist/operations.js", "./dist/workflow.js"].map((specifier) => import(specifier)))'
+      - name: Verify exact public npm artifact
+        run: |
+          set -euo pipefail
+          package_name="$(node -p 'require("./package.json").name')"
+          package_version="$(node -p 'require("./package.json").version')"
+          archive_name="hraness-atet-$package_version.tgz"
+          source_directory="$RUNNER_TEMP/npm-source"
+          registry_directory="$RUNNER_TEMP/npm-registry"
+          source_metadata="$source_directory/npm-pack.json"
+          registry_metadata="$registry_directory/npm-pack.json"
+          registry_view="$registry_directory/npm-view.json"
+          mkdir -p "$source_directory" "$registry_directory"
+          npm pack --ignore-scripts --json \
+            --pack-destination "$source_directory" \
+            --registry=https://registry.npmjs.org \
+            > "$source_metadata"
+          npm pack "$package_name@$package_version" \
+            --ignore-scripts --json \
+            --pack-destination "$registry_directory" \
+            --registry=https://registry.npmjs.org \
+            > "$registry_metadata"
+          npm view "$package_name@$package_version" name version dist --json \
+            --registry=https://registry.npmjs.org \
+            > "$registry_view"
+          cat "$source_metadata"
+          cat "$registry_metadata"
+          cat "$registry_view"
+          source_archive="$source_directory/$archive_name"
+          registry_archive="$registry_directory/$archive_name"
+          bun run ./scripts/npm-package-identity.ts \
+            "$source_metadata" "$source_archive" \
+            "$registry_metadata" "$registry_archive" \
+            "$registry_view" \
+            "$package_name" "$package_version" "$archive_name"
+          bun run ./scripts/package-smoke.ts \
+            --archive "$registry_archive" \
+            --pack-json "$registry_metadata"
 
   official_vtracer:
     name: Atet VTracer (${{ matrix.target }})
