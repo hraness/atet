@@ -7,10 +7,13 @@ interactive publish or staged-promotion boundary.
 
 ## Bootstrap the npm package
 
-Start from the current `main` commit after its required checks pass. Use Node
-24, npm 11.19.0, and Bun 1.3.14. Confirm that the signed-in npm maintainer has
-publish access to the `hraness` organization and two-factor authentication
-enabled. Do not create the matching Git tag yet.
+This section records the one-time `3.1.1` bootstrap. Do not reuse the
+interactive path for a later release; follow
+[Stage a later version](#stage-a-later-version) instead. The bootstrap started
+from the checked `main` commit with Node 24,
+npm 11.19.0, and Bun 1.3.14. The signed-in npm maintainer had publish access
+to the `hraness` organization and two-factor authentication enabled. The
+matching Git tag was created only after the public package was verified.
 
 1. Install without dependency lifecycle scripts and run the complete gate.
 

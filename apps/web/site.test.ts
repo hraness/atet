@@ -101,9 +101,9 @@ describe("static Atet site", () => {
 
     expect(searchableReadme).toContain(brandDescription.toLowerCase())
 
-    expect(readme).toContain("npx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet")
-    expect(readme).toContain("bun add --global @hraness/atet@3.1.1")
-    expect(readme).toContain("bun add @hraness/atet@3.1.1")
+    expect(readme).toContain("npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet")
+    expect(readme).toContain("bun add --global @hraness/atet@3.1.2")
+    expect(readme).toContain("bun add @hraness/atet@3.1.2")
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
     expect(readme).toContain("atet ai video generate")
@@ -239,8 +239,12 @@ describe("static Atet site", () => {
         author: { "@id": "https://hraness.com/#organization" },
         installUrl: "https://atet.sh/#install",
         publisher: { "@id": "https://hraness.com/#organization" },
-        sameAs: ["https://github.com/hraness/atet"],
-        softwareVersion: "3.1.1",
+        sameAs: [
+          "https://github.com/hraness/atet",
+          "https://www.npmjs.com/package/@hraness/atet",
+          "https://skills.sh/hraness/atet",
+        ],
+        softwareVersion: "3.1.2",
       }),
       expect.objectContaining({
         "@id": "https://atet.sh/#source",
@@ -248,7 +252,7 @@ describe("static Atet site", () => {
         author: { "@id": "https://hraness.com/#organization" },
         codeRepository: "https://github.com/hraness/atet",
         targetProduct: { "@id": "https://atet.sh/#software" },
-        version: "3.1.1",
+        version: "3.1.2",
       }),
     ]))
   })
@@ -257,8 +261,8 @@ describe("static Atet site", () => {
     const html = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
     const commands = [
-      "npx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet",
-      "bun add --global @hraness/atet@3.1.1",
+      "npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet",
+      "bun add --global @hraness/atet@3.1.2",
       "atet doctor",
     ]
     const positions = commands.map(command => html.indexOf(command))
@@ -274,7 +278,7 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("export finished videos")
     expect(html).toContain("Install the Atet Agent Skill")
     expect(html).toContain("Install the local media tools · Requires Bun 1.3.14+")
-    expect(html).toContain("Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet</code>")
+    expect(html).toContain("Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet</code>")
     expect(html).toContain("inside the project you want to work")
     expect(html).toContain("start a new agent session")
     expect(heroHtml).not.toContain("atet skill install")
@@ -282,7 +286,7 @@ describe("static Atet site", () => {
     expect(html).toContain("atet skill install --target claude")
     expect(html).toContain("atet skill install --target agents")
     expect(html).toContain("--scope project")
-    expect(html).toContain("@hraness/atet@3.1.1")
+    expect(html).toContain("@hraness/atet@3.1.2")
   })
 
   test("renders a progressively enhanced reusable copy command in the hero", async () => {
@@ -294,8 +298,8 @@ describe("static Atet site", () => {
 
     expect(build).toContain("function renderCopyCommand(options: CopyCommandOptions)")
     expect(html.match(/data-copy-command(?:>|\s)/gu)).toHaveLength(1)
-    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet</code>')
-    expect(html).toContain("<code>bunx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet</code>")
+    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet</code>')
+    expect(html).toContain("<code>bunx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet</code>")
     expect(html).toContain('aria-label="Copy install command"')
     expect(html).toContain("data-copy-command-button hidden type=\"button\">Copy</button>")
     expect(html).toContain('aria-live="polite"')

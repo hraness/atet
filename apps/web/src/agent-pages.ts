@@ -7,19 +7,19 @@ Atet lets Codex, Claude, and other coding agents generate images, video, and voi
 Install the Atet Agent Skill, then install the local media tools. Atet requires Bun 1.3.14 or newer.
 
 \`\`\`sh
-npx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet
+npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet
 # or
-bunx skills add https://github.com/hraness/atet/tree/v3.1.1 --skill atet
+bunx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet
 \`\`\`
 
 \`\`\`sh
-bun add --global @hraness/atet@3.1.1
+bun add --global @hraness/atet@3.1.2
 atet doctor
 \`\`\`
 
 Run \`atet doctor\` inside the project you want to work in. Then start a new agent session and describe the finished result.
 
-The public skills command installs the immutable v3.1.1 guide. When that command is not being used, \`atet skill install\` installs the guide shipped with your CLI for Codex by default.
+The public skills command installs the immutable v3.1.2 guide. When that command is not being used, \`atet skill install\` installs the guide shipped with your CLI for Codex by default.
 
 - Claude Code: \`atet skill install --target claude\`
 - Other Agent Skill readers: \`atet skill install --target agents\`
@@ -78,6 +78,7 @@ The installed Agent Skill and \`atet --help\` describe the exact tools available
 - [README and agent guide](https://github.com/hraness/atet#readme)
 - [Architecture](https://github.com/hraness/atet/blob/main/docs/architecture.md)
 - [Security policy](https://github.com/hraness/atet/blob/main/SECURITY.md)
+- [Atet on npm](https://www.npmjs.com/package/@hraness/atet)
 - [Source on GitHub](https://github.com/hraness/atet)
 
 ## The name Atet

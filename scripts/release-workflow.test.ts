@@ -239,14 +239,14 @@ function npmPackFixture(
   return [{
     bundled: [],
     entryCount: files.length,
-    filename: "hraness-atet-3.1.1.tgz",
+    filename: "hraness-atet-3.1.2.tgz",
     files,
     integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
     name: "@hraness/atet",
     shasum: createHash("sha1").update(archive).digest("hex"),
     size: archive.length,
     unpackedSize: files.reduce((total, file) => total + file.size, 0),
-    version: "3.1.1",
+    version: "3.1.2",
   }]
 }
 
@@ -273,17 +273,17 @@ async function writePackageIdentityFixture(
       fileCount: registryResult.entryCount,
       integrity: registryResult.integrity,
       shasum: registryResult.shasum,
-      tarball: "https://registry.npmjs.org/@hraness/atet/-/atet-3.1.1.tgz",
+      tarball: "https://registry.npmjs.org/@hraness/atet/-/atet-3.1.2.tgz",
       unpackedSize: registryResult.unpackedSize,
     },
     name: "@hraness/atet",
-    version: "3.1.1",
+    version: "3.1.2",
   }
   const paths = {
-    registryArchive: join(root, "registry", "hraness-atet-3.1.1.tgz"),
+    registryArchive: join(root, "registry", "hraness-atet-3.1.2.tgz"),
     registryMetadata: join(root, "registry", "npm-pack.json"),
     registryView: join(root, "registry", "npm-view.json"),
-    sourceArchive: join(root, "source", "hraness-atet-3.1.1.tgz"),
+    sourceArchive: join(root, "source", "hraness-atet-3.1.2.tgz"),
     sourceMetadata: join(root, "source", "npm-pack.json"),
   }
   await Promise.all([
@@ -298,9 +298,9 @@ async function writePackageIdentityFixture(
     Bun.write(paths.registryView, JSON.stringify(registryView)),
   ])
   return {
-    expectedFilename: "hraness-atet-3.1.1.tgz",
+    expectedFilename: "hraness-atet-3.1.2.tgz",
     expectedName: "@hraness/atet",
-    expectedVersion: "3.1.1",
+    expectedVersion: "3.1.2",
     ...paths,
   }
 }
@@ -309,7 +309,7 @@ test("npm release identity ignores transport metadata but binds contents, modes,
   const root = await mkdtemp(join(tmpdir(), "atet-npm-identity-"))
   const ordinary = [
     { body: "read me\n", mode: 0o644, path: "README.md" },
-    { body: '{"name":"@hraness/atet","version":"3.1.1"}\n', mode: 0o644, path: "package.json" },
+    { body: '{"name":"@hraness/atet","version":"3.1.2"}\n', mode: 0o644, path: "package.json" },
   ] as const
   try {
     const transportDifference = await writePackageIdentityFixture(
@@ -526,7 +526,7 @@ case "\${1-}" in
   rev-parse)
     case "$*" in
       "rev-parse origin/main"|"rev-parse HEAD") printf '%s\\n' "$GITHUB_SHA"; exit 0 ;;
-      "rev-parse --verify --quiet refs/tags/v3.1.1") exit 1 ;;
+      "rev-parse --verify --quiet refs/tags/v3.1.2") exit 1 ;;
     esac
     ;;
 esac
@@ -541,7 +541,7 @@ case "$*" in
     printf '"@hraness/atet"\\n'
     exit 0
     ;;
-  "view @hraness/atet@3.1.1 version --json --registry=https://registry.npmjs.org")
+  "view @hraness/atet@3.1.2 version --json --registry=https://registry.npmjs.org")
     echo 'npm error code E404' >&2
     exit 1
     ;;
@@ -588,12 +588,12 @@ exit 64
       })
     }
 
-    const unchanged = await runIdentity("push", "3.1.1")
+    const unchanged = await runIdentity("push", "3.1.2")
     expect(unchanged.exitCode).toBe(0)
     expect(unchanged.outputs).toBe("stage_required=false\n")
     expect(unchanged.npmCommands).toBe("")
     expect(`${unchanged.stdout}${unchanged.stderr}`).toContain(
-      "package.json changed without changing version 3.1.1",
+      "package.json changed without changing version 3.1.2",
     )
 
     const increased = await runIdentity("push", "3.1.0")
@@ -603,17 +603,17 @@ exit 64
     )
     expect(increased.npmCommands).toContain("npm view @hraness/atet name --json")
     expect(increased.npmCommands).toContain(
-      "npm view @hraness/atet@3.1.1 version --json",
+      "npm view @hraness/atet@3.1.2 version --json",
     )
 
     const decreased = await runIdentity("push", "3.2.0")
     expect(decreased.exitCode).not.toBe(0)
     expect(`${decreased.stdout}${decreased.stderr}`).toContain(
-      "Package version 3.1.1 must be newer than 3.2.0",
+      "Package version 3.1.2 must be newer than 3.2.0",
     )
     expect(decreased.npmCommands).toBe("")
 
-    const recovered = await runIdentity("workflow_dispatch", "3.1.1")
+    const recovered = await runIdentity("workflow_dispatch", "3.1.2")
     expect(recovered.exitCode).toBe(0)
     expect(recovered.outputs).toBe(
       `stage_required=true\nsource_sha=${sourceSha}\n`,
@@ -634,7 +634,7 @@ test("the terminal npm stage rejects present, ambiguous, and failed remote tag l
   const binaryDirectory = join(directory, "bin")
   const commandLog = join(directory, "commands.log")
   const publishMarker = join(directory, "published.txt")
-  const tarball = join(directory, "hraness-atet-3.1.1.tgz")
+  const tarball = join(directory, "hraness-atet-3.1.2.tgz")
   const metadata = join(directory, "npm-pack.json")
   const sourceSha = "b".repeat(40)
   const archiveSha256 = "c".repeat(64)
@@ -652,7 +652,7 @@ if [[ "\${1-}" == "ls-remote" ]]; then
   case "$GIT_TAG_STATUS" in
     absent) exit 2 ;;
     ambiguous) printf 'ambiguous lookup output\\n'; exit 2 ;;
-    present) printf '%s\\trefs/tags/v3.1.1\\n' "$GITHUB_SHA"; exit 0 ;;
+    present) printf '%s\\trefs/tags/v3.1.2\\n' "$GITHUB_SHA"; exit 0 ;;
     failure) echo 'simulated remote lookup failure' >&2; exit 128 ;;
   esac
 fi
@@ -689,7 +689,7 @@ printf 'staged\\n' > "$PUBLISH_MARKER"
       EXPECTED_ARCHIVE_SHA256: archiveSha256,
       EXPECTED_METADATA_SHA256: metadataSha256,
       EXPECTED_SOURCE_SHA: sourceSha,
-      EXPECTED_VERSION: "3.1.1",
+      EXPECTED_VERSION: "3.1.2",
       GITHUB_REF: "refs/heads/main",
       GITHUB_REPOSITORY: "hraness/atet",
       GITHUB_SHA: sourceSha,
@@ -719,7 +719,7 @@ printf 'staged\\n' > "$PUBLISH_MARKER"
     for (const [status, message] of [
       ["present", "npm delivery must precede the Git tag"],
       ["ambiguous", "ambiguous absence result"],
-      ["failure", "Could not prove that tag v3.1.1 is absent"],
+      ["failure", "Could not prove that tag v3.1.2 is absent"],
     ] as const) {
       await Promise.all([
         rm(commandLog, { force: true }),
@@ -738,7 +738,7 @@ printf 'staged\\n' > "$PUBLISH_MARKER"
   }
 })
 
-test("version 3.1.1 publishes one Atet identity with npm install instructions", async () => {
+test("version 3.1.2 publishes one Atet identity with npm install instructions", async () => {
   const packageRoot = join(import.meta.dir, "..")
   const manifest = JSON.parse(
     await readFile(join(packageRoot, "package.json"), "utf8"),
@@ -755,7 +755,7 @@ test("version 3.1.1 publishes one Atet identity with npm install instructions", 
       readFile(join(packageRoot, "apps", "web", "src", "index.html"), "utf8"),
     ])
 
-  expect(manifest.version).toBe("3.1.1")
+  expect(manifest.version).toBe("3.1.2")
   expect(manifest.bin).toEqual({
     atet: "./apps/desktop/dist/cli/main.js",
   })
@@ -763,18 +763,18 @@ test("version 3.1.1 publishes one Atet identity with npm install instructions", 
     class: "dual-use",
   })
 
-  const npmCliInstall = "@hraness/atet@3.1.1"
+  const npmCliInstall = "@hraness/atet@3.1.2"
   const immutableSkillInstall =
-    "https://github.com/hraness/atet/tree/v3.1.1 --skill atet"
+    "https://github.com/hraness/atet/tree/v3.1.2 --skill atet"
   for (const source of [readme, skillInstall, siteMarkdown, siteTemplate]) {
     expect(source).toContain(npmCliInstall)
   }
   for (const source of [readme, siteBuild, siteMarkdown]) {
     expect(source).toContain(immutableSkillInstall)
   }
-  expect(siteTemplate).toContain('"softwareVersion": "3.1.1"')
-  expect(siteTemplate).toContain('"version": "3.1.1"')
-  expect(readme).toContain("github:hraness/atet#v3.1.1")
+  expect(siteTemplate).toContain('"softwareVersion": "3.1.2"')
+  expect(siteTemplate).toContain('"version": "3.1.2"')
+  expect(readme).toContain("github:hraness/atet#v3.1.2")
   for (const capability of [
     "screen",
     "camera",
@@ -797,7 +797,9 @@ test("version 3.1.1 publishes one Atet identity with npm install instructions", 
   expect(normalizedPublishing).toContain("must match `npm-stage` exactly")
   expect(publishing).toContain("Require two-factor authentication and")
   expect(publishing).toContain("disallow tokens")
-  expect(publishing).toContain("Do not create the matching Git tag yet")
+  expect(publishing).toContain("This section records the one-time `3.1.1` bootstrap")
+  expect(publishing).toContain("Do not reuse the")
+  expect(normalizedPublishing).toContain("interactive path for a later release")
   expect(publishing).toContain("starts **Stage npm package** automatically")
   expect(publishing).toContain("leaves the stable version unchanged exits")
   expect(publishing).toContain("dispatch **Stage npm package** from")
