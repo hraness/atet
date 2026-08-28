@@ -22,6 +22,7 @@ import {
   readingFacesMarkdown,
   readingFeynobgMarkdown,
   readingGaussiansMarkdown,
+  readingGeminiOmniMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "./src/agent-pages"
@@ -34,6 +35,7 @@ import {
   isReadingFacesPath,
   isReadingFeynobgPath,
   isReadingGaussiansPath,
+  isReadingGeminiOmniPath,
   negotiateSiteRequest,
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
@@ -395,15 +397,16 @@ describe("static Atet site", () => {
   })
 
   test("owns one shared appearance menu as the final action in every header", async () => {
-    const [html, notFound, reading, readingFeynobg, readingGaussians] = await Promise.all([
+    const [html, notFound, reading, readingFeynobg, readingGaussians, readingGeminiOmni] = await Promise.all([
       readBuilt("index.html"),
       readBuilt("404.html"),
       readBuilt("reading/draw-faces-with-javascript.html"),
       readBuilt("reading/feynobg.html"),
       readBuilt("reading/painting-with-gaussians.html"),
+      readBuilt("reading/gemini-omni.html"),
     ])
 
-    for (const document of [html, notFound, reading, readingFeynobg, readingGaussians]) {
+    for (const document of [html, notFound, reading, readingFeynobg, readingGaussians, readingGeminiOmni]) {
       expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
       expect(document).toMatch(
         /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
@@ -586,6 +589,10 @@ describe("static Atet site", () => {
     expect(isCanonicalAnalyticsPage({
       origin: "https://atet.sh",
       pathname: "/reading/painting-with-gaussians",
+    })).toBe(false)
+    expect(isCanonicalAnalyticsPage({
+      origin: "https://atet.sh",
+      pathname: "/reading/gemini-omni",
     })).toBe(false)
 
     const timestamp = new Date("2026-08-19T12:00:00.000Z")
@@ -784,6 +791,7 @@ describe("static Atet site", () => {
       builtReadingMarkdown,
       builtFeynobgMarkdown,
       builtGaussiansMarkdown,
+      builtGeminiOmniMarkdown,
     ] = await Promise.all([
       Promise.resolve(robotsTxt),
       readSource("sitemap.xml"),
@@ -795,6 +803,7 @@ describe("static Atet site", () => {
       readBuilt("reading/draw-faces-with-javascript.md"),
       readBuilt("reading/feynobg.md"),
       readBuilt("reading/painting-with-gaussians.md"),
+      readBuilt("reading/gemini-omni.md"),
     ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
       .map(match => match[1])
@@ -837,12 +846,15 @@ describe("static Atet site", () => {
       "https://atet.sh/reading/feynobg.md",
       "https://atet.sh/reading/painting-with-gaussians",
       "https://atet.sh/reading/painting-with-gaussians.md",
+      "https://atet.sh/reading/gemini-omni",
+      "https://atet.sh/reading/gemini-omni.md",
     ])
     for (const discoveryDocument of [sitemap, builtLlms, builtHomeMarkdown, builtSitemapMarkdown]) {
       expect(discoveryDocument).not.toContain("/preview")
     }
     expect(sitemap).toContain("<lastmod>2026-08-26</lastmod>")
     expect(sitemap).toContain("<lastmod>2026-08-27</lastmod>")
+    expect(sitemap).toContain("<lastmod>2026-08-28</lastmod>")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
     expect(builtLlms).toBe(llmsTxt)
     expect(builtHomeMarkdown).toBe(homeMarkdown)
@@ -850,6 +862,7 @@ describe("static Atet site", () => {
     expect(builtReadingMarkdown).toBe(readingFacesMarkdown)
     expect(builtFeynobgMarkdown).toBe(readingFeynobgMarkdown)
     expect(builtGaussiansMarkdown).toBe(readingGaussiansMarkdown)
+    expect(builtGeminiOmniMarkdown).toBe(readingGeminiOmniMarkdown)
     expect(llmsTxt).toMatch(/^# Atet\n/u)
     expect(llmsTxt).toContain("> Atet gives coding agents tools")
     expect(llmsTxt).toContain("## When to use Atet")
@@ -859,14 +872,17 @@ describe("static Atet site", () => {
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/feynobg.md")
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/painting-with-gaussians.md")
+    expect(sitemapMarkdown).toContain("https://atet.sh/reading/gemini-omni.md")
     expect(homeMarkdown).toContain("## Sitemap")
     expect(homeMarkdown).toContain("https://atet.sh/sitemap.md")
     expect(homeMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
     expect(homeMarkdown).toContain("https://atet.sh/reading/feynobg.md")
     expect(homeMarkdown).toContain("https://atet.sh/reading/painting-with-gaussians.md")
+    expect(homeMarkdown).toContain("https://atet.sh/reading/gemini-omni.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/feynobg.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/painting-with-gaussians.md")
+    expect(llmsTxt).toContain("https://atet.sh/reading/gemini-omni.md")
     expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
     expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
   })
@@ -1018,6 +1034,8 @@ describe("static Atet site", () => {
     const readingFeynobgMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/feynobg.md")?.headers ?? []
     const readingGaussians = vercel.headers?.find(entry => entry.source === "/reading/painting-with-gaussians")?.headers ?? []
     const readingGaussiansMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/painting-with-gaussians.md")?.headers ?? []
+    const readingGeminiOmni = vercel.headers?.find(entry => entry.source === "/reading/gemini-omni")?.headers ?? []
+    const readingGeminiOmniMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/gemini-omni.md")?.headers ?? []
     const llms = vercel.headers?.find(entry => entry.source === "/llms.txt")?.headers ?? []
     expect(home).toContainEqual({
       key: "Link",
@@ -1051,6 +1069,14 @@ describe("static Atet site", () => {
       key: "Content-Type",
       value: "text/markdown; charset=utf-8",
     })
+    expect(readingGeminiOmni).toContainEqual({
+      key: "Link",
+      value: '</reading/gemini-omni.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(readingGeminiOmniMarkdownHeader).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
     expect(llms).toContainEqual({
       key: "Content-Type",
       value: "text/plain; charset=utf-8",
@@ -1076,6 +1102,11 @@ describe("static Atet site", () => {
         has: [{ type: "header", key: "accept", value: "^text/markdown" }],
         destination: "/reading/painting-with-gaussians.md",
       },
+      {
+        source: "/reading/gemini-omni",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/reading/gemini-omni.md",
+      },
     ])
   })
 
@@ -1086,6 +1117,7 @@ describe("static Atet site", () => {
       readBuilt("reading/draw-faces-with-javascript.html"),
       readBuilt("reading/feynobg.html"),
       readBuilt("reading/painting-with-gaussians.html"),
+      readBuilt("reading/gemini-omni.html"),
     ])
     const expectedHrefs = [
       HRANESS_HOME_URL,
@@ -1132,6 +1164,9 @@ describe("static Atet site", () => {
     expect(isReadingGaussiansPath("/reading/painting-with-gaussians")).toBe(true)
     expect(isReadingGaussiansPath("/reading/painting-with-gaussians.html")).toBe(true)
     expect(isReadingGaussiansPath("/reading/missing")).toBe(false)
+    expect(isReadingGeminiOmniPath("/reading/gemini-omni")).toBe(true)
+    expect(isReadingGeminiOmniPath("/reading/gemini-omni.html")).toBe(true)
+    expect(isReadingGeminiOmniPath("/reading/missing")).toBe(false)
     expect(isPreservedRedirectPath("/docs")).toBe(true)
     expect(isPreservedRedirectPath("/docs/install")).toBe(true)
     expect(isPreviewPath("/preview")).toBe(true)
@@ -1141,6 +1176,7 @@ describe("static Atet site", () => {
     expect(isNegotiableDocumentPath("/reading/draw-faces-with-javascript")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/feynobg")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/painting-with-gaussians")).toBe(true)
+    expect(isNegotiableDocumentPath("/reading/gemini-omni")).toBe(true)
     expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
     expect(isNegotiableDocumentPath("/index.md")).toBe(false)
     expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
@@ -1200,6 +1236,19 @@ describe("static Atet site", () => {
       headers: { Accept: "text/html" },
     }))
     expect(htmlGaussians).toBeUndefined()
+
+    const markdownGeminiOmni = negotiateSiteRequest(new Request("https://atet.sh/reading/gemini-omni", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownGeminiOmni?.status).toBe(200)
+    expect(markdownGeminiOmni?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownGeminiOmni?.headers.get("link")).toContain('rel="canonical"')
+    expect(await markdownGeminiOmni?.text()).toBe(readingGeminiOmniMarkdown)
+
+    const htmlGeminiOmni = negotiateSiteRequest(new Request("https://atet.sh/reading/gemini-omni", {
+      headers: { Accept: "text/html" },
+    }))
+    expect(htmlGeminiOmni).toBeUndefined()
 
     const docsRedirect = negotiateSiteRequest(new Request("https://atet.sh/docs", {
       headers: { Accept: "text/markdown" },
@@ -1287,6 +1336,8 @@ describe("static Atet site", () => {
       "draw-faces-with-javascript.md",
       "feynobg.html",
       "feynobg.md",
+      "gemini-omni.html",
+      "gemini-omni.md",
       "painting-with-gaussians.html",
       "painting-with-gaussians.md",
     ])
@@ -1388,7 +1439,64 @@ describe("static Atet site", () => {
     expect(readingGaussiansMarkdown).toContain("https://hraness.com")
     expect(readingGaussiansMarkdown).toContain("https://hraness.com/reading/painting-with-gaussians")
     expect(readingGaussiansMarkdown).toContain("https://yogthos.net/posts/2026-08-03-splat-painter.html")
+    expect(readingGaussiansMarkdown).toContain("https://atet.sh/reading/gemini-omni")
+    expect(html).toContain('href="/reading/gemini-omni"')
     expect(home).toContain('href="/reading/painting-with-gaussians"')
     expect(homeMarkdown).toContain("Keep the stroke decision in the renderer")
+  })
+
+  test("publishes one original reading take on Gemini Omni 1.1 Flash", async () => {
+    const [html, builtHtml, builtMarkdown] = await Promise.all([
+      readFile(join(appDirectory, "src/reading/gemini-omni.html"), "utf8"),
+      readBuilt("reading/gemini-omni.html"),
+      readBuilt("reading/gemini-omni.md"),
+    ])
+    const home = await readSource("index.html")
+    const searchableHtml = html.replace(/\s+/gu, " ")
+
+    expect(html.match(/<h1\b/gu)).toHaveLength(1)
+    expect(html).toContain("<h1 id=\"page-title\">Control in the renderer still beats a bigger Omni prompt</h1>")
+    expect(html).not.toContain("Keep the source small enough to vary</h1>")
+    expect(html).not.toContain("Keep the cutout from replacing the source</h1>")
+    expect(html).not.toContain("Keep the stroke decision in the renderer</h1>")
+    expect(html).toContain('<link rel="canonical" href="https://atet.sh/reading/gemini-omni">')
+    expect(html).toContain('<link rel="alternate" type="text/markdown" href="/reading/gemini-omni.md">')
+    expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
+    expect(html).toContain('href="https://atet.sh/"')
+    expect(html).toContain('href="/reading/painting-with-gaussians"')
+    expect(html).toContain('href="https://hraness.com"')
+    expect(html).toContain('href="https://hraness.com/reading/gemini-omni-1-1-flash"')
+    expect(html).toContain('href="https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/"')
+    expect(searchableHtml).toContain("This page is an Atet reading take")
+    expect(searchableHtml).toContain("It is not the Hraness Reading digest")
+    expect(searchableHtml).toContain("Atet does not ship Gemini Omni")
+    expect(searchableHtml).toContain("There is no Atet account or hosted project database")
+    expect(searchableHtml).toContain("Extra prompt control on a general Omni model is not a replacement")
+    expect(searchableHtml).toContain("generation knobs")
+    expect(searchableHtml).toContain("Keep the stroke decision in the renderer")
+    for (const quotedExcerpt of [
+      "takes teams beyond generating videos to truly directing them",
+      "a leap from previous models that only referenced the final second",
+      "You can extend videos in 10-second increments up to a total cumulative length of 40 seconds",
+    ]) {
+      expect(searchableHtml).not.toContain(quotedExcerpt)
+      expect(readingGeminiOmniMarkdown).not.toContain(quotedExcerpt)
+    }
+    expect(searchableHtml).not.toContain("Treat recognition and boundary precision as coupled skills")
+    expect(searchableHtml).not.toContain("You can just draw faces with javascript")
+    expect(searchableHtml).not.toContain("slow and opaque")
+    expect(html).not.toMatch(/stripedex\.com|spongeresearch\.com|hra\.sh/i)
+    expect(html).not.toContain("{{ANALYTICS_SCRIPT}}")
+    expect(html).not.toContain("data-copy-command")
+    expect(builtHtml).not.toContain("{{")
+    expect(builtHtml).not.toMatch(/analytics-|posthog|phc_/i)
+    expect(builtMarkdown).toBe(readingGeminiOmniMarkdown)
+    expect(readingGeminiOmniMarkdown).toContain("https://atet.sh/")
+    expect(readingGeminiOmniMarkdown).toContain("https://atet.sh/reading/painting-with-gaussians")
+    expect(readingGeminiOmniMarkdown).toContain("https://hraness.com")
+    expect(readingGeminiOmniMarkdown).toContain("https://hraness.com/reading/gemini-omni-1-1-flash")
+    expect(readingGeminiOmniMarkdown).toContain("https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/")
+    expect(home).toContain('href="/reading/gemini-omni"')
+    expect(homeMarkdown).toContain("Control in the renderer still beats a bigger Omni prompt")
   })
 })

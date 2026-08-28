@@ -89,6 +89,7 @@ Agentic creative coding toolkit. At the beginning of time, when there was nothin
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet take on Mannay’s JavaScript faces
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet take on FeyNoBg
 - [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet take on Sotnikov’s painterly Gaussian renderer
+- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni.md): An Atet take on Gemini Omni 1.1 Flash
 
 ## Sitemap
 
@@ -96,6 +97,7 @@ Agentic creative coding toolkit. At the beginning of time, when there was nothin
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md)
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md)
 - [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md)
+- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni.md)
 - [Machine-readable site guide](https://atet.sh/llms.txt)
 - [Markdown sitemap](https://atet.sh/sitemap.md)
 - [XML sitemap](https://atet.sh/sitemap.xml)
@@ -133,6 +135,7 @@ Install the Agent Skill, then describe the finished result. Do not use Atet as a
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet reading take on FeyNoBg
 - [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet reading take on Sotnikov’s painterly Gaussian renderer
+- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni.md): An Atet reading take on Gemini Omni 1.1 Flash
 - [Markdown sitemap](https://atet.sh/sitemap.md): Public Atet pages in markdown
 - [XML sitemap](https://atet.sh/sitemap.xml): Search-engine sitemap
 - [Architecture](https://github.com/hraness/atet/blob/main/docs/architecture.md): Project model and local host
@@ -148,6 +151,7 @@ export const sitemapMarkdown = `# Sitemap
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet reading take on FeyNoBg
 - [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet reading take on Sotnikov’s painterly Gaussian renderer
+- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni.md): An Atet reading take on Gemini Omni 1.1 Flash
 - [Machine-readable site guide](https://atet.sh/llms.txt): When to use Atet and the public indexes
 `
 
@@ -202,6 +206,7 @@ Read the source note on [Hraness](https://hraness.com/reading/draw-faces-with-ja
 - [Atet home](https://atet.sh/)
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
 - [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians)
+- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni)
 - [Hraness](https://hraness.com)
 - [Draw faces with JavaScript](https://hraness.com/reading/draw-faces-with-javascript)
 `
@@ -233,6 +238,7 @@ Read the field note on [Feyn](https://usefeyn.com/blog/feynobg/) and the collect
 - [Atet home](https://atet.sh/)
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
 - [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians)
+- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni)
 - [Hraness](https://hraness.com)
 - [FeyNoBg on Hraness](https://hraness.com/reading/feynobg-a-sota-model-for-background-removal)
 - [FeyNoBg on Feyn](https://usefeyn.com/blog/feynobg/)
@@ -260,13 +266,14 @@ Graphics and motion stay in that toolkit. Atet creates editable diagrams, conver
 
 Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
 
-Read the essay on [yogthos.net](https://yogthos.net/posts/2026-08-03-splat-painter.html) and the collected page on [Hraness](https://hraness.com/reading/painting-with-gaussians). Then start at the [Atet home](https://atet.sh/) and keep the stroke decision in a renderer you can still tune.
+Read the essay on [yogthos.net](https://yogthos.net/posts/2026-08-03-splat-painter.html) and the collected page on [Hraness](https://hraness.com/reading/painting-with-gaussians). Then start at the [Atet home](https://atet.sh/) and keep the stroke decision in a renderer you can still tune. A later take, [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni), applies the same habit to Gemini Omni 1.1 Flash.
 
 ## Related pages
 
 - [Atet home](https://atet.sh/)
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
+- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni)
 - [Hraness](https://hraness.com)
 - [Painting with Gaussians on Hraness](https://hraness.com/reading/painting-with-gaussians)
 - [Painting with Gaussians on yogthos.net](https://yogthos.net/posts/2026-08-03-splat-painter.html)
@@ -276,8 +283,43 @@ export const readingFacesCanonicalUrl = "https://atet.sh/reading/draw-faces-with
 export const readingFacesMarkdownUrl = "https://atet.sh/reading/draw-faces-with-javascript.md"
 export const readingFeynobgCanonicalUrl = "https://atet.sh/reading/feynobg"
 export const readingFeynobgMarkdownUrl = "https://atet.sh/reading/feynobg.md"
+export const readingGeminiOmniMarkdown = `# Control in the renderer still beats a bigger Omni prompt
+
+Anish Nangia and Alisa Fortin published [Gemini Omni 1.1 Flash lets you build with more control](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/) on the Google blog on 27 August 2026. [Hraness](https://hraness.com) collected the note on 28 August 2026. This page is an Atet reading take. It is not the Hraness Reading digest. Atet is an agentic creative-coding toolkit. The transfer is where generation knobs live after a model returns a clip.
+
+The Google post presents Omni 1.1 as a production-ready generative video update on the Gemini API. Scene extension now reads 10 seconds of prior context and continues a clip in 10-second steps up to 40 seconds. First and last frames interpolate a shot. Drafts can run at 360p, then the same job can upscale to 1080p or 4K. A prompt can also attach up to three seconds of reference video. The [Hraness reading](https://hraness.com/reading/gemini-omni-1-1-flash) is the collected source note.
+
+Those controls stay inside a general Omni model. A longer, more specific prompt can name a dolly, an orbit, or a loop. That request still ends when the file lands. You cannot ask which timeline cut kept the lettering, or which overlay restored the product silhouette. The [Atet home](https://atet.sh/) asks you to name the source, the result, and the details that must remain unchanged. Those names need knobs that still answer after generation.
+
+## Keep the clip attached to a project state
+
+Atet’s public site keeps source media, editing decisions, previews, and final outputs in storage you control. Original recordings and imported images stay unchanged. Your agent chooses explicit operations. Cuts, timing, framing, overlays, and effects become a revisable project state. After a Gateway video shot you can still point at \`product.png\` and see what the model changed. Preview and final use the same edit.
+
+Graphics and motion stay in that toolkit. Atet creates editable diagrams, converts raster artwork to SVG locally, and builds deterministic animated layers with HTML, SVG, shaders, and Three.js. Those outputs can stand alone or join a video project. Atet does not ship Gemini Omni, a scene-extension command, or a first-and-last-frame interpolator. The transfer is the inspectable source and the controllable renderer.
+
+## Leave Omni’s extra prompt on the model
+
+Thursday’s take, [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians), argued from Sotnikov’s Gaussian painter that an agent can propose marks while the stroke decision stays in a renderer you can inspect. This page starts from a different source: Google’s Omni control and API story. Extra prompt control on a general Omni model is not a replacement for that toolkit.
+
+Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
+
+Read [Gemini Omni 1.1 Flash lets you build with more control](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/) on the Google blog and the collected page on [Hraness](https://hraness.com/reading/gemini-omni-1-1-flash). Then start at the [Atet home](https://atet.sh/) and keep generation knobs in a renderer you can still tune.
+
+## Related pages
+
+- [Atet home](https://atet.sh/)
+- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians)
+- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
+- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
+- [Hraness](https://hraness.com)
+- [Gemini Omni 1.1 Flash on Hraness](https://hraness.com/reading/gemini-omni-1-1-flash)
+- [Gemini Omni 1.1 Flash on the Google blog](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/)
+`
+
 export const readingGaussiansCanonicalUrl = "https://atet.sh/reading/painting-with-gaussians"
 export const readingGaussiansMarkdownUrl = "https://atet.sh/reading/painting-with-gaussians.md"
+export const readingGeminiOmniCanonicalUrl = "https://atet.sh/reading/gemini-omni"
+export const readingGeminiOmniMarkdownUrl = "https://atet.sh/reading/gemini-omni.md"
 export const llmsTxtUrl = "https://atet.sh/llms.txt"
 export const sitemapMarkdownUrl = "https://atet.sh/sitemap.md"
 export const sitemapXmlUrl = "https://atet.sh/sitemap.xml"
