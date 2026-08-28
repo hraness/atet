@@ -30,10 +30,7 @@ interface PreviewLayoutEvidence {
 
 const measurementScript = String.raw`<script>
 (() => {
-  const settle = async () => {
-    await document.fonts.ready;
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
+  try {
     const root = document.documentElement;
     const body = document.body;
     root.style.scrollBehavior = "auto";
@@ -80,7 +77,6 @@ const measurementScript = String.raw`<script>
         Math.max(0, absoluteTop - (root.clientHeight - initialRect.height) / 2),
       );
       window.scrollTo(0, targetScrollY);
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const rect = element.getBoundingClientRect();
       if (rect.top < -0.5 || rect.bottom > root.clientHeight + 0.5) {
         verticalFailures.push(label(element, index) + " cannot be fully reached by vertical scrolling");
@@ -88,7 +84,6 @@ const measurementScript = String.raw`<script>
     }
 
     window.scrollTo(0, maxScrollY);
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const finalNote = document.querySelector(".preview-note").getBoundingClientRect();
     const result = {
       bodyScrollWidth: body.scrollWidth,
@@ -107,11 +102,9 @@ const measurementScript = String.raw`<script>
       viewportWidth: window.innerWidth,
     };
     body.dataset.previewLayout = encodeURIComponent(JSON.stringify(result));
-  };
-
-  settle().catch((error) => {
+  } catch (error) {
     document.body.dataset.previewLayoutError = encodeURIComponent(String(error?.stack || error));
-  });
+  }
 })();
 </script>`
 
