@@ -4,6 +4,9 @@ import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { renderHranessSiteFooter } from "@hraness/site-footer"
+import { AskAiAboutThis } from "@hraness/ui"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
 
 import { renderAtetSocialImage } from "./generate-og"
 import {
@@ -21,6 +24,7 @@ const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
 const sourceDirectory = join(appDirectory, "src")
 const defaultOutputDirectory = join(appDirectory, "dist")
 const posthogIngestOrigin = "https://us.i.posthog.com"
+const siteOrigin = "https://atet.sh"
 const posthogPackageDirectory = dirname(fileURLToPath(import.meta.resolve("posthog-js/package.json")))
 const appearanceMenuStylesPath = fileURLToPath(
   import.meta.resolve("@hraness/design-kit/appearance-menu.css"),
@@ -99,6 +103,13 @@ function renderAppearanceMenu(): string {
       </div>
     </div>
   </div>`
+}
+
+export function renderAskAiAboutThis(canonicalUrl: string): string {
+  return renderToStaticMarkup(createElement(AskAiAboutThis, {
+    className: "atet-ask-ai",
+    url: canonicalUrl,
+  }))
 }
 
 type CopyCommandOptions = Readonly<{
@@ -258,10 +269,14 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     "{{HRANESS_SITE_FOOTER}}": renderHranessSiteFooter(),
     "{{THEME_ASSET}}": themePath,
   } as const
+  const publicPageAssets = (canonicalPath: string) => ({
+    ...commonAssets,
+    "{{ASK_AI_ABOUT_THIS}}": renderAskAiAboutThis(`${siteOrigin}${canonicalPath}`),
+  }) as const
   const analytics = analyticsConfig === null ? null : await bundleAnalytics(analyticsConfig)
   const analyticsPath = analytics === null ? null : assetPath("analytics.js", analytics)
   const indexAssets = {
-    ...commonAssets,
+    ...publicPageAssets("/"),
     "{{ANALYTICS_SCRIPT}}": analyticsPath === null
       ? ""
       : `<script src="${analyticsPath}" type="module"></script>`,
@@ -292,19 +307,25 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     ),
     writeFile(
       join(outputDirectory, "reading/draw-faces-with-javascript.html"),
-      renderDocument(readingFacesTemplate, commonAssets),
+      renderDocument(
+        readingFacesTemplate,
+        publicPageAssets("/reading/draw-faces-with-javascript"),
+      ),
     ),
     writeFile(
       join(outputDirectory, "reading/feynobg.html"),
-      renderDocument(readingFeynobgTemplate, commonAssets),
+      renderDocument(readingFeynobgTemplate, publicPageAssets("/reading/feynobg")),
     ),
     writeFile(
       join(outputDirectory, "reading/painting-with-gaussians.html"),
-      renderDocument(readingGaussiansTemplate, commonAssets),
+      renderDocument(
+        readingGaussiansTemplate,
+        publicPageAssets("/reading/painting-with-gaussians"),
+      ),
     ),
     writeFile(
       join(outputDirectory, "reading/gemini-omni.html"),
-      renderDocument(readingGeminiOmniTemplate, commonAssets),
+      renderDocument(readingGeminiOmniTemplate, publicPageAssets("/reading/gemini-omni")),
     ),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),

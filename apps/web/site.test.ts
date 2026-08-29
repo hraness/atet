@@ -43,7 +43,7 @@ import {
   negotiateSiteRequest,
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
-import { buildWebsite } from "./scripts/build"
+import { buildWebsite, renderAskAiAboutThis } from "./scripts/build"
 import { renderAtetSocialImage } from "./scripts/generate-og"
 
 const appDirectory = dirname(fileURLToPath(import.meta.url))
@@ -65,6 +65,48 @@ async function readBuilt(path: string): Promise<string> {
 }
 
 describe("static Atet site", () => {
+  test("renders one crawlable Ask AI row on each public page with exact provider prompts", async () => {
+    const subjectUrl = "https://atet.sh/reading/feynobg"
+    const prompt = `Tell me about ${subjectUrl}`
+    const row = renderAskAiAboutThis(subjectUrl)
+    const providers = [
+      ["chatgpt", "https://chatgpt.com/", "q"],
+      ["claude", "https://claude.ai/new", "q"],
+      ["perplexity", "https://perplexity.ai/", "q"],
+      ["grok", "https://x.com/i/grok", "text"],
+    ] as const
+
+    expect(row.match(/<nav\b/gu)).toHaveLength(1)
+    expect(row).toContain('aria-label="Ask AI about this"')
+    expect(row.match(/data-slot="ask-ai-about-this-link"/gu)).toHaveLength(4)
+    expect(row.match(/target="_blank"/gu)).toHaveLength(4)
+    expect(row.match(/rel="noopener noreferrer nofollow"/gu)).toHaveLength(4)
+    for (const [provider, baseUrl, parameter] of providers) {
+      const destination = new URL(baseUrl)
+      destination.searchParams.set(parameter, prompt)
+      expect(row).toContain(`data-ask-ai-provider="${provider}"`)
+      expect(row).toContain(`href="${destination.href.replaceAll("&", "&amp;")}"`)
+    }
+
+    const publicPages = [
+      ["index.html", "https://atet.sh/"],
+      ["reading/draw-faces-with-javascript.html", "https://atet.sh/reading/draw-faces-with-javascript"],
+      ["reading/feynobg.html", subjectUrl],
+      ["reading/painting-with-gaussians.html", "https://atet.sh/reading/painting-with-gaussians"],
+      ["reading/gemini-omni.html", "https://atet.sh/reading/gemini-omni"],
+    ] as const
+    for (const [path, canonicalUrl] of publicPages) {
+      const html = await readBuilt(path)
+      const destination = new URL("https://chatgpt.com/")
+      destination.searchParams.set("q", `Tell me about ${canonicalUrl}`)
+      expect(html.match(/data-slot="ask-ai-about-this"/gu)).toHaveLength(1)
+      expect(html).toContain(destination.href.replaceAll("&", "&amp;"))
+    }
+
+    expect(await readBuilt("preview.html")).not.toContain('data-slot="ask-ai-about-this"')
+    expect(await readBuilt("404.html")).not.toContain('data-slot="ask-ai-about-this"')
+  })
+
   test("makes the README a detailed agent guide with natural GitHub discovery terms", async () => {
     const readme = await readFile(join(repositoryDirectory, "README.md"), "utf8")
     const searchableReadme = readme
@@ -527,7 +569,10 @@ describe("static Atet site", () => {
     const build = await readFile(join(appDirectory, "scripts/build.ts"), "utf8")
     const manifest = JSON.parse(
       await readFile(join(appDirectory, "package.json"), "utf8"),
-    ) as { dependencies?: Record<string, string>; devDependencies?: unknown }
+    ) as {
+      dependencies?: Record<string, string>
+      devDependencies?: Record<string, string>
+    }
     const rootManifest = JSON.parse(
       await readFile(join(repositoryDirectory, "package.json"), "utf8"),
     ) as { workspaces?: { catalog?: Record<string, string> } }
@@ -536,21 +581,28 @@ describe("static Atet site", () => {
     expect(manifest.dependencies).toEqual({
       "@hraness/design-kit": "github:hraness/design-kit#v0.2.1",
       "@hraness/site-footer": "github:hraness/site-footer#v0.3.1",
+      "@hraness/ui": "github:hraness/ui#v0.4.10",
       "@resvg/resvg-js": "2.6.2",
       "posthog-js": "1.413.2",
+      "react": "19.2.3",
+      "react-dom": "19.2.3",
     })
-    expect(manifest.devDependencies).toBeUndefined()
+    expect(manifest.devDependencies).toEqual({
+      "@types/react": "19.2.14",
+      "@types/react-dom": "19.2.3",
+    })
     expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
     expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.2.1"')
     expect(localLockfile).toContain(
       '"@hraness/site-footer": "github:hraness/site-footer#v0.3.1"',
     )
+    expect(localLockfile).toContain('"@hraness/ui": "github:hraness/ui#v0.4.10"')
     expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     expect(localLockfile).not.toContain("catalog:")
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
-    expect(new TextEncoder().encode(css).byteLength).toBeLessThan(28_000)
+    expect(new TextEncoder().encode(css).byteLength).toBeLessThan(30_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(new TextEncoder().encode(copyCommand).byteLength).toBeLessThan(4_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)

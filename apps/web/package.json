@@ -8,8 +8,15 @@
   "dependencies": {
     "@hraness/design-kit": "github:hraness/design-kit#v0.2.1",
     "@hraness/site-footer": "github:hraness/site-footer#v0.3.1",
+    "@hraness/ui": "github:hraness/ui#v0.4.10",
     "@resvg/resvg-js": "2.6.2",
-    "posthog-js": "1.413.2"
+    "posthog-js": "1.413.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3"
   },
   "scripts": {
     "build": "bun run ./scripts/build.ts",
