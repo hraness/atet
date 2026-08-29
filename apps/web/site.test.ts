@@ -125,15 +125,31 @@ describe("static Atet site", () => {
       .toLowerCase()
 
     for (const heading of [
+      "## Why Atet",
       "## Install Atet",
       "## Start with a finished job",
       "### Instructions for coding agents",
       "## What Atet does",
+      "## Important limitations",
       "## How Atet works",
       "## Design and trust",
+      "## Verification",
     ]) {
       expect(readme).toContain(heading)
     }
+
+    const readerPath = [
+      "## Why Atet",
+      "## Install Atet",
+      "## Start with a finished job",
+      "## What Atet does",
+      "## Important limitations",
+      "## How Atet works",
+      "## Design and trust",
+      "## Verification",
+    ].map(heading => readme.indexOf(heading))
+    expect(readerPath.every(position => position >= 0)).toBe(true)
+    expect(readerPath).toEqual([...readerPath].sort((left, right) => left - right))
 
     for (const term of [
       "agentic creative coding toolkit",
@@ -329,6 +345,8 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("edit screen recordings and imported footage")
     expect(searchableHtml).toContain("add captions, graphics, and motion")
     expect(searchableHtml).toContain("export finished videos")
+    expect(searchableHtml).toContain("Source media stays unchanged")
+    expect(searchableHtml).toContain("Preview and final renders use the same timeline and composition")
     expect(html).toContain("Install the Atet Agent Skill")
     expect(html).toContain("Install the local media tools · Requires Bun 1.3.14+")
     expect(html).toContain("Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet</code>")

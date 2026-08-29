@@ -23,6 +23,7 @@
 
 - Use Bun 1.3.14 and run `bun run check` before handing off a change.
 - Follow `WRITING.md` for internal prose and `STYLE.md` for public prose, preserving facts, exact terms, literals, quotations, links, and necessary uncertainty.
+- Follow the shared [README guidelines](https://github.com/hraness/.github/blob/main/README_GUIDELINES.md) for the root README and any site copy that summarizes it.
 - Apply unreasonably robust programming when agent work is cheap. Prefer coherent cross-file correctness and focused deterministic evidence while treating production risk, provider coordination, rollout, and observation as real costs.
 - Deliver changes to `main` through a current-head pull request. Keep the stable `Required` CI job green, resolve every review thread, and serialize merges. Human approval stays optional while one regular maintainer would otherwise self-review. Never force-push or bypass the gate.
 - Keep this repository independently buildable. Never depend on sibling paths, Git submodules, or coordinated `main` branches; consume external Hraness packages only through reviewed immutable release tags or commits.

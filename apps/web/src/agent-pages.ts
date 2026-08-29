@@ -8,6 +8,8 @@ export const homeMarkdown = `# Atet
 
 Atet lets Codex, Claude, and other coding agents generate images, video, and voice; edit screen recordings and imported footage; add captions, graphics, and motion; and export finished videos from the files in your project.
 
+Source media stays unchanged while explicit project revisions record the edit. Preview and final renders use the same timeline and composition.
+
 ## Install
 
 Install the Atet Agent Skill, then install the local media tools. Atet requires Bun 1.3.14 or newer.
@@ -23,7 +25,7 @@ bun add --global @hraness/atet@3.1.2
 atet doctor
 \`\`\`
 
-Run \`atet doctor\` inside the project you want to work in. Then start a new agent session and describe the finished result.
+Run \`atet doctor\` inside the project you want to work in. Then start a new agent session and describe the finished result, naming the source files and details that must remain unchanged.
 
 The public skills command installs the immutable v3.1.2 guide. When that command is not being used, \`atet skill install\` installs the guide shipped with your CLI for Codex by default.
 
