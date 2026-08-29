@@ -1,3 +1,9 @@
+import { editorialReadings } from "./editorial-images"
+
+const readingMarkdownList = editorialReadings.map(reading => (
+  `- [${reading.title}](https://atet.sh${reading.canonicalPath}): ${reading.description}`
+)).join("\n")
+
 export const homeMarkdown = `# Atet
 
 Atet lets Codex, Claude, and other coding agents generate images, video, and voice; edit screen recordings and imported footage; add captions, graphics, and motion; and export finished videos from the files in your project.
@@ -87,6 +93,8 @@ Agentic creative coding toolkit. At the beginning of time, when there was nothin
 
 ## Reading
 
+Browse every visual reading take in the [Atet reading index](https://atet.sh/reading).
+
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet take on Mannay’s JavaScript faces
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet take on FeyNoBg
 - [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet take on Sotnikov’s painterly Gaussian renderer
@@ -95,6 +103,7 @@ Agentic creative coding toolkit. At the beginning of time, when there was nothin
 ## Sitemap
 
 - [Atet home](https://atet.sh/index.md)
+- [Atet reading index](https://atet.sh/reading/index.md)
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md)
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md)
 - [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md)
@@ -102,6 +111,15 @@ Agentic creative coding toolkit. At the beginning of time, when there was nothin
 - [Machine-readable site guide](https://atet.sh/llms.txt)
 - [Markdown sitemap](https://atet.sh/sitemap.md)
 - [XML sitemap](https://atet.sh/sitemap.xml)
+`
+
+export const readingIndexMarkdown = `# Atet reading
+
+Short, sourced essays about keeping generated media inspectable, revisable, and attached to the source that produced it.
+
+${readingMarkdownList}
+
+Return to the [Atet home](https://atet.sh/).
 `
 
 export const notFoundMarkdown = `# Page not found
@@ -133,6 +151,7 @@ Install the Agent Skill, then describe the finished result. Do not use Atet as a
 
 ## Optional
 
+- [Atet reading index](https://atet.sh/reading/index.md): Every visual reading take
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet reading take on FeyNoBg
 - [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet reading take on Sotnikov’s painterly Gaussian renderer
@@ -149,6 +168,7 @@ export const sitemapMarkdown = `# Sitemap
 ## Atet
 
 - [Atet home](https://atet.sh/index.md): Installation, examples, workflow, and design for the local media toolkit
+- [Atet reading index](https://atet.sh/reading/index.md): Every visual reading take
 - [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
 - [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet reading take on FeyNoBg
 - [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet reading take on Sotnikov’s painterly Gaussian renderer

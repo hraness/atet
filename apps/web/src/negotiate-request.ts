@@ -1,6 +1,7 @@
 import {
   homeMarkdown,
   notFoundMarkdown,
+  readingIndexMarkdown,
   readingFacesMarkdown,
   readingFeynobgMarkdown,
   readingGaussiansMarkdown,
@@ -33,6 +34,12 @@ export function isReadingFacesPath(pathname: string): boolean {
     || pathname === "/reading/draw-faces-with-javascript.html"
 }
 
+export function isReadingIndexPath(pathname: string): boolean {
+  return pathname === "/reading"
+    || pathname === "/reading/"
+    || pathname === "/reading/index.html"
+}
+
 export function isReadingFeynobgPath(pathname: string): boolean {
   return pathname === "/reading/feynobg"
     || pathname === "/reading/feynobg.html"
@@ -62,6 +69,7 @@ export function isNegotiableDocumentPath(pathname: string): boolean {
   }
   if (
     isHomePath(pathname)
+    || isReadingIndexPath(pathname)
     || isReadingFacesPath(pathname)
     || isReadingFeynobgPath(pathname)
     || isReadingGaussiansPath(pathname)
@@ -82,6 +90,10 @@ function canonicalHomeUrl(request: Request): string {
 
 function canonicalReadingFacesUrl(request: Request): string {
   return new URL("/reading/draw-faces-with-javascript", request.url).href
+}
+
+function canonicalReadingIndexUrl(request: Request): string {
+  return new URL("/reading", request.url).href
 }
 
 function canonicalReadingFeynobgUrl(request: Request): string {
@@ -130,6 +142,17 @@ export function negotiateSiteRequest(request: Request): Response | undefined {
         headers: {
           "Content-Type": markdownContentType,
           "Link": `<${canonicalReadingFacesUrl(request)}>; rel="canonical", </reading/draw-faces-with-javascript.md>; rel="alternate"; type="text/markdown"`,
+          "Vary": varyAcceptAndEncoding,
+        },
+        status: 200,
+      })
+    }
+
+    if (isReadingIndexPath(pathname)) {
+      return new Response(negotiatedBody(request, readingIndexMarkdown), {
+        headers: {
+          "Content-Type": markdownContentType,
+          "Link": `<${canonicalReadingIndexUrl(request)}>; rel="canonical", </reading/index.md>; rel="alternate"; type="text/markdown"`,
           "Vary": varyAcceptAndEncoding,
         },
         status: 200,

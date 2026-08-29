@@ -12,6 +12,7 @@ import { renderAtetSocialImage } from "./generate-og"
 import {
   homeMarkdown,
   llmsTxt,
+  readingIndexMarkdown,
   readingFacesMarkdown,
   readingFeynobgMarkdown,
   readingGaussiansMarkdown,
@@ -19,6 +20,14 @@ import {
   robotsTxt,
   sitemapMarkdown,
 } from "../src/agent-pages"
+import {
+  editorialImageSrcSet,
+  editorialImageUrl,
+  editorialReading,
+  editorialReadings,
+  type EditorialReading,
+  type EditorialReadingPath,
+} from "../src/editorial-images"
 
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
 const sourceDirectory = join(appDirectory, "src")
@@ -40,17 +49,18 @@ const hranessSiteFooterStylesPath = fileURLToPath(
 const copiedFiles = [
   "apple-touch-icon.png",
   "icon.svg",
-  "sitemap.xml",
 ] as const
 
 const generatedTextFiles = {
   "index.md": homeMarkdown,
   "llms.txt": llmsTxt,
+  "reading/index.md": readingIndexMarkdown,
   "reading/draw-faces-with-javascript.md": readingFacesMarkdown,
   "reading/feynobg.md": readingFeynobgMarkdown,
   "reading/painting-with-gaussians.md": readingGaussiansMarkdown,
   "reading/gemini-omni.md": readingGeminiOmniMarkdown,
   "robots.txt": robotsTxt,
+  "sitemap.xml": renderSitemapXml(),
   "sitemap.md": sitemapMarkdown,
 } as const
 
@@ -126,6 +136,92 @@ function escapeHtml(value: string): string {
     '"': "&quot;",
     "'": "&#39;",
   })[character] ?? character)
+}
+
+function escapeXml(value: string): string {
+  return escapeHtml(value).replaceAll("'", "&apos;")
+}
+
+function renderEditorialFigure(reading: EditorialReading): string {
+  return `<figure class="editorial-figure">
+          <img alt="${escapeHtml(reading.alt)}" decoding="async" fetchpriority="high"
+            height="${reading.height}" sizes="(max-width: 72rem) calc(100vw - 2rem), 72rem"
+            src="${reading.src}" srcset="${editorialImageSrcSet(reading)}" width="${reading.width}">
+          <figcaption><span>${escapeHtml(reading.caption)}</span><small>${escapeHtml(reading.credit)}</small></figcaption>
+        </figure>`
+}
+
+function renderReadingCards(): string {
+  return editorialReadings.map(reading => `<article class="reading-card">
+    <a href="${reading.canonicalPath}">
+      <img alt="" decoding="async" height="${reading.height}" loading="lazy"
+        sizes="(max-width: 44rem) calc(100vw - 2rem), 50vw" src="${reading.src}"
+        srcset="${editorialImageSrcSet(reading)}" width="${reading.width}">
+      <div>
+        <p class="eyebrow">Reading · ${escapeHtml(reading.datePublished)}</p>
+        <h3>${escapeHtml(reading.title)}</h3>
+        <p>${escapeHtml(reading.description)}</p>
+      </div>
+    </a>
+  </article>`).join("\n")
+}
+
+function renderEditorialAssets(path: EditorialReadingPath): Readonly<Record<string, string>> {
+  const reading = editorialReading(path)
+  return {
+    "{{EDITORIAL_FIGURE}}": renderEditorialFigure(reading),
+    "{{EDITORIAL_IMAGE_ALT}}": escapeHtml(reading.alt),
+    "{{EDITORIAL_IMAGE_HEIGHT}}": String(reading.height),
+    "{{EDITORIAL_IMAGE_JSON}}": JSON.stringify({
+      "@type": "ImageObject",
+      contentUrl: editorialImageUrl(reading),
+      height: reading.height,
+      width: reading.width,
+    }),
+    "{{EDITORIAL_IMAGE_URL}}": editorialImageUrl(reading),
+    "{{EDITORIAL_IMAGE_WIDTH}}": String(reading.width),
+  }
+}
+
+function renderSitemapImages(readings: readonly EditorialReading[]): string {
+  return readings.map(reading => `    <image:image>
+      <image:loc>${escapeXml(editorialImageUrl(reading))}</image:loc>
+      <image:title>${escapeXml(reading.title)}</image:title>
+      <image:caption>${escapeXml(reading.caption)}</image:caption>
+    </image:image>`).join("\n")
+}
+
+function renderSitemapUrl(
+  path: string,
+  lastmod: string,
+  priority: string,
+  readings: readonly EditorialReading[] = [],
+): string {
+  const images = readings.length === 0 ? "" : `\n${renderSitemapImages(readings)}`
+  return `  <url>
+    <loc>${siteOrigin}${path}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>${path === "/" ? "weekly" : "monthly"}</changefreq>
+    <priority>${priority}</priority>${images}
+  </url>`
+}
+
+export function renderSitemapXml(): string {
+  const entries = [
+    renderSitemapUrl("/", "2026-08-29", "1.0", editorialReadings),
+    renderSitemapUrl("/index.md", "2026-08-29", "0.8"),
+    renderSitemapUrl("/reading", "2026-08-29", "0.8", editorialReadings),
+    renderSitemapUrl("/reading/index.md", "2026-08-29", "0.6"),
+    ...editorialReadings.flatMap(reading => [
+      renderSitemapUrl(reading.canonicalPath, reading.datePublished, "0.7", [reading]),
+      renderSitemapUrl(`${reading.canonicalPath}.md`, reading.datePublished, "0.6"),
+    ]),
+  ]
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+${entries.join("\n")}
+</urlset>
+`
 }
 
 function renderCopyCommand(options: CopyCommandOptions): string {
@@ -236,6 +332,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readingFeynobgTemplate,
     readingGaussiansTemplate,
     readingGeminiOmniTemplate,
+    readingIndexTemplate,
     productStyles,
     designKitFontsStyles,
     appearanceStyles,
@@ -250,6 +347,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readFile(join(sourceDirectory, "reading/feynobg.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/painting-with-gaussians.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/gemini-omni.html"), "utf8"),
+    readFile(join(sourceDirectory, "reading/index.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(designKitFontsStylesPath, "utf8"),
     readFile(appearanceMenuStylesPath, "utf8"),
@@ -285,7 +383,16 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       command: "npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet",
       id: "skill-install-copy-status",
     }),
+    "{{READING_CARD_GRID}}": renderReadingCards(),
   } as const
+  const readingIndexAssets = {
+    ...publicPageAssets("/reading"),
+    "{{READING_CARD_GRID}}": renderReadingCards(),
+  } as const
+  const editorialPageAssets = (path: EditorialReadingPath) => ({
+    ...publicPageAssets(path),
+    ...renderEditorialAssets(path),
+  }) as const
   const previewAssets = {
     "{{CSS_ASSET}}": stylesPath,
   } as const
@@ -300,6 +407,10 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       recursive: true,
     }),
     writeFile(join(outputDirectory, "index.html"), renderDocument(indexTemplate, indexAssets)),
+    writeFile(
+      join(outputDirectory, "reading/index.html"),
+      renderDocument(readingIndexTemplate, readingIndexAssets),
+    ),
     writeFile(join(outputDirectory, "404.html"), renderDocument(notFoundTemplate, commonAssets)),
     writeFile(
       join(outputDirectory, "preview.html"),
@@ -309,24 +420,28 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       join(outputDirectory, "reading/draw-faces-with-javascript.html"),
       renderDocument(
         readingFacesTemplate,
-        publicPageAssets("/reading/draw-faces-with-javascript"),
+        editorialPageAssets("/reading/draw-faces-with-javascript"),
       ),
     ),
     writeFile(
       join(outputDirectory, "reading/feynobg.html"),
-      renderDocument(readingFeynobgTemplate, publicPageAssets("/reading/feynobg")),
+      renderDocument(readingFeynobgTemplate, editorialPageAssets("/reading/feynobg")),
     ),
     writeFile(
       join(outputDirectory, "reading/painting-with-gaussians.html"),
       renderDocument(
         readingGaussiansTemplate,
-        publicPageAssets("/reading/painting-with-gaussians"),
+        editorialPageAssets("/reading/painting-with-gaussians"),
       ),
     ),
     writeFile(
       join(outputDirectory, "reading/gemini-omni.html"),
-      renderDocument(readingGeminiOmniTemplate, publicPageAssets("/reading/gemini-omni")),
+      renderDocument(readingGeminiOmniTemplate, editorialPageAssets("/reading/gemini-omni")),
     ),
+    cp(join(sourceDirectory, "images"), join(outputDirectory, "images"), {
+      dereference: true,
+      recursive: true,
+    }),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
     writeFile(join(outputDirectory, "og.png"), socialImage),
@@ -358,7 +473,7 @@ if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 9
+    + 11
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
 }
