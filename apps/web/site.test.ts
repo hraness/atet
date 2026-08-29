@@ -134,6 +134,7 @@ describe("static Atet site", () => {
       "## How Atet works",
       "## Design and trust",
       "## Verification",
+      "## Contributing",
     ]) {
       expect(readme).toContain(heading)
     }
@@ -147,6 +148,7 @@ describe("static Atet site", () => {
       "## How Atet works",
       "## Design and trust",
       "## Verification",
+      "## Contributing",
     ].map(heading => readme.indexOf(heading))
     expect(readerPath.every(position => position >= 0)).toBe(true)
     expect(readerPath).toEqual([...readerPath].sort((left, right) => left - right))
@@ -175,6 +177,7 @@ describe("static Atet site", () => {
     expect(readme).toContain("atet operations list --json")
     expect(readme).toContain("atet ai video generate")
     expect(readme).toContain("atet workflows show social-variants --json")
+    expect(readme).toContain("[`CONTRIBUTING.md`](CONTRIBUTING.md)")
     expect(readme).not.toMatch(/checked step|checked path|bounded capability|delivery variant/i)
     expect(readme).not.toContain("https://atet.sh/docs")
   })

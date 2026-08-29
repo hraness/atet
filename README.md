@@ -423,6 +423,11 @@ proves the checked import-time boundary through those hooks. It is not an
 operating-system sandbox, and calling an exported operation can perform the
 documented local or Gateway work.
 
+## Contributing
+
+To report an issue or send a focused pull request, follow
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## License
 
 MIT.
