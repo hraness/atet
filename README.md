@@ -18,6 +18,23 @@ an Atet service.
 
 [Install](#install-atet) · [Try a request](#start-with-a-finished-job) · [Capabilities](#what-atet-does) · [Design](#how-atet-works) · [npm package](https://www.npmjs.com/package/@hraness/atet) · [atet.sh](https://atet.sh) · [Security](SECURITY.md)
 
+## Why Atet
+
+- **One brief becomes one inspectable media job.** The Agent Skill turns a
+  finished-result request into explicit CLI and SDK operations, while
+  `atet doctor` reports the recording, rendering, browser, and media tools that
+  are available on the current machine.
+- **Edits stay revisable.** Atet keeps source media unchanged and records cuts,
+  timing, framing, overlays, effects, candidates, and selections as explicit
+  project state.
+- **Review matches delivery.** Preview and final renders use the same timeline
+  and composition, so approval applies to the edit that produces the exported
+  files.
+- **Local work has an explicit cloud boundary.** Editing, diagrams,
+  vectorization, previews, and outputs stay local. Model-backed work uses the
+  caller's Vercel AI Gateway credential and uploads selected media only after
+  the matching acknowledgement.
+
 ## Install Atet
 
 Install the single Atet Agent Skill with either runner:
@@ -27,10 +44,6 @@ npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet
 # or
 bunx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet
 ```
-
-Start a new agent session after installing the skill. It teaches Codex, Claude
-Code, Cursor, and other compatible agents how to turn a finished-media request
-into checked Atet operations.
 
 Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
 then inspect the local media host:
@@ -53,6 +66,13 @@ cd /path/to/your/project
 atet doctor
 ```
 
+Start a new agent session after installing the skill. It teaches Codex, Claude
+Code, Cursor, and other compatible agents how to turn a finished-media request
+into checked Atet operations.
+
+<details>
+<summary>Other version-matched Agent Skill installs</summary>
+
 The public `skills` command follows the scope selected in that installer. If
 you use the CLI's packaged guide, `atet skill install` defaults to Codex across
 your user account.
@@ -72,6 +92,8 @@ packaged guide for inspection.
 The npm package and immutable GitHub release contain the same versioned CLI and
 Agent Skill. You can use `github:hraness/atet#v3.1.2` when you need to install
 the source tag directly.
+
+</details>
 
 Atet declares dual-use functionality because its macOS host can request access
 to selected displays, system audio, a camera, a microphone, and input-event
@@ -183,6 +205,24 @@ An image can become a video reference, an animated scene can become an
 overlay, and one approved edit can become every delivery format. The same
 project is available through the Agent Skill, CLI, TypeScript SDK, MCP server,
 and macOS desktop app.
+
+## Important limitations
+
+- Screen, camera, microphone, system-audio, and input-event capture belongs to
+  the macOS host and requires the corresponding operating-system permissions.
+- Model-backed generation requires caller-owned Vercel AI Gateway access.
+  Local media is uploaded only when the command identifies it and receives the
+  matching acknowledgement.
+- The local MCP server confines paths to one caller-selected root, but it is
+  not an operating-system sandbox against another process running as the same
+  user.
+- Explicitly imported workflow modules are trusted current-user Bun code.
+  Review them before running them.
+- Atet has no hosted account, project database, or browser generation surface.
+  Model-backed work has no credential-free product fallback.
+
+Read [`DISCLOSURE`](DISCLOSURE) before recording or processing sensitive
+material and [`SECURITY.md`](SECURITY.md) for the complete runtime boundary.
 
 ## How Atet works
 
@@ -363,7 +403,7 @@ underworld on the solar barque Atet.
 - `skills/atet/`: the packaged Agent Skill and its focused references.
 - `docs/architecture.md`: the maintained technical overview.
 
-## Development
+## Verification
 
 ```sh
 bun install --frozen-lockfile --ignore-scripts
