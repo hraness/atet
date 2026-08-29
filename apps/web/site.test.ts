@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test"
+import { createHash } from "node:crypto"
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -19,6 +20,7 @@ import {
   homeMarkdown,
   llmsTxt,
   notFoundMarkdown,
+  readingIndexMarkdown,
   readingFacesMarkdown,
   readingFeynobgMarkdown,
   readingGaussiansMarkdown,
@@ -40,11 +42,17 @@ import {
   isReadingFeynobgPath,
   isReadingGaussiansPath,
   isReadingGeminiOmniPath,
+  isReadingIndexPath,
   negotiateSiteRequest,
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
-import { buildWebsite, renderAskAiAboutThis } from "./scripts/build"
+import { buildWebsite, renderAskAiAboutThis, renderSitemapXml } from "./scripts/build"
 import { renderAtetSocialImage } from "./scripts/generate-og"
+import {
+  editorialImageSrcSet,
+  editorialImageUrl,
+  editorialReadings,
+} from "./src/editorial-images"
 
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
@@ -90,6 +98,7 @@ describe("static Atet site", () => {
 
     const publicPages = [
       ["index.html", "https://atet.sh/"],
+      ["reading/index.html", "https://atet.sh/reading"],
       ["reading/draw-faces-with-javascript.html", "https://atet.sh/reading/draw-faces-with-javascript"],
       ["reading/feynobg.html", subjectUrl],
       ["reading/painting-with-gaussians.html", "https://atet.sh/reading/painting-with-gaussians"],
@@ -560,6 +569,59 @@ describe("static Atet site", () => {
     expect(icon).toContain('stop-color="#f6b94a"')
   })
 
+  test("keeps editorial images visible, discoverable, and bound to retained provenance", async () => {
+    const [home, readingIndex, sitemap] = await Promise.all([
+      readBuilt("index.html"),
+      readBuilt("reading/index.html"),
+      readBuilt("sitemap.xml"),
+    ])
+
+    expect(home.match(/class="reading-card"/gu)).toHaveLength(editorialReadings.length)
+    expect(readingIndex.match(/class="reading-card"/gu)).toHaveLength(editorialReadings.length)
+    expect(sitemap).toContain('xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"')
+
+    for (const reading of editorialReadings) {
+      const stem = reading.src.slice(0, -".webp".length)
+      const [html, bytes, smallBytes, mediumBytes, receiptSource, jobSource, prompt] = await Promise.all([
+        readBuilt(`reading/${reading.slug}.html`),
+        readFile(join(appDirectory, "src", reading.src.slice(1))),
+        readFile(join(appDirectory, "src", `${stem.slice(1)}-384.webp`)),
+        readFile(join(appDirectory, "src", `${stem.slice(1)}-768.webp`)),
+        readFile(join(appDirectory, reading.provenance.receipt), "utf8"),
+        readFile(join(appDirectory, reading.provenance.job), "utf8"),
+        readFile(join(appDirectory, reading.provenance.prompt), "utf8"),
+      ])
+      const imageUrl = editorialImageUrl(reading)
+      const structuredData = /<script type="application\/ld\+json">([\s\S]+?)<\/script>/u.exec(html)?.[1]
+      const graph = JSON.parse(structuredData ?? "null") as { "@graph"?: Array<Record<string, unknown>> }
+      const article = graph["@graph"]?.find(value => value["@type"] === "Article")
+      const receipt = JSON.parse(receiptSource) as { outputs?: Array<{ sha256?: unknown }> }
+      const job = JSON.parse(jobSource) as { noAtetRetry?: unknown; state?: unknown }
+
+      expect(html).toContain(`<meta property="og:image" content="${imageUrl}">`)
+      expect(html).toContain(`<meta name="twitter:image" content="${imageUrl}">`)
+      expect(html).toContain(`alt="${reading.alt}"`)
+      expect(html).toContain(`src="${reading.src}"`)
+      expect(html).toContain(`srcset="${editorialImageSrcSet(reading)}"`)
+      expect(html).toContain(reading.caption)
+      expect(html).toContain(reading.credit)
+      expect(html).not.toMatch(/editorial-provenance|gateway_[0-9a-f]+/u)
+      expect(article?.image).toEqual({
+        "@type": "ImageObject",
+        contentUrl: imageUrl,
+        height: reading.height,
+        width: reading.width,
+      })
+      expect(sitemap).toContain(`<image:loc>${imageUrl}</image:loc>`)
+      expect(createHash("sha256").update(bytes).digest("hex")).toBe(reading.imageSha256)
+      expect(smallBytes.byteLength).toBeLessThan(mediumBytes.byteLength)
+      expect(mediumBytes.byteLength).toBeLessThan(bytes.byteLength)
+      expect(receipt.outputs?.[0]?.sha256).toBe(reading.imageSha256)
+      expect(job).toMatchObject({ noAtetRetry: true, state: "completed" })
+      expect(prompt.trim().length).toBeGreaterThan(80)
+    }
+  })
+
   test("keeps the static shell fingerprinted and analytics explicit", async () => {
     const html = await readSource("index.html")
     const css = await readSource("styles.css")
@@ -602,7 +664,7 @@ describe("static Atet site", () => {
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     expect(localLockfile).not.toContain("catalog:")
     expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
-    expect(new TextEncoder().encode(css).byteLength).toBeLessThan(30_000)
+    expect(new TextEncoder().encode(css).byteLength).toBeLessThan(36_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(new TextEncoder().encode(copyCommand).byteLength).toBeLessThan(4_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)
@@ -815,6 +877,7 @@ describe("static Atet site", () => {
       "apple-touch-icon.png",
       "assets",
       "icon.svg",
+      "images",
       "index.html",
       "index.md",
       "llms.txt",
@@ -838,7 +901,7 @@ describe("static Atet site", () => {
     expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
     expect(stylesAsset).toContain(".hraness-site-footer {")
     expect(stylesAsset).toContain("@media (pointer: coarse)")
-    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(45_000)
+    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(50_000)
     expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
     expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
@@ -852,6 +915,7 @@ describe("static Atet site", () => {
       builtRobots,
       builtLlms,
       builtHomeMarkdown,
+      builtReadingIndexMarkdown,
       builtSitemapMarkdown,
       builtReadingMarkdown,
       builtFeynobgMarkdown,
@@ -859,11 +923,12 @@ describe("static Atet site", () => {
       builtGeminiOmniMarkdown,
     ] = await Promise.all([
       Promise.resolve(robotsTxt),
-      readSource("sitemap.xml"),
+      readBuilt("sitemap.xml"),
       readSource("404.html"),
       readBuilt("robots.txt"),
       readBuilt("llms.txt"),
       readBuilt("index.md"),
+      readBuilt("reading/index.md"),
       readBuilt("sitemap.md"),
       readBuilt("reading/draw-faces-with-javascript.md"),
       readBuilt("reading/feynobg.md"),
@@ -905,6 +970,8 @@ describe("static Atet site", () => {
     expect(locations).toEqual([
       "https://atet.sh/",
       "https://atet.sh/index.md",
+      "https://atet.sh/reading",
+      "https://atet.sh/reading/index.md",
       "https://atet.sh/reading/draw-faces-with-javascript",
       "https://atet.sh/reading/draw-faces-with-javascript.md",
       "https://atet.sh/reading/feynobg",
@@ -923,7 +990,9 @@ describe("static Atet site", () => {
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
     expect(builtLlms).toBe(llmsTxt)
     expect(builtHomeMarkdown).toBe(homeMarkdown)
+    expect(builtReadingIndexMarkdown).toBe(readingIndexMarkdown)
     expect(builtSitemapMarkdown).toBe(sitemapMarkdown)
+    expect(sitemap).toBe(renderSitemapXml())
     expect(builtReadingMarkdown).toBe(readingFacesMarkdown)
     expect(builtFeynobgMarkdown).toBe(readingFeynobgMarkdown)
     expect(builtGaussiansMarkdown).toBe(readingGaussiansMarkdown)
@@ -934,6 +1003,7 @@ describe("static Atet site", () => {
     expect(llmsTxt).toContain("https://atet.sh/index.md")
     expect(sitemapMarkdown).toContain("# Sitemap")
     expect(sitemapMarkdown).toContain("https://atet.sh/index.md")
+    expect(sitemapMarkdown).toContain("https://atet.sh/reading/index.md")
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/feynobg.md")
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/painting-with-gaussians.md")
@@ -1093,6 +1163,8 @@ describe("static Atet site", () => {
 
     const home = vercel.headers?.find(entry => entry.source === "/")?.headers ?? []
     const markdown = vercel.headers?.find(entry => entry.source === "/index.md")?.headers ?? []
+    const readingIndex = vercel.headers?.find(entry => entry.source === "/reading")?.headers ?? []
+    const readingIndexMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/index.md")?.headers ?? []
     const reading = vercel.headers?.find(entry => entry.source === "/reading/draw-faces-with-javascript")?.headers ?? []
     const readingMarkdown = vercel.headers?.find(entry => entry.source === "/reading/draw-faces-with-javascript.md")?.headers ?? []
     const readingFeynobg = vercel.headers?.find(entry => entry.source === "/reading/feynobg")?.headers ?? []
@@ -1107,6 +1179,14 @@ describe("static Atet site", () => {
       value: '</index.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
     })
     expect(markdown).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
+    expect(readingIndex).toContainEqual({
+      key: "Link",
+      value: '</reading/index.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(readingIndexMarkdownHeader).toContainEqual({
       key: "Content-Type",
       value: "text/markdown; charset=utf-8",
     })
@@ -1153,6 +1233,11 @@ describe("static Atet site", () => {
         destination: "/index.md",
       },
       {
+        source: "/reading",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/reading/index.md",
+      },
+      {
         source: "/reading/draw-faces-with-javascript",
         has: [{ type: "header", key: "accept", value: "^text/markdown" }],
         destination: "/reading/draw-faces-with-javascript.md",
@@ -1179,6 +1264,7 @@ describe("static Atet site", () => {
     const documents = await Promise.all([
       readBuilt("index.html"),
       readBuilt("404.html"),
+      readBuilt("reading/index.html"),
       readBuilt("reading/draw-faces-with-javascript.html"),
       readBuilt("reading/feynobg.html"),
       readBuilt("reading/painting-with-gaussians.html"),
@@ -1251,6 +1337,10 @@ describe("static Atet site", () => {
     expect(isReadingFacesPath("/reading/draw-faces-with-javascript")).toBe(true)
     expect(isReadingFacesPath("/reading/draw-faces-with-javascript.html")).toBe(true)
     expect(isReadingFacesPath("/reading/missing")).toBe(false)
+    expect(isReadingIndexPath("/reading")).toBe(true)
+    expect(isReadingIndexPath("/reading/")).toBe(true)
+    expect(isReadingIndexPath("/reading/index.html")).toBe(true)
+    expect(isReadingIndexPath("/reading/missing")).toBe(false)
     expect(isReadingFeynobgPath("/reading/feynobg")).toBe(true)
     expect(isReadingFeynobgPath("/reading/feynobg.html")).toBe(true)
     expect(isReadingFeynobgPath("/reading/missing")).toBe(false)
@@ -1461,7 +1551,7 @@ describe("static Atet site", () => {
       readBuilt("reading/draw-faces-with-javascript.md"),
       readdir(join(appDirectory, "dist/reading")),
     ])
-    const home = await readSource("index.html")
+    const home = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
 
     expect(html.match(/<h1\b/gu)).toHaveLength(1)
@@ -1494,6 +1584,8 @@ describe("static Atet site", () => {
       "feynobg.md",
       "gemini-omni.html",
       "gemini-omni.md",
+      "index.html",
+      "index.md",
       "painting-with-gaussians.html",
       "painting-with-gaussians.md",
     ])
@@ -1507,7 +1599,7 @@ describe("static Atet site", () => {
       readBuilt("reading/feynobg.html"),
       readBuilt("reading/feynobg.md"),
     ])
-    const home = await readSource("index.html")
+    const home = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
 
     expect(html.match(/<h1\b/gu)).toHaveLength(1)
@@ -1550,7 +1642,7 @@ describe("static Atet site", () => {
       readBuilt("reading/painting-with-gaussians.html"),
       readBuilt("reading/painting-with-gaussians.md"),
     ])
-    const home = await readSource("index.html")
+    const home = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
 
     expect(html.match(/<h1\b/gu)).toHaveLength(1)
@@ -1607,7 +1699,7 @@ describe("static Atet site", () => {
       readBuilt("reading/gemini-omni.html"),
       readBuilt("reading/gemini-omni.md"),
     ])
-    const home = await readSource("index.html")
+    const home = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
 
     expect(html.match(/<h1\b/gu)).toHaveLength(1)
