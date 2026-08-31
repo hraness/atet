@@ -97,6 +97,25 @@ export const editorialReadings = [
     title: "Control in the renderer still beats a bigger Omni prompt",
     width: 1536,
   },
+  {
+    alt: "Colored stroke tokens remaining visible as they assemble into an abstract hibiscus",
+    canonicalPath: "/reading/paint-with-code",
+    caption: "The sketch stays inspectable after the painted form appears.",
+    credit,
+    datePublished: "2026-08-31",
+    description: "An Atet reading take on Narreddi’s p5.brush painter: keep the generated artefact as editable code rather than a finished raster or a longer prompt.",
+    height: 864,
+    imageSha256: "6697d98fe403c84f3b35e217bebdde49b620192e0856afcc21878b520a313c1a",
+    provenance: {
+      job: "editorial-provenance/paint-with-code/job.json",
+      prompt: "editorial-provenance/paint-with-code/prompt.txt",
+      receipt: "editorial-provenance/paint-with-code/receipt.json",
+    },
+    slug: "paint-with-code",
+    src: "/images/editorial/paint-with-code.webp",
+    title: "Keep the painting as code you can edit",
+    width: 1536,
+  },
 ] as const satisfies readonly EditorialReading[]
 
 export type EditorialReadingPath = (typeof editorialReadings)[number]["canonicalPath"]
