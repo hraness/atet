@@ -131,6 +131,17 @@
           }
         ],
         "destination": "/reading/gemini-omni.md"
+      },
+      {
+        "source": "/reading/paint-with-code",
+        "has": [
+          {
+            "type": "header",
+            "key": "accept",
+            "value": "^text/markdown"
+          }
+        ],
+        "destination": "/reading/paint-with-code.md"
       }
     ],
   "headers": [
@@ -341,6 +352,28 @@
         {
           "key": "Link",
           "value": "<https://atet.sh/reading/gemini-omni>; rel=\"canonical\""
+        }
+      ]
+    },
+    {
+      "source": "/reading/paint-with-code",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reading/paint-with-code.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reading/paint-with-code.md",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        },
+        {
+          "key": "Link",
+          "value": "<https://atet.sh/reading/paint-with-code>; rel=\"canonical\""
         }
       ]
     },
