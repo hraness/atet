@@ -336,6 +336,7 @@ describe("progressive semantic workflow helpers", () => {
     ["motion", ["motion"]],
     ["paper-shaders", ["@paper-design/shaders"]],
     ["three", ["three"]],
+    ["vgpu", ["vgpu"]],
   ] as const)("spreads the %s scaffold without duplicating libraries", (
     kind,
     libraries,

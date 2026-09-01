@@ -563,12 +563,18 @@ const title = workflow.media.htmlOverlay("chapter-title", {
 });
 ```
 
-The four scaffolds are `plain`, `motion`, `paper-shaders`, and `three`.
+The five scaffolds are `plain`, `motion`, `paper-shaders`, `three`, and `vgpu`.
 Motion is the ergonomic default for DOM animation; Paper Shaders provides
 high-quality transparent GPU texture and gradient treatments; Three.js handles
-full 3D and custom shaders. Their exact browser modules, versions, byte lengths,
-and SHA-256 values are allowlisted. Author code imports only the scaffold's bare
-specifiers; the host supplies the canonical import map.
+full 3D and custom shaders; [vgpu](https://vgpu.sh) provides explicit WebGPU
+passes for compact WGSL effects. Their exact browser modules, versions, byte
+lengths, and SHA-256 values are allowlisted. Author code imports only the
+scaffold's bare specifiers; the host supplies the canonical import map.
+
+The vgpu starter compiles its shader before readiness, submits one pass from
+each absolute Atet frame, waits for GPU completion, and clears to transparent.
+It fails closed when the selected browser runtime cannot acquire WebGPU; it does
+not silently replace the effect with another renderer.
 
 The Three.js starter defines the authoring contract.
 It has explicit sRGB output and ACES tone mapping, no shadows or postprocessing,
@@ -831,7 +837,9 @@ bun run verify:html-overlay:macos
 `test:html-overlay` is portable and leaves the real-browser tests registered as
 skipped. `test:html-overlay:browser:macos` runs the real Chrome frame suite,
 including a declared PNG. `test:html-overlay:libraries:macos` additionally
-downloads and verifies every exact Motion, Paper Shaders, and Three.js lock.
+downloads and verifies every exact Motion, Paper Shaders, Three.js, and vgpu
+lock. The integrity-bound Chrome contract selects WebGPU's SwiftShader fallback
+adapter so identical browser receipts do not silently choose different GPUs.
 `test:html-overlay:operation:macos` runs the complete Chrome → PNG frames →
 FFmpeg qtrle/argb → project-ingest operation. The combined
 `verify:html-overlay:macos` requires Google Chrome, FFmpeg, and FFprobe at the

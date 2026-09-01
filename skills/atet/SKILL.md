@@ -1,6 +1,6 @@
 ---
 name: atet
-description: Use Atet to create, generate, record, edit, and render visual media with a local CLI and coding agent. Trigger for AI image or video generation, screen, camera, microphone, or system-audio recording, non-destructive video editing, silence and filler-word removal, captions or subtitles, speaker framing, screen zooms, overlays, motion graphics, social video variants, voice or speech, transcription, editable diagrams and flowcharts, raster-to-SVG vectorization, Three.js or 3D scenes, transparent animated loops, semantic media operations, and typed Bun workflows.
+description: Use Atet to create, generate, record, edit, and render visual media with a local CLI and coding agent. Trigger for AI image or video generation, screen, camera, microphone, or system-audio recording, non-destructive video editing, silence and filler-word removal, captions or subtitles, speaker framing, screen zooms, overlays, motion graphics, social video variants, voice or speech, transcription, editable diagrams and flowcharts, raster-to-SVG vectorization, WGSL or WebGPU effects, Three.js or 3D scenes, transparent animated loops, semantic media operations, and typed Bun workflows.
 ---
 
 # Make and edit visual media with Atet
@@ -206,9 +206,9 @@ transparent 3D loop, or a metallic logo product render.
 
 These are complete local Code Mode host capabilities in the same open-source
 project. The portable SDK retains its fixed four-operation projection; the
-local host adds HTML overlays, Three.js, durable media execution, and project
-rendering. The Desktop shell supplies native capture, permissions, and UI
-rather than another workflow model.
+local host adds HTML overlays, vgpu/WebGPU, Three.js, durable media execution,
+and project rendering. The Desktop shell supplies native capture, permissions,
+and UI rather than another workflow model.
 In local Code Mode:
 
 - Stage image-to-Three work as reference generation, source authoring, review,

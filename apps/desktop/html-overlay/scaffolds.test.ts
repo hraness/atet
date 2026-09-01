@@ -32,6 +32,7 @@ describe("HTML overlay scaffolds", () => {
     ["motion", ["motion"]],
     ["paper-shaders", ["@paper-design/shaders"]],
     ["three", ["three"]],
+    ["vgpu", ["vgpu"]],
   ] as const)("%s returns directly spreadable HTML and exact libraries", (
     kind,
     libraries,
@@ -79,6 +80,26 @@ describe("HTML overlay scaffolds", () => {
     expect(html).toContain("renderer.forceContextLoss()");
     expect(html).toContain("const phase = progress * Math.PI * 2");
     expect(html).not.toContain("setAnimationLoop");
+    expect(html).not.toContain("requestAnimationFrame(");
+  });
+
+  test("vgpu submits one prepared WebGPU pass from absolute Atet time", () => {
+    const html = createHtmlOverlayScaffold("vgpu");
+    expect(html).toContain('from "vgpu"');
+    expect(html).toContain("navigator.gpu === undefined");
+    expect(html).toContain('alphaMode: "premultiplied"');
+    expect(html).toContain("clearColor: [0, 0, 0, 0]");
+    expect(html).toContain("const pipelineTarget = target(gpu,");
+    expect(html).toContain("format: output.format");
+    expect(html).toContain("await shader.compile(pipelineTarget)");
+    expect(html).toContain("pipelineTarget.destroy()");
+    expect(html).not.toContain("shader.compile(output)");
+    expect(html).toContain("time: timeMs * speed / 1000");
+    expect(html).toContain("currentFrame.pass(");
+    expect(html).toContain("await submitted.done");
+    expect(html).toContain("await state.gpu.settled()");
+    expect(html).toContain("gpu.dispose()");
+    expect(html).not.toContain("frameLoop");
     expect(html).not.toContain("requestAnimationFrame(");
   });
 

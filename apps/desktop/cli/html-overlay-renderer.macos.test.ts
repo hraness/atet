@@ -856,6 +856,7 @@ test.skipIf(
       { kind: "motion", libraries: ["motion"] },
       { kind: "paper-shaders", libraries: ["@paper-design/shaders"] },
       { kind: "three", libraries: ["three"] },
+      { kind: "vgpu", libraries: ["vgpu"] },
     ];
     for (const item of cases) {
       const root = await mkdtemp(join(tmpdir(), `atet-html-${item.kind}-`));
@@ -871,23 +872,56 @@ test.skipIf(
         resources: [],
         schemaVersion: 1,
         seed: 42,
-        timing: { durationUs: 500_000, fps: 1 },
+        timing: item.kind === "vgpu"
+          ? { durationUs: 1_000_000, fps: 2 }
+          : { durationUs: 500_000, fps: 1 },
       });
       const renderer = new PlaywrightHtmlOverlayRenderer({
         cacheRoot: join(root, "cache"),
       });
-      const result = await renderer.renderFrames({
+      const renderRequest = {
         authoring,
         browserRuntime: await browserRuntime(),
-        outputDirectory: frames,
         resources: [],
+      } as const;
+      const result = await renderer.renderFrames({
+        ...renderRequest,
+        outputDirectory: frames,
       }, new AbortController().signal);
-      expect(result.frameCount).toBe(1);
-      expect(
-        (
-          await readFile(join(frames, "frames", "frame-00000000.png"))
-        ).readUInt32BE(16),
-      ).toBe(320);
+      expect(result.frameCount).toBe(item.kind === "vgpu" ? 2 : 1);
+      const framePng = await readFile(
+        join(frames, "frames", "frame-00000000.png"),
+      );
+      expect(framePng.readUInt32BE(16)).toBe(320);
+      if (item.kind === "vgpu") {
+        const center = readRgbaPngPixel(framePng, 160, 90);
+        expect(Math.max(...center.slice(0, 3))).toBeGreaterThan(40);
+        expect(center[3]).toBeGreaterThan(100);
+        expect(readRgbaPngPixel(framePng, 0, 0)[3]).toBeLessThan(16);
+        const nextFramePng = await readFile(
+          join(frames, "frames", "frame-00000001.png"),
+        );
+        expect(digest(nextFramePng)).not.toBe(digest(framePng));
+
+        const repeatedFrames = join(root, "frames-repeated");
+        await mkdir(repeatedFrames, { mode: 0o700 });
+        const repeated = await renderer.renderFrames({
+          ...renderRequest,
+          outputDirectory: repeatedFrames,
+        }, new AbortController().signal);
+        expect(repeated.frameCount).toBe(2);
+        const repeatedPngs = await Promise.all([0, 1].map(async index => (
+          await readFile(join(
+            repeatedFrames,
+            "frames",
+            `frame-${String(index).padStart(8, "0")}.png`,
+          ))
+        )));
+        expect(repeatedPngs.map(digest)).toEqual([
+          digest(framePng),
+          digest(nextFramePng),
+        ]);
+      }
     }
   },
   1_800_000,

@@ -4,7 +4,7 @@
 - `libraries.ts` – the exact browser-library lock registry and canonical private-origin import maps.
 - `random.ts` – the versioned deterministic random sequence shared with the injected browser runtime.
 - `runtime.ts` – source generation for the page-visible authoring API and host-only frame controller.
-- `scaffolds.ts` – transparent plain DOM, Motion, Paper Shaders, and Three.js starting documents.
+- `scaffolds.ts` – transparent plain DOM, Motion, Paper Shaders, Three.js, and vgpu starting documents.
 - `index.ts` – the portable HTML-overlay authoring surface.
 - `*.test.ts` and `*.property.test.ts` – deterministic examples, boundary rejection, and algebraic checks.
 

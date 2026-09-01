@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { constants, watch, type FSWatcher } from "node:fs";
 import {
   chmod,
+  lchmod,
   lstat,
   mkdir,
   mkdtemp,
@@ -56,6 +57,7 @@ import {
   htmlOverlayFrameCount,
   htmlOverlayLibraryLocalUrl,
   type HtmlOverlayLibraryLock,
+  type HtmlOverlayLibrarySpecifier,
   type HtmlOverlayRuntimeFrame,
 } from "../html-overlay";
 import { BunProcessRunner, type RunResult } from "./io";
@@ -67,6 +69,17 @@ const MAXIMUM_DIAGNOSTIC_LENGTH = 1_000;
 const MAXIMUM_LIBRARY_BYTES = 4 * 1024 * 1024;
 const DEFAULT_BROWSER_STEP_TIMEOUT_MS = 60_000;
 const MAXIMUM_BROWSER_STEP_TIMEOUT_MS = 5 * 60_000;
+
+export function createHtmlOverlayBrowserLaunchArgs(
+  libraries: readonly HtmlOverlayLibrarySpecifier[],
+): string[] {
+  return [
+    ...HTML_OVERLAY_RENDERER_CONTRACT.launch.args,
+    ...(libraries.includes("vgpu")
+      ? HTML_OVERLAY_RENDERER_CONTRACT.launch.libraryArgs.vgpu
+      : []),
+  ];
+}
 const BROWSER_CLEANUP_TIMEOUT_MS = 30_000;
 const BROWSER_RUNTIME_FLAGS_TIMEOUT_MS = 60_000;
 const BROWSER_RUNTIME_FLAGS_MAXIMUM_OUTPUT_BYTES = 16 * 1024;
@@ -380,6 +393,11 @@ async function copyRuntimeEntry(
   }
   if (entry.kind === "symlink") {
     await symlink(entry.target, destination);
+    if (process.platform === "darwin") {
+      // macOS app bundles can carry non-default symlink mode bits, and the
+      // runtime manifest binds those bits exactly.
+      await lchmod(destination, entry.mode);
+    }
     if (signal.aborted) throw cancellationReason(signal);
     const copied = await lstat(destination);
     if (!copied.isSymbolicLink()) {
@@ -2014,7 +2032,9 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
         );
         const launchedBrowser = await boundedBrowserStep(
           async () => await this.#launch({
-            args: [...HTML_OVERLAY_RENDERER_CONTRACT.launch.args],
+            args: createHtmlOverlayBrowserLaunchArgs(
+              request.authoring.libraries,
+            ),
             env: {
               ...HTML_OVERLAY_RENDERER_CONTRACT.environment.fixed,
               HOME: preparedBrowserRuntime.browserHome,
