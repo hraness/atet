@@ -153,8 +153,9 @@ before export.
   keystrokes, and typed text without changing the original media.
 - Cut, trim, retime, align audio, reframe the camera, follow a speaker, and add
   screen zooms where the action needs attention.
-- Add images, SVG, GIFs, video, emoji, HTML, shaders, or Three.js scenes as
-  overlays with controlled timing, placement, motion, and audio behavior.
+- Add images, SVG, GIFs, video, emoji, HTML, WebGPU Shading Language (WGSL)
+  effects, or Three.js scenes as overlays with controlled timing, placement,
+  motion, and audio behavior.
 - Apply captions, denoise and mix audio, adjust color, and render the same edit
   for landscape, vertical, square, and portrait delivery.
 - Create several preview candidates from one frozen project, choose one, and
@@ -192,7 +193,7 @@ outputs and receipts under `artifacts/atet/generated/`.
 - Convert caller-owned raster artwork to SVG locally with the pinned VTracer
   runtime.
 - Build deterministic animated loops and transparent video layers with HTML,
-  SVG, Motion, Paper Shaders, or Three.js.
+  SVG, Motion, Paper Shaders, [vgpu](https://vgpu.sh) with WGSL, or Three.js.
 - Use an existing image as the visual reference for a reviewed 3D scene or
   branded material treatment.
 

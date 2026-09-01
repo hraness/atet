@@ -14,7 +14,7 @@ import {
 import { createHtmlOverlayRandom, htmlOverlayRandomFor } from "./random";
 
 assertProperty(fc.property(
-  fc.shuffledSubarray(["@paper-design/shaders", "motion", "three"] as const),
+  fc.shuffledSubarray(["@paper-design/shaders", "motion", "three", "vgpu"] as const),
   (selection) => {
     const reversed = [...selection].reverse();
     expect(HtmlOverlayLibrarySelectionSchema.parse(selection))

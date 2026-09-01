@@ -63,6 +63,10 @@ describe("HTML-overlay browser execution integrity", () => {
   test("pins the exact installed Playwright behavior version", () => {
     expect(HTML_OVERLAY_RENDERER_CONTRACT.browserVersion).toBe("1.62.0");
     expect(HTML_OVERLAY_RENDERER_CONTRACT.environment.inherited).toEqual([]);
+    expect(HTML_OVERLAY_RENDERER_CONTRACT.launch.libraryArgs.vgpu).toEqual([
+      "--enable-unsafe-webgpu",
+      "--use-webgpu-adapter=swiftshader",
+    ]);
     expect(HTML_OVERLAY_RENDERER_CONTRACT.runtimeSnapshot).toEqual({
       cleanupIdentity: "container-direct-children-and-complete-runtime-manifest",
       copyBufferBytes: 4 * 1024 * 1024,

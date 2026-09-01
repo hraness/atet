@@ -78,7 +78,7 @@ Run `atet help project` for the current grammar. The project editor supports:
 - camera push, reframe, arbitrary camera paths, and local face-follow framing;
 - screen zooms tied to a rectangle, point, cursor, window, or focused input;
 - cursor, click, keystroke, and typed-text presentation;
-- image, SVG, GIF, video, emoji, HTML, shader, and Three.js overlays;
+- image, SVG, GIF, video, emoji, HTML, WGSL/WebGPU, and Three.js overlays;
 - local audio denoise, compression, volume, delay, and reverb;
 - clean, warm, cool, cinematic, vivid, flat, mono, or manual color treatment;
   and
@@ -88,6 +88,24 @@ Preserve the original recording and imported media. Apply changes to the
 project or its editable scene source, then inspect the resulting project hash.
 When an edit depends on evidence, use the evidence identifier returned by its
 analysis rather than recomputing or approximating it.
+
+## Use vgpu for explicit WebGPU effects
+
+Choose `atet html scaffold vgpu --output <file.html>` for a reviewed fullscreen
+WGSL effect or a composition that needs explicit WebGPU passes. The
+starter is one transparent pass; extend its checked source for bounded
+multipass work instead of introducing a second animation clock.
+
+- Derive motion from the absolute `timeMs` supplied by `AtetOverlay.onFrame`.
+- Submit explicit `frame()` passes and wait for both frame completion and GPU
+  settlement before the callback resolves.
+- Keep the transparent clear and premultiplied-alpha contract intact.
+- Expect the render to fail closed when WebGPU or its adapter is unavailable;
+  do not add a silent Canvas, WebGL, or static-image fallback.
+
+Prefer Motion for DOM animation, Paper Shaders for its existing texture and
+gradient treatments, and Three.js for full 3D scenes. vgpu is not a reason to
+rewrite an overlay that already fits one of those paths.
 
 ## Prefer a built-in workflow for a complete known job
 

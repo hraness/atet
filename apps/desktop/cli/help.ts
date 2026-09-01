@@ -57,7 +57,7 @@ bounded, checksum-pinned, and emits inert SVG. File generation uses Vercel AI Ga
 caller's environment credential. The --prompt spelling without --output is an alias for the desktop
 content-addressed \`ai image generate\` lane and returns project-composable content hash references.`,
   html: `Usage:
-  atet html scaffold <plain|motion|paper-shaders|three> --output <file.html>
+  atet html scaffold <plain|motion|paper-shaders|three|vgpu> --output <file.html>
 
 Creates a complete transparent HTML overlay without overwriting an existing file. Scaffolds use
 the existing @hraness/atet/local/html-overlay API and exact locked import maps. Render the document

@@ -1,5 +1,6 @@
 import {
   chmod,
+  lchmod,
   lstat,
   mkdir,
   mkdtemp,
@@ -23,7 +24,10 @@ import {
   HtmlOverlayAuthoringInputSchema,
   createHtmlOverlayScaffold,
 } from "../html-overlay";
-import { PlaywrightHtmlOverlayRenderer } from "./html-overlay-renderer";
+import {
+  PlaywrightHtmlOverlayRenderer,
+  createHtmlOverlayBrowserLaunchArgs,
+} from "./html-overlay-renderer";
 
 const roots: string[] = [];
 
@@ -82,6 +86,19 @@ function failingBrowser(onClose: () => void): Browser {
 }
 
 describe("private HTML-overlay browser runtime launch", () => {
+  test("adds the integrity-bound WebGPU flags only for vgpu", () => {
+    const flags = [
+      "--enable-unsafe-webgpu",
+      "--use-webgpu-adapter=swiftshader",
+    ];
+    const plainArgs = createHtmlOverlayBrowserLaunchArgs([]);
+    const vgpuArgs = createHtmlOverlayBrowserLaunchArgs(["vgpu"]);
+    for (const flag of flags) {
+      expect(plainArgs).not.toContain(flag);
+      expect(vgpuArgs.filter(argument => argument === flag)).toHaveLength(1);
+    }
+  });
+
   test("source substitution and ambient secrets cannot redirect or enter the browser", async () => {
     const item = await setup();
     await mkdir(item.frames, { mode: 0o700 });
@@ -96,6 +113,8 @@ describe("private HTML-overlay browser runtime launch", () => {
       cacheRoot: item.cache,
       launch: async options => {
         launched = options;
+        expect(options.args).not.toContain("--enable-unsafe-webgpu");
+        expect(options.args).not.toContain("--use-webgpu-adapter=swiftshader");
         expect(options.env?.ATET_BROWSER_SENTINEL_SECRET).toBeUndefined();
         expect(options.env?.HTTPS_PROXY).toBeUndefined();
         expect(Object.keys(options.env ?? {}).sort()).toEqual([
@@ -224,6 +243,7 @@ describe("private HTML-overlay browser runtime launch", () => {
     await chmod(executable, 0o755);
     await writeFile(resource, "bound resource", { mode: 0o644 });
     await symlink("snapshot.bin", link);
+    if (process.platform === "darwin") await lchmod(link, 0o664);
     const browserRuntime = await bindHtmlOverlayBrowserRuntime(
       await bindExactCapability({
         available: true,
@@ -255,6 +275,7 @@ describe("private HTML-overlay browser runtime launch", () => {
         await symlink("missing.bin", snapshotLink);
         await unlink(snapshotLink);
         await symlink("snapshot.bin", snapshotLink);
+        if (process.platform === "darwin") await lchmod(snapshotLink, 0o664);
         return failingBrowser(() => undefined);
       },
     });

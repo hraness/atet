@@ -116,6 +116,12 @@ export const HTML_OVERLAY_RENDERER_CONTRACT = Object.freeze({
       "--use-angle=swiftshader",
     ]),
     headless: true,
+    libraryArgs: Object.freeze({
+      vgpu: Object.freeze([
+        "--enable-unsafe-webgpu",
+        "--use-webgpu-adapter=swiftshader",
+      ]),
+    }),
   }),
   routing: Object.freeze({
     allowedOrigin: "https://atet-overlay.invalid",

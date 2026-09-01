@@ -7,6 +7,7 @@ export const HTML_OVERLAY_LIBRARY_SPECIFIERS = [
   "@paper-design/shaders",
   "motion",
   "three",
+  "vgpu",
 ] as const;
 
 export const HtmlOverlayLibrarySpecifierSchema = z.enum(HTML_OVERLAY_LIBRARY_SPECIFIERS);
@@ -39,10 +40,20 @@ const ThreeLockSchema = z.strictObject({
   version: z.literal("0.185.1"),
 });
 
+const VgpuLockSchema = z.strictObject({
+  bytes: z.literal(181_522),
+  license: z.literal("MIT"),
+  sha256: z.literal("f7ef874ca3dd29b165beaaf77297d64e06b65db1c48819ac472446da46f2cc9f"),
+  specifier: z.literal("vgpu"),
+  url: z.literal("https://esm.sh/vgpu@0.3.1/es2022/vgpu.bundle.mjs"),
+  version: z.literal("0.3.1"),
+});
+
 export const HtmlOverlayLibraryLockSchema = z.discriminatedUnion("specifier", [
   PaperShadersLockSchema,
   MotionLockSchema,
   ThreeLockSchema,
+  VgpuLockSchema,
 ]);
 export type HtmlOverlayLibraryLock = Readonly<z.infer<typeof HtmlOverlayLibraryLockSchema>>;
 
@@ -70,6 +81,14 @@ export const APPROVED_HTML_OVERLAY_LIBRARY_LOCKS = Object.freeze([
     specifier: "three",
     url: "https://esm.sh/three@0.185.1/es2022/three.bundle.mjs",
     version: "0.185.1",
+  }),
+  Object.freeze({
+    bytes: 181_522,
+    license: "MIT",
+    sha256: "f7ef874ca3dd29b165beaaf77297d64e06b65db1c48819ac472446da46f2cc9f",
+    specifier: "vgpu",
+    url: "https://esm.sh/vgpu@0.3.1/es2022/vgpu.bundle.mjs",
+    version: "0.3.1",
   }),
 ] as const satisfies readonly HtmlOverlayLibraryLock[]);
 

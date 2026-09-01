@@ -37,6 +37,14 @@ describe("HTML overlay locked libraries", () => {
         url: "https://esm.sh/three@0.185.1/es2022/three.bundle.mjs",
         version: "0.185.1",
       },
+      {
+        bytes: 181_522,
+        license: "MIT",
+        sha256: "f7ef874ca3dd29b165beaaf77297d64e06b65db1c48819ac472446da46f2cc9f",
+        specifier: "vgpu",
+        url: "https://esm.sh/vgpu@0.3.1/es2022/vgpu.bundle.mjs",
+        version: "0.3.1",
+      },
     ]);
   });
 
@@ -55,8 +63,8 @@ describe("HTML overlay locked libraries", () => {
   });
 
   test("allows only exact bare specifiers and rejects duplicates", () => {
-    expect(HtmlOverlayLibrarySelectionSchema.parse(["three", "motion"]))
-      .toEqual(["motion", "three"]);
+    expect(HtmlOverlayLibrarySelectionSchema.parse(["vgpu", "three", "motion"]))
+      .toEqual(["motion", "three", "vgpu"]);
     expect(HtmlOverlayLibrarySelectionSchema.safeParse(["motion", "motion"]).success).toBe(false);
     expect(HtmlOverlayLibrarySelectionSchema.safeParse(["motion/mini"]).success).toBe(false);
     expect(HtmlOverlayLibrarySelectionSchema.safeParse(["three/addons/"]).success).toBe(false);
@@ -64,12 +72,18 @@ describe("HTML overlay locked libraries", () => {
   });
 
   test("generates a canonical port-independent import map", () => {
-    const map = createHtmlOverlayImportMap(["three", "@paper-design/shaders", "motion"]);
+    const map = createHtmlOverlayImportMap([
+      "vgpu",
+      "three",
+      "@paper-design/shaders",
+      "motion",
+    ]);
     expect(map).toEqual({
       imports: {
         "@paper-design/shaders": htmlOverlayLibraryLocalUrl("@paper-design/shaders"),
         motion: htmlOverlayLibraryLocalUrl("motion"),
         three: htmlOverlayLibraryLocalUrl("three"),
+        vgpu: htmlOverlayLibraryLocalUrl("vgpu"),
       },
     });
     expect(Object.isFrozen(map)).toBe(true);
