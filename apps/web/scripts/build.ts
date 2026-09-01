@@ -18,6 +18,7 @@ import {
   readingGaussiansMarkdown,
   readingGeminiOmniMarkdown,
   readingPaintWithCodeMarkdown,
+  readingHowIDesignWithAiMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "../src/agent-pages"
@@ -64,6 +65,7 @@ const generatedTextFiles = {
   "reading/painting-with-gaussians.md": readingGaussiansMarkdown,
   "reading/gemini-omni.md": readingGeminiOmniMarkdown,
   "reading/paint-with-code.md": readingPaintWithCodeMarkdown,
+  "reading/how-i-design-with-ai.md": readingHowIDesignWithAiMarkdown,
   "robots.txt": robotsTxt,
   "sitemap.xml": renderSitemapXml(),
   "sitemap.md": sitemapMarkdown,
@@ -213,10 +215,10 @@ function renderSitemapUrl(
 
 export function renderSitemapXml(): string {
   const entries = [
-    renderSitemapUrl("/", "2026-08-31", "1.0", editorialReadings),
-    renderSitemapUrl("/index.md", "2026-08-31", "0.8"),
-    renderSitemapUrl("/reading", "2026-08-31", "0.8", editorialReadings),
-    renderSitemapUrl("/reading/index.md", "2026-08-31", "0.6"),
+    renderSitemapUrl("/", "2026-09-01", "1.0", editorialReadings),
+    renderSitemapUrl("/index.md", "2026-09-01", "0.8"),
+    renderSitemapUrl("/reading", "2026-09-01", "0.8", editorialReadings),
+    renderSitemapUrl("/reading/index.md", "2026-09-01", "0.6"),
     ...editorialReadings.flatMap(reading => [
       renderSitemapUrl(reading.canonicalPath, reading.datePublished, "0.7", [reading]),
       renderSitemapUrl(`${reading.canonicalPath}.md`, reading.datePublished, "0.6"),
@@ -338,6 +340,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readingGaussiansTemplate,
     readingGeminiOmniTemplate,
     readingPaintWithCodeTemplate,
+    readingHowIDesignWithAiTemplate,
     readingIndexTemplate,
     productStyles,
     designKitFontsStyles,
@@ -355,6 +358,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readFile(join(sourceDirectory, "reading/painting-with-gaussians.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/gemini-omni.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/paint-with-code.html"), "utf8"),
+    readFile(join(sourceDirectory, "reading/how-i-design-with-ai.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/index.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(designKitFontsStylesPath, "utf8"),
@@ -451,6 +455,13 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       join(outputDirectory, "reading/paint-with-code.html"),
       renderDocument(readingPaintWithCodeTemplate, editorialPageAssets("/reading/paint-with-code")),
     ),
+    writeFile(
+      join(outputDirectory, "reading/how-i-design-with-ai.html"),
+      renderDocument(
+        readingHowIDesignWithAiTemplate,
+        editorialPageAssets("/reading/how-i-design-with-ai"),
+      ),
+    ),
     cp(join(sourceDirectory, "images"), join(outputDirectory, "images"), {
       dereference: true,
       recursive: true,
@@ -486,7 +497,7 @@ if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 12
+    + 13
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
 }

@@ -1,0 +1,23 @@
+{
+  "createdAt": "2026-09-01T13:40:00.000Z",
+  "kind": "editorial-image-receipt",
+  "operation": "image.generate",
+  "outputs": [
+    {
+      "bytes": 97126,
+      "file": "how-i-design-with-ai.webp",
+      "mediaType": "image/webp",
+      "sha256": "73e13d179fd386a67b9d06503514c530d48c62bde55180dd024f310356c41280"
+    }
+  ],
+  "request": {
+    "promptCharacters": 1169,
+    "size": "1536x864"
+  },
+  "sampleFulfillment": {
+    "produced": 1,
+    "requested": 1,
+    "status": "complete"
+  },
+  "schemaVersion": 1
+}

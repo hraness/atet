@@ -7,6 +7,7 @@ import {
   readingGaussiansMarkdown,
   readingGeminiOmniMarkdown,
   readingPaintWithCodeMarkdown,
+  readingHowIDesignWithAiMarkdown,
 } from "./agent-pages"
 import {
   htmlMediaType,
@@ -61,6 +62,11 @@ export function isReadingPaintWithCodePath(pathname: string): boolean {
     || pathname === "/reading/paint-with-code.html"
 }
 
+export function isReadingHowIDesignWithAiPath(pathname: string): boolean {
+  return pathname === "/reading/how-i-design-with-ai"
+    || pathname === "/reading/how-i-design-with-ai.html"
+}
+
 export function isPreservedRedirectPath(pathname: string): boolean {
   return pathname === "/docs" || pathname.startsWith("/docs/")
 }
@@ -81,6 +87,7 @@ export function isNegotiableDocumentPath(pathname: string): boolean {
     || isReadingGaussiansPath(pathname)
     || isReadingGeminiOmniPath(pathname)
     || isReadingPaintWithCodePath(pathname)
+    || isReadingHowIDesignWithAiPath(pathname)
     || isPreservedRedirectPath(pathname)
   ) {
     return true
@@ -117,6 +124,10 @@ function canonicalReadingGeminiOmniUrl(request: Request): string {
 
 function canonicalReadingPaintWithCodeUrl(request: Request): string {
   return new URL("/reading/paint-with-code", request.url).href
+}
+
+function canonicalReadingHowIDesignWithAiUrl(request: Request): string {
+  return new URL("/reading/how-i-design-with-ai", request.url).href
 }
 
 export function negotiateSiteRequest(request: Request): Response | undefined {
@@ -208,6 +219,17 @@ export function negotiateSiteRequest(request: Request): Response | undefined {
         headers: {
           "Content-Type": markdownContentType,
           "Link": `<${canonicalReadingPaintWithCodeUrl(request)}>; rel="canonical", </reading/paint-with-code.md>; rel="alternate"; type="text/markdown"`,
+          "Vary": varyAcceptAndEncoding,
+        },
+        status: 200,
+      })
+    }
+
+    if (isReadingHowIDesignWithAiPath(pathname)) {
+      return new Response(negotiatedBody(request, readingHowIDesignWithAiMarkdown), {
+        headers: {
+          "Content-Type": markdownContentType,
+          "Link": `<${canonicalReadingHowIDesignWithAiUrl(request)}>; rel="canonical", </reading/how-i-design-with-ai.md>; rel="alternate"; type="text/markdown"`,
           "Vary": varyAcceptAndEncoding,
         },
         status: 200,

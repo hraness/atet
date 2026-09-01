@@ -116,6 +116,25 @@ export const editorialReadings = [
     title: "Keep the painting as code you can edit",
     width: 1536,
   },
+  {
+    alt: "A sealed prompt ribbon breaking into inspectable tiles and variant frames on a local workspace",
+    canonicalPath: "/reading/how-i-design-with-ai",
+    caption: "Design decisions stay visible as separate pieces after they leave the prompt.",
+    credit,
+    datePublished: "2026-09-01",
+    description: "An Atet reading take on Dailey’s design-with-AI note: keep editable design decisions in the media tool and workflow rather than a bigger prompt dump.",
+    height: 864,
+    imageSha256: "73e13d179fd386a67b9d06503514c530d48c62bde55180dd024f310356c41280",
+    provenance: {
+      job: "editorial-provenance/how-i-design-with-ai/job.json",
+      prompt: "editorial-provenance/how-i-design-with-ai/prompt.txt",
+      receipt: "editorial-provenance/how-i-design-with-ai/receipt.json",
+    },
+    slug: "how-i-design-with-ai",
+    src: "/images/editorial/how-i-design-with-ai.webp",
+    title: "Keep the design decision in the media tool",
+    width: 1536,
+  },
 ] as const satisfies readonly EditorialReading[]
 
 export type EditorialReadingPath = (typeof editorialReadings)[number]["canonicalPath"]
