@@ -43,6 +43,9 @@ const appearanceMenuStylesPath = fileURLToPath(
 const designKitFontsStylesPath = fileURLToPath(
   import.meta.resolve("@hraness/design-kit/fonts.css"),
 )
+const designKitProductMarketingStylesPath = fileURLToPath(
+  import.meta.resolve("@hraness/design-kit/product-marketing.css"),
+)
 const designKitFontsDirectory = join(dirname(designKitFontsStylesPath), "fonts")
 const hranessSiteFooterStylesPath = fileURLToPath(
   import.meta.resolve("@hraness/site-footer/styles.css"),
@@ -341,6 +344,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readingIndexTemplate,
     productStyles,
     designKitFontsStyles,
+    designKitProductMarketingStyles,
     appearanceStyles,
     hranessSiteFooterStyles,
     theme,
@@ -358,13 +362,14 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readFile(join(sourceDirectory, "reading/index.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(designKitFontsStylesPath, "utf8"),
+    readFile(designKitProductMarketingStylesPath, "utf8"),
     readFile(appearanceMenuStylesPath, "utf8"),
     readFile(hranessSiteFooterStylesPath, "utf8"),
     bundleTheme(),
     renderAtetSocialImage(),
   ])
   const styles = new TextEncoder().encode(
-    `${designKitFontsStyles.trim()}\n\n${productStyles.trimEnd()}\n\n${appearanceStyles.trim()}\n\n${hranessSiteFooterStyles.trim()}\n`,
+    `${designKitFontsStyles.trim()}\n\n${designKitProductMarketingStyles.trim()}\n\n${productStyles.trimEnd()}\n\n${appearanceStyles.trim()}\n\n${hranessSiteFooterStyles.trim()}\n`,
   )
 
   const stylesPath = assetPath("styles.css", styles)

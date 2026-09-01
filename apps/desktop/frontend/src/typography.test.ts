@@ -30,7 +30,7 @@ describe("desktop typography", () => {
     };
 
     expect(manifest.devDependencies?.["@hraness/design-kit"])
-      .toBe("github:hraness/design-kit#v0.2.1");
+      .toBe("github:hraness/design-kit#v0.3.0");
     expect(productionSource.indexOf('import "@hraness/design-kit/fonts.css";'))
       .toBeLessThan(productionSource.indexOf('import "./index.css";'));
     expect(css).toContain('--font-text: "Nebula Sans", ui-sans-serif, system-ui');
