@@ -329,10 +329,24 @@ describe("static Atet site", () => {
         targetProduct: { "@id": "https://atet.sh/#software" },
         version: "3.1.2",
       }),
+      expect.objectContaining({
+        "@id": "https://atet.sh/#questions",
+        "@type": "FAQPage",
+        mainEntity: expect.arrayContaining([
+          expect.objectContaining({
+            "@type": "Question",
+            name: "Does Atet require an account or subscription?",
+          }),
+          expect.objectContaining({
+            "@type": "Question",
+            name: "When can local media leave the machine?",
+          }),
+        ]),
+      }),
     ]))
   })
 
-  test("puts the complete agent install before the first section ends", async () => {
+  test("puts the complete agent install in the first product section", async () => {
     const html = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
     const commands = [
@@ -340,12 +354,16 @@ describe("static Atet site", () => {
       "bun add --global @hraness/atet@3.1.2",
       "atet doctor",
     ]
-    const positions = commands.map(command => html.indexOf(command))
-    const heroHtml = html.slice(0, html.indexOf("</section>") + "</section>".length)
+    const installMarker = html.indexOf('data-hraness-marketing="install"')
+    const installStart = html.lastIndexOf("<section", installMarker)
+    const installEnd = html.indexOf("</section>", installMarker) + "</section>".length
+    const installHtml = html.slice(installStart, installEnd)
+    const positions = commands.map(command => installHtml.indexOf(command))
 
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
-    expect(positions.at(-1)).toBeLessThan(html.indexOf("</section>"))
+    expect(installStart).toBeGreaterThan(0)
+    expect(installEnd).toBeGreaterThan(installStart)
     expect(html).toContain("Make and edit visual media with your coding agent.")
     expect(searchableHtml).toContain("generate images, video, and voice")
     expect(searchableHtml).toContain("edit screen recordings and imported footage")
@@ -358,12 +376,16 @@ describe("static Atet site", () => {
     expect(html).toContain("Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet</code>")
     expect(html).toContain("inside the project you want to work")
     expect(html).toContain("start a new agent session")
-    expect(heroHtml).not.toContain("atet skill install")
+    expect(installHtml).not.toContain("atet skill install")
     expect(html).toContain("When that command is not being used")
     expect(html).toContain("atet skill install --target claude")
     expect(html).toContain("atet skill install --target agents")
     expect(html).toContain("--scope project")
     expect(html).toContain("@hraness/atet@3.1.2")
+    expect(html).toContain('data-hraness-marketing="hero"')
+    expect(html).toContain('data-hraness-marketing="flow"')
+    expect(html).toContain('data-hraness-marketing="facts"')
+    expect(html).toContain('data-hraness-marketing="install"')
   })
 
   test("renders a progressively enhanced reusable copy command in the hero", async () => {
@@ -388,16 +410,35 @@ describe("static Atet site", () => {
     expect(client).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
-  test("uses one install, examples, workflow, and design information architecture", async () => {
+  test("uses one install, examples, workflow, interfaces, and design information architecture", async () => {
     const html = await readSource("index.html")
-    const modes = ["> Install<", "> Examples<", "> Workflow<", "> Design<"]
+    const modes = ["> Install<", "> Examples<", "> Workflow<", "> Interfaces<", "> Design<"]
     const positions = modes.map(mode => html.indexOf(mode))
 
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
     expect(html).toContain('<nav aria-label="Page sections" class="docs-index">')
     expect(html.match(/class="docs-section/gu)).toHaveLength(4)
+    expect(html).toContain('data-hraness-marketing="interfaces"')
+    expect(html).toContain('data-hraness-marketing="trust"')
+    expect(html).toContain('data-hraness-marketing="questions"')
+    expect(html).toContain('data-hraness-marketing="cta"')
     expect(html).not.toContain("Diátaxis")
+  })
+
+  test("shows exact equivalent interfaces without inventing a hosted surface", async () => {
+    const html = await readSource("index.html")
+
+    for (const example of [
+      "npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet",
+      "atet workflows list --json",
+      'import { vectorizeImage } from "@hraness/atet"',
+      "atet mcp --root /absolute/path/to/workspace",
+    ]) {
+      expect(html).toContain(example)
+    }
+    expect(html).toContain("The same local system meets four kinds of caller.")
+    expect(html).not.toMatch(/hosted (?:project|generation|media) (?:service|surface)/iu)
   })
 
   test("teaches people through requests instead of a command catalog", async () => {
@@ -530,13 +571,15 @@ describe("static Atet site", () => {
     expect(css).toContain("--font-sans: var(--font-body)")
     expect(css).toContain("--radius-control: 0.2rem")
     expect(css).toContain("--radius-surface: 0.45rem")
-    expect(css).toContain(".install-panel")
+    expect(css).toContain(".atet-install")
     expect(css).toContain(".feature-list > div")
     expect(css).toContain(".origin-note")
     expect(css).not.toMatch(/@font-face|url\([^)]*\.woff/)
     const builtCss = await readBuilt(builtAssets.stylesPath.slice(1))
     expect(builtCss).toContain('font-family: "Nebula Sans";')
     expect(builtCss).toContain('./fonts/nebula-sans/NebulaSans-Book.woff2')
+    expect(builtCss).toContain(".hraness-marketing-hero")
+    expect(builtCss).toContain(".hraness-marketing-interface-grid")
     expect((await readFile(
       join(appDirectory, "dist/assets/fonts/nebula-sans/NebulaSans-Book.woff2"),
     )).byteLength).toBeGreaterThan(60_000)
@@ -666,7 +709,7 @@ describe("static Atet site", () => {
     const localLockfile = await readFile(join(appDirectory, "bun.lock"), "utf8")
 
     expect(manifest.dependencies).toEqual({
-      "@hraness/design-kit": "github:hraness/design-kit#v0.2.1",
+      "@hraness/design-kit": "github:hraness/design-kit#v0.3.0",
       "@hraness/site-footer": "github:hraness/site-footer#v0.3.1",
       "@hraness/ui": "github:hraness/ui#v0.4.10",
       "@resvg/resvg-js": "2.6.2",
@@ -680,7 +723,7 @@ describe("static Atet site", () => {
     })
     expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
-    expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.2.1"')
+    expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.3.0"')
     expect(localLockfile).toContain(
       '"@hraness/site-footer": "github:hraness/site-footer#v0.3.1"',
     )
@@ -688,7 +731,7 @@ describe("static Atet site", () => {
     expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     expect(localLockfile).not.toContain("catalog:")
-    expect(new TextEncoder().encode(html).byteLength).toBeLessThan(20_000)
+    expect(new TextEncoder().encode(html).byteLength).toBeLessThan(32_000)
     expect(new TextEncoder().encode(css).byteLength).toBeLessThan(36_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(new TextEncoder().encode(copyCommand).byteLength).toBeLessThan(4_000)
@@ -930,7 +973,7 @@ describe("static Atet site", () => {
     expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
     expect(stylesAsset).toContain(".hraness-site-footer {")
     expect(stylesAsset).toContain("@media (pointer: coarse)")
-    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(50_000)
+    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(64_000)
     expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
     expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
