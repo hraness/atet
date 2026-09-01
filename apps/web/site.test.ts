@@ -26,6 +26,7 @@ import {
   readingGaussiansMarkdown,
   readingGeminiOmniMarkdown,
   readingPaintWithCodeMarkdown,
+  readingHowIDesignWithAiMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "./src/agent-pages"
@@ -45,6 +46,7 @@ import {
   isReadingGeminiOmniPath,
   isReadingIndexPath,
   isReadingPaintWithCodePath,
+  isReadingHowIDesignWithAiPath,
   negotiateSiteRequest,
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
@@ -106,6 +108,7 @@ describe("static Atet site", () => {
       ["reading/painting-with-gaussians.html", "https://atet.sh/reading/painting-with-gaussians"],
       ["reading/gemini-omni.html", "https://atet.sh/reading/gemini-omni"],
       ["reading/paint-with-code.html", "https://atet.sh/reading/paint-with-code"],
+      ["reading/how-i-design-with-ai.html", "https://atet.sh/reading/how-i-design-with-ai"],
     ] as const
     for (const [path, canonicalUrl] of publicPages) {
       const html = await readBuilt(path)
@@ -485,7 +488,7 @@ describe("static Atet site", () => {
   })
 
   test("owns one shared appearance menu as the final action in every header", async () => {
-    const [html, notFound, reading, readingFeynobg, readingGaussians, readingGeminiOmni, readingPaintWithCode] = await Promise.all([
+    const [html, notFound, reading, readingFeynobg, readingGaussians, readingGeminiOmni, readingPaintWithCode, readingHowIDesignWithAi] = await Promise.all([
       readBuilt("index.html"),
       readBuilt("404.html"),
       readBuilt("reading/draw-faces-with-javascript.html"),
@@ -493,9 +496,10 @@ describe("static Atet site", () => {
       readBuilt("reading/painting-with-gaussians.html"),
       readBuilt("reading/gemini-omni.html"),
       readBuilt("reading/paint-with-code.html"),
+      readBuilt("reading/how-i-design-with-ai.html"),
     ])
 
-    for (const document of [html, notFound, reading, readingFeynobg, readingGaussians, readingGeminiOmni, readingPaintWithCode]) {
+    for (const document of [html, notFound, reading, readingFeynobg, readingGaussians, readingGeminiOmni, readingPaintWithCode, readingHowIDesignWithAi]) {
       expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
       expect(document).toMatch(
         /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
@@ -750,6 +754,10 @@ describe("static Atet site", () => {
       origin: "https://atet.sh",
       pathname: "/reading/paint-with-code",
     })).toBe(false)
+    expect(isCanonicalAnalyticsPage({
+      origin: "https://atet.sh",
+      pathname: "/reading/how-i-design-with-ai",
+    })).toBe(false)
 
     const timestamp = new Date("2026-08-19T12:00:00.000Z")
     const sanitized = sanitizePageview({
@@ -951,6 +959,7 @@ describe("static Atet site", () => {
       builtGaussiansMarkdown,
       builtGeminiOmniMarkdown,
       builtPaintWithCodeMarkdown,
+      builtHowIDesignWithAiMarkdown,
     ] = await Promise.all([
       Promise.resolve(robotsTxt),
       readBuilt("sitemap.xml"),
@@ -965,6 +974,7 @@ describe("static Atet site", () => {
       readBuilt("reading/painting-with-gaussians.md"),
       readBuilt("reading/gemini-omni.md"),
       readBuilt("reading/paint-with-code.md"),
+      readBuilt("reading/how-i-design-with-ai.md"),
     ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)]
       .map(match => match[1])
@@ -1013,6 +1023,8 @@ describe("static Atet site", () => {
       "https://atet.sh/reading/gemini-omni.md",
       "https://atet.sh/reading/paint-with-code",
       "https://atet.sh/reading/paint-with-code.md",
+      "https://atet.sh/reading/how-i-design-with-ai",
+      "https://atet.sh/reading/how-i-design-with-ai.md",
     ])
     for (const discoveryDocument of [sitemap, builtLlms, builtHomeMarkdown, builtSitemapMarkdown]) {
       expect(discoveryDocument).not.toContain("/preview")
@@ -1021,6 +1033,7 @@ describe("static Atet site", () => {
     expect(sitemap).toContain("<lastmod>2026-08-27</lastmod>")
     expect(sitemap).toContain("<lastmod>2026-08-28</lastmod>")
     expect(sitemap).toContain("<lastmod>2026-08-31</lastmod>")
+    expect(sitemap).toContain("<lastmod>2026-09-01</lastmod>")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
     expect(builtLlms).toBe(llmsTxt)
     expect(builtHomeMarkdown).toBe(homeMarkdown)
@@ -1032,6 +1045,7 @@ describe("static Atet site", () => {
     expect(builtGaussiansMarkdown).toBe(readingGaussiansMarkdown)
     expect(builtGeminiOmniMarkdown).toBe(readingGeminiOmniMarkdown)
     expect(builtPaintWithCodeMarkdown).toBe(readingPaintWithCodeMarkdown)
+    expect(builtHowIDesignWithAiMarkdown).toBe(readingHowIDesignWithAiMarkdown)
     expect(llmsTxt).toMatch(/^# Atet\n/u)
     expect(llmsTxt).toContain("> Atet gives coding agents tools")
     expect(llmsTxt).toContain("## When to use Atet")
@@ -1044,6 +1058,7 @@ describe("static Atet site", () => {
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/painting-with-gaussians.md")
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/gemini-omni.md")
     expect(sitemapMarkdown).toContain("https://atet.sh/reading/paint-with-code.md")
+    expect(sitemapMarkdown).toContain("https://atet.sh/reading/how-i-design-with-ai.md")
     expect(homeMarkdown).toContain("## Sitemap")
     expect(homeMarkdown).toContain("https://atet.sh/sitemap.md")
     expect(homeMarkdown).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
@@ -1051,11 +1066,13 @@ describe("static Atet site", () => {
     expect(homeMarkdown).toContain("https://atet.sh/reading/painting-with-gaussians.md")
     expect(homeMarkdown).toContain("https://atet.sh/reading/gemini-omni.md")
     expect(homeMarkdown).toContain("https://atet.sh/reading/paint-with-code.md")
+    expect(homeMarkdown).toContain("https://atet.sh/reading/how-i-design-with-ai.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/draw-faces-with-javascript.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/feynobg.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/painting-with-gaussians.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/gemini-omni.md")
     expect(llmsTxt).toContain("https://atet.sh/reading/paint-with-code.md")
+    expect(llmsTxt).toContain("https://atet.sh/reading/how-i-design-with-ai.md")
     expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
     expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
   })
@@ -1213,6 +1230,8 @@ describe("static Atet site", () => {
     const readingGeminiOmniMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/gemini-omni.md")?.headers ?? []
     const readingPaintWithCode = vercel.headers?.find(entry => entry.source === "/reading/paint-with-code")?.headers ?? []
     const readingPaintWithCodeMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/paint-with-code.md")?.headers ?? []
+    const readingHowIDesignWithAi = vercel.headers?.find(entry => entry.source === "/reading/how-i-design-with-ai")?.headers ?? []
+    const readingHowIDesignWithAiMarkdownHeader = vercel.headers?.find(entry => entry.source === "/reading/how-i-design-with-ai.md")?.headers ?? []
     const llms = vercel.headers?.find(entry => entry.source === "/llms.txt")?.headers ?? []
     expect(home).toContainEqual({
       key: "Link",
@@ -1270,6 +1289,14 @@ describe("static Atet site", () => {
       key: "Content-Type",
       value: "text/markdown; charset=utf-8",
     })
+    expect(readingHowIDesignWithAi).toContainEqual({
+      key: "Link",
+      value: '</reading/how-i-design-with-ai.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(readingHowIDesignWithAiMarkdownHeader).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
     expect(llms).toContainEqual({
       key: "Content-Type",
       value: "text/plain; charset=utf-8",
@@ -1310,6 +1337,11 @@ describe("static Atet site", () => {
         has: [{ type: "header", key: "accept", value: "^text/markdown" }],
         destination: "/reading/paint-with-code.md",
       },
+      {
+        source: "/reading/how-i-design-with-ai",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/reading/how-i-design-with-ai.md",
+      },
     ])
   })
 
@@ -1323,6 +1355,7 @@ describe("static Atet site", () => {
       readBuilt("reading/painting-with-gaussians.html"),
       readBuilt("reading/gemini-omni.html"),
       readBuilt("reading/paint-with-code.html"),
+      readBuilt("reading/how-i-design-with-ai.html"),
     ])
     const expectedHrefs = [
       HRANESS_HOME_URL,
@@ -1407,6 +1440,9 @@ describe("static Atet site", () => {
     expect(isReadingPaintWithCodePath("/reading/paint-with-code")).toBe(true)
     expect(isReadingPaintWithCodePath("/reading/paint-with-code.html")).toBe(true)
     expect(isReadingPaintWithCodePath("/reading/missing")).toBe(false)
+    expect(isReadingHowIDesignWithAiPath("/reading/how-i-design-with-ai")).toBe(true)
+    expect(isReadingHowIDesignWithAiPath("/reading/how-i-design-with-ai.html")).toBe(true)
+    expect(isReadingHowIDesignWithAiPath("/reading/missing")).toBe(false)
     expect(isPreservedRedirectPath("/docs")).toBe(true)
     expect(isPreservedRedirectPath("/docs/install")).toBe(true)
     expect(isPreviewPath("/preview")).toBe(true)
@@ -1418,6 +1454,7 @@ describe("static Atet site", () => {
     expect(isNegotiableDocumentPath("/reading/painting-with-gaussians")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/gemini-omni")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/paint-with-code")).toBe(true)
+    expect(isNegotiableDocumentPath("/reading/how-i-design-with-ai")).toBe(true)
     expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
     expect(isNegotiableDocumentPath("/index.md")).toBe(false)
     expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
@@ -1503,6 +1540,19 @@ describe("static Atet site", () => {
       headers: { Accept: "text/html" },
     }))
     expect(htmlPaintWithCode).toBeUndefined()
+
+    const markdownHowIDesignWithAi = negotiateSiteRequest(new Request("https://atet.sh/reading/how-i-design-with-ai", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownHowIDesignWithAi?.status).toBe(200)
+    expect(markdownHowIDesignWithAi?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownHowIDesignWithAi?.headers.get("link")).toContain('rel="canonical"')
+    expect(await markdownHowIDesignWithAi?.text()).toBe(readingHowIDesignWithAiMarkdown)
+
+    const htmlHowIDesignWithAi = negotiateSiteRequest(new Request("https://atet.sh/reading/how-i-design-with-ai", {
+      headers: { Accept: "text/html" },
+    }))
+    expect(htmlHowIDesignWithAi).toBeUndefined()
 
     const docsRedirect = negotiateSiteRequest(new Request("https://atet.sh/docs", {
       headers: { Accept: "text/markdown" },
@@ -1655,6 +1705,8 @@ describe("static Atet site", () => {
       "feynobg.md",
       "gemini-omni.html",
       "gemini-omni.md",
+      "how-i-design-with-ai.html",
+      "how-i-design-with-ai.md",
       "index.html",
       "index.md",
       "paint-with-code.html",
@@ -1882,7 +1934,72 @@ describe("static Atet site", () => {
     expect(readingPaintWithCodeMarkdown).toContain("https://hraness.com")
     expect(readingPaintWithCodeMarkdown).toContain("https://hraness.com/reading/rling-qwen-to-paint-with-code")
     expect(readingPaintWithCodeMarkdown).toContain("https://surya.website/rling-qwen-to-paint-with-code")
+    expect(readingPaintWithCodeMarkdown).toContain("https://atet.sh/reading/how-i-design-with-ai")
+    expect(html).toContain('href="/reading/how-i-design-with-ai"')
     expect(home).toContain('href="/reading/paint-with-code"')
     expect(homeMarkdown).toContain("Keep the painting as code you can edit")
+  })
+
+  test("publishes one original reading take on How I Design with AI", async () => {
+    const [html, builtHtml, builtMarkdown] = await Promise.all([
+      readFile(join(appDirectory, "src/reading/how-i-design-with-ai.html"), "utf8"),
+      readBuilt("reading/how-i-design-with-ai.html"),
+      readBuilt("reading/how-i-design-with-ai.md"),
+    ])
+    const home = await readBuilt("index.html")
+    const searchableHtml = html.replace(/\s+/gu, " ")
+
+    expect(html.match(/<h1\b/gu)).toHaveLength(1)
+    expect(html).toContain("<h1 id=\"page-title\">Keep the design decision in the media tool</h1>")
+    expect(html).not.toContain("Keep the source small enough to vary</h1>")
+    expect(html).not.toContain("Keep the cutout from replacing the source</h1>")
+    expect(html).not.toContain("Keep the stroke decision in the renderer</h1>")
+    expect(html).not.toContain("Control in the renderer still beats a bigger Omni prompt</h1>")
+    expect(html).not.toContain("Keep the painting as code you can edit</h1>")
+    expect(html).toContain('<link rel="canonical" href="https://atet.sh/reading/how-i-design-with-ai">')
+    expect(html).toContain('<link rel="alternate" type="text/markdown" href="/reading/how-i-design-with-ai.md">')
+    expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
+    expect(html).toContain('href="https://atet.sh/"')
+    expect(html).toContain('href="/reading/paint-with-code"')
+    expect(html).toContain('href="/reading/gemini-omni"')
+    expect(html).toContain('href="https://hraness.com"')
+    expect(html).toContain('href="https://hraness.com/reading/how-i-design-with-ai"')
+    expect(html).toContain('href="https://x.com/reactiverobot/status/2092638003789439075"')
+    expect(searchableHtml).toContain("This page is an Atet reading take")
+    expect(searchableHtml).toContain("It is not the Hraness Reading digest")
+    expect(searchableHtml).toContain("Atet does not ship a design-mode product")
+    expect(searchableHtml).toContain("There is no Atet account or hosted project database")
+    expect(searchableHtml).toContain("You should not be iterating on design in the product")
+    expect(searchableHtml).toContain("decisions that still live in the project")
+    expect(searchableHtml).toContain("Keep the painting as code you can edit")
+    expect(searchableHtml).toContain("Control in the renderer still beats a bigger Omni prompt")
+    for (const quotedExcerpt of [
+      "seven-part note",
+      "how non-designers can keep AI-built product UI from becoming slop",
+      "The rest is practice: remove agent-added chrome",
+      "Figma is still the GOAT",
+    ]) {
+      expect(searchableHtml).not.toContain(quotedExcerpt)
+      expect(readingHowIDesignWithAiMarkdown).not.toContain(quotedExcerpt)
+    }
+    expect(searchableHtml).not.toContain("Treat recognition and boundary precision as coupled skills")
+    expect(searchableHtml).not.toContain("You can just draw faces with javascript")
+    expect(searchableHtml).not.toContain("slow and opaque")
+    expect(searchableHtml).not.toContain("takes teams beyond generating videos to truly directing them")
+    expect(searchableHtml).not.toContain("I don't think this is a better way to make images")
+    expect(html).not.toMatch(/stripedex\.com|spongeresearch\.com|hra\.sh/i)
+    expect(html).not.toContain("{{ANALYTICS_SCRIPT}}")
+    expect(html).not.toContain("data-copy-command")
+    expect(builtHtml).not.toContain("{{")
+    expect(builtHtml).not.toMatch(/analytics-|posthog|phc_/i)
+    expect(builtMarkdown).toBe(readingHowIDesignWithAiMarkdown)
+    expect(readingHowIDesignWithAiMarkdown).toContain("https://atet.sh/")
+    expect(readingHowIDesignWithAiMarkdown).toContain("https://atet.sh/reading/paint-with-code")
+    expect(readingHowIDesignWithAiMarkdown).toContain("https://atet.sh/reading/gemini-omni")
+    expect(readingHowIDesignWithAiMarkdown).toContain("https://hraness.com")
+    expect(readingHowIDesignWithAiMarkdown).toContain("https://hraness.com/reading/how-i-design-with-ai")
+    expect(readingHowIDesignWithAiMarkdown).toContain("https://x.com/reactiverobot/status/2092638003789439075")
+    expect(home).toContain('href="/reading/how-i-design-with-ai"')
+    expect(homeMarkdown).toContain("Keep the design decision in the media tool")
   })
 })

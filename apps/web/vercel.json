@@ -142,6 +142,17 @@
           }
         ],
         "destination": "/reading/paint-with-code.md"
+      },
+      {
+        "source": "/reading/how-i-design-with-ai",
+        "has": [
+          {
+            "type": "header",
+            "key": "accept",
+            "value": "^text/markdown"
+          }
+        ],
+        "destination": "/reading/how-i-design-with-ai.md"
       }
     ],
   "headers": [
@@ -374,6 +385,28 @@
         {
           "key": "Link",
           "value": "<https://atet.sh/reading/paint-with-code>; rel=\"canonical\""
+        }
+      ]
+    },
+    {
+      "source": "/reading/how-i-design-with-ai",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reading/how-i-design-with-ai.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reading/how-i-design-with-ai.md",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        },
+        {
+          "key": "Link",
+          "value": "<https://atet.sh/reading/how-i-design-with-ai>; rel=\"canonical\""
         }
       ]
     },
