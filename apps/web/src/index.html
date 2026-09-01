@@ -117,6 +117,44 @@
             "runtimePlatform": "Bun 1.3.14",
             "targetProduct": { "@id": "https://atet.sh/#software" },
             "version": "3.1.2"
+          },
+          {
+            "@id": "https://atet.sh/#questions",
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Does the Atet website generate or edit media?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. The website explains and installs the local system. Media work runs in the caller's CLI, SDK, MCP server, or desktop host."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does Atet require an account or subscription?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No Atet account or subscription exists. Atet is free and open source. Model-backed generation uses caller-owned Vercel AI Gateway access."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does Atet overwrite original media?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Original recordings and imported media stay unchanged while edits, alternatives, previews, and deliveries remain attached to explicit project states."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "When can local media leave the machine?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Only model-backed work may upload named media, and only after explicit acknowledgement. Local editing, vectorization, deterministic rendering, previews, and outputs remain local."
+                }
+              }
+            ]
           }
         ]
       }
@@ -138,49 +176,91 @@
     </header>
 
     <main id="main" tabindex="-1">
-      <section id="install" aria-labelledby="page-title" class="docs-hero">
-        <div class="docs-hero-copy">
-          <p class="eyebrow">AI media · video editing · motion graphics</p>
-          <h1 id="page-title">Make and edit visual media with your coding agent.</h1>
-          <p>
-            Atet lets Codex, Claude, and other coding agents generate images,
-            video, and voice; edit screen recordings and imported footage; add
-            captions, graphics, and motion; and export finished videos from the
-            files in your project.
-          </p>
-          <p>
-            Source media stays unchanged while explicit project revisions record
-            the edit. Preview and final renders use the same timeline and composition.
-          </p>
-        </div>
-
-        <div class="install-panel docs-install-panel" aria-label="Install Atet for your coding agent">
-          <p class="panel-label">Install the Atet Agent Skill</p>
-          {{SKILL_INSTALL_COMMAND}}
-          <div class="cli-install">
-            <p class="panel-label">Install the local media tools · Requires Bun 1.3.14+</p>
-            <ol class="install-commands">
-              <li><span>01</span><code>bun add --global @hraness/atet@3.1.2</code></li>
-              <li><span>02</span><code>atet doctor</code></li>
-            </ol>
-            <p class="panel-note">
-              Run <code>atet doctor</code> inside the project you want to work
-              in. Then start a new agent session and describe the finished result,
-              naming the source files and details that must remain unchanged.
+      <div class="docs-lead">
+        <header aria-labelledby="page-title" class="hraness-marketing-hero atet-product-hero" data-hraness-marketing="hero">
+          <div class="hraness-marketing-hero__copy">
+            <p class="hraness-marketing-hero__eyebrow">Local media system for coding agents</p>
+            <p class="hraness-marketing-hero__name">Atet</p>
+            <h1 class="hraness-marketing-hero__heading" id="page-title">Make and edit visual media with your coding agent.</h1>
+            <p class="hraness-marketing-hero__summary">
+              Generate images, video, and voice; edit screen recordings and imported
+              footage; add captions, graphics, and motion; and export finished videos
+              in one local, revisable project. Source media stays unchanged while
+              explicit project revisions record the edit. Preview and final renders
+              use the same timeline and composition.
             </p>
-            <p class="panel-note">
-              Read the <a href="https://www.npmjs.com/package/@hraness/atet">@hraness/atet npm package</a>
-              and the <a href="https://skills.sh/hraness/atet">Atet Agent Skill</a>.
-            </p>
+            <div class="hraness-marketing-hero__actions">
+              <a class="hraness-marketing-action" data-emphasis="primary" href="#install">Install Atet</a>
+              <a class="hraness-marketing-action" data-emphasis="secondary" href="#workflow">See the workflow</a>
+            </div>
+            <p class="hraness-marketing-hero__boundary">Free and open source · v3.1.2 · local project authority · Gateway access stays caller-owned</p>
           </div>
-        </div>
-      </section>
+
+          <aside aria-labelledby="hero-proof-title" class="hraness-marketing-proof">
+            <p class="hraness-marketing-proof__kicker">Working model</p>
+            <h2 class="hraness-marketing-proof__heading" id="hero-proof-title">One project, four inspectable moves.</h2>
+            <ol aria-label="First inspectable Atet workflow" class="hraness-marketing-flow" data-hraness-marketing="flow">
+              <li class="hraness-marketing-flow__step">
+                <span aria-hidden="true" class="hraness-marketing-flow__number">01</span>
+                <div class="hraness-marketing-flow__body"><strong class="hraness-marketing-flow__label">Verify the host</strong><code class="hraness-marketing-flow__code">atet doctor --json</code><p class="hraness-marketing-flow__detail">Check local tools before touching media.</p></div>
+              </li>
+              <li class="hraness-marketing-flow__step">
+                <span aria-hidden="true" class="hraness-marketing-flow__number">02</span>
+                <div class="hraness-marketing-flow__body"><strong class="hraness-marketing-flow__label">Inspect the recipe</strong><code class="hraness-marketing-flow__code">atet workflows show social-variants --json</code><p class="hraness-marketing-flow__detail">Read exact inputs, resources, and outputs.</p></div>
+              </li>
+              <li class="hraness-marketing-flow__step">
+                <span aria-hidden="true" class="hraness-marketing-flow__number">03</span>
+                <div class="hraness-marketing-flow__body"><strong class="hraness-marketing-flow__label">Plan the work</strong><code class="hraness-marketing-flow__code">atet workflows plan social-variants --input job.json --json</code><p class="hraness-marketing-flow__detail">Resolve the run before execution.</p></div>
+              </li>
+              <li class="hraness-marketing-flow__step">
+                <span aria-hidden="true" class="hraness-marketing-flow__number">04</span>
+                <div class="hraness-marketing-flow__body"><strong class="hraness-marketing-flow__label">Run with receipts</strong><code class="hraness-marketing-flow__code">atet workflows run social-variants --input job.json --jsonl</code><p class="hraness-marketing-flow__detail">Stream progress and retain the exact run.</p></div>
+              </li>
+            </ol>
+          </aside>
+
+          <dl class="hraness-marketing-facts" data-hraness-marketing="facts">
+            <div><dt>Outputs</dt><dd><strong>4 families</strong><span>Images, diagrams, loops, video</span></dd></div>
+            <div><dt>Interfaces</dt><dd><strong>4 peers</strong><span>Skill, CLI, SDK, MCP</span></dd></div>
+            <div><dt>Authority</dt><dd><strong>Local</strong><span>Source and project state</span></dd></div>
+            <div><dt>Cost</dt><dd><strong>Free</strong><span>MIT-licensed source</span></dd></div>
+          </dl>
+        </header>
+
+        <section aria-labelledby="install-title" class="hraness-marketing-install atet-install" data-hraness-marketing="install" id="install">
+          <div class="hraness-marketing-install__heading-group">
+            <p class="hraness-marketing-install__eyebrow">Local release</p>
+            <h2 class="hraness-marketing-install__heading" id="install-title">Install Atet for your agent.</h2>
+          </div>
+          <div class="hraness-marketing-install__commands">
+            <p class="panel-label">Install the Atet Agent Skill</p>
+            {{SKILL_INSTALL_COMMAND}}
+            <div class="cli-install">
+              <p class="panel-label">Install the local media tools · Requires Bun 1.3.14+</p>
+              <ol class="install-commands">
+                <li><span>01</span><code>bun add --global @hraness/atet@3.1.2</code></li>
+                <li><span>02</span><code>atet doctor</code></li>
+              </ol>
+              <p class="panel-note">
+                Run <code>atet doctor</code> inside the project you want to work
+                in. Then start a new agent session and describe the finished result,
+                naming the source files and details that must remain unchanged.
+              </p>
+              <p class="panel-note">
+                Read the <a href="https://www.npmjs.com/package/@hraness/atet">@hraness/atet npm package</a>
+                and the <a href="https://skills.sh/hraness/atet">Atet Agent Skill</a>.
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
 
       <nav aria-label="Page sections" class="docs-index">
         <a href="#install"><span>01</span> Install</a>
         <a href="#examples"><span>02</span> Examples</a>
         <a href="#workflow"><span>03</span> Workflow</a>
-        <a href="#design"><span>04</span> Design</a>
+        <a href="#interfaces"><span>04</span> Interfaces</a>
+        <a href="#design"><span>05</span> Design</a>
       </nav>
 
       <div class="docs-page">
@@ -266,6 +346,36 @@
           </div>
         </section>
 
+        <section aria-labelledby="interfaces-title" class="hraness-marketing-interfaces atet-interface-section" data-hraness-marketing="interfaces" id="interfaces">
+          <header class="hraness-marketing-interfaces__header">
+            <p class="hraness-marketing-interfaces__label">Interfaces</p>
+            <h2 class="hraness-marketing-interfaces__heading" id="interfaces-title">The same local system meets four kinds of caller.</h2>
+            <p>Start from a finished-result brief, a shell command, typed code, or a bounded agent tool. Each surface reaches the same project and operation model.</p>
+          </header>
+          <div class="hraness-marketing-interface-grid">
+            <article class="hraness-marketing-interface">
+              <h3 class="hraness-marketing-interface__heading">Agent Skill</h3>
+              <p>Version-matched guidance for turning a creative brief into checked operations.</p>
+              <pre><code>npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet</code></pre>
+            </article>
+            <article class="hraness-marketing-interface">
+              <h3 class="hraness-marketing-interface__heading">CLI</h3>
+              <p>Human-readable commands and stable JSON for local scripts.</p>
+              <pre><code>atet workflows list --json</code></pre>
+            </article>
+            <article class="hraness-marketing-interface">
+              <h3 class="hraness-marketing-interface__heading">TypeScript SDK</h3>
+              <p>Declarative or imperative media work inside caller-owned Bun code.</p>
+              <pre><code>import { vectorizeImage } from "@hraness/atet"</code></pre>
+            </article>
+            <article class="hraness-marketing-interface">
+              <h3 class="hraness-marketing-interface__heading">MCP</h3>
+              <p>A fixed set of typed operations confined to one selected root.</p>
+              <pre><code>atet mcp --root /absolute/path/to/workspace</code></pre>
+            </article>
+          </div>
+        </section>
+
         <section id="design" aria-labelledby="design-title" class="docs-section design-section">
           <div class="docs-label"><p>Design</p></div>
           <div class="docs-prose">
@@ -283,12 +393,18 @@
               <li><span>04</span><div><strong>Outputs</strong><p>Previews, alternatives, and deliveries remain tied to the project state that produced them.</p></div></li>
             </ol>
 
-            <dl class="confidence-list">
-              <div><dt>Local project</dt><dd>There is no Atet account or hosted project database. Source, project state, previews, and final files stay in storage you control.</dd></div>
-              <div><dt>Caller-owned AI access</dt><dd>Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement.</dd></div>
-              <div><dt>Non-destructive revisions</dt><dd>Original media remains intact while alternatives and approved changes are recorded as distinct project states.</dd></div>
-              <div><dt>Reviewable results</dt><dd>Preview and final use the same edit, while secret-free receipts identify the inputs and implementation behind important operations.</dd></div>
-            </dl>
+            <section aria-labelledby="trust-title" class="hraness-marketing-trust atet-trust-section" data-hraness-marketing="trust">
+              <header class="hraness-marketing-trust__header">
+                <p class="hraness-marketing-trust__label">Trust boundary</p>
+                <h3 class="hraness-marketing-trust__heading" id="trust-title">You can point to what stays local and what leaves by choice.</h3>
+              </header>
+              <dl class="hraness-marketing-trust-grid">
+                <div class="hraness-marketing-trust-item"><dt>Local project</dt><dd>There is no Atet account or hosted project database. Source, project state, previews, and final files stay in storage you control.</dd></div>
+                <div class="hraness-marketing-trust-item"><dt>Caller-owned AI access</dt><dd>Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement.</dd></div>
+                <div class="hraness-marketing-trust-item"><dt>Non-destructive revisions</dt><dd>Original media remains intact while alternatives and approved changes are recorded as distinct project states.</dd></div>
+                <div class="hraness-marketing-trust-item"><dt>Reviewable results</dt><dd>Preview and final use the same edit, while secret-free receipts identify the inputs and implementation behind important operations.</dd></div>
+              </dl>
+            </section>
 
             <div class="reference-block">
               <h3>For technical readers</h3>
@@ -329,6 +445,29 @@
                 sails in the underworld on the solar barque Atet.
               </p>
             </aside>
+          </div>
+        </section>
+
+        <section aria-labelledby="questions-title" class="hraness-marketing-questions atet-questions" data-hraness-marketing="questions" id="questions">
+          <header class="hraness-marketing-questions__header">
+            <p class="hraness-marketing-questions__label">Before installation</p>
+            <h2 class="hraness-marketing-questions__heading" id="questions-title">The practical questions, answered directly.</h2>
+          </header>
+          <div class="hraness-marketing-question-list">
+            <details class="hraness-marketing-question"><summary>Does the Atet website generate or edit media?</summary><div class="hraness-marketing-question__answer"><p>No. The website explains and installs the local system. Media work runs in the caller's CLI, SDK, MCP server, or desktop host.</p></div></details>
+            <details class="hraness-marketing-question"><summary>Does Atet require an account or subscription?</summary><div class="hraness-marketing-question__answer"><p>No Atet account or subscription exists. Atet is free and open source. Model-backed generation uses caller-owned Vercel AI Gateway access.</p></div></details>
+            <details class="hraness-marketing-question"><summary>Does Atet overwrite original media?</summary><div class="hraness-marketing-question__answer"><p>No. Original recordings and imported media stay unchanged while edits, alternatives, previews, and deliveries remain attached to explicit project states.</p></div></details>
+            <details class="hraness-marketing-question"><summary>When can local media leave the machine?</summary><div class="hraness-marketing-question__answer"><p>Only model-backed work may upload named media, and only after explicit acknowledgement. Local editing, vectorization, deterministic rendering, previews, and outputs remain local.</p></div></details>
+          </div>
+        </section>
+
+        <section aria-labelledby="cta-title" class="hraness-marketing-cta atet-cta" data-hraness-marketing="cta">
+          <p class="hraness-marketing-cta__eyebrow">Start with the result</p>
+          <h2 class="hraness-marketing-cta__heading" id="cta-title">Give your agent the finished media job.</h2>
+          <p class="hraness-marketing-cta__summary">Install the version-matched skill, name the source and invariants, then keep the project, preview, receipt, and delivery visible.</p>
+          <div class="hraness-marketing-cta__actions">
+            <a class="hraness-marketing-action" data-emphasis="primary" href="#install">Install Atet</a>
+            <a class="hraness-marketing-action" data-emphasis="secondary" href="#examples">Try a brief</a>
           </div>
         </section>
       </div>

@@ -235,6 +235,99 @@ blockquote {
   color: var(--gold);
 }
 
+:where(
+  .atet-product-hero,
+  .atet-install,
+  .atet-interface-section,
+  .atet-trust-section,
+  .atet-questions,
+  .atet-cta
+) {
+  --hraness-marketing-ink: var(--ink);
+  --hraness-marketing-muted: var(--muted);
+  --hraness-marketing-line: var(--line);
+  --hraness-marketing-surface: var(--paper);
+  --hraness-marketing-inverse: var(--night);
+  --hraness-marketing-inverse-ink: var(--night-ink);
+  --hraness-marketing-accent: var(--gold);
+  --hraness-marketing-text-font: var(--font-body);
+  --hraness-marketing-heading-font: var(--font-display);
+  --hraness-marketing-mono-font: var(--font-mono);
+  --hraness-marketing-measure: 100%;
+  --hraness-marketing-action-radius: var(--radius-control);
+}
+
+.docs-lead {
+  width: min(100%, var(--content-max));
+  margin-inline: auto;
+  padding: clamp(3.5rem, 6vw, 5.25rem) var(--page-inline);
+}
+
+.atet-product-hero .hraness-marketing-hero__copy {
+  max-inline-size: 43rem;
+}
+
+.atet-product-hero .hraness-marketing-hero__heading {
+  max-inline-size: 12ch;
+  font-size: clamp(3.15rem, 5.2vw, 4.8rem);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 0.94;
+}
+
+.atet-product-hero .hraness-marketing-proof__heading,
+.atet-install .hraness-marketing-install__heading,
+.atet-interface-section .hraness-marketing-interfaces__heading,
+.atet-trust-section .hraness-marketing-trust__heading,
+.atet-questions .hraness-marketing-questions__heading,
+.atet-cta .hraness-marketing-cta__heading {
+  font-weight: 400;
+}
+
+.atet-install {
+  margin-block-start: clamp(2rem, 5vw, 4rem);
+  border-color: var(--night-line);
+  border-radius: var(--radius-surface);
+  background: var(--night);
+  color: var(--night-ink);
+  --hraness-marketing-ink: var(--night-ink);
+  --hraness-marketing-muted: var(--night-muted);
+  --hraness-marketing-line: var(--night-line);
+  --hraness-marketing-surface: var(--night);
+  --hraness-marketing-accent: var(--gold-bright);
+}
+
+.atet-interface-section {
+  scroll-margin-block-start: 9rem;
+}
+
+.atet-interface-section .hraness-marketing-interface pre {
+  padding: 0.8rem;
+  border-radius: var(--radius-control);
+  background: var(--night);
+  color: var(--night-ink);
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+}
+
+.atet-trust-section {
+  margin-block-start: 2.8rem;
+  padding-block: 2.8rem 0;
+}
+
+.atet-trust-section .hraness-marketing-trust__heading {
+  font-size: clamp(1.9rem, 3.2vw, 2.7rem);
+}
+
+.atet-questions {
+  scroll-margin-block-start: 9rem;
+}
+
+.atet-cta {
+  margin-block: clamp(1rem, 4vw, 3rem) clamp(3rem, 7vw, 5rem);
+  border-radius: var(--radius-surface);
+}
+
 .hero {
   display: grid;
   width: min(100%, var(--page-max));
@@ -307,38 +400,6 @@ blockquote {
 .text-link:hover,
 .panel-link:hover {
   color: var(--gold);
-}
-
-.install-panel {
-  position: relative;
-  overflow: hidden;
-  padding: clamp(1.5rem, 3.5vw, 2.4rem);
-  border: 1px solid #25242a;
-  border-radius: var(--radius-surface);
-  background: var(--night);
-  color: var(--night-ink);
-}
-
-.solar-mark {
-  position: absolute;
-  top: -3.3rem;
-  right: -1.8rem;
-  width: 10rem;
-  height: 10rem;
-  border: 1px solid color-mix(in srgb, var(--gold-bright) 48%, transparent);
-  border-radius: 50%;
-  opacity: 0.75;
-}
-
-.solar-mark span {
-  position: absolute;
-  right: 2.25rem;
-  bottom: 1.8rem;
-  width: 3.5rem;
-  height: 1.4rem;
-  border-bottom: 1px solid var(--gold-bright);
-  border-radius: 0 0 50% 50%;
-  transform: rotate(-8deg);
 }
 
 .panel-label {
@@ -672,36 +733,6 @@ blockquote {
 
 /* Documentation */
 
-.docs-hero {
-  display: grid;
-  width: min(100%, var(--content-max));
-  margin: 0 auto;
-  padding: clamp(3.5rem, 6vw, 5.25rem) var(--page-inline);
-  align-items: center;
-  gap: clamp(3rem, 6vw, 5rem);
-  grid-template-columns: minmax(0, 0.85fr) minmax(22rem, 1.15fr);
-  scroll-margin-top: 4.25rem;
-}
-
-.docs-hero h1 {
-  max-width: 13ch;
-  margin-top: 0.9rem;
-  font-size: clamp(3.15rem, 5.2vw, 4.8rem);
-  letter-spacing: -0.055em;
-  line-height: 0.94;
-}
-
-.docs-hero-copy > p:last-child {
-  max-width: 36rem;
-  margin-top: 1.5rem;
-  color: var(--muted);
-  font-size: 1.08rem;
-}
-
-.docs-install-panel {
-  padding: clamp(1.35rem, 3vw, 2rem);
-}
-
 .docs-index {
   position: sticky;
   top: 4.25rem;
@@ -711,7 +742,7 @@ blockquote {
   border-block: 1px solid var(--line);
   background: color-mix(in srgb, var(--paper) 94%, transparent);
   backdrop-filter: blur(14px);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .docs-index a {
@@ -794,15 +825,13 @@ blockquote {
 }
 
 .setup-options,
-.feature-list,
-.confidence-list {
+.feature-list {
   margin-top: 2.3rem;
   border-top: 1px solid var(--line-strong);
 }
 
 .setup-options > div,
-.feature-list > div,
-.confidence-list > div {
+.feature-list > div {
   display: grid;
   padding: 1.15rem 0;
   border-bottom: 1px solid var(--line);
@@ -811,14 +840,12 @@ blockquote {
 }
 
 .setup-options dt,
-.feature-list dt,
-.confidence-list dt {
+.feature-list dt {
   font-weight: 720;
 }
 
 .setup-options dd,
-.feature-list dd,
-.confidence-list dd {
+.feature-list dd {
   color: var(--muted);
 }
 
@@ -1324,17 +1351,12 @@ blockquote {
 }
 
 @media (max-width: 72rem) {
-  .hero,
-  .docs-hero {
+  .hero {
     gap: 3rem;
   }
 
   .hero h1 {
     font-size: clamp(3.5rem, 7.5vw, 5.3rem);
-  }
-
-  .docs-hero h1 {
-    font-size: clamp(3.15rem, 6.4vw, 4.7rem);
   }
 
   .system-flow {
@@ -1352,8 +1374,7 @@ blockquote {
 }
 
 @media (max-width: 64rem) {
-  .hero,
-  .docs-hero {
+  .hero {
     min-height: auto;
     align-items: start;
     grid-template-columns: 1fr;
@@ -1363,18 +1384,12 @@ blockquote {
     padding-block: 4.5rem;
   }
 
-  .hero-copy,
-  .docs-hero-copy {
+  .hero-copy {
     max-width: 46rem;
   }
 
-  .hero h1,
-  .docs-hero h1 {
+  .hero h1 {
     max-width: 13ch;
-  }
-
-  .install-panel {
-    max-width: 48rem;
   }
 
   .section-heading {
@@ -1434,14 +1449,20 @@ blockquote {
     display: none;
   }
 
-  .hero,
-  .docs-hero {
+  .hero {
     padding-block: 3rem;
     gap: 2rem;
   }
 
-  .hero h1,
-  .docs-hero h1 {
+  .hero h1 {
+    font-size: clamp(3rem, 14vw, 4.8rem);
+  }
+
+  .docs-lead {
+    padding-block: 3rem;
+  }
+
+  .atet-product-hero .hraness-marketing-hero__heading {
     font-size: clamp(3rem, 14vw, 4.8rem);
   }
 
@@ -1457,15 +1478,9 @@ blockquote {
     margin-top: 1.3rem;
   }
 
-  .solar-mark {
-    width: 8rem;
-    height: 8rem;
-  }
-
   .capability-list > div,
   .setup-options > div,
-  .feature-list > div,
-  .confidence-list > div {
+  .feature-list > div {
     grid-template-columns: 1fr;
   }
 
@@ -1504,7 +1519,7 @@ blockquote {
     top: 4rem;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
-    grid-template-columns: repeat(4, minmax(5.75rem, 1fr));
+    grid-template-columns: repeat(5, minmax(5.75rem, 1fr));
   }
 
   .docs-index a {
@@ -1559,7 +1574,7 @@ blockquote {
   }
 
   .docs-index {
-    grid-template-columns: repeat(4, minmax(5rem, 1fr));
+    grid-template-columns: repeat(5, minmax(5rem, 1fr));
   }
 
   .docs-index a {
@@ -1572,7 +1587,7 @@ blockquote {
     font-size: clamp(2.8rem, 13.5vw, 4rem);
   }
 
-  .docs-hero h1 {
+  .atet-product-hero .hraness-marketing-hero__heading {
     font-size: clamp(2.65rem, 12vw, 3.5rem);
   }
 
@@ -1589,7 +1604,7 @@ blockquote {
     margin-top: 0.25rem;
   }
 
-  .install-panel {
+  .atet-install {
     padding: 1.2rem;
   }
 
@@ -1635,7 +1650,6 @@ blockquote {
 @media (forced-colors: active) {
   .button,
   .copy-command,
-  .install-panel,
   .plain-aside,
   .preview-shell,
   .reference-block {
@@ -1651,9 +1665,6 @@ blockquote {
     border-color: CanvasText;
   }
 
-  .solar-mark {
-    display: none;
-  }
 }
 
 @media print {
@@ -1669,7 +1680,7 @@ blockquote {
 
   body,
   .system-section,
-  .install-panel {
+  .atet-install {
     background: #fff;
     color: #000;
   }
