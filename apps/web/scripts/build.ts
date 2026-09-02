@@ -13,12 +13,7 @@ import {
   homeMarkdown,
   llmsTxt,
   readingIndexMarkdown,
-  readingFacesMarkdown,
-  readingFeynobgMarkdown,
-  readingGaussiansMarkdown,
-  readingGeminiOmniMarkdown,
   readingPaintWithCodeMarkdown,
-  readingHowIDesignWithAiMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "../src/agent-pages"
@@ -60,12 +55,7 @@ const generatedTextFiles = {
   "index.md": homeMarkdown,
   "llms.txt": llmsTxt,
   "reading/index.md": readingIndexMarkdown,
-  "reading/draw-faces-with-javascript.md": readingFacesMarkdown,
-  "reading/feynobg.md": readingFeynobgMarkdown,
-  "reading/painting-with-gaussians.md": readingGaussiansMarkdown,
-  "reading/gemini-omni.md": readingGeminiOmniMarkdown,
   "reading/paint-with-code.md": readingPaintWithCodeMarkdown,
-  "reading/how-i-design-with-ai.md": readingHowIDesignWithAiMarkdown,
   "robots.txt": robotsTxt,
   "sitemap.xml": renderSitemapXml(),
   "sitemap.md": sitemapMarkdown,
@@ -335,12 +325,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     indexTemplate,
     notFoundTemplate,
     previewTemplate,
-    readingFacesTemplate,
-    readingFeynobgTemplate,
-    readingGaussiansTemplate,
-    readingGeminiOmniTemplate,
     readingPaintWithCodeTemplate,
-    readingHowIDesignWithAiTemplate,
     readingIndexTemplate,
     productStyles,
     designKitFontsStyles,
@@ -353,12 +338,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     readFile(join(sourceDirectory, "index.html"), "utf8"),
     readFile(join(sourceDirectory, "404.html"), "utf8"),
     readFile(join(sourceDirectory, "preview.html"), "utf8"),
-    readFile(join(sourceDirectory, "reading/draw-faces-with-javascript.html"), "utf8"),
-    readFile(join(sourceDirectory, "reading/feynobg.html"), "utf8"),
-    readFile(join(sourceDirectory, "reading/painting-with-gaussians.html"), "utf8"),
-    readFile(join(sourceDirectory, "reading/gemini-omni.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/paint-with-code.html"), "utf8"),
-    readFile(join(sourceDirectory, "reading/how-i-design-with-ai.html"), "utf8"),
     readFile(join(sourceDirectory, "reading/index.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(designKitFontsStylesPath, "utf8"),
@@ -399,11 +379,11 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     "{{READING_CARD_GRID}}": renderReadingCards(),
   } as const
   const readingIndexAssets = {
-    ...publicPageAssets("/reading"),
+    ...commonAssets,
     "{{READING_CARD_GRID}}": renderReadingCards(),
   } as const
   const editorialPageAssets = (path: EditorialReadingPath) => ({
-    ...publicPageAssets(path),
+    ...commonAssets,
     ...renderEditorialAssets(path),
   }) as const
   const previewAssets = {
@@ -430,37 +410,8 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       renderDocument(previewTemplate, previewAssets),
     ),
     writeFile(
-      join(outputDirectory, "reading/draw-faces-with-javascript.html"),
-      renderDocument(
-        readingFacesTemplate,
-        editorialPageAssets("/reading/draw-faces-with-javascript"),
-      ),
-    ),
-    writeFile(
-      join(outputDirectory, "reading/feynobg.html"),
-      renderDocument(readingFeynobgTemplate, editorialPageAssets("/reading/feynobg")),
-    ),
-    writeFile(
-      join(outputDirectory, "reading/painting-with-gaussians.html"),
-      renderDocument(
-        readingGaussiansTemplate,
-        editorialPageAssets("/reading/painting-with-gaussians"),
-      ),
-    ),
-    writeFile(
-      join(outputDirectory, "reading/gemini-omni.html"),
-      renderDocument(readingGeminiOmniTemplate, editorialPageAssets("/reading/gemini-omni")),
-    ),
-    writeFile(
       join(outputDirectory, "reading/paint-with-code.html"),
       renderDocument(readingPaintWithCodeTemplate, editorialPageAssets("/reading/paint-with-code")),
-    ),
-    writeFile(
-      join(outputDirectory, "reading/how-i-design-with-ai.html"),
-      renderDocument(
-        readingHowIDesignWithAiTemplate,
-        editorialPageAssets("/reading/how-i-design-with-ai"),
-      ),
     ),
     cp(join(sourceDirectory, "images"), join(outputDirectory, "images"), {
       dereference: true,

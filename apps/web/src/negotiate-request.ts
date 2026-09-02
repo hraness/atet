@@ -2,12 +2,7 @@ import {
   homeMarkdown,
   notFoundMarkdown,
   readingIndexMarkdown,
-  readingFacesMarkdown,
-  readingFeynobgMarkdown,
-  readingGaussiansMarkdown,
-  readingGeminiOmniMarkdown,
   readingPaintWithCodeMarkdown,
-  readingHowIDesignWithAiMarkdown,
 } from "./agent-pages"
 import {
   htmlMediaType,
@@ -31,40 +26,15 @@ export function isHomePath(pathname: string): boolean {
   return pathname === "/" || pathname === "/index.html"
 }
 
-export function isReadingFacesPath(pathname: string): boolean {
-  return pathname === "/reading/draw-faces-with-javascript"
-    || pathname === "/reading/draw-faces-with-javascript.html"
-}
-
 export function isReadingIndexPath(pathname: string): boolean {
   return pathname === "/reading"
     || pathname === "/reading/"
     || pathname === "/reading/index.html"
 }
 
-export function isReadingFeynobgPath(pathname: string): boolean {
-  return pathname === "/reading/feynobg"
-    || pathname === "/reading/feynobg.html"
-}
-
-export function isReadingGaussiansPath(pathname: string): boolean {
-  return pathname === "/reading/painting-with-gaussians"
-    || pathname === "/reading/painting-with-gaussians.html"
-}
-
-export function isReadingGeminiOmniPath(pathname: string): boolean {
-  return pathname === "/reading/gemini-omni"
-    || pathname === "/reading/gemini-omni.html"
-}
-
 export function isReadingPaintWithCodePath(pathname: string): boolean {
   return pathname === "/reading/paint-with-code"
     || pathname === "/reading/paint-with-code.html"
-}
-
-export function isReadingHowIDesignWithAiPath(pathname: string): boolean {
-  return pathname === "/reading/how-i-design-with-ai"
-    || pathname === "/reading/how-i-design-with-ai.html"
 }
 
 export function isPreservedRedirectPath(pathname: string): boolean {
@@ -82,12 +52,7 @@ export function isNegotiableDocumentPath(pathname: string): boolean {
   if (
     isHomePath(pathname)
     || isReadingIndexPath(pathname)
-    || isReadingFacesPath(pathname)
-    || isReadingFeynobgPath(pathname)
-    || isReadingGaussiansPath(pathname)
-    || isReadingGeminiOmniPath(pathname)
     || isReadingPaintWithCodePath(pathname)
-    || isReadingHowIDesignWithAiPath(pathname)
     || isPreservedRedirectPath(pathname)
   ) {
     return true
@@ -102,32 +67,12 @@ function canonicalHomeUrl(request: Request): string {
   return new URL("/", request.url).href
 }
 
-function canonicalReadingFacesUrl(request: Request): string {
-  return new URL("/reading/draw-faces-with-javascript", request.url).href
-}
-
 function canonicalReadingIndexUrl(request: Request): string {
   return new URL("/reading", request.url).href
 }
 
-function canonicalReadingFeynobgUrl(request: Request): string {
-  return new URL("/reading/feynobg", request.url).href
-}
-
-function canonicalReadingGaussiansUrl(request: Request): string {
-  return new URL("/reading/painting-with-gaussians", request.url).href
-}
-
-function canonicalReadingGeminiOmniUrl(request: Request): string {
-  return new URL("/reading/gemini-omni", request.url).href
-}
-
 function canonicalReadingPaintWithCodeUrl(request: Request): string {
   return new URL("/reading/paint-with-code", request.url).href
-}
-
-function canonicalReadingHowIDesignWithAiUrl(request: Request): string {
-  return new URL("/reading/how-i-design-with-ai", request.url).href
 }
 
 export function negotiateSiteRequest(request: Request): Response | undefined {
@@ -159,17 +104,6 @@ export function negotiateSiteRequest(request: Request): Response | undefined {
       })
     }
 
-    if (isReadingFacesPath(pathname)) {
-      return new Response(negotiatedBody(request, readingFacesMarkdown), {
-        headers: {
-          "Content-Type": markdownContentType,
-          "Link": `<${canonicalReadingFacesUrl(request)}>; rel="canonical", </reading/draw-faces-with-javascript.md>; rel="alternate"; type="text/markdown"`,
-          "Vary": varyAcceptAndEncoding,
-        },
-        status: 200,
-      })
-    }
-
     if (isReadingIndexPath(pathname)) {
       return new Response(negotiatedBody(request, readingIndexMarkdown), {
         headers: {
@@ -181,55 +115,11 @@ export function negotiateSiteRequest(request: Request): Response | undefined {
       })
     }
 
-    if (isReadingFeynobgPath(pathname)) {
-      return new Response(negotiatedBody(request, readingFeynobgMarkdown), {
-        headers: {
-          "Content-Type": markdownContentType,
-          "Link": `<${canonicalReadingFeynobgUrl(request)}>; rel="canonical", </reading/feynobg.md>; rel="alternate"; type="text/markdown"`,
-          "Vary": varyAcceptAndEncoding,
-        },
-        status: 200,
-      })
-    }
-
-    if (isReadingGaussiansPath(pathname)) {
-      return new Response(negotiatedBody(request, readingGaussiansMarkdown), {
-        headers: {
-          "Content-Type": markdownContentType,
-          "Link": `<${canonicalReadingGaussiansUrl(request)}>; rel="canonical", </reading/painting-with-gaussians.md>; rel="alternate"; type="text/markdown"`,
-          "Vary": varyAcceptAndEncoding,
-        },
-        status: 200,
-      })
-    }
-
-    if (isReadingGeminiOmniPath(pathname)) {
-      return new Response(negotiatedBody(request, readingGeminiOmniMarkdown), {
-        headers: {
-          "Content-Type": markdownContentType,
-          "Link": `<${canonicalReadingGeminiOmniUrl(request)}>; rel="canonical", </reading/gemini-omni.md>; rel="alternate"; type="text/markdown"`,
-          "Vary": varyAcceptAndEncoding,
-        },
-        status: 200,
-      })
-    }
-
     if (isReadingPaintWithCodePath(pathname)) {
       return new Response(negotiatedBody(request, readingPaintWithCodeMarkdown), {
         headers: {
           "Content-Type": markdownContentType,
           "Link": `<${canonicalReadingPaintWithCodeUrl(request)}>; rel="canonical", </reading/paint-with-code.md>; rel="alternate"; type="text/markdown"`,
-          "Vary": varyAcceptAndEncoding,
-        },
-        status: 200,
-      })
-    }
-
-    if (isReadingHowIDesignWithAiPath(pathname)) {
-      return new Response(negotiatedBody(request, readingHowIDesignWithAiMarkdown), {
-        headers: {
-          "Content-Type": markdownContentType,
-          "Link": `<${canonicalReadingHowIDesignWithAiUrl(request)}>; rel="canonical", </reading/how-i-design-with-ai.md>; rel="alternate"; type="text/markdown"`,
           "Vary": varyAcceptAndEncoding,
         },
         status: 200,
@@ -248,7 +138,6 @@ export function negotiateSiteRequest(request: Request): Response | undefined {
   }
 
   if (chosen === htmlMediaType) {
-    // The static handler owns HTML headers and emits a bodyless response for HEAD.
     return undefined
   }
 

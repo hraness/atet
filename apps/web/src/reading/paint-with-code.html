@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">
     <script src="{{THEME_ASSET}}"></script>
     <title>Keep the painting as code you can edit · Atet</title>
-    <meta name="description" content="An Atet reading take on Narreddi’s p5.brush painter: keep the generated artefact as editable code rather than a finished raster or a longer prompt.">
+    <meta name="description" content="Why generated painting should remain editable code, using Narreddi’s p5.brush experiment and Atet’s local project model.">
     <meta name="application-name" content="Atet">
     <meta name="generator" content="Bun 1.3.14">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -23,7 +23,7 @@
     <meta property="og:type" content="article">
     <meta property="og:site_name" content="Atet">
     <meta property="og:title" content="Keep the painting as code you can edit">
-    <meta property="og:description" content="An Atet reading take on Narreddi’s p5.brush painter: keep the generated artefact as editable code rather than a finished raster or a longer prompt.">
+    <meta property="og:description" content="Why generated painting should remain editable code, using Narreddi’s p5.brush experiment and Atet’s local project model.">
     <meta property="og:url" content="https://atet.sh/reading/paint-with-code">
     <meta property="og:image" content="{{EDITORIAL_IMAGE_URL}}">
     <meta property="og:image:alt" content="{{EDITORIAL_IMAGE_ALT}}">
@@ -32,7 +32,7 @@
 
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Keep the painting as code you can edit">
-    <meta name="twitter:description" content="An Atet reading take on Narreddi’s p5.brush painter: keep the generated artefact as editable code rather than a finished raster or a longer prompt.">
+    <meta name="twitter:description" content="Why generated painting should remain editable code, using Narreddi’s p5.brush experiment and Atet’s local project model.">
     <meta name="twitter:image" content="{{EDITORIAL_IMAGE_URL}}">
     <meta name="twitter:image:alt" content="{{EDITORIAL_IMAGE_ALT}}">
 
@@ -58,9 +58,9 @@
             "@id": "https://atet.sh/reading/paint-with-code#webpage",
             "@type": "WebPage",
             "name": "Keep the painting as code you can edit",
-            "description": "An Atet reading take on Narreddi’s p5.brush painter: keep the generated artefact as editable code rather than a finished raster or a longer prompt.",
+            "description": "Why generated painting should remain editable code, using Narreddi’s p5.brush experiment and Atet’s local project model.",
             "inLanguage": "en",
-            "isBasedOn": "https://hraness.com/reading/rling-qwen-to-paint-with-code",
+            "isBasedOn": "https://surya.website/rling-qwen-to-paint-with-code",
             "isPartOf": { "@id": "https://atet.sh/#website" },
             "publisher": { "@id": "https://hraness.com/#organization" },
             "url": "https://atet.sh/reading/paint-with-code"
@@ -71,9 +71,9 @@
             "headline": "Keep the painting as code you can edit",
             "image": {{EDITORIAL_IMAGE_JSON}},
             "datePublished": "2026-08-31",
-            "description": "An Atet reading take on Narreddi’s p5.brush painter: keep the generated artefact as editable code rather than a finished raster or a longer prompt.",
+            "description": "Why generated painting should remain editable code, using Narreddi’s p5.brush experiment and Atet’s local project model.",
             "inLanguage": "en",
-            "isBasedOn": "https://hraness.com/reading/rling-qwen-to-paint-with-code",
+            "isBasedOn": "https://surya.website/rling-qwen-to-paint-with-code",
             "mainEntityOfPage": { "@id": "https://atet.sh/reading/paint-with-code#webpage" },
             "publisher": { "@id": "https://hraness.com/#organization" },
             "url": "https://atet.sh/reading/paint-with-code"
@@ -102,14 +102,12 @@
         <h1 id="page-title">Keep the painting as code you can edit</h1>
         {{EDITORIAL_FIGURE}}
         <p class="lede">
-          Surya Narreddi published
-          <a href="https://surya.website/rling-qwen-to-paint-with-code">Training AI to Paint with Code</a>
-          on surya.website in March 2026.
-          Cameron Franz and Alex Wang collaborated.
-          <a href="https://hraness.com">Hraness</a> collected the note. This
-          page is an Atet reading take. It is not the Hraness Reading digest.
-          Atet is an agentic creative-coding toolkit. The transfer is what you
-          keep after a model paints: a sketch you can still edit.
+          An AI painting is easier to revise when the model returns the program
+          that made it. In March 2026, Surya Narreddi published
+          <a href="https://surya.website/rling-qwen-to-paint-with-code">Training AI to Paint with Code</a>,
+          an experiment made with Cameron Franz and Alex Wang. For Atet, the
+          useful implication is simple: keep generated code as a project
+          artefact, not just rendered pixels.
         </p>
         <p>
           Narreddi writes, “When you make an image with an AI model, the only
@@ -117,9 +115,7 @@
           language model with reinforcement learning to answer a watercolour
           prompt by writing a complete p5.brush JavaScript sketch. A sandboxed
           Puppeteer renderer turns that sketch into a PNG so a judge can score
-          it. “The code is the artefact, and the code is editable.” The
-          <a href="https://hraness.com/reading/rling-qwen-to-paint-with-code">Hraness reading</a>
-          is the collected source note.
+          it. “The code is the artefact, and the code is editable.”
         </p>
         <p>
           That split matters once a coding agent can return a finished picture.
@@ -151,16 +147,7 @@
           named operation you can revise.
         </p>
 
-        <h2>Leave the sealed raster on the model</h2>
-        <p>
-          <a href="/reading/painting-with-gaussians">Keep the stroke decision in the renderer</a>
-          keeps brushwork in a tunable renderer after an agent proposes marks.
-          <a href="/reading/gemini-omni">Control in the renderer still beats a bigger Omni prompt</a>
-          keeps extra Omni prompt control on the model. This take is about the
-          form of the artefact. If the opening-shot sample is only a PNG, the
-          six-second clip that must keep product shape, colors, and lettering
-          recognizable has no sketch left to edit.
-        </p>
+        <h2>What the experiment found</h2>
         <p>
           Narreddi reports that a 400-line p5.brush API reference produced
           confident, well-formatted code that invented methods. A short
@@ -177,28 +164,10 @@
           explicit acknowledgement. There is no Atet account or hosted project
           database.
         </p>
-        <p>
-          Read
-          <a href="https://surya.website/rling-qwen-to-paint-with-code">Training AI to Paint with Code</a>
-          on surya.website and the collected page on
-          <a href="https://hraness.com/reading/rling-qwen-to-paint-with-code">Hraness</a>.
-          Then start at the <a href="https://atet.sh/">Atet home</a> and keep
-          the painting as code you can still edit.
-          Tuesday’s take,
-          <a href="/reading/how-i-design-with-ai">Keep the design decision in the media tool</a>,
-          keeps the next revision in the project instead of a longer prompt.
-        </p>
-
-        <aside class="reading-links" aria-label="Related pages">
-          <h2>Related pages</h2>
+        <aside class="reading-links" aria-label="Sources">
+          <h2>Sources</h2>
           <ul>
             <li><a href="/">Atet home</a></li>
-            <li><a href="/reading/painting-with-gaussians">Keep the stroke decision in the renderer</a></li>
-            <li><a href="/reading/gemini-omni">Control in the renderer still beats a bigger Omni prompt</a></li>
-            <li><a href="/reading/how-i-design-with-ai">Keep the design decision in the media tool</a></li>
-            <li><a href="/reading/draw-faces-with-javascript">Keep the source small enough to vary</a></li>
-            <li><a href="/reading/feynobg">Keep the cutout from replacing the source</a></li>
-            <li><a href="https://hraness.com">Hraness</a></li>
             <li><a href="https://hraness.com/reading/rling-qwen-to-paint-with-code">Training AI to Paint with Code on Hraness</a></li>
             <li><a href="https://surya.website/rling-qwen-to-paint-with-code">Training AI to Paint with Code on surya.website</a></li>
           </ul>
@@ -206,7 +175,6 @@
       </article>
     </main>
 
-    {{ASK_AI_ABOUT_THIS}}
     {{HRANESS_SITE_FOOTER}}
   </body>
 </html>
