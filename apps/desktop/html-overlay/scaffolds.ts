@@ -1,21 +1,19 @@
-import { z } from "zod";
-
 import type { HtmlOverlayInlineDocument } from "./contracts";
+import {
+  HtmlOverlayScaffoldKindSchema,
+  getHtmlOverlayScaffoldProfile,
+  type HtmlOverlayScaffoldKind,
+} from "./catalog";
 import {
   serializeHtmlOverlayImportMap,
   type HtmlOverlayLibrarySpecifier,
 } from "./libraries";
 
-export const HTML_OVERLAY_SCAFFOLD_KINDS = [
-  "plain",
-  "motion",
-  "paper-shaders",
-  "three",
-  "vgpu",
-] as const;
-
-export const HtmlOverlayScaffoldKindSchema = z.enum(HTML_OVERLAY_SCAFFOLD_KINDS);
-export type HtmlOverlayScaffoldKind = typeof HTML_OVERLAY_SCAFFOLD_KINDS[number];
+export {
+  HTML_OVERLAY_SCAFFOLD_KINDS,
+  HtmlOverlayScaffoldKindSchema,
+  type HtmlOverlayScaffoldKind,
+} from "./catalog";
 
 export const HTML_OVERLAY_TRANSPARENT_RESET_CSS = `html,
 body {
@@ -118,6 +116,249 @@ const MOTION_SCAFFOLD = documentShell(
         { duration: AtetOverlay.durationMs / 1000, ease: "linear" },
       ));`,
   serializeHtmlOverlayImportMap(["motion"]),
+);
+
+const P5_SCAFFOLD = documentShell(
+  `    <canvas class="sketch" aria-hidden="true"></canvas>
+    <style>
+      .sketch {
+        display: block;
+        width: 100%;
+        height: 100%;
+        contain: strict;
+      }
+    </style>`,
+  `      import p5 from "p5";
+
+      // p5 owns drawing, while Atet remains the only clock and entropy source.
+      // Keep this P2D starter seek-stable: no hidden frame state, mutable RNG,
+      // native frame scheduler, live input, loaders, or cumulative drawing.
+      p5.disableFriendlyErrors = true;
+      const canvas = document.querySelector(".sketch");
+      const particleCount = 48;
+      const particles = Object.freeze(Array.from(
+        { length: particleCount },
+        (_, index) => Object.freeze({
+          angle: AtetOverlay.randomFor("p5-angle-" + index) * Math.PI * 2,
+          orbit: AtetOverlay.randomFor("p5-orbit-" + index),
+          phase: AtetOverlay.randomFor("p5-phase-" + index),
+          size: AtetOverlay.randomFor("p5-size-" + index),
+        }),
+      ));
+      let currentFrame = Object.freeze({ progress: 0, timeMs: 0 });
+      let sketch = null;
+
+      const initialization = new Promise((resolve, reject) => {
+        try {
+          sketch = new p5((p) => {
+            let startupDraw = true;
+            let startupSettled = false;
+            const redraw = p.redraw.bind(p);
+            p.redraw = async (...args) => {
+              try {
+                await redraw(...args);
+                if (!startupSettled) {
+                  startupSettled = true;
+                  resolve();
+                }
+              } catch (error) {
+                reject(error);
+                throw error;
+              }
+            };
+
+            p.setup = () => {
+              try {
+                p.createCanvas(
+                  AtetOverlay.width,
+                  AtetOverlay.height,
+                  p.P2D,
+                  canvas,
+                  {
+                    alpha: true,
+                    colorSpace: "srgb",
+                    desynchronized: false,
+                  },
+                );
+                p.pixelDensity(devicePixelRatio);
+                p.noLoop();
+              } catch (error) {
+                reject(error);
+                throw error;
+              }
+            };
+
+            p.draw = () => {
+              // p5 performs one mandatory startup draw even after noLoop().
+              // The redraw wrapper resolves readiness only after p5 completes
+              // this empty draw, including its postdraw and finishDraw work.
+              if (startupDraw) {
+                startupDraw = false;
+                return;
+              }
+              const { progress, timeMs } = currentFrame;
+              const width = AtetOverlay.width;
+              const height = AtetOverlay.height;
+              const unit = Math.min(width, height);
+              const phase = progress * Math.PI * 2;
+              p.clear();
+              p.resetMatrix();
+              p.blendMode(p.BLEND);
+              p.noStroke();
+
+              for (let index = 0; index < particles.length; index += 1) {
+                const particle = particles[index];
+                const angle = particle.angle
+                  + phase * (0.18 + particle.phase * 0.42);
+                const orbit = unit * (0.14 + particle.orbit * 0.34);
+                const wobble = Math.sin(
+                  timeMs / 700 + particle.phase * Math.PI * 2,
+                ) * unit * 0.018;
+                const x = width / 2 + Math.cos(angle) * (orbit + wobble);
+                const y = height / 2 + Math.sin(angle) * orbit * 0.62;
+                const diameter = unit * (0.008 + particle.size * 0.026);
+                p.fill(
+                  94 + particle.phase * 122,
+                  102 + particle.orbit * 92,
+                  255,
+                  72 + particle.size * 130,
+                );
+                p.circle(x, y, diameter);
+              }
+
+              const pulse = 0.92 + Math.sin(phase) * 0.08;
+              p.fill(105, 82, 255, 72);
+              p.circle(width / 2, height / 2, unit * 0.28 * pulse);
+              p.fill(104, 232, 255, 185);
+              p.circle(width / 2, height / 2, unit * 0.13 * pulse);
+              p.fill(255, 255, 255, 255);
+              p.circle(width / 2, height / 2, unit * 0.034);
+            };
+          });
+        } catch (error) {
+          reject(error);
+        }
+      });
+
+      AtetOverlay.ready(initialization);
+      AtetOverlay.onFrame(async (frame) => {
+        currentFrame = frame;
+        await initialization;
+        await sketch.redraw();
+      });
+
+      addEventListener("pagehide", () => {
+        sketch?.remove();
+      }, { once: true });`,
+  serializeHtmlOverlayImportMap(["p5"]),
+);
+
+const TWO_SCAFFOLD = documentShell(
+  `    <canvas class="scene" aria-hidden="true"></canvas>
+    <style>
+      .scene {
+        display: block;
+        width: 100%;
+        height: 100%;
+        contain: strict;
+      }
+    </style>`,
+  `      import Two from "two.js";
+
+      // Keep Two.js on its explicit WebGL renderer with autostart disabled.
+      // Atet remains the only clock and entropy source; this starter uses no
+      // textures, loaders, live input, or Two.js animation state.
+      let contextError = null;
+      let disposing = false;
+      const canvas = document.querySelector(".scene");
+      const two = new Two({
+        alpha: true,
+        antialias: false,
+        autostart: false,
+        domElement: canvas,
+        height: AtetOverlay.height,
+        overdraw: false,
+        premultipliedAlpha: true,
+        preserveDrawingBuffer: true,
+        ratio: devicePixelRatio,
+        type: Two.Types.webgl,
+        width: AtetOverlay.width,
+      });
+      two.renderer.ctx.clearColor(0, 0, 0, 0);
+      const stage = new Two.Group();
+      two.add(stage);
+      const objectCount = 56;
+      const colors = [
+        "rgba(117, 104, 255, 0.72)",
+        "rgba(82, 217, 255, 0.72)",
+        "rgba(255, 100, 183, 0.72)",
+        "rgba(255, 209, 102, 0.72)",
+      ];
+      const objects = Object.freeze(Array.from(
+        { length: objectCount },
+        (_, index) => {
+          const angle = AtetOverlay.randomFor("two-angle-" + index)
+            * Math.PI * 2;
+          const orbit = AtetOverlay.randomFor("two-orbit-" + index);
+          const phase = AtetOverlay.randomFor("two-phase-" + index);
+          const size = AtetOverlay.randomFor("two-size-" + index);
+          const shape = new Two.Circle(0, 0, 4 + size * 18, 24);
+          shape.fill = colors[index % colors.length];
+          shape.noStroke();
+          stage.add(shape);
+          return Object.freeze({ angle, orbit, phase, shape, size });
+        },
+      ));
+      const core = new Two.Circle(0, 0, 18, 32);
+      core.fill = "rgba(255, 255, 255, 1)";
+      core.noStroke();
+      stage.add(core);
+
+      const handleContextLoss = (event) => {
+        event.preventDefault();
+        if (!disposing) {
+          contextError = new Error("The Two.js rendering context was lost.");
+          throw contextError;
+        }
+      };
+      canvas.addEventListener("webglcontextlost", handleContextLoss);
+
+      AtetOverlay.onFrame(({ progress, timeMs }) => {
+        if (contextError !== null) throw contextError;
+        const width = AtetOverlay.width;
+        const height = AtetOverlay.height;
+        const unit = Math.min(width, height);
+        const absolutePhase = progress * Math.PI * 2;
+        for (const object of objects) {
+          const angle = object.angle
+            + absolutePhase * (0.16 + object.phase * 0.44);
+          const orbit = unit * (0.13 + object.orbit * 0.36);
+          const wobble = Math.sin(
+            timeMs / 760 + object.phase * Math.PI * 2,
+          ) * unit * 0.016;
+          object.shape.translation.set(
+            width / 2 + Math.cos(angle) * (orbit + wobble),
+            height / 2 + Math.sin(angle) * orbit * 0.58,
+          );
+          object.shape.rotation = angle + Math.PI / 2;
+        }
+        core.translation.set(width / 2, height / 2);
+        two.render();
+      });
+
+      addEventListener("pagehide", () => {
+        disposing = true;
+        canvas.removeEventListener("webglcontextlost", handleContextLoss);
+        two.pause();
+        two.release();
+        two.clear();
+        two.unbind();
+        two.renderer.unbind();
+        const index = Two.Instances.indexOf(two);
+        if (index >= 0) Two.Instances.splice(index, 1);
+        two.renderer.ctx.getExtension("WEBGL_lose_context")?.loseContext();
+      }, { once: true });`,
+  serializeHtmlOverlayImportMap(["two.js"]),
 );
 
 const PAPER_SCAFFOLD = documentShell(
@@ -484,21 +725,13 @@ const VGPU_SCAFFOLD = documentShell(
 
 const SCAFFOLDS = Object.freeze({
   motion: MOTION_SCAFFOLD,
+  p5: P5_SCAFFOLD,
   "paper-shaders": PAPER_SCAFFOLD,
+  two: TWO_SCAFFOLD,
   plain: PLAIN_SCAFFOLD,
   three: THREE_SCAFFOLD,
   vgpu: VGPU_SCAFFOLD,
 }) satisfies Readonly<Record<HtmlOverlayScaffoldKind, string>>;
-
-const SCAFFOLD_LIBRARIES = Object.freeze({
-  motion: ["motion"],
-  "paper-shaders": ["@paper-design/shaders"],
-  plain: [],
-  three: ["three"],
-  vgpu: ["vgpu"],
-}) satisfies Readonly<
-  Record<HtmlOverlayScaffoldKind, readonly HtmlOverlayLibrarySpecifier[]>
->;
 
 export interface HtmlOverlayScaffoldInput {
   readonly document: HtmlOverlayInlineDocument;
@@ -525,7 +758,7 @@ export function createHtmlOverlayScaffoldInput(
 ): HtmlOverlayScaffoldInput {
   const parsed = HtmlOverlayScaffoldKindSchema.parse(kind);
   const libraries: HtmlOverlayLibrarySpecifier[] = [
-    ...SCAFFOLD_LIBRARIES[parsed],
+    ...getHtmlOverlayScaffoldProfile(parsed).libraries,
   ];
   Object.freeze(libraries);
   return Object.freeze({

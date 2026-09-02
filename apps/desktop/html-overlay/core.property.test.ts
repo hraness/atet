@@ -8,13 +8,14 @@ import {
   parseHtmlOverlayRuntimeFrame,
 } from "./contracts";
 import {
+  HTML_OVERLAY_LIBRARY_SPECIFIERS,
   HtmlOverlayLibrarySelectionSchema,
   serializeHtmlOverlayImportMap,
 } from "./libraries";
 import { createHtmlOverlayRandom, htmlOverlayRandomFor } from "./random";
 
 assertProperty(fc.property(
-  fc.shuffledSubarray(["@paper-design/shaders", "motion", "three", "vgpu"] as const),
+  fc.shuffledSubarray([...HTML_OVERLAY_LIBRARY_SPECIFIERS]),
   (selection) => {
     const reversed = [...selection].reverse();
     expect(HtmlOverlayLibrarySelectionSchema.parse(selection))

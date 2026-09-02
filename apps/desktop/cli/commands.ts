@@ -292,7 +292,7 @@ import {
   workflowRunStore,
 } from "./workflow-runs";
 
-export const ATET_VERSION = "3.1.2";
+export const ATET_VERSION = "3.2.0";
 
 // Legacy direct renders predate per-target output contracts. Keep them
 // bounded generously enough for long-form production while preventing one

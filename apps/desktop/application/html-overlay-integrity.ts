@@ -9,9 +9,9 @@ import {
   createHtmlOverlayBrowserRuntimeSource,
   createHtmlOverlayImportMap,
   getApprovedHtmlOverlayLibraryLock,
+  type HtmlOverlayActiveLibraryLock,
   type HtmlOverlayAuthoringInput,
   type HtmlOverlayImportMap,
-  type HtmlOverlayLibraryLock,
 } from "../html-overlay";
 import {
   HtmlOverlayBrowserRuntimeBindingSchema,
@@ -48,7 +48,7 @@ export type HtmlOverlayExecutionIntegrity = Readonly<
 export interface HtmlOverlayExecutionBundle {
   readonly importMap: HtmlOverlayImportMap;
   readonly integrity: HtmlOverlayExecutionIntegrity;
-  readonly libraryLocks: readonly HtmlOverlayLibraryLock[];
+  readonly libraryLocks: readonly HtmlOverlayActiveLibraryLock[];
   readonly runtimeSource: string;
 }
 

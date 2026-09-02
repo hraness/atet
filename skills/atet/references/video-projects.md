@@ -78,7 +78,7 @@ Run `atet help project` for the current grammar. The project editor supports:
 - camera push, reframe, arbitrary camera paths, and local face-follow framing;
 - screen zooms tied to a rectangle, point, cursor, window, or focused input;
 - cursor, click, keystroke, and typed-text presentation;
-- image, SVG, GIF, video, emoji, HTML, WGSL/WebGPU, and Three.js overlays;
+- image, SVG, GIF, video, emoji, HTML, Canvas 2D, GPU 2D, WGSL/WebGPU, and Three.js overlays;
 - local audio denoise, compression, volume, delay, and reverb;
 - clean, warm, cool, cinematic, vivid, flat, mono, or manual color treatment;
   and
@@ -88,6 +88,26 @@ Preserve the original recording and imported media. Apply changes to the
 project or its editable scene source, then inspect the resulting project hash.
 When an edit depends on evidence, use the evidence identifier returned by its
 analysis rather than recomputing or approximating it.
+
+## Choose one HTML authoring surface
+
+Run `atet html catalog` before creating a transparent HTML overlay. Choose the
+profile by its primary job:
+
+- `plain` for document layout, CSS, SVG, and native browser drawing;
+- `motion` for seekable DOM or SVG choreography;
+- `p5` for an immediate-mode Canvas 2D sketch;
+- `two` for a retained vector 2D scene;
+- `paper-shaders` for a parameterized texture or gradient;
+- `three` for a retained 3D scene; and
+- `vgpu` for explicit WGSL, compute, or pass-level GPU control.
+
+Atet owns the clock and declared assets in every profile. Keep p5 in P2D instance
+mode with an empty startup draw, `noLoop()`, and one awaited `redraw()`. Keep
+Two.js on its explicit WebGL renderer with `autostart: false` and one manual
+`render()`. Derive all visible state from the absolute Atet frame and
+`AtetOverlay.randomFor`; never add a CDN, live input, ambient asset loader, or
+second frame loop.
 
 ## Use vgpu for explicit WebGPU effects
 

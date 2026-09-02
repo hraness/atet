@@ -334,6 +334,8 @@ describe("progressive semantic workflow helpers", () => {
 
   test.each([
     ["motion", ["motion"]],
+    ["p5", ["p5"]],
+    ["two", ["two.js"]],
     ["paper-shaders", ["@paper-design/shaders"]],
     ["three", ["three"]],
     ["vgpu", ["vgpu"]],

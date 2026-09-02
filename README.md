@@ -40,16 +40,16 @@ an Atet service.
 Install the single Atet Agent Skill with either runner:
 
 ```sh
-npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet
+npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet
 # or
-bunx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet
+bunx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet
 ```
 
 Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
 then inspect the local media host:
 
 ```sh
-bun add --global @hraness/atet@3.1.2
+bun add --global @hraness/atet@3.2.0
 atet doctor
 ```
 
@@ -90,7 +90,7 @@ To install the guide only for the current repository, run
 packaged guide for inspection.
 
 The npm package and immutable GitHub release contain the same versioned CLI and
-Agent Skill. You can use `github:hraness/atet#v3.1.2` when you need to install
+Agent Skill. You can use `github:hraness/atet#v3.2.0` when you need to install
 the source tag directly.
 
 </details>
@@ -193,7 +193,10 @@ outputs and receipts under `artifacts/atet/generated/`.
 - Convert caller-owned raster artwork to SVG locally with the pinned VTracer
   runtime.
 - Build deterministic animated loops and transparent video layers with HTML,
-  SVG, Motion, Paper Shaders, [vgpu](https://vgpu.sh) with WGSL, or Three.js.
+  SVG, Motion, p5.js, Two.js, Paper Shaders, [vgpu](https://vgpu.sh) with WGSL,
+  or Three.js. Run `atet html catalog` to choose one primary authoring surface;
+  the [creative-toolkit compendium](docs/html-overlay-creative-toolkit.md)
+  explains the wider current ecosystem and Atet's admission decisions.
 - Use an existing image as the visual reference for a reviewed 3D scene or
   branded material treatment.
 
@@ -365,7 +368,7 @@ integration terms.
 Add the package to a Bun project:
 
 ```sh
-bun add @hraness/atet@3.1.2
+bun add @hraness/atet@3.2.0
 ```
 
 SDK imports do not start the CLI or inspect local project state:
@@ -403,6 +406,8 @@ underworld on the solar barque Atet.
 - `schema/` and `examples/`: diagram schema and runnable examples.
 - `skills/atet/`: the packaged Agent Skill and its focused references.
 - `docs/architecture.md`: the maintained technical overview.
+- `docs/html-overlay-creative-toolkit.md`: the dated creative-coding ecosystem,
+  supported-profile taxonomy, and runtime admission gates.
 
 ## Verification
 

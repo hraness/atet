@@ -525,6 +525,7 @@ atet diagram check concepts/system-map.diagram.json --strict
 atet diagram render concepts/system-map.diagram.json --scale 2
 atet image vectorize artwork/mark.png \
   --output artwork/mark.svg --duotone '#111827,#f9fafb' --alpha-cutoff 8 --json
+atet html catalog
 atet html scaffold paper-shaders --output overlays/title.html
 ```
 
@@ -563,13 +564,24 @@ const title = workflow.media.htmlOverlay("chapter-title", {
 });
 ```
 
-The five scaffolds are `plain`, `motion`, `paper-shaders`, `three`, and `vgpu`.
-Motion is the ergonomic default for DOM animation; Paper Shaders provides
-high-quality transparent GPU texture and gradient treatments; Three.js handles
-full 3D and custom shaders; [vgpu](https://vgpu.sh) provides explicit WebGPU
-passes for compact WGSL effects. Their exact browser modules, versions, byte
-lengths, and SHA-256 values are allowlisted. Author code imports only the
-scaffold's bare specifiers; the host supplies the canonical import map.
+The seven scaffolds are `plain`, `motion`, `p5`, `two`, `paper-shaders`,
+`three`, and `vgpu`. Use `plain` for native layout and SVG, `motion` for DOM/SVG
+choreography, `p5` for immediate Canvas 2D sketches, `two` for retained vector
+2D scenes, Paper Shaders for parameterized textures, Three.js for retained 3D, and
+[vgpu](https://vgpu.sh) for explicit WGSL and WebGPU passes. `atet html catalog
+--json` returns this selection model with exact active library versions. The
+[creative toolkit guide](../../docs/html-overlay-creative-toolkit.md) classifies
+the wider ecosystem without adding those tools to Atet's executable allowlist.
+
+The p5 starter uses instance-mode P2D, makes p5's mandatory startup draw empty,
+disables its native loop, and awaits one manual redraw from each absolute Atet
+frame. The Two.js starter selects WebGL explicitly, leaves autostart disabled,
+preallocates a bounded retained vector scene, and calls one manual render per
+Atet frame. Both clear to transparent, use keyed Atet randomness, avoid system
+fonts and remote assets, and release their resources on page exit. Their exact
+browser modules, versions, byte lengths, licenses, and SHA-256 values are
+allowlisted. Author code imports only the scaffold's bare specifier; the host
+supplies the canonical private import map.
 
 The vgpu starter compiles its shader before readiness, submits one pass from
 each absolute Atet frame, waits for GPU completion, and clears to transparent.
@@ -837,8 +849,9 @@ bun run verify:html-overlay:macos
 `test:html-overlay` is portable and leaves the real-browser tests registered as
 skipped. `test:html-overlay:browser:macos` runs the real Chrome frame suite,
 including a declared PNG. `test:html-overlay:libraries:macos` additionally
-downloads and verifies every exact Motion, Paper Shaders, Three.js, and vgpu
-lock. The integrity-bound Chrome contract selects WebGPU's SwiftShader fallback
+downloads and verifies every exact Motion, p5.js, Two.js, Paper Shaders,
+Three.js, and vgpu lock. The integrity-bound Chrome contract selects WebGPU's
+SwiftShader fallback
 adapter so identical browser receipts do not silently choose different GPUs.
 `test:html-overlay:operation:macos` runs the complete Chrome → PNG frames →
 FFmpeg qtrle/argb → project-ingest operation. The combined

@@ -19,7 +19,7 @@ import {
   createHtmlOverlayScaffold,
   getApprovedHtmlOverlayLibraryLock,
   htmlOverlayFrameCount,
-  type HtmlOverlayLibraryLock,
+  type HtmlOverlayActiveLibraryLock,
 } from "../../../html-overlay";
 import { PlaywrightHtmlOverlayRenderer } from "../../../cli/html-overlay-renderer";
 import { BunProcessRunner } from "../../../cli/io";
@@ -108,7 +108,7 @@ async function bindFixtureBrowserRuntime(
 async function workflowContext(
   root: string,
   identity: string,
-  libraryLocks: readonly HtmlOverlayLibraryLock[],
+  libraryLocks: readonly HtmlOverlayActiveLibraryLock[],
 ): Promise<OperationExecutionContext> {
   const base = operationApplicationContext(root, {
     capabilities: async () => await fixtureCapabilities(root),
@@ -391,21 +391,26 @@ describe("media.html-overlay application operation", () => {
       fixture.project.projectId,
     );
     const motion = getApprovedHtmlOverlayLibraryLock("motion");
+    const three = getApprovedHtmlOverlayLibraryLock("three");
     const cases = [
       {
         expected: "do not exactly match",
-        locks: [] as readonly HtmlOverlayLibraryLock[],
+        locks: [] as readonly HtmlOverlayActiveLibraryLock[],
+      },
+      {
+        expected: "do not exactly match",
+        locks: [three] as readonly HtmlOverlayActiveLibraryLock[],
       },
       {
         expected: "version",
         locks: [{
           ...motion,
           version: "forged",
-        }] as unknown as readonly HtmlOverlayLibraryLock[],
+        }] as unknown as readonly HtmlOverlayActiveLibraryLock[],
       },
       {
         expected: "integrity evidence",
-        locks: [motion] as readonly HtmlOverlayLibraryLock[],
+        locks: [motion] as readonly HtmlOverlayActiveLibraryLock[],
         tamperIntegrity: true,
       },
     ] as const;
@@ -536,7 +541,7 @@ describe("media.html-overlay application operation", () => {
       version: 1,
     });
     const output = HtmlOverlayOutputSchema.parse(result.output);
-    expect(observedGeneratorVersion).toBe("atet-3.1.2");
+    expect(observedGeneratorVersion).toBe("atet-3.2.0");
     expect(result.receiptReference).toBe(output.receipt.path);
     const receipt = HtmlOverlayReceiptSchema.parse(JSON.parse(
       await readFile(join(root, output.receipt.path), "utf8"),

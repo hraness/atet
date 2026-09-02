@@ -206,9 +206,11 @@ transparent 3D loop, or a metallic logo product render.
 
 These are complete local Code Mode host capabilities in the same open-source
 project. The portable SDK retains its fixed four-operation projection; the
-local host adds HTML overlays, vgpu/WebGPU, Three.js, durable media execution,
-and project rendering. The Desktop shell supplies native capture, permissions,
-and UI rather than another workflow model.
+local host adds deterministic HTML overlays for native DOM/SVG, Motion, p5.js,
+Two.js, Paper Shaders, Three.js, and vgpu/WebGPU, plus durable media execution
+and project rendering. Run `atet html catalog` before choosing a surface. The
+Desktop shell supplies native capture, permissions, and UI rather than another
+workflow model.
 In local Code Mode:
 
 - Stage image-to-Three work as reference generation, source authoring, review,

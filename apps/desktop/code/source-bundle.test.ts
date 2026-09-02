@@ -569,7 +569,7 @@ export default defineWorkflow({
 } from "@hraness/atet/local/html-overlay";
 import { createMetallicLogoImageRequest } from "@hraness/atet/local/code";
 
-const kinds = ["plain", "motion", "paper-shaders", "three", "vgpu"] as const satisfies readonly HtmlOverlayScaffoldKind[];
+const kinds = ["plain", "motion", "p5", "two", "paper-shaders", "three", "vgpu"] as const satisfies readonly HtmlOverlayScaffoldKind[];
 const reference = {
   bytes: 8,
   mediaType: "image/png",
@@ -603,6 +603,8 @@ export default {
     for (const [index, specifier] of [
       "@paper-design/shaders",
       "motion",
+      "p5",
+      "two.js",
       "three",
       "vgpu",
     ].entries()) {

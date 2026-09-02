@@ -866,6 +866,80 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
     join(consumer, "node_modules", ".bin", "atet"),
     "--help",
   ], consumer);
+  const htmlCatalogText = await runOutput([
+    join(consumer, "node_modules", ".bin", "atet"),
+    "html",
+    "catalog",
+    "--json",
+  ], consumer);
+  const htmlCatalog = record(
+    JSON.parse(htmlCatalogText) as unknown,
+    "atet html catalog --json",
+  );
+  if (htmlCatalog.schemaVersion !== 1 || !Array.isArray(htmlCatalog.profiles)) {
+    throw new Error("Packed CLI returned an invalid HTML scaffold catalog.");
+  }
+  const installedHtmlProfiles = htmlCatalog.profiles.map((value, index) =>
+    record(value, `atet html catalog profile ${String(index)}`)
+  );
+  if (
+    JSON.stringify(installedHtmlProfiles.map(profile => profile.kind))
+      !== JSON.stringify([
+        "plain",
+        "motion",
+        "p5",
+        "two",
+        "paper-shaders",
+        "three",
+        "vgpu",
+      ])
+  ) {
+    throw new Error("Packed CLI lost the stable HTML scaffold profile order.");
+  }
+  const installedP5 = installedHtmlProfiles.find(profile => profile.kind === "p5");
+  const installedTwo = installedHtmlProfiles.find(profile => profile.kind === "two");
+  if (
+    JSON.stringify(installedP5?.libraries) !== JSON.stringify([
+      { specifier: "p5", version: "2.3.2" },
+    ])
+    || JSON.stringify(installedTwo?.libraries) !== JSON.stringify([
+      { specifier: "two.js", version: "0.8.24" },
+    ])
+  ) {
+    throw new Error("Packed CLI returned stale executable HTML library locks.");
+  }
+  const installedP5Scaffold = join(consumer, "installed-p5-overlay.html");
+  await run([
+    join(consumer, "node_modules", ".bin", "atet"),
+    "html",
+    "scaffold",
+    "p5",
+    "--output",
+    installedP5Scaffold,
+  ], consumer);
+  const installedP5Html = await readFile(installedP5Scaffold, "utf8");
+  if (
+    !installedP5Html.includes('from "p5"')
+    || !installedP5Html.includes("await sketch.redraw()")
+  ) {
+    throw new Error("Packed CLI did not emit the admitted p5 scaffold.");
+  }
+  const installedTwoScaffold = join(consumer, "installed-two-overlay.html");
+  await run([
+    join(consumer, "node_modules", ".bin", "atet"),
+    "html",
+    "scaffold",
+    "two",
+    "--output",
+    installedTwoScaffold,
+  ], consumer);
+  const installedTwoHtml = await readFile(installedTwoScaffold, "utf8");
+  if (
+    !installedTwoHtml.includes('from "two.js"')
+    || !installedTwoHtml.includes("AtetOverlay.onFrame")
+  ) {
+    throw new Error("Packed CLI did not emit the admitted Two.js scaffold.");
+  }
   const doctorText = await runOutput([
     join(consumer, "node_modules", ".bin", "atet"),
     "doctor",
