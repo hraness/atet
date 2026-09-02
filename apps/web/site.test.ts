@@ -58,12 +58,41 @@ async function readBuilt(path: string): Promise<string> {
 describe("static Atet site", () => {
   test("keeps product Ask AI links off utility pages", async () => {
     const subjectUrl = "https://atet.sh/"
+    const prompt = `Tell me about ${subjectUrl}`
     const row = renderAskAiAboutThis(subjectUrl)
+    const providers = [
+      ["chatgpt", "https://chatgpt.com/", "q"],
+      ["claude", "https://claude.ai/new", "q"],
+      ["perplexity", "https://perplexity.ai/", "q"],
+      ["grok", "https://x.com/i/grok", "text"],
+    ] as const
+
+    expect(row.match(/<nav\b/gu)).toHaveLength(1)
     expect(row).toContain('aria-label="Ask AI about this"')
     expect(row.match(/data-slot="ask-ai-about-this-link"/gu)).toHaveLength(4)
+    expect(row.match(/target="_blank"/gu)).toHaveLength(4)
+    expect(row.match(/rel="noopener noreferrer nofollow"/gu)).toHaveLength(4)
+    for (const [provider, baseUrl, parameter] of providers) {
+      const destination = new URL(baseUrl)
+      destination.searchParams.set(parameter, prompt)
+      const escapedDestination = destination.href.replaceAll("&", "&amp;")
+      expect(row).toContain(`data-ask-ai-provider="${provider}"`)
+      expect(row).toContain(`href="${escapedDestination}"`)
+    }
 
     const home = await readBuilt("index.html")
+    const builtRow = /<nav\b[^>]*data-slot="ask-ai-about-this"[\s\S]*?<\/nav>/u.exec(home)?.[0]
+    expect(builtRow).toBeDefined()
     expect(home.match(/data-slot="ask-ai-about-this"/gu)).toHaveLength(1)
+    expect(builtRow?.match(/data-slot="ask-ai-about-this-link"/gu)).toHaveLength(4)
+    expect(builtRow?.match(/target="_blank"/gu)).toHaveLength(4)
+    expect(builtRow?.match(/rel="noopener noreferrer nofollow"/gu)).toHaveLength(4)
+    for (const [provider, baseUrl, parameter] of providers) {
+      const destination = new URL(baseUrl)
+      destination.searchParams.set(parameter, prompt)
+      expect(builtRow).toContain(`data-ask-ai-provider="${provider}"`)
+      expect(builtRow).toContain(`href="${destination.href.replaceAll("&", "&amp;")}"`)
+    }
     expect(await readBuilt("preview.html")).not.toContain('data-slot="ask-ai-about-this"')
     expect(await readBuilt("404.html")).not.toContain('data-slot="ask-ai-about-this"')
   })
@@ -451,8 +480,11 @@ describe("static Atet site", () => {
   })
 
   test("keeps the page semantic, linkable, keyboard-operable, and responsive", async () => {
-    const html = await readSource("index.html")
-    const css = await readSource("styles.css")
+    const [html, notFound, css] = await Promise.all([
+      readSource("index.html"),
+      readSource("404.html"),
+      readSource("styles.css"),
+    ])
     const fragmentLinks = [...html.matchAll(/href="#([^"]+)"/gu)].map(match => match[1])
     const ids = new Set([...html.matchAll(/\sid="([^"]+)"/gu)].map(match => match[1]))
 
@@ -463,6 +495,16 @@ describe("static Atet site", () => {
     expect(html).toContain('<main id="main" tabindex="-1">')
     expect(html).not.toMatch(/<section(?![^>]*aria-labelledby)/)
     expect(fragmentLinks.every(fragment => ids.has(fragment))).toBe(true)
+    expect(notFound.match(/<h1\b/gu)).toHaveLength(1)
+    expect(notFound).toContain('<a class="skip-link" href="#main">')
+    expect(notFound).toContain('<main class="route-state" id="main" tabindex="-1">')
+    expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
+    expect(notFound).toContain('<meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)">')
+    expect(notFound).toContain('<meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">')
+    expect(notFound).toContain('href="/llms.txt"')
+    expect(notFound).toContain('href="/sitemap.md"')
+    expect(notFound).toContain('href="/sitemap.xml"')
+    expect(notFound).toContain("machine-readable site guide")
     expect(css).toContain(":where(a, button, [tabindex]):focus-visible")
     expect(css).toContain(".docs-index")
     expect(css).toContain(".docs-section")
@@ -484,7 +526,17 @@ describe("static Atet site", () => {
       expect(document).toMatch(
         /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
       )
+      const footerStart = document.indexOf('data-slot="hraness-site-footer"')
+      expect(footerStart).toBeGreaterThan(0)
+      expect(document.slice(footerStart)).not.toContain("data-hraness-appearance-menu")
+      expect(document).not.toContain('class="appearance"')
+      expect(document).not.toContain("data-theme-choice")
+      expect(document).toContain('aria-label="Appearance: System"')
+      expect(document).toContain('aria-haspopup="menu"')
+      expect(document).toContain('aria-label="Appearance"')
       expect(document.match(/role="menuitemradio"/gu)).toHaveLength(3)
+      expect([...document.matchAll(/data-theme-value="(light|dark|system)" role="menuitemradio"/gu)]
+        .map(match => match[1])).toEqual(["light", "dark", "system"])
     }
   })
 
@@ -854,7 +906,10 @@ describe("static Atet site", () => {
   })
 
   test("publishes crawler discovery only for retained product pages", async () => {
-    const sitemap = await readBuilt("sitemap.xml")
+    const [sitemap, notFound] = await Promise.all([
+      readBuilt("sitemap.xml"),
+      readSource("404.html"),
+    ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1])
     expect(locations).toEqual([
       "https://atet.sh/",
@@ -866,9 +921,37 @@ describe("static Atet site", () => {
     expect(await readBuilt("robots.txt")).toBe(robotsTxt)
     for (const document of [sitemap, sitemapMarkdown, homeMarkdown, llmsTxt]) {
       expect(document).not.toMatch(/\/reading|paint-with-code|draw-faces-with-javascript|feynobg|painting-with-gaussians|gemini-omni|how-i-design-with-ai/u)
+      expect(document).not.toContain("/preview")
     }
+    for (const crawler of [
+      "OAI-SearchBot",
+      "ChatGPT-User",
+      "GPTBot",
+      "Claude-SearchBot",
+      "Claude-User",
+      "ClaudeBot",
+      "PerplexityBot",
+      "Perplexity-User",
+      "Google-Extended",
+      "CCBot",
+    ]) {
+      expect(robotsTxt).toContain(`User-agent: ${crawler}`)
+    }
+    expect(robotsTxt).toContain("User-agent: *\nAllow: /")
+    expect(robotsTxt).not.toMatch(/^\s*Disallow:/mu)
+    expect(robotsTxt).toContain("Sitemap: https://atet.sh/sitemap.xml")
     expect(sitemap).not.toContain("xmlns:image")
     expect(sitemap).toBe(renderSitemapXml())
+    expect(llmsTxt).toMatch(/^# Atet\n/u)
+    expect(llmsTxt).toContain("> Atet gives coding agents tools")
+    expect(llmsTxt).toContain("## When to use Atet")
+    expect(llmsTxt).toContain("https://atet.sh/index.md")
+    expect(sitemapMarkdown).toMatch(/^# Sitemap\n/u)
+    expect(sitemapMarkdown).toContain("https://atet.sh/index.md")
+    expect(sitemapMarkdown).toContain("https://atet.sh/llms.txt")
+    expect(homeMarkdown).toContain("## Sitemap")
+    expect(homeMarkdown).toContain("https://atet.sh/sitemap.md")
+    expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
     expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
     expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
   })
@@ -1041,14 +1124,26 @@ describe("static Atet site", () => {
   })
 
   test("renders the canonical Hraness network footer on every retained ordinary page", async () => {
-    for (const path of [
-      "index.html",
-      "404.html",
-    ]) {
-      const html = await readBuilt(path)
-      expect(html.match(/data-slot="hraness-site-footer"/gu)).toHaveLength(1)
-      expect(html).toContain(HRANESS_HOME_URL)
-      expect(html).toContain(HRANESS_NEWSLETTER_URL)
+    const documents = await Promise.all([
+      readBuilt("index.html"),
+      readBuilt("404.html"),
+    ])
+    const expectedHrefs = [
+      HRANESS_HOME_URL,
+      HRANESS_NEWSLETTER_URL,
+      ...hranessSocialLinks.map(({ href }) => href),
+    ]
+
+    for (const document of documents) {
+      expect(document.match(/<footer\b/gu)).toHaveLength(1)
+      const footer = /<footer\b[\s\S]*?<\/footer>/u.exec(document)?.[0]
+      expect(footer).toContain('data-slot="hraness-site-footer"')
+      expect(footer?.match(/data-slot="hraness-mark"/gu)).toHaveLength(1)
+      expect(footer?.match(/data-slot="social-icon"/gu)).toHaveLength(10)
+      expect(
+        [...(footer?.matchAll(/<a\b[^>]*\shref="([^"]+)"/gu) ?? [])]
+          .map(match => match[1]),
+      ).toEqual(expectedHrefs)
     }
   })
 
