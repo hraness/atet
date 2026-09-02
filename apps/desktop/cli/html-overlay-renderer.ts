@@ -56,7 +56,7 @@ import {
   htmlOverlayAssetLocalUrl,
   htmlOverlayFrameCount,
   htmlOverlayLibraryLocalUrl,
-  type HtmlOverlayLibraryLock,
+  type HtmlOverlayActiveLibraryLock,
   type HtmlOverlayLibrarySpecifier,
   type HtmlOverlayRuntimeFrame,
 } from "../html-overlay";
@@ -1676,7 +1676,7 @@ async function boundedBestEffortBrowserCleanup(
 
 async function verifyCachedLibrary(
   path: string,
-  lock: HtmlOverlayLibraryLock,
+  lock: HtmlOverlayActiveLibraryLock,
 ): Promise<Buffer | undefined> {
   try {
     const details = await lstat(path);
@@ -1852,8 +1852,13 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
     );
   }
 
+  /** @internal Test seam for proving seek-stable adapters in the real browser. */
+  protected orderedFrameIndexes(frameCount: number): readonly number[] {
+    return Array.from({ length: frameCount }, (_, index) => index);
+  }
+
   async #libraryBytes(
-    lock: HtmlOverlayLibraryLock,
+    lock: HtmlOverlayActiveLibraryLock,
     signal: AbortSignal,
   ): Promise<Buffer> {
     const cacheRoot = await ensurePrivateCacheRoot(this.#cacheRoot);
@@ -2231,7 +2236,7 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
               "document load",
             );
             await assertNoDeniedBrowserActivity(host);
-            for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
+            for (const frameIndex of this.orderedFrameIndexes(frameCount)) {
               if (signal.aborted) throw cancellationReason(signal);
               const frame = createHtmlOverlayRuntimeFrame(
                 frameIndex,
@@ -2272,6 +2277,12 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
                 `frame ${String(frameIndex)} screenshot`,
               );
               await assertNoDeniedBrowserActivity(host);
+              if (pageErrors.length > 0) {
+                throw new ApplicationError(
+                  "invalid-data",
+                  `HTML overlay failed during frame ${String(frameIndex)}: ${pageErrors.join(" | ")}`,
+                );
+              }
             }
           } finally {
             await boundedBestEffortBrowserCleanup(

@@ -26,19 +26,19 @@ Atet covers four output familiesâ€”images, diagrams, animated loops, and videoâ€
 Install the Atet Agent Skill, then install the local media tools. Atet requires Bun 1.3.14 or newer.
 
 \`\`\`sh
-npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet
+npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet
 # or
-bunx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet
+bunx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet
 \`\`\`
 
 \`\`\`sh
-bun add --global @hraness/atet@3.1.2
+bun add --global @hraness/atet@3.2.0
 atet doctor
 \`\`\`
 
 Run \`atet doctor\` inside the project you want to work in. Then start a new agent session and describe the finished result, naming the source files and details that must remain unchanged.
 
-The public skills command installs the immutable v3.1.2 guide. When that command is not being used, \`atet skill install\` installs the guide shipped with your CLI for Codex by default.
+The public skills command installs the immutable v3.2.0 guide. When that command is not being used, \`atet skill install\` installs the guide shipped with your CLI for Codex by default.
 
 - Claude Code: \`atet skill install --target claude\`
 - Other Agent Skill readers: \`atet skill install --target agents\`
@@ -82,7 +82,7 @@ Graphics and motion use the same toolkit. Atet also creates editable diagrams, c
 
 The same local system meets four kinds of caller:
 
-- Agent Skill: version-matched guidance for turning a creative brief into checked operations. Install it with \`npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet\`.
+- Agent Skill: version-matched guidance for turning a creative brief into checked operations. Install it with \`npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet\`.
 - CLI: human-readable commands and stable JSON for local scripts. Start with \`atet workflows list --json\`.
 - TypeScript SDK: declarative or imperative media work inside caller-owned Bun code. Import \`vectorizeImage\` from \`@hraness/atet\`.
 - MCP: a fixed set of typed operations confined to one selected root. Run \`atet mcp --root /absolute/path/to/workspace\`.

@@ -3,12 +3,14 @@ import { z } from "zod";
 import { canonicalJson } from "../core/canonical-json";
 import type { HtmlOverlayDeclaredResource } from "./contracts";
 
-export const HTML_OVERLAY_LIBRARY_SPECIFIERS = [
+export const HTML_OVERLAY_LIBRARY_SPECIFIERS = Object.freeze([
   "@paper-design/shaders",
   "motion",
+  "p5",
+  "two.js",
   "three",
   "vgpu",
-] as const;
+] as const);
 
 export const HtmlOverlayLibrarySpecifierSchema = z.enum(HTML_OVERLAY_LIBRARY_SPECIFIERS);
 export type HtmlOverlayLibrarySpecifier = typeof HTML_OVERLAY_LIBRARY_SPECIFIERS[number];
@@ -31,6 +33,24 @@ const PaperShadersLockSchema = z.strictObject({
   version: z.literal("0.0.77"),
 });
 
+const P5LockSchema = z.strictObject({
+  bytes: z.literal(1_101_741),
+  license: z.literal("LGPL-2.1"),
+  sha256: z.literal("78062f4b654ec2d7eab8391cb9f960720e90a379789974f27b6fc4aed94fae21"),
+  specifier: z.literal("p5"),
+  url: z.literal("https://cdn.jsdelivr.net/npm/p5@2.3.2/lib/p5.esm.min.js"),
+  version: z.literal("2.3.2"),
+});
+
+const TwoLockSchema = z.strictObject({
+  bytes: z.literal(522_058),
+  license: z.literal("MIT"),
+  sha256: z.literal("0e98a999fcb47006add9425200b18fab26eb09a154665b2893371d74e0a862d4"),
+  specifier: z.literal("two.js"),
+  url: z.literal("https://cdn.jsdelivr.net/npm/two.js@0.8.24/build/two.module.js"),
+  version: z.literal("0.8.24"),
+});
+
 const ThreeLockSchema = z.strictObject({
   bytes: z.literal(729_954),
   license: z.literal("MIT"),
@@ -49,15 +69,33 @@ const VgpuLockSchema = z.strictObject({
   version: z.literal("0.3.1"),
 });
 
-export const HtmlOverlayLibraryLockSchema = z.discriminatedUnion("specifier", [
+export const HtmlOverlayActiveLibraryLockSchema = z.discriminatedUnion("specifier", [
   PaperShadersLockSchema,
   MotionLockSchema,
+  P5LockSchema,
+  TwoLockSchema,
+  ThreeLockSchema,
+  VgpuLockSchema,
+]);
+export type HtmlOverlayActiveLibraryLock = Readonly<
+  z.infer<typeof HtmlOverlayActiveLibraryLockSchema>
+>;
+
+/**
+ * Append-only parser for persisted lock evidence. When an active lock advances,
+ * retain its prior literal schema here so an old receipt remains readable.
+ */
+export const HtmlOverlayLibraryLockSchema = z.union([
+  PaperShadersLockSchema,
+  MotionLockSchema,
+  P5LockSchema,
+  TwoLockSchema,
   ThreeLockSchema,
   VgpuLockSchema,
 ]);
 export type HtmlOverlayLibraryLock = Readonly<z.infer<typeof HtmlOverlayLibraryLockSchema>>;
 
-export const APPROVED_HTML_OVERLAY_LIBRARY_LOCKS = Object.freeze([
+export const ACTIVE_HTML_OVERLAY_LIBRARY_LOCKS = Object.freeze([
   Object.freeze({
     bytes: 196_909,
     license: "Apache-2.0",
@@ -75,6 +113,22 @@ export const APPROVED_HTML_OVERLAY_LIBRARY_LOCKS = Object.freeze([
     version: "12.42.2",
   }),
   Object.freeze({
+    bytes: 1_101_741,
+    license: "LGPL-2.1",
+    sha256: "78062f4b654ec2d7eab8391cb9f960720e90a379789974f27b6fc4aed94fae21",
+    specifier: "p5",
+    url: "https://cdn.jsdelivr.net/npm/p5@2.3.2/lib/p5.esm.min.js",
+    version: "2.3.2",
+  }),
+  Object.freeze({
+    bytes: 522_058,
+    license: "MIT",
+    sha256: "0e98a999fcb47006add9425200b18fab26eb09a154665b2893371d74e0a862d4",
+    specifier: "two.js",
+    url: "https://cdn.jsdelivr.net/npm/two.js@0.8.24/build/two.module.js",
+    version: "0.8.24",
+  }),
+  Object.freeze({
     bytes: 729_954,
     license: "MIT",
     sha256: "12e6dd7a5cceb3efd76f8c65acbf5aa55c74820115d9ebae874b28456b9ddb5c",
@@ -90,6 +144,15 @@ export const APPROVED_HTML_OVERLAY_LIBRARY_LOCKS = Object.freeze([
     url: "https://esm.sh/vgpu@0.3.1/es2022/vgpu.bundle.mjs",
     version: "0.3.1",
   }),
+] as const satisfies readonly HtmlOverlayActiveLibraryLock[]);
+
+/** Existing authoring export; active locks are the complete executable allowlist. */
+export const APPROVED_HTML_OVERLAY_LIBRARY_LOCKS =
+  ACTIVE_HTML_OVERLAY_LIBRARY_LOCKS;
+
+/** Append-only data paired with HtmlOverlayLibraryLockSchema for receipt reads. */
+export const HISTORICAL_HTML_OVERLAY_LIBRARY_LOCKS = Object.freeze([
+  ...ACTIVE_HTML_OVERLAY_LIBRARY_LOCKS,
 ] as const satisfies readonly HtmlOverlayLibraryLock[]);
 
 function compareAscii(left: string, right: string): number {
@@ -97,7 +160,7 @@ function compareAscii(left: string, right: string): number {
 }
 
 export const HtmlOverlayLibrarySelectionSchema = z.array(HtmlOverlayLibrarySpecifierSchema)
-  .max(APPROVED_HTML_OVERLAY_LIBRARY_LOCKS.length)
+  .max(ACTIVE_HTML_OVERLAY_LIBRARY_LOCKS.length)
   .superRefine((specifiers, context) => {
     if (new Set(specifiers).size !== specifiers.length) {
       context.addIssue({ code: "custom", message: "HTML overlay library specifiers must be unique." });
@@ -106,8 +169,21 @@ export const HtmlOverlayLibrarySelectionSchema = z.array(HtmlOverlayLibrarySpeci
   .overwrite(specifiers => [...specifiers].sort(compareAscii));
 export type HtmlOverlayLibrarySelection = Readonly<z.infer<typeof HtmlOverlayLibrarySelectionSchema>>;
 
+export const HtmlOverlayActiveLibraryLocksSchema = z.array(HtmlOverlayActiveLibraryLockSchema)
+  .max(ACTIVE_HTML_OVERLAY_LIBRARY_LOCKS.length)
+  .superRefine((locks, context) => {
+    const specifiers = locks.map(lock => lock.specifier);
+    if (new Set(specifiers).size !== specifiers.length) {
+      context.addIssue({ code: "custom", message: "Active HTML overlay library locks must be unique." });
+    }
+  })
+  .overwrite(locks => [...locks].sort((left, right) => compareAscii(left.specifier, right.specifier)));
+export type HtmlOverlayActiveLibraryLocks = Readonly<
+  z.infer<typeof HtmlOverlayActiveLibraryLocksSchema>
+>;
+
 export const HtmlOverlayLibraryLocksSchema = z.array(HtmlOverlayLibraryLockSchema)
-  .max(APPROVED_HTML_OVERLAY_LIBRARY_LOCKS.length)
+  .max(HISTORICAL_HTML_OVERLAY_LIBRARY_LOCKS.length)
   .superRefine((locks, context) => {
     const specifiers = locks.map(lock => lock.specifier);
     if (new Set(specifiers).size !== specifiers.length) {
@@ -122,9 +198,9 @@ export const HTML_OVERLAY_ASSET_LOCAL_PREFIX = "/.atet-overlay/assets/" as const
 
 export function getApprovedHtmlOverlayLibraryLock(
   specifier: HtmlOverlayLibrarySpecifier,
-): HtmlOverlayLibraryLock {
+): HtmlOverlayActiveLibraryLock {
   const parsed = HtmlOverlayLibrarySpecifierSchema.parse(specifier);
-  const lock = APPROVED_HTML_OVERLAY_LIBRARY_LOCKS.find(candidate => candidate.specifier === parsed);
+  const lock = ACTIVE_HTML_OVERLAY_LIBRARY_LOCKS.find(candidate => candidate.specifier === parsed);
   if (lock === undefined) {
     throw new RangeError(`HTML overlay library is not approved: ${parsed}`);
   }

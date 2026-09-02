@@ -2,9 +2,14 @@ import { constants } from "node:fs";
 import { mkdir, open } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
+import { canonicalJson } from "../core/canonical-json";
 import {
   HTML_OVERLAY_SCAFFOLD_KINDS,
+  HTML_OVERLAY_SCAFFOLD_PROFILES,
   createHtmlOverlayScaffold,
+  getApprovedHtmlOverlayLibraryLock,
+  getHtmlOverlayScaffoldProfile,
+  type HtmlOverlayLibrarySpecifier,
   type HtmlOverlayScaffoldKind,
 } from "../html-overlay";
 import { CliError } from "./errors";
@@ -72,16 +77,58 @@ export function canonicalizeUnifiedCliArgs(
 }
 
 function scaffoldKind(input: string | undefined): HtmlOverlayScaffoldKind {
-  if (
-    input === undefined
-    || !HTML_OVERLAY_SCAFFOLD_KINDS.includes(input as HtmlOverlayScaffoldKind)
-  ) {
-    throw new CliError(
-      "usage",
-      `HTML scaffold must be one of: ${HTML_OVERLAY_SCAFFOLD_KINDS.join(", ")}.`,
+  if (input !== undefined) {
+    try {
+      return getHtmlOverlayScaffoldProfile(input as HtmlOverlayScaffoldKind).kind;
+    } catch {
+      // Preserve one stable CLI usage error for every foreign scaffold kind.
+    }
+  }
+  throw new CliError(
+    "usage",
+    `HTML scaffold must be one of: ${HTML_OVERLAY_SCAFFOLD_KINDS.join(", ")}.`,
+  );
+}
+
+function catalogLibraries(
+  specifiers: readonly HtmlOverlayLibrarySpecifier[],
+): readonly Readonly<{ specifier: string; version: string }>[] {
+  return specifiers.map(specifier => {
+    const lock = getApprovedHtmlOverlayLibraryLock(specifier);
+    return Object.freeze({
+      specifier: lock.specifier,
+      version: lock.version,
+    });
+  });
+}
+
+function htmlOverlayCatalogJson(): string {
+  return canonicalJson({
+    profiles: HTML_OVERLAY_SCAFFOLD_PROFILES.map(profile => ({
+      bestFor: profile.bestFor,
+      clockIntegration: profile.clockIntegration,
+      kind: profile.kind,
+      libraries: catalogLibraries(profile.libraries),
+      primaryJob: profile.primaryJob,
+      substrate: profile.substrate,
+      summary: profile.summary,
+    })),
+    schemaVersion: 1,
+  });
+}
+
+function htmlOverlayCatalogText(): string {
+  const rows = ["HTML overlay scaffold profiles:"];
+  for (const profile of HTML_OVERLAY_SCAFFOLD_PROFILES) {
+    const libraries = catalogLibraries(profile.libraries)
+      .map(library => `${library.specifier}@${library.version}`)
+      .join(", ") || "none";
+    rows.push(
+      `${profile.kind}  job=${profile.primaryJob}  substrate=${profile.substrate}  libraries=${libraries}`,
+      `  ${profile.summary} Best for: ${profile.bestFor}`,
     );
   }
-  return input as HtmlOverlayScaffoldKind;
+  return rows.join("\n");
 }
 
 async function writeScaffoldWithoutReplacement(
@@ -143,12 +190,31 @@ async function runHtmlScaffold(
   return 0;
 }
 
+function runHtmlCatalog(
+  argv: readonly string[],
+  dependencies: PortableSurfaceDependencies,
+): number {
+  const options = argv.slice(2);
+  if (
+    options.length > 1
+    || (options.length === 1 && options[0] !== "--json")
+  ) {
+    throw new CliError("usage", "Use atet html catalog [--json].");
+  }
+  const output = options[0] === "--json"
+    ? htmlOverlayCatalogJson()
+    : htmlOverlayCatalogText();
+  (dependencies.log ?? console.log)(output);
+  return 0;
+}
+
 export async function runPortableSurface(
   argvInput: readonly string[],
   dependencies: PortableSurfaceDependencies = {},
 ): Promise<number | undefined> {
   const argv = canonicalizeUnifiedCliArgs(argvInput);
   if (argv[0] === "html") {
+    if (argv[1] === "catalog") return runHtmlCatalog(argv, dependencies);
     return await runHtmlScaffold(argv, dependencies);
   }
   const delegatesToHeadless = argv[0] === "diagram"

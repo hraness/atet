@@ -848,7 +848,7 @@
   },
   {
     "identityLineCount": 23,
-    "identityLinesSha256": "a380ea75c25b24d3acdc399520a72f9586a46f20da1041ad118a753f45430669",
+    "identityLinesSha256": "d37690424e6a1ca49f1ca5f9fe5de5d8ac253736ebf02128276173fd3c613052",
     "occurrenceCount": 121,
     "path": "apps/desktop/dist/cli/main.js",
     "categories": [

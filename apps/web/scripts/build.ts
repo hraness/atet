@@ -392,8 +392,8 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       ? ""
       : `<script src="${analyticsPath}" type="module"></script>`,
     "{{SKILL_INSTALL_COMMAND}}": renderCopyCommand({
-      alternateCommand: "bunx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet",
-      command: "npx skills add https://github.com/hraness/atet/tree/v3.1.2 --skill atet",
+      alternateCommand: "bunx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet",
+      command: "npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet",
       id: "skill-install-copy-status",
     }),
     "{{READING_CARD_GRID}}": renderReadingCards(),

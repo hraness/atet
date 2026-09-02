@@ -1,7 +1,7 @@
 import type {
+  HtmlOverlayActiveLibraryLock,
   HtmlOverlayAuthoringInput,
   HtmlOverlayDeclaredResource,
-  HtmlOverlayLibraryLock,
 } from "../html-overlay";
 import type { HtmlOverlayBrowserRuntimeBinding } from "./html-overlay-browser-runtime";
 import type { HtmlOverlayExecutionIntegrity } from "./html-overlay-integrity";
@@ -25,7 +25,8 @@ export interface HtmlOverlayFrameRenderResult {
   readonly frameCount: number;
   /** Absolute printf-style path accepted by FFmpeg, for example frame-%08d.png. */
   readonly framePattern: string;
-  readonly libraryLocks: readonly HtmlOverlayLibraryLock[];
+  /** Complete active executable allowlist used by this render. */
+  readonly libraryLocks: readonly HtmlOverlayActiveLibraryLock[];
 }
 
 /**

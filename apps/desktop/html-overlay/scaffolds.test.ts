@@ -30,6 +30,8 @@ describe("HTML overlay scaffolds", () => {
   test.each([
     ["plain", []],
     ["motion", ["motion"]],
+    ["p5", ["p5"]],
+    ["two", ["two.js"]],
     ["paper-shaders", ["@paper-design/shaders"]],
     ["three", ["three"]],
     ["vgpu", ["vgpu"]],
@@ -61,6 +63,53 @@ describe("HTML overlay scaffolds", () => {
     expect(html).toContain("ShaderMount");
     expect(html).toContain("shader.setFrame(timeMs)");
     expect(html).toContain("premultipliedAlpha: false");
+  });
+
+  test("p5 uses instance-mode P2D with one awaited redraw per Atet frame", () => {
+    const html = createHtmlOverlayScaffold("p5");
+    expect(html).toContain('import p5 from "p5"');
+    expect(html).toContain("p.P2D");
+    expect(html).toContain('colorSpace: "srgb"');
+    expect(html).toContain("desynchronized: false");
+    expect(html).toContain("p.pixelDensity(devicePixelRatio)");
+    expect(html).toContain("p.noLoop()");
+    expect(html).toContain("AtetOverlay.randomFor");
+    expect(html).toContain("p.clear()");
+    expect(html).toContain("const redraw = p.redraw.bind(p)");
+    expect(html).toContain("await redraw(...args)");
+    expect(html).toContain("if (startupDraw)");
+    expect(html).toContain("await sketch.redraw()");
+    expect(html).toContain("sketch?.remove()");
+    expect(html).not.toContain("p.random(");
+    expect(html).not.toContain("frameCount");
+    expect(html).not.toContain("requestAnimationFrame(");
+  });
+
+  test("Two.js uses explicit manual WebGL rendering without an independent loop", () => {
+    const html = createHtmlOverlayScaffold("two");
+    expect(html).toContain('import Two from "two.js"');
+    expect(html).toContain("type: Two.Types.webgl");
+    expect(html).toContain("autostart: false");
+    expect(html).toContain("alpha: true");
+    expect(html).toContain("premultipliedAlpha: true");
+    expect(html).toContain("preserveDrawingBuffer: true");
+    expect(html).toContain("ratio: devicePixelRatio");
+    expect(html).toContain("clearColor(0, 0, 0, 0)");
+    expect(html).not.toContain("AtetOverlay.ready(");
+    expect(html).not.toContain("Promise.resolve");
+    expect(html).toContain("AtetOverlay.randomFor");
+    expect(html).toContain("two.render()");
+    expect(html).toContain("two.release()");
+    expect(html).toContain(
+      'canvas.removeEventListener("webglcontextlost", handleContextLoss)',
+    );
+    expect(html).toContain("Two.Instances.splice(index, 1)");
+    expect(html).toContain('getExtension("WEBGL_lose_context")');
+    expect(html).toContain("throw contextError");
+    expect(html).not.toContain("object.shape.scale");
+    expect(html).not.toContain("two.play()");
+    expect(html).not.toContain("autostart: true");
+    expect(html).not.toContain("requestAnimationFrame(");
   });
 
   test("Three.js renders once from absolute time over a clear-alpha canvas", () => {

@@ -1,3 +1,8 @@
+import { HTML_OVERLAY_SCAFFOLD_KINDS } from "../html-overlay";
+
+const HTML_OVERLAY_SCAFFOLD_KIND_HELP =
+  HTML_OVERLAY_SCAFFOLD_KINDS.join("|");
+
 const GLOBAL_HELP = `atet — agent-first local screen recorder and non-destructive editor
 
 Usage: atet <command> [options]
@@ -6,7 +11,7 @@ Commands:
   operations list|show           Discover host-owned typed operations and policies
   diagram init|check|render      Create, validate, or render portable diagram sources
   image vectorize|generate      Create a local SVG or generated image file
-  html scaffold                  Create a transparent HTML overlay starter
+  html catalog|scaffold          Inspect or create a transparent HTML overlay starter
   workflows list|show|plan|run   Plan or run a reviewed reusable workflow
   code init|check|plan|run       Author, preflight, and run trusted TypeScript workflows
   runs list|show|resume|approve|cancel
@@ -57,11 +62,14 @@ bounded, checksum-pinned, and emits inert SVG. File generation uses Vercel AI Ga
 caller's environment credential. The --prompt spelling without --output is an alias for the desktop
 content-addressed \`ai image generate\` lane and returns project-composable content hash references.`,
   html: `Usage:
-  atet html scaffold <plain|motion|paper-shaders|three|vgpu> --output <file.html>
+  atet html catalog [--json]
+  atet html scaffold <${HTML_OVERLAY_SCAFFOLD_KIND_HELP}> --output <file.html>
 
-Creates a complete transparent HTML overlay without overwriting an existing file. Scaffolds use
-the existing @hraness/atet/local/html-overlay API and exact locked import maps. Render the document
-through workflow.media.htmlOverlay to receive a deterministic transparent video layer.`,
+Catalog lists the closed scaffold profiles in stable order with their primary jobs, render
+substrates, and current exact browser-library versions. Scaffold creates a complete transparent
+HTML overlay without overwriting an existing file. Scaffolds use the existing
+@hraness/atet/local/html-overlay API and exact locked import maps. Render the document through
+workflow.media.htmlOverlay to receive a deterministic transparent video layer.`,
   operations: `Usage:
   atet operations list [--json]
   atet operations show <kind>[@<version>] [--json]

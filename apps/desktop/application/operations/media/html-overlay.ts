@@ -23,10 +23,12 @@ import {
   HtmlOverlayDeclaredResourceSchema,
   HtmlOverlayDeclaredResourcesSchema,
   HtmlOverlayInlineDocumentSchema,
+  HtmlOverlayActiveLibraryLocksSchema,
   HtmlOverlayLibraryLocksSchema,
   HtmlOverlayLibrarySelectionSchema,
   HtmlOverlayParametersSchema,
   HtmlOverlayTimingSchema,
+  getApprovedHtmlOverlayLibraryLock,
   htmlOverlayFrameCount,
   type HtmlOverlayAuthoringInput,
 } from "../../../html-overlay";
@@ -551,15 +553,15 @@ export function createHtmlOverlayOperationDefinition(
               "HTML-overlay renderer returned integrity evidence that does not match the planned browser execution.",
             );
           }
-          const libraryLocks = HtmlOverlayLibraryLocksSchema.parse(
+          const libraryLocks = HtmlOverlayActiveLibraryLocksSchema.parse(
             rendered.libraryLocks,
           );
+          const expectedLibraryLocks = authoring.libraries.map(
+            getApprovedHtmlOverlayLibraryLock,
+          );
           if (
-            libraryLocks.length !== authoring.libraries.length
-            || libraryLocks.some((
-              lock,
-              index,
-            ) => lock.specifier !== authoring.libraries[index])
+            canonicalJsonSha256(libraryLocks)
+            !== canonicalJsonSha256(expectedLibraryLocks)
           ) {
             throw new ApplicationError(
               "conflict",

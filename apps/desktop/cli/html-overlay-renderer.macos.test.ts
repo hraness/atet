@@ -16,6 +16,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { Browser } from "playwright-core";
 
 import {
+  HTML_OVERLAY_SCAFFOLD_PROFILES,
   HtmlOverlayAuthoringInputSchema,
   createHtmlOverlayScaffold,
   serializeHtmlOverlayImportMap,
@@ -25,6 +26,13 @@ import {
 import { bindExactCapability } from "../application/capability-binding";
 import { bindHtmlOverlayBrowserRuntime } from "../application/html-overlay-browser-runtime";
 import { PlaywrightHtmlOverlayRenderer } from "./html-overlay-renderer";
+
+class ReverseFrameOrderHtmlOverlayRenderer
+  extends PlaywrightHtmlOverlayRenderer {
+  protected override orderedFrameIndexes(frameCount: number): readonly number[] {
+    return Array.from({ length: frameCount }, (_, index) => frameCount - index - 1);
+  }
+}
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const RUN_RENDERER_SMOKE =
@@ -98,11 +106,11 @@ function paethPredictor(left: number, above: number, upperLeft: number): number 
   return aboveDistance <= upperLeftDistance ? above : upperLeft;
 }
 
-function readRgbaPngPixel(
-  png: Buffer,
-  x: number,
-  y: number,
-): readonly [number, number, number, number] {
+function decodeRgbaPng(png: Buffer): Readonly<{
+  height: number;
+  pixels: Buffer;
+  width: number;
+}> {
   const width = png.readUInt32BE(16);
   const height = png.readUInt32BE(20);
   if (
@@ -111,13 +119,9 @@ function readRgbaPngPixel(
     || png[26] !== 0
     || png[27] !== 0
     || png[28] !== 0
-    || x < 0
-    || x >= width
-    || y < 0
-    || y >= height
   ) {
     throw new Error(
-      "Expected an in-bounds pixel in a non-interlaced 8-bit RGBA PNG.",
+      "Expected a non-interlaced 8-bit RGBA PNG.",
     );
   }
 
@@ -168,13 +172,66 @@ function readRgbaPngPixel(
       pixels[target] = decoded & 0xff;
     }
   }
-  const pixelOffset = y * stride + x * bytesPerPixel;
+  return Object.freeze({ height, pixels, width });
+}
+
+function readRgbaPngPixel(
+  png: Buffer,
+  x: number,
+  y: number,
+): readonly [number, number, number, number] {
+  const { height, pixels, width } = decodeRgbaPng(png);
+  if (x < 0 || x >= width || y < 0 || y >= height) {
+    throw new Error("Expected an in-bounds RGBA PNG pixel.");
+  }
+  const pixelOffset = (y * width + x) * 4;
   return [
     pixels[pixelOffset]!,
     pixels[pixelOffset + 1]!,
     pixels[pixelOffset + 2]!,
     pixels[pixelOffset + 3]!,
   ];
+}
+
+function rgbaPngAlphaClasses(png: Buffer): Readonly<{
+  opaque: number;
+  partial: number;
+  transparent: number;
+}> {
+  const { pixels } = decodeRgbaPng(png);
+  let opaque = 0;
+  let partial = 0;
+  let transparent = 0;
+  for (let offset = 3; offset < pixels.byteLength; offset += 4) {
+    const alpha = pixels[offset]!;
+    if (alpha === 0) transparent += 1;
+    else if (alpha === 255) opaque += 1;
+    else partial += 1;
+  }
+  return Object.freeze({ opaque, partial, transparent });
+}
+
+function rgbaPngNearTransparentBorder(
+  png: Buffer,
+  threshold: number,
+): Readonly<{ nearTransparent: number; samples: number }> {
+  const { height, pixels, width } = decodeRgbaPng(png);
+  let nearTransparent = 0;
+  let samples = 0;
+  const inspect = (x: number, y: number): void => {
+    const alpha = pixels[(y * width + x) * 4 + 3]!;
+    samples += 1;
+    if (alpha < threshold) nearTransparent += 1;
+  };
+  for (let x = 0; x < width; x += 1) {
+    inspect(x, 0);
+    if (height > 1) inspect(x, height - 1);
+  }
+  for (let y = 1; y < height - 1; y += 1) {
+    inspect(0, y);
+    if (width > 1) inspect(width - 1, y);
+  }
+  return Object.freeze({ nearTransparent, samples });
 }
 
 let browserRuntimeBinding: ReturnType<typeof bindHtmlOverlayBrowserRuntime>
@@ -852,19 +909,23 @@ test.skipIf(
     const cases: readonly {
       readonly kind: HtmlOverlayScaffoldKind;
       readonly libraries: readonly HtmlOverlayLibrarySpecifier[];
-    }[] = [
-      { kind: "motion", libraries: ["motion"] },
-      { kind: "paper-shaders", libraries: ["@paper-design/shaders"] },
-      { kind: "three", libraries: ["three"] },
-      { kind: "vgpu", libraries: ["vgpu"] },
-    ];
+    }[] = HTML_OVERLAY_SCAFFOLD_PROFILES
+      .filter(profile => profile.libraries.length > 0)
+      .map(profile => ({
+        kind: profile.kind,
+        libraries: profile.libraries,
+      }));
     for (const item of cases) {
       const root = await mkdtemp(join(tmpdir(), `atet-html-${item.kind}-`));
       roots.push(root);
       const frames = join(root, "frames");
       await mkdir(frames, { mode: 0o700 });
       const authoring = HtmlOverlayAuthoringInputSchema.parse({
-        canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
+        canvas: {
+          deviceScaleFactor: item.kind === "p5" || item.kind === "two" ? 2 : 1,
+          height: 180,
+          width: 320,
+        },
         html: createHtmlOverlayScaffold(item.kind),
         kind: "atet.html-overlay",
         libraries: item.libraries,
@@ -872,9 +933,7 @@ test.skipIf(
         resources: [],
         schemaVersion: 1,
         seed: 42,
-        timing: item.kind === "vgpu"
-          ? { durationUs: 1_000_000, fps: 2 }
-          : { durationUs: 500_000, fps: 1 },
+        timing: { durationUs: 1_000_000, fps: 2 },
       });
       const renderer = new PlaywrightHtmlOverlayRenderer({
         cacheRoot: join(root, "cache"),
@@ -888,36 +947,78 @@ test.skipIf(
         ...renderRequest,
         outputDirectory: frames,
       }, new AbortController().signal);
-      expect(result.frameCount).toBe(item.kind === "vgpu" ? 2 : 1);
+      expect(result.frameCount).toBe(2);
+      expect(result.libraryLocks.map(lock => lock.specifier))
+        .toEqual([...item.libraries]);
       const framePng = await readFile(
         join(frames, "frames", "frame-00000000.png"),
       );
       expect(framePng.readUInt32BE(16)).toBe(320);
+      const nextFramePng = await readFile(
+        join(frames, "frames", "frame-00000001.png"),
+      );
+      expect(digest(nextFramePng)).not.toBe(digest(framePng));
+      const firstAlpha = rgbaPngAlphaClasses(framePng);
+      const alpha = rgbaPngAlphaClasses(nextFramePng);
+      const borderAlpha = rgbaPngNearTransparentBorder(nextFramePng, 16);
+      // CSS filters and fullscreen falloff can leave sub-visible alpha in every
+      // pixel. Require a substantial border margin rather than letting one
+      // transparent corner make an otherwise opaque output pass.
+      expect(borderAlpha.nearTransparent).toBeGreaterThanOrEqual(
+        Math.ceil(borderAlpha.samples / 5),
+      );
+      expect(alpha.partial + alpha.opaque).toBeGreaterThan(0);
+      if (item.kind === "p5" || item.kind === "two") {
+        expect(firstAlpha.transparent).toBeGreaterThan(0);
+        expect(firstAlpha.partial).toBeGreaterThan(0);
+        expect(firstAlpha.opaque).toBeGreaterThan(0);
+        expect(alpha.partial).toBeGreaterThan(0);
+        expect(alpha.opaque).toBeGreaterThan(0);
+      }
       if (item.kind === "vgpu") {
         const center = readRgbaPngPixel(framePng, 160, 90);
         expect(Math.max(...center.slice(0, 3))).toBeGreaterThan(40);
         expect(center[3]).toBeGreaterThan(100);
         expect(readRgbaPngPixel(framePng, 0, 0)[3]).toBeLessThan(16);
-        const nextFramePng = await readFile(
-          join(frames, "frames", "frame-00000001.png"),
-        );
-        expect(digest(nextFramePng)).not.toBe(digest(framePng));
+      }
 
-        const repeatedFrames = join(root, "frames-repeated");
-        await mkdir(repeatedFrames, { mode: 0o700 });
-        const repeated = await renderer.renderFrames({
+      const repeatedFrames = join(root, "frames-repeated");
+      await mkdir(repeatedFrames, { mode: 0o700 });
+      const repeated = await renderer.renderFrames({
+        ...renderRequest,
+        outputDirectory: repeatedFrames,
+      }, new AbortController().signal);
+      expect(repeated.frameCount).toBe(2);
+      const repeatedPngs = await Promise.all([0, 1].map(async index => (
+        await readFile(join(
+          repeatedFrames,
+          "frames",
+          `frame-${String(index).padStart(8, "0")}.png`,
+        ))
+      )));
+      expect(repeatedPngs.map(digest)).toEqual([
+        digest(framePng),
+        digest(nextFramePng),
+      ]);
+      if (item.kind === "p5" || item.kind === "two") {
+        const reverseFrames = join(root, "frames-reverse");
+        await mkdir(reverseFrames, { mode: 0o700 });
+        const reverseRenderer = new ReverseFrameOrderHtmlOverlayRenderer({
+          cacheRoot: join(root, "cache"),
+        });
+        const reverse = await reverseRenderer.renderFrames({
           ...renderRequest,
-          outputDirectory: repeatedFrames,
+          outputDirectory: reverseFrames,
         }, new AbortController().signal);
-        expect(repeated.frameCount).toBe(2);
-        const repeatedPngs = await Promise.all([0, 1].map(async index => (
+        expect(reverse.frameCount).toBe(2);
+        const reversePngs = await Promise.all([0, 1].map(async index => (
           await readFile(join(
-            repeatedFrames,
+            reverseFrames,
             "frames",
             `frame-${String(index).padStart(8, "0")}.png`,
           ))
         )));
-        expect(repeatedPngs.map(digest)).toEqual([
+        expect(reversePngs.map(digest)).toEqual([
           digest(framePng),
           digest(nextFramePng),
         ]);
