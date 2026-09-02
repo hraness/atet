@@ -1,8 +1,6 @@
 import {
   homeMarkdown,
   notFoundMarkdown,
-  readingIndexMarkdown,
-  readingPaintWithCodeMarkdown,
 } from "./agent-pages"
 import {
   htmlMediaType,
@@ -26,17 +24,6 @@ export function isHomePath(pathname: string): boolean {
   return pathname === "/" || pathname === "/index.html"
 }
 
-export function isReadingIndexPath(pathname: string): boolean {
-  return pathname === "/reading"
-    || pathname === "/reading/"
-    || pathname === "/reading/index.html"
-}
-
-export function isReadingPaintWithCodePath(pathname: string): boolean {
-  return pathname === "/reading/paint-with-code"
-    || pathname === "/reading/paint-with-code.html"
-}
-
 export function isPreservedRedirectPath(pathname: string): boolean {
   return pathname === "/docs" || pathname.startsWith("/docs/")
 }
@@ -51,8 +38,6 @@ export function isNegotiableDocumentPath(pathname: string): boolean {
   }
   if (
     isHomePath(pathname)
-    || isReadingIndexPath(pathname)
-    || isReadingPaintWithCodePath(pathname)
     || isPreservedRedirectPath(pathname)
   ) {
     return true
@@ -65,14 +50,6 @@ export function isNegotiableDocumentPath(pathname: string): boolean {
 
 function canonicalHomeUrl(request: Request): string {
   return new URL("/", request.url).href
-}
-
-function canonicalReadingIndexUrl(request: Request): string {
-  return new URL("/reading", request.url).href
-}
-
-function canonicalReadingPaintWithCodeUrl(request: Request): string {
-  return new URL("/reading/paint-with-code", request.url).href
 }
 
 export function negotiateSiteRequest(request: Request): Response | undefined {
@@ -98,28 +75,6 @@ export function negotiateSiteRequest(request: Request): Response | undefined {
         headers: {
           "Content-Type": markdownContentType,
           "Link": `<${canonicalHomeUrl(request)}>; rel="canonical", </index.md>; rel="alternate"; type="text/markdown"`,
-          "Vary": varyAcceptAndEncoding,
-        },
-        status: 200,
-      })
-    }
-
-    if (isReadingIndexPath(pathname)) {
-      return new Response(negotiatedBody(request, readingIndexMarkdown), {
-        headers: {
-          "Content-Type": markdownContentType,
-          "Link": `<${canonicalReadingIndexUrl(request)}>; rel="canonical", </reading/index.md>; rel="alternate"; type="text/markdown"`,
-          "Vary": varyAcceptAndEncoding,
-        },
-        status: 200,
-      })
-    }
-
-    if (isReadingPaintWithCodePath(pathname)) {
-      return new Response(negotiatedBody(request, readingPaintWithCodeMarkdown), {
-        headers: {
-          "Content-Type": markdownContentType,
-          "Link": `<${canonicalReadingPaintWithCodeUrl(request)}>; rel="canonical", </reading/paint-with-code.md>; rel="alternate"; type="text/markdown"`,
           "Vary": varyAcceptAndEncoding,
         },
         status: 200,

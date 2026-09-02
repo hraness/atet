@@ -1,9 +1,3 @@
-import { editorialReadings } from "./editorial-images"
-
-const readingMarkdownList = editorialReadings.map(reading => (
-  `- [${reading.title}](https://atet.sh${reading.canonicalPath}): ${reading.description}`
-)).join("\n")
-
 export const homeMarkdown = `# Atet
 
 Atet lets Codex, Claude, and other coding agents generate images, video, and voice; edit screen recordings and imported footage; add captions, graphics, and motion; and export finished videos from the files in your project.
@@ -131,29 +125,12 @@ Only model-backed work may upload named media, and only after explicit acknowled
 
 Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet.
 
-## Reading
-
-Browse every visual reading take in the [Atet reading index](https://atet.sh/reading).
-
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code.md): An Atet take on Narreddi’s p5.brush painter
-
 ## Sitemap
 
 - [Atet home](https://atet.sh/index.md)
-- [Atet reading index](https://atet.sh/reading/index.md)
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code.md)
 - [Machine-readable site guide](https://atet.sh/llms.txt)
 - [Markdown sitemap](https://atet.sh/sitemap.md)
 - [XML sitemap](https://atet.sh/sitemap.xml)
-`
-
-export const readingIndexMarkdown = `# Atet reading
-
-Short, sourced essays about keeping generated media inspectable, revisable, and attached to the source that produced it.
-
-${readingMarkdownList}
-
-Return to the [Atet home](https://atet.sh/).
 `
 
 export const notFoundMarkdown = `# Page not found
@@ -185,8 +162,6 @@ Install the Agent Skill, then describe the finished result. Do not use Atet as a
 
 ## Optional
 
-- [Atet reading index](https://atet.sh/reading/index.md): Every visual reading take
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code.md): An Atet reading take on Narreddi’s p5.brush painter
 - [Markdown sitemap](https://atet.sh/sitemap.md): Public Atet pages in markdown
 - [XML sitemap](https://atet.sh/sitemap.xml): Search-engine sitemap
 - [Architecture](https://github.com/hraness/atet/blob/main/docs/architecture.md): Project model and local host
@@ -199,8 +174,6 @@ export const sitemapMarkdown = `# Sitemap
 ## Atet
 
 - [Atet home](https://atet.sh/index.md): Installation, examples, workflow, and design for the local media toolkit
-- [Atet reading index](https://atet.sh/reading/index.md): Every visual reading take
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code.md): An Atet reading take on Narreddi’s p5.brush painter
 - [Machine-readable site guide](https://atet.sh/llms.txt): When to use Atet and the public indexes
 `
 
@@ -232,36 +205,6 @@ Sitemap: https://atet.sh/sitemap.xml
 
 export const homeCanonicalUrl = "https://atet.sh/"
 export const homeMarkdownUrl = "https://atet.sh/index.md"
-export const readingPaintWithCodeMarkdown = `# Keep the painting as code you can edit
-
-An AI painting is easier to revise when the model returns the program that made it. In March 2026, Surya Narreddi published [Training AI to Paint with Code](https://surya.website/rling-qwen-to-paint-with-code), an experiment made with Cameron Franz and Alex Wang. For Atet, the useful implication is simple: keep generated code as a project artefact, not just rendered pixels.
-
-Narreddi writes, “When you make an image with an AI model, the only way to participate is the prompt.” He and his collaborators trained a language model with reinforcement learning to answer a watercolour prompt by writing a complete p5.brush JavaScript sketch. A sandboxed Puppeteer renderer turns that sketch into a PNG so a judge can score it. “The code is the artefact, and the code is editable.”
-
-That split matters once a coding agent can return a finished picture. A sealed raster and a longer prompt both leave you in the same place: you have to go back to the model to change a petal. You cannot ask which brush call kept the lettering, or which overlay restored the product silhouette. The [Atet home](https://atet.sh/) asks you to name the source, the result, and the details that must remain unchanged. Those names need an artefact that still answers.
-
-## Keep the sketch in the project
-
-Atet’s public site keeps source media, editing decisions, previews, and final outputs in storage you control. Original recordings and imported images stay unchanged. Your agent chooses explicit operations. Cuts, timing, framing, overlays, and effects become a revisable project state. After a generation step you can still point at \`product.png\` and see what the model changed.
-
-Graphics and motion stay in that toolkit. Atet creates editable diagrams, converts raster artwork to SVG locally, and builds deterministic animated layers with HTML, SVG, shaders, and Three.js. Those outputs can stand alone or join a video project. Atet does not ship p5.brush, a paint-with-code command, or Narreddi’s training loop. The transfer is the inspectable source: code, a diagram, or a named operation you can revise.
-
-## What the experiment found
-
-Narreddi reports that a 400-line p5.brush API reference produced confident, well-formatted code that invented methods. A short allowlist of eight brush methods produced visible hibiscus forms. Absolute multi-judge scores correlated and locked the model on flat clip-art flowers. Pairwise comparison against a hand-rated reference pool learned faster and compressed winning sketches under 2,000 tokens. Those results stay his. The transferable claim is smaller: if the model returns only pixels, you cannot make the same revision.
-
-Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
-
-
-## Sources
-
-- [Training AI to Paint with Code on Hraness](https://hraness.com/reading/rling-qwen-to-paint-with-code)
-- [Training AI to Paint with Code on surya.website](https://surya.website/rling-qwen-to-paint-with-code)
-
-`
-
-export const readingPaintWithCodeCanonicalUrl = "https://atet.sh/reading/paint-with-code"
-export const readingPaintWithCodeMarkdownUrl = "https://atet.sh/reading/paint-with-code.md"
 export const llmsTxtUrl = "https://atet.sh/llms.txt"
 export const sitemapMarkdownUrl = "https://atet.sh/sitemap.md"
 export const sitemapXmlUrl = "https://atet.sh/sitemap.xml"

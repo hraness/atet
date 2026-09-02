@@ -1004,207 +1004,6 @@ blockquote {
   color: var(--muted);
 }
 
-.reading-module {
-  margin-top: 3rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--line-strong);
-}
-
-.reading-module__heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.reading-module__heading h3 {
-  margin-top: 0.45rem;
-  font-size: clamp(1.65rem, 3vw, 2.1rem);
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-}
-
-.reading-module__heading > a {
-  flex: 0 0 auto;
-  font-size: 0.82rem;
-  font-weight: 750;
-  text-decoration: none;
-}
-
-.reading-card-grid {
-  display: grid;
-  margin-top: 1.4rem;
-  gap: 1.15rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.reading-card {
-  min-width: 0;
-  border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--paper-raised) 72%, transparent);
-}
-
-.reading-card a {
-  display: block;
-  height: 100%;
-  text-decoration: none;
-}
-
-.reading-card img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-bottom: 1px solid var(--line);
-  object-fit: cover;
-}
-
-.reading-card div {
-  padding: 1rem 1.05rem 1.15rem;
-}
-
-.reading-card h3 {
-  margin-top: 0.45rem;
-  font-size: 1.35rem;
-  line-height: 1.08;
-}
-
-.reading-card div > p:last-child {
-  margin-top: 0.65rem;
-  color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.reading-card a:hover h3,
-.reading-module__heading > a:hover {
-  color: var(--gold);
-}
-
-/* Reading take */
-
-.reading-index {
-  width: min(100%, var(--content-max));
-  margin: 0 auto;
-  padding: clamp(3.5rem, 6vw, 5.25rem) var(--page-inline) clamp(4rem, 8vw, 6rem);
-}
-
-.reading-index h1 {
-  max-width: 11ch;
-  margin-top: 0.9rem;
-  font-size: clamp(3rem, 6vw, 5.4rem);
-  letter-spacing: -0.055em;
-  line-height: 0.94;
-}
-
-.reading-index__lede {
-  max-width: 42rem;
-  margin-top: 1.3rem;
-  color: var(--muted);
-  font-family: var(--font-display);
-  font-size: clamp(1.15rem, 2.1vw, 1.4rem);
-  line-height: 1.45;
-}
-
-.reading-index .reading-card-grid {
-  margin-top: clamp(2.5rem, 5vw, 4rem);
-}
-
-.reading-article {
-  width: min(100%, 52rem);
-  margin: 0 auto;
-  padding: clamp(3.5rem, 6vw, 5.25rem) var(--page-inline) clamp(4rem, 8vw, 6rem);
-}
-
-.reading-article h1 {
-  max-width: 16ch;
-  margin-top: 0.9rem;
-  font-size: clamp(2.8rem, 5.2vw, 4.2rem);
-  letter-spacing: -0.05em;
-  line-height: 0.96;
-}
-
-.editorial-figure {
-  margin: clamp(2rem, 4vw, 3rem) 0 0;
-}
-
-.editorial-figure img {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 16 / 9;
-  border: 1px solid var(--line);
-  object-fit: cover;
-}
-
-.editorial-figure figcaption {
-  display: flex;
-  margin-top: 0.65rem;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem 1.25rem;
-  color: var(--muted);
-  font-size: 0.78rem;
-  line-height: 1.45;
-}
-
-.editorial-figure figcaption small {
-  flex: 0 0 auto;
-  color: inherit;
-  font-size: 0.7rem;
-}
-
-.reading-article .lede {
-  max-width: 40rem;
-  margin-top: 1.5rem;
-  font-family: var(--font-display);
-  font-size: clamp(1.15rem, 2.1vw, 1.4rem);
-  line-height: 1.45;
-}
-
-.reading-article h2 {
-  max-width: 18ch;
-  margin-top: 2.6rem;
-  font-size: clamp(1.8rem, 3.2vw, 2.4rem);
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-
-.reading-article h2 + p,
-.reading-article p + p {
-  max-width: 42rem;
-  margin-top: 1.25rem;
-  color: var(--muted);
-  font-size: 1.03rem;
-}
-
-.reading-links {
-  margin-top: 3rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--line-strong);
-}
-
-.reading-links h2 {
-  margin-top: 0;
-  font-size: 1.55rem;
-}
-
-.reading-links ul {
-  padding: 0;
-  margin-top: 1rem;
-  list-style: none;
-}
-
-.reading-links li + li {
-  margin-top: 0.55rem;
-}
-
-.reading-links a {
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.reading-links a:hover {
-  color: var(--gold);
-}
-
 /* Error route */
 
 .route-state {
@@ -1466,14 +1265,6 @@ blockquote {
     font-size: clamp(3rem, 14vw, 4.8rem);
   }
 
-  .reading-article {
-    padding-block: 3rem clamp(3.5rem, 8vw, 5rem);
-  }
-
-  .reading-article h1 {
-    font-size: clamp(2.6rem, 12vw, 3.6rem);
-  }
-
   .hero-deck {
     margin-top: 1.3rem;
   }
@@ -1549,10 +1340,6 @@ blockquote {
     grid-template-columns: 1fr;
   }
 
-  .reading-card-grid {
-    grid-template-columns: 1fr;
-  }
-
   .prompt-list {
     grid-template-columns: 1fr;
   }
@@ -1589,19 +1376,6 @@ blockquote {
 
   .atet-product-hero .hraness-marketing-hero__heading {
     font-size: clamp(2.65rem, 12vw, 3.5rem);
-  }
-
-  .reading-article h1 {
-    font-size: clamp(2.4rem, 12vw, 3.2rem);
-  }
-
-  .editorial-figure figcaption {
-    display: block;
-  }
-
-  .editorial-figure figcaption small {
-    display: block;
-    margin-top: 0.25rem;
   }
 
   .atet-install {

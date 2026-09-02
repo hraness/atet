@@ -1,5 +1,4 @@
 import { beforeAll, describe, expect, test } from "bun:test"
-import { createHash } from "node:crypto"
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -20,8 +19,6 @@ import {
   homeMarkdown,
   llmsTxt,
   notFoundMarkdown,
-  readingIndexMarkdown,
-  readingPaintWithCodeMarkdown,
   robotsTxt,
   sitemapMarkdown,
 } from "./src/agent-pages"
@@ -35,19 +32,11 @@ import {
   isNegotiableDocumentPath,
   isPreservedRedirectPath,
   isPreviewPath,
-  isReadingIndexPath,
-  isReadingPaintWithCodePath,
   negotiateSiteRequest,
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
 import { buildWebsite, renderAskAiAboutThis, renderSitemapXml } from "./scripts/build"
 import { renderAtetSocialImage } from "./scripts/generate-og"
-import {
-  editorialImageSrcSet,
-  editorialImageUrl,
-  editorialReadings,
-} from "./src/editorial-images"
-
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
 const brandDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
@@ -67,18 +56,14 @@ async function readBuilt(path: string): Promise<string> {
 }
 
 describe("static Atet site", () => {
-  test("keeps product Ask AI links off editorial pages", async () => {
+  test("keeps product Ask AI links off utility pages", async () => {
     const subjectUrl = "https://atet.sh/"
     const row = renderAskAiAboutThis(subjectUrl)
     expect(row).toContain('aria-label="Ask AI about this"')
     expect(row.match(/data-slot="ask-ai-about-this-link"/gu)).toHaveLength(4)
 
     const home = await readBuilt("index.html")
-    const readingIndex = await readBuilt("reading/index.html")
-    const reading = await readBuilt("reading/paint-with-code.html")
     expect(home.match(/data-slot="ask-ai-about-this"/gu)).toHaveLength(1)
-    expect(readingIndex).not.toContain('data-slot="ask-ai-about-this"')
-    expect(reading).not.toContain('data-slot="ask-ai-about-this"')
     expect(await readBuilt("preview.html")).not.toContain('data-slot="ask-ai-about-this"')
     expect(await readBuilt("404.html")).not.toContain('data-slot="ask-ai-about-this"')
   })
@@ -481,7 +466,7 @@ describe("static Atet site", () => {
     expect(css).toContain(":where(a, button, [tabindex]):focus-visible")
     expect(css).toContain(".docs-index")
     expect(css).toContain(".docs-section")
-    expect(css).toContain(".reading-article")
+    expect(css).not.toMatch(/\.reading-(?:article|card|index|module)/u)
     expect(css).toContain("@media (max-width: 64rem)")
     expect(css).toContain("@media (max-width: 48rem)")
     expect(css).toContain("@media (max-width: 34rem)")
@@ -493,8 +478,6 @@ describe("static Atet site", () => {
     const documents = await Promise.all([
       readBuilt("index.html"),
       readBuilt("404.html"),
-      readBuilt("reading/index.html"),
-      readBuilt("reading/paint-with-code.html"),
     ])
     for (const document of documents) {
       expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
@@ -577,59 +560,6 @@ describe("static Atet site", () => {
     expect(icon).toContain('viewBox="0 0 64 64"')
     expect(icon).toContain('fill="#090a12"')
     expect(icon).toContain('stop-color="#f6b94a"')
-  })
-
-  test("keeps editorial images visible, discoverable, and bound to retained provenance", async () => {
-    const [home, readingIndex, sitemap] = await Promise.all([
-      readBuilt("index.html"),
-      readBuilt("reading/index.html"),
-      readBuilt("sitemap.xml"),
-    ])
-
-    expect(home.match(/class="reading-card"/gu)).toHaveLength(editorialReadings.length)
-    expect(readingIndex.match(/class="reading-card"/gu)).toHaveLength(editorialReadings.length)
-    expect(sitemap).toContain('xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"')
-
-    for (const reading of editorialReadings) {
-      const stem = reading.src.slice(0, -".webp".length)
-      const [html, bytes, smallBytes, mediumBytes, receiptSource, jobSource, prompt] = await Promise.all([
-        readBuilt(`reading/${reading.slug}.html`),
-        readFile(join(appDirectory, "src", reading.src.slice(1))),
-        readFile(join(appDirectory, "src", `${stem.slice(1)}-384.webp`)),
-        readFile(join(appDirectory, "src", `${stem.slice(1)}-768.webp`)),
-        readFile(join(appDirectory, reading.provenance.receipt), "utf8"),
-        readFile(join(appDirectory, reading.provenance.job), "utf8"),
-        readFile(join(appDirectory, reading.provenance.prompt), "utf8"),
-      ])
-      const imageUrl = editorialImageUrl(reading)
-      const structuredData = /<script type="application\/ld\+json">([\s\S]+?)<\/script>/u.exec(html)?.[1]
-      const graph = JSON.parse(structuredData ?? "null") as { "@graph"?: Array<Record<string, unknown>> }
-      const article = graph["@graph"]?.find(value => value["@type"] === "Article")
-      const receipt = JSON.parse(receiptSource) as { outputs?: Array<{ sha256?: unknown }> }
-      const job = JSON.parse(jobSource) as { noAtetRetry?: unknown; state?: unknown }
-
-      expect(html).toContain(`<meta property="og:image" content="${imageUrl}">`)
-      expect(html).toContain(`<meta name="twitter:image" content="${imageUrl}">`)
-      expect(html).toContain(`alt="${reading.alt}"`)
-      expect(html).toContain(`src="${reading.src}"`)
-      expect(html).toContain(`srcset="${editorialImageSrcSet(reading)}"`)
-      expect(html).toContain(reading.caption)
-      expect(html).toContain(reading.credit)
-      expect(html).not.toMatch(/editorial-provenance|gateway_[0-9a-f]+/u)
-      expect(article?.image).toEqual({
-        "@type": "ImageObject",
-        contentUrl: imageUrl,
-        height: reading.height,
-        width: reading.width,
-      })
-      expect(sitemap).toContain(`<image:loc>${imageUrl}</image:loc>`)
-      expect(createHash("sha256").update(bytes).digest("hex")).toBe(reading.imageSha256)
-      expect(smallBytes.byteLength).toBeLessThan(mediumBytes.byteLength)
-      expect(mediumBytes.byteLength).toBeLessThan(bytes.byteLength)
-      expect(receipt.outputs?.[0]?.sha256).toBe(reading.imageSha256)
-      expect(job).toMatchObject({ noAtetRetry: true, state: "completed" })
-      expect(prompt.trim().length).toBeGreaterThan(80)
-    }
   })
 
   test("keeps the static shell fingerprinted and analytics explicit", async () => {
@@ -895,13 +825,11 @@ describe("static Atet site", () => {
       "apple-touch-icon.png",
       "assets",
       "icon.svg",
-      "images",
       "index.html",
       "index.md",
       "llms.txt",
       "og.png",
       "preview.html",
-      "reading",
       "robots.txt",
       "sitemap.md",
       "sitemap.xml",
@@ -925,27 +853,21 @@ describe("static Atet site", () => {
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
   })
 
-  test("publishes crawler discovery only for the retained reading", async () => {
+  test("publishes crawler discovery only for retained product pages", async () => {
     const sitemap = await readBuilt("sitemap.xml")
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1])
     expect(locations).toEqual([
       "https://atet.sh/",
       "https://atet.sh/index.md",
-      "https://atet.sh/reading",
-      "https://atet.sh/reading/index.md",
-      "https://atet.sh/reading/paint-with-code",
-      "https://atet.sh/reading/paint-with-code.md",
     ])
-    expect(await readBuilt("reading/paint-with-code.md")).toBe(readingPaintWithCodeMarkdown)
-    expect(await readBuilt("reading/index.md")).toBe(readingIndexMarkdown)
     expect(await readBuilt("index.md")).toBe(homeMarkdown)
     expect(await readBuilt("llms.txt")).toBe(llmsTxt)
     expect(await readBuilt("sitemap.md")).toBe(sitemapMarkdown)
     expect(await readBuilt("robots.txt")).toBe(robotsTxt)
     for (const document of [sitemap, sitemapMarkdown, homeMarkdown, llmsTxt]) {
-      expect(document).toContain("paint-with-code")
-      expect(document).not.toMatch(/draw-faces-with-javascript|feynobg|painting-with-gaussians|gemini-omni|how-i-design-with-ai/u)
+      expect(document).not.toMatch(/\/reading|paint-with-code|draw-faces-with-javascript|feynobg|painting-with-gaussians|gemini-omni|how-i-design-with-ai/u)
     }
+    expect(sitemap).not.toContain("xmlns:image")
     expect(sitemap).toBe(renderSitemapXml())
     expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
     expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
@@ -1009,24 +931,119 @@ describe("static Atet site", () => {
     ]))
   })
 
-  test("keeps deployment headers and rewrites aligned with the retained reading", async () => {
-    const vercel = JSON.parse(await readFile(join(appDirectory, "vercel.json"), "utf8"))
-    const sources = [
-      ...(vercel.headers ?? []).map((entry: { source: string }) => entry.source),
-      ...(vercel.rewrites ?? []).map((entry: { source: string }) => entry.source),
-    ]
-    expect(sources).toContain("/reading/paint-with-code")
-    expect(sources).toContain("/reading/paint-with-code.md")
-    expect(JSON.stringify(vercel)).not.toMatch(/draw-faces-with-javascript|feynobg|painting-with-gaussians|gemini-omni|how-i-design-with-ai/u)
-    expect(vercel.headers?.find((entry: { source: string }) => entry.source === "/reading/paint-with-code")).toBeDefined()
+  test("serves strict security headers and only the retained markdown rewrite", async () => {
+    const vercel = JSON.parse(
+      await readFile(join(appDirectory, "vercel.json"), "utf8"),
+    ) as {
+      cleanUrls?: boolean
+      headers?: Array<{ source?: string; headers?: Array<{ key?: string; value?: string }> }>
+      rewrites?: Array<{
+        source?: string
+        destination?: string
+        has?: Array<{ type?: string; key?: string; value?: string }>
+      }>
+      trailingSlash?: boolean
+    }
+    const ordinary = vercel.headers
+      ?.find(entry => entry.source === "/((?!preview$).*)")?.headers ?? []
+    const preview = vercel.headers?.find(entry => entry.source === "/preview")?.headers ?? []
+    const assets = vercel.headers?.find(entry => entry.source === "/assets/(.*)")?.headers ?? []
+    const byKey = new Map(ordinary.map(header => [header.key, header.value]))
+    const previewByKey = new Map(preview.map(header => [header.key, header.value]))
+    const csp = byKey.get("Content-Security-Policy") ?? ""
+
+    expect(vercel.headers?.find(entry => entry.source === "/(.*)")).toBeUndefined()
+    expect(csp).toContain("connect-src https://us.i.posthog.com")
+    expect(csp).toContain("font-src 'self'")
+    expect(csp).toContain("form-action 'none'")
+    expect(csp).toContain("frame-ancestors 'none'")
+    expect(csp).toContain("object-src 'none'")
+    expect(csp).not.toMatch(/font-src[^;]*(?:https?:|data:)/u)
+    expect(byKey.get("X-Frame-Options")).toBe("DENY")
+    expect(byKey.get("Referrer-Policy")).toBe("no-referrer")
+    expect(byKey.get("Strict-Transport-Security")).toContain("includeSubDomains")
+    expect(byKey.get("Vary")).toBe("Accept, Accept-Encoding")
+    expect(previewByKey.get("Content-Security-Policy")).toBe(
+      "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'self'; "
+      + "form-action 'none'; frame-ancestors https://hraness.com https://www.hraness.com; "
+      + "img-src 'none'; object-src 'none'; script-src 'none'; style-src 'self'; "
+      + "upgrade-insecure-requests",
+    )
+    expect(previewByKey.get("X-Frame-Options")).toBeUndefined()
+    expect(previewByKey.get("X-Robots-Tag")).toBe(
+      "noindex, nofollow, noarchive, nosnippet",
+    )
+    expect(previewByKey.get("Link")).toBe('<https://atet.sh/>; rel="canonical"')
+    for (const key of [
+      "Permissions-Policy",
+      "Referrer-Policy",
+      "X-Content-Type-Options",
+      "Cross-Origin-Opener-Policy",
+      "Strict-Transport-Security",
+      "Vary",
+    ]) {
+      expect(previewByKey.get(key)).toBe(byKey.get(key))
+    }
+    expect(vercel.headers
+      ?.filter(entry => entry.headers?.some(header => (
+        header.key === "Content-Security-Policy"
+      )))
+      .map(entry => entry.source)).toEqual(["/((?!preview$).*)", "/preview"])
+    const ordinaryPathPattern = /^\/((?!preview$).*)$/u
+    expect(ordinaryPathPattern.test("/preview")).toBe(false)
+    for (const pathname of [
+      "/",
+      "/Preview",
+      "/preview.html",
+      "/preview/",
+      "/preview/child",
+      "/reading/paint-with-code",
+      "/assets/example.css",
+      "/missing",
+    ]) {
+      expect(ordinaryPathPattern.test(pathname)).toBe(true)
+    }
+    expect(assets).toContainEqual({
+      key: "Cache-Control",
+      value: "public, max-age=31536000, immutable",
+    })
+    expect(vercel.cleanUrls).toBe(true)
+    expect(vercel.trailingSlash).toBe(false)
+
+    const home = vercel.headers?.find(entry => entry.source === "/")?.headers ?? []
+    const markdown = vercel.headers?.find(entry => entry.source === "/index.md")?.headers ?? []
+    const sitemap = vercel.headers?.find(entry => entry.source === "/sitemap.md")?.headers ?? []
+    const llms = vercel.headers?.find(entry => entry.source === "/llms.txt")?.headers ?? []
+    expect(home).toContainEqual({
+      key: "Link",
+      value: '</index.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+    })
+    expect(markdown).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
+    expect(sitemap).toContainEqual({
+      key: "Content-Type",
+      value: "text/markdown; charset=utf-8",
+    })
+    expect(llms).toContainEqual({
+      key: "Content-Type",
+      value: "text/plain; charset=utf-8",
+    })
+    expect(vercel.rewrites).toEqual([
+      {
+        source: "/",
+        has: [{ type: "header", key: "accept", value: "^text/markdown" }],
+        destination: "/index.md",
+      },
+    ])
+    expect(JSON.stringify(vercel)).not.toMatch(/\/reading|paint-with-code|draw-faces-with-javascript|feynobg|painting-with-gaussians|gemini-omni|how-i-design-with-ai/u)
   })
 
   test("renders the canonical Hraness network footer on every retained ordinary page", async () => {
     for (const path of [
       "index.html",
       "404.html",
-      "reading/index.html",
-      "reading/paint-with-code.html",
     ]) {
       const html = await readBuilt(path)
       expect(html.match(/data-slot="hraness-site-footer"/gu)).toHaveLength(1)
@@ -1077,26 +1094,20 @@ describe("static Atet site", () => {
     }
   })
 
-  test("negotiates homepage and retained-reading markdown with honest removed-route 404s", async () => {
+  test("negotiates homepage markdown and gives retired reading routes honest 404s", async () => {
     expect(isHomePath("/")).toBe(true)
-    expect(isReadingIndexPath("/reading")).toBe(true)
-    expect(isReadingPaintWithCodePath("/reading/paint-with-code")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/paint-with-code")).toBe(true)
 
-    const retained = negotiateSiteRequest(new Request("https://atet.sh/reading/paint-with-code", {
-      headers: { Accept: "text/markdown" },
-    }))
-    expect(retained?.status).toBe(200)
-    expect(await retained?.text()).toBe(readingPaintWithCodeMarkdown)
-
     for (const slug of [
+      "",
       "draw-faces-with-javascript",
       "feynobg",
       "painting-with-gaussians",
       "gemini-omni",
+      "paint-with-code",
       "how-i-design-with-ai",
     ]) {
-      const removed = negotiateSiteRequest(new Request(`https://atet.sh/reading/${slug}`, {
+      const removed = negotiateSiteRequest(new Request(`https://atet.sh/reading${slug === "" ? "" : `/${slug}`}`, {
         headers: { Accept: "text/markdown" },
       }))
       expect(removed?.status).toBe(404)
@@ -1110,22 +1121,6 @@ describe("static Atet site", () => {
 
 
 
-
-
-  test("publishes one retained, evidence-backed reading take on painting with code", async () => {
-    const html = await readBuilt("reading/paint-with-code.html")
-    const markdown = await readBuilt("reading/paint-with-code.md")
-    expect(html).toContain('<link rel="canonical" href="https://atet.sh/reading/paint-with-code">')
-    expect(html).toContain("What the experiment found")
-    expect(html).toContain("under 2,000")
-    expect(html).toContain('href="https://surya.website/rling-qwen-to-paint-with-code"')
-    expect(html).toContain('href="https://hraness.com/reading/rling-qwen-to-paint-with-code"')
-    expect(html).not.toMatch(/This page is an Atet reading take|It is not the Hraness Reading digest/u)
-    expect(html).not.toMatch(/draw-faces-with-javascript|feynobg|painting-with-gaussians|gemini-omni|how-i-design-with-ai/u)
-    expect(markdown).toBe(readingPaintWithCodeMarkdown)
-    expect(editorialReadings).toHaveLength(1)
-    expect(editorialReadings[0]?.canonicalPath).toBe("/reading/paint-with-code")
-  })
 
 
 })
