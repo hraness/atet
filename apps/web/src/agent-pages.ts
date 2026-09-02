@@ -1,9 +1,3 @@
-import { editorialReadings } from "./editorial-images"
-
-const readingMarkdownList = editorialReadings.map(reading => (
-  `- [${reading.title}](https://atet.sh${reading.canonicalPath}): ${reading.description}`
-)).join("\n")
-
 export const homeMarkdown = `# Atet
 
 Atet lets Codex, Claude, and other coding agents generate images, video, and voice; edit screen recordings and imported footage; add captions, graphics, and motion; and export finished videos from the files in your project.
@@ -131,39 +125,12 @@ Only model-backed work may upload named media, and only after explicit acknowled
 
 Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet.
 
-## Reading
-
-Browse every visual reading take in the [Atet reading index](https://atet.sh/reading).
-
-- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet take on Mannay’s JavaScript faces
-- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet take on FeyNoBg
-- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet take on Sotnikov’s painterly Gaussian renderer
-- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni.md): An Atet take on Gemini Omni 1.1 Flash
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code.md): An Atet take on Narreddi’s p5.brush painter
-- [Keep the design decision in the media tool](https://atet.sh/reading/how-i-design-with-ai.md): An Atet take on Dailey’s design-with-AI note
-
 ## Sitemap
 
 - [Atet home](https://atet.sh/index.md)
-- [Atet reading index](https://atet.sh/reading/index.md)
-- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md)
-- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md)
-- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md)
-- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni.md)
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code.md)
-- [Keep the design decision in the media tool](https://atet.sh/reading/how-i-design-with-ai.md)
 - [Machine-readable site guide](https://atet.sh/llms.txt)
 - [Markdown sitemap](https://atet.sh/sitemap.md)
 - [XML sitemap](https://atet.sh/sitemap.xml)
-`
-
-export const readingIndexMarkdown = `# Atet reading
-
-Short, sourced essays about keeping generated media inspectable, revisable, and attached to the source that produced it.
-
-${readingMarkdownList}
-
-Return to the [Atet home](https://atet.sh/).
 `
 
 export const notFoundMarkdown = `# Page not found
@@ -195,13 +162,6 @@ Install the Agent Skill, then describe the finished result. Do not use Atet as a
 
 ## Optional
 
-- [Atet reading index](https://atet.sh/reading/index.md): Every visual reading take
-- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
-- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet reading take on FeyNoBg
-- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet reading take on Sotnikov’s painterly Gaussian renderer
-- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni.md): An Atet reading take on Gemini Omni 1.1 Flash
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code.md): An Atet reading take on Narreddi’s p5.brush painter
-- [Keep the design decision in the media tool](https://atet.sh/reading/how-i-design-with-ai.md): An Atet reading take on Dailey’s design-with-AI note
 - [Markdown sitemap](https://atet.sh/sitemap.md): Public Atet pages in markdown
 - [XML sitemap](https://atet.sh/sitemap.xml): Search-engine sitemap
 - [Architecture](https://github.com/hraness/atet/blob/main/docs/architecture.md): Project model and local host
@@ -214,13 +174,6 @@ export const sitemapMarkdown = `# Sitemap
 ## Atet
 
 - [Atet home](https://atet.sh/index.md): Installation, examples, workflow, and design for the local media toolkit
-- [Atet reading index](https://atet.sh/reading/index.md): Every visual reading take
-- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript.md): An Atet reading take on Mannay’s JavaScript faces
-- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg.md): An Atet reading take on FeyNoBg
-- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians.md): An Atet reading take on Sotnikov’s painterly Gaussian renderer
-- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni.md): An Atet reading take on Gemini Omni 1.1 Flash
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code.md): An Atet reading take on Narreddi’s p5.brush painter
-- [Keep the design decision in the media tool](https://atet.sh/reading/how-i-design-with-ai.md): An Atet reading take on Dailey’s design-with-AI note
 - [Machine-readable site guide](https://atet.sh/llms.txt): When to use Atet and the public indexes
 `
 
@@ -250,225 +203,8 @@ Allow: /
 Sitemap: https://atet.sh/sitemap.xml
 `
 
-export const readingFacesMarkdown = `# Keep the source small enough to vary
-
-Mannay’s published note on [Hraness](https://hraness.com) treats JavaScript as a drawing partner. The sheets of loose, colorful faces change when a few drawable rules change. Atet applies that idea to the files already in a project.
-
-The [Draw faces with JavaScript](https://hraness.com/reading/draw-faces-with-javascript) note collects four grids. Eyes, mouths, outlines, and fills shift a little, and the sheet shifts a lot. You can still name the rules after you look. The source stays a compact visual system.
-
-Atet’s public site describes the same demand for a media project. Original recordings and imported images stay unchanged. Your agent chooses explicit operations. Cuts, timing, framing, overlays, and effects become a revisable project state. Previews and deliveries stay tied to the state that produced them.
-
-## Start from a file you can still point at
-
-The [Atet home](https://atet.sh/) asks you to name the source, the result, and the details that must remain unchanged. One request starts from \`product.png\` and asks for three opening-shot ideas, then a six-second clip that keeps the product shape, colors, and lettering recognizable. Another starts from a screen, camera, microphone, and system-audio recording and asks for a two-minute walkthrough with captions and \`logo.svg\`. A third turns the services in a repository into an editable diagram, then a short animated introduction.
-
-Graphics and motion stay in that toolkit. Atet creates editable diagrams, converts raster artwork to SVG locally, and builds deterministic animated layers with HTML, SVG, shaders, and Three.js. Those outputs can stand alone or join a video project. Atet does not ship a face generator. The transfer from Mannay’s doodles is the inspectable source, not a new drawing command.
-
-## Compare the variations before you keep one
-
-A sheet of faces is useful because you can see the results together. Atet’s design does that for a finished job. Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
-
-Read the source note on [Hraness](https://hraness.com/reading/draw-faces-with-javascript). Then start at the [Atet home](https://atet.sh/) and describe the finished result from the files you already have.
-
-## Related pages
-
-- [Atet home](https://atet.sh/)
-- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
-- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians)
-- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni)
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code)
-- [Hraness](https://hraness.com)
-- [Draw faces with JavaScript](https://hraness.com/reading/draw-faces-with-javascript)
-`
-
-export const readingFeynobgMarkdown = `# Keep the cutout from replacing the source
-
-Feyn published FeyNoBg as a field note. [Hraness](https://hraness.com) collected it. The transferable claim for a media project is that foreground recognition and boundary precision are two skills in one opacity map. Atet applies that to the files already in a project. The original stays. The cutout stays an operation you can inspect and revise.
-
-The [FeyNoBg](https://usefeyn.com/blog/feynobg/) note by Hafedh Hichri and Shreyash Nigam says, “Producing this opacity map requires two skills.” The model has to find the subject, then trace a boundary. “Hair, fur, thin wires, and motion blur can blend foreground and background elements together.” Feyn reports, “Across eight benchmarks, it posts the best published S-measure on four and comes within 2% of the leader on the rest.” That sentence is their published comparison. This page does not assign a rank. The [Hraness reading](https://hraness.com/reading/feynobg-a-sota-model-for-background-removal) is the collected source note.
-
-A pipeline fails when the cutout becomes the only inspectable image. You can no longer see whether the model missed the subject or chewed the edge. You also cannot vary the operation and keep the original file the [Atet home](https://atet.sh/) asks you to name.
-
-## Keep both failures on the timeline
-
-Feyn writes, “A poor training mix can produce unbalanced models where improvements in one skill come at the expense of the other.” “Outputs either miss parts of the subject or lack clean edges.” A later choice removes the soft edge a composite often needs: “The matting datasets therefore contributed precisely outlined subjects, not soft-opacity supervision.”
-
-Atet’s public site keeps those failures visible by refusing to replace the source. Original recordings and imported images stay unchanged. Cuts, timing, framing, overlays, and effects become a revisable project state. Previews, alternatives, and deliveries stay tied to the state that produced them. After a removal step, that split is what lets you still point at \`product.png\` or the screen, camera, microphone, and system-audio recording and see what the model changed.
-
-## Vary the operation, then deliver
-
-One public take, [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript), is about compact drawable rules. [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians) keeps brushwork in a tunable renderer after an agent proposes marks. This take is about a later temptation: a model output that looks finished enough to replace the file you started from. If the transparent PNG becomes the project’s only image, the walkthrough that must keep you framed and the opening shot that must keep product shape, colors, and lettering recognizable both lose the file they were asked to protect.
-
-Atet does not ship FeyNoBg or a background-removal command. The transfer is the inspectable original and the named operation. Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
-
-Read the field note on [Feyn](https://usefeyn.com/blog/feynobg/) and the collected page on [Hraness](https://hraness.com/reading/feynobg-a-sota-model-for-background-removal). Then start at the [Atet home](https://atet.sh/) and keep the source file in the project after the model runs.
-
-## Related pages
-
-- [Atet home](https://atet.sh/)
-- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
-- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians)
-- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni)
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code)
-- [Hraness](https://hraness.com)
-- [FeyNoBg on Hraness](https://hraness.com/reading/feynobg-a-sota-model-for-background-removal)
-- [FeyNoBg on Feyn](https://usefeyn.com/blog/feynobg/)
-`
-
 export const homeCanonicalUrl = "https://atet.sh/"
 export const homeMarkdownUrl = "https://atet.sh/index.md"
-export const readingGaussiansMarkdown = `# Keep the stroke decision in the renderer
-
-Dmitri Sotnikov published [Painting with Gaussians](https://yogthos.net/posts/2026-08-03-splat-painter.html) on 3 August 2026. [Hraness](https://hraness.com) collected the note. Atet is an agentic creative-coding toolkit. The transfer is the place where a mark is decided. An agent can propose marks. The stroke decision stays in a renderer you can still inspect.
-
-The essay builds a painterly image from 2D Gaussian splats. A color-aware structure tensor points each splat along a contour. A wavelet detail map spends small strokes on texture and keeps broad marks in smooth areas. Opaque underpainting covers the canvas, then translucent layers restore form. The work is classical image analysis. Sotnikov rejects randomly seeded splats optimized against a target because the process is slow, difficult to inspect, and tends to reproduce the input instead of creating convincing brushwork. The [Hraness reading](https://hraness.com/reading/painting-with-gaussians) is the collected source note.
-
-That diagnosis matters once a coding agent can sample a picture. A generated opening shot can look finished while hiding every stroke decision. You can no longer ask which edge rule kept the lettering, or which layer restored the product silhouette. The [Atet home](https://atet.sh/) asks you to name the source, the result, and the details that must remain unchanged. Those names need a renderer that still answers.
-
-## Spend marks from the photograph
-
-Sotnikov concludes that contour and texture measurements provide much of the information needed to place painted marks. The controls stay attached to those measurements. Atet’s public site keeps a similar split. Original recordings and imported images stay unchanged. Your agent chooses explicit operations. Cuts, timing, framing, overlays, and effects become a revisable project state. Previews, alternatives, and deliveries stay tied to the state that produced them. After a generation step you can still point at \`product.png\` and see what the renderer or the model changed.
-
-Graphics and motion stay in that toolkit. Atet creates editable diagrams, converts raster artwork to SVG locally, and builds deterministic animated layers with HTML, SVG, shaders, and Three.js. Those outputs can stand alone or join a video project. Atet does not ship a Gaussian painter or a splat-painter command. The transfer is the inspectable source and the controllable renderer.
-
-## Leave the sampled picture on the timeline
-
-[Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript) treats JavaScript faces as compact drawable rules. [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg) keeps a background-removal output from becoming the only file. This page is about a later habit: accepting a generated picture as the painting. If the opening-shot sample replaces \`product.png\`, the six-second clip that must keep product shape, colors, and lettering recognizable has no renderer left to retune.
-
-Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
-
-Read the essay on [yogthos.net](https://yogthos.net/posts/2026-08-03-splat-painter.html) and the collected page on [Hraness](https://hraness.com/reading/painting-with-gaussians). Then start at the [Atet home](https://atet.sh/) and keep the stroke decision in a renderer you can still tune. A later take, [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni), applies the same habit to Gemini Omni 1.1 Flash. Monday’s take, [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code), keeps the artefact as a sketch you can still revise.
-
-## Related pages
-
-- [Atet home](https://atet.sh/)
-- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
-- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
-- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni)
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code)
-- [Hraness](https://hraness.com)
-- [Painting with Gaussians on Hraness](https://hraness.com/reading/painting-with-gaussians)
-- [Painting with Gaussians on yogthos.net](https://yogthos.net/posts/2026-08-03-splat-painter.html)
-`
-
-export const readingFacesCanonicalUrl = "https://atet.sh/reading/draw-faces-with-javascript"
-export const readingFacesMarkdownUrl = "https://atet.sh/reading/draw-faces-with-javascript.md"
-export const readingFeynobgCanonicalUrl = "https://atet.sh/reading/feynobg"
-export const readingFeynobgMarkdownUrl = "https://atet.sh/reading/feynobg.md"
-export const readingGeminiOmniMarkdown = `# Control in the renderer still beats a bigger Omni prompt
-
-Anish Nangia and Alisa Fortin published [Gemini Omni 1.1 Flash lets you build with more control](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/) on the Google blog on 27 August 2026. [Hraness](https://hraness.com) collected the note on 28 August 2026. This page is an Atet reading take. It is not the Hraness Reading digest. Atet is an agentic creative-coding toolkit. The transfer is where generation knobs live after a model returns a clip.
-
-The Google post presents Omni 1.1 as a production-ready generative video update on the Gemini API. Scene extension now reads 10 seconds of prior context and continues a clip in 10-second steps up to 40 seconds. First and last frames interpolate a shot. Drafts can run at 360p, then the same job can upscale to 1080p or 4K. A prompt can also attach up to three seconds of reference video. The [Hraness reading](https://hraness.com/reading/gemini-omni-1-1-flash) is the collected source note.
-
-Those controls stay inside a general Omni model. A longer, more specific prompt can name a dolly, an orbit, or a loop. That request still ends when the file lands. You cannot ask which timeline cut kept the lettering, or which overlay restored the product silhouette. The [Atet home](https://atet.sh/) asks you to name the source, the result, and the details that must remain unchanged. Those names need knobs that still answer after generation.
-
-## Keep the clip attached to a project state
-
-Atet’s public site keeps source media, editing decisions, previews, and final outputs in storage you control. Original recordings and imported images stay unchanged. Your agent chooses explicit operations. Cuts, timing, framing, overlays, and effects become a revisable project state. After a Gateway video shot you can still point at \`product.png\` and see what the model changed. Preview and final use the same edit.
-
-Graphics and motion stay in that toolkit. Atet creates editable diagrams, converts raster artwork to SVG locally, and builds deterministic animated layers with HTML, SVG, shaders, and Three.js. Those outputs can stand alone or join a video project. Atet does not ship Gemini Omni, a scene-extension command, or a first-and-last-frame interpolator. The transfer is the inspectable source and the controllable renderer.
-
-## Leave Omni’s extra prompt on the model
-
-Thursday’s take, [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians), argued from Sotnikov’s Gaussian painter that an agent can propose marks while the stroke decision stays in a renderer you can inspect. This page starts from a different source: Google’s Omni control and API story. Extra prompt control on a general Omni model is not a replacement for that toolkit.
-
-Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
-
-Read [Gemini Omni 1.1 Flash lets you build with more control](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/) on the Google blog and the collected page on [Hraness](https://hraness.com/reading/gemini-omni-1-1-flash). Then start at the [Atet home](https://atet.sh/) and keep generation knobs in a renderer you can still tune. Monday’s take, [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code), keeps the artefact as a sketch you can still revise.
-
-## Related pages
-
-- [Atet home](https://atet.sh/)
-- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians)
-- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
-- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code)
-- [Hraness](https://hraness.com)
-- [Gemini Omni 1.1 Flash on Hraness](https://hraness.com/reading/gemini-omni-1-1-flash)
-- [Gemini Omni 1.1 Flash on the Google blog](https://blog.google/innovation-and-ai/technology/developers-tools/build-with-gemini-omni-1-1-flash/)
-`
-
-export const readingPaintWithCodeMarkdown = `# Keep the painting as code you can edit
-
-Surya Narreddi published [Training AI to Paint with Code](https://surya.website/rling-qwen-to-paint-with-code) on surya.website in March 2026. Cameron Franz and Alex Wang collaborated. [Hraness](https://hraness.com) collected the note. This page is an Atet reading take. It is not the Hraness Reading digest. Atet is an agentic creative-coding toolkit. The transfer is what you keep after a model paints: a sketch you can still edit.
-
-Narreddi writes, “When you make an image with an AI model, the only way to participate is the prompt.” He and his collaborators trained a language model with reinforcement learning to answer a watercolour prompt by writing a complete p5.brush JavaScript sketch. A sandboxed Puppeteer renderer turns that sketch into a PNG so a judge can score it. “The code is the artefact, and the code is editable.” The [Hraness reading](https://hraness.com/reading/rling-qwen-to-paint-with-code) is the collected source note.
-
-That split matters once a coding agent can return a finished picture. A sealed raster and a longer prompt both leave you in the same place: you have to go back to the model to change a petal. You cannot ask which brush call kept the lettering, or which overlay restored the product silhouette. The [Atet home](https://atet.sh/) asks you to name the source, the result, and the details that must remain unchanged. Those names need an artefact that still answers.
-
-## Keep the sketch in the project
-
-Atet’s public site keeps source media, editing decisions, previews, and final outputs in storage you control. Original recordings and imported images stay unchanged. Your agent chooses explicit operations. Cuts, timing, framing, overlays, and effects become a revisable project state. After a generation step you can still point at \`product.png\` and see what the model changed.
-
-Graphics and motion stay in that toolkit. Atet creates editable diagrams, converts raster artwork to SVG locally, and builds deterministic animated layers with HTML, SVG, shaders, and Three.js. Those outputs can stand alone or join a video project. Atet does not ship p5.brush, a paint-with-code command, or Narreddi’s training loop. The transfer is the inspectable source: code, a diagram, or a named operation you can revise.
-
-## Leave the sealed raster on the model
-
-[Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians) keeps brushwork in a tunable renderer after an agent proposes marks. [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni) keeps extra Omni prompt control on the model. This take is about the form of the artefact. If the opening-shot sample is only a PNG, the six-second clip that must keep product shape, colors, and lettering recognizable has no sketch left to edit.
-
-Narreddi reports that a 400-line p5.brush API reference produced confident, well-formatted code that invented methods. A short allowlist of eight brush methods produced visible hibiscus forms. Absolute multi-judge scores correlated and locked the model on flat clip-art flowers. Pairwise comparison against a hand-rated reference pool learned faster and compressed winning sketches under 2,000 tokens. Those results stay his. The transferable claim is smaller: if the model returns only pixels, you cannot make the same revision.
-
-Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
-
-Read [Training AI to Paint with Code](https://surya.website/rling-qwen-to-paint-with-code) on surya.website and the collected page on [Hraness](https://hraness.com/reading/rling-qwen-to-paint-with-code). Then start at the [Atet home](https://atet.sh/) and keep the painting as code you can still edit. Tuesday’s take, [Keep the design decision in the media tool](https://atet.sh/reading/how-i-design-with-ai), keeps the next revision in the project instead of a longer prompt.
-
-## Related pages
-
-- [Atet home](https://atet.sh/)
-- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians)
-- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni)
-- [Keep the design decision in the media tool](https://atet.sh/reading/how-i-design-with-ai)
-- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
-- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
-- [Hraness](https://hraness.com)
-- [Training AI to Paint with Code on Hraness](https://hraness.com/reading/rling-qwen-to-paint-with-code)
-- [Training AI to Paint with Code on surya.website](https://surya.website/rling-qwen-to-paint-with-code)
-`
-
-export const readingHowIDesignWithAiMarkdown = `# Keep the design decision in the media tool
-
-Matt Dailey, who writes as [@reactiverobot](https://x.com/reactiverobot), published [How I Design with AI](https://x.com/reactiverobot/status/2092638003789439075) on X on 26 August 2026. [Hraness](https://hraness.com) collected the note. This page is an Atet reading take. It is not the Hraness Reading digest. Atet is an agentic creative-coding toolkit. The transfer is where a design decision stays editable after an agent proposes a look.
-
-Dailey tells engineers who are not designers to keep the whole constraint set in view. The usual failure is prompt wackamole: “Make X more prominent,” then another affordance, then another patch. “You should not be iterating on design in the product.” Use a tool that gives fine control and generate a few variants. The [Hraness reading](https://hraness.com/reading/how-i-design-with-ai) is the collected source note.
-
-That split matters once a coding agent can return a finished picture or clip. A longer prompt dump and a sealed raster leave you in the same place: the next change has to go back through the model. You cannot ask which overlay kept the lettering, or which cut restored the product silhouette. The [Atet home](https://atet.sh/) asks you to name the source, the result, and the details that must remain unchanged. Those names need decisions that still live in the project.
-
-## Keep the revision in the toolkit
-
-Atet’s public site keeps source media, editing decisions, previews, and final outputs in storage you control. Original recordings and imported images stay unchanged. Your agent chooses explicit operations. Cuts, timing, framing, overlays, and effects become a revisable project state. After a generation step you can still point at \`product.png\` and see what the model changed.
-
-Graphics and motion stay in that toolkit. Atet creates editable diagrams, converts raster artwork to SVG locally, and builds deterministic animated layers with HTML, SVG, shaders, and Three.js. Those outputs can stand alone or join a video project. Atet does not ship a design-mode product, Dailey’s constraint document, or a prompt-wackamole command. The transfer is the inspectable project state: a named operation you can revise.
-
-## Leave the bigger prompt on the model
-
-[Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code) keeps the artefact as a sketch you can still revise. [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni) keeps extra Omni prompt control on the model. [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians) keeps brushwork in a tunable renderer after an agent proposes marks. This take is about the next habit: treating a longer prompt as the design process. If the opening-shot brief lives only in the prompt, the six-second clip that must keep product shape, colors, and lettering recognizable has no project decision left to edit.
-
-Preview and final use the same edit. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement. There is no Atet account or hosted project database.
-
-Read [How I Design with AI](https://x.com/reactiverobot/status/2092638003789439075) on X and the collected page on [Hraness](https://hraness.com/reading/how-i-design-with-ai). Then start at the [Atet home](https://atet.sh/) and keep the design decision in a media tool you can still revise.
-
-## Related pages
-
-- [Atet home](https://atet.sh/)
-- [Keep the painting as code you can edit](https://atet.sh/reading/paint-with-code)
-- [Control in the renderer still beats a bigger Omni prompt](https://atet.sh/reading/gemini-omni)
-- [Keep the stroke decision in the renderer](https://atet.sh/reading/painting-with-gaussians)
-- [Keep the source small enough to vary](https://atet.sh/reading/draw-faces-with-javascript)
-- [Keep the cutout from replacing the source](https://atet.sh/reading/feynobg)
-- [Hraness](https://hraness.com)
-- [How I Design with AI on Hraness](https://hraness.com/reading/how-i-design-with-ai)
-- [How I Design with AI on X](https://x.com/reactiverobot/status/2092638003789439075)
-`
-
-export const readingGaussiansCanonicalUrl = "https://atet.sh/reading/painting-with-gaussians"
-export const readingGaussiansMarkdownUrl = "https://atet.sh/reading/painting-with-gaussians.md"
-export const readingGeminiOmniCanonicalUrl = "https://atet.sh/reading/gemini-omni"
-export const readingGeminiOmniMarkdownUrl = "https://atet.sh/reading/gemini-omni.md"
-export const readingPaintWithCodeCanonicalUrl = "https://atet.sh/reading/paint-with-code"
-export const readingPaintWithCodeMarkdownUrl = "https://atet.sh/reading/paint-with-code.md"
-export const readingHowIDesignWithAiCanonicalUrl = "https://atet.sh/reading/how-i-design-with-ai"
-export const readingHowIDesignWithAiMarkdownUrl = "https://atet.sh/reading/how-i-design-with-ai.md"
 export const llmsTxtUrl = "https://atet.sh/llms.txt"
 export const sitemapMarkdownUrl = "https://atet.sh/sitemap.md"
 export const sitemapXmlUrl = "https://atet.sh/sitemap.xml"
