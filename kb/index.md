@@ -16,7 +16,7 @@ This vault keeps captured sources separate from maintained notes. Catalog links 
 
 ### Plans
 
-- [[plans/html-overlay-creative-toolkit|HTML overlay creative toolkit]] — Status: in-progress. Atet exposes a small, durable, mutually exclusive set of HTML-overlay authoring profiles, backed by exact executable locks and one deterministic render host. It also maintains a…
+- [[plans/html-overlay-creative-toolkit|HTML overlay creative toolkit]] — Status: completed. Atet exposes a small, durable, mutually exclusive set of HTML-overlay authoring profiles, backed by exact executable locks and one deterministic render host. It also maintains a…
 
 ### Scopes
 

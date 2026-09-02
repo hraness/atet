@@ -1,7 +1,7 @@
 ---
 type: plan
 area: html-overlay-creative-toolkit
-status: in-progress
+status: completed
 tags:
   - html-overlay
   - creative-coding
@@ -345,7 +345,7 @@ the repository's Required CI join, serialized merge, and production readback.
 
 ## Phase 6: Delivery
 
-- **Status:** In progress
+- **Status:** Done
 - **Depends on:** Phase 5
 - **Objective:** Deliver the converged exact tree through every repository gate and
   verify the merged public surface.
@@ -490,5 +490,88 @@ requires them.
   generated-build, preview-layout, and installed-package gates. Desktop reported
   1,243 passes, 16 intentional opt-in skips, and zero failures; the packed 3.2.0
   consumer verified 325 files and generated both p5 and Two.js overlay documents.
-  A final exact-tree run follows the KB convergence edit before the delivery
-  commit.
+  After the KB convergence edit, the final exact-tree `bun run check` passed the
+  same complete gate again before delivery.
+- **2026-09-02 — Merge and production:** Pull request
+  [#61](https://github.com/hraness/atet/pull/61) passed Required CI and all five
+  official VTracer targets, then merged as
+  `8471d1632387e8ff90e522682a059b212c6bdee7`. Post-merge
+  [CI](https://github.com/hraness/atet/actions/runs/33587896420) and
+  [VTracer](https://github.com/hraness/atet/actions/runs/33587896433) were green.
+  Vercel production deployment `FUoqWbWg6SDx4y2HhmoouppJvFJL` succeeded;
+  `https://atet.sh/`, `https://atet.sh/index.md`, and the merged creative-toolkit
+  guide returned HTTP 200 with the 3.2.0 surface. Their SHA-256 readbacks were
+  `e16737ad20f11873e619ab3831aef7396a233347981e1cb4fa75dffb7104cc09`,
+  `1cda03135c8cdf0fcffc95f516d0116d2f1e3f0b7a2a263c37169bf26ef6d51c`, and
+  `e321aeac7051eb6a43033906a73a06c9da42b90f39832d654c06926c60ce55d8`.
+- **2026-09-02 — npm publication:** Trusted
+  [staging run](https://github.com/hraness/atet/actions/runs/33587896415) produced
+  stage `4053394a-350b-4407-b18d-01a56de841e5`; npm's separate human security-key
+  approval promoted it publicly. Independent source-versus-registry comparison
+  proved byte-identical 3,481,382-byte archives and canonical identity across 325
+  files and 8,762,360 unpacked bytes. The public SHA-1 is
+  `93f963bf222b090e3e33fdb31a046672edbd72f5`; the public SHA-512 is
+  `3249d132d4958d18dc384508f3c45d82fa7f6e2294ac89f89ff0ba03b07dbdcef39adf67f32c628ad4904c5166ec9cbf8d75a0ebb3bb098149edf76a96424af0`.
+  A clean installed-package smoke passed through the heavy compute lane and
+  generated both p5 and Two.js scaffolds. npm `latest` resolves to 3.2.0, and the
+  SLSA attestation binds that archive to merge `8471d163` and the staging run.
+- **2026-09-02 — Immutable release:** Because unrelated pull request #62 advanced
+  `main` after staging, the annotated `v3.2.0` tag intentionally targets the exact
+  attested ancestor `8471d163`, not the newer head. The tag-triggered
+  [Release run](https://github.com/hraness/atet/actions/runs/33630775227) reran the
+  complete repository gate, exact public-package comparison, five-platform
+  VTracer matrix, and macOS desktop tests/package; every job passed. The dependent
+  publisher created [Atet v3.2.0](https://github.com/hraness/atet/releases/tag/v3.2.0)
+  as the immutable, non-draft, non-prerelease Latest release with zero assets.
+- **2026-09-02 — Final adversarial review:** Independent review found no high- or
+  medium-severity correctness, security, architecture, durability, taxonomy, or
+  Soundfish-boundary issue. The one remaining nit is test completeness: p5 and
+  Two.js cleanup is source-asserted and production browser contexts are closed,
+  but the real-browser matrix does not yet instrument `pagehide` cleanup calls.
+
+## Result
+
+Atet 3.2.0 delivers the planned seven-profile HTML-overlay toolkit: `plain`,
+`motion`, `p5`, `two`, `paper-shaders`, `three`, and `vgpu`. The runtime additions
+are the exact p5.js 2.3.2 and Two.js 0.8.24 artifacts behind deterministic manual
+frame adapters; the wider researched ecosystem remains documentation rather than
+trusted executable code. `atet html catalog [--json]` exposes the profile model,
+and packed consumers can generate and render the new starters without ambient
+network access or a weakened CSP.
+
+The delivery completed every planned gate: focused and real-browser proof, two
+converged aggregate checks, Required CI, merge, post-merge checks, production
+readback, trusted npm staging, human 2FA promotion, independent public-package
+identity and smoke verification, the cross-platform release matrix, and immutable
+GitHub Release publication. No Soundfish runtime was changed; the assessment kept
+its live editor architecture intact and selected exported score/feature data as
+the cross-product seam.
+
+Remaining risk is bounded and explicit. The ecosystem snapshot will age and must
+be refreshed from primary sources before support changes; hardware-GPU throughput
+is unmeasured; and a later browser test may instrument p5/Two `pagehide` cleanup.
+None changes current deterministic output, security, receipt compatibility, or
+release correctness.
+
+## Durable memory
+
+- Executable profile metadata and scaffold-to-library selection are maintained in
+  `apps/desktop/html-overlay/catalog.ts`; do not duplicate that mapping in CLI or
+  scaffold dispatch code.
+- Exact active and historical artifact truth is maintained in
+  `apps/desktop/html-overlay/libraries.ts`. Active locks may author new work;
+  append-only historical locks validate receipts and must not silently re-enter
+  the executable set.
+- Deterministic library lifecycle examples are maintained in
+  `apps/desktop/html-overlay/scaffolds.ts`, with the host contract and admission
+  rules explained in `docs/html-overlay-creative-toolkit.md`. Classify future
+  tools by primary authoring job, keep capabilities and asset runtimes behind
+  focused seams, and require exact CSP/offline/browser proof before admission.
+- Publication and immutable-tag sequencing remain owned by `docs/publishing.md`
+  and `.github/workflows/release.yml`: verify the public npm artifact first, then
+  tag the exact attested main ancestor and let the dependent workflow publish the
+  GitHub Release.
+- No Soundfish documentation or code was promoted because this task changed no
+  current Soundfish contract. Revisit a GPU painter only with measured physical-
+  device evidence; preserve its AudioContext clock, renderer-neutral scene,
+  Canvas 2D fallback, hit testing, and accessibility boundaries.
