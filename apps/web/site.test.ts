@@ -1094,9 +1094,135 @@ describe("static Atet site", () => {
     }
   })
 
-  test("negotiates homepage markdown and gives retired reading routes honest 404s", async () => {
+  test("negotiates homepage markdown, generic failures, and retired reading 404s", async () => {
     expect(isHomePath("/")).toBe(true)
+    expect(isHomePath("/index.html")).toBe(true)
+    expect(isPreservedRedirectPath("/docs")).toBe(true)
+    expect(isPreservedRedirectPath("/docs/install")).toBe(true)
+    expect(isPreviewPath("/preview")).toBe(true)
+    expect(isPreviewPath("/preview.html")).toBe(true)
+    expect(isPreviewPath("/preview/child")).toBe(false)
+    expect(isNegotiableDocumentPath("/missing-route")).toBe(true)
     expect(isNegotiableDocumentPath("/reading/paint-with-code")).toBe(true)
+    expect(isNegotiableDocumentPath("/llms.txt")).toBe(false)
+    expect(isNegotiableDocumentPath("/index.md")).toBe(false)
+    expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
+
+    const markdownHome = negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownHome?.status).toBe(200)
+    expect(markdownHome?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownHome?.headers.get("vary")).toBe("Accept, Accept-Encoding")
+    expect(markdownHome?.headers.get("link")).toContain('rel="canonical"')
+    expect(await markdownHome?.text()).toBe(homeMarkdown)
+
+    expect(negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "text/html" },
+    }))).toBeUndefined()
+    expect(negotiateSiteRequest(new Request("https://atet.sh/docs", {
+      headers: { Accept: "text/markdown" },
+    }))).toBeUndefined()
+
+    const markdownNotFound = negotiateSiteRequest(new Request("https://atet.sh/this-path-does-not-exist", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(markdownNotFound?.status).toBe(404)
+    expect(markdownNotFound?.headers.get("cache-control")).toBe("no-store")
+    expect(markdownNotFound?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(markdownNotFound?.headers.get("vary")).toBe("Accept, Accept-Encoding")
+    expect(markdownNotFound?.headers.get("x-robots-tag")).toBe("noindex")
+    expect(await markdownNotFound?.text()).toBe(notFoundMarkdown)
+
+    const notAcceptable = negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "application/xml" },
+    }))
+    expect(notAcceptable?.status).toBe(406)
+    expect(notAcceptable?.headers.get("content-type")).toBe("text/plain; charset=utf-8")
+    expect(notAcceptable?.headers.get("vary")).toBe("Accept")
+    expect(await notAcceptable?.text()).toBe(notAcceptableBody)
+
+    expect(negotiateSiteRequest(new Request("https://atet.sh/llms.txt", {
+      headers: { Accept: "application/xml" },
+    }))).toBeUndefined()
+
+    for (const accept of ["text/markdown", "application/xml", "text/html;q=0, */*;q=1"]) {
+      const preview = new Request("https://atet.sh/preview", {
+        headers: { Accept: accept },
+      })
+      const negotiated = negotiateSiteRequest(preview)
+      expect(negotiated?.status).toBe(406)
+      expect(negotiated?.headers.get("content-type")).toBe("text/plain; charset=utf-8")
+      expect(negotiated?.headers.get("vary")).toBe("Accept")
+      expect(await negotiated?.text()).toBe("Not Acceptable\n\nAvailable: text/html\n")
+
+      const middlewareResponse = middleware(preview)
+      expect(middlewareResponse?.status).toBe(406)
+      expect(await middlewareResponse?.text()).toBe("Not Acceptable\n\nAvailable: text/html\n")
+    }
+
+    for (const accept of ["text/html", "*/*"]) {
+      const preview = new Request("https://atet.sh/preview", {
+        headers: { Accept: accept },
+      })
+      expect(negotiateSiteRequest(preview)).toBeUndefined()
+      expect(middleware(preview)).toBeUndefined()
+    }
+
+    const headMarkdown = negotiateSiteRequest(new Request("https://atet.sh/", {
+      headers: { Accept: "text/markdown" },
+      method: "HEAD",
+    }))
+    expect(headMarkdown?.status).toBe(200)
+    expect(headMarkdown?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+    expect(await headMarkdown?.text()).toBe("")
+
+    const headNotFound = negotiateSiteRequest(new Request("https://atet.sh/missing-route", {
+      headers: { Accept: "text/markdown" },
+      method: "HEAD",
+    }))
+    expect(headNotFound?.status).toBe(404)
+    expect(await headNotFound?.text()).toBe("")
+
+    for (const path of ["/", "/preview"]) {
+      const headNotAcceptable = negotiateSiteRequest(new Request(`https://atet.sh${path}`, {
+        headers: { Accept: "application/xml" },
+        method: "HEAD",
+      }))
+      expect(headNotAcceptable?.status).toBe(406)
+      expect(headNotAcceptable?.headers.get("vary")).toBe("Accept")
+      expect(await headNotAcceptable?.text()).toBe("")
+
+      const headHtml = new Request(`https://atet.sh${path}`, {
+        headers: { Accept: "text/html" },
+        method: "HEAD",
+      })
+      expect(negotiateSiteRequest(headHtml)).toBeUndefined()
+      expect(middleware(headHtml)).toBeUndefined()
+    }
+
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      for (const path of ["/", "/missing-route", "/preview"]) {
+        for (const accept of ["text/markdown", "application/xml", "text/html"]) {
+          const url = `https://atet.sh${path}`
+          expect(negotiateSiteRequest(new Request(url, {
+            headers: { Accept: accept },
+            method,
+          }))).toBeUndefined()
+          expect(middleware(new Request(url, {
+            headers: { Accept: accept },
+            method,
+          }))).toBeUndefined()
+        }
+      }
+    }
+
+    expect(middlewareConfig.matcher).toContain("/")
+    const middlewareMarkdown = middleware(new Request("https://atet.sh/", {
+      headers: { Accept: "text/markdown" },
+    }))
+    expect(middlewareMarkdown?.status).toBe(200)
+    expect(await middlewareMarkdown?.text()).toBe(homeMarkdown)
 
     for (const slug of [
       "",
@@ -1111,7 +1237,15 @@ describe("static Atet site", () => {
         headers: { Accept: "text/markdown" },
       }))
       expect(removed?.status).toBe(404)
-      expect(removed?.headers.get("X-Robots-Tag")).toBe("noindex")
+      expect(removed?.headers.get("cache-control")).toBe("no-store")
+      expect(removed?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
+      expect(removed?.headers.get("vary")).toBe("Accept, Accept-Encoding")
+      expect(removed?.headers.get("x-robots-tag")).toBe("noindex")
+      expect(await removed?.text()).toBe(notFoundMarkdown)
+
+      expect(negotiateSiteRequest(new Request(`https://atet.sh/reading${slug === "" ? "" : `/${slug}`}`, {
+        headers: { Accept: "text/html" },
+      }))).toBeUndefined()
     }
   })
 
