@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url"
 
 import {
   HRANESS_HOME_URL,
-  HRANESS_NEWSLETTER_URL,
   hranessSocialLinks,
 } from "@hraness/site-footer"
 
@@ -634,7 +633,7 @@ describe("static Atet site", () => {
 
     expect(manifest.dependencies).toEqual({
       "@hraness/design-kit": "github:hraness/design-kit#v0.3.0",
-      "@hraness/site-footer": "github:hraness/site-footer#v0.3.1",
+      "@hraness/site-footer": "github:hraness/site-footer#v0.4.5",
       "@hraness/ui": "github:hraness/ui#v0.4.10",
       "@resvg/resvg-js": "2.6.2",
       "posthog-js": "1.413.2",
@@ -649,7 +648,7 @@ describe("static Atet site", () => {
     expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
     expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.3.0"')
     expect(localLockfile).toContain(
-      '"@hraness/site-footer": "github:hraness/site-footer#v0.3.1"',
+      '"@hraness/site-footer": "github:hraness/site-footer#v0.4.5"',
     )
     expect(localLockfile).toContain('"@hraness/ui": "github:hraness/ui#v0.4.10"')
     expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
@@ -1128,9 +1127,12 @@ describe("static Atet site", () => {
       readBuilt("index.html"),
       readBuilt("404.html"),
     ])
+    expect(hranessSocialLinks[0]).toMatchObject({
+      href: "https://substack.com/@hraness",
+      platform: "substack",
+    })
     const expectedHrefs = [
       HRANESS_HOME_URL,
-      HRANESS_NEWSLETTER_URL,
       ...hranessSocialLinks.map(({ href }) => href),
     ]
 
@@ -1139,7 +1141,7 @@ describe("static Atet site", () => {
       const footer = /<footer\b[\s\S]*?<\/footer>/u.exec(document)?.[0]
       expect(footer).toContain('data-slot="hraness-site-footer"')
       expect(footer?.match(/data-slot="hraness-mark"/gu)).toHaveLength(1)
-      expect(footer?.match(/data-slot="social-icon"/gu)).toHaveLength(10)
+      expect(footer?.match(/data-slot="social-icon"/gu)).toHaveLength(11)
       expect(
         [...(footer?.matchAll(/<a\b[^>]*\shref="([^"]+)"/gu) ?? [])]
           .map(match => match[1]),

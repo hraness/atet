@@ -280,7 +280,9 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   const commonAssets = {
     "{{APPEARANCE_MENU}}": renderAppearanceMenu(),
     "{{CSS_ASSET}}": stylesPath,
-    "{{HRANESS_SITE_FOOTER}}": renderHranessSiteFooter(),
+    "{{HRANESS_SITE_FOOTER}}": renderHranessSiteFooter({
+      mailingList: { kind: "none" },
+    }),
     "{{THEME_ASSET}}": themePath,
   } as const
   const publicPageAssets = (canonicalPath: string) => ({
