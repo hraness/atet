@@ -152,6 +152,10 @@ contain exactly `access` and `registry`, with values `public` and
 `https://registry.npmjs.org`. A scoped registry, proxy, authentication, tag,
 provenance-file, or any other packed npm configuration is forbidden because npm
 otherwise lets package metadata override its network and publication options.
+The checkout-free staging parser and source/release identity parser both require
+the exact eight-byte USTAR signature (`ustar\0` plus `00`) and npm/node-tar's
+byte-475 prefix discriminator (zero means 130 prefix bytes; nonzero means 155).
+Shared hostile fixtures keep both tar consumers behaviorally aligned.
 
 ## Stage a later version
 
@@ -186,6 +190,11 @@ otherwise lets package metadata override its network and publication options.
    version is still newer than public `latest`, and reauthorizes the exact
    protected-main workflow run, attempt, owner actor, owner triggering actor,
    workflow ID, repository ID, and source commit.
+   The history scan recognizes every attempted terminal npm mutation before it
+   considers the stage-job display name. Each such write must have exactly one
+   successful durable intent at the immediately preceding safe positive Actions
+   step number, so renaming or reordering the job cannot detach the write from
+   its retained intent.
    That job checks out no source and runs no repository code. It downloads and
    revalidates the three verified files, fetches current `main` into a new bare
    Git directory, rehashes the package, proves the matching Git tag is absent,

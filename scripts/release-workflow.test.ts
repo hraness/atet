@@ -902,7 +902,7 @@ type StageTarMutation = (tar: Buffer) => void
 async function writeStageArtifactFixture(
   root: string,
   mutation?: StageTarMutation,
-): Promise<Readonly<{ metadata: string; tarball: string }>> {
+): Promise<Readonly<{ metadata: string; registryView: string; tarball: string }>> {
   const artifactDirectory = join(root, "atet-npm-stage")
   const tarballName = "hraness-atet-3.2.0.tgz"
   const manifest = `${JSON.stringify({
@@ -920,11 +920,25 @@ async function writeStageArtifactFixture(
   const tar = packageFixtureTar(entries)
   mutation?.(tar)
   const archive = gzipSync(tar, { level: 9 })
-  const metadata = `${JSON.stringify(npmPackFixture(archive, entries))}\n`
+  const pack = npmPackFixture(archive, entries)
+  const packResult = pack[0]!
+  const metadata = `${JSON.stringify(pack)}\n`
+  const registryView = join(root, "npm-view.json")
   await mkdir(artifactDirectory, { recursive: true })
   await Promise.all([
     writeFile(join(artifactDirectory, tarballName), archive),
     writeFile(join(artifactDirectory, "npm-pack.json"), metadata),
+    writeFile(registryView, JSON.stringify({
+      dist: {
+        fileCount: packResult.entryCount,
+        integrity: packResult.integrity,
+        shasum: packResult.shasum,
+        tarball: "https://registry.npmjs.org/@hraness/atet/-/atet-3.2.0.tgz",
+        unpackedSize: packResult.unpackedSize,
+      },
+      name: "@hraness/atet",
+      version: "3.2.0",
+    })),
     writeFile(
       join(artifactDirectory, "npm-package.sha256"),
       `${createHash("sha256").update(archive).digest("hex")}  ${tarballName}\n${createHash("sha256").update(metadata).digest("hex")}  npm-pack.json\n`,
@@ -932,6 +946,7 @@ async function writeStageArtifactFixture(
   ])
   return {
     metadata: join(artifactDirectory, "npm-pack.json"),
+    registryView,
     tarball: join(artifactDirectory, tarballName),
   }
 }
@@ -1374,6 +1389,10 @@ test("a stable version builds automatically and only an owner dispatch stages th
   expect(stageJob).toContain("name: Reject unresolved stable-stage intent")
   expect(stageJob).toContain("completed npm-stage workflow runs")
   expect(stageJob).toContain("already reserved stable stage")
+  expect(stageJob).toContain("has a terminal write without one durable intent")
+  expect(stageJob).toContain(
+    "terminal write is not immediately preceded by its durable intent",
+  )
   expect(stageJob).toContain("jobs?filter=all&per_page=100")
   expect(stageJob).toContain("RESOLVED_STAGE_VERSION: ${{ inputs.resolved_stage_version }}")
   expect(stageJob).toContain("$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT")
@@ -1691,9 +1710,15 @@ exit 64
   }
 })
 
-test("the source-free stage rejects ambiguous USTAR paths and packed dist-tag overrides", async () => {
+test("both tar consumers reject hostile USTAR headers and packed dist-tag overrides", async () => {
   const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
   const script = workflowStepScript(workflow, "Rebind downloaded package")
+  const identitySource = await readFile(
+    join(import.meta.dir, "npm-package-identity.ts"),
+    "utf8",
+  )
+  expect(identitySource).toContain("header.subarray(257, 265).equals(ustarSignature)")
+  expect(identitySource).toContain("header[475] === 0 ? 130 : 155")
   const root = await mkdtemp(join(tmpdir(), "atet-stage-archive-"))
   const output = join(root, "github-output.txt")
   const environment = {
@@ -1705,30 +1730,46 @@ test("the source-free stage rejects ambiguous USTAR paths and packed dist-tag ov
   }
   const runFixture = async (
     mutation?: StageTarMutation,
-  ): Promise<Awaited<ReturnType<typeof runWorkflowScript>>> => {
+  ): Promise<Readonly<{
+    identity: Parameters<typeof verifyNpmPackageIdentity>[0]
+    stage: Awaited<ReturnType<typeof runWorkflowScript>>
+  }>> => {
     await Promise.all([
       rm(join(root, "atet-npm-stage"), { force: true, recursive: true }),
       rm(output, { force: true }),
     ])
-    await writeStageArtifactFixture(root, mutation)
-    return await runWorkflowScript(script, environment)
+    const artifact = await writeStageArtifactFixture(root, mutation)
+    return {
+      identity: {
+        expectedFilename: "hraness-atet-3.2.0.tgz",
+        expectedName: "@hraness/atet",
+        expectedVersion: "3.2.0",
+        registryArchive: artifact.tarball,
+        registryMetadata: artifact.metadata,
+        registryView: artifact.registryView,
+        sourceArchive: artifact.tarball,
+        sourceMetadata: artifact.metadata,
+      },
+      stage: await runWorkflowScript(script, environment),
+    }
   }
 
   try {
     const canonical = await runFixture()
-    if (canonical.exitCode !== 0) {
-      throw new Error(`Canonical USTAR fixture was rejected:\n${canonical.stderr}${canonical.stdout}`)
+    if (canonical.stage.exitCode !== 0) {
+      throw new Error(`Canonical USTAR fixture was rejected:\n${canonical.stage.stderr}${canonical.stage.stdout}`)
     }
+    await expect(verifyNpmPackageIdentity(canonical.identity)).resolves.toBeUndefined()
 
     const topLevelTag = await runFixture(tar => {
       replacePackedManifestText(tar, '"type":"module"', '"tag":"beta"   ')
     })
-    expect(topLevelTag.exitCode).not.toBe(0)
-    expect(topLevelTag.stderr).toContain(
+    expect(topLevelTag.stage.exitCode).not.toBe(0)
+    expect(topLevelTag.stage.stderr).toContain(
       "Packed package manifest can override the canonical npm staging boundary",
     )
 
-    for (const [label, mutation, expected] of [
+    for (const [label, mutation, expectedIdentity, expectedStage] of [
       [
         "magic",
         (tar: Buffer) => {
@@ -1737,6 +1778,7 @@ test("the source-free stage rejects ambiguous USTAR paths and packed dist-tag ov
           tar[offset + 257] = "x".charCodeAt(0)
           rewriteTarChecksum(tar, offset)
         },
+        "must use the exact USTAR signature",
         "Packed npm tar header is invalid",
       ],
       [
@@ -1748,6 +1790,7 @@ test("the source-free stage rejects ambiguous USTAR paths and packed dist-tag ov
           tar[offset + 264] = 0
           rewriteTarChecksum(tar, offset)
         },
+        "must use the exact USTAR signature",
         "Packed npm tar header is invalid",
       ],
       [
@@ -1756,6 +1799,23 @@ test("the source-free stage rejects ambiguous USTAR paths and packed dist-tag ov
           const offset = tarEntryOffset(tar, "package/package.json")
           rewriteTarPath(tar, offset, "package.json", "package/.")
         },
+        "npm package tar path is unsafe",
+        "Packed npm tar path is unsafe or non-canonical",
+      ],
+      [
+        "extended prefix",
+        (tar: Buffer) => {
+          const offset = tarEntryOffset(tar, "package/package.json")
+          const header = tar.subarray(offset, offset + 512)
+          header.fill(0, 0, 100)
+          header.fill("a".charCodeAt(0), 345, 475)
+          header.fill(0, 475, 500)
+          header.write("package/", 345, "ascii")
+          header.write("/../package", 475, "ascii")
+          header.write("package.json", 0, "ascii")
+          rewriteTarChecksum(tar, offset)
+        },
+        "npm package tar path is unsafe",
         "Packed npm tar path is unsafe or non-canonical",
       ],
       [
@@ -1764,12 +1824,14 @@ test("the source-free stage rejects ambiguous USTAR paths and packed dist-tag ov
           const offset = tarEntryOffset(tar, "package/README.md")
           rewriteTarPath(tar, offset, "package.json", "package")
         },
+        "duplicate file-directory path package/package.json",
         "Packed npm tar duplicates normalized path package.json",
       ],
     ] as const) {
       const rejected = await runFixture(mutation)
-      expect(rejected.exitCode, label).not.toBe(0)
-      expect(rejected.stderr, label).toContain(expected)
+      await expect(verifyNpmPackageIdentity(rejected.identity)).rejects.toThrow(expectedIdentity)
+      expect(rejected.stage.exitCode, label).not.toBe(0)
+      expect(rejected.stage.stderr, label).toContain(expectedStage)
     }
   } finally {
     await rm(root, { force: true, recursive: true })
@@ -1841,9 +1903,11 @@ esac
           steps: [{
             name: "Record exclusive stable-stage intent",
             conclusion: "success",
+            number: 7,
           }, {
             name: "Revalidate current main and stage exact package",
             conclusion: "failure",
+            number: 8,
           }],
         }],
       })),
@@ -1867,6 +1931,61 @@ esac
       ...environment,
       RESOLVED_STAGE_VERSION: "3.2.0",
     })).exitCode).toBe(0)
+
+    await Promise.all([
+      writeFile(runsPath, JSON.stringify({
+        total_count: 1,
+        workflow_runs: [{
+          id: 123,
+          workflow_id: 344208600,
+          event: "workflow_dispatch",
+          head_branch: "main",
+          status: "completed",
+        }],
+      })),
+      writeFile(currentJobsPath, JSON.stringify({ total_count: 0, jobs: [] })),
+      writeFile(jobsPath, JSON.stringify({
+        total_count: 1,
+        jobs: [{
+          name: "Renamed terminal npm writer",
+          conclusion: "failure",
+          steps: [{
+            name: "Record exclusive stable-stage intent",
+            conclusion: "success",
+            number: 7,
+          }, {
+            name: "Revalidate current main and stage exact package",
+            conclusion: "failure",
+            number: 8,
+          }],
+        }],
+      })),
+    ])
+    const renamedTerminalJob = await runWorkflowScript(script, environment)
+    expect(renamedTerminalJob.exitCode).not.toBe(0)
+    expect(renamedTerminalJob.stderr).toContain("lacks a version-bound stage job")
+
+    await writeFile(jobsPath, JSON.stringify({
+      total_count: 1,
+      jobs: [{
+        name: "Stage exact package v3.2.0",
+        conclusion: "failure",
+        steps: [{
+          name: "Revalidate current main and stage exact package",
+          conclusion: "failure",
+          number: 7,
+        }, {
+          name: "Record exclusive stable-stage intent",
+          conclusion: "success",
+          number: 8,
+        }],
+      }],
+    }))
+    const reversedIntent = await runWorkflowScript(script, environment)
+    expect(reversedIntent.exitCode).not.toBe(0)
+    expect(reversedIntent.stderr).toContain(
+      "terminal write is not immediately preceded by its durable intent",
+    )
   } finally {
     await rm(root, { force: true, recursive: true })
   }
@@ -2082,6 +2201,15 @@ test("version 3.2.0 publishes one Atet identity with npm install instructions", 
   expect(publishing).toContain("publish_to_npm=true")
   expect(publishing).toContain("resolved_stage_version")
   expect(normalizedPublishing).toContain("version-bound successful intent immediately before mutation")
+  expect(normalizedPublishing).toContain(
+    "recognizes every attempted terminal npm mutation before it considers the stage-job display name",
+  )
+  expect(normalizedPublishing).toContain(
+    "exactly one successful durable intent at the immediately preceding safe positive Actions step number",
+  )
+  expect(normalizedPublishing).toContain(
+    "exact eight-byte USTAR signature (`ustar\\0` plus `00`) and npm/node-tar's byte-475 prefix discriminator",
+  )
   expect(normalizedPublishing).toContain(
     "The attempt or job may have failed, been cancelled, or timed out after npm accepted the stage",
   )
