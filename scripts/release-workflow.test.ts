@@ -189,6 +189,7 @@ test("the write job reauthorizes the exact run attempt and rejects collaborator 
   const attemptPath = join(directory, "attempt.json")
   const workflowPath = join(directory, "workflow.json")
   const stageAttemptPath = join(directory, "stage-attempt.json")
+  const stageJobsPath = join(directory, "stage-jobs.json")
   const stageWorkflowPath = join(directory, "stage-workflow.json")
   const repositoryPath = join(directory, "repository.json")
   const commandLog = join(directory, "gh.log")
@@ -231,6 +232,18 @@ test("the write job reauthorizes the exact run attempt and rejects collaborator 
       private: false,
     },
   }
+  const stageJobs = {
+    total_count: 1,
+    jobs: [{
+      name: "Stage exact package v3.2.0",
+      head_sha: sourceSha,
+      conclusion: "success",
+      steps: [
+        { name: "Record exclusive stable-stage intent", conclusion: "success" },
+        { name: "Revalidate current main and stage exact package", conclusion: "success" },
+      ],
+    }],
+  }
 
   try {
     await mkdir(binaryDirectory, { recursive: true })
@@ -243,6 +256,7 @@ test("the write job reauthorizes the exact run attempt and rejects collaborator 
         'endpoint=""',
         'for argument in "$@"; do endpoint="$argument"; done',
         'case "$endpoint" in',
+        '  */actions/runs/67890/attempts/3/jobs?per_page=100) cat "$MOCK_STAGE_JOBS_JSON" ;;',
         '  */actions/runs/67890/attempts/3) cat "$MOCK_STAGE_ATTEMPT_JSON" ;;',
         '  */actions/runs/*) cat "$MOCK_ATTEMPT_JSON" ;;',
         '  */actions/workflows/344208600) cat "$MOCK_STAGE_WORKFLOW_JSON" ;;',
@@ -265,6 +279,7 @@ test("the write job reauthorizes the exact run attempt and rejects collaborator 
         state: "active",
       })),
       writeFile(stageAttemptPath, JSON.stringify(stageAttempt)),
+      writeFile(stageJobsPath, JSON.stringify(stageJobs)),
       writeFile(stageWorkflowPath, JSON.stringify({
         id: 344208600,
         name: "Stage npm package",
@@ -285,6 +300,7 @@ test("the write job reauthorizes the exact run attempt and rejects collaborator 
       MOCK_ATTEMPT_JSON: attemptPath,
       MOCK_WORKFLOW_JSON: workflowPath,
       MOCK_STAGE_ATTEMPT_JSON: stageAttemptPath,
+      MOCK_STAGE_JOBS_JSON: stageJobsPath,
       MOCK_STAGE_WORKFLOW_JSON: stageWorkflowPath,
       MOCK_REPOSITORY_JSON: repositoryPath,
       MOCK_SOURCE_SHA: sourceSha,
@@ -318,6 +334,44 @@ test("the write job reauthorizes the exact run attempt and rejects collaborator 
       "actions/runs/12345/attempts/2",
     )
 
+    for (const conclusion of ["failure", "cancelled", "timed_out"] as const) {
+      await Promise.all([
+        writeFile(stageAttemptPath, JSON.stringify({ ...stageAttempt, conclusion })),
+        writeFile(stageJobsPath, JSON.stringify({
+          ...stageJobs,
+          jobs: [{
+            ...stageJobs.jobs[0],
+            conclusion,
+            steps: [
+              { name: "Record exclusive stable-stage intent", conclusion: "success" },
+              { name: "Revalidate current main and stage exact package", conclusion },
+            ],
+          }],
+        })),
+      ])
+      const ambiguousAcceptedStage = await runWorkflowScript(script, environment)
+      expect(ambiguousAcceptedStage.exitCode).toBe(0)
+    }
+
+    await Promise.all([
+      writeFile(stageAttemptPath, JSON.stringify(stageAttempt)),
+      writeFile(stageJobsPath, JSON.stringify({
+        ...stageJobs,
+        jobs: [{
+          ...stageJobs.jobs[0],
+          steps: [
+            { name: "Revalidate current main and stage exact package", conclusion: "success" },
+            { name: "Record exclusive stable-stage intent", conclusion: "success" },
+          ],
+        }],
+      })),
+    ])
+    const misorderedIntent = await runWorkflowScript(script, environment)
+    expect(misorderedIntent.exitCode).not.toBe(0)
+    expect(misorderedIntent.stderr).toContain("lacks the exact pre-mutation intent")
+
+    await writeFile(stageJobsPath, JSON.stringify(stageJobs))
+
     await writeFile(attemptPath, JSON.stringify({
       ...attempt,
       triggering_actor: { id: 123456, type: "User" },
@@ -336,7 +390,7 @@ test("the write job reauthorizes the exact run attempt and rejects collaborator 
     const hostileStageRerun = await runWorkflowScript(script, environment)
     expect(hostileStageRerun.exitCode).not.toBe(0)
     expect(hostileStageRerun.stderr).toContain(
-      "Signed npm provenance does not resolve to the owner-authorized successful staging attempt",
+      "Signed npm provenance does not resolve to the owner-authorized staging attempt",
     )
 
     await writeFile(stageAttemptPath, JSON.stringify(stageAttempt))
@@ -637,7 +691,17 @@ test("owner-created stable tags pass the complete immutable release gate", async
   expect(workflow).toContain('EXPECTED_STAGE_WORKFLOW_ID: "344208600"')
   expect(workflow).toContain("stageAttempt.triggering_actor?.id !== actorId")
   expect(workflow).toContain('stageAttempt.status !== "completed"')
-  expect(workflow).toContain('stageAttempt.conclusion !== "success"')
+  expect(workflow).toContain('terminalConclusions.has(stageAttempt.conclusion)')
+  expect(workflow).toContain(
+    'actions/runs/$VERIFIED_STAGE_RUN_ID/attempts/$VERIFIED_STAGE_RUN_ATTEMPT/jobs?per_page=100',
+  )
+  expect(workflow).toContain('job?.name === `Stage exact package v${expectedVersion}`')
+  expect(workflow).toContain('step?.name === "Record exclusive stable-stage intent"')
+  expect(workflow).toContain(
+    'step?.name === "Revalidate current main and stage exact package"',
+  )
+  expect(workflow).toContain("mutationIndexes[0] !== intentIndexes[0] + 1")
+  expect(workflow).not.toContain('stageAttempt.conclusion !== "success"')
   expect(workflow).toContain("name: Revalidate live public npm authority")
   expect(workflow).toContain("https://registry.npmjs.org/-/package/@hraness%2Fatet/dist-tags")
   expect(workflow).toContain("Live npm latest, archive, signatures, or attestations changed")
@@ -2018,6 +2082,12 @@ test("version 3.2.0 publishes one Atet identity with npm install instructions", 
   expect(publishing).toContain("publish_to_npm=true")
   expect(publishing).toContain("resolved_stage_version")
   expect(normalizedPublishing).toContain("version-bound successful intent immediately before mutation")
+  expect(normalizedPublishing).toContain(
+    "The attempt or job may have failed, been cancelled, or timed out after npm accepted the stage",
+  )
+  expect(normalizedPublishing).toContain(
+    "cryptographically verified public artifact is the durable acceptance proof",
+  )
   expect(normalizedPublishing).toContain("trusted short-lived tokens cannot run other `npm stage` subcommands")
   expect(normalizedPublishing).toContain("checks out no source and runs no repository code")
   expect(normalizedPublishing).toContain(

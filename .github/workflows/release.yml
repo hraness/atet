@@ -358,6 +358,7 @@ jobs:
           attempt_json="$(mktemp "$RUNNER_TEMP/atet-release-attempt.XXXXXX")"
           workflow_json="$(mktemp "$RUNNER_TEMP/atet-release-workflow.XXXXXX")"
           stage_attempt_json="$(mktemp "$RUNNER_TEMP/atet-stage-attempt.XXXXXX")"
+          stage_jobs_json="$(mktemp "$RUNNER_TEMP/atet-stage-jobs.XXXXXX")"
           stage_workflow_json="$(mktemp "$RUNNER_TEMP/atet-stage-workflow.XXXXXX")"
           repository_json="$(mktemp "$RUNNER_TEMP/atet-release-repository.XXXXXX")"
           gh api --method GET \
@@ -370,12 +371,16 @@ jobs:
             "/repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_STAGE_RUN_ID/attempts/$VERIFIED_STAGE_RUN_ATTEMPT" \
             > "$stage_attempt_json"
           gh api --method GET \
+            "/repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_STAGE_RUN_ID/attempts/$VERIFIED_STAGE_RUN_ATTEMPT/jobs?per_page=100" \
+            > "$stage_jobs_json"
+          gh api --method GET \
             "/repos/$GITHUB_REPOSITORY/actions/workflows/$EXPECTED_STAGE_WORKFLOW_ID" \
             > "$stage_workflow_json"
           gh api --method GET "/repos/$GITHUB_REPOSITORY" > "$repository_json"
           ATTEMPT_JSON="$attempt_json" \
             WORKFLOW_JSON="$workflow_json" \
             STAGE_ATTEMPT_JSON="$stage_attempt_json" \
+            STAGE_JOBS_JSON="$stage_jobs_json" \
             STAGE_WORKFLOW_JSON="$stage_workflow_json" \
             REPOSITORY_JSON="$repository_json" \
             EXPECTED_ACTOR_ID="$EXPECTED_ACTOR_ID" \
@@ -385,6 +390,7 @@ jobs:
             EXPECTED_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
             EXPECTED_SHA="$GITHUB_SHA" \
             EXPECTED_TAG="$VERIFIED_TAG" \
+            EXPECTED_VERSION="${VERIFIED_TAG#v}" \
             EXPECTED_WORKFLOW_ID="$EXPECTED_WORKFLOW_ID" \
             EXPECTED_WORKFLOW_NAME="$EXPECTED_WORKFLOW_NAME" \
             EXPECTED_WORKFLOW_PATH="$EXPECTED_WORKFLOW_PATH" \
@@ -404,6 +410,7 @@ jobs:
           const attempt = JSON.parse(readFileSync(process.env.ATTEMPT_JSON, "utf8"));
           const workflow = JSON.parse(readFileSync(process.env.WORKFLOW_JSON, "utf8"));
           const stageAttempt = JSON.parse(readFileSync(process.env.STAGE_ATTEMPT_JSON, "utf8"));
+          const stageJobs = JSON.parse(readFileSync(process.env.STAGE_JOBS_JSON, "utf8"));
           const stageWorkflow = JSON.parse(readFileSync(process.env.STAGE_WORKFLOW_JSON, "utf8"));
           const repository = JSON.parse(readFileSync(process.env.REPOSITORY_JSON, "utf8"));
           const actorId = positiveInteger("EXPECTED_ACTOR_ID");
@@ -414,6 +421,8 @@ jobs:
           const stageRunId = positiveInteger("EXPECTED_STAGE_RUN_ID");
           const stageRunAttempt = positiveInteger("EXPECTED_STAGE_RUN_ATTEMPT");
           const stageWorkflowId = positiveInteger("EXPECTED_STAGE_WORKFLOW_ID");
+          const expectedVersion = process.env.EXPECTED_VERSION ?? "";
+          const terminalConclusions = new Set(["success", "failure", "cancelled", "timed_out"]);
           if (
             attempt.id !== runId
             || attempt.run_attempt !== runAttempt
@@ -452,7 +461,7 @@ jobs:
             || stageAttempt.head_branch !== process.env.EXPECTED_DEFAULT_BRANCH
             || stageAttempt.head_sha !== process.env.EXPECTED_SHA
             || stageAttempt.status !== "completed"
-            || stageAttempt.conclusion !== "success"
+            || !terminalConclusions.has(stageAttempt.conclusion)
             || stageAttempt.actor?.id !== actorId
             || stageAttempt.actor?.type !== "User"
             || stageAttempt.triggering_actor?.id !== actorId
@@ -464,7 +473,47 @@ jobs:
             || stageWorkflow.name !== process.env.EXPECTED_STAGE_WORKFLOW_NAME
             || stageWorkflow.path !== process.env.EXPECTED_STAGE_WORKFLOW_PATH
             || stageWorkflow.state !== "active"
-          ) throw new Error("Signed npm provenance does not resolve to the owner-authorized successful staging attempt");
+          ) throw new Error("Signed npm provenance does not resolve to the owner-authorized staging attempt");
+          if (
+            !/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.test(expectedVersion)
+            || !stageJobs
+            || typeof stageJobs !== "object"
+            || !Number.isSafeInteger(stageJobs.total_count)
+            || stageJobs.total_count < 0
+            || stageJobs.total_count > 100
+            || !Array.isArray(stageJobs.jobs)
+            || stageJobs.jobs.length !== stageJobs.total_count
+          ) throw new Error("Provenance-linked staging jobs are invalid or exceed the reviewed bound");
+          const matchingJobs = stageJobs.jobs.filter(job => (
+            job?.name === `Stage exact package v${expectedVersion}`
+          ));
+          if (matchingJobs.length !== 1) {
+            throw new Error("Signed npm provenance does not resolve to one version-bound staging job");
+          }
+          const stageJob = matchingJobs[0];
+          if (
+            stageJob.head_sha !== process.env.EXPECTED_SHA
+            || !terminalConclusions.has(stageJob.conclusion)
+            || !Array.isArray(stageJob.steps)
+            || stageJob.steps.length > 100
+          ) throw new Error("Provenance-linked staging job identity is invalid");
+          const intentIndexes = [];
+          const mutationIndexes = [];
+          for (const [index, step] of stageJob.steps.entries()) {
+            if (
+              step?.name === "Record exclusive stable-stage intent"
+              && step?.conclusion === "success"
+            ) intentIndexes.push(index);
+            if (
+              step?.name === "Revalidate current main and stage exact package"
+              && terminalConclusions.has(step?.conclusion)
+            ) mutationIndexes.push(index);
+          }
+          if (
+            intentIndexes.length !== 1
+            || mutationIndexes.length !== 1
+            || mutationIndexes[0] !== intentIndexes[0] + 1
+          ) throw new Error("Provenance-linked staging job lacks the exact pre-mutation intent");
           NODE
           current_tag_sha="$(gh api --method GET --jq '.sha' \
             "/repos/$GITHUB_REPOSITORY/commits/$VERIFIED_TAG")"

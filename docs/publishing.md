@@ -221,8 +221,12 @@ otherwise lets package metadata override its network and publication options.
    must name `npm-stage.yml`, `refs/heads/main`, `workflow_dispatch`, repository
    ID `1310516748`, owner ID `307125679`, the source commit, GitHub-hosted
    builder, and one signed run-attempt URL. The final write job re-reads that
-   completed successful attempt and requires owner `actor` and
-   `triggering_actor`, then re-reads canonical npm version metadata and
+   completed provenance-linked attempt and requires owner `actor` and
+   `triggering_actor`, the exact successful intent immediately before the npm
+   mutation, and the version-bound job identity. The attempt or job may have
+   failed, been cancelled, or timed out after npm accepted the stage; the
+   cryptographically verified public artifact is the durable acceptance proof.
+   The write job then re-reads canonical npm version metadata and
    `dist-tags.latest`. The live integrity, signature set, attestation URL, and
    SLSA summary must still match the cryptographically verified exact version.
    Immediately before the GitHub mutation, the publish step reads
