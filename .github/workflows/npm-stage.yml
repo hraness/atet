@@ -1,59 +1,34 @@
-name: Publish npm package
+name: Stage npm package
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
+    paths:
+      - package.json
+  workflow_dispatch:
+    inputs:
+      publish_to_npm:
+        description: Stage the verified package through npm trusted publishing
+        required: false
+        default: false
+        type: boolean
+      resolved_stage_version:
+        description: Exact cleared stage-intent version that releases the retained history lock
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: npm-publish
+  group: npm-stage
   cancel-in-progress: false
 
 jobs:
-  authorize:
-    name: Authorize owner release tag
-    permissions: {}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Verify immutable owner and public repository identity
-        env:
-          EXPECTED_ACTOR_ID: "894119"
-          EXPECTED_REPOSITORY: "hraness/atet"
-          EXPECTED_REPOSITORY_ID: "1310516748"
-          REF_PROTECTED: ${{ github.ref_protected }}
-        run: |
-          set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" != push || \
-                "$GITHUB_ACTOR_ID" != "$EXPECTED_ACTOR_ID" || \
-                "$GITHUB_REPOSITORY" != "$EXPECTED_REPOSITORY" || \
-                "$GITHUB_REPOSITORY_ID" != "$EXPECTED_REPOSITORY_ID" || \
-                "$REF_PROTECTED" != true ]]; then
-            echo "::error::Publication requires an owner-created protected release tag in the exact public repository"
-            exit 1
-          fi
-          EXPECTED_ACTOR_ID="$EXPECTED_ACTOR_ID" \
-            EXPECTED_REPOSITORY="$EXPECTED_REPOSITORY" \
-            EXPECTED_REPOSITORY_ID="$EXPECTED_REPOSITORY_ID" node <<'NODE'
-          const { readFileSync } = require("node:fs");
-          const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
-          if (
-            event.sender?.id !== Number(process.env.EXPECTED_ACTOR_ID)
-            || event.sender?.type !== "User"
-            || event.repository?.id !== Number(process.env.EXPECTED_REPOSITORY_ID)
-            || event.repository?.full_name !== process.env.EXPECTED_REPOSITORY
-            || event.repository?.visibility !== "public"
-            || event.repository?.private !== false
-            || event.repository?.default_branch !== "main"
-          ) throw new Error("Tag-push sender or public repository identity is not the immutable release authority");
-          NODE
-
   verify:
     name: Verify exact package
-    needs: authorize
     permissions:
       contents: read
     runs-on: ubuntu-24.04
@@ -61,9 +36,8 @@ jobs:
     outputs:
       artifact_name: ${{ steps.pack.outputs.artifact_name }}
       package_version: ${{ steps.pack.outputs.package_version }}
-      publish_tag: ${{ steps.identity.outputs.publish_tag }}
-      publication_required: ${{ steps.identity.outputs.publication_required }}
       source_sha: ${{ steps.identity.outputs.source_sha }}
+      stage_required: ${{ steps.identity.outputs.stage_required }}
       tarball_name: ${{ steps.pack.outputs.tarball_name }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -89,11 +63,11 @@ jobs:
         id: identity
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          REF_PROTECTED: ${{ github.ref_protected }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" != push || "$REF_PROTECTED" != true ]]; then
-            echo "::error::Publication requires a protected owner-created release tag"
+          if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
+            echo "::error::Run this workflow from $DEFAULT_BRANCH"
             exit 1
           fi
           git fetch --no-tags origin \
@@ -101,7 +75,7 @@ jobs:
           default_sha="$(git rev-parse "origin/$DEFAULT_BRANCH")"
           checked_out_sha="$(git rev-parse HEAD)"
           if [[ "$GITHUB_SHA" != "$default_sha" || "$checked_out_sha" != "$default_sha" ]]; then
-            echo "::error::Tagged workflow SHA $GITHUB_SHA is not current $DEFAULT_BRANCH HEAD $default_sha"
+            echo "::error::Workflow SHA $GITHUB_SHA is not current $DEFAULT_BRANCH HEAD $default_sha"
             exit 1
           fi
           package_name="$(node -p 'require("./package.json").name')"
@@ -110,40 +84,103 @@ jobs:
             echo "::error::Unexpected package name $package_name"
             exit 1
           fi
-          if [[ ! "$package_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-beta\.(0|[1-9][0-9]*))?$ ]]; then
-            echo "::error::Package version $package_version is not stable SemVer or a beta.<number> prerelease"
+          if [[ ! "$package_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Package version $package_version is not stable semver"
             exit 1
           fi
-          if [[ "$GITHUB_REF" != "refs/tags/v$package_version" || \
-                "$GITHUB_REF_NAME" != "v$package_version" ]]; then
-            echo "::error::Publication ref does not exactly match @hraness/atet@$package_version"
+          case "$GITHUB_EVENT_NAME" in
+            push)
+              if [[ ! "$PUSH_BEFORE" =~ ^[a-f0-9]{40}$ || \
+                    "$PUSH_BEFORE" == 0000000000000000000000000000000000000000 ]]; then
+                echo "::error::Push event does not identify the previous $DEFAULT_BRANCH commit"
+                exit 1
+              fi
+              if ! git cat-file -e "$PUSH_BEFORE^{commit}"; then
+                echo "::error::Previous $DEFAULT_BRANCH commit $PUSH_BEFORE is unavailable"
+                exit 1
+              fi
+              if ! git merge-base --is-ancestor "$PUSH_BEFORE" "$GITHUB_SHA"; then
+                echo "::error::Push event does not advance $DEFAULT_BRANCH from $PUSH_BEFORE"
+                exit 1
+              fi
+              previous_manifest="$(mktemp "$RUNNER_TEMP/atet-previous-package.XXXXXX")"
+              if ! git show "$PUSH_BEFORE:package.json" > "$previous_manifest"; then
+                echo "::error::Previous $DEFAULT_BRANCH commit has no readable package.json"
+                exit 1
+              fi
+              previous_name="$(node -e 'const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(value.name)' "$previous_manifest")"
+              previous_version="$(node -e 'const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(value.version)' "$previous_manifest")"
+              if [[ "$previous_name" != "$package_name" ]]; then
+                echo "::error::Package name changed from $previous_name to $package_name"
+                exit 1
+              fi
+              if [[ ! "$previous_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+                echo "::error::Previous package version $previous_version is not stable semver"
+                exit 1
+              fi
+              if [[ "$previous_version" == "$package_version" ]]; then
+                printf 'stage_required=false\n' >> "$GITHUB_OUTPUT"
+                echo "::notice::package.json changed without changing version $package_version; npm staging is not required"
+                exit 0
+              fi
+              PREVIOUS_VERSION="$previous_version" PACKAGE_VERSION="$package_version" node -e '
+                const pattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
+                const parse = (value) => pattern.exec(value).slice(1).map(BigInt);
+                const previous = parse(process.env.PREVIOUS_VERSION);
+                const next = parse(process.env.PACKAGE_VERSION);
+                const comparison = next[0] === previous[0]
+                  ? next[1] === previous[1]
+                    ? next[2] === previous[2]
+                      ? 0
+                      : next[2] > previous[2] ? 1 : -1
+                    : next[1] > previous[1] ? 1 : -1
+                  : next[0] > previous[0] ? 1 : -1;
+                if (comparison <= 0) {
+                  console.error(`::error::Package version ${process.env.PACKAGE_VERSION} must be newer than ${process.env.PREVIOUS_VERSION}`);
+                  process.exit(1);
+                }
+              '
+              ;;
+            workflow_dispatch)
+              ;;
+            *)
+              echo "::error::Unsupported npm staging event $GITHUB_EVENT_NAME"
+              exit 1
+              ;;
+          esac
+          printf 'stage_required=true\n' >> "$GITHUB_OUTPUT"
+          if git rev-parse --verify --quiet "refs/tags/v$package_version" >/dev/null; then
+            echo "::error::Create v$package_version only after npm delivery is verified"
             exit 1
           fi
-          release_ref="refs/npm-publish-tags/$GITHUB_REF_NAME"
-          git fetch --no-tags origin "refs/tags/$GITHUB_REF_NAME:$release_ref"
-          if [[ "$(git cat-file -t "$release_ref")" != tag || \
-                "$(git rev-parse "$release_ref^{commit}")" != "$GITHUB_SHA" ]]; then
-            echo "::error::Publication requires the exact annotated release tag"
-            exit 1
-          fi
-          publish_tag=latest
-          if [[ "$package_version" == *-beta.* ]]; then
-            publish_tag=beta
-          fi
-          printf 'publish_tag=%s\n' "$publish_tag" >> "$GITHUB_OUTPUT"
-          printf 'publication_required=true\n' >> "$GITHUB_OUTPUT"
           npm view "$package_name" name --json \
+            --@hraness:registry=https://registry.npmjs.org \
             --registry=https://registry.npmjs.org >/dev/null
+          set +e
+          registry_result="$(npm view "$package_name@$package_version" version --json \
+            --@hraness:registry=https://registry.npmjs.org \
+            --registry=https://registry.npmjs.org 2>&1)"
+          registry_status=$?
+          set -e
+          if [[ $registry_status -eq 0 ]]; then
+            echo "::error::$package_name@$package_version already exists"
+            exit 1
+          fi
+          if [[ "$registry_result" != *E404* ]]; then
+            printf '%s\n' "$registry_result"
+            echo "::error::Could not prove that $package_name@$package_version is unused"
+            exit 1
+          fi
           printf 'source_sha=%s\n' "$default_sha" >> "$GITHUB_OUTPUT"
       - name: Install FFmpeg
-        if: steps.identity.outputs.publication_required == 'true'
+        if: steps.identity.outputs.stage_required == 'true'
         run: bash scripts/install-ci-ffmpeg.sh
-      - if: steps.identity.outputs.publication_required == 'true'
+      - if: steps.identity.outputs.stage_required == 'true'
         run: bun install --frozen-lockfile --ignore-scripts
-      - if: steps.identity.outputs.publication_required == 'true'
+      - if: steps.identity.outputs.stage_required == 'true'
         run: bun run check
       - name: Verify clean source tree
-        if: steps.identity.outputs.publication_required == 'true'
+        if: steps.identity.outputs.stage_required == 'true'
         run: |
           set -euo pipefail
           source_status="$(git status --porcelain --untracked-files=all)"
@@ -152,7 +189,7 @@ jobs:
             exit 1
           fi
       - name: Pack and verify the exact artifact
-        if: steps.identity.outputs.publication_required == 'true'
+        if: steps.identity.outputs.stage_required == 'true'
         id: pack
         run: |
           set -euo pipefail
@@ -172,7 +209,7 @@ jobs:
             if (typeof filename !== "string" || typeof version !== "string") process.exit(1);
             process.stdout.write(`${filename}\t${version}\n`);
           ' "$metadata")
-          if [[ ! "$package_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-beta\.(0|[1-9][0-9]*))?$ || \
+          if [[ ! "$package_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ || \
                 "$archive_name" != "hraness-atet-$package_version.tgz" ]]; then
             echo "::error::npm pack returned an unsafe filename or version"
             exit 1
@@ -208,7 +245,7 @@ jobs:
             "$artifact_directory" "$artifact_name" "$package_version" "$archive_name" \
             >> "$GITHUB_OUTPUT"
       - name: Upload reviewed package
-        if: steps.identity.outputs.publication_required == 'true'
+        if: steps.identity.outputs.stage_required == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ steps.pack.outputs.artifact_name }}
@@ -217,17 +254,112 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  publish:
-    name: Publish exact package
+  stage:
+    name: Stage exact package v${{ needs.verify.outputs.package_version }}
     needs: verify
-    if: needs.verify.outputs.publication_required == 'true'
+    if: needs.verify.outputs.stage_required == 'true' && inputs.publish_to_npm == true
     environment:
       name: npm-stage
     permissions:
+      actions: read
       id-token: write
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      - name: Reauthorize exact staging attempt
+        env:
+          EXPECTED_ACTOR_ID: "894119"
+          EXPECTED_REPOSITORY: "hraness/atet"
+          EXPECTED_REPOSITORY_ID: "1310516748"
+          EXPECTED_SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+          EXPECTED_WORKFLOW_ID: "344208600"
+          EXPECTED_WORKFLOW_NAME: "Stage npm package"
+          EXPECTED_WORKFLOW_PATH: ".github/workflows/npm-stage.yml"
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH_TO_NPM: ${{ inputs.publish_to_npm }}
+          REF_PROTECTED: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          if [[ "$PUBLISH_TO_NPM" != true || \
+                "$GITHUB_EVENT_NAME" != workflow_dispatch || \
+                "$GITHUB_ACTOR_ID" != "$EXPECTED_ACTOR_ID" || \
+                "$GITHUB_REPOSITORY" != "$EXPECTED_REPOSITORY" || \
+                "$GITHUB_REPOSITORY_ID" != "$EXPECTED_REPOSITORY_ID" || \
+                "$GITHUB_REF" != refs/heads/main || \
+                "$GITHUB_SHA" != "$EXPECTED_SOURCE_SHA" || \
+                "$REF_PROTECTED" != true || \
+                ! "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ || \
+                ! "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::npm staging requires the owner-authorized exact protected-main dispatch"
+            exit 1
+          fi
+          attempt_json="$(mktemp "$RUNNER_TEMP/atet-stage-attempt.XXXXXX")"
+          workflow_json="$(mktemp "$RUNNER_TEMP/atet-stage-workflow.XXXXXX")"
+          repository_json="$(mktemp "$RUNNER_TEMP/atet-stage-repository.XXXXXX")"
+          gh api --method GET \
+            "/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" \
+            > "$attempt_json"
+          gh api --method GET \
+            "/repos/$GITHUB_REPOSITORY/actions/workflows/$EXPECTED_WORKFLOW_ID" \
+            > "$workflow_json"
+          gh api --method GET "/repos/$GITHUB_REPOSITORY" > "$repository_json"
+          ATTEMPT_JSON="$attempt_json" \
+            WORKFLOW_JSON="$workflow_json" \
+            REPOSITORY_JSON="$repository_json" \
+            EXPECTED_ACTOR_ID="$EXPECTED_ACTOR_ID" \
+            EXPECTED_REPOSITORY="$EXPECTED_REPOSITORY" \
+            EXPECTED_REPOSITORY_ID="$EXPECTED_REPOSITORY_ID" \
+            EXPECTED_RUN_ID="$GITHUB_RUN_ID" \
+            EXPECTED_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
+            EXPECTED_SHA="$EXPECTED_SOURCE_SHA" \
+            EXPECTED_WORKFLOW_ID="$EXPECTED_WORKFLOW_ID" \
+            EXPECTED_WORKFLOW_NAME="$EXPECTED_WORKFLOW_NAME" \
+            EXPECTED_WORKFLOW_PATH="$EXPECTED_WORKFLOW_PATH" node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const positiveInteger = (name) => {
+            const value = process.env[name] ?? "";
+            if (!/^[1-9][0-9]*$/u.test(value)) throw new Error(`Invalid ${name}`);
+            const number = Number(value);
+            if (!Number.isSafeInteger(number)) throw new Error(`Unsafe ${name}`);
+            return number;
+          };
+          const attempt = JSON.parse(readFileSync(process.env.ATTEMPT_JSON, "utf8"));
+          const workflow = JSON.parse(readFileSync(process.env.WORKFLOW_JSON, "utf8"));
+          const repository = JSON.parse(readFileSync(process.env.REPOSITORY_JSON, "utf8"));
+          const actorId = positiveInteger("EXPECTED_ACTOR_ID");
+          const repositoryId = positiveInteger("EXPECTED_REPOSITORY_ID");
+          const runId = positiveInteger("EXPECTED_RUN_ID");
+          const runAttempt = positiveInteger("EXPECTED_RUN_ATTEMPT");
+          const workflowId = positiveInteger("EXPECTED_WORKFLOW_ID");
+          if (
+            attempt.id !== runId
+            || attempt.run_attempt !== runAttempt
+            || attempt.workflow_id !== workflowId
+            || attempt.name !== process.env.EXPECTED_WORKFLOW_NAME
+            || attempt.path !== process.env.EXPECTED_WORKFLOW_PATH
+            || attempt.event !== "workflow_dispatch"
+            || attempt.head_branch !== "main"
+            || attempt.head_sha !== process.env.EXPECTED_SHA
+            || attempt.status !== "in_progress"
+            || attempt.conclusion !== null
+            || attempt.actor?.id !== actorId
+            || attempt.actor?.type !== "User"
+            || attempt.triggering_actor?.id !== actorId
+            || attempt.triggering_actor?.type !== "User"
+            || attempt.repository?.id !== repositoryId
+            || attempt.repository?.full_name !== process.env.EXPECTED_REPOSITORY
+            || attempt.repository?.private !== false
+            || workflow.id !== workflowId
+            || workflow.name !== process.env.EXPECTED_WORKFLOW_NAME
+            || workflow.path !== process.env.EXPECTED_WORKFLOW_PATH
+            || workflow.state !== "active"
+            || repository.id !== repositoryId
+            || repository.full_name !== process.env.EXPECTED_REPOSITORY
+            || repository.visibility !== "public"
+            || repository.private !== false
+            || repository.default_branch !== "main"
+          ) throw new Error("Current npm staging attempt is not owner-authorized for the exact public workflow");
+          NODE
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
@@ -240,6 +372,218 @@ jobs:
             --registry=https://registry.npmjs.org
           [[ "$(npm --version)" == "11.19.0" ]]
           [[ "$(node --version)" == v24.* ]]
+      - name: Reject unresolved stable-stage intent
+        env:
+          EXPECTED_VERSION: ${{ needs.verify.outputs.package_version }}
+          EXPECTED_WORKFLOW_ID: "344208600"
+          GH_TOKEN: ${{ github.token }}
+          RESOLVED_STAGE_VERSION: ${{ inputs.resolved_stage_version }}
+        run: |
+          set -euo pipefail
+          history_npm_directory="$(mktemp -d "$RUNNER_TEMP/atet-stage-history-npm.XXXXXX")"
+          history_user_config="$(mktemp "$RUNNER_TEMP/atet-stage-history-user.XXXXXX")"
+          history_global_config="$(mktemp "$RUNNER_TEMP/atet-stage-history-global.XXXXXX")"
+          chmod 700 "$history_npm_directory"
+          chmod 600 "$history_user_config" "$history_global_config"
+          cd "$history_npm_directory"
+          HISTORY_USER_CONFIG="$history_user_config" \
+            HISTORY_GLOBAL_CONFIG="$history_global_config" node <<'NODE'
+          const { spawnSync } = require("node:child_process");
+          const expectedName = "@hraness/atet";
+          const expectedVersion = process.env.EXPECTED_VERSION ?? "";
+          const workflowId = process.env.EXPECTED_WORKFLOW_ID ?? "";
+          const repository = process.env.GITHUB_REPOSITORY ?? "";
+          const currentRunId = process.env.GITHUB_RUN_ID ?? "";
+          const resolvedStageVersion = process.env.RESOLVED_STAGE_VERSION ?? "";
+          const userConfig = process.env.HISTORY_USER_CONFIG ?? "";
+          const globalConfig = process.env.HISTORY_GLOBAL_CONFIG ?? "";
+          const maximum = BigInt(Number.MAX_SAFE_INTEGER);
+          const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
+          const parseVersion = (value, label) => {
+            const match = versionPattern.exec(value);
+            if (match === null) throw new Error(`${label} is not a stable semantic version`);
+            const parts = match.slice(1).map(BigInt);
+            if (parts.some(part => part > maximum)) {
+              throw new Error(`${label} exceeds Number.MAX_SAFE_INTEGER`);
+            }
+            return parts;
+          };
+          const compare = (left, right) => {
+            for (let index = 0; index < 3; index += 1) {
+              if (left[index] !== right[index]) return left[index] > right[index] ? 1 : -1;
+            }
+            return 0;
+          };
+          const execute = (command, args, label) => {
+            const result = spawnSync(command, args, {
+              encoding: "utf8",
+              maxBuffer: 10 * 1024 * 1024,
+            });
+            if (result.status !== 0 || result.error) throw new Error(`Could not read ${label}`);
+            return result.stdout;
+          };
+          const workflowNumber = Number(workflowId);
+          const currentRunNumber = Number(currentRunId);
+          if (
+            !/^[1-9][0-9]*$/u.test(workflowId)
+            || !/^[1-9][0-9]*$/u.test(currentRunId)
+            || !Number.isSafeInteger(workflowNumber)
+            || !Number.isSafeInteger(currentRunNumber)
+            || repository !== "hraness/atet"
+            || userConfig === ""
+            || globalConfig === ""
+          ) throw new Error("Stable-stage history identity is invalid");
+          const current = parseVersion(expectedVersion, "Candidate version");
+          const resolved = resolvedStageVersion === ""
+            ? null
+            : parseVersion(resolvedStageVersion, "Resolved prior stage version");
+          const latestValue = JSON.parse(execute("npm", [
+            "view",
+            expectedName,
+            "dist-tags.latest",
+            "--json",
+            `--globalconfig=${globalConfig}`,
+            "--registry=https://registry.npmjs.org",
+            `--userconfig=${userConfig}`,
+          ], "npm latest"));
+          if (typeof latestValue !== "string") throw new Error("npm latest is not a version string");
+          const latest = parseVersion(latestValue, "npm latest");
+          if (compare(current, latest) <= 0) {
+            throw new Error(`Candidate ${expectedVersion} is not newer than npm latest ${latestValue}`);
+          }
+          const intentRuns = new Map();
+          const resolutionCounts = new Map();
+          const increment = (map, version) => map.set(version, (map.get(version) ?? 0) + 1);
+          const inspectRunJobs = (runId) => {
+            const jobsPayload = JSON.parse(execute("gh", [
+              "api",
+              "--method", "GET",
+              `/repos/${repository}/actions/runs/${runId}/jobs?filter=all&per_page=100`,
+            ], `jobs for npm-stage run ${runId}`));
+            if (
+              !jobsPayload
+              || typeof jobsPayload !== "object"
+              || !Number.isSafeInteger(jobsPayload.total_count)
+              || jobsPayload.total_count < 0
+              || jobsPayload.total_count > 100
+              || !Array.isArray(jobsPayload.jobs)
+              || jobsPayload.jobs.length !== jobsPayload.total_count
+            ) throw new Error(`npm-stage run ${runId} exceeds the reviewed 100-job bound`);
+            for (const job of jobsPayload.jobs) {
+              if (
+                !job
+                || typeof job !== "object"
+                || typeof job.name !== "string"
+                || !Array.isArray(job.steps)
+                || job.steps.length > 100
+              ) throw new Error(`npm-stage run ${runId} contains an invalid job`);
+              if (!job.name.startsWith("Stage exact package")) continue;
+              const intents = job.steps.filter(step => (
+                step?.name === "Record exclusive stable-stage intent"
+                && step?.conclusion === "success"
+              ));
+              const resolutions = job.steps.filter(step => (
+                typeof step?.name === "string"
+                && step.name.startsWith("Record cleared stable-stage intent")
+                && step?.conclusion === "success"
+              ));
+              if (intents.length > 1) {
+                throw new Error(`npm-stage run ${runId} has ambiguous successful intent steps`);
+              }
+              if (resolutions.length > 1) {
+                throw new Error(`npm-stage run ${runId} has ambiguous successful resolution steps`);
+              }
+              if (intents.length === 0 && resolutions.length === 0) continue;
+              const match = /^Stage exact package v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/u.exec(job.name);
+              if (match === null) {
+                throw new Error(`npm-stage run ${runId} lacks a version-bound stage job`);
+              }
+              if (intents.length === 1) {
+                const stagedVersion = match[1];
+                parseVersion(stagedVersion, `Staged version from run ${runId}`);
+                const runs = intentRuns.get(stagedVersion) ?? [];
+                runs.push(runId);
+                intentRuns.set(stagedVersion, runs);
+              }
+              if (resolutions.length === 1) {
+                const resolutionMatch = /^Record cleared stable-stage intent v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/u.exec(resolutions[0].name);
+                if (resolutionMatch === null) {
+                  throw new Error(`npm-stage run ${runId} has an invalid cleared-intent identity`);
+                }
+                parseVersion(resolutionMatch[1], `Cleared version from run ${runId}`);
+                increment(resolutionCounts, resolutionMatch[1]);
+              }
+            }
+          };
+          // A rerun changes the current run back to in_progress, so it drops out
+          // of the completed-runs query. Inspect all attempts of this run
+          // explicitly before scanning earlier completed dispatches.
+          inspectRunJobs(currentRunNumber);
+          const runsPayload = JSON.parse(execute("gh", [
+            "api",
+            "--method", "GET",
+            `/repos/${repository}/actions/workflows/${workflowId}/runs?event=workflow_dispatch&status=completed&branch=main&per_page=100`,
+          ], "completed npm-stage workflow runs"));
+          if (
+            !runsPayload
+            || typeof runsPayload !== "object"
+            || !Number.isSafeInteger(runsPayload.total_count)
+            || runsPayload.total_count < 0
+            || runsPayload.total_count > 100
+            || !Array.isArray(runsPayload.workflow_runs)
+            || runsPayload.workflow_runs.length !== runsPayload.total_count
+          ) throw new Error("Completed npm-stage history exceeds the reviewed 100-run bound");
+          for (const run of runsPayload.workflow_runs) {
+            if (
+              !run
+              || typeof run !== "object"
+              || !Number.isSafeInteger(run.id)
+              || run.id <= 0
+              || String(run.id) === currentRunId
+              || run.workflow_id !== workflowNumber
+              || run.event !== "workflow_dispatch"
+              || run.head_branch !== "main"
+              || run.status !== "completed"
+            ) throw new Error("Completed npm-stage history contains an invalid run");
+            inspectRunJobs(run.id);
+          }
+          for (const [version, count] of resolutionCounts) {
+            if (count > (intentRuns.get(version)?.length ?? 0)) {
+              throw new Error(`Retained history has a cleared ${version} intent without its matching reservation`);
+            }
+          }
+          if (resolved !== null) {
+            const reservations = intentRuns.get(resolvedStageVersion)?.length ?? 0;
+            const resolutions = resolutionCounts.get(resolvedStageVersion) ?? 0;
+            if (
+              reservations <= resolutions
+              || compare(resolved, latest) <= 0
+              || compare(resolved, current) > 0
+            ) {
+              throw new Error(`Resolved prior stage ${resolvedStageVersion} does not identify a blocking intent`);
+            }
+            increment(resolutionCounts, resolvedStageVersion);
+          }
+          for (const [version, runs] of intentRuns) {
+            const outstanding = runs.length - (resolutionCounts.get(version) ?? 0);
+            if (outstanding > 0 && compare(parseVersion(version, "Reserved stage"), latest) > 0) {
+              throw new Error(
+                `Refusing to stage ${expectedVersion}: run ${runs[runs.length - 1]} already reserved stable stage ${version}`,
+              );
+            }
+          }
+          NODE
+      - name: Record cleared stable-stage intent v${{ inputs.resolved_stage_version }}
+        if: inputs.resolved_stage_version != ''
+        env:
+          RESOLVED_STAGE_VERSION: ${{ inputs.resolved_stage_version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RESOLVED_STAGE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Cleared stable-stage intent identity is invalid"
+            exit 1
+          fi
+          echo "Recorded the cleared retained-history intent for @hraness/atet@$RESOLVED_STAGE_VERSION"
       - name: Bind artifact reference
         env:
           ARTIFACT_NAME: ${{ needs.verify.outputs.artifact_name }}
@@ -248,7 +592,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ ! "$EXPECTED_SOURCE_SHA" =~ ^[a-f0-9]{40}$ || \
-                ! "$EXPECTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-beta\.(0|[1-9][0-9]*))?$ ]]; then
+                ! "$EXPECTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "::error::Verified package identity is invalid"
             exit 1
           fi
@@ -261,7 +605,7 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: ${{ needs.verify.outputs.artifact_name }}
-          path: ${{ runner.temp }}/atet-npm-publish
+          path: ${{ runner.temp }}/atet-npm-stage
       - name: Rebind downloaded package
         id: artifact
         env:
@@ -270,15 +614,15 @@ jobs:
           EXPECTED_VERSION: ${{ needs.verify.outputs.package_version }}
         run: |
           set -euo pipefail
-          artifact_directory="$RUNNER_TEMP/atet-npm-publish"
+          artifact_directory="$RUNNER_TEMP/atet-npm-stage"
           metadata="$artifact_directory/npm-pack.json"
           digest="$artifact_directory/npm-package.sha256"
           if [[ ! "$EXPECTED_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]; then
             echo "::error::Verified source commit is invalid"
             exit 1
           fi
-          if [[ ! "$EXPECTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-beta\.(0|[1-9][0-9]*))?$ ]]; then
-            echo "::error::Verified package version is not stable SemVer or a beta.<number> prerelease"
+          if [[ ! "$EXPECTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Verified package version is not stable semver"
             exit 1
           fi
           expected_tarball_name="hraness-atet-$EXPECTED_VERSION.tgz"
@@ -313,6 +657,8 @@ jobs:
             TARBALL="$tarball" node > "$rebound_output" <<'NODE'
           const { createHash } = require("node:crypto");
           const { readFileSync, statSync } = require("node:fs");
+          const { posix } = require("node:path");
+          const { gunzipSync } = require("node:zlib");
 
           const maximumFiles = 350;
           const maximumMetadataBytes = 1_000_000;
@@ -343,9 +689,7 @@ jobs:
 
           const archiveBytes = readFileSync(tarball);
           const metadataBytes = readFileSync(metadata);
-          const digestBytes = readFileSync(digest);
-          const digestSha256 = createHash("sha256").update(digestBytes).digest("hex");
-          const digestText = new TextDecoder("utf-8", { fatal: true }).decode(digestBytes);
+          const digestText = readFileSync(digest, "utf8");
           const archiveSha256 = createHash("sha256").update(archiveBytes).digest("hex");
           const metadataSha256 = createHash("sha256").update(metadataBytes).digest("hex");
           const digestLines = digestText.split("\n");
@@ -382,7 +726,7 @@ jobs:
           if (record.version !== expectedVersion || record.filename !== expectedFilename) {
             throw new Error("npm-pack.json has the wrong version or tarball filename");
           }
-          if (!/^hraness-atet-(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-beta\.(0|[1-9][0-9]*))?\.tgz$/u.test(record.filename)) {
+          if (!/^hraness-atet-(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.tgz$/u.test(record.filename)) {
             throw new Error("npm-pack.json has an unsafe tarball filename");
           }
           for (const [field, maximum] of [
@@ -466,153 +810,336 @@ jobs:
           if (record.integrity !== integrity || record.shasum !== shasum) {
             throw new Error("Downloaded tarball differs from npm-pack.json SHA-1 or SHA-512");
           }
-          process.stdout.write(`${archiveSha256} ${metadataSha256} ${digestSha256}\n`);
+
+          // npm 11.19.0 reads a tarball package through pacote and node-tar,
+          // whose USTAR header decoder recognizes the exact eight-byte
+          // `ustar\0` + `00` signature before joining prefix and name. Keep
+          // this source-free boundary on the same path interpretation and
+          // reject every extension format instead of accepting a second
+          // archive dialect that could identify a different package.json.
+          const tar = gunzipSync(archiveBytes, {
+            maxOutputLength: maximumUnpackedBytes + maximumFiles * 1_024 + 1_024,
+          });
+          const tarText = (header, start, length, label) => {
+            const field = header.subarray(start, start + length);
+            const zero = field.indexOf(0);
+            const selected = zero < 0 ? field : field.subarray(0, zero);
+            if (zero >= 0 && field.subarray(zero).some(byte => byte !== 0)) {
+              throw new Error(`Packed npm tar ${label} has data after its terminator`);
+            }
+            return new TextDecoder("utf-8", { fatal: true }).decode(selected);
+          };
+          const tarOctal = (header, start, length, label) => {
+            const field = header.subarray(start, start + length);
+            if (field.some(byte => byte > 0x7f)) {
+              throw new Error(`Packed npm tar has a non-ASCII ${label}`);
+            }
+            const zero = field.indexOf(0);
+            const selected = zero < 0 ? field : field.subarray(0, zero);
+            if (
+              zero >= 0
+              && field.subarray(zero).some(byte => byte !== 0 && byte !== 0x20)
+            ) {
+              throw new Error(`Packed npm tar ${label} has invalid trailing data`);
+            }
+            const text = selected.toString("ascii").trim();
+            if (!/^[0-7]+$/u.test(text)) {
+              throw new Error(`Packed npm tar has an invalid ${label}`);
+            }
+            const value = Number.parseInt(text, 8);
+            if (!Number.isSafeInteger(value) || value < 0) {
+              throw new Error(`Packed npm tar has an unsafe ${label}`);
+            }
+            return value;
+          };
+          const ustarSignature = Buffer.from([
+            0x75, 0x73, 0x74, 0x61, 0x72, 0x00, 0x30, 0x30,
+          ]);
+          const archiveFiles = new Map();
+          let manifestBytes;
+          let offset = 0;
+          let zeroBlocks = 0;
+          let entries = 0;
+          while (offset < tar.length) {
+            if (tar.length - offset < 512) {
+              throw new Error("Packed npm tar header is truncated");
+            }
+            const header = tar.subarray(offset, offset + 512);
+            offset += 512;
+            if (header.every(byte => byte === 0)) {
+              zeroBlocks += 1;
+              if (zeroBlocks === 2) {
+                if (tar.subarray(offset).some(byte => byte !== 0)) {
+                  throw new Error("Packed npm tar has trailing data");
+                }
+                break;
+              }
+              continue;
+            }
+            if (zeroBlocks !== 0) {
+              throw new Error("Packed npm tar terminator is invalid");
+            }
+            const expectedChecksum = tarOctal(header, 148, 8, "checksum");
+            let checksum = 0;
+            for (let index = 0; index < header.length; index += 1) {
+              checksum += index >= 148 && index < 156 ? 0x20 : header[index];
+            }
+            if (
+              checksum !== expectedChecksum
+              || !header.subarray(257, 265).equals(ustarSignature)
+            ) {
+              throw new Error("Packed npm tar header is invalid");
+            }
+            const name = tarText(header, 0, 100, "name");
+            const prefixLength = header[475] === 0 ? 130 : 155;
+            const prefix = tarText(header, 345, prefixLength, "prefix");
+            const rawPath = prefix === "" ? name : `${prefix}/${name}`;
+            const normalizedPath = posix.normalize(rawPath);
+            const pathParts = normalizedPath.split("/");
+            if (
+              rawPath !== normalizedPath
+              || rawPath.startsWith("/")
+              || rawPath.includes("\\")
+              || rawPath.includes("\0")
+              || pathParts[0] !== "package"
+              || pathParts.length < 2
+              || pathParts.some(part => part === "" || part === "." || part === "..")
+            ) {
+              throw new Error("Packed npm tar path is unsafe or non-canonical");
+            }
+            const packagePath = pathParts.slice(1).join("/");
+            const size = tarOctal(header, 124, 12, "size");
+            const mode = tarOctal(header, 100, 8, "mode") & 0o777;
+            const type = header[156];
+            if (type !== 0 && type !== 0x30) {
+              throw new Error("Packed npm tar contains a non-regular entry");
+            }
+            if (size > tar.length - offset) {
+              throw new Error("Packed npm tar entry is truncated");
+            }
+            const padded = Math.ceil(size / 512) * 512;
+            if (
+              padded > tar.length - offset
+              || tar.subarray(offset + size, offset + padded).some(byte => byte !== 0)
+            ) {
+              throw new Error("Packed npm tar padding is invalid");
+            }
+            if (archiveFiles.has(packagePath)) {
+              throw new Error(`Packed npm tar duplicates normalized path ${packagePath}`);
+            }
+            archiveFiles.set(packagePath, { mode, size });
+            if (packagePath === "package.json") {
+              if (manifestBytes !== undefined || size < 1 || size > 256 * 1024) {
+                throw new Error("Packed package.json is missing, duplicated, or unsafe");
+              }
+              manifestBytes = Buffer.from(tar.subarray(offset, offset + size));
+            }
+            offset += padded;
+            entries += 1;
+            if (entries > maximumFiles) {
+              throw new Error("Packed npm tar contains too many entries");
+            }
+          }
+          if (zeroBlocks !== 2 || manifestBytes === undefined) {
+            throw new Error("Packed package.json is missing");
+          }
+          if (archiveFiles.size !== paths.size) {
+            throw new Error("Packed npm tar inventory differs from npm-pack.json");
+          }
+          for (const file of record.files) {
+            const archiveFile = archiveFiles.get(file.path);
+            if (
+              archiveFile === undefined
+              || archiveFile.size !== file.size
+              || archiveFile.mode !== file.mode
+            ) {
+              throw new Error(`Packed npm tar metadata differs at ${file.path}`);
+            }
+          }
+          const manifest = JSON.parse(
+            new TextDecoder("utf-8", { fatal: true }).decode(manifestBytes),
+          );
+          const publishConfig = manifest?.publishConfig;
+          const publishKeys = publishConfig !== null
+            && typeof publishConfig === "object"
+            && !Array.isArray(publishConfig)
+              ? Object.keys(publishConfig).sort()
+              : [];
+          if (
+            manifest === null
+            || typeof manifest !== "object"
+            || Array.isArray(manifest)
+            || manifest.name !== expectedName
+            || manifest.version !== expectedVersion
+            || manifest.private === true
+            || manifest.contentPolicy?.class !== "dual-use"
+            || Object.prototype.hasOwnProperty.call(manifest, "tag")
+            || JSON.stringify(publishKeys) !== JSON.stringify(["access", "registry"])
+            || publishConfig.access !== "public"
+            || publishConfig.registry !== "https://registry.npmjs.org"
+          ) {
+            throw new Error("Packed package manifest can override the canonical npm staging boundary");
+          }
+          process.stdout.write(`${archiveSha256} ${metadataSha256}\n`);
           NODE
-          read -r rebound_archive_sha256 rebound_metadata_sha256 rebound_digest_sha256 < "$rebound_output"
+          read -r rebound_archive_sha256 rebound_metadata_sha256 < "$rebound_output"
           if [[ ! "$rebound_archive_sha256" =~ ^[a-f0-9]{64}$ || \
-                ! "$rebound_metadata_sha256" =~ ^[a-f0-9]{64}$ || \
-                ! "$rebound_digest_sha256" =~ ^[a-f0-9]{64}$ ]]; then
+                ! "$rebound_metadata_sha256" =~ ^[a-f0-9]{64}$ ]]; then
             echo "::error::Could not preserve rebound package digests"
             exit 1
           fi
-          printf 'archive_sha256=%s\nmetadata_sha256=%s\ndigest_sha256=%s\n' \
-            "$rebound_archive_sha256" "$rebound_metadata_sha256" "$rebound_digest_sha256" \
+          printf 'archive_sha256=%s\nmetadata_sha256=%s\ntarball=%s\n' \
+            "$rebound_archive_sha256" "$rebound_metadata_sha256" "$tarball" \
             >> "$GITHUB_OUTPUT"
-          printf 'tarball=%s\nmetadata=%s\ndigest=%s\n' \
-            "$tarball" "$metadata" "$digest" \
-            >> "$GITHUB_OUTPUT"
-      - name: Revalidate current main, publish, and verify registry readback
+      - name: Record exclusive stable-stage intent
+        env:
+          EXPECTED_VERSION: ${{ needs.verify.outputs.package_version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$EXPECTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ || \
+                ! "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ || \
+                ! "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Stable-stage intent identity is invalid"
+            exit 1
+          fi
+          echo "Reserved the exclusive retained-history intent for @hraness/atet@$EXPECTED_VERSION"
+      - name: Revalidate current main and stage exact package
+        id: publish
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          DIGEST: ${{ steps.artifact.outputs.digest }}
           EXPECTED_ARCHIVE_SHA256: ${{ steps.artifact.outputs.archive_sha256 }}
-          EXPECTED_DIGEST_SHA256: ${{ steps.artifact.outputs.digest_sha256 }}
           EXPECTED_METADATA_SHA256: ${{ steps.artifact.outputs.metadata_sha256 }}
           EXPECTED_SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
           EXPECTED_VERSION: ${{ needs.verify.outputs.package_version }}
-          METADATA: ${{ steps.artifact.outputs.metadata }}
-          PUBLISH_TAG: ${{ needs.verify.outputs.publish_tag }}
           TARBALL: ${{ steps.artifact.outputs.tarball }}
         run: |
           set -euo pipefail
+          node -e '
+            const conflicting = Object.keys(process.env)
+              .filter(name => name.toLowerCase() === "npm_config_tag");
+            if (conflicting.length !== 0) {
+              throw new Error(`Ambient npm tag configuration is forbidden: ${conflicting.join(", ")}`);
+            }
+          '
+          clean_npm_directory="$(mktemp -d "$RUNNER_TEMP/atet-npm-stage-clean.XXXXXX")"
+          clean_user_config="$(mktemp "$RUNNER_TEMP/atet-npm-stage-user.XXXXXX")"
+          clean_global_config="$(mktemp "$RUNNER_TEMP/atet-npm-stage-global.XXXXXX")"
+          chmod 700 "$clean_npm_directory"
+          chmod 600 "$clean_user_config" "$clean_global_config"
+          if [[ "$(cd "$clean_npm_directory" && npm config get tag \
+                --userconfig="$clean_user_config" \
+                --globalconfig="$clean_global_config")" != latest ]]; then
+            echo "::error::Pinned npm's clean default publication tag is not latest"
+            exit 1
+          fi
           git check-ref-format "refs/heads/$DEFAULT_BRANCH"
-          if [[ ! "$EXPECTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-beta\.(0|[1-9][0-9]*))?$ ]]; then
-            echo "::error::Verified package version is not stable SemVer or a beta.<number> prerelease"
-            exit 1
-          fi
-          expected_publish_tag=latest
-          if [[ "$EXPECTED_VERSION" == *-beta.* ]]; then
-            expected_publish_tag=beta
-          fi
-          if [[ "$PUBLISH_TAG" != "$expected_publish_tag" ]]; then
-            echo "::error::Verified package channel $PUBLISH_TAG does not match $EXPECTED_VERSION"
-            exit 1
-          fi
           current_main="$RUNNER_TEMP/atet-current-main.git"
           git init --quiet --bare "$current_main"
           git --git-dir="$current_main" fetch --quiet --no-tags --depth=1 \
             "https://github.com/$GITHUB_REPOSITORY.git" \
             "refs/heads/$DEFAULT_BRANCH"
           current_default_sha="$(git --git-dir="$current_main" rev-parse FETCH_HEAD)"
-          if [[ "$GITHUB_REF" != "refs/tags/v$EXPECTED_VERSION" || \
+          if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" || \
                 "$GITHUB_SHA" != "$EXPECTED_SOURCE_SHA" || \
                 "$GITHUB_SHA" != "$current_default_sha" ]]; then
             echo "::error::Default branch advanced to $current_default_sha after verification; rerun this workflow"
             exit 1
           fi
           current_archive_sha256="$(sha256sum "$TARBALL" | cut -d ' ' -f 1)"
-          current_metadata_sha256="$(sha256sum "$METADATA" | cut -d ' ' -f 1)"
-          current_digest_sha256="$(sha256sum "$DIGEST" | cut -d ' ' -f 1)"
+          current_metadata_sha256="$(sha256sum "${TARBALL%/*}/npm-pack.json" | cut -d ' ' -f 1)"
           if [[ "$current_archive_sha256" != "$EXPECTED_ARCHIVE_SHA256" || \
-                "$current_metadata_sha256" != "$EXPECTED_METADATA_SHA256" || \
-                "$current_digest_sha256" != "$EXPECTED_DIGEST_SHA256" ]]; then
+                "$current_metadata_sha256" != "$EXPECTED_METADATA_SHA256" ]]; then
             echo "::error::Downloaded package changed after current-main verification"
             exit 1
           fi
-          tag_ref="refs/tags/v$EXPECTED_VERSION"
-          local_tag_ref="refs/release-request-tags/v$EXPECTED_VERSION"
-          git --git-dir="$current_main" fetch --quiet --no-tags \
-            "https://github.com/$GITHUB_REPOSITORY.git" \
-            "$tag_ref:$local_tag_ref"
-          tag_commit="$(git --git-dir="$current_main" rev-parse "$local_tag_ref^{commit}")"
-          if [[ "$tag_commit" != "$EXPECTED_SOURCE_SHA" ]]; then
-            echo "::error::Owner-created release tag identifies $tag_commit instead of $EXPECTED_SOURCE_SHA"
-            exit 1
-          fi
-          package_spec="@hraness/atet@$EXPECTED_VERSION"
-          registry_dist="$RUNNER_TEMP/atet-published-dist.json"
-          registry_tag="$RUNNER_TEMP/atet-published-tag.json"
-          version_error="$RUNNER_TEMP/atet-published-version-error.txt"
-          if npm view "$package_spec" version --json \
-              --registry=https://registry.npmjs.org >/dev/null 2>"$version_error"; then
-            echo "::notice::$package_spec is already public; verifying exact idempotent readback"
-          else
-            version_status=$?
-            if [[ "$version_status" -ne 1 ]] || ! grep -q E404 "$version_error"; then
-              cat "$version_error"
-              echo "::error::Could not determine whether $package_spec is already public"
-              exit 1
-            fi
-            npm publish "$TARBALL" \
-              --access public \
-              --ignore-scripts \
-              --provenance \
-              --tag "$PUBLISH_TAG" \
-              --registry=https://registry.npmjs.org
-          fi
-          readback_verified=false
-          for attempt in {1..12}; do
-            if npm view "$package_spec" dist --json \
-                --registry=https://registry.npmjs.org > "$registry_dist" \
-                && npm view "@hraness/atet" "dist-tags.$PUBLISH_TAG" --json \
-                  --registry=https://registry.npmjs.org > "$registry_tag" \
-                && EXPECTED_VERSION="$EXPECTED_VERSION" \
-                  METADATA="$METADATA" \
-                  PUBLISH_TAG="$PUBLISH_TAG" \
-                  REGISTRY_DIST="$registry_dist" \
-                  REGISTRY_TAG="$registry_tag" node <<'NODE'
-          const { readFileSync } = require("node:fs");
-          const expectedVersion = process.env.EXPECTED_VERSION;
-          const metadataPath = process.env.METADATA;
-          const publishTag = process.env.PUBLISH_TAG;
-          const registryDistPath = process.env.REGISTRY_DIST;
-          const registryTagPath = process.env.REGISTRY_TAG;
-          if (!expectedVersion || !metadataPath || !publishTag || !registryDistPath || !registryTagPath) {
-            throw new Error("Registry readback environment is incomplete");
-          }
-          const metadata = JSON.parse(readFileSync(metadataPath, "utf8"));
-          const expected = Array.isArray(metadata) ? metadata[0] : undefined;
-          const dist = JSON.parse(readFileSync(registryDistPath, "utf8"));
-          const observedTag = JSON.parse(readFileSync(registryTagPath, "utf8"));
-          if (!expected || typeof expected !== "object" || !dist || typeof dist !== "object") {
-            throw new Error("Registry readback metadata is invalid");
-          }
-          if (
-            dist.integrity !== expected.integrity
-            || dist.shasum !== expected.shasum
-            || dist.fileCount !== expected.entryCount
-            || dist.unpackedSize !== expected.unpackedSize
-          ) throw new Error("Registry package differs from the reviewed artifact");
-          const expectedTarball = `https://registry.npmjs.org/@hraness/atet/-/atet-${expectedVersion}.tgz`;
-          if (dist.tarball !== expectedTarball || observedTag !== expectedVersion) {
-            throw new Error(`Registry ${publishTag} channel does not identify the reviewed package`);
-          }
-          if (
-            !dist.attestations
-            || typeof dist.attestations.url !== "string"
-            || !dist.attestations.url.startsWith("https://registry.npmjs.org/-/npm/v1/attestations/")
-            || dist.attestations.provenance?.predicateType !== "https://slsa.dev/provenance/v1"
-            || !Array.isArray(dist.signatures)
-            || dist.signatures.length < 1
-          ) throw new Error("Registry readback is missing signatures or SLSA provenance");
+          latest_json="$(npm view @hraness/atet dist-tags.latest --json \
+            --@hraness:registry=https://registry.npmjs.org \
+            --globalconfig="$clean_global_config" \
+            --registry=https://registry.npmjs.org \
+            --userconfig="$clean_user_config")"
+          LATEST_JSON="$latest_json" EXPECTED_VERSION="$EXPECTED_VERSION" node <<'NODE'
+          const maximum = 9007199254740991n;
+          const pattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
+          const parse = (value, label) => {
+            const match = pattern.exec(value);
+            if (match === null) throw new Error(`${label} is not stable SemVer`);
+            const components = match.slice(1).map(BigInt);
+            if (components.some(component => component > maximum)) {
+              throw new Error(`${label} exceeds npm 11's safe SemVer component bound`);
+            }
+            return components;
+          };
+          const latestValue = JSON.parse(process.env.LATEST_JSON ?? "null");
+          if (typeof latestValue !== "string") throw new Error("npm latest is not one exact version");
+          const latest = parse(latestValue, "npm latest");
+          const candidate = parse(process.env.EXPECTED_VERSION ?? "", "staged candidate");
+          const comparison = candidate[0] === latest[0]
+            ? candidate[1] === latest[1]
+              ? candidate[2] === latest[2] ? 0 : candidate[2] > latest[2] ? 1 : -1
+              : candidate[1] > latest[1] ? 1 : -1
+            : candidate[0] > latest[0] ? 1 : -1;
+          if (comparison <= 0) throw new Error("Staged candidate must be newer than current npm latest");
           NODE
-            then
-              readback_verified=true
-              break
-            fi
-            if [[ "$attempt" -lt 12 ]]; then sleep 5; fi
-          done
-          if [[ "$readback_verified" != true ]]; then
-            echo "::error::Could not verify exact npm registry publication, channel, signatures, and provenance"
-            exit 1
-          fi
+          tag_ref="refs/tags/v$EXPECTED_VERSION"
+          tag_error="$RUNNER_TEMP/atet-current-tag-error.txt"
+          set +e
+          tag_lookup_output="$(git ls-remote --exit-code --refs \
+            "https://github.com/$GITHUB_REPOSITORY.git" "$tag_ref" 2>"$tag_error")"
+          tag_lookup_status=$?
+          set -e
+          case "$tag_lookup_status" in
+            0)
+              if [[ -z "$tag_lookup_output" ]]; then
+                echo "::error::Remote tag lookup succeeded without returning the exact tag"
+              else
+                echo "::error::Tag v$EXPECTED_VERSION exists; npm delivery must precede the Git tag"
+              fi
+              exit 1
+              ;;
+            2)
+              if [[ -n "$tag_lookup_output" ]]; then
+                echo "::error::Remote tag lookup returned an ambiguous absence result"
+                exit 1
+              fi
+              ;;
+            *)
+              cat "$tag_error"
+              echo "::error::Could not prove that tag v$EXPECTED_VERSION is absent"
+              exit 1
+              ;;
+          esac
+          stage_result="$(mktemp "$RUNNER_TEMP/atet-stage-result.XXXXXX")"
+          cd "$clean_npm_directory"
+          npm stage publish "$TARBALL" \
+            --@hraness:registry=https://registry.npmjs.org \
+            --access public \
+            --globalconfig="$clean_global_config" \
+            --ignore-scripts \
+            --json \
+            --provenance \
+            --registry=https://registry.npmjs.org \
+            --userconfig="$clean_user_config" \
+            > "$stage_result"
+          stage_id="$(STAGE_RESULT="$stage_result" EXPECTED_VERSION="$EXPECTED_VERSION" node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const output = JSON.parse(readFileSync(process.env.STAGE_RESULT, "utf8"));
+          const expectedName = "@hraness/atet";
+          const keys = output !== null && typeof output === "object" && !Array.isArray(output)
+            ? Object.keys(output)
+            : [];
+          const result = keys.length === 1 && keys[0] === expectedName
+            ? output[expectedName]
+            : null;
+          if (
+            result === null
+            || typeof result !== "object"
+            || Array.isArray(result)
+            || result.name !== expectedName
+            || result.version !== process.env.EXPECTED_VERSION
+            || typeof result.stageId !== "string"
+            || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(result.stageId)
+          ) throw new Error("npm did not return one exact staged Atet identity");
+          process.stdout.write(result.stageId);
+          NODE
+          )"
+          printf 'stage_id=%s\n' "$stage_id" >> "$GITHUB_OUTPUT"

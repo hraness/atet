@@ -1,6 +1,8 @@
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { verifyNpmPublishConfig } from "./npm-publish-policy";
+
 const EXPECTED_ACTOR_ID = 894119;
 const EXPECTED_PACKAGE = "@hraness/atet";
 const EXPECTED_REPOSITORY = "hraness/atet";
@@ -24,12 +26,13 @@ const MAXIMUM_INVENTORY_ITEMS = 100;
 const MAXIMUM_TAG_LINES = 2_000;
 const PROCESS_TIMEOUT_MS = 30_000;
 const SHA = /^[0-9a-f]{40}$/u;
-const VERSION = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-beta\.(0|[1-9][0-9]*))?$/u;
+const MAXIMUM_SEMVER_COMPONENT = 9007199254740991n;
+const VERSION = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
+const HISTORICAL_TAG_VERSION = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-beta\.(0|[1-9][0-9]*))?$/u;
 
 type JsonRecord = Record<string, unknown>;
 
 export type ReleaseVersion = Readonly<{
-  beta: bigint | null;
   parts: readonly [bigint, bigint, bigint];
   tag: string;
   version: string;
@@ -53,7 +56,7 @@ function positiveInteger(value: unknown): value is number {
 export function parseReleaseVersion(value: string): ReleaseVersion {
   const match = VERSION.exec(value);
   if (match === null) {
-    throw new Error(`Release version ${value} is not canonical stable or beta.<number> SemVer.`);
+    throw new Error(`Release version ${value} is not canonical stable SemVer.`);
   }
   const major = match[1];
   const minor = match[2];
@@ -61,9 +64,12 @@ export function parseReleaseVersion(value: string): ReleaseVersion {
   if (major === undefined || minor === undefined || patch === undefined) {
     throw new Error("Release version parser lost a required SemVer component.");
   }
+  const parts = Object.freeze([BigInt(major), BigInt(minor), BigInt(patch)]) as readonly [bigint, bigint, bigint];
+  if (parts.some(component => component > MAXIMUM_SEMVER_COMPONENT)) {
+    throw new Error(`Release version ${value} exceeds npm 11's safe SemVer component bound.`);
+  }
   return Object.freeze({
-    beta: match[4] === undefined ? null : BigInt(match[4]),
-    parts: Object.freeze([BigInt(major), BigInt(minor), BigInt(patch)]) as readonly [bigint, bigint, bigint],
+    parts,
     tag: `v${value}`,
     version: value,
   });
@@ -75,10 +81,7 @@ export function compareReleaseVersions(left: ReleaseVersion, right: ReleaseVersi
     const rightPart = right.parts[index]!;
     if (leftPart !== rightPart) return leftPart > rightPart ? 1 : -1;
   }
-  if (left.beta === null && right.beta === null) return 0;
-  if (left.beta === null) return 1;
-  if (right.beta === null) return -1;
-  return left.beta === right.beta ? 0 : left.beta > right.beta ? 1 : -1;
+  return 0;
 }
 
 export function admitOwner(value: unknown): void {
@@ -124,8 +127,8 @@ export function admitReleaseEnvironment(environmentValue: unknown, policiesValue
     || policies.branch_policies.length !== 1
   ) throw new Error(`${RELEASE_ENVIRONMENT} must admit exactly one deployment policy.`);
   const policy = record(policies.branch_policies[0], "npm release deployment policy entry");
-  if (policy.name !== "v*" || policy.type !== "tag") {
-    throw new Error(`${RELEASE_ENVIRONMENT} must admit only the v* tag policy.`);
+  if (policy.name !== DEFAULT_BRANCH || policy.type !== "branch") {
+    throw new Error(`${RELEASE_ENVIRONMENT} must admit only the selected ${DEFAULT_BRANCH} branch.`);
   }
 }
 
@@ -207,6 +210,16 @@ export function admitRemoteRoutes(fetchOutput: string, pushOutput: string): void
     || !EXPECTED_REMOTE_URLS.has(fetchUrls[0] ?? "")
     || !EXPECTED_REMOTE_URLS.has(pushUrls[0] ?? "")
   ) throw new Error(`Origin fetch and push routing must each name only canonical ${EXPECTED_REPOSITORY}.`);
+}
+
+export function admitPublishedNpmVersion(value: unknown, expectedVersion: string): void {
+  const receipt = record(value, "public npm release receipt");
+  const distTags = record(receipt["dist-tags"], "public npm dist-tags receipt");
+  if (
+    receipt.name !== EXPECTED_PACKAGE
+    || receipt.version !== expectedVersion
+    || distTags.latest !== expectedVersion
+  ) throw new Error(`Public npm latest must identify ${EXPECTED_PACKAGE}@${expectedVersion} before tag creation.`);
 }
 
 export function admitProtectedBranch(value: unknown, expectedSha: string): void {
@@ -330,7 +343,9 @@ export function admitRemoteReleaseTags(
     const tag = match[2];
     const suffix = match[3];
     if (sha === undefined || tag === undefined) throw new Error("Remote tag inventory lost a ref component.");
-    parseReleaseVersion(tag.slice(1));
+    if (!HISTORICAL_TAG_VERSION.test(tag.slice(1))) {
+      throw new Error(`Remote tag inventory contains unsupported release tag ${tag}.`);
+    }
     const current = tags.get(tag) ?? {};
     const field = suffix === undefined ? "object" : "peeled";
     if (current[field] !== undefined) throw new Error(`Remote tag inventory repeats ${tag}${suffix ?? ""}.`);
@@ -350,8 +365,8 @@ export function admitRemoteReleaseTags(
     return "same-annotated-commit";
   }
   const relevant = [...tags.keys()]
-    .map((tag) => parseReleaseVersion(tag.slice(1)))
-    .filter((candidate) => expected.beta !== null || candidate.beta === null);
+    .filter(tag => VERSION.test(tag.slice(1)))
+    .map((tag) => parseReleaseVersion(tag.slice(1)));
   const blocker = relevant.find((candidate) => compareReleaseVersions(expected, candidate) <= 0);
   if (blocker !== undefined) {
     throw new Error(`${expected.tag} must increase monotonically beyond ${blocker.tag}.`);
@@ -478,7 +493,7 @@ async function requireLocalTag(root: string, tag: string, sha: string, message: 
 async function main(): Promise<void> {
   const [versionArgument, ...extraArguments] = Bun.argv.slice(2);
   if (versionArgument === undefined || extraArguments.length !== 0) {
-    throw new Error("Usage: bun run ./scripts/push-npm-release-tag.ts <stable-or-beta-version>");
+    throw new Error("Usage: bun run ./scripts/push-npm-release-tag.ts <stable-version>");
   }
   const release = parseReleaseVersion(versionArgument);
   const root = realpathSync(resolve(import.meta.dir, ".."));
@@ -509,6 +524,7 @@ async function main(): Promise<void> {
   if (packageJson.name !== EXPECTED_PACKAGE || packageJson.version !== release.version) {
     throw new Error(`Requested version must exactly match ${EXPECTED_PACKAGE} in package.json.`);
   }
+  verifyNpmPublishConfig(packageJson.publishConfig);
 
   admitOwner(await jsonCommand(["gh", "api", "user"], root, "Verify GitHub authentication"));
   admitRepository(
@@ -574,6 +590,17 @@ async function main(): Promise<void> {
     "Read exact CI attempt jobs",
   );
   const jobId = admitCiRequiredJob(jobs, run, sha);
+  admitPublishedNpmVersion(
+    await jsonCommand(
+      [
+        "npm", "view", `${EXPECTED_PACKAGE}@${release.version}`, "name", "version", "dist-tags", "--json",
+        "--@hraness:registry=https://registry.npmjs.org", "--registry=https://registry.npmjs.org",
+      ],
+      root,
+      "Verify public npm latest",
+    ),
+    release.version,
+  );
 
   const firstAdmission = admitRemoteReleaseTags(await remoteTagInventory(root), release.version, sha);
   if (firstAdmission === "same-annotated-commit") {

@@ -22,6 +22,8 @@ import {
   sep,
 } from "node:path";
 
+import { verifyNpmPublishManifest } from "./npm-publish-policy";
+
 const packageName = "@hraness/atet";
 const importSpecifiers = [
   packageName,
@@ -372,13 +374,7 @@ async function verifyPackedRuntimeClosure(
   if (contentPolicy.class !== "dual-use") {
     throw new Error("packed package.json must retain contentPolicy.class=dual-use.");
   }
-  const publishConfig = record(manifest.publishConfig, "package.json publishConfig");
-  if (
-    publishConfig.access !== "public"
-    || publishConfig.registry !== "https://registry.npmjs.org"
-  ) {
-    throw new Error("packed package.json must publish publicly through the canonical npm registry.");
-  }
+  verifyNpmPublishManifest(manifest);
   const [sourceDisclosure, packedDisclosure] = await Promise.all([
     readFile(join(process.cwd(), "DISCLOSURE")),
     readFile(join(packageRoot, "DISCLOSURE")),
