@@ -1,15 +1,15 @@
 # Publish Atet
 
-Atet uses an interactive first npm publication and stage-only trusted
-publishing for later versions. npm cannot stage a package name that does not
-exist, and npm's dual-use policy requires two-factor authentication at the
-interactive publish or staged-promotion boundary.
+Atet used an interactive first npm publication and now uses direct OIDC trusted
+publishing for every later version. The bootstrap remains here only as history;
+routine beta and stable releases need no maintainer npm session, one-time
+password, staging approval, or long-lived publishing token.
 
 ## Bootstrap the npm package
 
 This section records the one-time `3.1.1` bootstrap. Do not reuse the
 interactive path for a later release; follow
-[Stage a later version](#stage-a-later-version) instead. The bootstrap started
+[Publish a later version](#publish-a-later-version) instead. The bootstrap started
 from the checked `main` commit with Node 24,
 npm 11.19.0, and Bun 1.3.14. The signed-in npm maintainer had publish access
 to the `hraness` organization and two-factor authentication enabled. The
@@ -107,22 +107,39 @@ matching Git tag was created only after the public package was verified.
 ## Configure trusted publishing
 
 After `@hraness/atet` exists, configure one GitHub Actions trusted publisher in
-the npm package settings with this exact identity:
+the npm package settings with this exact identity. If a staged-publishing
+connection already exists, delete and recreate it once because npm does not let
+a trusted publisher's workflow, environment, or allowed action be edited in
+place:
 
 - organization or owner: `hraness`
 - repository: `atet`
 - workflow filename: `npm-stage.yml`
-- allowed action: `npm stage publish` only
-- environment: `npm-stage`
+- allowed action: direct `npm publish` (`--allow-publish`)
+- environment: `npm-stage` (`--environment npm-stage`)
 
-Create a GitHub environment named `npm-stage`. Restrict its deployment branches
-to the selected branch `main`, configure no required deployment reviewers, and
-add no environment secret. After the read-only verification job succeeds, the
-dependent staging job must start automatically. This GitHub environment binds
-the trusted-publisher identity and branch without adding a separate human gate;
-staging does not make the package public. Only the minimal staging job may
+Do not grant `--allow-stage` or any staged-publishing permission. Create a
+GitHub environment named `npm-stage`, disable administrator bypass, and use
+custom deployment policies rather than protected-branch admission. Its sole
+protection rule must be `branch_policy`, with no required deployment reviewers;
+its sole deployment policy must be tag pattern `v*`. Add no environment secret.
+After the read-only verification job succeeds, the
+dependent publishing job must start automatically. This GitHub environment binds
+the trusted-publisher identity and tag without adding a separate human gate;
+only the minimal publishing job may
 reference this environment or request an OIDC token. The npm trusted-publisher
 environment must match `npm-stage` exactly.
+
+GitHub Actions may retain read-and-write workflow permissions for the stable
+Release job's narrowly declared `contents: write` permission. No workflow gets
+`contents: write` authority to create a tag or `actions: write` authority to
+dispatch another workflow. In particular, never give the generic GitHub Actions
+integration a release-tag ruleset bypass: repository branch workflows can
+request a write-capable `GITHUB_TOKEN`.
+
+Enable immutable releases in the repository settings before the first stable
+OIDC release. The Release workflow requires GitHub's immutable readback; it does
+not emulate immutability in workflow code.
 
 Set package publishing access to **Require two-factor authentication and
 disallow tokens**. Remove traditional publishing tokens. Do not add an npm
@@ -132,56 +149,98 @@ root `DISCLOSURE` in every version.
 The trusted workflow's only registry mutation is equivalent to:
 
 ```sh
-npm stage publish <reviewed-tarball> \
+npm publish <reviewed-tarball> \
   --access public \
   --ignore-scripts \
   --provenance \
+  --tag <latest-or-beta> \
   --registry=https://registry.npmjs.org
 ```
 
-## Stage a later version
+## Publish a later version
 
-1. Merge one new stable version to `main`. A push that changes `package.json`
-   starts **Stage npm package** automatically. Its read-only verification job
-   repeats the complete gate before it can hand an artifact to the OIDC job. A
-   `package.json` edit that leaves the stable version unchanged exits
-   successfully without building, uploading, or staging a package.
-2. Let the automatic workflow verify and stage the package. The dependent OIDC
-   job starts without GitHub deployment approval. It checks out no source and
+1. Merge one unique, strictly increasing version to `main`. Stable versions use
+   `M.m.p`; beta versions use `M.m.p-beta.N`, with an increasing numeric `N`.
+   An agent operating under the repository's standing release authorization
+   then runs the checked local tag command from a clean current `main` checkout:
+
+   ```sh
+   bun run ./scripts/push-npm-release-tag.ts <exact-version>
+   ```
+
+   The command uses only already-available `gh` and Git credentials; it never
+   reads or prints a token. Before its first mutation it requires authenticated
+   immutable owner `User` ID `894119`, public repository ID `1310516748`, the
+   exact active **Release tag creation** and **Immutable version tags** rulesets,
+   and a
+   live `npm-stage` environment with administrator bypass disabled and only
+   the `v*` tag deployment policy, a clean exact protected current `main`,
+   matching package identity, the exact
+   active `.github/workflows/ci.yml`, its sole successful `push` run for that
+   commit and exact attempt, and that attempt's successful **Required** job. It
+   reads a bounded remote-tag inventory twice, enforces monotonic stable or beta
+   SemVer, refuses conflicting or inherited local refs, creates one annotated
+   `v<version>` tag, and pushes only that exact ref. If the same annotated remote
+   tag already identifies the same commit, the command reports idempotent proof
+   and does nothing. Missing authentication or ambiguous evidence fails closed.
+2. The protected tag push starts **Publish npm package** and, for stable tags,
+   **Release**. Each workflow first binds the push actor and event sender to
+   owner `User` ID `894119`, the immutable public repository ID, and a protected
+   tag before checkout. The dependent OIDC job is bound to the exact
+   `npm-stage` environment and starts without GitHub deployment approval. It
+   checks out no source and
    runs no repository code. It downloads and revalidates the three verified
-   files, fetches the current default-branch head into a new bare Git directory,
-   rehashes the package, proves the matching Git tag is still absent, and only
-   then runs the exact stage-only command. If the workflow fails because `main`
-   advanced or a transient dependency was unavailable, dispatch **Stage npm
-   package** from the current `main` HEAD to recover through the same checks.
-   Automatic and manual runs both reject a tag, another branch, a stale commit,
-   an existing version, or a branch that advances before staging. A
-   push-triggered version must also increase strictly from the preceding `main`
-   version.
+   files, fetches the current default-branch head and owner-created tag into a
+   new bare Git directory, rehashes the package, proves the exact tag commit,
+   publishes the exact tarball directly, and polls until registry integrity,
+   inventory, channel, signatures, and SLSA provenance match. Stable versions
+   publish with `--tag latest`; beta versions publish with `--tag beta`. Never use
+   `npm dist-tag` promotion: a beta promoted to stable is a new stable version
+   and a new exact publication. If the workflow fails because `main`
+   advanced before the tag was created, update to current `main` and rerun the
+   local command. If a tag-bound workflow later fails transiently, rerun that
+   exact workflow run; never dispatch it against another ref or move the tag.
 3. Review the uniquely named artifact from the read-only verification job. It
    contains exactly the tarball, `npm-pack.json`, and `npm-package.sha256`.
    Confirm the source commit, version, inventory, sizes, SHA-1, SHA-512
    integrity, independent SHA-256 digests, dual-use declaration, and
    disclosure.
-4. Inspect the staged package with
-   `npm stage view <stage-id> --registry=https://registry.npmjs.org` and
-   download it with
-   `npm stage download <stage-id> --registry=https://registry.npmjs.org` when
-   an independent local inspection is required.
-5. Approve the exact stage with
-   `npm stage approve <stage-id> --registry=https://registry.npmjs.org` or
-   npmjs.com and complete two-factor authentication. This mandatory npm
-   approval is the only human approval in the pipeline and is the action that
-   makes the staged package public.
-6. Download and verify the public registry artifact in a clean consumer.
-7. Create and push the matching `v<version>` tag on the same `main` commit. The
-   tag workflow verifies npm delivery before it creates the immutable GitHub
-   Release.
+4. If npm accepted the package but registry readback timed out, verify the exact
+   version and intended channel instead of rerunning publication. Published npm
+   versions are immutable and must never be reused.
+5. For a stable version, the parallel Release workflow waits for exact npm
+   readback, then independently rechecks the protected annotated tag, npm
+   delivery, source, and official VTracer matrix before it creates the immutable
+   GitHub Release. Beta tags do not start the Release workflow.
 
-Finish one staged version and its GitHub Release before staging the next stable
-version so human approvals cannot reorder the `latest` tag.
+Finish one stable version and its GitHub Release before publishing the next
+stable version so concurrent runs cannot reorder the `latest` channel.
+
+## Protect npm release tags without a sudo prompt
+
+Create two repository rulesets matching `refs/tags/v*`. Name **Immutable
+version tags** restricts updates and deletions with an empty bypass list. Name
+**Release tag creation** restricts creation and gives only immutable owner `User` ID
+`894119` an always bypass. It grants no update or delete bypass and includes no
+administrator, repository-role, team, deploy-key, or integration actor. Never
+give GitHub Actions integration ID `15368` this bypass: any same-repository
+branch workflow could otherwise mint a release tag. Do not combine the two
+rules in one bypassable ruleset, and do not create throwaway or probe tags.
+After this one-time ruleset setup, the owner's existing local Git credential can
+push the script's exact annotated ref without routine GitHub sudo approval;
+neither the credential nor an approval is stored in the repository. Publication
+and Release require `github.ref_protected`, the exact owner/event sender and
+public repository identity, annotated-tag identity, package version, and source
+commit before any provider mutation. The local tag command reads back both exact
+active rulesets and refuses any namespace, rule, enforcement, or bypass drift.
+
+For a larger maintainer group, replace the owner-local boundary with a dedicated
+Release GitHub App only after its isolated credential and immutable installed
+App ID are configured explicitly in the script/workflow and creation ruleset.
+Do not use the generic Actions integration or trust an unconfigured/name-only
+App.
 
 See npm's documentation for [trusted
-publishing](https://docs.npmjs.com/trusted-publishers/), [staged
-publishing](https://docs.npmjs.com/staged-publishing/), and [dual-use
+publishing](https://docs.npmjs.com/trusted-publishers/), [package
+provenance](https://docs.npmjs.com/viewing-package-provenance/), and [dual-use
 content](https://docs.npmjs.com/policies/dual-use/).
