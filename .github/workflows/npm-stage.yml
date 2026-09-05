@@ -477,7 +477,6 @@ jobs:
                 || !Array.isArray(job.steps)
                 || job.steps.length > 100
               ) throw new Error(`npm-stage run ${runId} contains an invalid job`);
-              if (!job.name.startsWith("Stage exact package")) continue;
               const intents = job.steps.filter(step => (
                 step?.name === "Record exclusive stable-stage intent"
                 && step?.conclusion === "success"
@@ -487,13 +486,40 @@ jobs:
                 && step.name.startsWith("Record cleared stable-stage intent")
                 && step?.conclusion === "success"
               ));
+              const terminalWrites = job.steps.filter(step => (
+                step?.name === "Revalidate current main and stage exact package"
+                && step?.conclusion !== null
+                && step?.conclusion !== "skipped"
+              ));
               if (intents.length > 1) {
                 throw new Error(`npm-stage run ${runId} has ambiguous successful intent steps`);
               }
               if (resolutions.length > 1) {
                 throw new Error(`npm-stage run ${runId} has ambiguous successful resolution steps`);
               }
-              if (intents.length === 0 && resolutions.length === 0) continue;
+              if (terminalWrites.length > 1 || (terminalWrites.length === 1 && intents.length !== 1)) {
+                throw new Error(`npm-stage run ${runId} has a terminal write without one durable intent`);
+              }
+              if (terminalWrites.length === 1) {
+                const intentNumber = intents[0].number;
+                const terminalNumber = terminalWrites[0].number;
+                if (
+                  !Number.isSafeInteger(intentNumber)
+                  || intentNumber < 1
+                  || !Number.isSafeInteger(terminalNumber)
+                  || terminalNumber !== intentNumber + 1
+                ) {
+                  throw new Error(
+                    `npm-stage run ${runId} terminal write is not immediately preceded by its durable intent`,
+                  );
+                }
+              }
+              if (intents.length === 0 && resolutions.length === 0) {
+                if (job.name.startsWith("Stage exact package") && job.conclusion === "success") {
+                  throw new Error(`npm-stage run ${runId} has a successful stage job without a durable intent`);
+                }
+                continue;
+              }
               const match = /^Stage exact package v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/u.exec(job.name);
               if (match === null) {
                 throw new Error(`npm-stage run ${runId} lacks a version-bound stage job`);

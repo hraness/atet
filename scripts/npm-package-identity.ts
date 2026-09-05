@@ -7,6 +7,9 @@ const tarBlockBytes = 512;
 const packagePrefix = "package/";
 const maximumArchiveBytes = 3_750_000;
 const maximumTarBytes = 12_000_000;
+const ustarSignature = Buffer.from([
+  0x75, 0x73, 0x74, 0x61, 0x72, 0x00, 0x30, 0x30,
+]);
 
 interface NpmPackFile {
   readonly mode: number;
@@ -248,9 +251,19 @@ function canonicalTarEntries(compressed: Buffer, label: string): readonly Canoni
       break;
     }
     verifyTarHeaderChecksum(header, offset);
+    if (!header.subarray(257, 265).equals(ustarSignature)) {
+      throw new Error(
+        `${label} tar header at byte ${String(offset)} must use the exact USTAR signature.`,
+      );
+    }
 
     const name = readTarString(header, 0, 100, `name at byte ${String(offset)}`);
-    const prefix = readTarString(header, 345, 155, `prefix at byte ${String(offset)}`);
+    const prefix = readTarString(
+      header,
+      345,
+      header[475] === 0 ? 130 : 155,
+      `prefix at byte ${String(offset)}`,
+    );
     const rawPath = prefix.length > 0 ? `${prefix}/${name}` : name;
     const typeByte = header[156] ?? 0;
     const type = String.fromCharCode(typeByte);
