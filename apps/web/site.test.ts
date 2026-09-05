@@ -389,17 +389,42 @@ describe("static Atet site", () => {
 
   test("uses one install, examples, workflow, interfaces, and design information architecture", async () => {
     const html = await readSource("index.html")
-    const modes = ["> Install<", "> Examples<", "> Workflow<", "> Interfaces<", "> Design<"]
-    const positions = modes.map(mode => html.indexOf(mode))
+    const sections = [
+      'id="install"',
+      'id="examples"',
+      'id="workflow"',
+      'id="interfaces"',
+      'id="design"',
+      'id="questions"',
+      'id="maker"',
+    ]
+    const positions = sections.map(section => html.indexOf(section))
+    const navigation = /<nav aria-label="Primary">([\s\S]*?)<\/nav>/u.exec(html)?.[1] ?? ""
 
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
-    expect(html).toContain('<nav aria-label="Page sections" class="docs-index">')
-    expect(html.match(/class="docs-section/gu)).toHaveLength(4)
-    expect(html).toContain('data-hraness-marketing="interfaces"')
-    expect(html).toContain('data-hraness-marketing="trust"')
-    expect(html).toContain('data-hraness-marketing="questions"')
-    expect(html).toContain('data-hraness-marketing="cta"')
+    expect([...navigation.matchAll(/href="([^"]+)"/gu)].map(match => match[1])).toEqual([
+      "#examples",
+      "#workflow",
+      "#interfaces",
+      "https://github.com/hraness/atet",
+      "#install",
+    ])
+    expect(navigation).toContain('class="hraness-marketing-action" data-emphasis="primary" href="#install"')
+    expect(html).not.toContain('class="docs-index"')
+    for (const role of [
+      "pillars",
+      "install",
+      "primitives",
+      "section",
+      "interfaces",
+      "trust",
+      "questions",
+      "maker",
+      "cta",
+    ]) {
+      expect(html).toContain(`data-hraness-marketing="${role}"`)
+    }
     expect(html).not.toContain("Diátaxis")
   })
 
@@ -498,15 +523,15 @@ describe("static Atet site", () => {
     expect(notFound).toContain('<a class="skip-link" href="#main">')
     expect(notFound).toContain('<main class="route-state" id="main" tabindex="-1">')
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
-    expect(notFound).toContain('<meta name="theme-color" content="#f7f3ea" media="(prefers-color-scheme: light)">')
+    expect(notFound).toContain('<meta name="theme-color" content="#faf8f3" media="(prefers-color-scheme: light)">')
     expect(notFound).toContain('<meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">')
     expect(notFound).toContain('href="/llms.txt"')
     expect(notFound).toContain('href="/sitemap.md"')
     expect(notFound).toContain('href="/sitemap.xml"')
     expect(notFound).toContain("machine-readable site guide")
     expect(css).toContain(":where(a, button, [tabindex]):focus-visible")
-    expect(css).toContain(".docs-index")
-    expect(css).toContain(".docs-section")
+    expect(css).toContain(".topbar")
+    expect(css).toContain(".route-state")
     expect(css).not.toMatch(/\.reading-(?:article|card|index|module)/u)
     expect(css).toContain("@media (max-width: 64rem)")
     expect(css).toContain("@media (max-width: 48rem)")
@@ -539,18 +564,25 @@ describe("static Atet site", () => {
     }
   })
 
-  test("uses a restrained editorial visual system", async () => {
-    const css = await readSource("styles.css")
+  test("uses the shared premium marketing system", async () => {
+    const [css, html] = await Promise.all([readSource("styles.css"), readSource("index.html")])
 
-    expect(css).toContain('--font-display: ui-serif, "Iowan Old Style", Baskerville')
     expect(css).toContain('--font-body: "Nebula Sans", ui-sans-serif, system-ui')
     expect(css).toContain("--font-sans: var(--font-body)")
-    expect(css).toContain("--radius-control: 0.2rem")
-    expect(css).toContain("--radius-surface: 0.45rem")
-    expect(css).toContain(".atet-install")
-    expect(css).toContain(".feature-list > div")
+    expect(css).toContain("--hraness-site-accent: var(--gold)")
+    expect(css).toContain("--hraness-marketing-radius: 0.625rem")
+    expect(css).toMatch(/^:root \{[^}]*color-scheme: light;/u)
+    expect(css).toContain('html[data-theme="dark"]')
+    expect(css).not.toMatch(/--font-display|ui-serif|Baskerville|text-transform:\s*uppercase|letter-spacing:\s*0\.\d+em/u)
+    expect(css).not.toMatch(/transition|animation|@keyframes/u)
+    expect(css).toContain(".topbar")
+    expect(css).toContain(".transcript")
     expect(css).toContain(".origin-note")
     expect(css).not.toMatch(/@font-face|url\([^)]*\.woff/)
+    expect(html).toContain('<h1 class="hraness-marketing-hero__heading" id="page-title">Make and edit video with your coding agent</h1>')
+    expect(html).toContain('data-hraness-marketing="proof-frame"')
+    expect(html).toContain("Built by Ben Guo")
+    expect(html).not.toMatch(/<h1[^>]*>[^<]*(?:bounded|exact|authority|custody|immutable|inspectable|canonical|projection|receipt)/iu)
     const builtCss = await readBuilt(builtAssets.stylesPath.slice(1))
     expect(builtCss).toContain('font-family: "Nebula Sans";')
     expect(builtCss).toContain('./fonts/nebula-sans/NebulaSans-Book.woff2')
@@ -632,7 +664,7 @@ describe("static Atet site", () => {
     const localLockfile = await readFile(join(appDirectory, "bun.lock"), "utf8")
 
     expect(manifest.dependencies).toEqual({
-      "@hraness/design-kit": "github:hraness/design-kit#v0.3.0",
+      "@hraness/design-kit": "github:hraness/design-kit#v0.4.0",
       "@hraness/site-footer": "github:hraness/site-footer#v0.4.6",
       "@hraness/ui": "github:hraness/ui#v0.4.10",
       "@resvg/resvg-js": "2.6.2",
@@ -646,7 +678,7 @@ describe("static Atet site", () => {
     })
     expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
-    expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.3.0"')
+    expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.4.0"')
     expect(localLockfile).toContain(
       '"@hraness/site-footer": "github:hraness/site-footer#v0.4.6"',
     )
@@ -898,7 +930,7 @@ describe("static Atet site", () => {
     expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
     expect(stylesAsset).toContain(".hraness-site-footer {")
     expect(stylesAsset).toContain("@media (pointer: coarse)")
-    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(64_000)
+    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(72_000)
     expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
     expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
