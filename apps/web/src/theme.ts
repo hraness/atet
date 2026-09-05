@@ -4,7 +4,7 @@ import { installCopyCommands } from "./copy-command"
 
 installAppearanceMenus({
   darkThemeColor: "#0b0b0e",
-  lightThemeColor: "#f7f3ea",
+  lightThemeColor: "#faf8f3",
   storageKey: "atet.appearance",
 })
 

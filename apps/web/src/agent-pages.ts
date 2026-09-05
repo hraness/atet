@@ -1,23 +1,27 @@
-export const homeMarkdown = `# Atet
+export const homeMarkdown = `# Make and edit video with your coding agent
 
-Atet lets Codex, Claude, and other coding agents generate images, video, and voice; edit screen recordings and imported footage; add captions, graphics, and motion; and export finished videos from the files in your project.
+Atet gives your agent one local project to generate images, video, and voice, edit screen recordings and imported footage, add captions, graphics, and motion, and export finished videos. Your source files never change.
 
-Source media stays unchanged while explicit project revisions record the edit. Preview and final renders use the same timeline and composition.
+Ask your agent to record your screen while you demo the app, cut the pauses and filler words, add captions and \`logo.svg\`, and show you a preview before the final export.
 
-## Working model
+Free and open source under the MIT license. Version 3.2.0. Requires Bun 1.3.14 or newer. Recording needs macOS.
 
-One local project moves through four inspectable steps:
+## One job in four commands
 
-1. Verify the host with \`atet doctor --json\`.
-2. Inspect exact inputs, resources, and outputs with \`atet workflows show social-variants --json\`.
-3. Resolve the run before execution with \`atet workflows plan social-variants --input job.json --json\`.
-4. Stream progress and retain the exact run with \`atet workflows run social-variants --input job.json --jsonl\`.
+1. Report the recording, rendering, browser, and media tools on this machine: \`atet doctor --json\`.
+2. Read the inputs, resources, and outputs of the built-in social-variants recipe: \`atet workflows show social-variants --json\`.
+3. Resolve the whole run before anything renders: \`atet workflows plan social-variants --input job.json --json\`.
+4. Stream progress and keep the record of the run: \`atet workflows run social-variants --input job.json --jsonl\`.
 
-Atet covers four output families—images, diagrams, animated loops, and video—through four peer interfaces: Agent Skill, CLI, TypeScript SDK, and MCP. Project authority stays local. Atet is free and MIT licensed.
+Atet covers four output families (images, diagrams, animated loops, and video) through four peer interfaces: Agent Skill, CLI, TypeScript SDK, and MCP. Delivery covers 16:9, 9:16, 1:1, and 4:5 with clean and captioned cuts from one edit.
+
+- Generate: create images, video shots, voiceovers, and transcripts from text and reference media with the models available through your own Vercel AI Gateway.
+- Edit: cut pauses and filler words, reframe speakers, zoom into screen actions, and add captions, overlays, color, and audio treatment. Source media stays unchanged.
+- Deliver: preview the edit, then export clean and captioned versions in landscape, vertical, square, and portrait from the same timeline.
 
 ## Install
 
-Install the Atet Agent Skill, then install the local media tools. Atet requires Bun 1.3.14 or newer.
+Two installs: the Agent Skill teaches your agent the creative decisions, and the CLI does the work. Atet requires Bun 1.3.14 or newer.
 
 \`\`\`sh
 npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet
@@ -32,15 +36,15 @@ atet doctor
 
 Run \`atet doctor\` inside the project you want to work in. Then start a new agent session and describe the finished result, naming the source files and details that must remain unchanged.
 
-The public skills command installs the immutable v3.2.0 guide. When that command is not being used, \`atet skill install\` installs the guide shipped with your CLI for Codex by default.
+The public skills command installs the current repository release guide. When that command is not being used, \`atet skill install\` installs the guide shipped with your CLI for Codex by default.
 
 - Claude Code: \`atet skill install --target claude\`
 - Other Agent Skill readers: \`atet skill install --target agents\`
 - Only the current repository: run the install there and add \`--scope project\`
 
-## Examples
+## Ask your agent to …
 
-A useful request names the source, the result, and the details that must remain unchanged. Your agent can plan the individual commands and show you a preview before it makes the final files.
+A useful request names the source, the result, and the details that must stay the same. Your agent plans the commands and shows you a preview before it makes the final files.
 
 ### Edit a product demo
 
@@ -62,7 +66,7 @@ After it runs, your agent should show you the result and report the source, prev
 
 ## Workflow
 
-Atet brings generation, editing, motion, and export into one project that your agent can inspect and revise.
+Atet brings generation, editing, motion, and export into one project that your agent can inspect and revise. Preview and final renders use the same timeline and composition.
 
 1. Bring in what you have. Record a screen, camera, microphone, and system audio on macOS, or import existing video, audio, images, and graphics.
 2. Generate what is missing. Discover current Gateway models and create images, video shots, voiceovers, or transcripts from text and reference media.
@@ -76,26 +80,21 @@ Graphics and motion use the same toolkit. Atet also creates editable diagrams, c
 
 The same local system meets four kinds of caller:
 
-- Agent Skill: version-matched guidance for turning a creative brief into checked operations. Install it with \`npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet\`.
+- Agent Skill: version-matched guidance for turning a creative brief into the right operations. Install it with \`npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet\`.
 - CLI: human-readable commands and stable JSON for local scripts. Start with \`atet workflows list --json\`.
-- TypeScript SDK: declarative or imperative media work inside caller-owned Bun code. Import \`vectorizeImage\` from \`@hraness/atet\`.
+- TypeScript SDK: declarative or imperative media work inside your own Bun code. Import \`vectorizeImage\` from \`@hraness/atet\`.
 - MCP: a fixed set of typed operations confined to one selected root. Run \`atet mcp --root /absolute/path/to/workspace\`.
 
-## Design
+## What stays local
 
 Atet keeps source media, editing decisions, previews, and final outputs in storage you control. The agent chooses explicit operations, and the project records what those operations changed.
 
-1. Source. Original recordings and imported media stay unchanged.
-2. Project. Cuts, timing, framing, overlays, and effects become a revisable project state.
-3. Operations. Your agent chooses from checked local tools and current Gateway models.
-4. Outputs. Previews, alternatives, and deliveries remain tied to the project state that produced them.
+- Source media stays unchanged. Original recordings and imported media are never rewritten. Cuts, timing, framing, overlays, and effects are recorded as project decisions, and every alternative starts from a named project state.
+- Project state stays on your machine. There is no Atet account or hosted project database. Source, project state, previews, and final files stay in storage you control.
+- Gateway credentials stay local. Model-backed work uses your Vercel AI Gateway credential from the local process, never stores or prints it, and uploads local media only after explicit acknowledgement.
+- Operations leave receipts. Preview and final renders use the same timeline and composition, so the edit you approve is the edit that exports. Important operations keep secret-free receipts that name their inputs and outputs.
 
-- Local project. There is no Atet account or hosted project database. Source, project state, previews, and final files stay in storage you control.
-- Caller-owned AI access. Model-backed work uses your Vercel AI Gateway credential and uploads local media only after explicit acknowledgement.
-- Non-destructive revisions. Original media remains intact while alternatives and approved changes are recorded as distinct project states.
-- Reviewable results. Preview and final use the same edit, while secret-free receipts identify the inputs and implementation behind important operations.
-
-The installed Agent Skill and \`atet --help\` describe the exact tools available on the current machine. The repository documents the project model, workflow engine, security boundary, and implementation.
+The installed Agent Skill and \`atet --help\` describe the exact tools on the current machine. The repository documents the rest.
 
 - [README and agent guide](https://github.com/hraness/atet#readme)
 - [Architecture](https://github.com/hraness/atet/blob/main/docs/architecture.md)
@@ -105,13 +104,21 @@ The installed Agent Skill and \`atet --help\` describe the exact tools available
 
 ## Questions
 
-### Does the Atet website generate or edit media?
-
-No. The website explains and installs the local system. Media work runs in the caller's CLI, SDK, MCP server, or desktop host.
-
 ### Does Atet require an account or subscription?
 
-No Atet account or subscription exists. Atet is free and open source. Model-backed generation uses caller-owned Vercel AI Gateway access.
+No Atet account or subscription exists. Atet is free and open source under the MIT license. Model-backed generation uses caller-owned Vercel AI Gateway access.
+
+### What does it cost?
+
+Atet costs nothing. Editing, previews, diagrams, vectorization, and exports run on your machine. Model-backed generation goes through your own Vercel AI Gateway access, so any model usage is billed to that account, not to Atet.
+
+### Where do my Gateway credentials live?
+
+In the environment of the local CLI or SDK process. Atet does not store or print the credential, and this website never receives one. With a linked Vercel project, \`vercel env run -- <command>\` injects it for one command without writing it into the project.
+
+### Which platforms does Atet run on?
+
+macOS, Linux, and Windows with Bun 1.3.14 or newer. Screen, camera, microphone, and system-audio recording belongs to the macOS host and needs the matching operating-system permissions. \`atet doctor\` reports which tools the current machine has.
 
 ### Does Atet overwrite original media?
 
@@ -120,6 +127,18 @@ No. Original recordings and imported media stay unchanged while edits, alternati
 ### When can local media leave the machine?
 
 Only model-backed work may upload named media, and only after explicit acknowledgement. Local editing, vectorization, deterministic rendering, previews, and outputs remain local.
+
+### Does the Atet website generate or edit media?
+
+No. The website explains and installs the local system. Media work runs in the caller's CLI, SDK, MCP server, or desktop host.
+
+## Built by Ben Guo
+
+Atet is built by Ben Guo, a musician and builder, formerly a founder and engineering leader at companies including Venmo and Stripe, now building from Puerto Rico.
+
+- [hraness.com](https://hraness.com)
+- [@hraness](https://x.com/hraness)
+- [GitHub](https://github.com/hraness/atet)
 
 ## The name Atet
 
