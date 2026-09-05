@@ -1986,6 +1986,37 @@ esac
     expect(reversedIntent.stderr).toContain(
       "terminal write is not immediately preceded by its durable intent",
     )
+
+    for (const [label, intentNumber, terminalNumber] of [
+      ["missing intent step number", undefined, 8],
+      ["missing terminal step number", 7, undefined],
+      ["non-integer intent step number", 7.5, 8],
+      ["non-integer terminal step number", 7, 8.5],
+      ["zero intent step number", 0, 1],
+      ["zero terminal step number", 1, 0],
+    ] as const) {
+      await writeFile(jobsPath, JSON.stringify({
+        total_count: 1,
+        jobs: [{
+          name: "Stage exact package v3.2.0",
+          conclusion: "failure",
+          steps: [{
+            name: "Record exclusive stable-stage intent",
+            conclusion: "success",
+            number: intentNumber,
+          }, {
+            name: "Revalidate current main and stage exact package",
+            conclusion: "failure",
+            number: terminalNumber,
+          }],
+        }],
+      }))
+      const unsafeStepNumber = await runWorkflowScript(script, environment)
+      expect(unsafeStepNumber.exitCode, label).not.toBe(0)
+      expect(unsafeStepNumber.stderr, label).toContain(
+        "terminal write is not immediately preceded by its durable intent",
+      )
+    }
   } finally {
     await rm(root, { force: true, recursive: true })
   }
