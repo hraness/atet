@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+      - "!v*-beta.*"
 
 permissions:
   contents: read
@@ -13,8 +14,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  authorize:
+    name: Authorize owner release tag
+    permissions: {}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify immutable owner and public repository identity
+        env:
+          EXPECTED_ACTOR_ID: "894119"
+          EXPECTED_REPOSITORY: "hraness/atet"
+          EXPECTED_REPOSITORY_ID: "1310516748"
+          REF_PROTECTED: ${{ github.ref_protected }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" != push || \
+                "$GITHUB_ACTOR_ID" != "$EXPECTED_ACTOR_ID" || \
+                "$GITHUB_REPOSITORY" != "$EXPECTED_REPOSITORY" || \
+                "$GITHUB_REPOSITORY_ID" != "$EXPECTED_REPOSITORY_ID" || \
+                "$REF_PROTECTED" != true ]]; then
+            echo "::error::Release requires an owner-created protected tag in the exact public repository"
+            exit 1
+          fi
+          EXPECTED_ACTOR_ID="$EXPECTED_ACTOR_ID" \
+            EXPECTED_REPOSITORY="$EXPECTED_REPOSITORY" \
+            EXPECTED_REPOSITORY_ID="$EXPECTED_REPOSITORY_ID" node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
+          if (
+            event.sender?.id !== Number(process.env.EXPECTED_ACTOR_ID)
+            || event.sender?.type !== "User"
+            || event.repository?.id !== Number(process.env.EXPECTED_REPOSITORY_ID)
+            || event.repository?.full_name !== process.env.EXPECTED_REPOSITORY
+            || event.repository?.visibility !== "public"
+            || event.repository?.private !== false
+            || event.repository?.default_branch !== "main"
+          ) throw new Error("Tag-push sender or public repository identity is not the immutable release authority");
+          NODE
+
   verify:
     name: Verify
+    needs: authorize
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -43,16 +83,31 @@ jobs:
         id: identity
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REF_PROTECTED: ${{ github.ref_protected }}
         run: |
           set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" != push || "$REF_PROTECTED" != true ]]; then
+            echo "::error::Release requires a protected owner-created stable tag"
+            exit 1
+          fi
+          git fetch --no-tags origin \
+            "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
           package_version="$(bun -e 'const value = await Bun.file("package.json").json(); if (typeof value.version !== "string") process.exit(1); process.stdout.write(value.version)')"
           if [[ ! "$package_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "::error::Package version $package_version is not a stable semantic version"
             exit 1
           fi
           expected_tag="v$package_version"
-          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+          if [[ "$GITHUB_REF" != "refs/tags/$expected_tag" || \
+                "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match package version $expected_tag"
+            exit 1
+          fi
+          release_ref="refs/atet-release-tags/$expected_tag"
+          git fetch --no-tags origin "refs/tags/$expected_tag:$release_ref"
+          if [[ "$(git cat-file -t "$release_ref")" != tag || \
+                "$(git rev-parse "$release_ref^{commit}")" != "$GITHUB_SHA" ]]; then
+            echo "::error::Release requires the exact annotated release tag"
             exit 1
           fi
           if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"; then
@@ -87,6 +142,20 @@ jobs:
           registry_metadata="$registry_directory/npm-pack.json"
           registry_view="$registry_directory/npm-view.json"
           mkdir -p "$source_directory" "$registry_directory"
+          registry_ready=false
+          for registry_poll in {1..60}; do
+            published_version="$(npm view "$package_name@$package_version" version --json \
+              --registry=https://registry.npmjs.org 2>/dev/null || true)"
+            if [[ "$published_version" == "\"$package_version\"" ]]; then
+              registry_ready=true
+              break
+            fi
+            sleep 10
+          done
+          if [[ "$registry_ready" != true ]]; then
+            echo "::error::$package_name@$package_version did not become readable from npm in time"
+            exit 1
+          fi
           npm pack --ignore-scripts --json \
             --pack-destination "$source_directory" \
             --registry=https://registry.npmjs.org \
