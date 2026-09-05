@@ -22,7 +22,7 @@ import {
   sep,
 } from "node:path";
 
-import { verifyNpmPublishConfig } from "./npm-publish-policy";
+import { verifyNpmPublishManifest } from "./npm-publish-policy";
 
 const packageName = "@hraness/atet";
 const importSpecifiers = [
@@ -374,7 +374,7 @@ async function verifyPackedRuntimeClosure(
   if (contentPolicy.class !== "dual-use") {
     throw new Error("packed package.json must retain contentPolicy.class=dual-use.");
   }
-  verifyNpmPublishConfig(manifest.publishConfig);
+  verifyNpmPublishManifest(manifest);
   const [sourceDisclosure, packedDisclosure] = await Promise.all([
     readFile(join(process.cwd(), "DISCLOSURE")),
     readFile(join(packageRoot, "DISCLOSURE")),

@@ -650,6 +650,7 @@ jobs:
           if (
             manifest?.name !== "@hraness/atet"
             || manifest?.version !== process.env.EXPECTED_VERSION
+            || Object.hasOwn(manifest, "tag")
             || JSON.stringify(keys) !== JSON.stringify(["access", "registry"])
             || publishConfig.access !== "public"
             || publishConfig.registry !== "https://registry.npmjs.org"

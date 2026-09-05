@@ -140,11 +140,12 @@ npm stage publish <reviewed-tarball> \
   --registry=https://registry.npmjs.org
 ```
 
-The packed `publishConfig` must contain exactly `access` and `registry`, with
-values `public` and `https://registry.npmjs.org`. A scoped registry, proxy,
-authentication, tag, provenance-file, or any other packed npm configuration is
-forbidden because npm otherwise lets package metadata override its network and
-publication options.
+The packed manifest must not contain a top-level `tag`, because npm gives that
+field precedence over the command's explicit dist-tag. Its `publishConfig` must
+contain exactly `access` and `registry`, with values `public` and
+`https://registry.npmjs.org`. A scoped registry, proxy, authentication, tag,
+provenance-file, or any other packed npm configuration is forbidden because npm
+otherwise lets package metadata override its network and publication options.
 
 ## Stage a later version
 

@@ -8,7 +8,7 @@ import { gzipSync } from "node:zlib"
 
 import { verifyNpmPackageIdentity } from "./npm-package-identity"
 import { verifyNpmPublishAuthority } from "./npm-publish-authority"
-import { verifyNpmPublishConfig } from "./npm-publish-policy"
+import { verifyNpmPublishConfig, verifyNpmPublishManifest } from "./npm-publish-policy"
 import {
   admitPublishedNpmVersion,
   admitRemoteReleaseTags,
@@ -918,6 +918,23 @@ test("packed npm publishing configuration rejects every credential-boundary over
       ...override,
     })).toThrow("must contain exactly access and registry")
   }
+  expect(() => verifyNpmPublishManifest({
+    name: "@hraness/atet",
+    version: "3.2.0",
+    publishConfig: {
+      access: "public",
+      registry: "https://registry.npmjs.org",
+    },
+  })).not.toThrow()
+  expect(() => verifyNpmPublishManifest({
+    name: "@hraness/atet",
+    version: "3.2.0",
+    tag: "beta",
+    publishConfig: {
+      access: "public",
+      registry: "https://registry.npmjs.org",
+    },
+  })).toThrow("top-level tag")
 })
 
 test("the safe stable-tag creator fails closed before its one exact tag push", async () => {
@@ -1468,6 +1485,21 @@ printf '%s\\n' "$PACKED_MANIFEST"
     })
     expect(packedOverride.exitCode).not.toBe(0)
     expect(`${packedOverride.stdout}${packedOverride.stderr}`).toContain(
+      "Packed package manifest can override the canonical npm staging boundary",
+    )
+    expect(await Bun.file(publishMarker).exists()).toBe(false)
+
+    await Promise.all([
+      rm(commandLog, { force: true }),
+      rm(publishMarker, { force: true }),
+    ])
+    const packedTopLevelTag = await runWorkflowScript(script, {
+      ...baseEnvironment,
+      GIT_TAG_STATUS: "absent",
+      PACKED_MANIFEST: '{"name":"@hraness/atet","version":"3.2.0","tag":"beta","publishConfig":{"access":"public","registry":"https://registry.npmjs.org"}}',
+    })
+    expect(packedTopLevelTag.exitCode).not.toBe(0)
+    expect(`${packedTopLevelTag.stdout}${packedTopLevelTag.stderr}`).toContain(
       "Packed package manifest can override the canonical npm staging boundary",
     )
     expect(await Bun.file(publishMarker).exists()).toBe(false)

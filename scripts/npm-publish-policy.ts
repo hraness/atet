@@ -23,3 +23,13 @@ export function verifyNpmPublishConfig(value: unknown): void {
     throw new Error("package.json must publish publicly through the canonical npm registry.");
   }
 }
+
+export function verifyNpmPublishManifest(value: unknown): void {
+  const manifest = record(value, "package.json");
+  if (Object.hasOwn(manifest, "tag")) {
+    throw new Error(
+      "package.json must not contain a top-level tag because npm lets it override the requested dist-tag.",
+    );
+  }
+  verifyNpmPublishConfig(manifest.publishConfig);
+}
