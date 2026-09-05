@@ -533,12 +533,41 @@ jobs:
           ) throw new Error("Live npm latest, archive, signatures, or attestations changed after cryptographic verification");
           NODE
       - name: Publish verified GitHub Release
+        env:
+          EXPECTED_RELEASE_AUTHOR_ID: "41898282"
+          EXPECTED_RELEASE_AUTHOR_LOGIN: "github-actions[bot]"
         run: |
           set -euo pipefail
           if [[ -z "$VERIFIED_TAG" || "$VERIFIED_TAG" != "$GITHUB_REF_NAME" ]]; then
             echo "::error::Publish request does not match the verified tag"
             exit 1
           fi
+          package_version="${VERIFIED_TAG#v}"
+          immediate_latest="$(curl --disable --fail --silent --show-error \
+            --proto '=https' --tlsv1.2 --max-time 30 \
+            "https://registry.npmjs.org/-/package/@hraness%2Fatet/dist-tags")"
+          IMMEDIATE_LATEST="$immediate_latest" EXPECTED_VERSION="$package_version" node <<'NODE'
+          const tags = JSON.parse(process.env.IMMEDIATE_LATEST ?? "null");
+          if (
+            tags === null
+            || typeof tags !== "object"
+            || Array.isArray(tags)
+            || tags.latest !== process.env.EXPECTED_VERSION
+          ) throw new Error("npm latest changed immediately before GitHub Release publication");
+          NODE
+          release_notes="$(mktemp "$RUNNER_TEMP/atet-release-notes.XXXXXX")"
+          cat > "$release_notes" <<EOF
+          <!-- atet-release-provenance:v1
+          workflow=.github/workflows/release.yml
+          repository=$GITHUB_REPOSITORY
+          tag=$VERIFIED_TAG
+          source-sha=$GITHUB_SHA
+          stage-run-id=$VERIFIED_STAGE_RUN_ID
+          stage-run-attempt=$VERIFIED_STAGE_RUN_ATTEMPT
+          npm-integrity=$VERIFIED_NPM_INTEGRITY
+          npm-attestation=$VERIFIED_NPM_ATTESTATION_URL
+          -->
+          EOF
           if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             published_tags="$(gh api --paginate \
               "/repos/$GITHUB_REPOSITORY/releases?per_page=100" \
@@ -571,13 +600,42 @@ jobs:
             gh release create "$GITHUB_REF_NAME" \
               --verify-tag \
               --generate-notes \
+              --notes-file "$release_notes" \
               --latest \
               --title "Atet $GITHUB_REF_NAME"
           fi
+          release_json="$(mktemp "$RUNNER_TEMP/atet-release.XXXXXX")"
+          gh api --method GET \
+            "/repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" \
+            > "$release_json"
+          RELEASE_JSON="$release_json" \
+            RELEASE_NOTES="$release_notes" \
+            EXPECTED_TAG="$GITHUB_REF_NAME" \
+            EXPECTED_TITLE="Atet $GITHUB_REF_NAME" \
+            EXPECTED_RELEASE_AUTHOR_ID="$EXPECTED_RELEASE_AUTHOR_ID" \
+            EXPECTED_RELEASE_AUTHOR_LOGIN="$EXPECTED_RELEASE_AUTHOR_LOGIN" node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const release = JSON.parse(readFileSync(process.env.RELEASE_JSON, "utf8"));
+          const provenance = readFileSync(process.env.RELEASE_NOTES, "utf8");
+          const authorId = Number(process.env.EXPECTED_RELEASE_AUTHOR_ID);
+          if (
+            !Number.isSafeInteger(authorId)
+            || release?.tag_name !== process.env.EXPECTED_TAG
+            || release?.name !== process.env.EXPECTED_TITLE
+            || release?.draft !== false
+            || release?.prerelease !== false
+            || release?.author?.id !== authorId
+            || release?.author?.login !== process.env.EXPECTED_RELEASE_AUTHOR_LOGIN
+            || typeof release?.body !== "string"
+            || !release.body.startsWith(provenance)
+          ) {
+            throw new Error("Existing GitHub Release is not the exact GitHub Actions provenance-bound release");
+          }
+          NODE
           release_state="$(gh release view "$GITHUB_REF_NAME" \
-            --json assets,isDraft,isImmutable,isPrerelease,tagName \
-            --jq '[.tagName, .isDraft, .isPrerelease, .isImmutable, (.assets | length)] | @tsv')"
-          expected_state="$GITHUB_REF_NAME"$'\tfalse\tfalse\ttrue\t0'
+            --json assets,isDraft,isImmutable,isPrerelease,name,tagName \
+            --jq '[.tagName, .name, .isDraft, .isPrerelease, .isImmutable, (.assets | length)] | @tsv')"
+          expected_state="$GITHUB_REF_NAME"$'\t'"Atet $GITHUB_REF_NAME"$'\tfalse\tfalse\ttrue\t0'
           if [[ "$release_state" != "$expected_state" ]]; then
             echo "::error::Release $GITHUB_REF_NAME is not published and immutable"
             exit 1

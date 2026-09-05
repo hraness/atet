@@ -136,9 +136,15 @@ npm stage publish <reviewed-tarball> \
   --access public \
   --ignore-scripts \
   --provenance \
-  --tag latest \
   --registry=https://registry.npmjs.org
 ```
+
+The job runs that command from a clean directory with separate empty user and
+global npm configuration files. It rejects any ambient `npm_config_tag`, proves
+that npm 11.19.0's untouched default tag is `latest`, and deliberately omits
+`--tag`: npm treats an explicit tag as non-default and would otherwise skip its
+built-in monotonic-`latest` guard. The workflow also performs its own immediate
+live-version comparison before mutation.
 
 The packed manifest must not contain a top-level `tag`, because npm gives that
 field precedence over the command's explicit dist-tag. Its `publishConfig` must
@@ -175,15 +181,26 @@ otherwise lets package metadata override its network and publication options.
    The run repeats candidate verification before the dependent OIDC job starts.
    Before using OIDC, that job proves the candidate is newer than the live
    public `latest` version using npm 11's safe SemVer component bounds,
-   requires the canonical registry's pending-stage list to be empty, and
-   reauthorizes the exact protected-main workflow run, attempt, owner actor,
-   owner triggering actor, workflow ID, repository ID, and source commit.
+   rejects any unresolved version-bound intent in this workflow's retained
+   Actions history across the current and completed runs' attempts while that
+   version is still newer than public `latest`, and reauthorizes the exact
+   protected-main workflow run, attempt, owner actor, owner triggering actor,
+   workflow ID, repository ID, and source commit.
    That job checks out no source and runs no repository code. It downloads and
    revalidates the three verified files, fetches current `main` into a new bare
    Git directory, rehashes the package, proves the matching Git tag is absent,
-   and only then runs the stage-only command. A missing or false input, a push,
-   another branch, a stale commit, an existing version, or a branch advance
-   cannot reach npm.
+   records a successful version-bound Actions intent, and only then runs the
+   stage-only command. It captures and validates npm's exact returned stage ID.
+   The intent persists even if the runner exits during the write, so a missing
+   or false input, a push, another branch, a stale commit, an existing version,
+   a branch advance, or an ambiguous write cannot silently admit another run.
+   Leave `resolved_stage_version` empty during ordinary dispatches. If an npm
+   mutation failed, returned ambiguously, or was explicitly rejected, first
+   resolve whether that exact version remains staged, then use an owner dispatch
+   naming the exact cleared intent to admit a later candidate. That dispatch
+   records the clearance as its own successful history step, so it stays
+   resolved for subsequent versions. Promotion advances public `latest`, so it
+   releases the corresponding intent automatically.
 5. Inspect the staged package with
    `npm stage view <stage-id> --registry=https://registry.npmjs.org` and
    download it with
@@ -208,6 +225,13 @@ otherwise lets package metadata override its network and publication options.
    `triggering_actor`, then re-reads canonical npm version metadata and
    `dist-tags.latest`. The live integrity, signature set, attestation URL, and
    SLSA summary must still match the cryptographically verified exact version.
+   Immediately before the GitHub mutation, the publish step reads
+   `dist-tags.latest` once more. It writes a provenance preamble binding the
+   release workflow path, repository, tag, source SHA, exact npm stage run
+   attempt, integrity, and attestation URL. A pre-existing Release is accepted
+   only when its author is GitHub Actions bot ID `41898282`, its title and tag
+   are exact, and its body starts with that same preamble; this prevents a
+   collaborator-created Release from front-running the immutable write.
 8. From a clean, current `main` checkout, create and push the matching annotated
    `v<version>` tag with the guarded preflight-only tag command:
 
@@ -225,9 +249,21 @@ otherwise lets package metadata override its network and publication options.
    event-sender ID `894119`, repository ID `1310516748`, npm authority, source,
    VTracer, and immutable Latest Release checks.
 
-Never stage the next stable version while another stage awaits approval. Human
-approval order controls `latest`; workflow concurrency alone cannot serialize
-that external pending state.
+Never stage the next stable version while another stage awaits approval. npm
+11.19.0 deliberately permits multiple pending versions and exposes no atomic
+single-pending constraint. Its local implementation performs OIDC exchange only
+inside publish, and its documentation says trusted short-lived tokens cannot
+run other `npm stage` subcommands, so the stage-only workflow cannot truthfully
+use `npm stage list` as a provider read. Atet therefore keeps this workflow as
+the sole staging authority, serializes its dispatches, and records a
+version-bound successful intent immediately before mutation. Every later run
+scans that intent across all retained attempts, including earlier attempts of a
+rerun, and fails closed until public `latest` advances or the owner explicitly
+names the resolved intent. This durably serializes canonical workflow attempts
+while Actions retains their history; it does not prove that npm forbids or that
+OIDC can observe an out-of-band concurrent stage. Any such stage is a release
+incident to promote or reject before continuing. Human approval order controls
+`latest`; workflow concurrency alone cannot serialize an external mutation.
 
 ## Protect release tags without a sudo prompt
 
