@@ -3,6 +3,7 @@
 - `context.ts` – adapter-neutral clocks, paths, subprocess, capability, recording, and application service ports.
 - `errors.ts` – the shared application failure taxonomy consumed by CLI and code-mode adapters.
 - `operation.ts` – closed operation identities, policies, lifecycle contracts, and bounded summaries.
+- `operation-effects.ts` – typed native boundary failures and the standalone Promise compatibility root.
 - `operation-completion-checkpoint.ts` – exact-node private completion checkpoints for interrupted receipt-backed operations.
 - `html-overlay-integrity.ts` – full-runtime, browser, module, document, and resource Merkle binding for browser renders.
 - `html-overlay-browser-runtime.ts` – complete browser-tree manifests, internal-symlink validation, direct native-app enforcement, bounded Google code-signature provenance, and exact capability binding.
@@ -23,3 +24,6 @@
 - Keep project preparation on immutable snapshots. Recheck the complete project and current-plan hashes under the publication lease before committing one recoverable generation.
 - Do not acquire the CLI mutation lock inside an operation invoked beneath an existing lease. Explicit publication coordinators own and pass lease context.
 - Keep secrets, privileged handles, raw provider options, and credentials outside serialized operation input, output, summaries, and receipts.
+
+- A local lifecycle may expose `executeEffect` for native scheduler composition. Keep its typed failure channel; retain `execute` for Promise consumers. Neither the native slot nor runtime services belong in discovery, graph identity, receipts, or portable authoring contracts.
+- `media.ingest` owns its workspace with an Effect scope through verification and checkpoint publication. Preserve the original failure and all cleanup failures. Cancellation never proves that foreign subprocess or publication custody ended.

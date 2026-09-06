@@ -1,3 +1,4 @@
+import { Context, Effect, Exit, Layer, Ref } from "effect";
 import { z } from "zod";
 
 import {
@@ -14,7 +15,8 @@ import {
 } from "../../../cli/media-ingest";
 import type { ApplicationContext } from "../../context";
 import { ApplicationError } from "../../errors";
-import type { OperationDefinition } from "../../operation";
+import type { OperationDefinition, OperationExecutionContext } from "../../operation";
+import { operationBoundary, operationValidation, runStandaloneOperation, type OperationEffectFailure } from "../../operation-effects";
 import { writeOperationCompletionCheckpoint } from "../../operation-completion-checkpoint";
 import { openLeasedProjectSnapshot } from "../../project-publication-lease";
 import {
@@ -142,6 +144,105 @@ function importedArtifact(asset: ProjectAssetV1): MediaArtifactReference {
   });
 }
 
+class MediaIngestServices extends Context.Tag("@atet/local/MediaIngestServices")<
+  MediaIngestServices,
+  Readonly<{ context: OperationExecutionContext; ingest: IngestExecutor }>
+>() { }
+
+/** Native transaction; the caller owns execution and the foreign runner owns physical custody. */
+function ingestProgram(input: MediaIngestInput): Effect.Effect<
+  MediaIngestOutput, OperationEffectFailure, MediaIngestServices
+> {
+  return Effect.gen(function*() {
+    const { context, ingest } = yield* MediaIngestServices;
+    const parsedInput = yield* operationValidation("input", () => {
+      throwIfAborted(context.abortSignal);
+      return MediaIngestInputSchema.parse(input);
+    });
+    const boundSource = yield* operationBoundary("media", () => bindRepositoryMedia(
+      context.application, parsedInput.source, context.abortSignal,
+      MAXIMUM_MEDIA_INGEST_INPUT_BYTES,
+    ));
+    const boundInput = yield* operationValidation("input", () => BoundMediaIngestInputSchema.parse({
+      ...parsedInput, source: boundSource.artifact,
+    }));
+    yield* operationBoundary("capability", () => assertMediaCapabilities(
+      context, context.application, parsedInput.capabilityBindings, ["ffprobe"],
+    ));
+    const capabilityBindings = parsedInput.capabilityBindings
+      ?? (yield* operationBoundary("capability", () => bindMediaCapabilities(context.application, ["ffprobe"])));
+    const snapshot = yield* operationBoundary("project", () => openLeasedProjectSnapshot(
+      context.application, boundInput.project,
+    ));
+    yield* operationValidation("project", () => assertProjectGeneration(
+      context.expectedProjectGeneration, snapshot.generation,
+    ));
+    const cleanup = yield* Ref.make<Exit.Exit<void, OperationEffectFailure>>(Exit.void);
+    const result = yield* Effect.exit(Effect.scoped(Effect.gen(function*() {
+      const workspace = yield* Effect.acquireRelease(
+        operationBoundary("workspace", () => createMediaOperationWorkspace(context)),
+        workspace => Effect.flatMap(
+          Effect.exit(operationBoundary("cleanup", () => workspace.dispose())),
+          exit => Ref.set(cleanup, exit),
+        ),
+      );
+      // Immutable no-replace blob publication may leave an unreferenced blob;
+      // the durable fence still guards receipt and checkpoint authority.
+      yield* operationBoundary("publication", () => context.workflow?.beforePublication());
+      const options = yield* operationValidation("media", () => {
+        throwIfAborted(context.abortSignal);
+        return {
+          ffprobe: mediaCapabilityCommand(capabilityBindings, "ffprobe"),
+          now: context.application.clock.now(),
+          projectDirectory: snapshot.openProject.directory.path,
+          repositoryRoot: context.application.paths.repositoryRoot,
+          role: boundInput.role,
+          runner: new AbortBoundApplicationRunner(
+            mediaCapabilityRunner(context.application, capabilityBindings), context.abortSignal,
+          ),
+          sourcePath: boundSource.absolutePath,
+        };
+      });
+      const ingested = yield* operationBoundary("media", () => ingest(options));
+      const claimedArtifact = yield* operationValidation("output", () => {
+        throwIfAborted(context.abortSignal);
+        return importedArtifact(ingested.asset);
+      });
+      const verifiedArtifact = yield* operationBoundary("media", () => bindRepositoryMedia(
+        context.application, claimedArtifact, context.abortSignal,
+        MAXIMUM_MEDIA_INGEST_INPUT_BYTES,
+      ));
+      const receiptBody = yield* operationValidation("output", () => MediaIngestReceiptSchema.parse({
+        assetSha256: canonicalJsonSha256(ingested.asset),
+        createdAt: context.application.clock.now().toISOString(),
+        ffprobeVersion: mediaCapabilityVersion(capabilityBindings, "ffprobe"),
+        input: boundInput.source,
+        kind: "atet.local-media-ingest-receipt",
+        operation: "media.ingest",
+        output: verifiedArtifact.artifact,
+        projectGenerationSha256: snapshot.generation.generationSha256,
+        role: boundInput.role,
+        schemaVersion: 1,
+      }));
+      const receipt = yield* operationBoundary("publication", () => publishContentAddressedReceipt({
+        context, receipt: receiptBody, workspace,
+      }));
+      const output = yield* operationValidation("output", () => MediaIngestOutputSchema.parse({
+        artifact: verifiedArtifact.artifact, asset: ingested.asset, created: ingested.created, receipt,
+      }));
+      yield* operationBoundary("checkpoint", () => writeOperationCompletionCheckpoint(context, {
+        inputSchemaId: "atet.operation.media.ingest.input/v1",
+        kind: "media.ingest",
+        outputSchemaId: "atet.operation.media.ingest.output/v1",
+        version: 1,
+      }, output));
+      return output;
+    })));
+    // Finalizers must not discard a cleanup failure or replace the execution failure.
+    return yield* Exit.zipLeft(result, yield* Ref.get(cleanup));
+  });
+}
+
 export function createMediaIngestOperationDefinition(
   dependencies: MediaIngestOperationDependencies = {},
 ): OperationDefinition<
@@ -150,111 +251,18 @@ export function createMediaIngestOperationDefinition(
   MediaIngestOutput
 > {
   const executeIngest = dependencies.ingest ?? ingestProjectMedia;
+  const executeEffect = (context: OperationExecutionContext, input: MediaIngestInput) =>
+    ingestProgram(input).pipe(Effect.provide(Layer.succeed(MediaIngestServices, {
+      context, ingest: executeIngest,
+    })));
   return {
     inputSchema: MediaIngestInputSchema,
     inputSchemaId: "atet.operation.media.ingest.input/v1",
     kind: "media.ingest",
     lifecycle: {
       kind: "local-artifact",
-      execute: async (context, input) => {
-        throwIfAborted(context.abortSignal);
-        const parsedInput = MediaIngestInputSchema.parse(input);
-        const boundSource = await bindRepositoryMedia(
-          context.application,
-          parsedInput.source,
-          context.abortSignal,
-          MAXIMUM_MEDIA_INGEST_INPUT_BYTES,
-        );
-        const boundInput = BoundMediaIngestInputSchema.parse({
-          ...parsedInput,
-          source: boundSource.artifact,
-        });
-        await assertMediaCapabilities(
-          context,
-          context.application,
-          parsedInput.capabilityBindings,
-          ["ffprobe"],
-        );
-        const capabilityBindings = parsedInput.capabilityBindings
-          ?? await bindMediaCapabilities(context.application, ["ffprobe"]);
-        const snapshot = await openLeasedProjectSnapshot(
-          context.application,
-          boundInput.project,
-        );
-        assertProjectGeneration(
-          context.expectedProjectGeneration,
-          snapshot.generation,
-        );
-        const workspace = await createMediaOperationWorkspace(context);
-        try {
-          // The existing ingest service publishes only a content-addressed,
-          // no-replace blob. A stale run can therefore leave at most an
-          // unreferenced immutable blob, never mutate project authority.
-          await context.workflow?.beforePublication();
-          throwIfAborted(context.abortSignal);
-          const ingested = await executeIngest({
-            ffprobe: mediaCapabilityCommand(
-              capabilityBindings,
-              "ffprobe",
-            ),
-            now: context.application.clock.now(),
-            projectDirectory: snapshot.openProject.directory.path,
-            repositoryRoot: context.application.paths.repositoryRoot,
-            role: boundInput.role,
-            runner: new AbortBoundApplicationRunner(
-              mediaCapabilityRunner(
-                context.application,
-                capabilityBindings,
-              ),
-              context.abortSignal,
-            ),
-            sourcePath: boundSource.absolutePath,
-          });
-          throwIfAborted(context.abortSignal);
-          const claimedArtifact = importedArtifact(ingested.asset);
-          const verifiedArtifact = await bindRepositoryMedia(
-            context.application,
-            claimedArtifact,
-            context.abortSignal,
-            MAXIMUM_MEDIA_INGEST_INPUT_BYTES,
-          );
-          const receiptBody = MediaIngestReceiptSchema.parse({
-            assetSha256: canonicalJsonSha256(ingested.asset),
-            createdAt: context.application.clock.now().toISOString(),
-            ffprobeVersion: mediaCapabilityVersion(
-              capabilityBindings,
-              "ffprobe",
-            ),
-            input: boundInput.source,
-            kind: "atet.local-media-ingest-receipt",
-            operation: "media.ingest",
-            output: verifiedArtifact.artifact,
-            projectGenerationSha256: snapshot.generation.generationSha256,
-            role: boundInput.role,
-            schemaVersion: 1,
-          });
-          const receipt = await publishContentAddressedReceipt({
-            context,
-            receipt: receiptBody,
-            workspace,
-          });
-          const output = MediaIngestOutputSchema.parse({
-            artifact: verifiedArtifact.artifact,
-            asset: ingested.asset,
-            created: ingested.created,
-            receipt,
-          });
-          await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId: "atet.operation.media.ingest.input/v1",
-            kind: "media.ingest",
-            outputSchemaId: "atet.operation.media.ingest.output/v1",
-            version: 1,
-          }, output);
-          return output;
-        } finally {
-          await workspace.dispose();
-        }
-      },
+      execute: async (context, input) => await runStandaloneOperation(executeEffect(context, input)),
+      executeEffect,
     },
     outputSchema: MediaIngestOutputSchema,
     outputSchemaId: "atet.operation.media.ingest.output/v1",

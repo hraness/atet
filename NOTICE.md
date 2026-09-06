@@ -52,3 +52,9 @@ The production `atet.sh` browser bundle includes
 [`posthog-js`](https://github.com/PostHog/posthog-js), distributed under its
 combined Apache License 2.0 and MIT terms. The fingerprinted bundle carries the
 upstream license text generated from the exact locked package.
+
+The complete local workflow host uses
+[`Effect`](https://github.com/Effect-TS/effect), distributed under the MIT
+License (Copyright 2023 Effectful Technologies Inc). It remains a separately
+installed runtime dependency and is not relicensed by this project. Portable
+workflow authoring and graph compilation do not load this runtime.

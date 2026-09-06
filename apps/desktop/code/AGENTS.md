@@ -6,6 +6,7 @@
 - `creative-recipes.ts` – literal, typed media-treatment recipes for reusable Code Mode requests.
 - `application-node-planner.ts` – exact host preparation, provenance checks, publication keys, and recovery routing for registered operations.
 - `scheduler.ts` and `run-store.ts` – bounded concurrent execution, authorization, fencing, cancellation, recovery, and durable outputs.
+- `workflow-effects.ts` and `worker-effects.ts` – local runtime ownership, typed native failures, callback completions, and scoped cleanup.
 - `source-bundle.ts`, `source-typecheck.ts`, and `worker-*` – same-snapshot semantic checking, exact trusted-source bundling, and the isolated code-worker protocol/pool.
 - `public.ts` – the stable complete-local-host custom-workflow surface layered on the portable SDK.
 - `advanced.ts` – explicit local-host planning, registry, and execution integration beside portable advanced exports.
@@ -23,3 +24,7 @@
 - Preserve the portable compiler's graph, node, reference, and plan identities. Local planning may bind runtime, bundle, registry, project, and requirement evidence through explicit host extension points, but it must not redefine canonical identity.
 - Keep `/testing` helpers out of production workflow-loading paths. Public authoring, advanced graph access, and testing fixtures remain separate export surfaces.
 - Author local workflows through `@hraness/atet/local/{code,code/advanced,code/workflows,html-overlay}` and reject every other bare package import.
+
+- Use Effect 3.22.1 for migrated worker and scheduler orchestration. Native callbacks reserve domain admission synchronously before starting fibers and settle one Deferred; keep portable compilers and authored kernels synchronous.
+- Run observers and admitted nodes have different lifetimes. Preserve node deadlines and physical host/publication custody after an early observer return. Guardian completion requires existing exact process/terminal proofs, never Effect interruption or scope closure.
+- Add every production Effect import to `scripts/check-effect-policy.ts` with its reviewed role. Keep `check:effect` in `check:desktop`, paired rejection fixtures, and ordinary TypeScript checks. Do not hide typed generator failures behind JavaScript catch blocks or erase failure channels.
