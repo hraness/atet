@@ -1,3 +1,5 @@
+import { Effect, Exit, Fiber } from "effect";
+import { WorkerEffectRuntime, workerBoundary, workerValidation, type WorkerCompletion, type WorkerFailure } from "./worker-effects";
 import { createHash, randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import {
@@ -150,7 +152,7 @@ interface WaitingMessage {
   readonly accept: (message: CodeWorkerMessage) => boolean;
   readonly reject: (error: Error) => void;
   readonly resolve: (message: CodeWorkerMessage) => void;
-  readonly timer: ReturnType<typeof setTimeout>;
+  readonly completion: WorkerCompletion<CodeWorkerMessage>;
 }
 
 interface WaitingDiagnosticBarrier {
@@ -158,7 +160,7 @@ interface WaitingDiagnosticBarrier {
   readonly resolve: () => void;
   stderrObserved: boolean;
   stdoutObserved: boolean;
-  readonly timer: ReturnType<typeof setTimeout>;
+  readonly completion: WorkerCompletion<void>;
 }
 
 interface WaitingWorker {
@@ -248,6 +250,7 @@ export async function waitForCodeWorkerResponseDiagnostics(
 }
 
 class RunningCodeWorker implements CodeWorkerSession {
+  readonly #effects = new WorkerEffectRuntime();
   readonly #child: ChildProcess;
   readonly #cleanupDirectories: readonly string[];
   readonly #decoder = new WorkerFrameDecoder();
@@ -261,7 +264,6 @@ class RunningCodeWorker implements CodeWorkerSession {
   #buildStarted = false;
   #closed = false;
   #closePromise: Promise<void> | undefined;
-  #computeTail: Promise<void> = Promise.resolve();
   #fatal: Error | undefined;
   #preparationGuardian: CodeWorkerLeaseGuardian | undefined;
   #stderr: Buffer<ArrayBufferLike> = Buffer.alloc(0);
@@ -301,7 +303,7 @@ class RunningCodeWorker implements CodeWorkerSession {
     readonly bundleSha256: string;
     readonly workerEntrySha256: string;
   }): Promise<void> {
-    const hello = await this.#nextMessage(message => message.kind === "hello", this.#timeoutMs);
+    const hello = await this.#effects.run(this.#nextMessage(message => message.kind === "hello", this.#timeoutMs));
     if (hello.kind !== "hello" || hello.bundleSha256 !== expected.bundleSha256) {
       throw new ApplicationError(
         "invalid-data",
@@ -410,157 +412,117 @@ class RunningCodeWorker implements CodeWorkerSession {
   }
 
   async #queueCompute(request: CodeWorkerComputeRequest): Promise<JsonValue> {
-    if (!this.#buildCompleted) {
-      throw new ApplicationError(
-        "conflict",
-        "Code-worker compute requires one completed guarded authored build.",
-      );
-    }
-    const predecessor = this.#computeTail;
-    let releaseTurn: () => void = () => undefined;
-    const turn = new Promise<void>(resolveTurn => {
-      releaseTurn = resolveTurn;
-    });
-    this.#computeTail = predecessor.then(() => turn);
+    if (!this.#buildCompleted) throw new ApplicationError(
+      "conflict", "Code-worker compute requires one completed guarded authored build.",
+    );
     let acquired = false;
-    if (request.abortSignal === undefined) {
-      await predecessor;
+    const completion = this.#effects.completion<JsonValue>(0, () => undefined);
+    const abort = () => {
+      if (!acquired) completion.fail(new CodeWorkerCancellationError(request.nodeKey, true));
+    };
+    request.abortSignal?.addEventListener("abort", abort, { once: true });
+    if (request.abortSignal?.aborted) abort();
+    // A cancelled caller can leave immediately. Its ordered turn remains owned
+    // until predecessors settle, so later requests cannot overtake active work.
+    const fiber = this.#effects.fork(this.#effects.serial.withPermits(1)(Effect.gen(this, function*() {
       acquired = true;
-    } else {
-      const abortSignal = request.abortSignal;
-      if (!abortSignal.aborted) {
-        let abortHandler: () => void = () => undefined;
-        const cancelled = new Promise<false>(resolveCancelled => {
-          abortHandler = () => resolveCancelled(false);
-          abortSignal.addEventListener("abort", abortHandler, { once: true });
-        });
-        acquired = await Promise.race([
-          predecessor.then(() => true as const),
-          cancelled,
-        ]);
-        abortSignal.removeEventListener("abort", abortHandler);
-        if (abortSignal.aborted) acquired = false;
-      }
-    }
-    if (!acquired) {
-      // Preserve FIFO for requests behind this cancelled waiter: its queue
-      // turn disappears only after every predecessor has actually settled.
-      void predecessor.then(releaseTurn);
-      throw new CodeWorkerCancellationError(request.nodeKey, true);
-    }
-    try {
-      return await this.#compute(request);
-    } finally {
-      releaseTurn();
-    }
+      yield* workerValidation("admission", () => {
+        if (request.abortSignal?.aborted) throw new CodeWorkerCancellationError(request.nodeKey, true);
+      });
+      return yield* this.#computeProgram(request);
+    }).pipe(Effect.ensuring(Effect.sync(() => request.abortSignal?.removeEventListener("abort", abort))))));
+    fiber.addObserver(exit => completion.complete(exit));
+    return await this.#effects.run(completion.await);
   }
 
-  async #compute(request: CodeWorkerComputeRequest): Promise<JsonValue> {
-    if (request.abortSignal?.aborted === true) {
-      throw new CodeWorkerCancellationError(request.nodeKey, true);
-    }
-    const timeoutMs = positiveBound(
-      request.timeoutMs,
-      this.#timeoutMs,
-      "Code compute timeout",
-    );
-    const requestId = this.#requestId("compute");
-    const computation = this.#request(CodeWorkerRequestSchema.parse({
-      action: "compute",
-      computeKey: request.computeKey,
-      generation: this.generation,
-      input: JsonValueSchema.parse(request.input),
-      kind: "request",
-      nodeKey: request.nodeKey,
-      protocol: CODE_WORKER_PROTOCOL,
-      replayAcknowledged: request.replayAcknowledged,
-      requestId,
-    }), timeoutMs);
-    if (request.abortSignal === undefined) {
-      return JsonValueSchema.parse(await computation);
-    }
-    const abortSignal = request.abortSignal;
-    let abortHandler = () => undefined;
-    let abortStarted = false;
-    let cancellationTimer: ReturnType<typeof setTimeout> | undefined;
-    let computationSettled = false;
-    const reusableCancellation = () => new CodeWorkerCancellationError(
-      request.nodeKey,
-      true,
-    );
-    const destructiveCancellation = () => new CodeWorkerCancellationError(
-      request.nodeKey,
-      false,
-    );
-    const forcedCancellation = new Promise<never>((_resolve, reject) => {
-      let forced = false;
+  #computeProgram(request: CodeWorkerComputeRequest): Effect.Effect<JsonValue, WorkerFailure> {
+    return Effect.gen(this, function*() {
+      const timeoutMs = yield* workerValidation("compute", () => {
+        if (request.abortSignal?.aborted) throw new CodeWorkerCancellationError(request.nodeKey, true);
+        return positiveBound(request.timeoutMs, this.#timeoutMs, "Code compute timeout");
+      });
+      const requestId = this.#requestId("compute");
+      const message = yield* workerValidation("protocol", () => CodeWorkerRequestSchema.parse({
+        action: "compute", computeKey: request.computeKey, generation: this.generation,
+        input: JsonValueSchema.parse(request.input), kind: "request", nodeKey: request.nodeKey,
+        protocol: CODE_WORKER_PROTOCOL, replayAcknowledged: request.replayAcknowledged, requestId,
+      }));
+      // The request remains owned until its actual terminal frame/diagnostics,
+      // even when a queued cancellation permits its caller to return earlier.
+      const computation = this.#effects.fork(this.#requestProgram(message, timeoutMs));
+      if (request.abortSignal === undefined) return yield* Fiber.join(computation);
+      const abortSignal = request.abortSignal;
+      const forced = this.#effects.completion<JsonValue>(0, () => undefined);
+      let abortStarted = false;
+      let forceStarted = false;
+      let settled = false;
+      let cancelAlarm: (() => void) | undefined;
+      const reusable = () => new CodeWorkerCancellationError(request.nodeKey, true);
       const force = () => {
-        if (forced) return;
-        forced = true;
-        if (cancellationTimer !== undefined) clearTimeout(cancellationTimer);
-        const error = destructiveCancellation();
+        if (forceStarted || settled) return;
+        forceStarted = true;
+        cancelAlarm?.();
+        const error = new CodeWorkerCancellationError(request.nodeKey, false);
         this.#rejectAll(error);
         this.#child.kill("SIGKILL");
-        reject(error);
+        forced.fail(error);
       };
-      abortHandler = () => {
-        if (abortStarted) return;
+      const abort = () => {
+        if (abortStarted || settled) return;
         abortStarted = true;
-        // Bound the immediate cancellation acknowledgement independently.
-        // Once an active request is acknowledged, give the callback a fresh
-        // grace window to observe its AbortSignal and return a terminal frame.
-        cancellationTimer = setTimeout(force, CODE_WORKER_CANCEL_GRACE_MS);
-        void this.#request(CodeWorkerRequestSchema.parse({
-          action: "cancel",
-          generation: this.generation,
-          kind: "request",
-          protocol: CODE_WORKER_PROTOCOL,
-          requestId: this.#requestId("cancel"),
-          targetRequestId: requestId,
-        }), this.#timeoutMs).then(output => {
-          const acknowledgement = WorkerCancellationAcknowledgementSchema.parse(output);
-          if (cancellationTimer !== undefined) clearTimeout(cancellationTimer);
-          cancellationTimer = undefined;
-          if (computationSettled) return;
-          if (acknowledgement.cancellation === "active") {
-            cancellationTimer = setTimeout(force, CODE_WORKER_CANCEL_GRACE_MS);
-            return;
-          }
-          // A queued request has not entered authored code. The worker will
-          // drain its eventual terminal cancellation frame in request order,
-          // while this caller can return immediately without killing the
-          // healthy computation ahead of it.
-          void computation.catch(() => undefined);
-          reject(reusableCancellation());
-        }).catch(() => force());
+        cancelAlarm = this.#effects.alarm(CODE_WORKER_CANCEL_GRACE_MS, force);
+        const cancellation = Effect.gen(this, function*() {
+          const request = yield* workerValidation("protocol", () => CodeWorkerRequestSchema.parse({
+            action: "cancel", generation: this.generation, kind: "request", protocol: CODE_WORKER_PROTOCOL,
+            requestId: this.#requestId("cancel"), targetRequestId: requestId,
+          }));
+          const output = yield* this.#requestProgram(request, this.#timeoutMs);
+          return yield* workerValidation("protocol", () => WorkerCancellationAcknowledgementSchema.parse(output));
+        });
+        const cancellationFiber = this.#effects.fork(Effect.match(cancellation, {
+          onFailure: () => { force(); },
+          onSuccess: acknowledgement => {
+            cancelAlarm?.();
+            cancelAlarm = undefined;
+            if (settled) return;
+            if (acknowledgement.cancellation === "active") {
+              cancelAlarm = this.#effects.alarm(CODE_WORKER_CANCEL_GRACE_MS, force);
+            } else {
+              forced.fail(reusable());
+            }
+          },
+        }));
+        cancellationFiber.addObserver(exit => { if (Exit.isFailure(exit)) force(); });
       };
-      abortSignal.addEventListener("abort", abortHandler, { once: true });
-      if (abortSignal.aborted) abortHandler();
+      return yield* Effect.scoped(Effect.gen(this, function*() {
+        yield* Effect.acquireRelease(Effect.sync(() => {
+          abortSignal.addEventListener("abort", abort, { once: true });
+          if (abortSignal.aborted) abort();
+        }), () => Effect.sync(() => {
+          settled = true;
+          cancelAlarm?.();
+          abortSignal.removeEventListener("abort", abort);
+        }));
+        const outcome = yield* Effect.either(Effect.raceFirst(Fiber.join(computation), forced.await));
+        return yield* workerValidation("compute", () => {
+          if (outcome._tag === "Left") {
+            const error = outcome.left.cause;
+            if (error instanceof CodeWorkerCancellationError) throw error;
+            if (abortSignal.aborted) throw new CodeWorkerCancellationError(
+              request.nodeKey,
+              this.#fatal === undefined && this.#child.exitCode === null && this.#child.signalCode === null,
+            );
+            throw error;
+          }
+          if (abortSignal.aborted) throw reusable();
+          return JsonValueSchema.parse(outcome.right);
+        });
+      }));
     });
-    try {
-      const output = await Promise.race([computation, forcedCancellation]);
-      if (abortSignal.aborted) throw reusableCancellation();
-      return JsonValueSchema.parse(output);
-    } catch (error) {
-      if (error instanceof CodeWorkerCancellationError) throw error;
-      if (abortSignal.aborted) {
-        throw new CodeWorkerCancellationError(
-          request.nodeKey,
-          this.#fatal === undefined
-            && this.#child.exitCode === null
-            && this.#child.signalCode === null,
-        );
-      }
-      throw error;
-    } finally {
-      computationSettled = true;
-      if (cancellationTimer !== undefined) clearTimeout(cancellationTimer);
-      abortSignal.removeEventListener("abort", abortHandler);
-    }
   }
 
   close(): Promise<void> {
-    this.#closePromise ??= this.#close();
+    this.#closePromise ??= this.#close().finally(async () => await this.#effects.close());
     return this.#closePromise;
   }
 
@@ -641,26 +603,16 @@ class RunningCodeWorker implements CodeWorkerSession {
     this.#child.unref();
   }
 
-  #waitForExit(timeoutMs: number): Promise<boolean> {
-    if (this.#child.exitCode !== null || this.#child.signalCode !== null) {
-      return Promise.resolve(true);
-    }
-    return new Promise(resolveExit => {
-      let settled = false;
-      const settle = (exited: boolean) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        this.#child.off("exit", onExit);
-        resolveExit(exited);
-      };
-      const onExit = () => settle(true);
-      const timer = setTimeout(() => settle(false), timeoutMs);
-      this.#child.once("exit", onExit);
-      if (this.#child.exitCode !== null || this.#child.signalCode !== null) {
-        settle(true);
-      }
-    });
+  async #waitForExit(timeoutMs: number): Promise<boolean> {
+    if (this.#child.exitCode !== null || this.#child.signalCode !== null) return true;
+    const completion = this.#effects.completion<boolean>(timeoutMs, () => completion.succeed(false));
+    const onExit = () => completion.succeed(true);
+    this.#child.once("exit", onExit);
+    completion.activate();
+    if (this.#child.exitCode !== null || this.#child.signalCode !== null) onExit();
+    return await this.#effects.run(completion.await.pipe(Effect.ensuring(Effect.sync(() => {
+      this.#child.off("exit", onExit);
+    }))));
   }
 
   #attach(): void {
@@ -705,7 +657,6 @@ class RunningCodeWorker implements CodeWorkerSession {
     }
     const [waiter] = this.#waiting.splice(index, 1);
     if (waiter !== undefined) {
-      clearTimeout(waiter.timer);
       waiter.resolve(message);
     }
   }
@@ -713,122 +664,105 @@ class RunningCodeWorker implements CodeWorkerSession {
   #nextMessage(
     accept: (message: CodeWorkerMessage) => boolean,
     timeoutMs: number,
-  ): Promise<CodeWorkerMessage> {
-    if (this.#fatal !== undefined) return Promise.reject(this.#fatal);
+  ): Effect.Effect<CodeWorkerMessage, WorkerFailure> {
+    if (this.#fatal !== undefined) return workerValidation("protocol", () => { throw this.#fatal; });
     const index = this.#queued.findIndex(accept);
     if (index !== -1) {
       const message = this.#queued.splice(index, 1)[0];
-      if (message !== undefined) return Promise.resolve(message);
+      if (message !== undefined) return Effect.succeed(message);
     }
-    return new Promise((resolveMessage, rejectMessage) => {
-      const timer = setTimeout(() => {
-        const waiterIndex = this.#waiting.findIndex(waiter => waiter.timer === timer);
-        if (waiterIndex !== -1) this.#waiting.splice(waiterIndex, 1);
-        const error = new ApplicationError(
-          "subprocess",
-          "Timed out waiting for the code worker.",
-        );
-        rejectMessage(error);
-        this.#rejectAll(error);
-        this.#child.kill("SIGKILL");
-      }, timeoutMs);
-      this.#waiting.push({
-        accept,
-        reject: rejectMessage,
-        resolve: resolveMessage,
-        timer,
-      });
+    const completion = this.#effects.completion<CodeWorkerMessage>(timeoutMs, () => {
+      const index = this.#waiting.indexOf(waiter);
+      if (index === -1) return;
+      this.#waiting.splice(index, 1);
+      const error = new ApplicationError("subprocess", "Timed out waiting for the code worker.");
+      completion.fail(error);
+      this.#rejectAll(error);
+      this.#child.kill("SIGKILL");
     });
+    const waiter: WaitingMessage = { accept, completion, reject: completion.fail, resolve: completion.succeed };
+    this.#waiting.push(waiter);
+    completion.activate();
+    return completion.await;
   }
 
-  async #request(
-    message: CodeWorkerRequest,
-    timeoutMs: number,
-    allowClosed = false,
-  ): Promise<JsonValue> {
-    if (this.#closed && !allowClosed) {
-      throw new ApplicationError("conflict", "Code-worker session is already closed.");
-    }
-    const response = this.#nextMessage(candidate => (
-      candidate.kind === "response"
-      && candidate.requestId === message.requestId
-    ), timeoutMs);
-    const diagnosticBarrier = this.#waitForDiagnosticBarrier(
-      message.requestId,
-      timeoutMs,
-    );
-    // Fatal session teardown can reject the waiter while a backpressured
-    // protocol write is still pending. Observe it immediately, then preserve
-    // the original result by awaiting the same promise after the write.
-    void response.catch(() => undefined);
-    void diagnosticBarrier.catch(() => undefined);
-    try {
-      await writeProtocol(this.#protocol, message);
-      const result = await waitForCodeWorkerResponseDiagnostics(
-        response,
-        diagnosticBarrier,
-        message.requestId,
-      );
-      if (result.status === "error") throw workerFailure(result);
-      return JsonValueSchema.parse(result.output);
-    } catch (error) {
-      this.#cancelDiagnosticBarrier(
-        message.requestId,
-        error instanceof Error ? error : new Error(String(error)),
-      );
-      throw error;
-    }
+  async #request(message: CodeWorkerRequest, timeoutMs: number, allowClosed = false): Promise<JsonValue> {
+    return await this.#effects.run(this.#requestProgram(message, timeoutMs, allowClosed));
+  }
+
+  #requestProgram(message: CodeWorkerRequest, timeoutMs: number, allowClosed = false): Effect.Effect<JsonValue, WorkerFailure> {
+    return Effect.gen(this, function*() {
+      yield* workerValidation("protocol", () => {
+        if (this.#closed && !allowClosed) throw new ApplicationError("conflict", "Code-worker session is already closed.");
+      });
+      // Reserve both native tables before writing. Native callbacks choose the
+      // winner synchronously; the Effect continuations only observe that choice.
+      const response = this.#nextMessage(candidate => (
+        candidate.kind === "response" && candidate.requestId === message.requestId
+      ), timeoutMs);
+      const diagnostics = this.#waitForDiagnosticBarrier(message.requestId, timeoutMs);
+      const outcome = yield* Effect.exit(Effect.gen(this, function*() {
+        yield* workerBoundary("protocol", () => writeProtocol(this.#protocol, message));
+        const candidate = yield* response;
+        const result = yield* workerValidation("protocol", () => {
+          if (candidate.kind !== "response") throw new ApplicationError("invalid-data", "Code worker returned a non-response message.");
+          if (candidate.diagnosticBarrier !== message.requestId) throw new ApplicationError("invalid-data", "Code-worker response diagnostic barrier identity mismatch.");
+          return candidate;
+        });
+        yield* diagnostics;
+        return yield* workerValidation("protocol", () => {
+          if (result.status === "error") throw workerFailure(result);
+          return JsonValueSchema.parse(result.output);
+        });
+      }));
+      if (Exit.isFailure(outcome)) {
+        this.#cancelDiagnosticBarrier(message.requestId, new ApplicationError("subprocess", "Code-worker request failed."));
+      }
+      return yield* outcome;
+    });
   }
 
   #rejectAll(error: Error): void {
     this.#fatal ??= error;
     for (const waiter of this.#waiting.splice(0)) {
-      clearTimeout(waiter.timer);
       waiter.reject(error);
     }
     for (const [barrier, waiter] of this.#diagnosticBarriers) {
-      clearTimeout(waiter.timer);
       this.#diagnosticBarriers.delete(barrier);
       waiter.reject(error);
     }
   }
 
-  #waitForDiagnosticBarrier(barrier: string, timeoutMs: number): Promise<void> {
-    if (this.#fatal !== undefined) return Promise.reject(this.#fatal);
+  #waitForDiagnosticBarrier(barrier: string, timeoutMs: number): Effect.Effect<void, WorkerFailure> {
+    if (this.#fatal !== undefined) return workerValidation("protocol", () => { throw this.#fatal; });
     if (this.#diagnosticBarriers.has(barrier)) {
-      return Promise.reject(new ApplicationError(
-        "internal",
-        `Duplicate code-worker diagnostic barrier: ${barrier}`,
-      ));
-    }
-    return new Promise((resolveBarrier, rejectBarrier) => {
-      const timer = setTimeout(() => {
-        const waiter = this.#diagnosticBarriers.get(barrier);
-        if (waiter === undefined) return;
-        this.#diagnosticBarriers.delete(barrier);
-        const error = new ApplicationError(
-          "subprocess",
-          "Timed out waiting for code-worker diagnostics.",
+      return workerValidation("protocol", () => {
+        throw new ApplicationError(
+          "internal", `Duplicate code-worker diagnostic barrier: ${barrier}`,
         );
-        rejectBarrier(error);
-        this.#rejectAll(error);
-        this.#child.kill("SIGKILL");
-      }, timeoutMs);
-      this.#diagnosticBarriers.set(barrier, {
-        reject: rejectBarrier,
-        resolve: resolveBarrier,
-        stderrObserved: false,
-        stdoutObserved: false,
-        timer,
       });
+    }
+    const completion = this.#effects.completion<void>(timeoutMs, () => {
+      const waiter = this.#diagnosticBarriers.get(barrier);
+      if (waiter === undefined) return;
+      this.#diagnosticBarriers.delete(barrier);
+      const error = new ApplicationError("subprocess", "Timed out waiting for code-worker diagnostics.");
+      completion.fail(error);
+      this.#rejectAll(error);
+      this.#child.kill("SIGKILL");
     });
+    this.#diagnosticBarriers.set(barrier, {
+      completion, reject: completion.fail, resolve: () => completion.succeed(undefined),
+      stderrObserved: false, stdoutObserved: false,
+    });
+    completion.activate();
+    return completion.await;
   }
 
   #cancelDiagnosticBarrier(barrier: string, error: Error): void {
     const waiter = this.#diagnosticBarriers.get(barrier);
     if (waiter === undefined) return;
     this.#diagnosticBarriers.delete(barrier);
-    clearTimeout(waiter.timer);
     waiter.reject(error);
   }
 
@@ -853,7 +787,6 @@ class RunningCodeWorker implements CodeWorkerSession {
       else waiter.stdoutObserved = true;
       if (!waiter.stderrObserved || !waiter.stdoutObserved) continue;
       this.#diagnosticBarriers.delete(barrier);
-      clearTimeout(waiter.timer);
       waiter.resolve();
     }
     const pendingBarrierCount = [...this.#diagnosticBarriers.values()].filter(waiter => (
@@ -1077,8 +1010,9 @@ async function startCodeWorkerLeaseGuardian(options: {
 }
 
 class RunningCodeWorkerPool implements CodeWorkerPool {
+  readonly #effects = new WorkerEffectRuntime();
   readonly #bunExecutable: string;
-  readonly #executions = new Set<Promise<JsonValue>>();
+  readonly #executions = new Set<Fiber.RuntimeFiber<Exit.Exit<JsonValue, WorkerFailure>, never>>();
   readonly #idle: CodeWorkerSession[];
   readonly #leased = new Set<CodeWorkerSession>();
   readonly #live: Set<CodeWorkerSession>;
@@ -1101,142 +1035,130 @@ class RunningCodeWorkerPool implements CodeWorkerPool {
     this.size = workers.length;
   }
 
-  execute(request: CodeWorkerComputeRequest): Promise<JsonValue> {
-    const execution = this.#execute(request);
-    this.#executions.add(execution);
-    void execution.finally(() => {
-      this.#executions.delete(execution);
-    }).catch(() => undefined);
-    return execution;
+  async execute(request: CodeWorkerComputeRequest): Promise<JsonValue> {
+    const admission = this.#acquire(request.abortSignal);
+    const fiber = this.#effects.fork(Effect.exit(this.#executeProgram(request, admission)));
+    this.#executions.add(fiber);
+    fiber.addObserver(() => { this.#executions.delete(fiber); });
+    return await this.#effects.run(Effect.flatMap(Fiber.join(fiber), exit => exit));
   }
 
-  async #execute(request: CodeWorkerComputeRequest): Promise<JsonValue> {
-    const worker = await this.#acquire(request.abortSignal);
-    let guardian: CodeWorkerLeaseGuardian;
-    try {
-      const inheritedFileDescriptor =
-        request.inheritedHostResourceFileDescriptor ?? 0;
-      guardian = await startCodeWorkerLeaseGuardian({
+  #executeProgram(request: CodeWorkerComputeRequest, admission: Effect.Effect<CodeWorkerSession, WorkerFailure>): Effect.Effect<JsonValue, WorkerFailure> {
+    return Effect.gen(this, function*() {
+      const worker = yield* admission;
+      const retire = workerBoundary("retirement", () => this.#retire(worker));
+      const started = yield* Effect.either(workerBoundary("admission", () => startCodeWorkerLeaseGuardian({
         bunExecutable: this.#bunExecutable,
-        inheritedFileDescriptor,
+        inheritedFileDescriptor: request.inheritedHostResourceFileDescriptor ?? 0,
         workerProcessId: worker.processId,
         workerStartIdentity: worker.processStartIdentity,
-      });
-    } catch (error) {
-      try {
-        await this.#retire(worker);
-      } catch (retirementError) {
-        throw new AggregateError(
-          [error, retirementError],
-          "Code-worker guardian startup failed and the worker could not be observably retired.",
-        );
-      }
-      throw error;
-    }
-    let output: JsonValue;
-    try {
-      output = await Promise.race([
-        worker.compute(request),
-        guardian.failure,
-      ]);
-    } catch (error) {
-      if (
-        error instanceof CodeWorkerCancellationError
-        && error.workerReusable
-      ) {
-        try {
-          await guardian.complete();
-        } catch (guardianError) {
-          try {
-            await this.#retire(worker);
-          } catch (retirementError) {
-            throw new AggregateError(
-              [error, guardianError, retirementError],
-              "Cancelled code worker lost its guardian and could not be observably retired.",
-            );
-          }
-          throw new AggregateError(
-            [error, guardianError],
-            "Cancelled code worker's lease guardian failed.",
+      })));
+      if (started._tag === "Left") {
+        const retired = yield* Effect.either(retire);
+        return yield* workerValidation("admission", () => {
+          if (retired._tag === "Left") throw new AggregateError(
+            [started.left.cause, retired.left.cause],
+            "Code-worker guardian startup failed and the worker could not be observably retired.",
           );
+          throw started.left.cause;
+        });
+      }
+      const guardian = started.right;
+      const complete = workerBoundary("retirement", () => guardian.complete());
+      const computation = yield* Effect.either(Effect.raceFirst(
+        workerBoundary("compute", () => worker.compute(request)),
+        workerBoundary("retirement", () => guardian.failure),
+      ));
+      if (computation._tag === "Left") {
+        const error = computation.left.cause;
+        if (error instanceof CodeWorkerCancellationError && error.workerReusable) {
+          const completed = yield* Effect.either(complete);
+          if (completed._tag === "Left") {
+            const retired = yield* Effect.either(retire);
+            return yield* workerValidation("retirement", () => {
+              if (retired._tag === "Left") throw new AggregateError(
+                [error, completed.left.cause, retired.left.cause],
+                "Cancelled code worker lost its guardian and could not be observably retired.",
+              );
+              throw new AggregateError([error, completed.left.cause], "Cancelled code worker's lease guardian failed.");
+            });
+          }
+          if (this.#closed) yield* retire;
+          else this.#release(worker);
+          return yield* Effect.fail(computation.left);
         }
-        if (this.#closed) await this.#retire(worker);
+        // Only confirmed native retirement permits guardian completion.
+        const retired = yield* Effect.either(retire);
+        if (retired._tag === "Left") {
+          guardian.retireDetached();
+          return yield* workerValidation("retirement", () => {
+            throw new AggregateError(
+              [error, retired.left.cause], "Code worker failed and could not be observably retired.",
+            );
+          });
+        }
+        const completed = yield* Effect.either(complete);
+        if (completed._tag === "Left") return yield* workerValidation("retirement", () => {
+          throw new AggregateError(
+            [error, completed.left.cause], "Code worker failed after its lease guardian also failed.",
+          );
+        });
+        return yield* Effect.fail(computation.left);
+      }
+      const output = computation.right;
+      if (request.abortSignal?.aborted) {
+        const completed = yield* Effect.either(complete);
+        if (completed._tag === "Left") {
+          const retired = yield* Effect.either(retire);
+          return yield* workerValidation("retirement", () => {
+            if (retired._tag === "Left") throw new AggregateError(
+              [completed.left.cause, retired.left.cause], "Cancelled code worker failed guardian completion and retirement.",
+            );
+            throw completed.left.cause;
+          });
+        }
+        if (this.#closed) yield* retire;
         else this.#release(worker);
-        throw error;
+        return yield* workerValidation("compute", () => { throw new CodeWorkerCancellationError(request.nodeKey, true); });
       }
-      try {
-        // The guardian owns the inherited machine lease until close confirms
-        // that this exact failed worker has exited. If confirmation fails, do
-        // not send completion: a later scheduler death must still retire it.
-        await this.#retire(worker);
-      } catch (retirementError) {
-        guardian.retireDetached();
-        throw new AggregateError(
-          [error, retirementError],
-          "Code worker failed and could not be observably retired.",
-        );
+      if (this.#closed) {
+        const retired = yield* Effect.either(retire);
+        if (retired._tag === "Left") {
+          guardian.retireDetached();
+          return yield* workerValidation("retirement", () => {
+            throw new AggregateError(
+              [retired.left.cause], "Completed code worker could not be observably retired.",
+            );
+          });
+        }
+        const completed = yield* Effect.either(complete);
+        if (completed._tag === "Left") return yield* workerValidation("retirement", () => {
+          throw new AggregateError(
+            [completed.left.cause], "Retired code worker's lease guardian failed to complete.",
+          );
+        });
+        return output;
       }
-      try {
-        await guardian.complete();
-      } catch (guardianError) {
-        throw new AggregateError(
-          [error, guardianError],
-          "Code worker failed after its lease guardian also failed.",
-        );
+      const completed = yield* Effect.either(complete);
+      if (completed._tag === "Left") {
+        const retired = yield* Effect.either(retire);
+        if (retired._tag === "Left") {
+          guardian.retireDetached();
+          return yield* workerValidation("retirement", () => {
+            throw new AggregateError(
+              [completed.left.cause, retired.left.cause], "Code-worker completion failed and the worker could not be observably retired.",
+            );
+          });
+        }
+        return yield* Effect.fail(completed.left);
       }
-      throw error;
-    }
-    if (request.abortSignal?.aborted === true) {
-      try {
-        await guardian.complete();
-      } catch (guardianError) {
-        await this.#retire(worker).catch(() => undefined);
-        throw guardianError;
-      }
-      if (this.#closed) await this.#retire(worker);
-      else this.#release(worker);
-      throw new CodeWorkerCancellationError(request.nodeKey, true);
-    }
-    if (this.#closed) {
-      try {
-        await this.#retire(worker);
-      } catch (retirementError) {
-        guardian.retireDetached();
-        throw new AggregateError(
-          [retirementError],
-          "Completed code worker could not be observably retired.",
-        );
-      }
-      try {
-        await guardian.complete();
-      } catch (guardianError) {
-        throw new AggregateError(
-          [guardianError],
-          "Retired code worker's lease guardian failed to complete.",
-        );
-      }
+      this.#release(worker);
       return output;
-    }
-    try {
-      await guardian.complete();
-    } catch (error) {
-      try {
-        await this.#retire(worker);
-      } catch (retirementError) {
-        guardian.retireDetached();
-        throw new AggregateError(
-          [error, retirementError],
-          "Code-worker completion failed and the worker could not be observably retired.",
-        );
-      }
-      throw error;
-    }
-    this.#release(worker);
-    return output;
+    });
   }
 
   close(): Promise<void> {
-    this.#closePromise ??= this.#close();
+    this.#closePromise ??= this.#close().finally(async () => await this.#effects.close());
     return this.#closePromise;
   }
 
@@ -1251,57 +1173,54 @@ class RunningCodeWorkerPool implements CodeWorkerPool {
     ]);
     // Execution failures belong to their callers. Closure joins them only so
     // every guardian and inherited lease settles before the pool returns.
-    await Promise.allSettled([...this.#executions]);
+    await this.#effects.run(Effect.forEach([...this.#executions], fiber => Effect.asVoid(Fiber.join(fiber)), { concurrency: "unbounded", discard: true }));
     const failure = (await retirementSettled).find(
       result => result.status === "rejected",
     );
     if (failure?.status === "rejected") throw failure.reason;
   }
 
-  #acquire(abortSignal: AbortSignal | undefined): Promise<CodeWorkerSession> {
+  #acquire(abortSignal: AbortSignal | undefined): Effect.Effect<CodeWorkerSession, WorkerFailure> {
     if (this.#closed) {
-      return Promise.reject(new ApplicationError("conflict", "Code-worker pool is closed."));
+      return workerValidation("admission", () => { throw new ApplicationError("conflict", "Code-worker pool is closed."); });
     }
     if (abortSignal?.aborted === true) {
-      return Promise.reject(new ApplicationError(
-        "cancelled",
-        "Compute was cancelled before a code worker became available.",
-      ));
+      return workerValidation("admission", () => {
+        throw new ApplicationError(
+          "cancelled", "Compute was cancelled before a code worker became available.",
+        );
+      });
     }
     const worker = this.#idle.shift();
     if (worker !== undefined) {
       this.#leased.add(worker);
-      return Promise.resolve(worker);
+      return Effect.succeed(worker);
     }
     if (this.#live.size === 0) {
-      return Promise.reject(new ApplicationError(
-        "subprocess",
-        "No healthy code worker remains in the pool.",
-      ));
+      return workerValidation("admission", () => {
+        throw new ApplicationError(
+          "subprocess", "No healthy code worker remains in the pool.",
+        );
+      });
     }
-    return new Promise((resolveWorker, rejectWorker) => {
-      const waiting: WaitingWorker = {
-        ...(abortSignal === undefined
-          ? {}
-          : {
-              abortHandler: () => {
-                const index = this.#waiting.indexOf(waiting);
-                if (index !== -1) this.#waiting.splice(index, 1);
-                rejectWorker(new ApplicationError(
-                  "cancelled",
-                  "Compute was cancelled while waiting for a code worker.",
-                ));
-              },
-              abortSignal,
-            }),
-        reject: rejectWorker,
-        resolve: resolveWorker,
-      };
-      if (waiting.abortHandler !== undefined) {
-        abortSignal?.addEventListener("abort", waiting.abortHandler, { once: true });
-      }
-      this.#waiting.push(waiting);
-    });
+    const completion = this.#effects.completion<CodeWorkerSession>(0, () => undefined);
+    const waiting: WaitingWorker = {
+      ...(abortSignal === undefined ? {} : {
+        abortSignal,
+        abortHandler: () => {
+          const index = this.#waiting.indexOf(waiting);
+          if (index === -1) return;
+          this.#waiting.splice(index, 1);
+          completion.fail(new ApplicationError("cancelled", "Compute was cancelled while waiting for a code worker."));
+        },
+      }),
+      reject: completion.fail,
+      resolve: completion.succeed,
+    };
+    if (waiting.abortHandler !== undefined) abortSignal?.addEventListener("abort", waiting.abortHandler, { once: true });
+    this.#waiting.push(waiting);
+    if (abortSignal?.aborted) waiting.abortHandler?.();
+    return completion.await;
   }
 
   #release(worker: CodeWorkerSession): void {

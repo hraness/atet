@@ -225,14 +225,15 @@
     "test:vectorize:official": "bun run ./scripts/official-vectorizer-smoke.ts",
     "test:package": "bun run ./scripts/package-smoke.ts",
     "check:sdk": "bun run typecheck:sdk && bun run lint:sdk && bun run build:sdk && bun run test:sdk && bun run check:release-workflows && bun run check:schema && bun run check:skill",
-    "check:desktop": "bun run typecheck:desktop && bun run lint:desktop && bun run test:desktop && bun run build:desktop",
+    "check:desktop": "bun run check:effect && bun run typecheck:desktop && bun run lint:desktop && bun run test:desktop && bun run build:desktop",
     "check:web": "bun run --cwd apps/web check",
     "kb:refresh": "bunx --bun github:hraness/kb#v0.15.2 refresh --root kb",
     "kb:check:lane": "bunx --bun github:hraness/kb#v0.15.2 check --root kb --no-catalog",
     "kb:check": "bunx --bun github:hraness/kb#v0.15.2 check --root kb && bunx --bun github:hraness/kb#v0.15.2 agents check --root kb --repo .",
     "kb:catalog": "bunx --bun github:hraness/kb#v0.15.2 catalog --root kb",
     "check": "bun run check:standalone && bun run check:sdk && bun run check:desktop && bun run check:web && bun run check:standalone && bun run test:package",
-    "prepack": "bun run check"
+    "prepack": "bun run check",
+    "check:effect": "bun run ./scripts/check-effect-policy.ts && bun test ./scripts/check-effect-architecture.test.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway-v4": "npm:@ai-sdk/gateway@^4.0.27",
@@ -241,13 +242,14 @@
     "@resvg/resvg-js": "2.6.2",
     "ai-v7": "npm:ai@^7.0.36",
     "chromium-bidi": "12.1.0",
+    "effect": "3.22.1",
     "motion": "12.42.0",
     "playwright-core": "1.62.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "sharp": "0.35.3",
     "three": "0.183.2",
     "typescript": "^6.0.3",
-    "sharp": "0.35.3",
     "zod": "^4.4.3"
   },
   "optionalDependencies": {

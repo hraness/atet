@@ -1,3 +1,5 @@
+import { Effect } from "effect";
+import { operationBoundary, operationValidation, runStandaloneOperation, type OperationEffectFailure } from "./operation-effects";
 import { z } from "zod";
 
 import { ApplicationError } from "./errors";
@@ -30,6 +32,7 @@ export interface RegisteredOperation {
   readonly discovery: OperationDiscovery;
   describe(): OperationDescription;
   execute(context: OperationExecutionContext, input: unknown): Promise<OperationResult>;
+  executeEffect?(context: OperationExecutionContext, input: unknown): Effect.Effect<OperationResult, OperationEffectFailure>;
 }
 
 function registryKey(kind: string, version: number): string {
@@ -80,24 +83,16 @@ function eraseDefinition<Input, Output>(
     policy: definition.policy,
     version: definition.version,
   });
-  return Object.freeze({
-    describe: (): OperationDescription => ({
-      ...discovery,
-      inputJsonSchema: {
-        ...z.toJSONSchema(definition.inputSchema),
-        $id: definition.inputSchemaId,
-      },
-      outputJsonSchema: {
-        ...z.toJSONSchema(definition.outputSchema),
-        $id: definition.outputSchemaId,
-      },
-    }),
-    discovery,
-    execute: async (context: OperationExecutionContext, input: unknown): Promise<OperationResult> => {
-      const parsedInput = definition.inputSchema.parse(input);
-      const output = definition.outputSchema.parse(
-        await definition.lifecycle.execute(context, parsedInput),
-      );
+  const executeEffect = (
+    context: OperationExecutionContext,
+    input: unknown,
+  ): Effect.Effect<OperationResult, OperationEffectFailure> => Effect.gen(function*() {
+    const parsedInput = yield* operationValidation("input", () => definition.inputSchema.parse(input));
+    const value = definition.lifecycle.executeEffect === undefined
+      ? yield* operationBoundary("execution", () => definition.lifecycle.execute(context, parsedInput))
+      : yield* definition.lifecycle.executeEffect(context, parsedInput);
+    return yield* operationValidation("output", () => {
+      const output = definition.outputSchema.parse(value);
       const summary: BoundedOperationSummary = definition.summarize(output);
       if (summary.kind !== definition.kind || Object.keys(summary.fields).length > 32) {
         throw new ApplicationError("internal", `Operation ${definition.kind} returned an invalid summary.`);
@@ -123,7 +118,25 @@ function eraseDefinition<Input, Output>(
         summary,
         version: definition.version,
       };
-    },
+
+    });
+  });
+  return Object.freeze({
+    describe: (): OperationDescription => ({
+      ...discovery,
+      inputJsonSchema: {
+        ...z.toJSONSchema(definition.inputSchema),
+        $id: definition.inputSchemaId,
+      },
+      outputJsonSchema: {
+        ...z.toJSONSchema(definition.outputSchema),
+        $id: definition.outputSchemaId,
+      },
+    }),
+    discovery,
+    execute: async (context: OperationExecutionContext, input: unknown): Promise<OperationResult> =>
+      await runStandaloneOperation(executeEffect(context, input)),
+    executeEffect,
   });
 }
 

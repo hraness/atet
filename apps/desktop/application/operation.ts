@@ -1,3 +1,5 @@
+import type { Effect } from "effect";
+import type { OperationEffectFailure } from "./operation-effects";
 import type { z } from "zod";
 
 import type { ApplicationContext } from "./context";
@@ -142,6 +144,8 @@ export interface OperationExecutionContext {
 
 interface LifecycleBase<Input, Output> {
   execute(context: OperationExecutionContext, input: Input): Promise<Output>;
+  /** Local native composition only; never part of discovery or graph identity. */
+  executeEffect?(context: OperationExecutionContext, input: Input): Effect.Effect<Output, OperationEffectFailure>;
 }
 
 export interface PureLifecycle<Input, Output> extends LifecycleBase<Input, Output> {

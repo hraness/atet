@@ -1,3 +1,6 @@
+import { Deferred, Effect, Either, Exit, Fiber, Queue } from "effect";
+import { WorkflowEffectRuntime, workflowBoundary, workflowFailure, workflowValidation, workflowResource, workflowScoped, type WorkflowFailure } from "./workflow-effects";
+import { operationExitValue } from "../application/operation-effects";
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
@@ -86,7 +89,6 @@ const MAX_SUMMARY_KEY_LENGTH = 128;
 const MAX_SUMMARY_STRING_LENGTH = 2_000;
 const MAX_FAILURE_MESSAGE_LENGTH = 4_000;
 const DEFAULT_CANCELLATION_POLL_MS = 100;
-const MAX_TIMER_DELAY_MS = 2_147_483_647;
 
 export const DEFAULT_SCHEDULER_RESOURCE_LIMITS = Object.freeze({
   browser: 1,
@@ -325,7 +327,7 @@ interface RunningNode {
   readonly cancellable: boolean;
   readonly executionPlan: NodeExecutionPlan;
   readonly nodeKey: string;
-  readonly promise: Promise<NodeExecutionOutcome>;
+  readonly fiber: Fiber.RuntimeFiber<Exit.Exit<NodeExecutionOutcome, WorkflowFailure>, never>;
   readonly resources: readonly {
     readonly amount: number;
     readonly resource: OperationResourceKind;
@@ -383,65 +385,42 @@ function safeDeadline(startedAtMs: number, durationMs: number): number {
     : startedAtMs + durationMs;
 }
 
-function scheduleDeadline(
-  deadlineMonotonicMs: number,
-  expire: () => void,
-): () => void {
-  let active = true;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const arm = () => {
-    if (!active) return;
-    const remainingMs = deadlineMonotonicMs - performance.now();
-    if (remainingMs <= 0) {
-      active = false;
-      expire();
-      return;
-    }
-    timer = setTimeout(arm, Math.min(remainingMs, MAX_TIMER_DELAY_MS));
-  };
-  arm();
-  return () => {
-    active = false;
-    if (timer !== undefined) clearTimeout(timer);
-  };
+function waitUntil(deadlineMonotonicMs: number): Effect.Effect<void> {
+  return Effect.suspend(() => {
+    const remaining = deadlineMonotonicMs - performance.now();
+    return remaining <= 0 ? Effect.void : Effect.zipRight(
+      Effect.sleep(Math.min(remaining, 2_147_483_647)), waitUntil(deadlineMonotonicMs),
+    );
+  });
 }
 
 class WorkflowRunControl {
   readonly #abortController = new AbortController();
   readonly deadlineMonotonicMs: number;
-  readonly #interruptionPromise: Promise<never>;
+  readonly #interrupted: Deferred.Deferred<never, WorkflowFailure>;
   readonly #onInterrupt: (interruption: WorkflowInterruption) => void;
-  readonly #rejectInterruption: (error: ApplicationError) => void;
-  readonly #stopDeadline: () => void;
+  readonly #owner: WorkflowEffectRuntime;
+  readonly #stopDeadline: () => Promise<void>;
   #interruption: WorkflowInterruption | undefined;
 
   constructor(
+    owner: WorkflowEffectRuntime,
     deadlineMonotonicMs: number,
     onInterrupt: (interruption: WorkflowInterruption) => void,
   ) {
+    this.#owner = owner;
     this.deadlineMonotonicMs = deadlineMonotonicMs;
     this.#onInterrupt = onInterrupt;
-    let rejectInterruption!: (error: ApplicationError) => void;
-    this.#interruptionPromise = new Promise<never>((_resolve, reject) => {
-      rejectInterruption = reject;
-    });
-    this.#rejectInterruption = rejectInterruption;
-    void this.#interruptionPromise.catch(() => undefined);
-    this.#stopDeadline = scheduleDeadline(deadlineMonotonicMs, () => {
+    this.#interrupted = owner.deferred();
+    this.#stopDeadline = owner.watch(Effect.zipRight(waitUntil(deadlineMonotonicMs), Effect.sync(() => {
       this.interrupt("deadline", new ApplicationError(
-        "cancelled",
-        "Workflow exceeded the host wall-clock bound.",
+        "cancelled", "Workflow exceeded the host wall-clock bound.",
       ));
-    });
+    })));
   }
 
-  get interruption(): WorkflowInterruption | undefined {
-    return this.#interruption;
-  }
-
-  get signal(): AbortSignal {
-    return this.#abortController.signal;
-  }
+  get interruption(): WorkflowInterruption | undefined { return this.#interruption; }
+  get signal(): AbortSignal { return this.#abortController.signal; }
 
   interrupt(kind: WorkflowInterruptionKind, error: ApplicationError): void {
     if (this.#interruption !== undefined) return;
@@ -449,7 +428,7 @@ class WorkflowRunControl {
     this.#interruption = interruption;
     this.#abortController.abort(error);
     this.#onInterrupt(interruption);
-    this.#rejectInterruption(error);
+    Deferred.unsafeDone(this.#interrupted, Effect.fail(workflowFailure(error, "monitor")));
   }
 
   assertActive(): void {
@@ -458,15 +437,12 @@ class WorkflowRunControl {
 
   async race<Value>(execute: () => Promise<Value>): Promise<Value> {
     this.assertActive();
-    return await Promise.race([
-      Promise.resolve().then(execute),
-      this.#interruptionPromise,
-    ]);
+    return await this.#owner.run(Effect.raceFirst(
+      workflowBoundary("authority", execute), Deferred.await(this.#interrupted),
+    ));
   }
 
-  stop(): void {
-    this.#stopDeadline();
-  }
+  async stop(): Promise<void> { await this.#stopDeadline(); }
 }
 
 function safePositiveInteger(value: number, name: string): number {
@@ -1234,278 +1210,311 @@ export class DurableWorkflowScheduler {
   }
 
   async run(runId: string): Promise<SchedulerRunResult> {
-    const graphPlan = await this.#store.graphPlan(runId);
-    if (graphPlan.graph.nodes.length > this.#limits.maxNodes) {
-      throw new ApplicationError(
-        "incompatible",
-        `Workflow has ${String(graphPlan.graph.nodes.length)} nodes; the host limit is `
-        + `${String(this.#limits.maxNodes)}.`,
+    const owner = new WorkflowEffectRuntime();
+    try { return await owner.run(this.#runOwned(runId, owner)); }
+    finally { await owner.stop(); }
+  }
+
+  #runOwned(runId: string, owner: WorkflowEffectRuntime): Effect.Effect<SchedulerRunResult, WorkflowFailure> {
+    return workflowScoped(Effect.gen(this, function*() {
+      const graphPlan = (yield* workflowBoundary("authority", () => this.#store.graphPlan(runId)));
+      if (graphPlan.graph.nodes.length > this.#limits.maxNodes) {
+        return yield* Effect.fail(workflowFailure(new ApplicationError(
+          "incompatible",
+          `Workflow has ${String(graphPlan.graph.nodes.length)} nodes; the host limit is `
+          + `${String(this.#limits.maxNodes)}.`,
+        )));
+      }
+      let ownsFence = true;
+      const fence = yield* workflowResource(
+        workflowBoundary("admission", () => this.#store.acquireClaim(runId, { owner: this.#owner })),
+        fence => ownsFence ? this.#releaseOwnedClaim(fence) : Effect.void,
       );
-    }
-    const fence = await this.#store.acquireClaim(runId, { owner: this.#owner });
-    let ownsFence = true;
-    let computeExecutorLease: SchedulerComputeExecutorLease | undefined;
-    const workflowDeadlineMonotonicMs = safeDeadline(
-      performance.now(),
-      this.#limits.maxWallClockMs,
-    );
-    const initialSummary = await this.#summary(runId);
-    const state: MutableRunState = {
-      cancelled: false,
-      monitorError: undefined,
-      pause: undefined,
-      reconciliationDeferred: false,
-      startedAt: initialSummary.startedAt ?? this.#now().toISOString(),
-    };
-    const running = new Map<string, RunningNode>();
-    const prepared = new Map<string, PreparedNode>();
-    const ledger = new ResourceLedger(this.#limits);
-    const control = new WorkflowRunControl(
-      workflowDeadlineMonotonicMs,
-      (interruption) => {
-        if (interruption.kind === "monitor") {
-          state.monitorError = interruption.error;
-        } else {
-          state.cancelled = true;
-        }
-        if (interruption.kind !== "deadline") {
-          for (const item of running.values()) {
-            item.admissionAbortController.abort();
-            if (item.cancellable) item.abortController.abort();
+      let computeExecutorLease: SchedulerComputeExecutorLease | undefined;
+      yield* workflowResource(Effect.void, () => workflowBoundary("cleanup", () => computeExecutorLease?.release()));
+      const workflowDeadlineMonotonicMs = safeDeadline(
+        performance.now(),
+        this.#limits.maxWallClockMs,
+      );
+      const initialSummary = (yield* workflowBoundary("authority", () => this.#summary(runId)));
+      const state: MutableRunState = {
+        cancelled: false,
+        monitorError: undefined,
+        pause: undefined,
+        reconciliationDeferred: false,
+        startedAt: initialSummary.startedAt ?? this.#now().toISOString(),
+      };
+      const running = new Map<string, RunningNode>();
+      const completions = yield* Queue.unbounded<{ nodeKey: string; outcome: Exit.Exit<NodeExecutionOutcome, WorkflowFailure> }>();
+      const prepared = new Map<string, PreparedNode>();
+      const ledger = new ResourceLedger(this.#limits);
+      const control = new WorkflowRunControl(
+        owner,
+        workflowDeadlineMonotonicMs,
+        (interruption) => {
+          if (interruption.kind === "monitor") {
+            state.monitorError = interruption.error;
+          } else {
+            state.cancelled = true;
           }
-        }
-      },
-    );
-    let cancellationCheckActive = false;
-    const cancellationTimer = setInterval(() => {
-      if (cancellationCheckActive) return;
-      cancellationCheckActive = true;
-      void this.#cancellation(runId).then(request => {
-        if (request === undefined) return;
-        control.interrupt(
-          "cancellation",
-          new ApplicationError("cancelled", "Workflow cancellation requested."),
-        );
-      }).catch(error => {
-        control.interrupt("monitor", asApplicationError(error));
-      }).finally(() => {
-        cancellationCheckActive = false;
-      });
-    }, this.#limits.cancellationPollMs);
-
-    try {
-      await this.#store.assertFence(fence);
-      await this.#store.appendEvent(fence, {
-        details: { status: "running" },
-        kind: "run-status",
-        timestamp: this.#now().toISOString(),
-      });
-      try {
-        await this.#verifyRuntimeCompatibility(runId, graphPlan);
-        computeExecutorLease = await this.#prepareComputeRuntime(
-          fence,
-          graphPlan,
-          state,
-          control,
-        );
-      } catch (error) {
-        const compatibilityError = asApplicationError(error);
-        if (
-          compatibilityError.code !== "incompatible"
-          && compatibilityError.code !== "unsupported-plan"
-        ) {
-          throw error;
-        }
-        await this.#markRunIncompatible(fence, graphPlan, state, compatibilityError);
-        const summary = await this.#publishSummary(fence, graphPlan, state, 0);
-        await this.#store.appendEvent(fence, {
-          details: { status: summary.status },
-          kind: "run-finalized",
-          timestamp: this.#now().toISOString(),
-        });
-        await this.#store.releaseClaim(fence);
-        ownsFence = false;
-        return { summary };
-      }
-      await this.#reconcileInterrupted(fence, graphPlan, state, control);
-      await this.#publishSummary(fence, graphPlan, state, running.size);
-      if (state.reconciliationDeferred) {
-        const summary = await this.#publishSummary(fence, graphPlan, state, 0);
-        await this.#store.appendEvent(fence, {
-          details: { status: summary.status },
-          kind: "run-status",
-          timestamp: this.#now().toISOString(),
-        });
-        await this.#store.releaseClaim(fence);
-        ownsFence = false;
-        return { summary };
-      }
-
-      while (true) {
-        if (state.monitorError !== undefined) throw state.monitorError;
-        await this.#store.assertFence(fence);
-        if (await this.#cancellation(runId) !== undefined) {
-          state.cancelled = true;
-          for (const item of running.values()) {
-            item.admissionAbortController.abort();
-            if (item.cancellable) item.abortController.abort();
-          }
-        }
-        if (performance.now() >= workflowDeadlineMonotonicMs) {
-          state.cancelled = true;
-          for (const item of running.values()) {
-            item.admissionAbortController.abort();
-            if (item.cancellable) item.abortController.abort();
-          }
-        }
-
-        await this.#advanceDependencies(fence, graphPlan, state);
-        if (state.cancelled) {
-          await this.#cancelWaitingNodes(fence, graphPlan);
-        } else if (state.pause === undefined) {
-          await this.#prepareReadyNodes(
-            fence,
-            graphPlan,
-            state,
-            control,
-            prepared,
-          );
-          if (state.pause === undefined) {
-            await this.#startAdmittedNodes(
-              fence,
-              prepared,
-              running,
-              ledger,
-              workflowDeadlineMonotonicMs,
-              control,
-            );
-            if (state.cancelled) {
-              await this.#cancelWaitingNodes(fence, graphPlan);
+          if (interruption.kind !== "deadline") {
+            for (const item of running.values()) {
+              item.admissionAbortController.abort();
+              if (item.cancellable) item.abortController.abort();
             }
           }
+        },
+      );
+      const stopCancellation = owner.watch(Effect.forever(Effect.gen(this, function*() {
+        yield* Effect.sleep(this.#limits.cancellationPollMs);
+        const result = yield* Effect.either(workflowBoundary("monitor", () => this.#cancellation(runId)));
+        if (Either.isLeft(result)) {
+          control.interrupt("monitor", asApplicationError(result.left.cause));
+        } else if (result.right !== undefined) {
+          control.interrupt("cancellation", new ApplicationError("cancelled", "Workflow cancellation requested."));
         }
+      })));
 
-        if (running.size > 0) {
-          const outcome = await Promise.race(
-            [...running.values()].map(async item => ({
-              item,
-              outcome: await item.promise,
-            })),
-          );
-          running.delete(outcome.item.nodeKey);
-          ledger.release(outcome.item.resources, outcome.item.publicationKeys);
-          const reconciliationDeferred = await this.#persistOutcome(
-            fence,
-            graphPlan,
-            outcome.item,
-            outcome.outcome,
-            control,
-          );
-          await this.#publishSummary(fence, graphPlan, state, running.size);
-          if (reconciliationDeferred) {
-            state.reconciliationDeferred = true;
-            const summary = await this.#publishSummary(
+      const outcome = yield* Effect.exit(Effect.catchAll(
+        Effect.gen(this, function*() {
+          yield* workflowBoundary("authority", () => this.#store.assertFence(fence));
+          yield* workflowBoundary("authority", () => this.#store.appendEvent(fence, {
+            details: { status: "running" },
+            kind: "run-status",
+            timestamp: this.#now().toISOString(),
+          }));
+          const compatibility = yield* Effect.either(Effect.gen(this, function*() {
+            yield* workflowBoundary("authority", () => this.#verifyRuntimeCompatibility(runId, graphPlan));
+            computeExecutorLease = (yield* workflowBoundary("authority", () => this.#prepareComputeRuntime(
               fence,
               graphPlan,
               state,
-              running.size,
-            );
-            await this.#store.appendEvent(fence, {
+              control,
+            )));
+
+          }));
+          if (Either.isLeft(compatibility)) {
+            const error = compatibility.left.cause;
+            const compatibilityError = asApplicationError(error);
+            if (
+              compatibilityError.code !== "incompatible"
+              && compatibilityError.code !== "unsupported-plan"
+            ) {
+              return yield* Effect.fail(workflowFailure(error));
+            }
+            yield* workflowBoundary("authority", () => this.#markRunIncompatible(fence, graphPlan, state, compatibilityError));
+            const summary = (yield* workflowBoundary("authority", () => this.#publishSummary(fence, graphPlan, state, 0)));
+            yield* workflowBoundary("authority", () => this.#store.appendEvent(fence, {
+              details: { status: summary.status },
+              kind: "run-finalized",
+              timestamp: this.#now().toISOString(),
+            }));
+            yield* workflowBoundary("authority", () => this.#store.releaseClaim(fence));
+            ownsFence = false;
+            return { summary };
+
+          }
+          yield* workflowBoundary("authority", () => this.#reconcileInterrupted(fence, graphPlan, state, control));
+          yield* workflowBoundary("authority", () => this.#publishSummary(fence, graphPlan, state, running.size));
+          if (state.reconciliationDeferred) {
+            const summary = (yield* workflowBoundary("authority", () => this.#publishSummary(fence, graphPlan, state, 0)));
+            yield* workflowBoundary("authority", () => this.#store.appendEvent(fence, {
               details: { status: summary.status },
               kind: "run-status",
               timestamp: this.#now().toISOString(),
-            });
-            await this.#store.releaseClaim(fence);
+            }));
+            yield* workflowBoundary("authority", () => this.#store.releaseClaim(fence));
             ownsFence = false;
             return { summary };
           }
-          continue;
-        }
 
-        const records = await this.#store.nodes(runId);
-        const status = terminalStatus(records, state, 0);
-        if (status === "running") {
-          const impossible = await this.#failImpossibleReadyNodes(
-            fence,
-            graphPlan,
-            ledger,
-          );
-          if (impossible) continue;
-          throw new ApplicationError(
-            "internal",
-            "Workflow scheduler reached a nonterminal state without runnable work.",
-          );
-        }
-        const summary = await this.#publishSummary(fence, graphPlan, state, 0);
-        await this.#store.appendEvent(fence, {
-          details: { status: summary.status },
-          kind: terminalRunStatus(summary.status) ? "run-finalized" : "run-status",
-          timestamp: this.#now().toISOString(),
-        });
-        await this.#store.releaseClaim(fence);
-        ownsFence = false;
-        return {
-          ...(state.pause === undefined ? {} : { pause: state.pause }),
-          summary,
-        };
-      }
-    } catch (error) {
-      if (
-        ownsFence
-        && (
-          control.interruption?.kind === "cancellation"
-          || control.interruption?.kind === "deadline"
-        )
-      ) {
-        const interruptedRunning = [...running.values()].sort((left, right) => (
-          left.nodeKey.localeCompare(right.nodeKey)
-        ));
-        if (interruptedRunning.length > 0) {
-          const outcomes = await Promise.all(interruptedRunning.map(async item => ({
-            item,
-            outcome: await item.promise,
-          })));
-          running.clear();
-          for (const outcome of outcomes) {
-            ledger.release(outcome.item.resources, outcome.item.publicationKeys);
-            const deferred = await this.#persistOutcome(
-              fence,
-              graphPlan,
-              outcome.item,
-              outcome.outcome,
-              control,
-            );
-            state.reconciliationDeferred ||= deferred;
+          while (true) {
+            if (state.monitorError !== undefined) return yield* Effect.fail(workflowFailure(state.monitorError));
+            yield* workflowBoundary("authority", () => this.#store.assertFence(fence));
+            if ((yield* workflowBoundary("authority", () => this.#cancellation(runId))) !== undefined) {
+              state.cancelled = true;
+              for (const item of running.values()) {
+                item.admissionAbortController.abort();
+                if (item.cancellable) item.abortController.abort();
+              }
+            }
+            if (performance.now() >= workflowDeadlineMonotonicMs) {
+              state.cancelled = true;
+              for (const item of running.values()) {
+                item.admissionAbortController.abort();
+                if (item.cancellable) item.abortController.abort();
+              }
+            }
+
+            yield* workflowBoundary("authority", () => this.#advanceDependencies(fence, graphPlan, state));
+            if (state.cancelled) {
+              yield* workflowBoundary("authority", () => this.#cancelWaitingNodes(fence, graphPlan));
+            } else if (state.pause === undefined) {
+              yield* workflowBoundary("authority", () => this.#prepareReadyNodes(
+                fence,
+                graphPlan,
+                state,
+                control,
+                prepared,
+              ));
+              if (state.pause === undefined) {
+                yield* workflowBoundary("authority", () => this.#startAdmittedNodes(
+                  fence,
+                  prepared,
+                  running,
+                  ledger,
+                  workflowDeadlineMonotonicMs,
+                  control,
+                  owner,
+                  completions,
+                ));
+                if (state.cancelled) {
+                  yield* workflowBoundary("authority", () => this.#cancelWaitingNodes(fence, graphPlan));
+                }
+              }
+            }
+
+            if (running.size > 0) {
+              const completed = yield* Queue.take(completions);
+              const item = running.get(completed.nodeKey);
+              if (item === undefined) continue;
+              const outcome = { item, outcome: yield* completed.outcome };
+              running.delete(outcome.item.nodeKey);
+              ledger.release(outcome.item.resources, outcome.item.publicationKeys);
+              const reconciliationDeferred = (yield* workflowBoundary("authority", () => this.#persistOutcome(
+                fence,
+                graphPlan,
+                outcome.item,
+                outcome.outcome,
+                control,
+              )));
+              yield* workflowBoundary("authority", () => this.#publishSummary(fence, graphPlan, state, running.size));
+              if (reconciliationDeferred) {
+                state.reconciliationDeferred = true;
+                const summary = (yield* workflowBoundary("authority", () => this.#publishSummary(
+                  fence,
+                  graphPlan,
+                  state,
+                  running.size,
+                )));
+                yield* workflowBoundary("authority", () => this.#store.appendEvent(fence, {
+                  details: { status: summary.status },
+                  kind: "run-status",
+                  timestamp: this.#now().toISOString(),
+                }));
+                yield* workflowBoundary("authority", () => this.#store.releaseClaim(fence));
+                ownsFence = false;
+                return { summary };
+              }
+              continue;
+            }
+
+            const records = (yield* workflowBoundary("authority", () => this.#store.nodes(runId)));
+            const status = terminalStatus(records, state, 0);
+            if (status === "running") {
+              const impossible = (yield* workflowBoundary("authority", () => this.#failImpossibleReadyNodes(
+                fence,
+                graphPlan,
+                ledger,
+              )));
+              if (impossible) continue;
+              return yield* Effect.fail(workflowFailure(new ApplicationError(
+                "internal",
+                "Workflow scheduler reached a nonterminal state without runnable work.",
+              )));
+            }
+            const summary = (yield* workflowBoundary("authority", () => this.#publishSummary(fence, graphPlan, state, 0)));
+            yield* workflowBoundary("authority", () => this.#store.appendEvent(fence, {
+              details: { status: summary.status },
+              kind: terminalRunStatus(summary.status) ? "run-finalized" : "run-status",
+              timestamp: this.#now().toISOString(),
+            }));
+            yield* workflowBoundary("authority", () => this.#store.releaseClaim(fence));
+            ownsFence = false;
+            return {
+              ...(state.pause === undefined ? {} : { pause: state.pause }),
+              summary,
+            };
           }
-        }
-        await this.#cancelWaitingNodes(fence, graphPlan);
-        const summary = await this.#publishSummary(fence, graphPlan, state, running.size);
-        await this.#store.appendEvent(fence, {
-          details: { status: summary.status },
-          kind: terminalRunStatus(summary.status) ? "run-finalized" : "run-status",
-          timestamp: this.#now().toISOString(),
-        });
-        await this.#store.releaseClaim(fence);
-        ownsFence = false;
-        return { summary };
+        }),
+        failure => Effect.gen(this, function*() {
+          const error = failure.cause;
+          if (
+            ownsFence
+            && (
+              control.interruption?.kind === "cancellation"
+              || control.interruption?.kind === "deadline"
+            )
+          ) {
+            const interruptedRunning = [...running.values()].sort((left, right) => (
+              left.nodeKey.localeCompare(right.nodeKey)
+            ));
+            if (interruptedRunning.length > 0) {
+              const outcomes = yield* Effect.forEach(interruptedRunning, item =>
+                Effect.flatMap(Fiber.join(item.fiber), exit => Effect.map(exit, outcome => ({ item, outcome }))),
+                { concurrency: "unbounded" },
+              );
+              running.clear();
+              for (const outcome of outcomes) {
+                ledger.release(outcome.item.resources, outcome.item.publicationKeys);
+                const deferred = (yield* workflowBoundary("authority", () => this.#persistOutcome(
+                  fence,
+                  graphPlan,
+                  outcome.item,
+                  outcome.outcome,
+                  control,
+                )));
+                state.reconciliationDeferred ||= deferred;
+              }
+            }
+            yield* workflowBoundary("authority", () => this.#cancelWaitingNodes(fence, graphPlan));
+            const summary = (yield* workflowBoundary("authority", () => this.#publishSummary(fence, graphPlan, state, running.size)));
+            yield* workflowBoundary("authority", () => this.#store.appendEvent(fence, {
+              details: { status: summary.status },
+              kind: terminalRunStatus(summary.status) ? "run-finalized" : "run-status",
+              timestamp: this.#now().toISOString(),
+            }));
+            yield* workflowBoundary("authority", () => this.#store.releaseClaim(fence));
+            ownsFence = false;
+            return { summary };
+          }
+          if (ownsFence) {
+            const applicationError = asApplicationError(error);
+            if (applicationError.code !== "conflict") {
+              yield* workflowBoundary("authority", () => this.#markSchedulerFailure(fence, graphPlan, state, applicationError).catch(
+                () => undefined,
+              ));
+            }
+          }
+          return yield* Effect.fail(workflowFailure(error));
+        }),
+      ));
+      const cleanup = yield* Effect.exit(Effect.gen(this, function*() {
+        yield* workflowBoundary("authority", () => stopCancellation());
+        yield* workflowBoundary("authority", () => control.stop());
+
+      }));
+      return yield* Exit.zipLeft(outcome, cleanup);
+    }));
+  }
+
+  #releaseOwnedClaim(fence: RunFence): Effect.Effect<void, WorkflowFailure> {
+    return Effect.gen(this, function* () {
+      const ownership = yield* Effect.either(workflowBoundary("cleanup", () => this.#store.assertFence(fence)));
+      if (Either.isLeft(ownership)) {
+        // A fresh authoritative stale-fence result proves there is no claim of
+        // ours left to release; preserving it is not a cleanup failure.
+        if (ownership.left.cause instanceof ApplicationError && ownership.left.cause.code === "conflict") return;
+        return yield* Effect.fail(ownership.left);
       }
-      if (ownsFence) {
-        const applicationError = asApplicationError(error);
-        if (applicationError.code !== "conflict") {
-          await this.#markSchedulerFailure(fence, graphPlan, state, applicationError).catch(
-            () => undefined,
-          );
-        }
+      const release = yield* Effect.either(workflowBoundary("cleanup", () => this.#store.releaseClaim(fence)));
+      if (Either.isRight(release)) return;
+      if (release.left.cause instanceof ApplicationError && release.left.cause.code === "conflict") {
+        const current = yield* Effect.either(workflowBoundary("cleanup", () => this.#store.assertFence(fence)));
+        if (Either.isLeft(current) && current.left.cause instanceof ApplicationError && current.left.cause.code === "conflict") return;
       }
-      throw error;
-    } finally {
-      clearInterval(cancellationTimer);
-      control.stop();
-      if (ownsFence) {
-        await this.#store.releaseClaim(fence).catch(() => undefined);
-      }
-      await computeExecutorLease?.release().catch(() => undefined);
-    }
+      return yield* Effect.fail(release.left);
+    });
   }
 
   async #summary(runId: string): Promise<RunSummary> {
@@ -2313,6 +2322,8 @@ export class DurableWorkflowScheduler {
     ledger: ResourceLedger,
     workflowDeadlineMonotonicMs: number,
     control: WorkflowRunControl,
+    owner: WorkflowEffectRuntime,
+    completions: Queue.Queue<{ nodeKey: string; outcome: Exit.Exit<NodeExecutionOutcome, WorkflowFailure> }>,
   ): Promise<void> {
     for (const item of [...prepared.values()].sort((left, right) => (
       left.record.nodeKey.localeCompare(right.record.nodeKey)
@@ -2366,13 +2377,14 @@ export class DurableWorkflowScheduler {
           cancellable: item.executor.policy.cancellable,
           executionPlan: item.executionPlan,
           nodeKey: item.record.nodeKey,
-          promise: this.#executeNode(
+          fiber: owner.fork(Effect.exit(this.#executeNode(
             fence,
             item,
             admissionAbortController,
             abortController,
             workflowDeadlineMonotonicMs,
-          ),
+            owner,
+          )).pipe(Effect.tap(outcome => Queue.offer(completions, { nodeKey: item.record.nodeKey, outcome })))),
           publicationKeys: item.executionPlan.publicationKeys,
           resources,
         };
@@ -2384,334 +2396,343 @@ export class DurableWorkflowScheduler {
     }
   }
 
-  async #executeNode(
+  #executeNode(
     fence: RunFence,
     item: PreparedNode,
     admissionAbortController: AbortController,
     abortController: AbortController,
     workflowDeadlineMonotonicMs: number,
-  ): Promise<NodeExecutionOutcome> {
-    let timedOut = false;
-    let deadlineKind: NodeDeadlineKind | undefined;
-    let publicationMayBeAuthoritative = false;
-    let computeDispatched = false;
-    const nodeDeadlineMonotonicMs = safeDeadline(
-      performance.now(),
-      item.executor.policy.maxDurationMs,
-    );
-    const effectiveDeadlineMonotonicMs = Math.min(
-      nodeDeadlineMonotonicMs,
-      workflowDeadlineMonotonicMs,
-    );
-    const effectiveDeadlineKind: NodeDeadlineKind = (
-      workflowDeadlineMonotonicMs <= nodeDeadlineMonotonicMs
-    )
-      ? "workflow"
-      : "node";
-    let rejectDeadline!: (error: ApplicationError) => void;
-    const deadlinePromise = new Promise<never>((_resolve, reject) => {
-      rejectDeadline = reject;
-    });
-    const deadlineError = () => new ApplicationError(
-      "unavailable",
-      effectiveDeadlineKind === "workflow"
-        ? "Workflow exceeded the host wall-clock bound."
-        : "Operation exceeded its registered duration bound.",
-    );
-    const cancelDeadline = scheduleDeadline(effectiveDeadlineMonotonicMs, () => {
-      timedOut = true;
-      deadlineKind = effectiveDeadlineKind;
-      rejectDeadline(deadlineError());
-      admissionAbortController.abort();
-      if (item.executor.policy.cancellable) abortController.abort();
-    });
-    const beforeDeadline = async <Value>(
-      execute: () => Promise<Value>,
-    ): Promise<Value> => {
-      if (timedOut) throw deadlineError();
-      return await Promise.race([execute(), deadlinePromise]);
-    };
-    const assertPublicationAllowed = () => {
-      if (timedOut) {
-        throw new ApplicationError(
-          "cancelled",
-          "Workflow node deadline expired before publication.",
-        );
-      }
-    };
-    try {
-      await beforeDeadline(async () => await this.#store.assertFence(fence));
-      if (await beforeDeadline(async () => await this.#cancellation(fence.runId)) !== undefined) {
-        throw new ApplicationError("cancelled", "Workflow cancellation requested.");
-      }
-      if (
-        item.executor.policy.effect === "paid-cloud"
-        || item.executionPlan.publicationKeys.length > 0
-      ) {
-        await beforeDeadline(async () => await this.#store.assertFence(fence));
-        if (
-          await beforeDeadline(async () => await this.#cancellation(fence.runId))
-          !== undefined
-        ) {
-          throw new ApplicationError(
-            "cancelled",
-            "Workflow cancellation requested before dispatch or publication.",
-          );
-        }
-      }
-      const executeOperation = async (lease: HostResourceLease) => {
-        if (item.executor.kind !== "operation") {
-          throw new ApplicationError(
-            "internal",
-            `Compute node ${item.record.nodeKey} entered operation execution.`,
-          );
-        }
-        await beforeDeadline(async () => await this.#store.assertFence(fence));
-        if (
-          await beforeDeadline(async () => await this.#store.cancellation(fence.runId))
-          !== undefined
-        ) {
-          throw new ApplicationError(
-            "cancelled",
-            "Workflow cancellation requested before project publication.",
-          );
-        }
-        const workspaceDirectory = await beforeDeadline(async () =>
-          await this.#store.stagingDirectory(
-            fence,
-            item.record.nodeKey,
-            item.executionPlan.nodePlanSha256,
-          )
-        );
-        await lease.assertOwned();
-        const leasedApplication = applicationWithHostResourceLease(
-          this.#application,
-          lease,
-        );
-        return await item.executor.operation.execute({
-          abortSignal: abortController.signal,
-          application: leasedApplication,
-          ...(item.executionPlan.expectedProjectGeneration === undefined
-            ? {}
-            : { expectedProjectGeneration: item.executionPlan.expectedProjectGeneration }),
-          runFence: {
-            generation: fence.generation,
-            owner: fence.owner,
-            token: fence.token,
-          },
-          workflow: {
-            beforePublication: async () => {
-              assertPublicationAllowed();
-              await lease.assertOwned();
-              await beforeDeadline(async () => await this.#store.assertFence(fence));
-              assertPublicationAllowed();
-              if (
-                await beforeDeadline(async () => await this.#cancellation(fence.runId))
-                !== undefined
-              ) {
-                throw new ApplicationError(
-                  "cancelled",
-                  "Workflow cancellation requested before publication.",
-                );
-              }
-              assertPublicationAllowed();
-              publicationMayBeAuthoritative = true;
-            },
-            nodeKey: item.record.nodeKey,
-            nodePlanSha256: item.executionPlan.nodePlanSha256,
-            runId: fence.runId,
-            workspaceDirectory,
-          },
-        }, item.executionPlan.exactInput);
-      };
-      const hostClaims = physicalHostResourceClaims(
-        item.executor.policy.resources,
-        this.#hostResourceCoordinator,
+    owner: WorkflowEffectRuntime,
+  ): Effect.Effect<NodeExecutionOutcome, WorkflowFailure> {
+    return Effect.gen(this, function*() {
+      let timedOut = false;
+      let deadlineKind: NodeDeadlineKind | undefined;
+      let publicationMayBeAuthoritative = false;
+      let computeDispatched = false;
+      const nodeDeadlineMonotonicMs = safeDeadline(
+        performance.now(),
+        item.executor.policy.maxDurationMs,
       );
-      const hostLeaseOptions = {
-        signal: admissionAbortController.signal,
-        waitTimeoutMilliseconds: Math.min(
-          HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
-          Math.max(
-            1,
-            Math.floor(effectiveDeadlineMonotonicMs - performance.now()),
-          ),
-        ),
-      } as const;
-      let output: RunNodeOutput;
-      if (item.executor.kind === "compute") {
-        const compute = item.executor.compute;
-        const computeExecutor = this.#computeExecutor;
-        const replayAuthorized = this.#computeRuntime?.kind !== "replay"
-          || this.#replayComputeNodeKeys.has(item.record.nodeKey);
-        if (computeExecutor === undefined || !replayAuthorized) {
-          return {
-            failure: schedulerFailure(new ApplicationError(
-              "ambiguous",
-              "Trusted compute requires explicit authorization to reload its exact persisted bundle.",
-            )),
-            kind: "ambiguous-code",
-          };
+      const effectiveDeadlineMonotonicMs = Math.min(
+        nodeDeadlineMonotonicMs,
+        workflowDeadlineMonotonicMs,
+      );
+      const effectiveDeadlineKind: NodeDeadlineKind = (
+        workflowDeadlineMonotonicMs <= nodeDeadlineMonotonicMs
+      )
+        ? "workflow"
+        : "node";
+      const expired = owner.deferred<never, WorkflowFailure>();
+      const deadlineError = () => new ApplicationError(
+        "unavailable",
+        effectiveDeadlineKind === "workflow"
+          ? "Workflow exceeded the host wall-clock bound."
+          : "Operation exceeded its registered duration bound.",
+      );
+      const cancelDeadline = owner.watch(Effect.zipRight(waitUntil(effectiveDeadlineMonotonicMs), Effect.sync(() => {
+        timedOut = true;
+        deadlineKind = effectiveDeadlineKind;
+        Deferred.unsafeDone(expired, Effect.fail(workflowFailure(deadlineError(), "admission")));
+        admissionAbortController.abort();
+        if (item.executor.policy.cancellable) abortController.abort();
+      })), true);
+      const beforeDeadline = async <Value>(execute: () => Promise<Value>): Promise<Value> => {
+        if (timedOut) throw deadlineError();
+        return await owner.run(Effect.raceFirst(workflowBoundary("authority", execute), Deferred.await(expired)));
+      };
+      const assertPublicationAllowed = () => {
+        if (timedOut) {
+          throw new ApplicationError(
+            "cancelled",
+            "Workflow node deadline expired before publication.",
+          );
         }
-        const execution = this.#hostResourceCoordinator.withLease(
-          hostClaims,
-          async lease => {
+      };
+
+      const outcome = yield* Effect.exit(Effect.catchAll(
+        Effect.gen(this, function*() {
+          yield* workflowBoundary("operation", () => beforeDeadline(async () => await this.#store.assertFence(fence)));
+          if ((yield* workflowBoundary("operation", () => beforeDeadline(async () => await this.#cancellation(fence.runId)))) !== undefined) {
+            return yield* Effect.fail(workflowFailure(new ApplicationError("cancelled", "Workflow cancellation requested."), "operation"));
+          }
+          if (
+            item.executor.policy.effect === "paid-cloud"
+            || item.executionPlan.publicationKeys.length > 0
+          ) {
+            yield* workflowBoundary("operation", () => beforeDeadline(async () => await this.#store.assertFence(fence)));
+            if (
+              (yield* workflowBoundary("operation", () => beforeDeadline(async () => await this.#cancellation(fence.runId))))
+              !== undefined
+            ) {
+              return yield* Effect.fail(workflowFailure(new ApplicationError(
+                "cancelled",
+                "Workflow cancellation requested before dispatch or publication.",
+              ), "operation"));
+            }
+          }
+          const executeOperation = async (lease: HostResourceLease) => {
+            if (item.executor.kind !== "operation") {
+              throw new ApplicationError(
+                "internal",
+                `Compute node ${item.record.nodeKey} entered operation execution.`,
+              );
+            }
+            await beforeDeadline(async () => await this.#store.assertFence(fence));
+            if (
+              await beforeDeadline(async () => await this.#store.cancellation(fence.runId))
+              !== undefined
+            ) {
+              throw new ApplicationError(
+                "cancelled",
+                "Workflow cancellation requested before project publication.",
+              );
+            }
+            const workspaceDirectory = await beforeDeadline(async () =>
+              await this.#store.stagingDirectory(
+                fence,
+                item.record.nodeKey,
+                item.executionPlan.nodePlanSha256,
+              )
+            );
             await lease.assertOwned();
-            computeDispatched = true;
-            return await computeExecutor.execute({
+            const leasedApplication = applicationWithHostResourceLease(
+              this.#application,
+              lease,
+            );
+            const operation = item.executor.operation;
+            const context = {
               abortSignal: abortController.signal,
-              computeKey: compute.key,
-              ...(lease.inheritedFileDescriptor < 3
+              application: leasedApplication,
+              ...(item.executionPlan.expectedProjectGeneration === undefined
                 ? {}
-                : {
-                    inheritedHostResourceFileDescriptor:
-                      lease.inheritedFileDescriptor,
-                  }),
-              input: item.executionPlan.exactInput,
-              nodeKey: item.record.nodeKey,
-              replayAcknowledged: this.#computeRuntime?.kind === "replay",
-              timeoutMs: Math.max(
+                : { expectedProjectGeneration: item.executionPlan.expectedProjectGeneration }),
+              runFence: {
+                generation: fence.generation,
+                owner: fence.owner,
+                token: fence.token,
+              },
+              workflow: {
+                beforePublication: async () => {
+                  assertPublicationAllowed();
+                  await lease.assertOwned();
+                  await beforeDeadline(async () => await this.#store.assertFence(fence));
+                  assertPublicationAllowed();
+                  if (
+                    await beforeDeadline(async () => await this.#cancellation(fence.runId))
+                    !== undefined
+                  ) {
+                    throw new ApplicationError(
+                      "cancelled",
+                      "Workflow cancellation requested before publication.",
+                    );
+                  }
+                  assertPublicationAllowed();
+                  publicationMayBeAuthoritative = true;
+                },
+                nodeKey: item.record.nodeKey,
+                nodePlanSha256: item.executionPlan.nodePlanSha256,
+                runId: fence.runId,
+                workspaceDirectory,
+              },
+            };
+            return operation.executeEffect === undefined
+              ? await operation.execute(context, item.executionPlan.exactInput)
+              : operationExitValue(await owner.run(Effect.exit(operation.executeEffect(context, item.executionPlan.exactInput))));
+          };
+          const hostClaims = physicalHostResourceClaims(
+            item.executor.policy.resources,
+            this.#hostResourceCoordinator,
+          );
+          const hostLeaseOptions = {
+            signal: admissionAbortController.signal,
+            waitTimeoutMilliseconds: Math.min(
+              HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
+              Math.max(
                 1,
                 Math.floor(effectiveDeadlineMonotonicMs - performance.now()),
               ),
-            });
-          },
-          hostLeaseOptions,
-        );
-        const value = await beforeDeadline(async () => await execution);
-        await beforeDeadline(async () => await this.#store.assertFence(fence));
-        output = createRunNodeOutput(
-          value,
-          {
-            computeKey: compute.key,
-            trustedCode: true,
-          },
-          item.executor.policy.maxOutputBytes,
-        );
-      } else {
-        const operation = item.executor.operation;
-        const projectPublication = item.executionPlan.publicationKeys.some(
-          key => key.startsWith("project:"),
-        );
-        const execution = this.#hostResourceCoordinator.withLease(
-          hostClaims,
-          async lease => projectPublication
-            ? await withProjectPublicationLease(
-                this.#application,
-                operation.discovery.kind,
-                item.executionPlan.exactInput,
-                async () => await executeOperation(lease),
-              )
-            : await executeOperation(lease),
-          hostLeaseOptions,
-        );
-        const result = await beforeDeadline(async () => await execution);
-        await beforeDeadline(async () => await this.#store.assertFence(fence));
-        output = createRunNodeOutput(
-          result.output,
-          result.summary.fields,
-          item.executor.policy.maxOutputBytes,
-          result.receiptReference,
-        );
-      }
-      return { kind: "completed", output };
-    } catch (error) {
-      const normalized = asSchedulerApplicationError(error);
-      if (item.executor.kind === "compute") {
-        const cancelledBeforeDispatch = normalized.code === "cancelled"
-          && !computeDispatched;
-        if (cancelledBeforeDispatch) {
+            ),
+          } as const;
+          let output: RunNodeOutput;
+          if (item.executor.kind === "compute") {
+            const compute = item.executor.compute;
+            const computeExecutor = this.#computeExecutor;
+            const replayAuthorized = this.#computeRuntime?.kind !== "replay"
+              || this.#replayComputeNodeKeys.has(item.record.nodeKey);
+            if (computeExecutor === undefined || !replayAuthorized) {
+              return {
+                failure: schedulerFailure(new ApplicationError(
+                  "ambiguous",
+                  "Trusted compute requires explicit authorization to reload its exact persisted bundle.",
+                )),
+                kind: "ambiguous-code" as const,
+              };
+            }
+            const execution = owner.custody(workflowBoundary("admission", () => this.#hostResourceCoordinator.withLease(
+              hostClaims,
+              async lease => {
+                await lease.assertOwned();
+                computeDispatched = true;
+                return await computeExecutor.execute({
+                  abortSignal: abortController.signal,
+                  computeKey: compute.key,
+                  ...(lease.inheritedFileDescriptor < 3
+                    ? {}
+                    : {
+                      inheritedHostResourceFileDescriptor:
+                        lease.inheritedFileDescriptor,
+                    }),
+                  input: item.executionPlan.exactInput,
+                  nodeKey: item.record.nodeKey,
+                  replayAcknowledged: this.#computeRuntime?.kind === "replay",
+                  timeoutMs: Math.max(
+                    1,
+                    Math.floor(effectiveDeadlineMonotonicMs - performance.now()),
+                  ),
+                });
+              },
+              hostLeaseOptions,
+            )));
+            const value = (yield* workflowBoundary("operation", () => beforeDeadline(async () => await execution)));
+            yield* workflowBoundary("operation", () => beforeDeadline(async () => await this.#store.assertFence(fence)));
+            output = yield* workflowValidation("operation", () => createRunNodeOutput(
+              value,
+              {
+                computeKey: compute.key,
+                trustedCode: true,
+              },
+              item.executor.policy.maxOutputBytes,
+            ));
+          } else {
+            const operation = item.executor.operation;
+            const projectPublication = item.executionPlan.publicationKeys.some(
+              key => key.startsWith("project:"),
+            );
+            const execution = owner.custody(workflowBoundary("admission", () => this.#hostResourceCoordinator.withLease(
+              hostClaims,
+              async lease => projectPublication
+                ? await withProjectPublicationLease(
+                  this.#application,
+                  operation.discovery.kind,
+                  item.executionPlan.exactInput,
+                  async () => await executeOperation(lease),
+                )
+                : await executeOperation(lease),
+              hostLeaseOptions,
+            )));
+            const result = (yield* workflowBoundary("operation", () => beforeDeadline(async () => await execution)));
+            yield* workflowBoundary("operation", () => beforeDeadline(async () => await this.#store.assertFence(fence)));
+            output = yield* workflowValidation("operation", () => createRunNodeOutput(
+              result.output,
+              result.summary.fields,
+              item.executor.policy.maxOutputBytes,
+              result.receiptReference,
+            ));
+          }
+          return { kind: "completed" as const, output };
+        }),
+        failure => workflowValidation("operation", () => {
+          const error = failure.cause;
+          const normalized = asSchedulerApplicationError(error);
+          if (item.executor.kind === "compute") {
+            const cancelledBeforeDispatch = normalized.code === "cancelled"
+              && !computeDispatched;
+            if (cancelledBeforeDispatch) {
+              return {
+                failure: schedulerFailure(
+                  new ApplicationError("cancelled", "Workflow node was cancelled."),
+                ),
+                kind: "cancelled" as const,
+              };
+            }
+            if (
+              normalized.code === "invalid-data"
+              || normalized.code === "unsupported-plan"
+              || normalized.code === "incompatible"
+            ) {
+              return {
+                failure: schedulerFailure(normalized),
+                kind: "failed" as const,
+              };
+            }
+            return {
+              failure: schedulerFailure(new ApplicationError(
+                "ambiguous",
+                timedOut
+                  ? deadlineKind === "workflow"
+                    ? "Trusted compute exceeded the workflow wall-clock bound and requires explicit replay."
+                    : "Trusted compute exceeded its duration bound and requires explicit replay."
+                  : `Trusted compute was interrupted and requires explicit replay: ${normalized.message}`,
+              )),
+              kind: "ambiguous-code" as const,
+            };
+          }
+          if (
+            publicationMayBeAuthoritative
+            && (
+              item.executor.policy.resume === "verified-receipt"
+              || item.executor.policy.resume === "recoverable-transaction"
+            )
+          ) {
+            return {
+              failure: schedulerFailure(new ApplicationError(
+                "ambiguous",
+                timedOut
+                  ? deadlineKind === "workflow"
+                    ? "Recoverable publication exceeded the workflow wall-clock bound."
+                    : "Recoverable publication exceeded its duration bound."
+                  : `Recoverable publication requires reconciliation: ${normalized.message}`,
+              )),
+              kind: "interrupted" as const,
+            };
+          }
+          const cancelled = normalized.code === "cancelled"
+            || (abortController.signal.aborted && !timedOut);
+          if (cancelled) {
+            return {
+              failure: schedulerFailure(
+                new ApplicationError("cancelled", "Workflow node was cancelled."),
+              ),
+              kind: "cancelled" as const,
+            };
+          }
+          if (
+            item.executor.policy.resume === "ambiguous-after-dispatch"
+            || item.executor.policy.resume === "non-resumable-live"
+          ) {
+            return {
+              failure: schedulerFailure(new ApplicationError(
+                "ambiguous",
+                timedOut
+                  ? deadlineKind === "workflow"
+                    ? "Operation exceeded the workflow wall-clock bound after dispatch."
+                    : "Operation exceeded its duration bound after dispatch."
+                  : normalized.message,
+              )),
+              kind: "ambiguous" as const,
+            };
+          }
           return {
             failure: schedulerFailure(
-              new ApplicationError("cancelled", "Workflow node was cancelled."),
+              timedOut
+                ? new ApplicationError(
+                  "unavailable",
+                  deadlineKind === "workflow"
+                    ? "Operation exceeded the workflow wall-clock bound."
+                    : "Operation exceeded its registered duration bound.",
+                )
+                : normalized,
+              normalized.code === "unavailable" || normalized.code === "subprocess",
             ),
-            kind: "cancelled",
+            kind: "failed" as const,
           };
-        }
-        if (
-          normalized.code === "invalid-data"
-          || normalized.code === "unsupported-plan"
-          || normalized.code === "incompatible"
-        ) {
-          return {
-            failure: schedulerFailure(normalized),
-            kind: "failed",
-          };
-        }
-        return {
-          failure: schedulerFailure(new ApplicationError(
-            "ambiguous",
-            timedOut
-              ? deadlineKind === "workflow"
-                ? "Trusted compute exceeded the workflow wall-clock bound and requires explicit replay."
-                : "Trusted compute exceeded its duration bound and requires explicit replay."
-              : `Trusted compute was interrupted and requires explicit replay: ${normalized.message}`,
-          )),
-          kind: "ambiguous-code",
-        };
-      }
-      if (
-        publicationMayBeAuthoritative
-        && (
-          item.executor.policy.resume === "verified-receipt"
-          || item.executor.policy.resume === "recoverable-transaction"
-        )
-      ) {
-        return {
-          failure: schedulerFailure(new ApplicationError(
-            "ambiguous",
-            timedOut
-              ? deadlineKind === "workflow"
-                ? "Recoverable publication exceeded the workflow wall-clock bound."
-                : "Recoverable publication exceeded its duration bound."
-              : `Recoverable publication requires reconciliation: ${normalized.message}`,
-          )),
-          kind: "interrupted",
-        };
-      }
-      const cancelled = normalized.code === "cancelled"
-        || (abortController.signal.aborted && !timedOut);
-      if (cancelled) {
-        return {
-          failure: schedulerFailure(
-            new ApplicationError("cancelled", "Workflow node was cancelled."),
-          ),
-          kind: "cancelled",
-        };
-      }
-      if (
-        item.executor.policy.resume === "ambiguous-after-dispatch"
-        || item.executor.policy.resume === "non-resumable-live"
-      ) {
-        return {
-          failure: schedulerFailure(new ApplicationError(
-            "ambiguous",
-            timedOut
-              ? deadlineKind === "workflow"
-                ? "Operation exceeded the workflow wall-clock bound after dispatch."
-                : "Operation exceeded its duration bound after dispatch."
-              : normalized.message,
-          )),
-          kind: "ambiguous",
-        };
-      }
-      return {
-        failure: schedulerFailure(
-          timedOut
-            ? new ApplicationError(
-              "unavailable",
-              deadlineKind === "workflow"
-                ? "Operation exceeded the workflow wall-clock bound."
-                : "Operation exceeded its registered duration bound.",
-            )
-            : normalized,
-          normalized.code === "unavailable" || normalized.code === "subprocess",
-        ),
-        kind: "failed",
-      };
-    } finally {
-      cancelDeadline();
-    }
+        }),
+      ));
+      const cleanup = yield* Effect.exit(Effect.gen(this, function*() {
+        yield* workflowBoundary("operation", () => cancelDeadline());
+      }));
+      return yield* Exit.zipLeft(outcome, cleanup);
+    });
   }
 
   async #persistOutcome(
