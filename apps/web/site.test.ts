@@ -36,6 +36,7 @@ import {
 import middleware, { config as middlewareConfig } from "./middleware"
 import { buildWebsite, renderAskAiAboutThis, renderSitemapXml } from "./scripts/build"
 import { renderAtetSocialImage } from "./scripts/generate-og"
+import { parsePublishedRelease, publishedRelease } from "./src/published-release"
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
 const brandDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
@@ -55,6 +56,53 @@ async function readBuilt(path: string): Promise<string> {
 }
 
 describe("static Atet site", () => {
+  test("published release separates public availability from the source candidate", async () => {
+    expect(publishedRelease).toEqual({
+      version: "3.2.0",
+      releaseUrl: "https://github.com/hraness/atet/releases/tag/v3.2.0",
+    })
+    expect(Object.isFrozen(publishedRelease)).toBe(true)
+    const template = await readSource("index.html")
+    const html = await readBuilt("index.html")
+    expect(template.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(8)
+    expect(template).not.toContain(publishedRelease.version)
+    expect(html).not.toContain("{{PUBLISHED_VERSION}}")
+    expect(html).toContain(`"softwareVersion": "${publishedRelease.version}"`)
+    expect(html).toContain(`"version": "${publishedRelease.version}"`)
+    expect(html).toContain(`Local release · v${publishedRelease.version}`)
+    expect(html).toContain(`bun add --global @hraness/atet@${publishedRelease.version}`)
+    expect(homeMarkdown).toContain(`Version ${publishedRelease.version}.`)
+    expect(await readBuilt("index.md")).toBe(homeMarkdown)
+    for (const publicText of [html, homeMarkdown, llmsTxt]) {
+      expect(publicText).not.toContain("3.2.1")
+    }
+  })
+
+  test("published release validates exact fields and safe stable versions before rendering", () => {
+    for (const version of ["0.0.0", "3.2.1", "9007199254740991.0.0"]) {
+      const value = { version, releaseUrl: `https://github.com/hraness/atet/releases/tag/v${version}` }
+      expect(parsePublishedRelease(value)).toEqual(value)
+    }
+    for (const value of [null, [], "3.2.0", {}, { version: "3.2.0" },
+      { ...publishedRelease, verificationRun: "invented" },
+      { ...publishedRelease, [Symbol("extra")]: true },
+    ]) expect(() => parsePublishedRelease(value)).toThrow()
+    for (const version of ["03.2.0", "3.2", "v3.2.0", "3.2.0-beta.1", "3.2.0+build", "3.2.0\n",
+      "3.2.0 ", " 3.2.0", "3.2.-1", "3.2.0<script>", "9007199254740992.0.0", "1".repeat(51),
+    ]) {
+      expect(() => parsePublishedRelease({
+        version, releaseUrl: `https://github.com/hraness/atet/releases/tag/v${version}`,
+      })).toThrow("canonical stable SemVer")
+    }
+    for (const releaseUrl of [
+      "https://github.com/hraness/atet/releases/tag/v3.2.1",
+      `${publishedRelease.releaseUrl}?source=main`, `${publishedRelease.releaseUrl}#proof`,
+      `${publishedRelease.releaseUrl}/`, "http://github.com/hraness/atet/releases/tag/v3.2.0",
+      "https://github.com.evil.test/hraness/atet/releases/tag/v3.2.0",
+      "https://github.com/another/atet/releases/tag/v3.2.0", 42, null,
+    ]) expect(() => parsePublishedRelease({ version: "3.2.0", releaseUrl })).toThrow("exact immutable Atet tag")
+  })
+
   test("keeps product Ask AI links off utility pages", async () => {
     const subjectUrl = "https://atet.sh/"
     const prompt = `Tell me about ${subjectUrl}`
@@ -150,9 +198,9 @@ describe("static Atet site", () => {
 
     expect(searchableReadme).toContain(brandDescription.toLowerCase())
 
-    expect(readme).toContain("npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet")
-    expect(readme).toContain("bun add --global @hraness/atet@3.2.0")
-    expect(readme).toContain("bun add @hraness/atet@3.2.0")
+    expect(readme).toContain(`npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`)
+    expect(readme).toContain(`bun add --global @hraness/atet@${publishedRelease.version}`)
+    expect(readme).toContain(`bun add @hraness/atet@${publishedRelease.version}`)
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
     expect(readme).toContain("atet ai video generate")
@@ -258,7 +306,7 @@ describe("static Atet site", () => {
   })
 
   test("links the website, product, and source in structured data", async () => {
-    const html = await readSource("index.html")
+    const html = await readBuilt("index.html")
     const match = /<script type="application\/ld\+json">([\s\S]+?)<\/script>/u.exec(html)
     expect(match?.[1]).toBeDefined()
     const value = JSON.parse(match?.[1] ?? "null") as { "@graph"?: unknown[] }
@@ -296,7 +344,7 @@ describe("static Atet site", () => {
           "https://www.npmjs.com/package/@hraness/atet",
           "https://skills.sh/hraness/atet",
         ],
-        softwareVersion: "3.2.0",
+        softwareVersion: publishedRelease.version,
       }),
       expect.objectContaining({
         "@id": "https://atet.sh/#source",
@@ -304,7 +352,7 @@ describe("static Atet site", () => {
         author: { "@id": "https://hraness.com/#organization" },
         codeRepository: "https://github.com/hraness/atet",
         targetProduct: { "@id": "https://atet.sh/#software" },
-        version: "3.2.0",
+        version: publishedRelease.version,
       }),
       expect.objectContaining({
         "@id": "https://atet.sh/#questions",
@@ -327,8 +375,8 @@ describe("static Atet site", () => {
     const html = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
     const commands = [
-      "npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet",
-      "bun add --global @hraness/atet@3.2.0",
+      `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
+      `bun add --global @hraness/atet@${publishedRelease.version}`,
       "atet doctor",
     ]
     const installMarker = html.indexOf('data-hraness-marketing="install"')
@@ -350,7 +398,7 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("Preview and final renders use the same timeline and composition")
     expect(html).toContain("Install the Atet Agent Skill")
     expect(html).toContain("Install the local media tools · Requires Bun 1.3.14+")
-    expect(html).toContain("Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet</code>")
+    expect(html).toContain(`Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet</code>`)
     expect(html).toContain("inside the project you want to work")
     expect(html).toContain("start a new agent session")
     expect(installHtml).not.toContain("atet skill install")
@@ -358,7 +406,7 @@ describe("static Atet site", () => {
     expect(html).toContain("atet skill install --target claude")
     expect(html).toContain("atet skill install --target agents")
     expect(html).toContain("--scope project")
-    expect(html).toContain("@hraness/atet@3.2.0")
+    expect(html).toContain(`@hraness/atet@${publishedRelease.version}`)
     expect(html).toContain('data-hraness-marketing="hero"')
     expect(html).toContain('data-hraness-marketing="flow"')
     expect(html).toContain('data-hraness-marketing="facts"')
@@ -374,8 +422,8 @@ describe("static Atet site", () => {
 
     expect(build).toContain("function renderCopyCommand(options: CopyCommandOptions)")
     expect(html.match(/data-copy-command(?:>|\s)/gu)).toHaveLength(1)
-    expect(html).toContain('<code class="copy-command__value" data-copy-command-value>npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet</code>')
-    expect(html).toContain("<code>bunx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet</code>")
+    expect(html).toContain(`<code class="copy-command__value" data-copy-command-value>npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet</code>`)
+    expect(html).toContain(`<code>bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet</code>`)
     expect(html).toContain('aria-label="Copy install command"')
     expect(html).toContain("data-copy-command-button hidden type=\"button\">Copy</button>")
     expect(html).toContain('aria-live="polite"')
@@ -429,10 +477,10 @@ describe("static Atet site", () => {
   })
 
   test("shows exact equivalent interfaces without inventing a hosted surface", async () => {
-    const html = await readSource("index.html")
+    const html = await readBuilt("index.html")
 
     for (const example of [
-      "npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet",
+      `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
       "atet workflows list --json",
       'import { vectorizeImage } from "@hraness/atet"',
       "atet mcp --root /absolute/path/to/workspace",
@@ -686,7 +734,9 @@ describe("static Atet site", () => {
     expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     expect(localLockfile).not.toContain("catalog:")
-    expect(new TextEncoder().encode(html).byteLength).toBeLessThan(32_000)
+    // Measure the version-resolved shell, excluding only publication-token overhead.
+    const versionResolvedShell = html.replaceAll("{{PUBLISHED_VERSION}}", publishedRelease.version)
+    expect(new TextEncoder().encode(versionResolvedShell).byteLength).toBeLessThan(32_000)
     expect(new TextEncoder().encode(css).byteLength).toBeLessThan(36_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(new TextEncoder().encode(copyCommand).byteLength).toBeLessThan(4_000)

@@ -9,6 +9,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
 import { renderAtetSocialImage } from "./generate-og"
+import { publishedRelease } from "../src/published-release"
 import {
   homeMarkdown,
   llmsTxt,
@@ -293,12 +294,13 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   const analyticsPath = analytics === null ? null : assetPath("analytics.js", analytics)
   const indexAssets = {
     ...publicPageAssets("/"),
+    "{{PUBLISHED_VERSION}}": publishedRelease.version,
     "{{ANALYTICS_SCRIPT}}": analyticsPath === null
       ? ""
       : `<script src="${analyticsPath}" type="module"></script>`,
     "{{SKILL_INSTALL_COMMAND}}": renderCopyCommand({
-      alternateCommand: "bunx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet",
-      command: "npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet",
+      alternateCommand: `bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
+      command: `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
       id: "skill-install-copy-status",
     }),
   } as const

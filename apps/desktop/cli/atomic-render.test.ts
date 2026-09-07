@@ -103,6 +103,39 @@ test("preserves the previous render and removes partial output after a failed pr
   }
 });
 
+test.each([undefined, null, false, new Error("final fence failure")])("a failed final publication fence preserves its exact rejection (%p) and the previous output", async failure => {
+  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-fence-failure-"));
+  try {
+    const finalPath = join(directory, "output.mp4");
+    const companionPath = join(directory, "output.plan.json");
+    await writeFile(finalPath, "prior output");
+    await writeFile(companionPath, "prior receipt");
+    const result = await executeTestAtomicRender({
+      argv: ["ffmpeg", "-y", finalPath],
+      finalOutputPath: finalPath,
+      failureLabel: "Fixture render failed",
+      beforePublish: () => Promise.reject(failure),
+      companion: { finalPath: companionPath, publish: () => Promise.reject(new Error("Must not publish")) },
+      runner: {
+        run: async argv => {
+          await writeFile(argv.at(-1)!, "new output", { flag: "wx" });
+          return { exitCode: 0, stderr: "", stdout: "" };
+        },
+      },
+    }).then(
+      value => ({ status: "fulfilled" as const, value }),
+      (reason: unknown) => ({ status: "rejected" as const, reason }),
+    );
+    expect(result.status).toBe("rejected");
+    if (result.status === "rejected") expect(Object.is(result.reason, failure)).toBe(true);
+    expect(await readFile(finalPath, "utf8")).toBe("prior output");
+    expect(await readFile(companionPath, "utf8")).toBe("prior receipt");
+    expect((await readdir(directory)).filter(name => name.startsWith(".atet-render-"))).toEqual([]);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test("removes a stale companion if publication fails after the new render commits", async () => {
   const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-companion-"));
   try {

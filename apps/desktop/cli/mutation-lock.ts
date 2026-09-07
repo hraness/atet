@@ -422,19 +422,36 @@ async function acquire(
   throw busyError(options, existing.kind === "valid" ? existing.owner : undefined);
 }
 
+/** Native custody remains with this descriptor and exact published inode. */
+export interface MutationLease {
+  close(): Promise<void>;
+  unlinkIfOwned(): Promise<void>;
+}
+
+export async function acquireMutationLease(
+  bundleDirectory: string,
+  options: MutationLockOptions,
+): Promise<MutationLease> {
+  const lease = await acquire(bundleDirectory, options);
+  return {
+    close: async () => await lease.handle.close(),
+    unlinkIfOwned: async () => { await unlinkIfSame(lease.path, lease.snapshot); },
+  };
+}
+
 export async function withMutationLock<T>(
   bundleDirectory: string,
   options: MutationLockOptions,
   mutate: () => Promise<T>,
 ): Promise<T> {
-  const lease = await acquire(bundleDirectory, options);
+  const lease = await acquireMutationLease(bundleDirectory, options);
   try {
     return await mutate();
   } finally {
     try {
-      await lease.handle.close();
+      await lease.close();
     } finally {
-      await unlinkIfSame(lease.path, lease.snapshot);
+      await lease.unlinkIfOwned();
     }
   }
 }

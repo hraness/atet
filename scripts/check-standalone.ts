@@ -1,5 +1,6 @@
 import { lstat, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
+import { publishedRelease } from "../apps/web/src/published-release";
 import {
   compareLegacyIdentityInventory,
   duplicateIdentityAlternatives,
@@ -98,7 +99,7 @@ const TEXT_EXTENSIONS = new Set([
 const CANONICAL_TEXT_SENTINELS = [
   {
     path: "src/version.ts",
-    values: ['export const ATET_VERSION = "3.2.0" as const'],
+    values: ['export const ATET_VERSION = "3.2.1" as const'],
   },
   {
     path: "src/operations.ts",
@@ -120,7 +121,7 @@ const CANONICAL_TEXT_SENTINELS = [
   {
     path: "apps/desktop/dist/cli/main.js",
     values: [
-      '"3.2.0"',
+      '"3.2.1"',
       '"atet.diagram.check"',
       '"atet.edit-plan"',
       '"atet.video-project"',
@@ -384,8 +385,8 @@ if (
 const packageVersion = rootPackage.version;
 if (typeof packageVersion !== "string") {
   problems.push("package.json version must be a string");
-} else if (packageVersion !== "3.2.0") {
-  problems.push("package.json version must be 3.2.0 for the current release");
+} else if (packageVersion !== "3.2.1") {
+  problems.push("package.json version must be 3.2.1 for the current release");
 } else {
   const versionContracts = [
     ["apps/desktop/app.zon", `.version = ${JSON.stringify(packageVersion)}`],
@@ -412,10 +413,6 @@ if (typeof packageVersion !== "string") {
       `atet-${packageVersion}-macos-ReleaseFast.app`,
     ],
     [
-      "apps/web/src/index.html",
-      `"softwareVersion": ${JSON.stringify(packageVersion)}`,
-    ],
-    [
       "schema/diagram.schema.json",
       `/hraness/atet/v${packageVersion}/schema/diagram.schema.json`,
     ],
@@ -425,6 +422,22 @@ if (typeof packageVersion !== "string") {
     if (!(await readFile(join(ROOT, path), "utf8")).includes(expected)) {
       problems.push(`${path} does not match package version ${packageVersion}`);
     }
+  }
+}
+const publicVersion = publishedRelease.version;
+const publicVersionContracts = [
+  ["apps/web/src/index.html", '"softwareVersion": "{{PUBLISHED_VERSION}}"'],
+  ["apps/web/src/index.html", '"version": "{{PUBLISHED_VERSION}}"'],
+  ["README.md", `bun add --global @hraness/atet@${publicVersion}`],
+  ["README.md", `bun add @hraness/atet@${publicVersion}`],
+  ["README.md", `github:hraness/atet#v${publicVersion}`],
+  ["README.md", `npx skills add https://github.com/hraness/atet/tree/v${publicVersion} --skill atet`],
+  ["README.md", `bunx skills add https://github.com/hraness/atet/tree/v${publicVersion} --skill atet`],
+  ["skills/atet/references/install.md", `bun add --global @hraness/atet@${publicVersion}`],
+] as const;
+for (const [path, expected] of publicVersionContracts) {
+  if (!(await readFile(join(ROOT, path), "utf8")).includes(expected)) {
+    problems.push(`${path} does not match verified public release ${publicVersion}`);
   }
 }
 for (const sentinel of CANONICAL_TEXT_SENTINELS) {

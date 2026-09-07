@@ -4,15 +4,17 @@ import {
   realpath,
 } from "node:fs/promises";
 import { join } from "node:path";
+import { Effect } from "effect";
 
 import {
   RepositoryRelativePathSchema,
   VideoProjectIdSchema,
 } from "../contracts";
 import { sha256Hex } from "../core/canonical-json";
-import { withMutationLock } from "../cli/mutation-lock";
+import { acquireMutationLease, type MutationLease } from "../cli/mutation-lock";
 import type { ApplicationContext } from "./context";
 import { ApplicationError } from "./errors";
+import { operationBoundary, operationFinally, operationResource, type OperationEffectFailure } from "./operation-effects";
 
 const OUTPUT_LEASE_ROOT = "output-publication-leases";
 const inProcessOutputTails = new Map<string, Promise<void>>();
@@ -76,24 +78,63 @@ async function leaseDirectory(
   };
 }
 
-async function withInProcessOutputQueue<Value>(
-  key: string,
-  execute: () => Promise<Value>,
-): Promise<Value> {
+function reserveOutputTurn(key: string): { readonly ready: Promise<void>; release(): void } {
   const previous = inProcessOutputTails.get(key) ?? Promise.resolve();
-  const result = previous.then(execute);
-  const settled = result.then(
-    () => undefined,
-    () => undefined,
-  );
+  const { promise: settled, resolve: complete } = Promise.withResolvers<void>();
   inProcessOutputTails.set(key, settled);
+  let released = false;
+  return {
+    ready: previous,
+    release: () => {
+      if (released) return;
+      released = true;
+      if (inProcessOutputTails.get(key) === settled) inProcessOutputTails.delete(key);
+      complete();
+    },
+  };
+}
+
+interface OutputLease extends MutationLease {
+  releaseTurn(): void;
+}
+
+async function acquireOutputLease(
+  application: ApplicationContext,
+  target: OutputPublicationTarget,
+): Promise<OutputLease> {
+  const targetLease = await leaseDirectory(application, target);
+  // Promise and native Effect callers reserve in the same physical-key queue.
+  const turn = reserveOutputTurn(targetLease.directory);
+  await turn.ready;
   try {
-    return await result;
-  } finally {
-    if (inProcessOutputTails.get(key) === settled) {
-      inProcessOutputTails.delete(key);
-    }
+    const lease = await acquireMutationLease(targetLease.directory, {
+      command: "workflow:render.project",
+      label: `${targetLease.projectId}/${targetLease.outputPath}`,
+      now: application.clock.now,
+    });
+    return { ...lease, releaseTurn: turn.release };
+  } catch (error) {
+    turn.release();
+    throw error;
   }
+}
+
+export function withOutputPublicationLeaseEffect<Value, R>(
+  application: ApplicationContext,
+  target: OutputPublicationTarget,
+  use: Effect.Effect<Value, OperationEffectFailure, R>,
+): Effect.Effect<Value, OperationEffectFailure, R> {
+  return operationResource(
+    operationBoundary("publication", () => acquireOutputLease(application, target)),
+    () => use,
+    lease => operationFinally(
+      operationFinally(
+        operationBoundary("cleanup", () => lease.close()),
+        operationBoundary("cleanup", () => lease.unlinkIfOwned()),
+      ),
+      Effect.sync(() => lease.releaseTurn()),
+    ),
+  );
 }
 
 /**
@@ -105,11 +146,18 @@ export async function withOutputPublicationLease<Value>(
   target: OutputPublicationTarget,
   execute: () => Promise<Value>,
 ): Promise<Value> {
-  const lease = await leaseDirectory(application, target);
-  return await withInProcessOutputQueue(lease.directory, async () =>
-    await withMutationLock(lease.directory, {
-      command: "workflow:render.project",
-      label: `${lease.projectId}/${lease.outputPath}`,
-      now: application.clock.now,
-    }, execute));
+  const lease = await acquireOutputLease(application, target);
+  try {
+    return await execute();
+  } finally {
+    try {
+      await lease.close();
+    } finally {
+      try {
+        await lease.unlinkIfOwned();
+      } finally {
+        lease.releaseTurn();
+      }
+    }
+  }
 }

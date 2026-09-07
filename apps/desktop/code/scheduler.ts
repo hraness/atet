@@ -183,6 +183,8 @@ export interface SchedulerNodePlanner {
   prepare(request: NodePreparationRequest): Promise<NodePreparationBinding>;
   plan(request: NodeExecutionPlanningRequest): Promise<NodeExecutionBinding>;
   reconcile?(request: NodeReconciliationRequest): Promise<NodeReconciliation>;
+  /** Local owner composition only; never serialized into plans or operation identity. */
+  reconcileEffect?(request: NodeReconciliationRequest): Effect.Effect<NodeReconciliation, WorkflowFailure>;
 }
 
 export interface SchedulerAuthorizationRequest {
@@ -440,6 +442,14 @@ class WorkflowRunControl {
     return await this.#owner.run(Effect.raceFirst(
       workflowBoundary("authority", execute), Deferred.await(this.#interrupted),
     ));
+  }
+
+  async custody<Value>(program: Effect.Effect<Value, WorkflowFailure>): Promise<Value> {
+    return await this.#owner.custody(program);
+  }
+
+  async runNative<Value>(program: Effect.Effect<Value, WorkflowFailure>): Promise<Value> {
+    return await this.#owner.run(program);
   }
 
   async stop(): Promise<void> { await this.#stopDeadline(); }
@@ -1841,61 +1851,68 @@ export class DurableWorkflowScheduler {
         );
     let reconciliation: NodeReconciliation | undefined;
     try {
-      reconciliation = this.#nodePlanner.reconcile === undefined
+      const reconcile = this.#nodePlanner.reconcile;
+      const reconcileEffect = this.#nodePlanner.reconcileEffect;
+      reconciliation = reconcile === undefined && reconcileEffect === undefined
         ? undefined
         : await this.#runControlledPort(
             fence,
             control,
-            async () => await this.#hostResourceCoordinator.withLease(
-              physicalHostResourceClaims(
-                operation.discovery.policy.resources,
-                this.#hostResourceCoordinator,
-              ),
-              async lease => {
-                await lease.assertOwned();
-                const beforePublication = async (): Promise<void> => {
+            async () => {
+              const execute = async () => await this.#hostResourceCoordinator.withLease(
+                physicalHostResourceClaims(
+                  operation.discovery.policy.resources,
+                  this.#hostResourceCoordinator,
+                ),
+                async lease => {
                   await lease.assertOwned();
-                  control.assertActive();
-                  if (control.signal.aborted) {
-                    throw new ApplicationError(
-                      "cancelled",
-                      "Workflow reconciliation was cancelled before publication.",
-                    );
-                  }
-                  await this.#store.assertFence(fence);
-                  await this.#assertWorkflowActive(fence, control);
-                  await this.#store.assertFence(fence);
-                  control.assertActive();
-                  await lease.assertOwned();
-                };
-                const request: NodeReconciliationRequest = {
-                  abortSignal: control.signal,
-                  application: applicationWithHostResourceLease(
-                    this.#application,
-                    lease,
-                  ),
-                  beforePublication,
-                  dependencyOutputs: resolved.dependencyOutputs,
-                  executionPlan: record.executionPlan,
-                  graphPlan,
-                  node,
-                  operation: operation.discovery,
-                  preparationPlan: record.preparationPlan,
-                  previous: record,
-                  resolvedInput: resolved.input,
-                  resumeClass,
-                  runId: fence.runId,
-                  ...(workspaceDirectory === undefined
-                    ? {}
-                    : { workspaceDirectory }),
-                };
-                return await this.#nodePlanner.reconcile!(request);
-              },
-              {
-                signal: control.signal,
-                waitTimeoutMilliseconds: HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
-              },
-            ),
+                  const beforePublication = async (): Promise<void> => {
+                    await lease.assertOwned();
+                    control.assertActive();
+                    if (control.signal.aborted) {
+                      throw new ApplicationError(
+                        "cancelled",
+                        "Workflow reconciliation was cancelled before publication.",
+                      );
+                    }
+                    await this.#store.assertFence(fence);
+                    await this.#assertWorkflowActive(fence, control);
+                    await this.#store.assertFence(fence);
+                    control.assertActive();
+                    await lease.assertOwned();
+                  };
+                  const request: NodeReconciliationRequest = {
+                    abortSignal: control.signal,
+                    application: applicationWithHostResourceLease(this.#application, lease),
+                    beforePublication,
+                    dependencyOutputs: resolved.dependencyOutputs,
+                    executionPlan: record.executionPlan,
+                    graphPlan,
+                    node,
+                    operation: operation.discovery,
+                    preparationPlan: record.preparationPlan,
+                    previous: record,
+                    resolvedInput: resolved.input,
+                    resumeClass,
+                    runId: fence.runId,
+                    ...(workspaceDirectory === undefined ? {} : { workspaceDirectory }),
+                  };
+                  return reconcileEffect === undefined
+                    ? await reconcile!.call(this.#nodePlanner, request)
+                    : await control.runNative(reconcileEffect.call(this.#nodePlanner, request));
+                },
+                {
+                  signal: control.signal,
+                  waitTimeoutMilliseconds: HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
+                },
+              );
+              // Retain the existing owner before native lease admission starts.
+              // A stopped observer may leave acquisition or release in flight;
+              // neither permits disposing the runtime used by that callback.
+              return reconcileEffect === undefined
+                ? await execute()
+                : await control.custody(workflowBoundary("authority", execute));
+            },
           );
     } catch {
       // A reconciliation adapter may fail or outlive this scheduler invocation.

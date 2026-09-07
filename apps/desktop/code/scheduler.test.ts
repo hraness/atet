@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readdir, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect } from "effect";
 
 import { z } from "zod";
 import {
@@ -57,6 +58,7 @@ import {
   type SchedulerComputeExecutorLease,
   type SchedulerNodePlanner,
 } from "./scheduler";
+import { workflowBoundary } from "./workflow-effects";
 
 const temporaryDirectories: string[] = [];
 const HEX = "0".repeat(64);
@@ -2257,9 +2259,11 @@ describe("durable workflow scheduler", () => {
     expect(staleError).toBeInstanceOf(ApplicationError);
     await run.store.releaseClaim(stolenFence);
 
-    const reconcilePlanner: SchedulerNodePlanner = {
+    const reconcilePlanner: SchedulerNodePlanner & { readonly receiver: string } = {
       ...passThroughPlanner,
-      reconcile: (request) => {
+      receiver: "stateful-promise-reconciler",
+      reconcile(request) {
+        expect(this.receiver).toBe("stateful-promise-reconciler");
         reconciliations += 1;
         reconciliationWorkspaceDirectory = request.workspaceDirectory;
         return Promise.resolve({
@@ -2494,6 +2498,111 @@ describe("durable workflow scheduler", () => {
       owner: "after-reconciliation-cancellation",
     });
     await run.store.releaseClaim(nextFence);
+  }, 10_000);
+
+  test.each(["native-only", "both"] as const)("native reconciliation retains late admission, scope settlement and physical release after its observer stops (%s)", async slots => {
+    const initialEntered = deferred<void>();
+    const initialRelease = deferred<void>();
+    const registry = registryFixture(async (_context, input) => {
+      initialEntered.resolve();
+      await initialRelease.promise;
+      return { id: input.id, value: input.value };
+    }, { effect: "local-derived-write" }, "verified-receipt");
+    const runId = "run_native_reconcile_custody";
+    const run = await createRun(registry, [{ id: "receipt" }], runId);
+    const initial = scheduler(run.store, registry).run(runId);
+    await initialEntered.promise;
+    const takeover = await run.store.acquireClaim(runId, {
+      now: () => new Date(Date.now() + 60_000), owner: "native-reconcile-takeover",
+      processAlive: () => false, staleAfterMs: 0,
+    });
+    initialRelease.resolve();
+    await expect(initial).rejects.toBeInstanceOf(ApplicationError);
+    await run.store.releaseClaim(takeover);
+
+    const admissionRequested = deferred<void>();
+    const grantAdmission = deferred<void>();
+    const nativeEntered = deferred<void>();
+    const releaseNative = deferred<void>();
+    const nativeFinalized = deferred<void>();
+    const physicalReleasing = deferred<void>();
+    const releasePhysical = deferred<void>();
+    const underlying = createProcessLocalHostResourceCoordinator({
+      profile: { capacities: [{ limit: 1, resource: "cpu" }], id: "native-reconcile-custody" },
+    });
+    const lateCoordinator: HostResourceCoordinator = {
+      profile: underlying.profile,
+      scope: underlying.scope,
+      withLease: async (claims, callback) => {
+        // A real foreign adapter may have a grant already in flight when abort arrives.
+        admissionRequested.resolve();
+        await grantAdmission.promise;
+        return await underlying.withLease(claims, async lease => {
+          try {
+            return await callback(lease);
+          } finally {
+            physicalReleasing.resolve();
+            await releasePhysical.promise;
+          }
+        });
+      },
+    };
+    let lateFence: (() => Promise<void>) | undefined;
+    let competitorEntered = false;
+    const nodePlanner: SchedulerNodePlanner & { readonly receiver: string } = {
+      ...passThroughPlanner,
+      receiver: "stateful-native-reconciler",
+      ...(slots === "native-only" ? {} : {
+        reconcile: () => Promise.reject(new Error("Native reconciliation must win over the Promise slot.")),
+      }),
+      // Native-only is deliberately valid; dispatch must not require a Promise slot.
+      reconcileEffect(request) {
+        expect(this.receiver).toBe("stateful-native-reconciler");
+        return Effect.ensuring(Effect.gen(function*() {
+          lateFence = request.beforePublication;
+          expect(request.abortSignal.aborted).toBe(true);
+          nativeEntered.resolve();
+          yield* workflowBoundary("authority", () => releaseNative.promise);
+          return { kind: "retry" as const };
+        }), Effect.sync(() => nativeFinalized.resolve()));
+      },
+    };
+    const resumed = scheduler(run.store, registry, {
+      hostResourceCoordinator: lateCoordinator,
+      nodePlanner,
+    }).run(runId);
+    let competitor: Promise<void> | undefined;
+    try {
+      await settleWithin(admissionRequested.promise);
+      await run.store.requestCancellation(runId, "native-reconciliation-custody");
+      expect((await settleWithin(resumed)).summary.status).toBe("running");
+      const nextFence = await run.store.acquireClaim(runId, { owner: "after-native-observer" });
+      await run.store.releaseClaim(nextFence);
+      grantAdmission.resolve();
+      await settleWithin(nativeEntered.promise);
+      if (lateFence === undefined) throw new Error("Expected late native publication fence.");
+      await expect(lateFence()).rejects.toMatchObject({ code: "cancelled" });
+      competitor = underlying.withLease([{ amount: 1, resource: "cpu" }], () => {
+        competitorEntered = true;
+        return Promise.resolve();
+      });
+      await new Promise<void>(resolve => { setImmediate(resolve); });
+      expect(competitorEntered).toBe(false);
+      releaseNative.resolve();
+      await settleWithin(nativeFinalized.promise);
+      await settleWithin(physicalReleasing.promise);
+      expect(competitorEntered).toBe(false);
+      releasePhysical.resolve();
+      await settleWithin(competitor);
+      expect(competitorEntered).toBe(true);
+      expect((await run.store.node(runId, "receipt")).status).toBe("running");
+    } finally {
+      grantAdmission.resolve();
+      releaseNative.resolve();
+      releasePhysical.resolve();
+      await resumed;
+      await competitor;
+    }
   }, 10_000);
 
   test("a stale fence cannot publish, and interrupted paid or live effects never replay", async () => {

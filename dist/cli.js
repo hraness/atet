@@ -11,7 +11,7 @@ import {
   renderDiagramFile,
   runMcpServer,
   selectDesktopAsset
-} from "./index-30w2fm6y.js";
+} from "./index-j42mefhn.js";
 import {
   installSkill,
   pathExists
@@ -159,7 +159,7 @@ function printFindings(findings) {
   }
 }
 var starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/atet/v3.2.0/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/atet/v3.2.1/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },

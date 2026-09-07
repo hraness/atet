@@ -15,6 +15,7 @@ import {
   sep,
 } from "node:path";
 
+import { Cause, Context, Effect, Exit, Option, Ref } from "effect";
 import { z } from "zod";
 
 import {
@@ -33,7 +34,8 @@ import {
   canonicalJsonSha256,
   sha256Hex,
 } from "../../../core";
-import { executeAtomicRender } from "../../../cli/atomic-render";
+import { AtomicRenderPlatform, executeAtomicRenderEffect } from "../../../cli/atomic-render-effects";
+import { AtomicRenderPlatformLive } from "../../../cli/atomic-render-platform";
 import {
   buildProjectFfmpegInvocation,
   reverifyProjectRenderInputs,
@@ -54,8 +56,17 @@ import {
   bindExactCapability,
 } from "../../capability-binding";
 import { ApplicationError, errorMessage } from "../../errors";
-import type { OperationDefinition } from "../../operation";
-import { withOutputPublicationLease } from "../../output-publication-lease";
+import type { OperationDefinition, OperationExecutionContext } from "../../operation";
+import {
+  operationBoundary,
+  operationExitValue,
+  operationFinally,
+  operationValidation,
+  runStandaloneOperation,
+  type OperationEffectFailure,
+  type OperationFailurePhase,
+} from "../../operation-effects";
+import { withOutputPublicationLeaseEffect } from "../../output-publication-lease";
 import {
   ProjectRenderOutputReferenceSchema,
   ProjectRenderPlanReferenceSchema,
@@ -85,6 +96,47 @@ const PROJECT_RENDER_PRECOMMIT_DOMAIN =
   "studio.project-render-publication-precommit/v1";
 const CANDIDATE_RENDER_REUSE_RECORD_DOMAIN =
   "atet.candidate-render-reuse-record/v1";
+
+class ProjectRenderServices extends Context.Tag("@atet/local/ProjectRenderServices")<
+  ProjectRenderServices, ApplicationContext
+>() { }
+
+/** Finite native verification/publication must settle before its enclosing lease can close. */
+function renderBoundary<A>(
+  phase: OperationFailurePhase,
+  execute: () => A | Promise<A>,
+): Effect.Effect<A, OperationEffectFailure> {
+  return Effect.uninterruptible(operationBoundary(phase, execute));
+}
+
+function renderValidation<A>(evaluate: () => A): Effect.Effect<A, OperationEffectFailure> {
+  return operationValidation("project", evaluate);
+}
+
+/** Join every admitted native read while retaining Promise.all's first rejection identity. */
+function renderPathsExist(paths: readonly string[]): Effect.Effect<readonly boolean[], OperationEffectFailure> {
+  return Effect.uninterruptible(Effect.gen(function*() {
+    const firstFailure = yield* Ref.make(Option.none<number>());
+    const results = yield* Effect.forEach(paths, (path, index) => Effect.tap(
+      Effect.exit(renderBoundary("publication", () => pathExists(path))),
+      exit => Exit.isSuccess(exit) ? Effect.void : Ref.update(firstFailure, current =>
+        Option.isNone(current) ? Option.some(index) : current),
+    ), { concurrency: "unbounded" });
+    const selected = yield* Ref.get(firstFailure);
+    if (Option.isSome(selected)) {
+      const first = results[selected.value];
+      if (first !== undefined && Exit.isFailure(first)) {
+        const otherCauses = results.reduce<Cause.Cause<OperationEffectFailure>>((cause, result, index) =>
+          index === selected.value || Exit.isSuccess(result) ? cause : Cause.parallel(cause, result.cause), Cause.empty);
+        // Select only the first native rejection at the public boundary. Later
+        // failures are retained privately by the same native-finally envelope.
+        if (Cause.isEmpty(otherCauses)) return yield* Effect.failCause(first.cause);
+        return yield* operationFinally(Effect.failCause(otherCauses), Effect.asVoid(first));
+      }
+    }
+    return yield* Effect.forEach(results, result => result);
+  }));
+}
 
 const ProjectRenderExecutionIdentitySchema = z.strictObject({
   nodeKey: z.string()
@@ -1068,7 +1120,7 @@ function assertReceiptMatchesReusableNodePlan(options: {
   }
 }
 
-async function adoptCandidateRenderIfPresent(options: {
+function adoptCandidateRenderIfPresent(options: {
   readonly application: ApplicationContext;
   readonly beforePublication: () => Promise<void>;
   readonly exactPlan: Awaited<ReturnType<typeof loadExactProjectRenderPlan>>;
@@ -1077,191 +1129,119 @@ async function adoptCandidateRenderIfPresent(options: {
   readonly outputAbsolute: string;
   readonly publicationPrecommit?: ProjectRenderPublicationPrecommit;
   readonly signal: AbortSignal;
-}): Promise<ProjectRenderOutput | null> {
-  const currentReceiptRelative = receiptPath(
-    options.execution.nodePlanSha256,
-  );
-  const currentReceiptAbsolute = join(
-    options.exactPlan.directory,
-    currentReceiptRelative,
-  );
-  const reuseRecordRelative = candidateRenderReuseRecordPath(options.input);
-  const reuseRecordAbsolute = join(
-    options.exactPlan.directory,
-    reuseRecordRelative,
-  );
-  const [outputExists, currentReceiptExists, reuseRecordExists] =
-    await Promise.all([
-      pathExists(options.outputAbsolute),
-      pathExists(currentReceiptAbsolute),
-      pathExists(reuseRecordAbsolute),
+}): Effect.Effect<ProjectRenderOutput | null, OperationEffectFailure> {
+  return Effect.gen(function*() {
+    const currentReceiptRelative = receiptPath(options.execution.nodePlanSha256);
+    const currentReceiptAbsolute = join(options.exactPlan.directory, currentReceiptRelative);
+    const reuseRecordAbsolute = join(options.exactPlan.directory, candidateRenderReuseRecordPath(options.input));
+    const [outputExists, currentReceiptExists, reuseRecordExists] = yield* renderPathsExist([
+      options.outputAbsolute, currentReceiptAbsolute, reuseRecordAbsolute,
     ]);
-  if (!outputExists) {
-    if (currentReceiptExists || reuseRecordExists) {
-      throw new ApplicationError(
-        "conflict",
-        "Candidate render receipt or reuse record exists without its immutable output.",
-      );
-    }
-    return null;
-  }
-  if (!currentReceiptExists && !reuseRecordExists) {
-    if (options.publicationPrecommit !== undefined) {
-      const precommit = options.publicationPrecommit;
-      assertReceiptMatchesExactRender({
-        execution: options.execution,
-        input: options.input,
-        outputAbsolute: options.outputAbsolute,
-        receipt: precommit.receipt,
-        renderPlanSha256: options.exactPlan.document.renderPlanSha256,
+    if (!outputExists) {
+      yield* renderValidation(() => {
+        if (currentReceiptExists || reuseRecordExists) {
+          throw new ApplicationError("conflict", "Candidate render receipt or reuse record exists without its immutable output.");
+        }
       });
-      await resolveVerifiedProjectMedia({
+      return null;
+    }
+    if (!currentReceiptExists && !reuseRecordExists) {
+      const precommit = yield* renderValidation(() => {
+        if (options.publicationPrecommit === undefined) {
+          throw new ApplicationError("conflict", "Candidate render output exists without an exact receipt or reuse record.");
+        }
+        assertReceiptMatchesExactRender({
+          execution: options.execution, input: options.input, outputAbsolute: options.outputAbsolute,
+          receipt: options.publicationPrecommit.receipt,
+          renderPlanSha256: options.exactPlan.document.renderPlanSha256,
+        });
+        return options.publicationPrecommit;
+      });
+      yield* renderBoundary("publication", () => resolveVerifiedProjectMedia({
         expected: precommit.receipt.output,
         label: "Interrupted candidate render output",
         path: options.input.output.path,
         repositoryRoot: options.exactPlan.directory,
-      });
+      }));
       const expectedContents = `${canonicalJson(precommit.receipt)}\n`;
-      const published = await publishReceiptNoReplace({
-        application: options.application,
-        beforePublication: options.beforePublication,
-        contents: expectedContents,
-        execution: options.execution,
-        input: options.input,
-        signal: options.signal,
+      const published = yield* renderBoundary("publication", () => publishReceiptNoReplace({
+        application: options.application, beforePublication: options.beforePublication,
+        contents: expectedContents, execution: options.execution, input: options.input, signal: options.signal,
+      }));
+      yield* renderValidation(() => {
+        if (published.contents !== expectedContents) {
+          throw new ApplicationError("conflict", "Recovered candidate render receipt differs from its exact run-private publication precommit.");
+        }
+        assertReceiptMatchesExactRender({
+          execution: options.execution, input: options.input, outputAbsolute: options.outputAbsolute,
+          receipt: published.receipt, renderPlanSha256: options.exactPlan.document.renderPlanSha256,
+        });
       });
-      if (published.contents !== expectedContents) {
-        throw new ApplicationError(
-          "conflict",
-          "Recovered candidate render receipt differs from its exact run-private publication precommit.",
-        );
-      }
-      assertReceiptMatchesExactRender({
-        execution: options.execution,
-        input: options.input,
-        outputAbsolute: options.outputAbsolute,
-        receipt: published.receipt,
-        renderPlanSha256: options.exactPlan.document.renderPlanSha256,
-      });
-      await resolveVerifiedProjectMedia({
-        expected: published.receipt.output,
-        label: "Recovered candidate render output",
-        path: options.input.output.path,
-        repositoryRoot: options.exactPlan.directory,
-      });
-      await publishCandidateRenderReuseRecord({
-        exactPlan: options.exactPlan,
-        input: options.input,
-        outputAbsolute: options.outputAbsolute,
-        receipt: published.receipt,
-        receiptContents: published.contents,
-      });
-      return ProjectRenderOutputSchema.parse({
+      yield* renderBoundary("publication", () => resolveVerifiedProjectMedia({
+        expected: published.receipt.output, label: "Recovered candidate render output",
+        path: options.input.output.path, repositoryRoot: options.exactPlan.directory,
+      }));
+      yield* renderBoundary("publication", () => publishCandidateRenderReuseRecord({
+        exactPlan: options.exactPlan, input: options.input, outputAbsolute: options.outputAbsolute,
+        receipt: published.receipt, receiptContents: published.contents,
+      }));
+      return yield* renderValidation(() => ProjectRenderOutputSchema.parse({
         output: published.receipt.output,
-        receipt: receiptReference(
-          published.contents,
-          currentReceiptRelative,
-          published.receipt.output,
-          published.receipt.receiptSha256,
-          options.execution.nodePlanSha256,
-        ),
+        receipt: receiptReference(published.contents, currentReceiptRelative, published.receipt.output,
+          published.receipt.receiptSha256, options.execution.nodePlanSha256),
+      }));
+    }
+
+    const source = yield* Effect.gen(function*() {
+      if (reuseRecordExists) {
+        const reusable = yield* renderBoundary("publication", () => readCandidateRenderReuseRecord({
+          exactPlan: options.exactPlan, input: options.input, outputAbsolute: options.outputAbsolute,
+        }));
+        return { contents: reusable.receiptContents, reference: reusable.record.sourceReceipt, receipt: reusable.receipt };
+      }
+      const current = yield* renderBoundary("publication", () => readReceipt(options.application, options.input, options.execution));
+      yield* renderValidation(() => assertReceiptMatchesReusableNodePlan({
+        execution: options.execution, input: options.input, outputAbsolute: options.outputAbsolute,
+        receipt: current.receipt, renderPlanSha256: options.exactPlan.document.renderPlanSha256,
+      }));
+      yield* renderBoundary("publication", () => resolveVerifiedProjectMedia({
+        expected: current.receipt.output, label: "Candidate render awaiting reuse record",
+        path: options.input.output.path, repositoryRoot: options.exactPlan.directory,
+      }));
+      return {
+        ...current,
+        reference: receiptReference(current.contents, currentReceiptRelative, current.receipt.output,
+          current.receipt.receiptSha256, options.execution.nodePlanSha256),
+      };
+    });
+
+    // Adoption retains its two cancellation checks; it has no fresh-encoding final-fence exception.
+    yield* renderValidation(() => throwIfAborted(options.signal));
+    yield* renderBoundary("publication", options.beforePublication);
+    yield* renderValidation(() => throwIfAborted(options.signal));
+    yield* renderBoundary("publication", () => resolveVerifiedProjectMedia({
+      expected: source.receipt.output, label: "Adopted candidate render output",
+      path: options.input.output.path, repositoryRoot: options.exactPlan.directory,
+    }));
+    if (currentReceiptExists) {
+      const current = yield* renderBoundary("publication", () => readReceipt(options.application, options.input, options.execution));
+      yield* renderValidation(() => {
+        assertReceiptMatchesReusableNodePlan({
+          execution: options.execution, input: options.input, outputAbsolute: options.outputAbsolute,
+          receipt: current.receipt, renderPlanSha256: options.exactPlan.document.renderPlanSha256,
+        });
+        if (canonicalJson(current.receipt.output) !== canonicalJson(source.receipt.output)) {
+          throw new ApplicationError("conflict", "Current candidate render receipt disagrees with reusable output evidence.");
+        }
       });
     }
-    throw new ApplicationError(
-      "conflict",
-      "Candidate render output exists without an exact receipt or reuse record.",
-    );
-  }
-
-  let source: {
-    readonly contents: string;
-    readonly reference: ProjectRenderReceiptReference;
-    readonly receipt: z.infer<typeof ProjectRenderReceiptV2Schema>;
-  };
-  if (reuseRecordExists) {
-    const reusable = await readCandidateRenderReuseRecord({
-      exactPlan: options.exactPlan,
-      input: options.input,
-      outputAbsolute: options.outputAbsolute,
-    });
-    source = {
-      contents: reusable.receiptContents,
-      reference: reusable.record.sourceReceipt,
-      receipt: reusable.receipt,
-    };
-  } else {
-    source = await readReceipt(
-      options.application,
-      options.input,
-      options.execution,
-    ).then(value => ({
-      ...value,
-      reference: receiptReference(
-        value.contents,
-        currentReceiptRelative,
-        value.receipt.output,
-        value.receipt.receiptSha256,
-        options.execution.nodePlanSha256,
-      ),
-    }));
-    assertReceiptMatchesReusableNodePlan({
-      execution: options.execution,
-      input: options.input,
-      outputAbsolute: options.outputAbsolute,
-      receipt: source.receipt,
-      renderPlanSha256: options.exactPlan.document.renderPlanSha256,
-    });
-    await resolveVerifiedProjectMedia({
-      expected: source.receipt.output,
-      label: "Candidate render awaiting reuse record",
-      path: options.input.output.path,
-      repositoryRoot: options.exactPlan.directory,
-    });
-  }
-
-  throwIfAborted(options.signal);
-  await options.beforePublication();
-  throwIfAborted(options.signal);
-  await resolveVerifiedProjectMedia({
-    expected: source.receipt.output,
-    label: "Adopted candidate render output",
-    path: options.input.output.path,
-    repositoryRoot: options.exactPlan.directory,
-  });
-
-  if (currentReceiptExists) {
-    const current = await readReceipt(
-      options.application,
-      options.input,
-      options.execution,
-    );
-    assertReceiptMatchesReusableNodePlan({
-      execution: options.execution,
-      input: options.input,
-      outputAbsolute: options.outputAbsolute,
-      receipt: current.receipt,
-      renderPlanSha256: options.exactPlan.document.renderPlanSha256,
-    });
-    if (canonicalJson(current.receipt.output) !== canonicalJson(source.receipt.output)) {
-      throw new ApplicationError(
-        "conflict",
-        "Current candidate render receipt disagrees with reusable output evidence.",
-      );
+    if (!reuseRecordExists) {
+      yield* renderBoundary("publication", () => publishCandidateRenderReuseRecord({
+        exactPlan: options.exactPlan, input: options.input, outputAbsolute: options.outputAbsolute,
+        receipt: source.receipt, receiptContents: source.contents,
+      }));
     }
-  }
-
-  if (!reuseRecordExists) {
-    await publishCandidateRenderReuseRecord({
-      exactPlan: options.exactPlan,
-      input: options.input,
-      outputAbsolute: options.outputAbsolute,
-      receipt: source.receipt,
-      receiptContents: source.contents,
-    });
-  }
-  return ProjectRenderOutputSchema.parse({
-    output: source.receipt.output,
-    receipt: source.reference,
+    return yield* renderValidation(() => ProjectRenderOutputSchema.parse({ output: source.receipt.output, receipt: source.reference }));
   });
 }
 
@@ -1271,326 +1251,217 @@ async function adoptCandidateRenderIfPresent(options: {
  * crash, the immutable run-private precommit authorizes only the matching
  * receipt to be finalized.
  */
+function reconcileProjectRenderProgram(
+  inputValue: unknown,
+  execution: ProjectRenderExecutionIdentity,
+  control: ProjectRenderReconciliationControl,
+): Effect.Effect<ProjectRenderReconciliation, OperationEffectFailure, ProjectRenderServices> {
+  return Effect.gen(function*() {
+    const application = yield* ProjectRenderServices;
+    yield* renderValidation(() => throwIfAborted(control.abortSignal));
+    const input = yield* renderBoundary("input", () => bindAnyProjectRenderInput(application, inputValue));
+    const directory = yield* renderBoundary("project", () => exactProjectDirectory(application, input.plan.projectId));
+    const outputAbsolute = join(directory, input.output.path);
+    if (isCandidateProjectRenderInput(input)) {
+      return yield* withOutputPublicationLeaseEffect(application, {
+        outputPath: input.output.path, projectId: input.plan.projectId,
+      }, Effect.gen(function*() {
+        const exactPlan = yield* renderBoundary("project", () => loadExactProjectRenderPlan(application, input.plan));
+        yield* renderValidation(() => assertProjectRenderTarget(input, exactPlan.document.plan));
+        const workspace = yield* renderBoundary("workspace", () => expectedWorkflowWorkspaceIfPresent(application, execution));
+        const precommit = workspace === null ? null : yield* renderBoundary("publication", () => readPublicationPrecommit(workspace));
+        if (precommit !== null) {
+          yield* renderValidation(() => assertReceiptMatchesExactRender({
+            execution, input, outputAbsolute, receipt: precommit.receipt,
+            renderPlanSha256: exactPlan.document.renderPlanSha256,
+          }));
+        }
+        const adopted = yield* adoptCandidateRenderIfPresent({
+          application, beforePublication: control.beforePublication, exactPlan, execution, input, outputAbsolute,
+          ...(precommit === null ? {} : { publicationPrecommit: precommit }),
+          signal: control.abortSignal,
+        });
+        return adopted === null ? { kind: "retry" as const } : { kind: "completed" as const, output: adopted };
+      }));
+    }
+
+    // Legacy exact-receipt recovery retains its separate idempotent/no-replace path.
+    const receiptRelative = receiptPath(execution.nodePlanSha256);
+    const receiptAbsolute = join(directory, receiptRelative);
+    const [outputExists, receiptExists] = yield* renderPathsExist([outputAbsolute, receiptAbsolute]);
+    const workspace = yield* renderBoundary("workspace", () => expectedWorkflowWorkspaceIfPresent(application, execution));
+    const precommit = workspace === null ? null : yield* renderBoundary("publication", () => readPublicationPrecommit(workspace));
+    if (!outputExists && !receiptExists && precommit === null) return { kind: "retry" };
+    if (!outputExists && receiptExists) {
+      return { kind: "conflict", message: "Project render has a partial output/receipt publication." };
+    }
+    const exactPlan = yield* renderBoundary("project", () => loadExactProjectRenderPlan(application, input.plan));
+    yield* renderValidation(() => {
+      assertProjectRenderTarget(input, exactPlan.document.plan);
+      throwIfAborted(control.abortSignal);
+      if (precommit !== null) {
+        assertReceiptMatchesExactRender({
+          execution, input, outputAbsolute, receipt: precommit.receipt,
+          renderPlanSha256: exactPlan.document.renderPlanSha256,
+        });
+      }
+    });
+    if (!outputExists) return { kind: "retry" };
+    if (!receiptExists && precommit === null) {
+      return { kind: "conflict", message: "Project render output exists without its exact run-private publication precommit." };
+    }
+    const published = yield* Effect.gen(function*() {
+      if (receiptExists) return yield* renderBoundary("publication", () => readReceipt(application, input, execution));
+      const exactPrecommit = yield* renderValidation(() => {
+        if (precommit === null) throw new ApplicationError("conflict", "Project render output exists without its exact run-private publication precommit.");
+        return precommit;
+      });
+      yield* renderBoundary("publication", () => resolveVerifiedProjectMedia({
+        expected: exactPrecommit.receipt.output, label: "Interrupted project render output",
+        path: input.output.path, repositoryRoot: directory,
+      }));
+      return yield* renderBoundary("publication", () => publishReceiptNoReplace({
+        application, beforePublication: control.beforePublication,
+        contents: `${canonicalJson(exactPrecommit.receipt)}\n`, execution, input, signal: control.abortSignal,
+      }));
+    });
+    const { contents, receipt } = published;
+    yield* renderValidation(() => assertReceiptMatchesExactRender({
+      execution, input, outputAbsolute, receipt, renderPlanSha256: exactPlan.document.renderPlanSha256,
+    }));
+    if (precommit !== null && canonicalJson(precommit.receipt) !== canonicalJson(receipt)) {
+      return { kind: "conflict", message: "Project render receipt differs from its exact run-private publication precommit." };
+    }
+    yield* renderBoundary("publication", () => resolveVerifiedProjectMedia({
+      expected: receipt.output, label: "Reconciled project render output",
+      path: input.output.path, repositoryRoot: directory,
+    }));
+    return yield* renderValidation(() => ({
+      kind: "completed" as const,
+      output: ProjectRenderOutputSchema.parse({
+        output: receipt.output,
+        receipt: receiptReference(contents, receiptRelative, receipt.output, receipt.receiptSha256, execution.nodePlanSha256),
+      }),
+    }));
+  });
+}
+
+/** Closed local composition boundary; expected native failures retain the existing conflict projection. */
+export function reconcileProjectRenderEffect(
+  application: ApplicationContext,
+  inputValue: unknown,
+  execution: ProjectRenderExecutionIdentity,
+  control: ProjectRenderReconciliationControl,
+): Effect.Effect<ProjectRenderReconciliation> {
+  const program = reconcileProjectRenderProgram(inputValue, execution, control)
+    .pipe(Effect.provideService(ProjectRenderServices, application));
+  return Effect.map(Effect.exit(program), exit => {
+    try {
+      return operationExitValue(exit);
+    } catch (error) {
+      return { kind: "conflict" as const, message: errorMessage(error) };
+    }
+  });
+}
+
 export async function reconcileProjectRender(
   application: ApplicationContext,
   inputValue: unknown,
   execution: ProjectRenderExecutionIdentity,
   control: ProjectRenderReconciliationControl,
 ): Promise<ProjectRenderReconciliation> {
-  try {
-    throwIfAborted(control.abortSignal);
-    const input = await bindAnyProjectRenderInput(application, inputValue);
-    const directory = await exactProjectDirectory(
-      application,
-      input.plan.projectId,
-    );
-    const outputAbsolute = join(directory, input.output.path);
-    if (isCandidateProjectRenderInput(input)) {
-      return await withOutputPublicationLease(
-        application,
-        {
-          outputPath: input.output.path,
-          projectId: input.plan.projectId,
-        },
-        async () => {
-          const exactPlan = await loadExactProjectRenderPlan(
-            application,
-            input.plan,
-          );
-          assertProjectRenderTarget(input, exactPlan.document.plan);
-          const workspace = await expectedWorkflowWorkspaceIfPresent(
-            application,
-            execution,
-          );
-          const precommit = workspace === null
-            ? null
-            : await readPublicationPrecommit(workspace);
-          if (precommit !== null) {
-            assertReceiptMatchesExactRender({
-              execution,
-              input,
-              outputAbsolute,
-              receipt: precommit.receipt,
-              renderPlanSha256: exactPlan.document.renderPlanSha256,
-            });
-          }
-          const adopted = await adoptCandidateRenderIfPresent({
-            application,
-            beforePublication: control.beforePublication,
-            exactPlan,
-            execution,
-            input,
-            outputAbsolute,
-            ...(precommit === null
-              ? {}
-              : { publicationPrecommit: precommit }),
-            signal: control.abortSignal,
-          });
-          if (adopted !== null) {
-            return { kind: "completed", output: adopted };
-          }
-          return { kind: "retry" };
-        },
-      );
-    }
-    const receiptRelative = receiptPath(execution.nodePlanSha256);
-    const receiptAbsolute = join(directory, receiptRelative);
-    const [outputExists, receiptExists] = await Promise.all([
-      pathExists(outputAbsolute),
-      pathExists(receiptAbsolute),
-    ]);
-    const workspace = await expectedWorkflowWorkspaceIfPresent(
-      application,
-      execution,
-    );
-    const precommit = workspace === null
-      ? null
-      : await readPublicationPrecommit(workspace);
-    if (!outputExists && !receiptExists && precommit === null) {
-      return { kind: "retry" };
-    }
-    if (!outputExists && receiptExists) {
-      return {
-        kind: "conflict",
-        message: "Project render has a partial output/receipt publication.",
-      };
-    }
-
-    const exactPlan = await loadExactProjectRenderPlan(application, input.plan);
-    assertProjectRenderTarget(input, exactPlan.document.plan);
-    throwIfAborted(control.abortSignal);
-    if (precommit !== null) {
-      assertReceiptMatchesExactRender({
-        execution,
-        input,
-        outputAbsolute,
-        receipt: precommit.receipt,
-        renderPlanSha256: exactPlan.document.renderPlanSha256,
-      });
-    }
-    if (!outputExists) return { kind: "retry" };
-
-    let published: {
-      readonly contents: string;
-      readonly receipt: z.infer<typeof ProjectRenderReceiptV2Schema>;
-    };
-    if (!receiptExists) {
-      if (precommit === null) {
-        return {
-          kind: "conflict",
-          message: "Project render output exists without its exact run-private publication precommit.",
-        };
-      }
-      await resolveVerifiedProjectMedia({
-        expected: precommit.receipt.output,
-        label: "Interrupted project render output",
-        path: input.output.path,
-        repositoryRoot: directory,
-      });
-      published = await publishReceiptNoReplace({
-        application,
-        beforePublication: control.beforePublication,
-        contents: `${canonicalJson(precommit.receipt)}\n`,
-        execution,
-        input,
-        signal: control.abortSignal,
-      });
-    } else {
-      published = await readReceipt(application, input, execution);
-    }
-    const { contents, receipt } = published;
-    assertReceiptMatchesExactRender({
-      execution,
-      input,
-      outputAbsolute,
-      receipt,
-      renderPlanSha256: exactPlan.document.renderPlanSha256,
-    });
-    if (
-      precommit !== null
-      && canonicalJson(precommit.receipt) !== canonicalJson(receipt)
-    ) {
-      return {
-        kind: "conflict",
-        message: "Project render receipt differs from its exact run-private publication precommit.",
-      };
-    }
-    await resolveVerifiedProjectMedia({
-      expected: receipt.output,
-      label: "Reconciled project render output",
-      path: input.output.path,
-      repositoryRoot: directory,
-    });
-    const reference = receiptReference(
-      contents,
-      receiptRelative,
-      receipt.output,
-      receipt.receiptSha256,
-      execution.nodePlanSha256,
-    );
-    return {
-      kind: "completed",
-      output: ProjectRenderOutputSchema.parse({
-        output: receipt.output,
-        receipt: reference,
-      }),
-    };
-  } catch (error) {
-    return {
-      kind: "conflict",
-      message: errorMessage(error),
-    };
-  }
+  return await runStandaloneOperation(reconcileProjectRenderEffect(application, inputValue, execution, control));
 }
 
-const projectRenderLifecycle = {
-  kind: "local-artifact",
-  execute: async (context, parsedInput) => {
-    const workflow = context.workflow;
-    if (workflow === undefined) {
-      throw new ApplicationError(
-        "conflict",
-        "Workflow project rendering requires an exact run-private execution context.",
-      );
-    }
-    throwIfAborted(context.abortSignal);
-    const input = await bindAnyProjectRenderInput(
-      context.application,
-      parsedInput,
-    );
-    const exactPlan = await loadExactProjectRenderPlan(
-      context.application,
-      input.plan,
-    );
-    assertProjectRenderTarget(input, exactPlan.document.plan);
-    if (
-      input.syncPolicy === "require-verified"
-      && exactPlan.document.plan.warnings.some(
-        warning => warning.code === "unverified-sync",
-      )
-    ) {
-      throw new ApplicationError(
-        "conflict",
-        "Project render plan contains unverified placement synchronization.",
-      );
-    }
-    const workspace = await exactRunWorkflowWorkspace(
-      context.application,
-      {
-        nodeKey: workflow.nodeKey,
-        nodePlanSha256: workflow.nodePlanSha256,
-        runId: workflow.runId,
-      },
-      workflow.workspaceDirectory,
-    );
-    const capabilityRunner = new ExactCapabilityApplicationRunner(
-      context.application.runner,
-      [
-        input.binding.ffmpeg,
-        input.binding.ffprobe,
-        ...(input.binding.rsvgConvert === null
-          ? []
-          : [input.binding.rsvgConvert]),
-      ],
-      context.application.paths.privateRoot,
-    );
-    const runner = workflowRunner(capabilityRunner, workspace);
-    const outputParent = await ensurePhysicalPrivateDirectoryWithin(
-      exactPlan.directory,
-      dirname(input.output.path),
-    );
+function projectRenderProgram(
+  context: OperationExecutionContext,
+  parsedInput: unknown,
+): Effect.Effect<ProjectRenderOutput, OperationEffectFailure, ProjectRenderServices | AtomicRenderPlatform> {
+  return Effect.gen(function*() {
+    const application = yield* ProjectRenderServices;
+    const workflow = yield* renderValidation(() => {
+      if (context.workflow === undefined) {
+        throw new ApplicationError("conflict", "Workflow project rendering requires an exact run-private execution context.");
+      }
+      throwIfAborted(context.abortSignal);
+      return context.workflow;
+    });
+    const input = yield* renderBoundary("input", () => bindAnyProjectRenderInput(application, parsedInput));
+    const exactPlan = yield* renderBoundary("project", () => loadExactProjectRenderPlan(application, input.plan));
+    yield* renderValidation(() => {
+      assertProjectRenderTarget(input, exactPlan.document.plan);
+      if (input.syncPolicy === "require-verified" && exactPlan.document.plan.warnings.some(warning => warning.code === "unverified-sync")) {
+        throw new ApplicationError("conflict", "Project render plan contains unverified placement synchronization.");
+      }
+    });
+    const execution = { nodeKey: workflow.nodeKey, nodePlanSha256: workflow.nodePlanSha256, runId: workflow.runId };
+    const workspace = yield* renderBoundary("workspace", () => exactRunWorkflowWorkspace(application, execution, workflow.workspaceDirectory));
+    const runner = yield* renderValidation(() => workflowRunner(new ExactCapabilityApplicationRunner(
+      application.runner,
+      [input.binding.ffmpeg, input.binding.ffprobe, ...(input.binding.rsvgConvert === null ? [] : [input.binding.rsvgConvert])],
+      application.paths.privateRoot,
+    ), workspace));
+    const outputParent = yield* renderBoundary("workspace", () => ensurePhysicalPrivateDirectoryWithin(exactPlan.directory, dirname(input.output.path)));
     const outputAbsolute = join(exactPlan.directory, input.output.path);
-    if (dirname(outputAbsolute) !== outputParent) {
-      throw new ApplicationError(
-        "unsafe-path",
-        "Project render output parent did not resolve to its physical directory.",
-      );
-    }
+    yield* renderValidation(() => {
+      if (dirname(outputAbsolute) !== outputParent) {
+        throw new ApplicationError("unsafe-path", "Project render output parent did not resolve to its physical directory.");
+      }
+    });
     const receiptRelative = receiptPath(workflow.nodePlanSha256);
     const receiptAbsolute = join(exactPlan.directory, receiptRelative);
-    await ensurePhysicalPrivateDirectoryWithin(
-      exactPlan.directory,
-      dirname(receiptRelative),
-    );
-    if (exactPlan.fileSystem.writeTextNoReplace === undefined) {
-      throw new ApplicationError(
-        "internal",
-        "Project storage does not support immutable render-receipt publication.",
-      );
-    }
+    yield* renderBoundary("workspace", () => ensurePhysicalPrivateDirectoryWithin(exactPlan.directory, dirname(receiptRelative)));
+    yield* renderValidation(() => {
+      if (exactPlan.fileSystem.writeTextNoReplace === undefined) {
+        throw new ApplicationError("internal", "Project storage does not support immutable render-receipt publication.");
+      }
+    });
     if (!isCandidateProjectRenderInput(input)) {
-      await requireFreshPublicationTargets(
-        outputAbsolute,
-        receiptAbsolute,
-      );
+      yield* renderBoundary("publication", () => requireFreshPublicationTargets(outputAbsolute, receiptAbsolute));
     }
-
-    return await withOutputPublicationLease(
-      context.application,
-      {
-        outputPath: input.output.path,
-        projectId: input.plan.projectId,
-      },
-      async () => {
-        if (isCandidateProjectRenderInput(input)) {
-          const adopted = await adoptCandidateRenderIfPresent({
-            application: context.application,
-            beforePublication: () => workflow.beforePublication(),
-            exactPlan,
-            execution: {
-              nodeKey: workflow.nodeKey,
-              nodePlanSha256: workflow.nodePlanSha256,
-              runId: workflow.runId,
-            },
-            input,
-            outputAbsolute,
-            signal: context.abortSignal,
-          });
-          if (adopted !== null) return adopted;
-        }
-        await requireFreshPublicationTargets(
-          outputAbsolute,
-          receiptAbsolute,
-        );
-        const built = await buildProjectFfmpegInvocation(
-          exactPlan.document.plan,
-          {
-            ffmpeg: input.binding.ffmpeg.executablePath,
-            ffprobe: input.binding.ffprobe.executablePath,
-            outputPath: outputAbsolute,
-            projectDirectory: exactPlan.directory,
-            ...("target" in input
-              ? { renderTier: input.target.tier }
-              : {}),
-            repositoryRoot: context.application.paths.repositoryRoot,
-            ...(input.binding.rsvgConvert === null
-              ? {}
-              : {
-                  rsvgConvert: input.binding.rsvgConvert.executablePath,
-                  rsvgConvertVersion: input.binding.rsvgConvert.version,
-                }),
-            runner,
-            workspaceDirectory: workspace,
-          },
-        );
-        throwIfAborted(context.abortSignal);
-        let prepared:
-          | {
-            readonly contents: string;
-            readonly output: ProjectRenderOutputReference;
-            readonly precommit: ProjectRenderPublicationPrecommit;
-          }
-          | undefined;
-        await executeAtomicRender({
-          abortSignal: context.abortSignal,
-          argv: built.argv,
-          beforePublish: async outputIntegrity => {
-            await reverifyProjectRenderInputs(built.pinnedInputs);
-            throwIfAborted(context.abortSignal);
-            // This is the final cancellation/lease fence. Once the exact
-            // receipt is durably precommitted, output and receipt
-            // publication form one recoverable point-of-no-return sequence.
-            await workflow.beforePublication();
+    return yield* withOutputPublicationLeaseEffect(application, {
+      outputPath: input.output.path, projectId: input.plan.projectId,
+    }, Effect.gen(function*() {
+      if (isCandidateProjectRenderInput(input)) {
+        const adopted = yield* adoptCandidateRenderIfPresent({
+          application, beforePublication: () => workflow.beforePublication(), exactPlan, execution, input, outputAbsolute,
+          signal: context.abortSignal,
+        });
+        if (adopted !== null) return adopted;
+      }
+      yield* renderBoundary("publication", () => requireFreshPublicationTargets(outputAbsolute, receiptAbsolute));
+      const built = yield* renderBoundary("media", () => buildProjectFfmpegInvocation(exactPlan.document.plan, {
+        ffmpeg: input.binding.ffmpeg.executablePath,
+        ffprobe: input.binding.ffprobe.executablePath,
+        outputPath: outputAbsolute,
+        projectDirectory: exactPlan.directory,
+        ...("target" in input ? { renderTier: input.target.tier } : {}),
+        repositoryRoot: application.paths.repositoryRoot,
+        ...(input.binding.rsvgConvert === null ? {} : {
+          rsvgConvert: input.binding.rsvgConvert.executablePath,
+          rsvgConvertVersion: input.binding.rsvgConvert.version,
+        }),
+        runner, workspaceDirectory: workspace,
+      }));
+      yield* renderValidation(() => throwIfAborted(context.abortSignal));
+      const rendered = yield* executeAtomicRenderEffect({
+        abortSignal: context.abortSignal,
+        argv: built.argv,
+        failureLabel: "FFmpeg workflow project render failed",
+        finalOutputPath: outputAbsolute,
+        maximumOutputBytes: input.output.maximumBytes,
+        requireFreshOutput: true,
+        runner,
+        stagingDirectory: workspace,
+        timeoutMs: PROJECT_RENDER_MAX_DURATION_MS,
+      }, {
+        prepare: outputIntegrity => Effect.gen(function*() {
+          yield* renderBoundary("publication", () => reverifyProjectRenderInputs(built.pinnedInputs));
+          yield* renderValidation(() => throwIfAborted(context.abortSignal));
+          // The atomic owner masks before this final fence. A successful fence
+          // starts the recoverable precommit/output/receipt sequence.
+          yield* renderBoundary("publication", () => workflow.beforePublication());
+          const candidate = yield* renderValidation(() => {
             const output = ProjectRenderOutputReferenceSchema.parse({
               ...outputIntegrity,
               kind: "atet.project-render-output-reference",
@@ -1600,136 +1471,78 @@ const projectRenderLifecycle = {
               revisionSha256: input.plan.revisionSha256,
               schemaVersion: 1,
             });
-            const candidate = createPublicationPrecommit(
-              createProjectRenderReceiptV2({
-                createdAt: context.application.clock.now().toISOString(),
-                inputSha256: canonicalJsonSha256(input),
-                invocation: built.invocation,
-                output,
-                plan: input.plan,
-                run: {
-                  nodeKey: workflow.nodeKey,
-                  nodePlanSha256: workflow.nodePlanSha256,
-                  runId: workflow.runId,
-                },
-                syncPolicy: input.syncPolicy,
-                toolchain: input.binding,
-              }),
-            );
-            const precommit = await publishPublicationPrecommit(
-              workspace,
-              candidate,
-            );
+            return createPublicationPrecommit(createProjectRenderReceiptV2({
+              createdAt: application.clock.now().toISOString(),
+              inputSha256: canonicalJsonSha256(input),
+              invocation: built.invocation,
+              output, plan: input.plan, run: execution,
+              syncPolicy: input.syncPolicy, toolchain: input.binding,
+            }));
+          });
+          const precommit = yield* renderBoundary("publication", () => publishPublicationPrecommit(workspace, candidate));
+          return yield* renderValidation(() => {
             assertReceiptMatchesExactRender({
-              execution: {
-                nodeKey: workflow.nodeKey,
-                nodePlanSha256: workflow.nodePlanSha256,
-                runId: workflow.runId,
-              },
-              input,
-              outputAbsolute,
-              receipt: precommit.receipt,
+              execution, input, outputAbsolute, receipt: precommit.receipt,
               renderPlanSha256: exactPlan.document.renderPlanSha256,
             });
-            if (
-              precommit.receipt.output.bytes !== output.bytes
-              || precommit.receipt.output.sha256 !== output.sha256
-            ) {
-              throw new ApplicationError(
-                "conflict",
-                "Existing project render precommit describes different rendered bytes.",
-              );
+            if (precommit.receipt.output.bytes !== outputIntegrity.bytes || precommit.receipt.output.sha256 !== outputIntegrity.sha256) {
+              throw new ApplicationError("conflict", "Existing project render precommit describes different rendered bytes.");
             }
-            prepared = {
-              contents: `${canonicalJson(precommit.receipt)}\n`,
-              output: precommit.receipt.output,
-              precommit,
-            };
-          },
-          companion: {
-            finalPath: receiptAbsolute,
-            publish: async outputIntegrity => {
-              // Deliberately do not recheck cancellation or the workflow
-              // fence after the public output link. Recovery relies on this
-              // callback or reconciliation finalizing the prepared receipt.
-              if (
-                prepared === undefined
-                || prepared.output.bytes !== outputIntegrity.bytes
-                || prepared.output.sha256 !== outputIntegrity.sha256
-              ) {
-                throw new ApplicationError(
-                  "internal",
-                  "Project render output committed without its exact prepared receipt.",
-                );
-              }
-              await publishReceiptNoReplace({
-                application: context.application,
-                contents: prepared.contents,
-                execution: {
-                  nodeKey: workflow.nodeKey,
-                  nodePlanSha256: workflow.nodePlanSha256,
-                  runId: workflow.runId,
-                },
-                input,
-              });
-            },
-          },
-          failureLabel: "FFmpeg workflow project render failed",
-          finalOutputPath: outputAbsolute,
-          maximumOutputBytes: input.output.maximumBytes,
-          requireFreshOutput: true,
-          runner,
-          stagingDirectory: workspace,
-          timeoutMs: PROJECT_RENDER_MAX_DURATION_MS,
-        });
-        if (prepared === undefined) {
-          throw new ApplicationError(
-            "internal",
-            "Project render completed without an exact publication precommit.",
-          );
-        }
-        const published = await readReceipt(
-          context.application,
-          input,
-          {
-            nodeKey: workflow.nodeKey,
-            nodePlanSha256: workflow.nodePlanSha256,
-            runId: workflow.runId,
-          },
-        );
-        if (published.contents !== prepared.contents) {
-          throw new ApplicationError(
-            "conflict",
-            "Published project render receipt contains different bytes.",
-          );
-        }
-        if (isCandidateProjectRenderInput(input)) {
-          await publishCandidateRenderReuseRecord({
-            exactPlan,
-            input,
-            outputAbsolute,
-            receipt: published.receipt,
-            receiptContents: published.contents,
+            return { contents: `${canonicalJson(precommit.receipt)}\n`, output: precommit.receipt.output, precommit };
           });
+        }),
+        companion: {
+          finalPath: receiptAbsolute,
+          publish: (prepared, outputIntegrity) => Effect.gen(function*() {
+            // No new cancellation/fence after the public link. Recovery relies
+            // on this callback or reconciliation finalizing the exact receipt.
+            yield* renderValidation(() => {
+              if (prepared.output.bytes !== outputIntegrity.bytes || prepared.output.sha256 !== outputIntegrity.sha256) {
+                throw new ApplicationError("internal", "Project render output committed without its exact prepared receipt.");
+              }
+            });
+            yield* renderBoundary("publication", () => publishReceiptNoReplace({
+              application, contents: prepared.contents, execution, input,
+            }));
+          }),
+        },
+      });
+      const prepared = rendered.prepared;
+      const published = yield* renderBoundary("publication", () => readReceipt(application, input, execution));
+      yield* renderValidation(() => {
+        if (published.contents !== prepared.contents) {
+          throw new ApplicationError("conflict", "Published project render receipt contains different bytes.");
         }
-        return ProjectRenderOutputSchema.parse({
-          output: prepared.output,
-          receipt: receiptReference(
-            prepared.contents,
-            receiptRelative,
-            prepared.output,
-            prepared.precommit.receipt.receiptSha256,
-            workflow.nodePlanSha256,
-          ),
-        });
-      },
-    );
-  },
-} satisfies OperationDefinition<
-  "render.project",
-  unknown,
-  ProjectRenderOutput
->["lifecycle"];
+      });
+      if (isCandidateProjectRenderInput(input)) {
+        yield* renderBoundary("publication", () => publishCandidateRenderReuseRecord({
+          exactPlan, input, outputAbsolute, receipt: published.receipt, receiptContents: published.contents,
+        }));
+      }
+      return yield* renderValidation(() => ProjectRenderOutputSchema.parse({
+        output: prepared.output,
+        receipt: receiptReference(prepared.contents, receiptRelative, prepared.output,
+          prepared.precommit.receipt.receiptSha256, workflow.nodePlanSha256),
+      }));
+    }));
+  });
+}
+
+function projectRenderEffect(
+  context: OperationExecutionContext,
+  input: unknown,
+): Effect.Effect<ProjectRenderOutput, OperationEffectFailure> {
+  return projectRenderProgram(context, input).pipe(
+    Effect.provideService(ProjectRenderServices, context.application),
+    Effect.provide(AtomicRenderPlatformLive),
+  );
+}
+
+const projectRenderLifecycle = {
+  kind: "local-artifact",
+  execute: async (context, input) => await runStandaloneOperation(projectRenderEffect(context, input)),
+  executeEffect: projectRenderEffect,
+} satisfies OperationDefinition<"render.project", unknown, ProjectRenderOutput>["lifecycle"];
 
 export const projectRenderOperationDefinition = {
   inputSchema: ProjectRenderInputSchema,

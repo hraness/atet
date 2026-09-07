@@ -159,6 +159,14 @@ Shared hostile fixtures keep both tar consumers behaviorally aligned.
 
 ## Stage a later version
 
+Keep the source candidate version separate from the verified public release.
+`apps/web/published-release.json` records exactly `version` and `releaseUrl`;
+the URL must identify that version's immutable Atet GitHub Release. The website,
+README installation commands, and skill installation reference use this public
+version while a newer package candidate is prepared or staged. A merge to `main`
+can deploy the website before npm promotion, so do not advance those public
+instructions with the candidate's package and native-tool versions.
+
 1. Merge one new stable version to `main`. A push that changes `package.json`
    starts **Stage npm package** automatically in build-only mode. Its read-only
    verification job repeats the complete gate and uploads the exact candidate
@@ -261,6 +269,16 @@ Shared hostile fixtures keep both tar consumers behaviorally aligned.
    remote verification fails. The protected tag workflow repeats owner and
    event-sender ID `894119`, repository ID `1310516748`, npm authority, source,
    VTracer, and immutable Latest Release checks.
+9. After the exact npm version and immutable GitHub Release both pass public
+   verification, update `apps/web/published-release.json` with that version and
+   its exact `https://github.com/hraness/atet/releases/tag/v<version>` URL.
+   Update the README and `skills/atet/references/install.md` installation
+   references to match, and update the current-public fixture in the site tests.
+   Retain the actual npm, tag, Release and workflow evidence in the release
+   record; do not invent a verification run in the datum. Run the required
+   source and site gates, deliver the status change through a normal pull
+   request, then verify the Production HTML, Markdown and install targets.
+   Historical archive, provenance and prior-release fixtures remain unchanged.
 
 Never stage the next stable version while another stage awaits approval. npm
 11.19.0 deliberately permits multiple pending versions and exposes no atomic

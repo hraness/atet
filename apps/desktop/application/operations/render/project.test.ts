@@ -1,5 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
+import * as fs from "node:fs/promises";
 import { createHash } from "node:crypto";
+import type { BigIntStats, PathLike, StatOptions, Stats } from "node:fs";
 import {
   chmod,
   mkdir,
@@ -11,6 +13,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { Cause, Effect, Exit, Fiber } from "effect";
 
 import {
   SpeechAnalysisV1Schema,
@@ -37,6 +40,8 @@ import {
 } from "../../creative-iteration";
 import { ApplicationError } from "../../errors";
 import { OperationRegistry } from "../../registry";
+import { withOutputPublicationLease } from "../../output-publication-lease";
+import { operationExitValue } from "../../operation-effects";
 import {
   ProjectRenderReceiptV2Schema,
   RenderableProjectEditRevisionReferenceSchema,
@@ -77,6 +82,7 @@ import {
   projectRenderOperationDefinitionV2,
   projectRenderOperationDefinitionV3,
   reconcileProjectRender,
+  reconcileProjectRenderEffect,
 } from "./project";
 
 const NODE_PLAN_SHA256 = "b".repeat(64);
@@ -1138,6 +1144,201 @@ describe("immutable workflow project rendering", () => {
           await fixture.fileSystem.readText(output.receipt.path),
         ) as unknown))}\n`);
     } finally {
+      await rm(repositoryRoot, { force: true, recursive: true });
+    }
+  });
+
+  test("an interrupted native fresh-render fence settles exact publication before admitting the next output owner", async () => {
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-fiber-fence-"));
+    const enteredFence = Promise.withResolvers<void>();
+    const releaseFence = Promise.withResolvers<void>();
+    try {
+      const fixture = await immutableRenderFixture(repositoryRoot);
+      let renderCalls = 0;
+      const application = renderApplication(repositoryRoot, {
+        run: async argv => {
+          renderCalls += 1;
+          await writeFile(argv.at(-1)!, RENDERED_BYTES, { flag: "wx" });
+          return { exitCode: 0, stderr: "", stdout: "" };
+        },
+      });
+      const plan = await compileFrozenPlan(application, fixture.revision);
+      const input = await exactRenderInput(application, plan);
+      const context = await workflowContext(application, async () => {
+        enteredFence.resolve();
+        await releaseFence.promise;
+      });
+      const registry = new OperationRegistry();
+      registry.register(projectRenderOperationDefinition);
+      const executeEffect = registry.get("render.project", 1).executeEffect;
+      if (executeEffect === undefined) throw new Error("Expected native render execution.");
+      const fiber = Effect.runFork(executeEffect(context, input));
+      try {
+        await enteredFence.promise;
+        await Effect.runPromise(Fiber.interruptFork(fiber));
+        let successorEntered = false;
+        const successor = withOutputPublicationLease(application, {
+          outputPath: input.output.path,
+          projectId: input.plan.projectId,
+        }, async () => {
+          successorEntered = true;
+          expect(await readFile(join(fixture.projectDirectory, input.output.path))).toEqual(RENDERED_BYTES);
+          const receipt = ProjectRenderReceiptV2Schema.parse(JSON.parse(await fixture.fileSystem.readText(
+            `renders/receipts/${NODE_PLAN_SHA256}.json`,
+          )) as unknown);
+          expect(receipt.output.sha256).toBe(sha256Hex(RENDERED_BYTES.toString("utf8")));
+          expect(await readFile(publicationPrecommitPath(application), "utf8")).toContain(receipt.receiptSha256);
+        });
+        await new Promise<void>(resolve => { setImmediate(resolve); });
+        expect(successorEntered).toBe(false);
+        expect(await readFile(join(fixture.projectDirectory, input.output.path)).catch(() => null)).toBeNull();
+        releaseFence.resolve();
+        expect(Exit.isFailure(await Effect.runPromise(Fiber.await(fiber)))).toBe(true);
+        await successor;
+        expect(successorEntered).toBe(true);
+        expect(renderCalls).toBe(1);
+      } finally {
+        releaseFence.resolve();
+        await Effect.runPromise(Fiber.interrupt(fiber));
+      }
+    } finally {
+      releaseFence.resolve();
+      await rm(repositoryRoot, { force: true, recursive: true });
+    }
+  });
+
+  test("candidate adoption still refuses cancellation requested inside its successful fence", async () => {
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-adoption-cancel-fence-"));
+    try {
+      const fixture = await immutableRenderFixture(repositoryRoot);
+      let renderCalls = 0;
+      const application = renderApplication(repositoryRoot, {
+        run: async argv => {
+          renderCalls += 1;
+          await writeFile(argv.at(-1)!, RENDERED_BYTES, { flag: "wx" });
+          return { exitCode: 0, stderr: "", stdout: "" };
+        },
+      });
+      const plan = await compileFrozenPlan(application, fixture.revision);
+      const input = await exactCandidateRenderInput(application, fixture, plan);
+      const registry = new OperationRegistry();
+      registry.register(projectRenderOperationDefinitionV3);
+      const first = ProjectRenderOutputSchema.parse((await registry.execute(
+        await workflowContext(application, () => Promise.resolve()),
+        { input, kind: "render.project", version: 3 },
+      )).output);
+      const originalReceipt = await fixture.fileSystem.readText(first.receipt.path);
+      const cancellation = new AbortController();
+      const next = { ...EXECUTION_IDENTITY, runId: "run_canceladoption01" };
+      const context = await workflowContext(application, () => {
+        cancellation.abort();
+        return Promise.resolve();
+      }, cancellation.signal, next);
+      expect(await rejection(registry.execute(context, { input, kind: "render.project", version: 3 })))
+        .toMatchObject({ code: "cancelled" });
+      expect(renderCalls).toBe(1);
+      expect(await fixture.fileSystem.readText(first.receipt.path)).toBe(originalReceipt);
+      expect(await readFile(join(fixture.projectDirectory, input.output.path))).toEqual(RENDERED_BYTES);
+    } finally {
+      await rm(repositoryRoot, { force: true, recursive: true });
+    }
+  });
+
+  test.each([
+    { mode: "execute", first: "output", primary: new Error("first native existence failure"), label: "candidate first-position Error" },
+    { mode: "execute", first: "receipt", primary: undefined, label: "candidate later-position undefined" },
+    { mode: "reconcile", first: "output", primary: null, label: "legacy first-position null" },
+    { mode: "reconcile", first: "receipt", primary: false, label: "legacy later-position false" },
+  ] as const)("concurrent native existence failures keep the first rejection while joining later reads ($label)", async scenario => {
+    const { mode, primary } = scenario;
+    const repositoryRoot = await realpath(await mkdtemp(join(tmpdir(), "atet-render-existence-failures-")));
+    const releaseFirst = Promise.withResolvers<void>();
+    const releaseSecond = Promise.withResolvers<void>();
+    try {
+      const fixture = await immutableRenderFixture(repositoryRoot);
+      const application = renderApplication(repositoryRoot, {
+        run: async argv => {
+          await writeFile(argv.at(-1)!, RENDERED_BYTES, { flag: "wx" });
+          return { exitCode: 0, stderr: "", stdout: "" };
+        },
+      });
+      const plan = await compileFrozenPlan(application, fixture.revision);
+      const input = mode === "execute"
+        ? await exactCandidateRenderInput(application, fixture, plan)
+        : await exactRenderInput(application, plan);
+      const version = mode === "execute" ? 3 : 1;
+      const registry = new OperationRegistry();
+      registry.register(mode === "execute" ? projectRenderOperationDefinitionV3 : projectRenderOperationDefinition);
+      const context = await workflowContext(application, () => Promise.resolve());
+      const first = ProjectRenderOutputSchema.parse((await registry.execute(context, { input, kind: "render.project", version })).output);
+      const outputPath = join(fixture.projectDirectory, input.output.path);
+      const receiptPath = join(fixture.projectDirectory, first.receipt.path);
+      const outputEntered = Promise.withResolvers<void>();
+      const receiptEntered = Promise.withResolvers<void>();
+      const secondary = new Error("later private existence failure");
+      const originalKeys = primary instanceof Error ? Reflect.ownKeys(primary) : [];
+      const nativeLstat = fs.lstat;
+      function controlledLstat(path: PathLike, options?: StatOptions & { bigint?: false | undefined }): Promise<Stats>;
+      function controlledLstat(path: PathLike, options: StatOptions & { bigint: true }): Promise<BigIntStats>;
+      function controlledLstat(path: PathLike, options?: StatOptions): Promise<Stats | BigIntStats>;
+      async function controlledLstat(path: PathLike, options?: StatOptions): Promise<Stats | BigIntStats> {
+        if (path === outputPath) {
+          outputEntered.resolve();
+          await releaseFirst.promise;
+          throw scenario.first === "output" ? primary : secondary;
+        }
+        if (path === receiptPath) {
+          receiptEntered.resolve();
+          await releaseSecond.promise;
+          throw scenario.first === "receipt" ? primary : secondary;
+        }
+        return await nativeLstat(path, options);
+      }
+      const lstatSpy = spyOn(fs, "lstat").mockImplementation(controlledLstat);
+      const execute = registry.get("render.project", version).executeEffect;
+      if (execute === undefined) throw new Error("Expected native render execution.");
+      let settled = false;
+      const running = mode === "execute"
+        ? Effect.runPromiseExit(execute(context, input)).then(exit => {
+            if (Exit.isFailure(exit)) {
+              const failures = Array.from(Cause.failures(exit.cause));
+              expect(failures).toHaveLength(1);
+              const prior = failures[0]?.priorCause;
+              expect(prior === undefined ? [] : Array.from(Cause.failures(prior), failure => failure.cause)).toContain(secondary);
+            }
+            return operationExitValue(exit);
+          })
+        : Effect.runPromise(reconcileProjectRenderEffect(application, input, EXECUTION_IDENTITY, reconciliationControl()));
+      const observed = running.then(
+        value => { settled = true; return { status: "fulfilled" as const, value }; },
+        (reason: unknown) => { settled = true; return { status: "rejected" as const, reason }; },
+      );
+      try {
+        await Promise.race([
+          Promise.all([outputEntered.promise, receiptEntered.promise]),
+          observed.then(() => { throw new Error("Render settled before concurrent existence probes were admitted."); }),
+        ]);
+        (scenario.first === "output" ? releaseFirst : releaseSecond).resolve();
+        await new Promise<void>(resolve => { setImmediate(resolve); });
+        expect(settled).toBe(false);
+        (scenario.first === "receipt" ? releaseFirst : releaseSecond).resolve();
+        const result = await observed;
+        if (mode === "execute") {
+          expect(result.status).toBe("rejected");
+          if (result.status === "rejected") expect(result.reason).toBe(primary);
+        } else {
+          expect(result).toEqual({ status: "fulfilled", value: { kind: "conflict", message: String(primary) } });
+        }
+        if (primary instanceof Error) expect(Reflect.ownKeys(primary)).toEqual(originalKeys);
+      } finally {
+        releaseFirst.resolve();
+        releaseSecond.resolve();
+        await observed;
+        lstatSpy.mockRestore();
+      }
+    } finally {
+      releaseFirst.resolve();
+      releaseSecond.resolve();
       await rm(repositoryRoot, { force: true, recursive: true });
     }
   });
