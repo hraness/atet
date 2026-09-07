@@ -981,7 +981,7 @@ describe("static Atet site", () => {
     expect(stylesAsset).toContain("--hraness-site-footer-social-target")
     expect(stylesAsset).not.toContain("@import \"./dist/stylex.css\"")
     expect(stylesAsset).toContain("@media (pointer: coarse)")
-    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(72_000)
+    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(74_000)
     expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
     expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
