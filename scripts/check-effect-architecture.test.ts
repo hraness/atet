@@ -44,6 +44,13 @@ const fixtures: Readonly<Record<string, string>> = {
   "exit-catch.ts": `import {Effect} from "effect"; export const program=Effect.gen(function*(){ try { return (yield* Effect.exit(Effect.fail("bad")))._tag; } catch { return "sync failure"; } });`,
   "nested-generator-catch.ts": `import {Effect} from "effect"; export const program=Effect.gen(function*(){ try { return Effect.gen(function*(){ return yield* Effect.fail("bad"); }); } catch { return Effect.succeed(1); } });`,
   "plain-generator-catch.ts": `import {Effect} from "effect"; export function* values(){ try { yield Effect.fail("bad"); } catch { yield Effect.succeed(1); } }`,
+  "javascript-catch-parenthesized.ts": `import {Effect} from "effect"; export const program=Effect.gen((function*(){ try { return yield* Effect.fail("bad"); } catch { return 1; } }));`,
+  "javascript-catch-declared.ts": `import {Effect} from "effect"; function* operation(){ try { return yield* Effect.fail("bad"); } catch { return 1; } } export const program=Effect.gen(operation);`,
+  "javascript-catch-generator-alias.ts": `import {Effect} from "effect"; const operation=function*(){ try { return yield* Effect.fail("bad"); } catch { return 1; } }; const alias=operation; export const program=Effect.gen(alias);`,
+  "imported-generator.ts": `import {Effect} from "effect"; export function* operation(){ try { return yield* Effect.fail("bad"); } catch { return 1; } }`,
+  "imported-generator-use.ts": `import {Effect} from "effect"; import {operation as aliased} from "./imported-generator.js"; export const program=Effect.gen(aliased);`,
+  "typed-catch-declared.ts": `import {Effect} from "effect"; function* operation(){ try { return yield* Effect.fail("bad").pipe(Effect.catchAll(()=>Effect.succeed(1))); } catch { return 2; } } export const program=Effect.gen(operation);`,
+  "plain-generator-consumer.ts": `import {Effect} from "effect"; const local={gen:(operation:()=>Generator<unknown,number,unknown>)=>operation()}; function* operation(){ try { yield Effect.fail("bad"); return 1; } catch { return 2; } } export const iterator=local.gen(operation);`,
 };
 for(const [name, source] of Object.entries(fixtures)) writeFileSync(join(fixtureRoot,name),source);
 const program=ts.createProgram({rootNames:Object.keys(fixtures).map(name=>join(fixtureRoot,name)),options:{
@@ -96,6 +103,14 @@ try {
     expect(rules("javascript-catch.ts")).toContain("javascript-effect-catch");
     expect(rules("javascript-catch-alias.ts")).toContain("javascript-effect-catch");
     for(const file of ["typed-catch.ts","exit-catch.ts","nested-generator-catch.ts","plain-generator-catch.ts"]) expect(rules(file)).toEqual([]);
+  });
+  test("follows statically bound generator arguments while preserving plain generators and handled failures",()=>{
+    const rejected=["javascript-catch-parenthesized.ts","javascript-catch-declared.ts","javascript-catch-generator-alias.ts","imported-generator.ts"];
+    const accepted=["imported-generator-use.ts","typed-catch-declared.ts","plain-generator-consumer.ts"];
+    const selected=new Set([...rejected,...accepted].map(file=>join(fixtureRoot,file)));
+    expect(ts.getPreEmitDiagnostics(program).filter(d=>d.file&&selected.has(d.file.fileName))).toEqual([]);
+    for(const file of rejected) expect(rules(file)).toContain("javascript-effect-catch");
+    for(const file of accepted) expect(rules(file)).toEqual([]);
   });
 } finally {
   rmSync(fixtureRoot,{recursive:true,force:true});

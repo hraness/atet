@@ -4,7 +4,7 @@ import type { z } from "zod";
 
 import type { ApplicationContext } from "./context";
 
-export const ATET_APPLICATION_TOOL_VERSION = "atet-3.2.1" as const;
+export const ATET_APPLICATION_TOOL_VERSION = "atet-3.2.2" as const;
 
 export const OPERATION_KINDS = [
   "project.snapshot",

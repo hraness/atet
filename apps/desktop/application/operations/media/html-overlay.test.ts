@@ -110,8 +110,9 @@ async function workflowContext(
   identity: string,
   libraryLocks: readonly HtmlOverlayActiveLibraryLock[],
 ): Promise<OperationExecutionContext> {
+  const capabilities = await fixtureCapabilities(root);
   const base = operationApplicationContext(root, {
-    capabilities: async () => await fixtureCapabilities(root),
+    capabilities: async () => capabilities,
   });
   const workspaceDirectory = join(
     base.paths.privateRoot,
@@ -273,8 +274,9 @@ describe("media.html-overlay application operation", () => {
   test("binds inline HTML deterministically without a repository document", async () => {
     const root = await mkdtemp(join(tmpdir(), "atet-html-operation-inline-"));
     roots.push(root);
+    const capabilities = await fixtureCapabilities(root);
     const application = operationApplicationContext(root, {
-      capabilities: async () => await fixtureCapabilities(root),
+      capabilities: async () => capabilities,
     });
     const input = {
       canvas: { deviceScaleFactor: 1, height: 720, width: 1_280 },
@@ -315,8 +317,9 @@ describe("media.html-overlay application operation", () => {
       path: relative(root, imagePath),
       sha256: sha256(image),
     } as const;
+    const capabilities = await fixtureCapabilities(root);
     const application = operationApplicationContext(root, {
-      capabilities: async () => await fixtureCapabilities(root),
+      capabilities: async () => capabilities,
     });
     const request = {
       canvas: { deviceScaleFactor: 1, height: 720, width: 1_280 },
@@ -415,8 +418,9 @@ describe("media.html-overlay application operation", () => {
       },
     ] as const;
     for (const [index, testCase] of cases.entries()) {
+      const capabilities = await fixtureCapabilities(root);
       const application = operationApplicationContext(root, {
-        capabilities: async () => await fixtureCapabilities(root),
+        capabilities: async () => capabilities,
       });
       const registry = new OperationRegistry();
       registry.register(createHtmlOverlayOperationDefinition({
@@ -541,7 +545,7 @@ describe("media.html-overlay application operation", () => {
       version: 1,
     });
     const output = HtmlOverlayOutputSchema.parse(result.output);
-    expect(observedGeneratorVersion).toBe("atet-3.2.1");
+    expect(observedGeneratorVersion).toBe("atet-3.2.2");
     expect(result.receiptReference).toBe(output.receipt.path);
     const receipt = HtmlOverlayReceiptSchema.parse(JSON.parse(
       await readFile(join(root, output.receipt.path), "utf8"),

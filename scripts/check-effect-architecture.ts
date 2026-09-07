@@ -1,5 +1,5 @@
 /**
- * Effect architecture checks v1.3.0. Copy with its tests into the owning repository.
+ * Effect architecture checks v1.4.0. Copy with its tests into the owning repository.
  * Build-time only: use that repository's TypeScript, no compiler patch/plugin.
  * This constrains reviewed modules; it is not a purity or security proof.
  */
@@ -112,11 +112,41 @@ export function inspectEffectArchitecture(
     if (ts.isYieldExpression(node) && node.expression && canFail(node.expression)) return true;
     return ts.forEachChild(node, containsFallibleYield) ?? false;
   };
+  // Resolve only statically bound generator values supplied to a real Effect gen.
+  // Factories, mutation and arbitrary wrapper calls require semantic review.
+  const generatorFunctions = new Set<ts.Node>();
+  const resolveGenerator = (expression: ts.Expression, seen = new Set<ts.Symbol>()): void => {
+    while (ts.isParenthesizedExpression(expression) || ts.isAsExpression(expression) ||
+      ts.isTypeAssertionExpression(expression) || ts.isSatisfiesExpression(expression)) expression = expression.expression;
+    if (ts.isFunctionExpression(expression) && expression.asteriskToken) {
+      generatorFunctions.add(expression);
+      return;
+    }
+    const symbol = actualSymbol(ts.isPropertyAccessExpression(expression) ? expression.name : expression);
+    if (!symbol || seen.has(symbol)) return;
+    seen.add(symbol);
+    for (const declaration of symbol.declarations ?? []) {
+      if (ts.isFunctionDeclaration(declaration) && declaration.asteriskToken && declaration.body) {
+        generatorFunctions.add(declaration);
+      } else if (ts.isVariableDeclaration(declaration) && declaration.initializer &&
+        ts.isVariableDeclarationList(declaration.parent) && declaration.parent.flags & ts.NodeFlags.Const) {
+        resolveGenerator(declaration.initializer, seen);
+      }
+    }
+  };
+  const collectGenerators = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && externalEffectSymbol(node.expression)?.getName() === "gen") {
+      for (const argument of node.arguments) resolveGenerator(argument);
+    }
+    ts.forEachChild(node, collectGenerators);
+  };
+  for (const source of program.getSourceFiles()) {
+    if (!source.isDeclarationFile && !program.isSourceFileFromExternalLibrary(source)) collectGenerators(source);
+  }
   const insideEffectGenerator = (node: ts.Node): boolean => {
     for (let parent = node.parent; parent; parent = parent.parent) {
       if (!ts.isFunctionLike(parent)) continue;
-      const call = parent.parent;
-      return ts.isCallExpression(call) && externalEffectSymbol(call.expression)?.getName() === "gen";
+      return generatorFunctions.has(parent);
     }
     return false;
   };

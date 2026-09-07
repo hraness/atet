@@ -1,0 +1,13 @@
+{
+  "version": "1.4.0",
+  "mode": "vendored-development-source",
+  "upstream": "Hraness Effect rollout source packet",
+  "effectVersion": "3.22.1",
+  "compiler": "repository-owned TypeScript",
+  "files": {
+    "check-effect-architecture.ts": "8518b621a789cd3a6c0cb74b15d2e8d59dfc3504304017fbd3aaf11a8300d35b",
+    "check-effect-architecture.test.ts": "67add1e1ca9800d0a1e2183051313e2752cf687a779a6ee58a226c6283654315"
+  },
+  "adaptation": "Test import follows local engine filename; no policy rules are changed by distribution.",
+  "policy": "Product-local role map is separately reviewed. No runtime dependency or sibling path."
+}

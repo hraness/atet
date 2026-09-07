@@ -9,7 +9,7 @@ import {
 } from "../../../contracts";
 import { canonicalJsonSha256 } from "../../../core/canonical-json";
 import {
-  ingestProjectMedia,
+  ingestProjectMediaEffect,
   type IngestProjectMediaOptions,
   type IngestedProjectMedia,
 } from "../../../cli/media-ingest";
@@ -146,7 +146,7 @@ function importedArtifact(asset: ProjectAssetV1): MediaArtifactReference {
 
 class MediaIngestServices extends Context.Tag("@atet/local/MediaIngestServices")<
   MediaIngestServices,
-  Readonly<{ context: OperationExecutionContext; ingest: IngestExecutor }>
+  Readonly<{ context: OperationExecutionContext; ingest: (options: IngestProjectMediaOptions) => Effect.Effect<IngestedProjectMedia, OperationEffectFailure> }>
 >() { }
 
 /** Native transaction; the caller owns execution and the foreign runner owns physical custody. */
@@ -203,7 +203,7 @@ function ingestProgram(input: MediaIngestInput): Effect.Effect<
           sourcePath: boundSource.absolutePath,
         };
       });
-      const ingested = yield* operationBoundary("media", () => ingest(options));
+      const ingested = yield* ingest(options);
       const claimedArtifact = yield* operationValidation("output", () => {
         throwIfAborted(context.abortSignal);
         return importedArtifact(ingested.asset);
@@ -250,7 +250,9 @@ export function createMediaIngestOperationDefinition(
   MediaIngestInput,
   MediaIngestOutput
 > {
-  const executeIngest = dependencies.ingest ?? ingestProjectMedia;
+  const foreignIngest = dependencies.ingest;
+  const executeIngest = foreignIngest === undefined ? ingestProjectMediaEffect
+    : (options: IngestProjectMediaOptions) => Effect.uninterruptible(operationBoundary("media", () => foreignIngest(options)));
   const executeEffect = (context: OperationExecutionContext, input: MediaIngestInput) =>
     ingestProgram(input).pipe(Effect.provide(Layer.succeed(MediaIngestServices, {
       context, ingest: executeIngest,

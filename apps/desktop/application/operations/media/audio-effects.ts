@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { join } from "node:path";
+import { Effect } from "effect";
 
 import { z } from "zod";
 
@@ -8,13 +7,10 @@ import {
   type AudioEffectsTransformV1,
 } from "../../../contracts";
 import {
-  LocalMediaEffectsService,
-  MAXIMUM_LOCAL_MEDIA_EFFECT_OUTPUT_BYTES,
   type ExpectedLocalMediaInput,
   type LocalMediaTransformResult,
 } from "../../../cli/media-effects-service";
 import {
-  probeProjectMedia,
   type ProbedMedia,
 } from "../../../cli/media-ingest";
 import type {
@@ -22,29 +18,20 @@ import type {
   ApplicationProcessRunner,
 } from "../../context";
 import { ApplicationError } from "../../errors";
-import type { OperationDefinition } from "../../operation";
-import { writeOperationCompletionCheckpoint } from "../../operation-completion-checkpoint";
-import {
-  throwIfAborted,
-} from "../shared";
+import type { OperationDefinition, OperationExecutionContext } from "../../operation";
+import { operationResource, operationValidation, runStandaloneOperation, type OperationEffectFailure } from "../../operation-effects";
+import { createMediaTransformPlatform, MediaTransformPlatform } from "./transform-platform";
 import {
   MediaCapabilityBindingsSchema,
-  assertMediaCapabilities,
   bindExpectedMediaCapabilities,
-  bindMediaCapabilities,
   mediaCapabilityCommand,
-  mediaCapabilityRunner,
   mediaCapabilityVersion,
 } from "./capabilities";
 import {
-  AbortBoundApplicationRunner,
   MAXIMUM_MEDIA_EFFECT_INPUT_BYTES,
   MediaArtifactReferenceSchema,
   MediaArtifactRequestSchema,
   bindRepositoryMedia,
-  createMediaOperationWorkspace,
-  publishContentAddressedMedia,
-  publishContentAddressedReceipt,
 } from "./shared";
 
 const MAXIMUM_EFFECT_DURATION_US = 24 * 60 * 60 * 1_000_000;
@@ -243,6 +230,91 @@ function verifiedAudioDuration(
   return durationUs;
 }
 
+/** Native transform owner; foreign work settles before workspace release. */
+export function mediaAudioEffectsProgram(input: MediaAudioEffectsInput): Effect.Effect<
+  MediaAudioEffectsOutput, OperationEffectFailure, MediaTransformPlatform
+> {
+  return Effect.gen(function*() {
+    const platform = yield* MediaTransformPlatform;
+    yield* platform.checkAbort();
+    const parsed = yield* operationValidation("input", () => MediaAudioEffectsInputSchema.parse(input));
+    const boundMedia = yield* platform.bindInput(parsed.input);
+    const boundInput = yield* operationValidation("input", () => BoundMediaAudioEffectsInputSchema.parse({
+      ...parsed, input: boundMedia.artifact,
+    }));
+    yield* platform.assertCapabilities(parsed.capabilityBindings);
+    const capabilityBindings = parsed.capabilityBindings ?? (yield* platform.bindCapabilities());
+    const { ffmpeg, ffprobe } = yield* operationValidation("capability", () => ({
+      ffmpeg: mediaCapabilityCommand(capabilityBindings, "ffmpeg"),
+      ffprobe: mediaCapabilityCommand(capabilityBindings, "ffprobe"),
+    }));
+    const runner = yield* platform.runner(capabilityBindings);
+    const sourceProbe = yield* platform.probe(ffprobe, runner, boundMedia.absolutePath);
+    const sourceDurationUs = yield* operationValidation("media", () => selectedAudioDuration(sourceProbe, boundInput.transform));
+    return yield* operationResource(
+      platform.workspace(),
+      workspace => Effect.gen(function*() {
+        const extension = yield* operationValidation("input", () => audioOutputExtension(boundInput.transform));
+        const stagedPath = yield* platform.stagedPath(workspace, "audio", extension);
+        const rendered = yield* platform.renderAudio({
+          expectedInput: boundMedia.expectedInput,
+          ffmpeg,
+          inputPath: boundMedia.absolutePath,
+          outputPath: stagedPath,
+          runner,
+          transform: boundInput.transform,
+        });
+        yield* platform.checkAbort();
+        const outputProbe = yield* platform.probe(ffprobe, runner, stagedPath);
+        const durationUs = yield* operationValidation("media", () => verifiedAudioDuration(
+          outputProbe, sourceDurationUs, boundInput.transform.output.kind === "preserve-video",
+        ));
+        // Existing native publication fences still inspect the AbortSignal.
+        // Once entered, retain the whole output/receipt/checkpoint continuation.
+        return yield* Effect.uninterruptible(Effect.gen(function*() {
+          const published = yield* platform.publishMedia(stagedPath, extension);
+          yield* operationValidation("publication", () => {
+            if (published.artifact.bytes !== rendered.bytes || published.artifact.sha256 !== rendered.sha256) {
+              throw new ApplicationError("conflict", "Audio-effects service result disagrees with the published bytes.");
+            }
+          });
+          const createdAt = yield* platform.now();
+          const receiptBody = yield* operationValidation("output", () => MediaAudioEffectsReceiptSchema.parse({
+            createdAt,
+            ffmpegVersion: mediaCapabilityVersion(capabilityBindings, "ffmpeg"),
+            ffprobeVersion: mediaCapabilityVersion(capabilityBindings, "ffprobe"),
+            filterGraph: rendered.filterGraph,
+            input: boundInput.input,
+            kind: "atet.local-media-transform-receipt",
+            operation: "audio-effects",
+            output: { ...published.artifact, durationUs },
+            schemaVersion: 1,
+            sourceDurationUs,
+            transform: rendered.transform,
+          }));
+          const receipt = yield* platform.publishReceipt(receiptBody, workspace);
+          const output = yield* operationValidation("output", () => MediaAudioEffectsOutputSchema.parse({
+            artifact: published.artifact,
+            created: published.created,
+            durationUs,
+            filterGraph: rendered.filterGraph,
+            receipt,
+            transform: rendered.transform,
+          }));
+          yield* platform.checkpoint({
+            inputSchemaId: "atet.operation.media.audio-effects.input/v1",
+            kind: "media.audio-effects",
+            outputSchemaId: "atet.operation.media.audio-effects.output/v1",
+            version: 1,
+          }, output);
+          return output;
+        }));
+      }),
+      workspace => platform.dispose(workspace),
+    );
+  });
+}
+
 export function createMediaAudioEffectsOperationDefinition(
   dependencies: MediaAudioEffectsOperationDependencies = {},
 ): OperationDefinition<
@@ -250,144 +322,19 @@ export function createMediaAudioEffectsOperationDefinition(
   MediaAudioEffectsInput,
   MediaAudioEffectsOutput
 > {
-  const inspectMedia = dependencies.probe ?? probeProjectMedia;
-  const render = dependencies.render ?? (async options =>
-    await new LocalMediaEffectsService({
-      ffmpeg: options.ffmpeg,
-      runner: options.runner,
-    }).renderAudio(options));
+  const executeEffect = (context: OperationExecutionContext, input: MediaAudioEffectsInput) =>
+    mediaAudioEffectsProgram(input).pipe(Effect.provideService(MediaTransformPlatform, createMediaTransformPlatform(context, {
+      ...(dependencies.probe === undefined ? {} : { probe: dependencies.probe }),
+      ...(dependencies.render === undefined ? {} : { renderAudio: dependencies.render }),
+    })));
   return {
     inputSchema: MediaAudioEffectsInputSchema,
     inputSchemaId: "atet.operation.media.audio-effects.input/v1",
     kind: "media.audio-effects",
     lifecycle: {
       kind: "local-artifact",
-      execute: async (context, input) => {
-        throwIfAborted(context.abortSignal);
-        const parsed = MediaAudioEffectsInputSchema.parse(input);
-        const boundMedia = await bindRepositoryMedia(
-          context.application,
-          parsed.input,
-          context.abortSignal,
-          MAXIMUM_MEDIA_EFFECT_INPUT_BYTES,
-        );
-        const boundInput = BoundMediaAudioEffectsInputSchema.parse({
-          ...parsed,
-          input: boundMedia.artifact,
-        });
-        await assertMediaCapabilities(
-          context,
-          context.application,
-          parsed.capabilityBindings,
-          ["ffmpeg", "ffprobe"],
-        );
-        const capabilityBindings = parsed.capabilityBindings
-          ?? await bindMediaCapabilities(
-            context.application,
-            ["ffmpeg", "ffprobe"],
-          );
-        const ffmpeg = mediaCapabilityCommand(
-          capabilityBindings,
-          "ffmpeg",
-        );
-        const ffprobe = mediaCapabilityCommand(
-          capabilityBindings,
-          "ffprobe",
-        );
-        const runner = new AbortBoundApplicationRunner(
-          mediaCapabilityRunner(
-            context.application,
-            capabilityBindings,
-          ),
-          context.abortSignal,
-        );
-        const sourceDurationUs = selectedAudioDuration(
-          await inspectMedia(ffprobe, runner, boundMedia.absolutePath),
-          boundInput.transform,
-        );
-        const workspace = await createMediaOperationWorkspace(context);
-        const stagedPath = join(
-          workspace.path,
-          `audio-${randomUUID()}${audioOutputExtension(boundInput.transform)}`,
-        );
-        try {
-          const rendered = await render({
-            expectedInput: boundMedia.expectedInput,
-            ffmpeg,
-            inputPath: boundMedia.absolutePath,
-            outputPath: stagedPath,
-            runner,
-            transform: boundInput.transform,
-          });
-          throwIfAborted(context.abortSignal);
-          const durationUs = verifiedAudioDuration(
-            await inspectMedia(ffprobe, runner, stagedPath),
-            sourceDurationUs,
-            boundInput.transform.output.kind === "preserve-video",
-          );
-          const published = await publishContentAddressedMedia({
-            context,
-            extension: audioOutputExtension(boundInput.transform),
-            maximumBytes: MAXIMUM_LOCAL_MEDIA_EFFECT_OUTPUT_BYTES,
-            stagedPath,
-          });
-          if (
-            published.artifact.bytes !== rendered.bytes
-            || published.artifact.sha256 !== rendered.sha256
-          ) {
-            throw new ApplicationError(
-              "conflict",
-              "Audio-effects service result disagrees with the published bytes.",
-            );
-          }
-          const receiptBody = MediaAudioEffectsReceiptSchema.parse({
-            createdAt: context.application.clock.now().toISOString(),
-            ffmpegVersion: mediaCapabilityVersion(
-              capabilityBindings,
-              "ffmpeg",
-            ),
-            ffprobeVersion: mediaCapabilityVersion(
-              capabilityBindings,
-              "ffprobe",
-            ),
-            filterGraph: rendered.filterGraph,
-            input: boundInput.input,
-            kind: "atet.local-media-transform-receipt",
-            operation: "audio-effects",
-            output: {
-              ...published.artifact,
-              durationUs,
-            },
-            schemaVersion: 1,
-            sourceDurationUs,
-            transform: rendered.transform,
-          });
-          const receipt = await publishContentAddressedReceipt({
-            context,
-            receipt: receiptBody,
-            workspace,
-          });
-          const output = MediaAudioEffectsOutputSchema.parse({
-            artifact: published.artifact,
-            created: published.created,
-            durationUs,
-            filterGraph: rendered.filterGraph,
-            receipt,
-            transform: rendered.transform,
-          });
-          await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId:
-              "atet.operation.media.audio-effects.input/v1",
-            kind: "media.audio-effects",
-            outputSchemaId:
-              "atet.operation.media.audio-effects.output/v1",
-            version: 1,
-          }, output);
-          return output;
-        } finally {
-          await workspace.dispose();
-        }
-      },
+      execute: async (context, input) => await runStandaloneOperation(executeEffect(context, input)),
+      executeEffect,
     },
     outputSchema: MediaAudioEffectsOutputSchema,
     outputSchemaId: "atet.operation.media.audio-effects.output/v1",

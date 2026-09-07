@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { join } from "node:path";
+import { Effect } from "effect";
 
 import { z } from "zod";
 
@@ -8,13 +7,10 @@ import {
   type ColorGradeTransformV1,
 } from "../../../contracts";
 import {
-  LocalMediaEffectsService,
-  MAXIMUM_LOCAL_MEDIA_EFFECT_OUTPUT_BYTES,
   type ExpectedLocalMediaInput,
   type LocalMediaTransformResult,
 } from "../../../cli/media-effects-service";
 import {
-  probeProjectMedia,
   type ProbedMedia,
 } from "../../../cli/media-ingest";
 import type {
@@ -22,29 +18,20 @@ import type {
   ApplicationProcessRunner,
 } from "../../context";
 import { ApplicationError } from "../../errors";
-import type { OperationDefinition } from "../../operation";
-import { writeOperationCompletionCheckpoint } from "../../operation-completion-checkpoint";
-import {
-  throwIfAborted,
-} from "../shared";
+import type { OperationDefinition, OperationExecutionContext } from "../../operation";
+import { operationResource, operationValidation, runStandaloneOperation, type OperationEffectFailure } from "../../operation-effects";
+import { createMediaTransformPlatform, MediaTransformPlatform } from "./transform-platform";
 import {
   MediaCapabilityBindingsSchema,
-  assertMediaCapabilities,
   bindExpectedMediaCapabilities,
-  bindMediaCapabilities,
   mediaCapabilityCommand,
-  mediaCapabilityRunner,
   mediaCapabilityVersion,
 } from "./capabilities";
 import {
-  AbortBoundApplicationRunner,
   MAXIMUM_MEDIA_EFFECT_INPUT_BYTES,
   MediaArtifactReferenceSchema,
   MediaArtifactRequestSchema,
   bindRepositoryMedia,
-  createMediaOperationWorkspace,
-  publishContentAddressedMedia,
-  publishContentAddressedReceipt,
 } from "./shared";
 
 const MAXIMUM_EFFECT_DURATION_US = 24 * 60 * 60 * 1_000_000;
@@ -210,6 +197,91 @@ function verifiedVideoDuration(
   return durationUs;
 }
 
+/** Native transform owner; foreign work settles before workspace release. */
+export function mediaColorGradeProgram(input: MediaColorGradeInput): Effect.Effect<
+  MediaColorGradeOutput, OperationEffectFailure, MediaTransformPlatform
+> {
+  return Effect.gen(function*() {
+    const platform = yield* MediaTransformPlatform;
+    yield* platform.checkAbort();
+    const parsed = yield* operationValidation("input", () => MediaColorGradeInputSchema.parse(input));
+    const boundMedia = yield* platform.bindInput(parsed.input);
+    const boundInput = yield* operationValidation("input", () => BoundMediaColorGradeInputSchema.parse({
+      ...parsed, input: boundMedia.artifact,
+    }));
+    yield* platform.assertCapabilities(parsed.capabilityBindings);
+    const capabilityBindings = parsed.capabilityBindings ?? (yield* platform.bindCapabilities());
+    const { ffmpeg, ffprobe } = yield* operationValidation("capability", () => ({
+      ffmpeg: mediaCapabilityCommand(capabilityBindings, "ffmpeg"),
+      ffprobe: mediaCapabilityCommand(capabilityBindings, "ffprobe"),
+    }));
+    const runner = yield* platform.runner(capabilityBindings);
+    const sourceProbe = yield* platform.probe(ffprobe, runner, boundMedia.absolutePath);
+    const sourceDurationUs = yield* operationValidation("media", () => selectedVideoDuration(sourceProbe, boundInput.transform));
+    return yield* operationResource(
+      platform.workspace(),
+      workspace => Effect.gen(function*() {
+        const extension = yield* operationValidation("input", () => colorOutputExtension(boundInput.transform));
+        const stagedPath = yield* platform.stagedPath(workspace, "color", extension);
+        const rendered = yield* platform.renderColor({
+          expectedInput: boundMedia.expectedInput,
+          ffmpeg,
+          inputPath: boundMedia.absolutePath,
+          outputPath: stagedPath,
+          runner,
+          transform: boundInput.transform,
+        });
+        yield* platform.checkAbort();
+        const outputProbe = yield* platform.probe(ffprobe, runner, stagedPath);
+        const durationUs = yield* operationValidation("media", () => verifiedVideoDuration(
+          outputProbe, sourceDurationUs,
+        ));
+        // Existing native publication fences still inspect the AbortSignal.
+        // Once entered, retain the whole output/receipt/checkpoint continuation.
+        return yield* Effect.uninterruptible(Effect.gen(function*() {
+          const published = yield* platform.publishMedia(stagedPath, extension);
+          yield* operationValidation("publication", () => {
+            if (published.artifact.bytes !== rendered.bytes || published.artifact.sha256 !== rendered.sha256) {
+              throw new ApplicationError("conflict", "Color-grade service result disagrees with the published bytes.");
+            }
+          });
+          const createdAt = yield* platform.now();
+          const receiptBody = yield* operationValidation("output", () => MediaColorGradeReceiptSchema.parse({
+            createdAt,
+            ffmpegVersion: mediaCapabilityVersion(capabilityBindings, "ffmpeg"),
+            ffprobeVersion: mediaCapabilityVersion(capabilityBindings, "ffprobe"),
+            filterGraph: rendered.filterGraph,
+            input: boundInput.input,
+            kind: "atet.local-media-transform-receipt",
+            operation: "color-grade",
+            output: { ...published.artifact, durationUs },
+            schemaVersion: 1,
+            sourceDurationUs,
+            transform: rendered.transform,
+          }));
+          const receipt = yield* platform.publishReceipt(receiptBody, workspace);
+          const output = yield* operationValidation("output", () => MediaColorGradeOutputSchema.parse({
+            artifact: published.artifact,
+            created: published.created,
+            durationUs,
+            filterGraph: rendered.filterGraph,
+            receipt,
+            transform: rendered.transform,
+          }));
+          yield* platform.checkpoint({
+            inputSchemaId: "atet.operation.media.color-grade.input/v1",
+            kind: "media.color-grade",
+            outputSchemaId: "atet.operation.media.color-grade.output/v1",
+            version: 1,
+          }, output);
+          return output;
+        }));
+      }),
+      workspace => platform.dispose(workspace),
+    );
+  });
+}
+
 export function createMediaColorGradeOperationDefinition(
   dependencies: MediaColorGradeOperationDependencies = {},
 ): OperationDefinition<
@@ -217,143 +289,19 @@ export function createMediaColorGradeOperationDefinition(
   MediaColorGradeInput,
   MediaColorGradeOutput
 > {
-  const inspectMedia = dependencies.probe ?? probeProjectMedia;
-  const render = dependencies.render ?? (async options =>
-    await new LocalMediaEffectsService({
-      ffmpeg: options.ffmpeg,
-      runner: options.runner,
-    }).renderColor(options));
+  const executeEffect = (context: OperationExecutionContext, input: MediaColorGradeInput) =>
+    mediaColorGradeProgram(input).pipe(Effect.provideService(MediaTransformPlatform, createMediaTransformPlatform(context, {
+      ...(dependencies.probe === undefined ? {} : { probe: dependencies.probe }),
+      ...(dependencies.render === undefined ? {} : { renderColor: dependencies.render }),
+    })));
   return {
     inputSchema: MediaColorGradeInputSchema,
     inputSchemaId: "atet.operation.media.color-grade.input/v1",
     kind: "media.color-grade",
     lifecycle: {
       kind: "local-artifact",
-      execute: async (context, input) => {
-        throwIfAborted(context.abortSignal);
-        const parsed = MediaColorGradeInputSchema.parse(input);
-        const boundMedia = await bindRepositoryMedia(
-          context.application,
-          parsed.input,
-          context.abortSignal,
-          MAXIMUM_MEDIA_EFFECT_INPUT_BYTES,
-        );
-        const boundInput = BoundMediaColorGradeInputSchema.parse({
-          ...parsed,
-          input: boundMedia.artifact,
-        });
-        await assertMediaCapabilities(
-          context,
-          context.application,
-          parsed.capabilityBindings,
-          ["ffmpeg", "ffprobe"],
-        );
-        const capabilityBindings = parsed.capabilityBindings
-          ?? await bindMediaCapabilities(
-            context.application,
-            ["ffmpeg", "ffprobe"],
-          );
-        const ffmpeg = mediaCapabilityCommand(
-          capabilityBindings,
-          "ffmpeg",
-        );
-        const ffprobe = mediaCapabilityCommand(
-          capabilityBindings,
-          "ffprobe",
-        );
-        const runner = new AbortBoundApplicationRunner(
-          mediaCapabilityRunner(
-            context.application,
-            capabilityBindings,
-          ),
-          context.abortSignal,
-        );
-        const sourceDurationUs = selectedVideoDuration(
-          await inspectMedia(ffprobe, runner, boundMedia.absolutePath),
-          boundInput.transform,
-        );
-        const workspace = await createMediaOperationWorkspace(context);
-        const stagedPath = join(
-          workspace.path,
-          `color-${randomUUID()}${colorOutputExtension(boundInput.transform)}`,
-        );
-        try {
-          const rendered = await render({
-            expectedInput: boundMedia.expectedInput,
-            ffmpeg,
-            inputPath: boundMedia.absolutePath,
-            outputPath: stagedPath,
-            runner,
-            transform: boundInput.transform,
-          });
-          throwIfAborted(context.abortSignal);
-          const durationUs = verifiedVideoDuration(
-            await inspectMedia(ffprobe, runner, stagedPath),
-            sourceDurationUs,
-          );
-          const published = await publishContentAddressedMedia({
-            context,
-            extension: colorOutputExtension(boundInput.transform),
-            maximumBytes: MAXIMUM_LOCAL_MEDIA_EFFECT_OUTPUT_BYTES,
-            stagedPath,
-          });
-          if (
-            published.artifact.bytes !== rendered.bytes
-            || published.artifact.sha256 !== rendered.sha256
-          ) {
-            throw new ApplicationError(
-              "conflict",
-              "Color-grade service result disagrees with the published bytes.",
-            );
-          }
-          const receiptBody = MediaColorGradeReceiptSchema.parse({
-            createdAt: context.application.clock.now().toISOString(),
-            ffmpegVersion: mediaCapabilityVersion(
-              capabilityBindings,
-              "ffmpeg",
-            ),
-            ffprobeVersion: mediaCapabilityVersion(
-              capabilityBindings,
-              "ffprobe",
-            ),
-            filterGraph: rendered.filterGraph,
-            input: boundInput.input,
-            kind: "atet.local-media-transform-receipt",
-            operation: "color-grade",
-            output: {
-              ...published.artifact,
-              durationUs,
-            },
-            schemaVersion: 1,
-            sourceDurationUs,
-            transform: rendered.transform,
-          });
-          const receipt = await publishContentAddressedReceipt({
-            context,
-            receipt: receiptBody,
-            workspace,
-          });
-          const output = MediaColorGradeOutputSchema.parse({
-            artifact: published.artifact,
-            created: published.created,
-            durationUs,
-            filterGraph: rendered.filterGraph,
-            receipt,
-            transform: rendered.transform,
-          });
-          await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId:
-              "atet.operation.media.color-grade.input/v1",
-            kind: "media.color-grade",
-            outputSchemaId:
-              "atet.operation.media.color-grade.output/v1",
-            version: 1,
-          }, output);
-          return output;
-        } finally {
-          await workspace.dispose();
-        }
-      },
+      execute: async (context, input) => await runStandaloneOperation(executeEffect(context, input)),
+      executeEffect,
     },
     outputSchema: MediaColorGradeOutputSchema,
     outputSchemaId: "atet.operation.media.color-grade.output/v1",

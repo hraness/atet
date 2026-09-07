@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { constants, type BigIntStats } from "node:fs";
+import { constants, type BigIntStats, type Stats } from "node:fs";
 import {
   type FileHandle,
   lstat,
@@ -7,6 +7,8 @@ import {
   realpath,
 } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
+
+import { Effect, Exit, Option, Ref } from "effect";
 
 import {
   AudioEffectsTransformV1Schema,
@@ -16,7 +18,15 @@ import {
   type ColorGradeControls,
   type ColorGradeTransformV1,
 } from "../contracts";
-import { executeAtomicRender, type AtomicRenderOutput } from "./atomic-render";
+import {
+  operationBoundary,
+  operationResource,
+  operationValidation,
+  runStandaloneOperation,
+  type OperationEffectFailure,
+} from "../application/operation-effects";
+import { executeAtomicRenderEffect, type AtomicRenderOutput } from "./atomic-render-effects";
+import { AtomicRenderPlatformLive } from "./atomic-render-platform";
 import { CliError } from "./errors";
 import type { ProcessRunner, RunOptions } from "./io";
 import { SELF_CONTAINED_MEDIA_INPUT_ARGUMENTS } from "./media-ingest";
@@ -184,7 +194,6 @@ export interface ExpectedLocalMediaInput {
 
 interface PinnedLocalMediaInput {
   readonly assertUnchanged: () => Promise<void>;
-  readonly close: () => Promise<void>;
   readonly processPath: string;
   readonly runner: ProcessRunner;
 }
@@ -258,11 +267,15 @@ class InheritedInputRunner implements ProcessRunner {
   }
 }
 
-async function openPinnedLocalMediaInput(
+interface OpenedLocalMediaInput {
+  readonly handle: FileHandle;
+  readonly lexical: Stats;
+}
+
+async function openLocalMediaInput(
   path: string,
   expected: ExpectedLocalMediaInput,
-  runner: ProcessRunner,
-): Promise<PinnedLocalMediaInput> {
+): Promise<OpenedLocalMediaInput> {
   validateExpectedInput(expected);
   if (process.platform === "win32") {
     throw new CliError(
@@ -297,29 +310,53 @@ async function openPinnedLocalMediaInput(
     }
     throw error;
   });
-  try {
-    const [opened, exactBefore] = await Promise.all([
-      handle.stat(),
-      handle.stat({ bigint: true }),
-    ]);
-    if (
-      !opened.isFile()
-      || !exactBefore.isFile()
-      || opened.dev !== lexical.dev
-      || opened.ino !== lexical.ino
-      || opened.size !== lexical.size
-      || opened.dev !== expected.device
-      || opened.ino !== expected.inode
-      || opened.size !== expected.bytes
-      || opened.mtimeMs !== expected.modifiedAtMs
-    ) {
-      throw new CliError("conflict", "Media input changed while its descriptor was being pinned.");
+  return { handle, lexical };
+}
+
+/** First-observed failure wins, but both admitted native reads settle before close. */
+function pinOpenedLocalMediaInput(
+  { handle, lexical }: OpenedLocalMediaInput,
+  expected: ExpectedLocalMediaInput,
+  runner: ProcessRunner,
+): Effect.Effect<PinnedLocalMediaInput, OperationEffectFailure> {
+  return Effect.uninterruptible(Effect.gen(function*() {
+    const firstFailure = yield* Ref.make(Option.none<OperationEffectFailure>());
+    const capture = <A>(read: Effect.Effect<A, OperationEffectFailure>) => Effect.exit(Effect.tapError(
+      read, failure => Ref.update(firstFailure, first => Option.isNone(first) ? Option.some(failure) : first),
+    ));
+    const inspected = yield* Effect.all({
+      opened: capture(operationBoundary("media", () => handle.stat())),
+      exact: capture(operationBoundary("media", () => handle.stat({ bigint: true }))),
+    }, { concurrency: 2 });
+    const joined = Exit.zip(inspected.opened, inspected.exact);
+    if (Exit.isFailure(joined)) {
+      const first = yield* Ref.get(firstFailure);
+      if (Option.isSome(first)) return yield* Effect.fail({ ...first.value, priorCause: joined.cause });
+      return yield* Effect.failCause(joined.cause);
     }
-    const sha256 = await hashFileHandle(handle, expected.bytes);
-    const exactAfter = await handle.stat({ bigint: true });
-    if (!sameExactFile(exactBefore, exactAfter) || sha256 !== expected.sha256) {
-      throw new CliError("conflict", "Media input bytes changed before rendering.");
-    }
+    const [opened, exactBefore] = joined.value;
+    yield* operationValidation("media", () => {
+      if (
+        !opened.isFile()
+        || !exactBefore.isFile()
+        || opened.dev !== lexical.dev
+        || opened.ino !== lexical.ino
+        || opened.size !== lexical.size
+        || opened.dev !== expected.device
+        || opened.ino !== expected.inode
+        || opened.size !== expected.bytes
+        || opened.mtimeMs !== expected.modifiedAtMs
+      ) {
+        throw new CliError("conflict", "Media input changed while its descriptor was being pinned.");
+      }
+    });
+    const sha256 = yield* operationBoundary("media", () => hashFileHandle(handle, expected.bytes));
+    const exactAfter = yield* operationBoundary("media", () => handle.stat({ bigint: true }));
+    yield* operationValidation("media", () => {
+      if (!sameExactFile(exactBefore, exactAfter) || sha256 !== expected.sha256) {
+        throw new CliError("conflict", "Media input bytes changed before rendering.");
+      }
+    });
     return {
       assertUnchanged: async () => {
         const afterRender = await handle.stat({ bigint: true });
@@ -327,14 +364,10 @@ async function openPinnedLocalMediaInput(
           throw new CliError("conflict", "Media input changed while effects were rendering.");
         }
       },
-      close: async () => await handle.close(),
       processPath: PINNED_CHILD_INPUT_PATH,
       runner: new InheritedInputRunner(runner, handle.fd),
     };
-  } catch (error) {
-    await handle.close();
-    throw error;
-  }
+  }));
 }
 
 function decimal(value: number): string {
@@ -766,39 +799,19 @@ export class LocalMediaEffectsService {
     readonly outputPath: string;
     readonly transform: unknown;
   }): Promise<LocalMediaTransformResult<AudioEffectsTransformV1>> {
-    const inputPath = resolve(options.inputPath);
-    const outputPath = resolve(options.outputPath);
-    await assertSafeTransformPaths(inputPath, outputPath);
-    const pinned = await openPinnedLocalMediaInput(
-      inputPath,
-      options.expectedInput,
-      this.#runner,
-    );
-    try {
-      const built = this.buildAudio({
-        ...options,
-        inputPath: pinned.processPath,
-        outputPath,
-      });
-      const output = await executeAtomicRender({
-        argv: built.argv,
-        beforePublish: pinned.assertUnchanged,
-        failureLabel: "FFmpeg audio-effects render failed",
-        finalOutputPath: outputPath,
-        maximumOutputBytes: MAXIMUM_LOCAL_MEDIA_EFFECT_OUTPUT_BYTES,
-        requireFreshOutput: true,
-        runner: pinned.runner,
-        timeoutMs: LOCAL_MEDIA_EFFECT_TIMEOUT_MS,
-      });
-      return {
-        ...output,
-        filterGraph: built.filterGraph,
-        outputPath,
-        transform: built.transform,
-      };
-    } finally {
-      await pinned.close();
-    }
+    return await runStandaloneOperation(this.renderAudioEffect(options));
+  }
+
+  renderAudioEffect(options: {
+    readonly expectedInput: ExpectedLocalMediaInput;
+    readonly inputPath: string;
+    readonly outputPath: string;
+    readonly transform: unknown;
+  }): Effect.Effect<LocalMediaTransformResult<AudioEffectsTransformV1>, OperationEffectFailure> {
+    return this.#renderEffect(options, paths => {
+      const built = this.buildAudio({ ...options, ...paths });
+      return { ...built, failureLabel: "FFmpeg audio-effects render failed" };
+    });
   }
 
   async renderColor(options: {
@@ -807,38 +820,66 @@ export class LocalMediaEffectsService {
     readonly outputPath: string;
     readonly transform: unknown;
   }): Promise<LocalMediaTransformResult<ColorGradeTransformV1>> {
-    const inputPath = resolve(options.inputPath);
-    const outputPath = resolve(options.outputPath);
-    await assertSafeTransformPaths(inputPath, outputPath);
-    const pinned = await openPinnedLocalMediaInput(
-      inputPath,
-      options.expectedInput,
-      this.#runner,
-    );
-    try {
-      const built = this.buildColor({
-        ...options,
-        inputPath: pinned.processPath,
-        outputPath,
-      });
-      const output = await executeAtomicRender({
-        argv: built.argv,
-        beforePublish: pinned.assertUnchanged,
-        failureLabel: "FFmpeg color-grade render failed",
-        finalOutputPath: outputPath,
-        maximumOutputBytes: MAXIMUM_LOCAL_MEDIA_EFFECT_OUTPUT_BYTES,
-        requireFreshOutput: true,
-        runner: pinned.runner,
-        timeoutMs: LOCAL_MEDIA_EFFECT_TIMEOUT_MS,
-      });
-      return {
-        ...output,
-        filterGraph: built.filter,
-        outputPath,
-        transform: built.transform,
-      };
-    } finally {
-      await pinned.close();
-    }
+    return await runStandaloneOperation(this.renderColorEffect(options));
+  }
+
+  renderColorEffect(options: {
+    readonly expectedInput: ExpectedLocalMediaInput;
+    readonly inputPath: string;
+    readonly outputPath: string;
+    readonly transform: unknown;
+  }): Effect.Effect<LocalMediaTransformResult<ColorGradeTransformV1>, OperationEffectFailure> {
+    return this.#renderEffect(options, paths => {
+      const built = this.buildColor({ ...options, ...paths });
+      return { ...built, filterGraph: built.filter, failureLabel: "FFmpeg color-grade render failed" };
+    });
+  }
+
+  #renderEffect<Transform>(
+    options: {
+      readonly expectedInput: ExpectedLocalMediaInput;
+      readonly inputPath: string;
+      readonly outputPath: string;
+    },
+    build: (paths: { readonly inputPath: string; readonly outputPath: string }) => {
+      readonly argv: readonly [string, ...string[]];
+      readonly failureLabel: string;
+      readonly filterGraph: string;
+      readonly transform: Transform;
+    },
+  ): Effect.Effect<LocalMediaTransformResult<Transform>, OperationEffectFailure> {
+    const runner = this.#runner;
+    return Effect.gen(function*() {
+      const { inputPath, outputPath } = yield* operationValidation("input", () => ({
+        inputPath: resolve(options.inputPath),
+        outputPath: resolve(options.outputPath),
+      }));
+      yield* Effect.uninterruptible(operationBoundary("media", () => assertSafeTransformPaths(inputPath, outputPath)));
+      return yield* operationResource(
+        operationBoundary("media", () => openLocalMediaInput(inputPath, options.expectedInput)),
+        opened => Effect.gen(function*() {
+          const pinned = yield* pinOpenedLocalMediaInput(opened, options.expectedInput, runner);
+          const built = yield* operationValidation("input", () => build({ inputPath: pinned.processPath, outputPath }));
+          const rendered = yield* executeAtomicRenderEffect({
+            argv: built.argv,
+            failureLabel: built.failureLabel,
+            finalOutputPath: outputPath,
+            maximumOutputBytes: MAXIMUM_LOCAL_MEDIA_EFFECT_OUTPUT_BYTES,
+            requireFreshOutput: true,
+            runner: pinned.runner,
+            timeoutMs: LOCAL_MEDIA_EFFECT_TIMEOUT_MS,
+          }, {
+            prepare: () => operationBoundary("publication", pinned.assertUnchanged),
+          });
+          return {
+            ...rendered.output,
+            filterGraph: built.filterGraph,
+            outputPath,
+            transform: built.transform,
+          };
+        }),
+        opened => operationBoundary("cleanup", () => opened.handle.close()),
+      );
+    }).pipe(Effect.provide(AtomicRenderPlatformLive));
   }
 }
