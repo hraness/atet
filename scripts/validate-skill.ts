@@ -1,5 +1,6 @@
 import { access, readFile, readdir } from "node:fs/promises"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
+import { publishedRelease } from "../apps/web/src/published-release"
 
 const root = join(process.cwd(), "skills", "atet")
 const skillPath = join(root, "SKILL.md")
@@ -143,8 +144,8 @@ const manifest = JSON.parse(await readFile(join(process.cwd(), "package.json"), 
   readonly version?: unknown
 }
 if (typeof manifest.version !== "string") throw new Error("package version is missing")
-if (!install.includes(`@hraness/atet@${manifest.version}`)) {
-  throw new Error("Skill npm install pin must match the package version")
+if (!install.includes(`@hraness/atet@${publishedRelease.version}`)) {
+  throw new Error("Skill npm install pin must match the verified public release")
 }
 await validateLocalMarkdownLinks()
 console.log("atet skill is valid")
