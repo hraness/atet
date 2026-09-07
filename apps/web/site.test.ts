@@ -58,8 +58,8 @@ async function readBuilt(path: string): Promise<string> {
 describe("static Atet site", () => {
   test("published release separates public availability from the source candidate", async () => {
     expect(publishedRelease).toEqual({
-      version: "3.2.0",
-      releaseUrl: "https://github.com/hraness/atet/releases/tag/v3.2.0",
+      version: "3.2.1",
+      releaseUrl: "https://github.com/hraness/atet/releases/tag/v3.2.1",
     })
     expect(Object.isFrozen(publishedRelease)).toBe(true)
     const template = await readSource("index.html")
@@ -74,7 +74,7 @@ describe("static Atet site", () => {
     expect(homeMarkdown).toContain(`Version ${publishedRelease.version}.`)
     expect(await readBuilt("index.md")).toBe(homeMarkdown)
     for (const publicText of [html, homeMarkdown, llmsTxt]) {
-      expect(publicText).not.toContain("3.2.1")
+      expect(publicText).not.toContain("3.2.0")
     }
   })
 
