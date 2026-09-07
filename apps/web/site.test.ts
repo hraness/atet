@@ -713,7 +713,7 @@ describe("static Atet site", () => {
 
     expect(manifest.dependencies).toEqual({
       "@hraness/design-kit": "github:hraness/design-kit#v0.4.0",
-      "@hraness/site-footer": "github:hraness/site-footer#v0.4.6",
+      "@hraness/site-footer": "github:hraness/site-footer#v0.6.0",
       "@hraness/ui": "github:hraness/ui#v0.4.10",
       "@resvg/resvg-js": "2.6.2",
       "posthog-js": "1.413.2",
@@ -728,7 +728,7 @@ describe("static Atet site", () => {
     expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
     expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.4.0"')
     expect(localLockfile).toContain(
-      '"@hraness/site-footer": "github:hraness/site-footer#v0.4.6"',
+      '"@hraness/site-footer": "github:hraness/site-footer#v0.6.0"',
     )
     expect(localLockfile).toContain('"@hraness/ui": "github:hraness/ui#v0.4.10"')
     expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
@@ -978,9 +978,10 @@ describe("static Atet site", () => {
       readFile(join(appDirectory, "dist", builtAssets.themePath.slice(1)), "utf8"),
     ])
     expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
-    expect(stylesAsset).toContain(".hraness-site-footer {")
+    expect(stylesAsset).toContain("--hraness-site-footer-social-target")
+    expect(stylesAsset).not.toContain("@import \"./dist/stylex.css\"")
     expect(stylesAsset).toContain("@media (pointer: coarse)")
-    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(72_000)
+    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(74_000)
     expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
     expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
@@ -1223,7 +1224,8 @@ describe("static Atet site", () => {
       const footer = /<footer\b[\s\S]*?<\/footer>/u.exec(document)?.[0]
       expect(footer).toContain('data-slot="hraness-site-footer"')
       expect(footer?.match(/data-slot="hraness-mark"/gu)).toHaveLength(1)
-      expect(footer?.match(/data-slot="social-icon"/gu)).toHaveLength(11)
+      expect(footer?.match(/data-slot="social-icon"/gu)).toHaveLength(5)
+      expect(footer).not.toContain("hraness-site-footer__wordmark")
       expect(
         [...(footer?.matchAll(/<a\b[^>]*\shref="([^"]+)"/gu) ?? [])]
           .map(match => match[1]),

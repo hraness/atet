@@ -34,7 +34,7 @@ const designKitProductMarketingStylesPath = fileURLToPath(
 )
 const designKitFontsDirectory = join(dirname(designKitFontsStylesPath), "fonts")
 const hranessSiteFooterStylesPath = fileURLToPath(
-  import.meta.resolve("@hraness/site-footer/styles.css"),
+  import.meta.resolve("@hraness/site-footer/stylex.css"),
 )
 
 const copiedFiles = [
