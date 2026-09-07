@@ -734,7 +734,9 @@ describe("static Atet site", () => {
     expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     expect(localLockfile).not.toContain("catalog:")
-    expect(new TextEncoder().encode(html).byteLength).toBeLessThan(32_000)
+    // Measure the version-resolved shell, excluding only publication-token overhead.
+    const versionResolvedShell = html.replaceAll("{{PUBLISHED_VERSION}}", publishedRelease.version)
+    expect(new TextEncoder().encode(versionResolvedShell).byteLength).toBeLessThan(32_000)
     expect(new TextEncoder().encode(css).byteLength).toBeLessThan(36_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(new TextEncoder().encode(copyCommand).byteLength).toBeLessThan(4_000)
