@@ -1614,7 +1614,7 @@ case "\${1-}" in
   rev-parse)
     case "$*" in
       "rev-parse origin/main"|"rev-parse HEAD") printf '%s\\n' "$GITHUB_SHA"; exit 0 ;;
-      "rev-parse --verify --quiet refs/tags/v3.2.1") exit 1 ;;
+      "rev-parse --verify --quiet refs/tags/v3.2.2") exit 1 ;;
     esac
     ;;
 esac
@@ -1629,7 +1629,7 @@ case "$*" in
     printf '"@hraness/atet"\\n'
     exit 0
     ;;
-  "view @hraness/atet@3.2.1 version --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
+  "view @hraness/atet@3.2.2 version --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
     echo 'npm error code E404' >&2
     exit 1
     ;;
@@ -1676,12 +1676,12 @@ exit 64
       })
     }
 
-    const unchanged = await runIdentity("push", "3.2.1")
+    const unchanged = await runIdentity("push", "3.2.2")
     expect(unchanged.exitCode).toBe(0)
     expect(unchanged.outputs).toBe("stage_required=false\n")
     expect(unchanged.npmCommands).toBe("")
     expect(`${unchanged.stdout}${unchanged.stderr}`).toContain(
-      "package.json changed without changing version 3.2.1",
+      "package.json changed without changing version 3.2.2",
     )
 
     const increased = await runIdentity("push", "3.1.0")
@@ -1691,17 +1691,17 @@ exit 64
     )
     expect(increased.npmCommands).toContain("npm view @hraness/atet name --json")
     expect(increased.npmCommands).toContain(
-      "npm view @hraness/atet@3.2.1 version --json",
+      "npm view @hraness/atet@3.2.2 version --json",
     )
 
     const decreased = await runIdentity("push", "3.3.0")
     expect(decreased.exitCode).not.toBe(0)
     expect(`${decreased.stdout}${decreased.stderr}`).toContain(
-      "Package version 3.2.1 must be newer than 3.3.0",
+      "Package version 3.2.2 must be newer than 3.3.0",
     )
     expect(decreased.npmCommands).toBe("")
 
-    const recovered = await runIdentity("workflow_dispatch", "3.2.1")
+    const recovered = await runIdentity("workflow_dispatch", "3.2.2")
     expect(recovered.exitCode).toBe(0)
     expect(recovered.outputs).toBe(
       `stage_required=true\nsource_sha=${sourceSha}\n`,
@@ -2149,7 +2149,7 @@ fi
   }
 })
 
-test("source 3.2.1 and verified-public installs preserve one Atet identity", async () => {
+test("source 3.2.2 and verified-public installs preserve one Atet identity", async () => {
   const packageRoot = join(import.meta.dir, "..")
   const manifest = JSON.parse(
     await readFile(join(packageRoot, "package.json"), "utf8"),
@@ -2166,7 +2166,7 @@ test("source 3.2.1 and verified-public installs preserve one Atet identity", asy
       readFile(join(packageRoot, "apps", "web", "src", "index.html"), "utf8"),
     ])
 
-  expect(manifest.version).toBe("3.2.1")
+  expect(manifest.version).toBe("3.2.2")
   expect(manifest.bin).toEqual({
     atet: "./apps/desktop/dist/cli/main.js",
   })

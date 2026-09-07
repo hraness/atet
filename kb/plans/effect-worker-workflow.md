@@ -209,3 +209,103 @@ matched the candidate source, including the two new atomic-render modules; tests
 were excluded. Existing package limits remain unchanged. This preparation does
 not replace the required complete aggregate, installed-consumer smoke, native
 checks or final release provenance verification.
+
+## Media transforms continuation
+
+Audio effects and color grading now need one native operation owner from input
+and capability binding through probe, workspace, pinned-input rendering,
+content-addressed output, receipt and completion checkpoint. The existing
+operation kinds, schemas, media filters, encoders and publication laws remain
+unchanged. Physical import staging is a separate continuation.
+
+Both operations use `MediaTransformPlatform` for closed native boundaries. The
+default renderer directly composes `LocalMediaEffectsService.renderAudioEffect`
+or `renderColorEffect`, which owns the pinned input and existing atomic render
+program. Its async methods remain compatibility facades for CLI consumers.
+Native operation dispatch does not call those facades or construct another
+runtime. The replaced operation and pinned-input `try/finally` owners are
+removed.
+
+Finite native descriptor, probe and publication work remains owned until its
+original Promise settles. Interrupting a fiber cannot close an input used by a
+still-running encoder or remove a workspace used by a late probe. A workspace
+acquired after cancellation must still be released. Caller-supplied workflow
+workspaces remain borrowed. Workspace cleanup retains the old finalizer
+precedence, including primitive rejection values; earlier native Causes stay
+private.
+
+The output, receipt and checkpoint continuation retains native custody after
+entry. Existing AbortSignal and fresh-publication checks still decide whether
+each publication is authorized. An output whose later receipt fails remains
+available as an orphan; failure does not authorize deletion or rerendering.
+Receipt and checkpoint schemas, exact bytes and verified-receipt reconciliation
+remain authoritative.
+
+Focused validation must cover the real registry-to-pinned-render path, held
+encoder/probe/acquisition/publication work, exact cleanup identity and retained
+partial publication. Existing media filters, real FFmpeg tests, CLI commands,
+reconciliation and architecture checks remain required. The integrator owns
+package/version/generated convergence, one fresh aggregate and delivery.
+
+
+## Physical import staging continuation (2026-09-07)
+
+`media.ingest` now composes `ingestProjectMediaEffect` beneath its existing
+operation owner. `MediaIngestPlatform` admits only native filesystem, descriptor,
+stream, process and durability calls; its named Live Layer does not create a
+runtime. The pure probe/parser and asset construction live in
+`media-ingest-model.ts`. Existing CLI Promise exports remain compatible. Native
+media transforms also compose the default `probeProjectMediaEffect`; injected
+Promise test/host ports remain one explicit foreign boundary.
+
+Stage acquisition owns source and temporary descriptors through their real
+settlement and custody handoff. The pipeline retains Node backpressure and
+partial positional writes, then rechecks the source and fsyncs the still-open
+staged inode. Probe settles before cleanup; content-addressed publication is
+masked across no-replace link and directory fsync/EEXIST verification. Cancellation
+cannot split an admitted native call from cleanup. It cannot prove native process
+exit or roll back a linked blob after a durability/acknowledgment failure. Existing
+outer project leases, capability checks, receipt/checkpoint authority, parsers,
+probe arguments and DTOs remain authoritative.
+
+Three explicitly qualified robustness corrections accompany this migration.
+First, source close after successful staging can no longer strand the temporary
+file before the caller receives disposal custody: cleanup retains the original
+source-close rejection publicly and any cleanup failure privately. Temporary
+cleanup checks the captured descriptor inode; a failed exclusive open or a
+substituted/ambiguous path does not authorize unlinking that entry. These are
+observations under existing private-directory/lease authority, not an atomic
+compare-and-unlink primitive. Ordinary failed-stage precedence remains temporary
+close, removal, source close; later disposal remains last.
+
+Second, Node callback streams treat falsey callback errors as success. The native
+writer now records rejection presence separately, signals stream failure with an
+actual Error, and projects the original value (including undefined/null/false).
+Third, failed pipeline observation does not itself join a custom pending write.
+The adapter observes the pipeline outcome, joins its admitted reader and writer,
+then closes descriptors/removes staging; a selected pipeline failure stays public and a late
+writer failure stays in private priorCause. The original adapter failed all four
+production-seam regressions before this repair: three falsey write failures were
+reported as success, and a source-stream failure closed a descriptor while a write
+acknowledgment remained held. The tests use real descriptors and the actual stream,
+with explicit causal gates rather than elapsed-time races. Further focused tests
+identified pinned Bun's FileHandle-backed ReadStream as a second descriptor-close
+owner even with autoClose disabled. The adapter now uses the same built-in 64KiB
+ReadStream/backpressure with a borrowed numeric fd and explicit native read/stream
+close callbacks. Stream close never closes the descriptor; the operation owner
+joins any already-admitted read before closing it. Falsey read failures also keep
+their original rejection rather than being treated as EOF. This is an explicit
+custody repair, not a replacement streaming algorithm.
+
+Focused convergence and independent review are recorded by the implementation
+owner; the integration owner still owns the complete repository/native/package
+gates and release. No historical applicationBuild receipt is promoted into proof
+for this changed source.
+
+## Version 3.2.2 candidate preparation
+
+The complete media-transform and physical import-staging continuation is prepared as source candidate 3.2.2. The verified-public website datum, README installation commands and Agent Skill installation guidance remain at 3.2.1 until the documented immutable release sequence succeeds. Source, native-app, operation producer and public-schema URL identities advance together; the diagram wire schema stays version one. Direct remains a development-only immutable v0.7.20 dependency.
+
+The physical import phase passed 61 focused tests with 358 assertions, desktop TypeScript, changed-file lint and the architecture gate, whose paired fixtures passed nine tests with 46 assertions. Independent review accepted the borrowed-descriptor stream adapter and causal source/read/write/cleanup regressions. Historical failed checks above remain evidence of the repaired cases. Normal generated SDK and CLI convergence, candidate identity checks, package inventory review and the complete integration gate are separate delivery requirements; this preparation does not claim those gates or a public release.
+
+The host application-build digest changes with the production source and package identity. A plan bound to an older host build cannot silently resume under this candidate. Complete it with its exact original host or use the existing explicit restart/recovery route with normal admission and paid-attempt safeguards. Existing completed artifacts and their recorded producer identities are not rewritten.

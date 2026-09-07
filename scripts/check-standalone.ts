@@ -99,7 +99,7 @@ const TEXT_EXTENSIONS = new Set([
 const CANONICAL_TEXT_SENTINELS = [
   {
     path: "src/version.ts",
-    values: ['export const ATET_VERSION = "3.2.1" as const'],
+    values: ['export const ATET_VERSION = "3.2.2" as const'],
   },
   {
     path: "src/operations.ts",
@@ -121,7 +121,7 @@ const CANONICAL_TEXT_SENTINELS = [
   {
     path: "apps/desktop/dist/cli/main.js",
     values: [
-      '"3.2.1"',
+      '"3.2.2"',
       '"atet.diagram.check"',
       '"atet.edit-plan"',
       '"atet.video-project"',
@@ -385,8 +385,8 @@ if (
 const packageVersion = rootPackage.version;
 if (typeof packageVersion !== "string") {
   problems.push("package.json version must be a string");
-} else if (packageVersion !== "3.2.1") {
-  problems.push("package.json version must be 3.2.1 for the current release");
+} else if (packageVersion !== "3.2.2") {
+  problems.push("package.json version must be 3.2.2 for the current release");
 } else {
   const versionContracts = [
     ["apps/desktop/app.zon", `.version = ${JSON.stringify(packageVersion)}`],
