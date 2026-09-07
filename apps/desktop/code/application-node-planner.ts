@@ -1,4 +1,7 @@
+import { Effect } from "effect";
+
 import type { ApplicationContext } from "../application/context";
+import { reconcileProjectRenderEffect, type ProjectRenderReconciliation } from "../application/operations/render/project";
 import {
   bindAtetPortableOperationInputV2,
   atetPortableOutputPublicationParent,
@@ -95,6 +98,7 @@ import type {
   NodeReconciliationRequest,
   SchedulerNodePlanner,
 } from "./scheduler";
+import { workflowBoundary, workflowValidation, type WorkflowFailure } from "./workflow-effects";
 
 const ANALYSIS_ID_DOMAIN = "studio.workflow.analysis-id/v1";
 type RecordingOperationKind = Extract<OperationKind, `recording.${string}`>;
@@ -803,6 +807,9 @@ export function createApplicationNodePlanner(
     reconcile: async (request): Promise<NodeReconciliation> => (
       await reconcileApplicationNode(request.application, request)
     ),
+    reconcileEffect: request => request.operation.kind === "render.project"
+      ? reconcileRenderNodeEffect(request.application, request)
+      : workflowBoundary("authority", () => reconcileApplicationNode(request.application, request)),
   };
 }
 
@@ -836,6 +843,28 @@ async function reconcileRenderNode(
       beforePublication: request.beforePublication,
     },
   );
+  return renderNodeReconciliation(result);
+}
+
+function reconcileRenderNodeEffect(
+  application: ApplicationContext,
+  request: NodeReconciliationRequest,
+): Effect.Effect<NodeReconciliation, WorkflowFailure> {
+  return Effect.gen(function*() {
+    const executionPlan = request.executionPlan;
+    if (executionPlan === undefined) {
+      return { kind: "incompatible" as const, message: "Interrupted render is missing its exact execution plan." };
+    }
+    const result = yield* reconcileProjectRenderEffect(application, executionPlan.exactInput, {
+      nodeKey: request.node.key,
+      nodePlanSha256: executionPlan.nodePlanSha256,
+      runId: request.runId,
+    }, { abortSignal: request.abortSignal, beforePublication: request.beforePublication });
+    return yield* workflowValidation("authority", () => renderNodeReconciliation(result));
+  });
+}
+
+function renderNodeReconciliation(result: ProjectRenderReconciliation): NodeReconciliation {
   if (result.kind === "retry") return result;
   if (result.kind === "conflict") {
     return { kind: "incompatible", message: result.message };

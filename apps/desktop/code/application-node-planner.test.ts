@@ -13,6 +13,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
+import { Effect } from "effect";
 
 import type { ApplicationContext } from "../application/context";
 import type {
@@ -71,9 +72,31 @@ import type {
   NodePreparationRequest,
   NodeReconciliationRequest,
 } from "./scheduler";
+import { workflowExitValue } from "./workflow-effects";
 
 const SPEECH_MODEL = "openai/tts-1";
 const FIXTURE_EXECUTABLE = Bun.which("true") ?? "/usr/bin/true";
+
+test("native render reconciliation preserves missing-plan and cancellation projections from its Promise facade", async () => {
+  const planner = createApplicationNodePlanner(application);
+  const signal = new AbortController();
+  signal.abort(false);
+  for (const executionPlan of [undefined, { exactInput: {}, nodePlanSha256: "a".repeat(64) }]) {
+    const input = fixture<NodeReconciliationRequest>({
+      application,
+      abortSignal: signal.signal,
+      beforePublication: () => Promise.reject(new Error("Cancelled reconciliation must not publish.")),
+      executionPlan,
+      operation: { kind: "render.project" },
+      node: { key: "render" },
+      runId: "run_native_projection01",
+    });
+    if (planner.reconcileEffect === undefined || planner.reconcile === undefined) throw new Error("Expected both local planner slots.");
+    const native = workflowExitValue(await Effect.runPromiseExit(planner.reconcileEffect(input)));
+    expect(native.kind).toBe("incompatible");
+    expect(native).toEqual(await planner.reconcile(input));
+  }
+});
 
 const application = {
   capabilities: () => Promise.resolve([]),

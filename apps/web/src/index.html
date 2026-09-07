@@ -100,7 +100,7 @@
         "https://skills.sh/hraness/atet"
       ],
       "softwareRequirements": "Bun 1.3.14",
-      "softwareVersion": "3.2.0",
+      "softwareVersion": "{{PUBLISHED_VERSION}}",
       "url": "https://atet.sh/"
     },
     {
@@ -116,7 +116,7 @@
       },
       "runtimePlatform": "Bun 1.3.14",
       "targetProduct": { "@id": "https://atet.sh/#software" },
-      "version": "3.2.0"
+      "version": "{{PUBLISHED_VERSION}}"
     },
     {
       "@id": "https://atet.sh/#questions",
@@ -190,7 +190,7 @@
               <a class="hraness-marketing-action" data-emphasis="primary" href="#install">Install Atet</a>
               <a class="hraness-marketing-action" data-emphasis="secondary" href="#examples">See example requests</a>
             </div>
-            <p class="hraness-marketing-hero__boundary">Free and open source under the MIT license · v3.2.0 · Bun 1.3.14 or newer · Recording needs macOS</p>
+            <p class="hraness-marketing-hero__boundary">Free and open source under the MIT license · v{{PUBLISHED_VERSION}} · Bun 1.3.14 or newer · Recording needs macOS</p>
           </div>
           <div class="hraness-marketing-hero__frame">
             <figure class="hraness-marketing-proof-frame" data-hraness-marketing="proof-frame">
@@ -210,7 +210,7 @@
               </div>
               <figcaption class="hraness-marketing-proof-frame__caption">
                 <span>The four commands your agent runs for one job, in order. A transcript of the working model, not a recording.</span>
-                <small>Atet v3.2.0</small>
+                <small>Atet v{{PUBLISHED_VERSION}}</small>
               </figcaption>
             </figure>
           </div>
@@ -230,7 +230,7 @@
 
         <section aria-labelledby="install-title" class="hraness-marketing-install" data-hraness-marketing="install" id="install">
           <div class="hraness-marketing-install__heading-group">
-            <p class="hraness-marketing-install__eyebrow">Local release · v3.2.0</p>
+            <p class="hraness-marketing-install__eyebrow">Local release · v{{PUBLISHED_VERSION}}</p>
             <h2 class="hraness-marketing-install__heading" id="install-title">Install Atet for your agent.</h2>
             <p class="install-note">Two installs: the Agent Skill teaches your agent the creative decisions, and the CLI does the work.</p>
           </div>
@@ -240,7 +240,7 @@
             <div class="cli-install">
               <p class="panel-label">Install the local media tools · Requires Bun 1.3.14+</p>
               <ol class="install-commands">
-                <li><span>01</span><code>bun add --global @hraness/atet@3.2.0</code></li>
+                <li><span>01</span><code>bun add --global @hraness/atet@{{PUBLISHED_VERSION}}</code></li>
                 <li><span>02</span><code>atet doctor</code></li>
               </ol>
               <p class="panel-note">
@@ -330,7 +330,7 @@
             <article class="hraness-marketing-interface">
               <h3 class="hraness-marketing-interface__heading">Agent Skill</h3>
               <p>Version-matched guidance for turning a creative brief into the right operations.</p>
-              <pre><code>npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet</code></pre>
+              <pre><code>npx skills add https://github.com/hraness/atet/tree/v{{PUBLISHED_VERSION}} --skill atet</code></pre>
             </article>
             <article class="hraness-marketing-interface">
               <h3 class="hraness-marketing-interface__heading">CLI</h3>
@@ -415,7 +415,7 @@
             <a class="hraness-marketing-action" data-emphasis="primary" href="#install">Install Atet</a>
             <a class="hraness-marketing-action" data-emphasis="secondary" href="https://github.com/hraness/atet">Read the source</a>
           </div>
-          <p class="hraness-marketing-cta__footnote">Free and open source under the MIT license · v3.2.0 · Bun 1.3.14 or newer</p>
+          <p class="hraness-marketing-cta__footnote">Free and open source under the MIT license · v{{PUBLISHED_VERSION}} · Bun 1.3.14 or newer</p>
         </section>
       </div>
     </main>

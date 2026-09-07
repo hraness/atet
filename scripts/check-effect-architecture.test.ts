@@ -28,6 +28,8 @@ const fixtures: Readonly<Record<string, string>> = {
   "native.ts": `import {Effect} from "effect"; import {readFile} from "node:fs/promises"; export const read=Effect.tryPromise({try:()=>readFile("sample"),catch:()=>({ _tag:"ReadFailed" as const })});`,
   "native-dynamic.ts": `import {Effect} from "effect"; export const read=Effect.tryPromise({try:()=>import("node:fs/promises"),catch:()=>({ _tag:"ReadFailed" as const })});`,
   "adapter-dynamic.ts": `import {Effect} from "effect"; export const read=Effect.tryPromise({try:()=>import("node:fs/promises"),catch:()=>({ _tag:"ReadFailed" as const })});`,
+  "adapter-runner.ts": `import {Effect} from "effect"; export const result=Effect.runPromise(Effect.succeed(1));`,
+  "adapter-floating.ts": `import {Effect} from "effect"; export const read=Effect.gen(function*(){ Effect.log("dropped adapter work"); return 1; });`,
   "unknown-error.ts": `import {Effect} from "effect"; export const x:Effect.Effect<number,unknown>=Effect.fail("bad");`,
   "any-error.ts": `import {Effect} from "effect"; export const x:Effect.Effect<number,any>=Effect.succeed(1);`,
   "asserted.ts": `import {Effect} from "effect"; export const x=Effect.fail("bad") as Effect.Effect<never,never>;`,
@@ -50,7 +52,7 @@ const program=ts.createProgram({rootNames:Object.keys(fixtures).map(name=>join(f
 }});
 const findings=inspectEffectArchitecture(program,{
   root:fixtureRoot,modules:Object.keys(fixtures).filter(n=>!n.startsWith("unclassified")),
-  adapters:["adapter.ts","adapter-dynamic.ts"],runtimeRoots:["root.ts"],
+  adapters:["adapter.ts","adapter-dynamic.ts","adapter-runner.ts","adapter-floating.ts"],runtimeRoots:["root.ts"],
 });
 const rules=(file:string)=>findings.filter(f=>f.file===file).map(f=>f.rule);
 try {
@@ -70,6 +72,8 @@ try {
     expect(rules("ambient.ts")).toContain("ambient-io");
     expect(rules("native.ts")).toContain("native-import");
     expect(rules("native-dynamic.ts")).toContain("native-import");
+    expect(rules("adapter-runner.ts")).toContain("runtime-owner");
+    expect(rules("adapter-floating.ts")).toContain("floating-effect");
   });
   test("rejects erased channels, unsafe assertions and defect conversion",()=>{
     expect(rules("unknown-error.ts")).toContain("explicit-channel");

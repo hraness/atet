@@ -1,10 +1,12 @@
+import { publishedRelease } from "./published-release"
+
 export const homeMarkdown = `# Make and edit video with your coding agent
 
 Atet gives your agent one local project to generate images, video, and voice, edit screen recordings and imported footage, add captions, graphics, and motion, and export finished videos. Your source files never change.
 
 Ask your agent to record your screen while you demo the app, cut the pauses and filler words, add captions and \`logo.svg\`, and show you a preview before the final export.
 
-Free and open source under the MIT license. Version 3.2.0. Requires Bun 1.3.14 or newer. Recording needs macOS.
+Free and open source under the MIT license. Version ${publishedRelease.version}. Requires Bun 1.3.14 or newer. Recording needs macOS.
 
 ## One job in four commands
 
@@ -24,13 +26,13 @@ Atet covers four output families (images, diagrams, animated loops, and video) t
 Two installs: the Agent Skill teaches your agent the creative decisions, and the CLI does the work. Atet requires Bun 1.3.14 or newer.
 
 \`\`\`sh
-npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet
+npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet
 # or
-bunx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet
+bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet
 \`\`\`
 
 \`\`\`sh
-bun add --global @hraness/atet@3.2.0
+bun add --global @hraness/atet@${publishedRelease.version}
 atet doctor
 \`\`\`
 
@@ -80,7 +82,7 @@ Graphics and motion use the same toolkit. Atet also creates editable diagrams, c
 
 The same local system meets four kinds of caller:
 
-- Agent Skill: version-matched guidance for turning a creative brief into the right operations. Install it with \`npx skills add https://github.com/hraness/atet/tree/v3.2.0 --skill atet\`.
+- Agent Skill: version-matched guidance for turning a creative brief into the right operations. Install it with \`npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet\`.
 - CLI: human-readable commands and stable JSON for local scripts. Start with \`atet workflows list --json\`.
 - TypeScript SDK: declarative or imperative media work inside your own Bun code. Import \`vectorizeImage\` from \`@hraness/atet\`.
 - MCP: a fixed set of typed operations confined to one selected root. Run \`atet mcp --root /absolute/path/to/workspace\`.
