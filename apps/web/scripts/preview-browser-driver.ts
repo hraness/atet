@@ -8,6 +8,7 @@ import { bounded, checkCase, comparePreviewEvidence, previewCases, withPreviewCa
 import { assertNodeRuntime, browserPayload, decodeWorkerJson, parseWorkerPhase, parseWorkerRequest,
   publishWorkerPhase, workerAttachmentMs, workerProtocolLimit } from "./preview-browser-protocol"
 import { readPreviewFile } from "./preview-file"
+import { assertOwnedPreviewEndpoint, closeOwnedPreviewBrowser } from "./preview-browser-shutdown"
 
 /** Private Node entry. Its relocated bundle never supplies the application root. */
 async function main(): Promise<void> {
@@ -35,7 +36,10 @@ async function main(): Promise<void> {
   let browser: Browser | undefined
   let connection: Promise<Browser> | undefined
   let activeCase: Promise<PreviewEvidence> | undefined
+  let matrixCompleted = false
+  let signal: AbortSignal | undefined
   const completed = await withPreviewCancellation(process, async cancellation => {
+    signal = cancellation.signal
     await publishWorkerPhase(directory, 0, { ...common, sequence: 0, kind: "started", ...runtime })
     cancellation.signal.throwIfAborted()
     browser = await cancellation.wait(() => {
@@ -60,6 +64,7 @@ async function main(): Promise<void> {
       }
       rows.push({ ...scenario, columns: evidence.columns, maxScrollY: evidence.maxScrollY })
     }
+    matrixCompleted = true
     return { ...common, sequence: 2 as const, kind: "result" as const, ...runtime,
       browser: browser.version(), cases: rows, baselineCompared: request.baseline !== null, closed: true as const }
   }, async () => {
@@ -67,7 +72,18 @@ async function main(): Promise<void> {
     const collect = async (operation: () => Promise<unknown>) => {
       try { await operation() } catch (error) { failures.push(error) }
     }
-    if (browser !== undefined) await collect(() => bounded(browser!.close(), "Browser protocol close", 5_000))
+    if (browser !== undefined) await collect(() => matrixCompleted
+      ? closeOwnedPreviewBrowser({ signal: signal!,
+        proveOwnership: async () => {
+          // This is the physical launch profile holding the parent-created
+          // request, not an arbitrary remote or reusable browser endpoint.
+          const endpoint = await readPreviewFile(join(dirname(requestPath), "DevToolsActivePort"), 1024)
+          assertOwnedPreviewEndpoint(endpoint, request.endpoint)
+        },
+        createSession: () => browser!.newBrowserCDPSession(),
+        disconnect: () => browser!.close(),
+      })
+      : bounded(browser!.close(), "Browser protocol close", 5_000))
     if (connection !== undefined && browser === undefined) await collect(async () => {
       const late = await bounded(connection!.then(value => value, () => undefined), "Cancelled CDP attachment settlement", 10_000)
       if (late !== undefined) await bounded(late.close(), "Late browser protocol close", 5_000)

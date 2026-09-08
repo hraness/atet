@@ -2,6 +2,7 @@ import { expect, test } from "bun:test"
 import { readFile } from "node:fs/promises"
 import { delimiter } from "node:path"
 import { previewNodeCandidates } from "./build-preview-browser-driver"
+import { assertOwnedPreviewEndpoint, createPreviewBrowserShutdown, previewBrowserCloseMs } from "./preview-browser-shutdown"
 import { expectedPreviewHeaders, previewCases, withPreviewCancellation, type PreviewSignalSource } from "./preview-browser-contract"
 import { assertNodeRuntime, assertWorkerInputsUnchanged, assertWorkerProtocolSnapshot, createWorkerInputReader, createWorkerObserver, decodeWorkerJson, encodeWorkerJson,
   parseWorkerPhase, parseWorkerRequest, workerCasesDeadline, workerPhaseFiles, workerProtocolLimit,
@@ -292,6 +293,151 @@ test("late cancellation after successful postflight leaves input and protocol ev
   expect(parent).toContain("evidenceDirectory: profile")
 })
 
+test("graceful close requires the exact endpoint from the parent-owned physical profile", () => {
+  const endpoint = request().endpoint
+  expect(() => assertOwnedPreviewEndpoint(Buffer.from("12345\n/devtools/browser/abcd-1234\n"), endpoint)).not.toThrow()
+  for (const bytes of [Buffer.from("12346\n/devtools/browser/abcd-1234\n"), Buffer.from("12345\n/devtools/browser/other\n"),
+    Buffer.from("12345\n/devtools/page/abcd-1234\n"), Buffer.from("0\n/devtools/browser/abcd\n"), Buffer.from("x".repeat(1025))]) {
+    expect(() => assertOwnedPreviewEndpoint(bytes, endpoint)).toThrow()
+  }
+  expect(() => assertOwnedPreviewEndpoint(Buffer.from("12345\n/devtools/browser/abcd-1234\n"), "ws://example.test:12345/devtools/browser/abcd-1234")).toThrow()
+})
+
+function shutdownFixture(options: {
+  proveOwnership?: () => Promise<void>
+  send?: () => Promise<unknown>
+  disconnect?: () => Promise<void>
+} = {}) {
+  const time = clock()
+  const controller = new AbortController()
+  const sendEntered = pending<void>()
+  const calls: string[] = []
+  let accepted = false
+  const close = createPreviewBrowserShutdown(time)
+  const run = () => close({ signal: controller.signal,
+    async proveOwnership() { calls.push("owned"); await options.proveOwnership?.() },
+    async createSession() { calls.push("session"); return { async send(method: "Browser.close") {
+      calls.push(method)
+      sendEntered.resolve()
+      return options.send?.()
+    } } },
+    async disconnect() { calls.push("disconnect"); await options.disconnect?.() },
+  }).then(() => { accepted = true }, error => error as unknown)
+  return { time, controller, calls, run, sendEntered, accepted: () => accepted }
+}
+
+test("owned shutdown sends one browser close before one transport disconnect", async () => {
+  const fixture = shutdownFixture()
+  expect(await fixture.run()).toBeUndefined()
+  expect(fixture.calls).toEqual(["owned", "session", "Browser.close", "disconnect"])
+  expect(fixture.accepted()).toBe(true)
+  expect(fixture.time.pending()).toBe(0)
+  expect(previewBrowserCloseMs).toBe(5_000)
+})
+
+test("unproven ownership and pre-cancellation admit no browser close and no result", async () => {
+  const refusal = new Error("unproven endpoint")
+  const unowned = shutdownFixture({ async proveOwnership() { throw refusal } })
+  const rejected = await unowned.run()
+  expect(rejected).toBeInstanceOf(AggregateError)
+  expect((rejected as AggregateError).errors[0]).toBe(refusal)
+  expect(unowned.calls).toEqual(["owned", "disconnect"])
+  expect(unowned.accepted()).toBe(false)
+  const cancelled = shutdownFixture()
+  cancelled.controller.abort(new Error("cancelled before shutdown"))
+  expect(await cancelled.run()).toBeInstanceOf(AggregateError)
+  expect(cancelled.calls).toEqual(["disconnect"])
+  expect(cancelled.accepted()).toBe(false)
+})
+
+test("close-send failure remains first when transport disconnect also fails", async () => {
+  const sendFailure = new Error("Browser.close rejected")
+  const disconnectFailure = new Error("transport disconnect rejected")
+  const fixture = shutdownFixture({ async send() { throw sendFailure }, async disconnect() { throw disconnectFailure } })
+  const failure = await fixture.run()
+  expect(failure).toBeInstanceOf(AggregateError)
+  expect((failure as AggregateError).errors).toEqual([sendFailure, disconnectFailure])
+  expect(fixture.calls).toEqual(["owned", "session", "Browser.close", "disconnect"])
+  expect(fixture.accepted()).toBe(false)
+  expect(fixture.time.pending()).toBe(0)
+})
+
+test("an undefined protocol rejection remains a failure, never a success sentinel", async () => {
+  const fixture = shutdownFixture({ send: () => Promise.reject(undefined) })
+  const failure = await fixture.run()
+  expect(failure).toBeInstanceOf(AggregateError)
+  expect((failure as AggregateError).errors).toEqual([undefined])
+  expect(fixture.calls).toEqual(["owned", "session", "Browser.close", "disconnect"])
+  expect(fixture.accepted()).toBe(false)
+  expect(fixture.time.pending()).toBe(0)
+})
+
+for (const terminal of ["timeout", "cancelled", "delayed-timer"] as const) {
+  test(`graceful close ${terminal} remains failed after late protocol settlement`, async () => {
+    const send = pending<unknown>()
+    const fixture = shutdownFixture({ send: () => send.promise })
+    const completion = fixture.run()
+    await fixture.sendEntered.promise
+    if (terminal === "cancelled") fixture.controller.abort(new Error("shutdown cancelled"))
+    else if (terminal === "timeout") await fixture.time.advance(5_000)
+    else { fixture.time.elapse(5_001); send.resolve({}) }
+    const failure = await completion
+    expect(failure).toBeInstanceOf(AggregateError)
+    expect(String((failure as AggregateError).errors[0])).toContain(terminal === "cancelled" ? "shutdown cancelled" : "exceeded 5000ms")
+    expect(fixture.calls).toEqual(["owned", "session", "Browser.close", "disconnect"])
+    expect(fixture.accepted()).toBe(false)
+    send.resolve({})
+    await flush()
+    expect(fixture.accepted()).toBe(false)
+    expect(fixture.time.pending()).toBe(0)
+  })
+}
+
+test("shutdown admission, send and disconnect share one absolute five-second deadline", async () => {
+  const fixture = shutdownFixture({
+    async proveOwnership() { fixture.time.elapse(1_000) },
+    async send() { fixture.time.elapse(3_999) },
+    async disconnect() { fixture.time.elapse(1) },
+  })
+  expect(await fixture.run()).toBeInstanceOf(AggregateError)
+  expect(fixture.calls).toEqual(["owned", "session", "Browser.close", "disconnect"])
+  expect(fixture.accepted()).toBe(false)
+  expect(fixture.time.now()).toBe(5_000)
+  expect(fixture.time.pending()).toBe(0)
+})
+
+test("cancellation during transport disconnect still prevents a successful shutdown receipt", async () => {
+  const entered = pending<void>()
+  const disconnected = pending<void>()
+  const fixture = shutdownFixture({ async disconnect() { entered.resolve(); await disconnected.promise } })
+  const completion = fixture.run()
+  await entered.promise
+  const cancelled = new Error("cancelled during disconnect")
+  fixture.controller.abort(cancelled)
+  disconnected.resolve()
+  const failure = await completion
+  expect(failure).toBeInstanceOf(AggregateError)
+  expect((failure as AggregateError).errors).toEqual([cancelled])
+  expect(fixture.calls).toEqual(["owned", "session", "Browser.close", "disconnect"])
+  expect(fixture.accepted()).toBe(false)
+  expect(fixture.time.pending()).toBe(0)
+})
+
+test("failed graceful cleanup cannot publish the provisional worker result", async () => {
+  const source: PreviewSignalSource = { on() {}, off() {} }
+  const sendFailure = new Error("Browser.close rejected")
+  const close = createPreviewBrowserShutdown(clock())
+  let published = false
+  const completion = withPreviewCancellation(source, async () => phases()[2], async () => close({
+    signal: new AbortController().signal,
+    async proveOwnership() {},
+    async createSession() { return { async send() { throw sendFailure } } },
+    async disconnect() {},
+  })).then(() => { published = true }, error => error as unknown)
+  expect(await completion).toBeInstanceOf(AggregateError)
+  expect(published).toBe(false)
+})
+
 test("private driver uses genuine Node and the explicit app root without importing Bun custody", async () => {
   const driver = await readFile(new URL("./preview-browser-driver.ts", import.meta.url), "utf8")
   const builder = await readFile(new URL("./build-preview-browser-driver.ts", import.meta.url), "utf8")
@@ -299,6 +445,9 @@ test("private driver uses genuine Node and the explicit app root without importi
   expect(driver).toContain("assertNodeRuntime(process.versions)")
   expect(driver).toContain('createRequire(join(appDirectory, "package.json"))')
   expect(driver).toContain("chromium.connectOverCDP(request.endpoint, { timeout: workerAttachmentMs })")
+  expect(driver).toContain("matrixCompleted = true")
+  expect(driver).toContain("assertOwnedPreviewEndpoint(endpoint, request.endpoint)")
+  expect(driver).toContain("createSession: () => browser!.newBrowserCDPSession()")
   expect(driver).not.toMatch(/\bBun\s*\.|@hraness\/direct|import\.meta/u)
   expect(builder).toContain('target: "node"')
   expect(builder).toContain('packages: "external"')
