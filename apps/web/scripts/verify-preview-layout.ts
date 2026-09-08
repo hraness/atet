@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
-import { constants, watch } from "node:fs"
+import { constants } from "node:fs"
 import { access, mkdtemp, opendir, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, isAbsolute, join } from "node:path"
@@ -436,12 +436,6 @@ async function findChrome(): Promise<string> {
   throw new Error("Chrome is required; set ATET_CHROME_PATH")
 }
 
-export function isPreviewEndpointEvent(filename: unknown, profile: string): boolean {
-  if (filename === null || filename === undefined || filename === "") return true
-  const name = Buffer.isBuffer(filename) ? filename.toString("utf8") : filename
-  return typeof name === "string" && (name === "DevToolsActivePort" || name === join(profile, "DevToolsActivePort"))
-}
-
 export function parsePreviewEndpoint(text: string): { port: number; browserPath: string } {
   assert.ok(Buffer.byteLength(text) <= 1024, "Excessive Chrome endpoint file")
   const match = /^(\d{1,5})\n(\/devtools\/browser\/[a-f0-9-]+)\n?$/u.exec(text)
@@ -454,79 +448,108 @@ function errorEvidence(error: unknown): Record<string, unknown> {
     ...("code" in error ? { code: String(error.code).slice(0, 64) } : {}) } : { message: String(error).slice(0, 2048) }
 }
 
-interface EndpointEvidence {
+export interface EndpointEvidence {
   readonly deadlineMs: number
   attempts: number
-  eventCount: number
-  events: { event: string; filename: string; relevant: boolean }[]
   lastRead?: { elapsedMs: number; bytes?: number; error?: Record<string, unknown> }
   outcome?: "connected" | "timeout" | "cancelled" | "exited" | "failed"
 }
 
-async function browserEndpoint(profile: string, process: ManagedVerificationServer, signal: AbortSignal, evidence: EndpointEvidence): Promise<string> {
-  signal.throwIfAborted()
-  return new Promise((resolve, reject) => {
-    let reading = false
-    let finished = false
-    let pending = false
-    let lastError: unknown
-    const started = performance.now()
-    const finish = (error?: unknown, value?: string) => {
-      if (finished) return
-      finished = true
-      watcher.close()
-      clearTimeout(timer)
-      signal.removeEventListener("abort", abort)
-      if (error !== undefined) reject(error)
-      else resolve(value!)
-    }
-    const inspect = async () => {
-      if (reading || finished) return
-      reading = true
-      pending = false
-      try {
-        assert.ok(++evidence.attempts <= 64, "Excessive Chrome endpoint file events")
-        const text = Buffer.from(await readPreviewFile(join(profile, "DevToolsActivePort"), 1024)).toString()
+interface PreviewEndpointIo {
+  now(): number
+  schedule(callback: () => void, delayMs: number): () => void
+  read(path: string, maximum: number): Promise<Uint8Array>
+}
+
+/** Internal deterministic seam. Native admission below always uses the strict
+ * physical-file reader; filesystem notifications are not readiness evidence. */
+export function createPreviewEndpointWaiter(io: PreviewEndpointIo) {
+  return async function waitEndpoint(profile: string, exited: Promise<unknown>, signal: AbortSignal, evidence: EndpointEvidence): Promise<string> {
+    signal.throwIfAborted()
+    assert.equal(evidence.deadlineMs, 10_000, "Chrome endpoint deadline must remain ten seconds")
+    assert.equal(evidence.attempts, 0, "Chrome endpoint evidence cannot be reused")
+    return new Promise((resolve, reject) => {
+      let finished = false
+      let lastError: unknown
+      let cancelDeadline = () => {}
+      let cancelRetry = () => {}
+      const started = io.now()
+      const deadline = started + evidence.deadlineMs
+      const finish = (error?: unknown, value?: string) => {
         if (finished) return
-        const endpoint = parsePreviewEndpoint(text)
-        evidence.lastRead = { elapsedMs: Math.round(performance.now() - started), bytes: Buffer.byteLength(text) }
-        evidence.outcome = "connected"
-        finish(undefined, `ws://127.0.0.1:${endpoint.port}${endpoint.browserPath}`)
-      } catch (error) {
-        // A file event may precede completion of Chrome's write. Only another
-        // observed event permits a retry; malformed stable files time out.
-        if (finished) return
-        lastError = error
-        evidence.lastRead = { elapsedMs: Math.round(performance.now() - started), error: errorEvidence(error) }
-        if (evidence.attempts > 64) { evidence.outcome = "failed"; finish(error) }
-      } finally {
-        reading = false
-        if (pending && !finished) void inspect()
+        finished = true
+        cancelDeadline()
+        cancelRetry()
+        signal.removeEventListener("abort", abort)
+        if (error !== undefined) reject(error)
+        else resolve(value!)
       }
-    }
-    const watcher = watch(profile, (event, filename) => {
-      const relevant = isPreviewEndpointEvent(filename, profile)
-      evidence.eventCount += 1
-      if (evidence.events.length < 32) evidence.events.push({ event, filename: String(filename).slice(0, 512), relevant })
-      if (!relevant) return
-      pending = true
+      const expire = () => {
+        if (finished) return
+        evidence.outcome = "timeout"
+        finish(new Error("Chrome endpoint startup timed out", { cause: lastError }))
+      }
+      const abort = () => {
+        if (finished) return
+        evidence.outcome = "cancelled"
+        finish(signal.reason)
+      }
+      const inspect = async () => {
+        if (finished) return
+        if (io.now() >= deadline) { expire(); return }
+        if (evidence.attempts >= 201) {
+          evidence.outcome = "failed"
+          finish(new Error("Excessive Chrome endpoint readiness reads"))
+          return
+        }
+        evidence.attempts += 1
+        try {
+          const text = Buffer.from(await io.read(join(profile, "DevToolsActivePort"), 1024)).toString()
+          if (finished) return
+          if (signal.aborted) { abort(); return }
+          // A delayed timer callback must not admit bytes completed past the
+          // original absolute deadline, nor may a late read change its outcome.
+          if (io.now() >= deadline) { expire(); return }
+          const endpoint = parsePreviewEndpoint(text)
+          evidence.lastRead = { elapsedMs: Math.round(io.now() - started), bytes: Buffer.byteLength(text) }
+          evidence.outcome = "connected"
+          finish(undefined, `ws://127.0.0.1:${endpoint.port}${endpoint.browserPath}`)
+        } catch (error) {
+          if (finished) return
+          lastError = error
+          evidence.lastRead = { elapsedMs: Math.round(io.now() - started), error: errorEvidence(error) }
+          if (io.now() >= deadline) expire()
+        } finally {
+          // Schedule only after the current strict read has settled. Missing,
+          // partial or changed files never produce overlapping descriptor reads.
+          if (!finished) cancelRetry = io.schedule(() => { void inspect() }, Math.min(50, Math.max(0, deadline - io.now())))
+        }
+      }
+      cancelDeadline = io.schedule(expire, evidence.deadlineMs)
+      signal.addEventListener("abort", abort, { once: true })
+      if (signal.aborted) abort()
+      void exited.then(() => {
+        if (finished) return
+        evidence.outcome = "exited"
+        finish(new Error("Chrome exited before protocol attachment"))
+      }, error => {
+        if (finished) return
+        evidence.outcome = "failed"
+        finish(new Error("Chrome process wait failed", { cause: error }))
+      })
       void inspect()
     })
-    watcher.on("error", error => { evidence.outcome = "failed"; finish(error) })
-    const timer = setTimeout(() => {
-      evidence.outcome = "timeout"
-      finish(new Error("Chrome endpoint startup timed out", { cause: lastError }))
-    }, evidence.deadlineMs)
-    const abort = () => { evidence.outcome = "cancelled"; finish(signal.reason) }
-    signal.addEventListener("abort", abort, { once: true })
-    if (signal.aborted) abort()
-    void process.exited.then(() => {
-      if (!finished) evidence.outcome = "exited"
-      finish(new Error("Chrome exited before protocol attachment"))
-    }, finish)
-    void inspect()
-  })
+  }
 }
+
+const waitBrowserEndpoint = createPreviewEndpointWaiter({
+  now: () => performance.now(),
+  read: readPreviewFile,
+  schedule(callback, delayMs) {
+    const timer = setTimeout(callback, delayMs)
+    return () => clearTimeout(timer)
+  },
+})
 
 export async function verifyPreview(args: readonly string[] = []): Promise<void> {
   let profile: string | undefined
@@ -540,7 +563,7 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
   let signal: AbortSignal | undefined
   let chromeOutput: string | undefined
   let endpointBeforeCollection: unknown
-  const endpointEvidence: EndpointEvidence = { deadlineMs: 10_000, attempts: 0, eventCount: 0, events: [] }
+  const endpointEvidence: EndpointEvidence = { deadlineMs: 10_000, attempts: 0 }
   const result = await withPreviewCancellation(process, async cancellation => {
     signal = cancellation.signal
     const options = parsePreviewArguments(args)
@@ -563,7 +586,7 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
       "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank",
     ] })
     console.error("atet-preview: browser-started")
-    const endpoint = await browserEndpoint(profile, managed, cancellation.signal, endpointEvidence)
+    const endpoint = await waitBrowserEndpoint(profile, managed.exited, cancellation.signal, endpointEvidence)
     browser = await cancellation.wait(() => {
       connection = chromium.connectOverCDP(endpoint, { timeout: 10_000 })
       return connection

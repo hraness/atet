@@ -2,8 +2,8 @@ import { expect, test } from "bun:test"
 import {
   assertBaselineManifest, assertPreviewEvidence, baselineRevision, comparePreviewEvidence,
   expectedPreviewHeaders, parsePreviewArguments, previewCases, readPreviewHeaders, resolvePreviewResource,
-  isPreviewEndpointEvent, parsePreviewEndpoint, withPreviewCancellation,
-  type PreviewArtifact, type PreviewCase, type PreviewEvidence, type PreviewSignalSource,
+  createPreviewEndpointWaiter, parsePreviewEndpoint, withPreviewCancellation,
+  type EndpointEvidence, type PreviewArtifact, type PreviewCase, type PreviewEvidence, type PreviewSignalSource,
 } from "./verify-preview-layout"
 
 function config() {
@@ -116,22 +116,180 @@ function deferred() {
   return { promise, resolve }
 }
 
-test("endpoint event admission handles basename, full-path, byte and missing filenames without admitting unrelated paths", () => {
-  const profile = "/private/tmp/owned-profile"
-  for (const filename of ["DevToolsActivePort", `${profile}/DevToolsActivePort`, Buffer.from("DevToolsActivePort"), null, undefined, ""]) {
-    expect(isPreviewEndpointEvent(filename, profile)).toBe(true)
-  }
-  for (const filename of ["Default", "/other/DevToolsActivePort", "../DevToolsActivePort", {}, 1]) {
-    expect(isPreviewEndpointEvent(filename, profile)).toBe(false)
-  }
-})
-
 test("endpoint bytes bind one finite local port and Chrome browser path", () => {
   expect(parsePreviewEndpoint("12345\n/devtools/browser/abcd-1234\n"))
     .toEqual({ port: 12345, browserPath: "/devtools/browser/abcd-1234" })
   for (const value of ["", "0\n/devtools/browser/abcd", "65536\n/devtools/browser/abcd", "1234\nhttps://example.test/", "1234\n/devtools/page/abcd", "1234\n/devtools/browser/abcd\nextra", "x".repeat(1025)]) {
     expect(() => parsePreviewEndpoint(value)).toThrow()
   }
+})
+
+async function flushReadiness() {
+  for (let turn = 0; turn < 8; turn += 1) await Promise.resolve()
+}
+
+function readinessClock() {
+  let now = 0
+  let nextId = 0
+  const timers = new Map<number, { at: number; callback: () => void }>()
+  return {
+    now: () => now,
+    schedule(callback: () => void, delayMs: number) {
+      const id = ++nextId
+      timers.set(id, { at: now + delayMs, callback })
+      return () => { timers.delete(id) }
+    },
+    async advance(ms: number) {
+      const target = now + ms
+      await flushReadiness()
+      for (;;) {
+        const next = [...timers].sort((a, b) => a[1].at - b[1].at || a[0] - b[0])[0]
+        if (next === undefined || next[1].at > target) break
+        now = next[1].at
+        timers.delete(next[0])
+        next[1].callback()
+        await flushReadiness()
+      }
+      now = target
+      await flushReadiness()
+    },
+    // Model a busy event loop whose absolute clock advances before timers run.
+    elapse(ms: number) { now += ms },
+    pending: () => timers.size,
+  }
+}
+
+const endpointBytes = Buffer.from("12345\n/devtools/browser/abcd-1234\n")
+
+function pendingEndpointRead() {
+  let resolve!: (bytes: Uint8Array) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<Uint8Array>((accept, refuse) => { resolve = accept; reject = refuse })
+  return { promise, resolve, reject }
+}
+
+function readinessHarness(read: (attempt: number) => Promise<Uint8Array>) {
+  const clock = readinessClock()
+  const controller = new AbortController()
+  const exited = deferred()
+  const evidence: EndpointEvidence = { deadlineMs: 10_000, attempts: 0 }
+  const requests: { path: string; maximum: number }[] = []
+  let active = 0
+  let maximumActive = 0
+  let settled = false
+  const wait = createPreviewEndpointWaiter({ ...clock, async read(path, maximum) {
+    requests.push({ path, maximum })
+    active += 1
+    maximumActive = Math.max(maximumActive, active)
+    try { return await read(requests.length) } finally { active -= 1 }
+  } })
+  const result: Promise<{ value?: string; error?: unknown }> = wait("/private/tmp/owned-profile", exited.promise, controller.signal, evidence)
+    .then(value => ({ value }), error => ({ error: error as unknown })).finally(() => { settled = true })
+  return { clock, controller, exited, evidence, requests, result,
+    maximumActive: () => maximumActive, settled: () => settled }
+}
+
+test("endpoint readiness discovers a valid file after an absent initial read without filesystem notifications", async () => {
+  const fixture = readinessHarness(async attempt => {
+    if (attempt === 1) throw Object.assign(new Error("absent"), { code: "ENOENT" })
+    return endpointBytes
+  })
+  await fixture.clock.advance(49)
+  expect(fixture.requests).toEqual([{ path: "/private/tmp/owned-profile/DevToolsActivePort", maximum: 1024 }])
+  expect(fixture.settled()).toBe(false)
+  await fixture.clock.advance(1)
+  expect(await fixture.result).toEqual({ value: "ws://127.0.0.1:12345/devtools/browser/abcd-1234" })
+  expect(fixture.evidence).toMatchObject({ attempts: 2, outcome: "connected", lastRead: { elapsedMs: 50, bytes: endpointBytes.length } })
+  expect(fixture.maximumActive()).toBe(1)
+  expect(fixture.clock.pending()).toBe(0)
+})
+
+test("endpoint readiness has one absolute ten-second deadline and at most 201 strict reads", async () => {
+  const fixture = readinessHarness(async () => Buffer.from("malformed"))
+  await fixture.clock.advance(10_000)
+  const result = await fixture.result
+  expect(result.error).toBeInstanceOf(Error)
+  expect((result.error as Error).message).toBe("Chrome endpoint startup timed out")
+  expect(fixture.evidence.outcome).toBe("timeout")
+  expect(fixture.evidence.attempts).toBe(200)
+  expect(fixture.evidence.attempts).toBeLessThanOrEqual(201)
+  expect(fixture.requests.every(request => request.maximum === 1024)).toBe(true)
+  expect(fixture.maximumActive()).toBe(1)
+  expect(fixture.clock.pending()).toBe(0)
+})
+
+test("endpoint readiness never overlaps reads and retries only after a changed read has settled", async () => {
+  const pending = pendingEndpointRead()
+  const fixture = readinessHarness(async attempt => attempt === 1 ? pending.promise : endpointBytes)
+  await fixture.clock.advance(500)
+  expect(fixture.requests).toHaveLength(1)
+  expect(fixture.settled()).toBe(false)
+  pending.reject(new Error("Preview file changed before reading"))
+  await flushReadiness()
+  await fixture.clock.advance(49)
+  expect(fixture.requests).toHaveLength(1)
+  await fixture.clock.advance(1)
+  expect(await fixture.result).toEqual({ value: "ws://127.0.0.1:12345/devtools/browser/abcd-1234" })
+  expect(fixture.maximumActive()).toBe(1)
+  expect(fixture.clock.pending()).toBe(0)
+})
+
+test("endpoint readiness does not accept malformed, excessive or identity-refused reads", async () => {
+  const fixture = readinessHarness(async attempt => {
+    if (attempt === 1) return Buffer.from("12345\n/devtools/page/abcd-1234\n")
+    if (attempt === 2) return Buffer.from("x".repeat(1025))
+    if (attempt === 3) throw new Error("Preview descriptor changed while reading")
+    return endpointBytes
+  })
+  await fixture.clock.advance(100)
+  expect(fixture.settled()).toBe(false)
+  expect(fixture.evidence).toMatchObject({ attempts: 3, lastRead: { error: { message: "Preview descriptor changed while reading" } } })
+  await fixture.clock.advance(50)
+  expect(await fixture.result).toEqual({ value: "ws://127.0.0.1:12345/devtools/browser/abcd-1234" })
+  expect(fixture.evidence.attempts).toBe(4)
+  expect(fixture.clock.pending()).toBe(0)
+})
+
+for (const terminal of ["timeout", "cancelled", "exited"] as const) {
+  test(`endpoint ${terminal} stays terminal after a late successful read`, async () => {
+    const pending = pendingEndpointRead()
+    const fixture = readinessHarness(async () => pending.promise)
+    if (terminal === "timeout") await fixture.clock.advance(10_000)
+    else if (terminal === "cancelled") fixture.controller.abort(new Error("cancelled fixture"))
+    else fixture.exited.resolve()
+    const result = await fixture.result
+    expect(result.error).toBeInstanceOf(Error)
+    expect(fixture.evidence.outcome).toBe(terminal)
+    const before = structuredClone(fixture.evidence)
+    pending.resolve(endpointBytes)
+    await flushReadiness()
+    expect(fixture.evidence).toEqual(before)
+    expect(fixture.requests).toHaveLength(1)
+    expect(fixture.clock.pending()).toBe(0)
+  })
+}
+
+test("a delayed deadline callback cannot admit endpoint bytes completed after ten seconds", async () => {
+  const pending = pendingEndpointRead()
+  const fixture = readinessHarness(async () => pending.promise)
+  fixture.clock.elapse(10_001)
+  pending.resolve(endpointBytes)
+  const result = await fixture.result
+  expect(result.error).toBeInstanceOf(Error)
+  expect(fixture.evidence.outcome).toBe("timeout")
+  expect(fixture.evidence.attempts).toBe(1)
+  expect(fixture.clock.pending()).toBe(0)
+})
+
+test("endpoint cancellation between reads prevents any subsequent read", async () => {
+  const fixture = readinessHarness(async () => { throw new Error("absent") })
+  await fixture.clock.advance(25)
+  fixture.controller.abort(new Error("cancelled fixture"))
+  expect((await fixture.result).error).toBeInstanceOf(Error)
+  await fixture.clock.advance(10_000)
+  expect(fixture.requests).toHaveLength(1)
+  expect(fixture.evidence.outcome).toBe("cancelled")
+  expect(fixture.clock.pending()).toBe(0)
 })
 
 function signals() {
