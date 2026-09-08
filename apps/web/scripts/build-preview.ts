@@ -1,6 +1,5 @@
 import assert from "node:assert/strict"
-import { constants } from "node:fs"
-import { lstat, mkdtemp, open, realpath, writeFile } from "node:fs/promises"
+import { mkdtemp, realpath, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -15,6 +14,7 @@ import { build as viteBuild, version as viteVersion } from "vite"
 
 import { previewSha256, projectPreviewArtifacts, snapshotPreviewFoundation, type PreviewArtifact } from "./preview-contract"
 import { inspectPreviewCssResources } from "./preview-css"
+import { readPreviewFile as bytesAt } from "./preview-file"
 
 const fontFiles = [
   ...["Light", "Book", "Medium", "Semibold", "Bold", "Black"].flatMap(weight =>
@@ -24,27 +24,8 @@ const fontFiles = [
 const sourceFiles = [
   "package.json", "bun.lock", "src/preview.html", "src/preview.stylex.ts",
   "src/preview-renderer.ts", "src/preview-foundation.ts", "src/preview-foundation.css", "src/styles.css",
-  "scripts/build-preview.ts", "scripts/preview-contract.ts", "scripts/preview-css.ts",
+  "scripts/build-preview.ts", "scripts/preview-contract.ts", "scripts/preview-css.ts", "scripts/preview-file.ts",
 ] as const
-
-function identity(stat: Awaited<ReturnType<typeof lstat>>) {
-  return [stat.dev, stat.ino, stat.size, stat.mode, stat.nlink, stat.mtimeMs, stat.ctimeMs]
-}
-
-async function bytesAt(path: string, maximum = 16 * 1024 * 1024): Promise<Uint8Array> {
-  assert.equal(await realpath(path), path, "Preview input/output must have a physical path")
-  const before = await lstat(path)
-  assert.ok(before.isFile() && before.size <= maximum, "Preview artifact is not a bounded ordinary file")
-  const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
-  try {
-    assert.deepEqual(identity(await handle.stat()), identity(before))
-    const bytes = await handle.readFile()
-    assert.equal(bytes.byteLength, before.size)
-    assert.deepEqual(identity(await handle.stat()), identity(before))
-    assert.deepEqual(identity(await lstat(path)), identity(before))
-    return bytes
-  } finally { await handle.close() }
-}
 
 function below(root: string, path: string): string {
   const logical = relative(root, path).split(sep).join("/")

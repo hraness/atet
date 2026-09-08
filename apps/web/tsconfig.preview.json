@@ -24,6 +24,8 @@
     "scripts/preview-contract.test.ts",
     "scripts/preview-css.ts",
     "scripts/preview-css.test.ts",
+    "scripts/preview-file.ts",
+    "scripts/preview-file.test.ts",
     "src/preview-renderer.ts",
     "src/preview-foundation.ts",
     "src/preview.stylex.ts"

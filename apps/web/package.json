@@ -31,7 +31,7 @@
     "build": "bun run ./scripts/build.ts",
     "check": "bun run typecheck:preview && bun run test && bun run build && bun run verify:preview",
     "generate:og": "bun run ./scripts/generate-og.ts",
-    "test": "bun test ./site.test.ts ./scripts/preview-contract.test.ts ./scripts/preview-css.test.ts",
+    "test": "bun test ./site.test.ts ./scripts/preview-contract.test.ts ./scripts/preview-css.test.ts ./scripts/preview-file.test.ts",
     "typecheck:preview": "tsc --project tsconfig.preview.json",
     "verify:preview": "bun run ./scripts/verify-preview-layout.ts"
   }
