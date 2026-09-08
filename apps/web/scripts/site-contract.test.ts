@@ -79,7 +79,10 @@ describe("site shell artifact publication (pure synthetic controls)", () => {
 
   test.each(["", "\n", "export{}", " export { } ;\n"])("accepts only an empty foundation module: %j", code => {
     const output = foundationOutput()
-    output.output[0]!.code = code
+    const entry = output.output[0]!
+    expect("code" in entry).toBe(true)
+    if (!("code" in entry)) throw new Error("Foundation fixture is missing its module entry")
+    entry.code = code
     expect(snapshotSiteFoundation(output).privateScriptPath).toBe("graphs/site-foundation/assets/site-foundation-fixture.js")
   })
 

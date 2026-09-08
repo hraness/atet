@@ -145,7 +145,7 @@ export function assertShellSnapshotUnchanged(before: ShellSnapshot, after: Shell
 function serve(snapshot: ShellSnapshot) {
   const rejected: string[] = []
   const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch(request) {
-    const url = new URL(request.url()), bytes = snapshot.files.get(url.pathname)
+    const url = new URL(request.url), bytes = snapshot.files.get(url.pathname)
     if (request.method !== "GET" || url.search !== "" || bytes === undefined || url.hostname !== "127.0.0.1") {
       if (rejected.length < 64) rejected.push(`${request.method} ${url.pathname}`)
       return new Response("Not Found", { status: 404 })

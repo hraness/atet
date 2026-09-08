@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { isAbsolute } from "node:path"
-import type { Browser, Page } from "playwright-core"
+import type { Browser, Page, WebSocketRoute } from "playwright-core"
 import { bounded } from "./preview-browser-contract"
 
 export const siteShellDeadlineMs = 720_000
@@ -23,10 +23,11 @@ export interface ShellCase {
   readonly forced: "none" | "active"
   readonly coarse: boolean
   readonly reflowEquivalent: boolean
+  readonly direction?: "rtl"
 }
 const themes = [{ theme: "light", system: "dark" }, { theme: "dark", system: "light" },
   { theme: "system", system: "light" }, { theme: "system", system: "dark" }] as const
-export const siteShellCases: readonly ShellCase[] = Object.freeze((["/", "/404.html"] as const).flatMap(route => [
+const originalSiteShellCases: readonly ShellCase[] = Object.freeze((["/", "/404.html"] as const).flatMap(route => [
   ...[320, 390, 544, 545, 768, 769, 1440].flatMap(width => themes.map(({ theme, system }) => ({
     name: `${route}-${width}-${theme}-${system}`, route, width, height: 900, theme, system,
     forced: "none" as const, coarse: false, reflowEquivalent: false,
@@ -38,6 +39,13 @@ export const siteShellCases: readonly ShellCase[] = Object.freeze((["/", "/404.h
   ...(["light", "dark"] as const).map(system => ({ name: `${route}-200pct-reflow-equivalent-${system}`, route,
     width: 720, height: 450, theme: "system" as const, system, forced: "none" as const, coarse: false, reflowEquivalent: true })),
 ]))
+export const siteShellCases: readonly ShellCase[] = Object.freeze([
+  ...originalSiteShellCases,
+  ...(["/", "/404.html"] as const).flatMap(route => [390, 1440].flatMap(width =>
+    (["light", "dark"] as const).map(theme => ({ name: `${route}-rtl-${width}-${theme}`, route, width, height: 900,
+      theme, system: theme === "light" ? "dark" as const : "light" as const, forced: "none" as const,
+      coarse: false, reflowEquivalent: false, direction: "rtl" as const })))),
+])
 
 export interface ShellPayload {
   readonly origin: string
@@ -139,13 +147,38 @@ export interface ShellElement {
   readonly semantics: Readonly<Record<string, string | null>>
 }
 export interface ShellEvidence {
+  readonly direction: "ltr" | "rtl"
   readonly dom: string
   readonly elements: readonly ShellElement[]
   readonly focus: readonly ShellElement[]
   readonly hover: readonly ShellElement[]
   readonly skip: ShellElement
   readonly recovery: boolean
+  readonly appearance: readonly ShellAppearanceEvidence[]
 }
+export interface ShellAppearanceEvidence {
+  readonly step: string
+  readonly active: "light" | "dark" | "system"
+  readonly elements: readonly ShellElement[]
+}
+export const shellAppearanceSteps = Object.freeze([
+  { name: "arrow-down-opens-first", key: "ArrowDown", active: "light" },
+  { name: "arrow-up-wraps-last", key: "ArrowUp", active: "system" },
+  { name: "home-focuses-first", key: "Home", active: "light" },
+  { name: "arrow-down-focuses-dark", key: "ArrowDown", active: "dark" },
+  { name: "end-focuses-last", key: "End", active: "system" },
+  { name: "arrow-down-wraps-first", key: "ArrowDown", active: "light" },
+  { name: "arrow-up-opens-last", key: "ArrowUp", active: "system" },
+] as const)
+const appearanceRoot = "[data-hraness-appearance-menu]"
+const appearanceTrigger = `${appearanceRoot} button`
+const appearancePopover = `${appearanceRoot} .hraness-design-theme-toggle__popover`
+const appearanceMenu = `${appearanceRoot} [role="menu"]`
+const appearanceItems = `${appearanceRoot} [role="menuitemradio"]`
+const appearanceSelectors = [appearanceRoot, appearanceTrigger, appearancePopover, appearanceMenu, appearanceItems,
+  `${appearanceItems} .hraness-appearance-icon`, `${appearanceItems} .hraness-appearance-icon svg`]
+const appearanceElementKeys = appearanceSelectors.flatMap((selector, index) =>
+  Array.from({ length: index < 4 ? 1 : 3 }, (_, item) => `${selector}[${item}]`))
 const commonSelectors = ["body", ".skip-link", ".topbar", ".wordmark", ".topbar-actions", '.topbar nav[aria-label="Primary"]',
   '.topbar nav[aria-label="Primary"] a', "[data-hraness-appearance-menu]", "[data-hraness-appearance-menu] button",
   "#main", "#hraness-site-footer", ".hraness-site-footer__inner", ".hraness-site-footer__brand", ".hraness-site-footer__mark",
@@ -160,7 +193,7 @@ const properties = ["display", "position", "box-sizing", "width", "height", "min
   "background-origin", "background-clip", "border-radius", "box-shadow", "grid-template-columns", "flex-wrap", "flex-direction", "order",
   "align-items", "align-content", "justify-items", "justify-content", "row-gap", "column-gap", "transform", "opacity", "visibility",
   "overflow-x", "overflow-y", "white-space", "overflow-wrap", "outline-style", "outline-width", "outline-color", "outline-offset",
-  "backdrop-filter", "appearance", "cursor", "touch-action", "z-index", ...["top", "right", "bottom", "left"].flatMap(side =>
+  "backdrop-filter", "appearance", "cursor", "touch-action", "direction", "z-index", ...["top", "right", "bottom", "left"].flatMap(side =>
     [`margin-${side}`, `padding-${side}`, `border-${side}-width`, `border-${side}-style`, `border-${side}-color`])]
 
 async function measure(page: Page, selectors: readonly string[]): Promise<ShellElement[]> {
@@ -172,7 +205,8 @@ async function measure(page: Page, selectors: readonly string[]): Promise<ShellE
       return { key: `${selector}[${index}]`, rect: [rect.x, rect.y + scrollY, rect.width, rect.height],
         styles: Object.fromEntries(properties.map(property => [property, style.getPropertyValue(property)])),
         text: element.textContent?.replace(/\s+/gu, " ").trim() ?? "",
-        semantics: Object.fromEntries(["href", "role", "aria-label", "aria-labelledby", "tabindex", "target", "rel"].map(key => [key, element.getAttribute(key)])) }
+        semantics: Object.fromEntries(["href", "role", "aria-label", "aria-labelledby", "tabindex", "target", "rel",
+          "aria-controls", "aria-expanded", "aria-haspopup", "aria-checked", "hidden", "data-theme-value", "data-selected"].map(key => [key, element.getAttribute(key)])) }
     })
   }), { selectors: [...selectors], properties })
 }
@@ -189,34 +223,117 @@ export function compareShellElements(actual: readonly ShellElement[], baseline: 
   }
 }
 export function compareShellEvidence(actual: ShellEvidence, baseline: ShellEvidence, label: string): void {
+  assert.equal(actual.direction, baseline.direction, `${label}: document direction changed`)
   assert.equal(actual.dom, baseline.dom, `${label}: semantic document changed`)
   assert.equal(actual.recovery, baseline.recovery)
   compareShellElements(actual.elements, baseline.elements, label)
   compareShellElements([actual.skip], [baseline.skip], `${label} focused skip`)
   compareShellElements(actual.focus, baseline.focus, `${label} keyboard focus`)
   compareShellElements(actual.hover, baseline.hover, `${label} pointer hover`)
+  for (const evidence of [actual, baseline]) {
+    assert.deepEqual(evidence.appearance.map(item => [item.step, item.active]), shellAppearanceSteps.map(step => [step.name, step.active]),
+      `${label}: open appearance keyboard coverage incomplete`)
+    for (const step of evidence.appearance) assert.deepEqual(step.elements.map(item => item.key), appearanceElementKeys,
+      `${label}: open appearance landmark inventory incomplete`)
+  }
+  for (const [index, item] of actual.appearance.entries()) {
+    compareShellElements(item.elements, baseline.appearance[index]!.elements, `${label} open appearance ${item.step}`)
+  }
 }
-async function settle(page: Page): Promise<void> {
-  await page.evaluate(async () => {
+async function settle(page: Page, direction?: "rtl"): Promise<void> {
+  await page.evaluate(async direction => {
+    // RTL is an explicit paired browser fixture, applied to each new document
+    // after navigation. The authoritative served HTML and CSS remain intact.
+    if (direction === "rtl") document.documentElement.setAttribute("dir", direction)
     await document.fonts.ready
     const fonts = await Promise.all([document.fonts.load('400 16px "Nebula Sans"'), document.fonts.load('500 16px "Nebula Sans"')])
     if (fonts.some(group => group.length === 0 || group.some(font => font.status !== "loaded"))) throw new Error("Local fonts did not load")
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-  })
+  }, direction)
 }
-async function chooseAppearance(page: Page, value: ShellCase["theme"]): Promise<void> {
+export function resolvedShellTheme(preference: ShellCase["theme"], system: ShellCase["system"]): ShellCase["system"] {
+  return preference === "system" ? system : preference
+}
+async function assertAppearancePreference(page: Page, preference: ShellCase["theme"], system: ShellCase["system"]): Promise<void> {
+  assert.equal(await page.locator(appearanceRoot).getAttribute("data-theme-value"), preference, "Appearance preference changed")
+  assert.equal(await page.locator("html").getAttribute("data-theme"), resolvedShellTheme(preference, system), "Resolved appearance changed")
+}
+async function chooseAppearance(page: Page, value: ShellCase["theme"], system: ShellCase["system"]): Promise<void> {
   const trigger = page.locator("[data-hraness-appearance-menu] button")
   await trigger.click()
   await page.keyboard.press("Home")
   for (let index = 0; index < ["light", "dark", "system"].indexOf(value); index++) await page.keyboard.press("ArrowDown")
   await page.keyboard.press("Enter")
   assert.equal(await trigger.getAttribute("aria-expanded"), "false")
-  assert.equal(await page.locator("html").getAttribute("data-theme"), value)
+  await assertAppearancePreference(page, value, system)
   assert.equal(await trigger.getAttribute("aria-label"), `Appearance: ${value[0]!.toUpperCase()}${value.slice(1)}`)
+}
+
+/** Exercise the installed controller's native opening, wrapping, Home/End,
+ * Escape, focus return and selection behavior while each actual popover and
+ * item is visible. Selection preserves the scenario's preference. */
+async function checkOpenAppearance(page: Page, scenario: ShellCase): Promise<ShellAppearanceEvidence[]> {
+  const trigger = page.locator(appearanceTrigger)
+  const evidence: ShellAppearanceEvidence[] = []
+  const assertClosed = async () => {
+    assert.equal(await trigger.getAttribute("aria-expanded"), "false")
+    assert.equal(await page.locator(appearancePopover).evaluate(element => (element as HTMLElement).hidden), true)
+    assert.equal(await trigger.evaluate(element => document.activeElement === element), true, "Appearance close did not return native focus")
+    await assertAppearancePreference(page, scenario.theme, scenario.system)
+  }
+  await assertClosed()
+  for (const step of shellAppearanceSteps) {
+    if (step.name === "arrow-up-opens-last") {
+      await page.keyboard.press("Escape")
+      await assertClosed()
+    }
+    await page.keyboard.press(step.key)
+    await settle(page)
+    const semantics = await page.locator(appearanceRoot).evaluate(root => {
+      const trigger = root.querySelector("button")!, menu = root.querySelector('[role="menu"]')!
+      const popover = root.querySelector<HTMLElement>(".hraness-design-theme-toggle__popover")!
+      return { expanded: trigger.getAttribute("aria-expanded"), hasPopup: trigger.getAttribute("aria-haspopup"),
+        ownsMenu: trigger.getAttribute("aria-controls") === menu.id, menuLabel: menu.getAttribute("aria-label"),
+        hidden: popover.hidden, direction: getComputedStyle(root).direction,
+        active: document.activeElement?.getAttribute("data-theme-value") ?? null,
+        focusVisible: document.activeElement?.matches(":focus-visible") ?? false,
+        items: [...menu.querySelectorAll('[role="menuitemradio"]')].map(item => ({
+          value: item.getAttribute("data-theme-value"), checked: item.getAttribute("aria-checked"),
+          selected: item.hasAttribute("data-selected"), tabindex: item.getAttribute("tabindex"),
+        })) }
+    })
+    assert.deepEqual(semantics, { expanded: "true", hasPopup: "menu", ownsMenu: true, menuLabel: "Appearance", hidden: false,
+      direction: scenario.direction ?? "ltr", active: step.active, focusVisible: true,
+      items: ["light", "dark", "system"].map(value => ({ value, checked: String(value === scenario.theme),
+        selected: value === scenario.theme, tabindex: "-1" })) }, `${scenario.name}: native appearance ${step.name}`)
+    const elements = await measure(page, appearanceSelectors)
+    for (const element of elements) {
+      assert.ok(element.rect[2]! > 0 && element.rect[3]! > 0 && element.styles.display !== "none" && element.styles.visibility === "visible",
+        `${scenario.name} ${element.key}: open appearance landmark not visible`)
+      assert.ok(element.rect[0]! >= -0.5 && element.rect[0]! + element.rect[2]! <= scenario.width + 0.5,
+        `${scenario.name} ${element.key}: open appearance horizontal clipping`)
+    }
+    const focused = page.locator(`${appearanceItems}[data-theme-value="${step.active}"]`)
+    assert.equal(await focused.evaluate(element => {
+      const rect = element.getBoundingClientRect(), hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      return rect.top >= 0 && rect.bottom <= innerHeight && hit !== null && (hit === element || element.contains(hit))
+    }), true, `${scenario.name}: open appearance focus is covered or clipped`)
+    evidence.push({ step: step.name, active: step.active, elements })
+  }
+  await page.keyboard.press("Home")
+  for (let index = 0; index < ["light", "dark", "system"].indexOf(scenario.theme); index++) await page.keyboard.press("ArrowDown")
+  await page.keyboard.press("Enter")
+  await assertClosed()
+  return evidence
 }
 
 /** Native actions stay on local skip, appearance and recovery controls. All
  * remote links are inspected or hovered, never activated. */
+export async function denyShellWebSocket(socket: WebSocketRoute, error: (message: string) => void): Promise<void> {
+  error(`Unadmitted socket ${socket.url()}`)
+  await socket.close({ code: 1008, reason: "Ordinary static verification admits no sockets" })
+}
+
 export async function checkShellCase(browser: Browser, payload: ShellPayload, scenario: ShellCase, negative: boolean): Promise<ShellEvidence> {
   const context = await browser.newContext({ viewport: { width: scenario.width, height: scenario.height },
     deviceScaleFactor: scenario.reflowEquivalent ? 2 : 1, colorScheme: scenario.system, forcedColors: scenario.forced,
@@ -229,6 +346,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     void operation.catch(failure => error(String(failure))).finally(() => pending.delete(operation))
   }
   try {
+    await context.routeWebSocket("**/*", socket => denyShellWebSocket(socket, error))
     await context.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url())
       if (request.method() !== "GET" || url.origin !== payload.origin || url.search !== "" || !payload.resources.includes(url.pathname)) {
@@ -237,6 +355,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       } else await route.continue()
     })
     const page = await context.newPage()
+    const settleCase = () => settle(page, scenario.direction)
     page.on("pageerror", failure => error(failure.message))
     page.on("console", message => {
       if (message.type() !== "error") return
@@ -265,22 +384,24 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     for (const [key, value] of Object.entries(siteShellHeaders)) assert.equal(response.headers()[key], value, `Production header ${key}`)
     assert.equal(page.frames().length, 1)
     await page.locator('[data-hraness-appearance-menu][data-ready="true"]').waitFor()
-    assert.equal(await page.locator("html").getAttribute("data-theme"), "system", "Default appearance must be System")
-    await settle(page)
+    await assertAppearancePreference(page, "system", scenario.system)
+    await settleCase()
     await page.keyboard.press("Tab")
     assert.equal(await page.locator(".skip-link").evaluate(element => document.activeElement === element), true)
     let skip = (await measure(page, [".skip-link"]))[0]!
     assert.ok(skip.rect[0]! >= 0 && skip.rect[1]! >= 0 && skip.rect[2]! > 0)
     await page.keyboard.press("Enter")
     assert.equal(await page.locator("#main").evaluate(element => document.activeElement === element), true, "Native skip did not focus main")
-    await chooseAppearance(page, scenario.theme)
+    await chooseAppearance(page, scenario.theme, scenario.system)
     if (scenario.theme === "system") {
-      await page.emulateMedia({ colorScheme: scenario.system === "dark" ? "light" : "dark" })
-      await settle(page)
-      assert.equal(await page.locator("html").getAttribute("data-theme"), "system")
+      const alternate = scenario.system === "dark" ? "light" : "dark"
+      await page.emulateMedia({ colorScheme: alternate })
+      await settleCase()
+      await assertAppearancePreference(page, "system", alternate)
       const changed = await page.locator("body").evaluate(element => getComputedStyle(element).color)
       await page.emulateMedia({ colorScheme: scenario.system })
-      await settle(page)
+      await settleCase()
+      await assertAppearancePreference(page, "system", scenario.system)
       if (scenario.forced === "none") assert.notEqual(await page.locator("body").evaluate(element => getComputedStyle(element).color), changed,
         "System appearance did not follow the native media setting")
     }
@@ -289,8 +410,8 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     // main instead of the document's first keyboard control.
     await page.goto(`${payload.origin}${scenario.route}`, { waitUntil: "load" })
     await page.reload({ waitUntil: "load" })
-    await settle(page)
-    assert.equal(await page.locator("html").getAttribute("data-theme"), scenario.theme, "Appearance preference did not survive reload")
+    await settleCase()
+    await assertAppearancePreference(page, scenario.theme, scenario.system)
     await page.keyboard.press("Tab")
     assert.equal(await page.locator(".skip-link").evaluate(element => document.activeElement === element), true)
     skip = (await measure(page, [".skip-link"]))[0]!
@@ -300,9 +421,12 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }))
     const media = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, coarse: matchMedia("(pointer: coarse)").matches,
       forced: matchMedia("(forced-colors: active)").matches, dark: matchMedia("(prefers-color-scheme: dark)").matches,
+      direction: getComputedStyle(document.documentElement).direction,
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1 }))
     assert.deepEqual(media, { width: scenario.width, height: scenario.height, coarse: scenario.coarse,
-      forced: scenario.forced === "active", dark: scenario.system === "dark", overflow: false })
+      forced: scenario.forced === "active", dark: scenario.system === "dark", direction: scenario.direction ?? "ltr", overflow: false })
+    const direction = media.direction
+    assert.ok(direction === "ltr" || direction === "rtl")
     const selectors = [...commonSelectors, ...(scenario.route === "/" ? homeSelectors : recoverySelectors)]
     const dom = await page.evaluate(() => {
       const root = document.body.cloneNode(true) as HTMLElement
@@ -328,7 +452,8 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     }
     // The skip action leaves main focused. Clear that state with a real native
     // header action before recording hover/focus states independently.
-    await chooseAppearance(page, scenario.theme)
+    await chooseAppearance(page, scenario.theme, scenario.system)
+    const appearance = await checkOpenAppearance(page, scenario)
     const focus: ShellElement[] = [], hover: ShellElement[] = []
     // Detailed native state comparisons at every declared breakpoint in both
     // explicit themes, plus System, forced colors, coarse pointer and reflow.
@@ -339,12 +464,12 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
         const target = targets.nth(index)
         if (!await target.isVisible()) continue
         await target.hover()
-        await settle(page)
+        await settleCase()
         hover.push(...await measure(page, [selector]))
       }
     }
     await page.mouse.move(scenario.width - 1, 1)
-    await page.goto(`${payload.origin}${scenario.route}`, { waitUntil: "load" }); await settle(page)
+    await page.goto(`${payload.origin}${scenario.route}`, { waitUntil: "load" }); await settleCase()
     const total = await page.locator('a[href],button:not([disabled]),summary,[tabindex="0"]').count()
     assert.ok(total > 5 && total < 200)
     const seen = new Set<string>()
@@ -385,7 +510,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     assert.equal(focus.filter(item => item.key.startsWith(".hraness-site-footer__social-link[")).length, 5, "Footer keyboard coverage incomplete")
     if (scenario.route === "/") assert.equal(focus.filter(item => item.key.startsWith(".atet-ask-ai a[")).length, 4)
     else assert.equal(focus.filter(item => item.key.startsWith(".route-state a[")).length, 5)
-    await page.goto(`${payload.origin}${scenario.route}`, { waitUntil: "load" }); await settle(page)
+    await page.goto(`${payload.origin}${scenario.route}`, { waitUntil: "load" }); await settleCase()
     if (negative) {
       const original = await measure(page, [".topbar", ".wordmark", ...(scenario.route === "/404.html" ? [".route-state"] : [])])
       const sheet = await page.evaluateHandle(href => {
@@ -395,7 +520,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
         return value
       }, `${payload.origin}${payload.finalCss}`)
       try {
-        await settle(page)
+        await settleCase()
         const disabled = await measure(page, [".topbar", ".wordmark", ...(scenario.route === "/404.html" ? [".route-state"] : [])])
         assert.ok(disabled.some((item, index) => JSON.stringify(item.styles) !== JSON.stringify(original[index]!.styles)),
           "Final CSS removal did not change real computed styles")
@@ -406,7 +531,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
         })
         await sheet.dispose()
       }
-      await settle(page)
+      await settleCase()
       compareShellElements(await measure(page, [".topbar", ".wordmark", ...(scenario.route === "/404.html" ? [".route-state"] : [])]), original, "Restored final CSS")
     }
     let recovery = false
@@ -421,7 +546,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     await bounded(Promise.allSettled([...pending]), "Response listener settlement", 5_000)
     assert.deepEqual(errors, [], `${scenario.name}: network, script, console or CSP failure`)
     await protocol.detach()
-    return { dom, elements, skip, hover, focus, recovery }
+    return { direction, dom, elements, skip, hover, focus, recovery, appearance }
   } finally {
     await bounded(context.close(), "Shell browser context close", 5_000)
     await bounded(Promise.allSettled([...pending]), "Final response listener settlement", 5_000)
