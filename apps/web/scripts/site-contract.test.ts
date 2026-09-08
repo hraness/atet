@@ -31,10 +31,11 @@ const artifact = (path: string, source = "fixture") => ({ path, bytes: Buffer.by
 function completeFixture() {
   const foundation = snapshotSiteFoundation(foundationOutput())
   const finalCss = artifact(`assets/site-${digest}.css`, ".fixture{display:grid}")
+  // Deliberately make canonical identity order differ from package name order.
   const packages = [
-    { manifestSha256: siteSha256("design-kit manifest"), name: "@hraness/design-kit", version: "0.5.2" },
-    { manifestSha256: siteSha256("site-footer manifest"), name: "@hraness/site-footer", version: "0.6.1" },
-    { manifestSha256: siteSha256("ui manifest"), name: "@hraness/ui", version: "0.5.6" },
+    { manifestSha256: "8".repeat(64), name: "@hraness/design-kit", version: "0.5.2" },
+    { manifestSha256: "e".repeat(64), name: "@hraness/site-footer", version: "0.6.1" },
+    { manifestSha256: "a".repeat(64), name: "@hraness/ui", version: "0.5.7" },
   ]
   const complete = {
     artifacts: [artifact("404.html", "<!doctype html><title>404</title>"), artifact("index.html", "<!doctype html><title>Atet</title>"),
@@ -43,7 +44,7 @@ function completeFixture() {
     ],
     compilerSha256: digest, finalCss, generationId: "atet-site-shell",
     graphs: ["site-foundation", "site-renderer"].map(id => ({ id, receiptSha256: digest })),
-    kind: "hraness-stylex-complete-generation", packages: structuredClone(packages),
+    kind: "hraness-stylex-complete-generation", packages: structuredClone([packages[0]!, packages[2]!, packages[1]!]),
     planSha256: digest, schemaVersion: 2, state: "complete", unionPolicySha256: digest,
   }
   const expected = { compilerSha256: digest, finalCssPath: finalCss.path, foundation, packages, planSha256: digest, unionPolicySha256: digest }
@@ -75,6 +76,39 @@ describe("site shell artifact publication (pure synthetic controls)", () => {
     const output = foundationOutput()
     output.output.reverse()
     expect(snapshotSiteFoundation([output])).toEqual(expected.foundation)
+  })
+
+  test("requires canonical identity order independently of captured package name order", () => {
+    const { complete, expected } = completeFixture()
+    const projection = projectSiteArtifacts(complete, expected)
+    expect(complete.packages.map(item => item.name)).toEqual(["@hraness/design-kit", "@hraness/ui", "@hraness/site-footer"])
+    const permutations = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]] as const
+    for (const [completeIndex, completeOrder] of permutations.entries()) {
+      for (const [expectedIndex, expectedOrder] of permutations.entries()) {
+        const value = { ...complete, packages: completeOrder.map(index => complete.packages[index]!) }
+        const capture = { ...expected, packages: expectedOrder.map(index => expected.packages[index]!) }
+        if (completeIndex === 0 && expectedIndex === 0) {
+          expect(projectSiteArtifacts(value, capture)).toEqual(projection)
+        } else {
+          expect(() => projectSiteArtifacts(value, capture)).toThrow()
+        }
+      }
+    }
+  })
+
+  test("binds hashes to exact package names and rejects duplicate names with different hashes", () => {
+    for (const target of ["complete", "expected"] as const) {
+      for (const mutate of [
+        (items: Array<{ manifestSha256: string; name: string; version: string }>) => { items[1]!.name = items[0]!.name; items[1]!.version = items[0]!.version },
+        (items: Array<{ manifestSha256: string; name: string; version: string }>) => { items[1]!.name = "@hraness/unknown" },
+        (items: Array<{ manifestSha256: string; name: string; version: string }>) => { items[0]!.manifestSha256 = "9".repeat(64) },
+        (items: Array<{ manifestSha256: string; name: string; version: string }>) => { items.push({ ...items[0]! }) },
+      ]) {
+        const { complete, expected } = completeFixture()
+        mutate(target === "complete" ? complete.packages : expected.packages)
+        expect(() => projectSiteArtifacts(complete, expected)).toThrow()
+      }
+    }
   })
 
   test.each(["", "\n", "export{}", " export { } ;\n"])("accepts only an empty foundation module: %j", code => {
@@ -202,8 +236,8 @@ describe("site shell artifact publication (pure synthetic controls)", () => {
     ["invalid receipt", (value: any) => { value.graphs[0].receiptSha256 = "invalid" }],
     ["graph metadata", (value: any) => { value.graphs[0].source = "/private/source" }],
     ["stale design-kit", (value: any) => { value.packages[0].version = "0.5.1" }],
-    ["stale footer", (value: any) => { value.packages[1].version = "0.6.0" }],
-    ["stale UI", (value: any) => { value.packages[2].version = "0.5.5" }],
+    ["stale footer", (value: any) => { value.packages[2].version = "0.6.0" }],
+    ["stale UI", (value: any) => { value.packages[1].version = "0.5.6" }],
     ["wrong package digest", (value: any) => { value.packages[1].manifestSha256 = otherDigest }],
     ["duplicate package", (value: any) => { value.packages[0] = value.packages[1] }],
     ["missing package", (value: any) => { value.packages.pop() }],

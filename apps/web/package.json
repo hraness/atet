@@ -8,7 +8,7 @@
   "dependencies": {
     "@hraness/design-kit": "github:hraness/design-kit#v0.5.2",
     "@hraness/site-footer": "github:hraness/site-footer#v0.6.1",
-    "@hraness/ui": "github:hraness/ui#v0.5.6",
+    "@hraness/ui": "github:hraness/ui#v0.5.7",
     "@resvg/resvg-js": "2.6.2",
     "posthog-js": "1.413.2",
     "react": "19.2.3",

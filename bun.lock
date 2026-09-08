@@ -52,7 +52,7 @@
       "dependencies": {
         "@hraness/design-kit": "github:hraness/design-kit#v0.5.2",
         "@hraness/site-footer": "github:hraness/site-footer#v0.6.1",
-        "@hraness/ui": "github:hraness/ui#v0.5.6",
+        "@hraness/ui": "github:hraness/ui#v0.5.7",
         "@resvg/resvg-js": "2.6.2",
         "posthog-js": "1.413.2",
         "react": "19.2.3",
@@ -190,7 +190,7 @@
 
     "@hraness/site-footer": ["@hraness/site-footer@github:hraness/site-footer#590056b", { "peerDependencies": { "react": ">=18 <20" }, "optionalPeers": ["react"] }, "hraness-site-footer-590056b", "sha512-/Zi9u1j5uUn0Y0iubtaWfJ69qFO/c/8lyQvXkPyL0ULLCw4SjGRuOqB/ozB0T1QTgcPOR/uxaHVbGWjINYzSiw=="],
 
-    "@hraness/ui": ["@hraness/ui@github:hraness/ui#600e15d", { "dependencies": { "@hugeicons/core-free-icons": "^4.2.2", "@hugeicons/react": "^1.1.9", "@stylexjs/stylex": "0.19.0", "clsx": "^2.1.1", "parse5": "8.0.1", "react-aria": "3.50.0", "react-aria-components": "1.19.0" }, "peerDependencies": { "@babel/core": "7.29.7", "@stylexjs/babel-plugin": "0.19.0", "@types/babel__core": "7.20.5", "@types/bun": "1.3.14", "@types/node": "^20.19.0 || >=22.12.0", "lightningcss": "1.33.0", "next": "16.2.12", "react": ">=18 <20", "react-dom": ">=18 <20", "typescript": "6.0.3", "vite": "7.3.6 || 8.2.1" }, "optionalPeers": ["@babel/core", "@stylexjs/babel-plugin", "@types/babel__core", "@types/bun", "@types/node", "lightningcss", "next", "typescript", "vite"] }, "hraness-ui-600e15d", "sha512-mUn28c2OWl3oAH9DFHigTvcKrT1QI8Ra40dsUXzivAclU+emslmDiS8C4J75xd6O6yqGNnu8fgJbF88gG6dSyQ=="],
+    "@hraness/ui": ["@hraness/ui@github:hraness/ui#d5e946f", { "dependencies": { "@hugeicons/core-free-icons": "^4.2.2", "@hugeicons/react": "^1.1.9", "@stylexjs/stylex": "0.19.0", "clsx": "^2.1.1", "parse5": "8.0.1", "react-aria": "3.50.0", "react-aria-components": "1.19.0" }, "peerDependencies": { "@babel/core": "7.29.7", "@stylexjs/babel-plugin": "0.19.0", "@types/babel__core": "7.20.5", "@types/bun": "1.3.14", "@types/node": "^20.19.0 || >=22.12.0", "lightningcss": "1.33.0", "next": "16.2.12", "react": ">=18 <20", "react-dom": ">=18 <20", "typescript": "6.0.3", "vite": "7.3.6 || 8.2.1" }, "optionalPeers": ["@babel/core", "@stylexjs/babel-plugin", "@types/babel__core", "@types/bun", "@types/node", "lightningcss", "next", "typescript", "vite"] }, "hraness-ui-d5e946f", "sha512-WEN55r52v9At/NZPijBmcWPZL8QSGLENWKPAf08cF+5r7RwUki2FL4Z1QdtAKiPCCkUnZjbxdJ6ehoUBCsnfVw=="],
 
     "@hugeicons/core-free-icons": ["@hugeicons/core-free-icons@4.3.0", "", {}, "sha512-5DC5gq2psNDKBQThOjpuFCtMco8nl2FkrBzZgG15cFGM0kSwUoych/pw0DmjBygF9qRDITdBPtmzJqLsOeImMg=="],
 

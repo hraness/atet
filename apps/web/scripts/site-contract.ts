@@ -17,7 +17,7 @@ const maxArtifactBytes = 16 * 1024 * 1024
 const releases = [
   { name: "@hraness/design-kit", version: "0.5.2" },
   { name: "@hraness/site-footer", version: "0.6.1" },
-  { name: "@hraness/ui", version: "0.5.6" },
+  { name: "@hraness/ui", version: "0.5.7" },
 ] as const
 
 function record(value: unknown): Record<string, unknown> {
@@ -44,16 +44,27 @@ function sorted(items: readonly SiteArtifact[]): SiteArtifact[] {
   return [...items].sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
 }
 
-function packages(value: unknown): SitePackage[] {
+function packages(value: unknown, order: "identity" | "name"): SitePackage[] {
   assert.ok(Array.isArray(value) && value.length === releases.length, "Site generation requires all three reviewed packages")
-  return value.map((value, index) => {
+  const identities = value.map(value => {
     const item = record(value)
     assert.deepEqual(Object.keys(item).sort(), ["manifestSha256", "name", "version"])
-    const release = releases[index]!
-    assert.equal(item.name, release.name, "Site packages must use canonical name order")
+    const release = releases.find(release => release.name === item.name)
+    assert.ok(release, "Unexpected site package name")
     assert.equal(item.version, release.version, "Site package release changed")
-    return { ...release, manifestSha256: digest(item.manifestSha256) }
+    return { manifestSha256: digest(item.manifestSha256), name: release.name, version: release.version }
   })
+  assert.equal(new Set(identities.map(item => item.name)).size, releases.length, "Duplicate site package name")
+  const byName = [...identities].sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0)
+  if (order === "identity") {
+    // The finalizer sorts canonical identity JSON, beginning with the digest.
+    // These parsed scalar records already have canonical key order.
+    const serialized = identities.map(item => JSON.stringify(item))
+    assert.deepEqual(serialized, [...serialized].sort(), "Site packages must use canonical identity order")
+  } else {
+    assert.deepEqual(identities, byName, "Captured site packages must use canonical name order")
+  }
+  return byName
 }
 
 function capturedFoundation(value: SiteFoundation): SiteArtifact[] {
@@ -148,7 +159,7 @@ export function projectSiteArtifacts(value: unknown, expected: Readonly<{
     digest(graph.receiptSha256)
     return graph.id
   }).sort(), ["site-foundation", "site-renderer"])
-  assert.deepEqual(packages(complete.packages), packages(expected.packages), "Site package manifest changed")
+  assert.deepEqual(packages(complete.packages, "identity"), packages(expected.packages, "name"), "Site package manifest changed")
   assert.ok(Array.isArray(complete.artifacts) && complete.artifacts.length >= 18 && complete.artifacts.length <= 64)
   const artifacts = complete.artifacts.map(artifact)
   assert.equal(new Set(artifacts.map(item => item.path)).size, artifacts.length, "Duplicate finalized site artifact")

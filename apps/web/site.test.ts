@@ -1030,7 +1030,7 @@ describe("static Atet site", () => {
     expect(manifest.dependencies).toEqual({
       "@hraness/design-kit": "github:hraness/design-kit#v0.5.2",
       "@hraness/site-footer": "github:hraness/site-footer#v0.6.1",
-      "@hraness/ui": "github:hraness/ui#v0.5.6",
+      "@hraness/ui": "github:hraness/ui#v0.5.7",
       "@resvg/resvg-js": "2.6.2",
       "posthog-js": "1.413.2",
       "react": "19.2.3",
@@ -1057,7 +1057,7 @@ describe("static Atet site", () => {
     expect(localLockfile).toContain(
       '"@hraness/site-footer": "github:hraness/site-footer#v0.6.1"',
     )
-    expect(localLockfile).toContain('"@hraness/ui": "github:hraness/ui#v0.5.6"')
+    expect(localLockfile).toContain('"@hraness/ui": "github:hraness/ui#v0.5.7"')
     expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     for (const [name, version] of Object.entries(manifest.devDependencies ?? {})) {
