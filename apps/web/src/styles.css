@@ -150,81 +150,6 @@ h3 {
   outline: 0;
 }
 
-.skip-link {
-  position: fixed;
-  top: 0.75rem;
-  left: 0.75rem;
-  z-index: 100;
-  padding: 0.7rem 1rem;
-  border-radius: 0.625rem;
-  transform: translateY(-180%);
-  background: var(--ink);
-  color: var(--paper);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.skip-link:focus {
-  transform: translateY(0);
-}
-
-/* Site header. The class is shared with the not-found page. */
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  display: flex;
-  min-height: 3.5rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem 1.5rem;
-  padding: 0 max(var(--gutter), calc((100% - 72rem) / 2));
-  border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--paper) 84%, transparent);
-  backdrop-filter: blur(14px) saturate(1.4);
-}
-
-.wordmark {
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-decoration: none;
-}
-
-.topbar-actions {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.75rem 1rem;
-}
-
-.topbar nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 1.35rem;
-}
-
-.topbar nav a {
-  color: var(--muted);
-  font-size: 0.92rem;
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.topbar nav a:hover,
-.topbar nav a[aria-current="page"] {
-  color: var(--ink);
-}
-
-.topbar nav .hraness-marketing-action {
-  min-height: 2.25rem;
-  padding: 0.4rem 0.9rem;
-  color: var(--gold-ink);
-  font-size: 0.9rem;
-}
-
 /* Product page */
 
 .hraness-marketing-page {
@@ -287,7 +212,7 @@ h3 {
   border-top: 1px solid var(--line);
 }
 
-:where(.panel-note, .trust-links, .origin-note, .hraness-marketing-question__answer, .hraness-marketing-maker__links, .route-state) a {
+:where(.panel-note, .trust-links, .origin-note, .hraness-marketing-question__answer, .hraness-marketing-maker__links) a {
   color: var(--gold);
 }
 
@@ -433,94 +358,6 @@ h3 {
   font-size: 0.95rem;
 }
 
-/* Ask AI row rendered from @hraness/ui */
-
-.atet-ask-ai {
-  display: flex;
-  width: min(100% - 2 * var(--gutter), 72rem);
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 auto;
-  padding: 1.25rem 0;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.atet-ask-ai [data-slot="ask-ai-about-this-label"] {
-  font-weight: 500;
-}
-
-.atet-ask-ai [data-slot="ask-ai-about-this-links"] {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.atet-ask-ai [data-slot="ask-ai-about-this-link"] {
-  display: inline-flex;
-  min-height: 1.875rem;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0.6rem;
-  border: 1px solid var(--line);
-  border-radius: 0.5rem;
-  color: inherit;
-  gap: 0.25rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  line-height: 1;
-  text-decoration: none;
-}
-
-.atet-ask-ai [data-slot="ask-ai-about-this-link"]:hover {
-  border-color: currentColor;
-  color: var(--ink);
-}
-
-.atet-ask-ai [data-slot="ask-ai-about-this-icon"] {
-  display: block;
-  flex: 0 0 auto;
-}
-
-/* Not-found route */
-
-.route-state {
-  display: grid;
-  width: min(100%, 52rem);
-  min-height: calc(100svh - 7rem);
-  padding: clamp(4rem, 12vw, 9rem) var(--gutter);
-  align-content: center;
-  justify-items: start;
-  gap: 1rem;
-}
-
-.route-state h1 {
-  max-width: 14ch;
-  font-size: clamp(2.5rem, 5vw, 4.25rem);
-  letter-spacing: -0.022em;
-  line-height: 1.05;
-}
-
-.route-state p {
-  max-width: 40rem;
-  color: var(--muted);
-  font-size: 1.125rem;
-}
-
-.route-state .route-state__label {
-  color: var(--gold);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.route-state .hraness-marketing-action {
-  margin-top: 0.5rem;
-  color: var(--gold-ink);
-}
-
 @media (max-width: 64rem) {
   .example-list {
     grid-template-columns: minmax(0, 1fr);
@@ -532,25 +369,6 @@ h3 {
 }
 
 @media (max-width: 48rem) {
-  .topbar {
-    flex-wrap: wrap;
-    padding-block: 0.6rem;
-  }
-
-  .topbar-actions {
-    display: contents;
-  }
-
-  .topbar nav {
-    order: 3;
-    width: 100%;
-    gap: 0.25rem 1rem;
-  }
-
-  .topbar nav .hraness-marketing-action {
-    margin-left: auto;
-  }
-
   .hraness-marketing-trust-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -563,22 +381,6 @@ h3 {
 }
 
 @media (max-width: 34rem) {
-  /* Phones keep one header row: wordmark, the install action, and the appearance menu. */
-  .topbar nav {
-    order: 0;
-    width: auto;
-    margin-left: auto;
-    gap: 0.25rem 0.85rem;
-  }
-
-  .topbar nav:has(.hraness-marketing-action) a:not(.hraness-marketing-action) {
-    display: none;
-  }
-
-  .topbar nav .hraness-marketing-action {
-    margin-left: 0;
-  }
-
   .transcript {
     font-size: 0.78rem;
   }

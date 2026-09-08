@@ -3,15 +3,12 @@ import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { renderHranessSiteFooter } from "@hraness/site-footer"
-import { AskAiAboutThis } from "@hraness/ui"
-import { createElement } from "react"
-import { renderToStaticMarkup } from "react-dom/server"
-
 import { renderAtetSocialImage } from "./generate-og"
 import { buildPreview } from "./build-preview"
 import type { PreviewArtifact } from "./preview-contract"
-import { publishedRelease } from "../src/published-release"
+import { buildSite } from "./build-site"
+import type { SiteArtifact } from "./site-contract"
+export { renderAskAiAboutThis } from "../src/site-content"
 import {
   homeMarkdown,
   llmsTxt,
@@ -25,20 +22,6 @@ const defaultOutputDirectory = join(appDirectory, "dist")
 const posthogIngestOrigin = "https://us.i.posthog.com"
 const siteOrigin = "https://atet.sh"
 const posthogPackageDirectory = dirname(fileURLToPath(import.meta.resolve("posthog-js/package.json")))
-const appearanceMenuStylesPath = fileURLToPath(
-  import.meta.resolve("@hraness/design-kit/appearance-menu.css"),
-)
-const designKitFontsStylesPath = fileURLToPath(
-  import.meta.resolve("@hraness/design-kit/fonts.css"),
-)
-const designKitProductMarketingStylesPath = fileURLToPath(
-  import.meta.resolve("@hraness/design-kit/product-marketing.css"),
-)
-const designKitFontsDirectory = join(dirname(designKitFontsStylesPath), "fonts")
-const hranessSiteFooterStylesPath = fileURLToPath(
-  import.meta.resolve("@hraness/site-footer/stylex.css"),
-)
-
 const copiedFiles = [
   "apple-touch-icon.png",
   "icon.svg",
@@ -58,72 +41,6 @@ function assetPath(name: string, bytes: Uint8Array): string {
   const stem = name.slice(0, extensionIndex)
   const extension = name.slice(extensionIndex)
   return `/assets/${stem}-${digest}${extension}`
-}
-
-function renderDocument(template: string, assets: Readonly<Record<string, string>>): string {
-  let rendered = template
-  for (const [placeholder, value] of Object.entries(assets)) {
-    if (!rendered.includes(placeholder)) {
-      throw new Error(`Static document is missing ${placeholder}`)
-    }
-    rendered = rendered.replaceAll(placeholder, value)
-  }
-  if (/\{\{[A-Z0-9_]+\}\}/u.test(rendered)) {
-    throw new Error("Static document contains an unresolved placeholder")
-  }
-  return rendered
-}
-
-function renderAppearanceMenu(): string {
-  return `<div aria-busy="true" class="hraness-design-theme-toggle"
-      data-display="icons" data-hraness-appearance-menu data-presentation="menu"
-      data-ready="false" data-theme-value="system">
-    <button aria-controls="appearance-menu" aria-expanded="false" aria-haspopup="menu"
-      aria-label="Appearance: System" class="hraness-design-theme-toggle__trigger"
-      disabled type="button">
-      <span aria-hidden="true" data-current-appearance-icon="system"></span>
-    </button>
-    <div class="hraness-design-theme-toggle__popover" hidden>
-      <div aria-label="Appearance" class="hraness-design-theme-toggle__menu"
-        id="appearance-menu" role="menu">
-        <div aria-checked="false" class="hraness-design-theme-toggle__item"
-          data-theme-value="light" role="menuitemradio" tabindex="-1">
-          <span aria-hidden="true" data-appearance-icon="light"></span><span>Light</span>
-        </div>
-        <div aria-checked="false" class="hraness-design-theme-toggle__item"
-          data-theme-value="dark" role="menuitemradio" tabindex="-1">
-          <span aria-hidden="true" data-appearance-icon="dark"></span><span>Dark</span>
-        </div>
-        <div aria-checked="true" class="hraness-design-theme-toggle__item"
-          data-selected="true" data-theme-value="system" role="menuitemradio" tabindex="-1">
-          <span aria-hidden="true" data-appearance-icon="system"></span><span>System</span>
-        </div>
-      </div>
-    </div>
-  </div>`
-}
-
-export function renderAskAiAboutThis(canonicalUrl: string): string {
-  return renderToStaticMarkup(createElement(AskAiAboutThis, {
-    className: "atet-ask-ai",
-    url: canonicalUrl,
-  }))
-}
-
-type CopyCommandOptions = Readonly<{
-  alternateCommand: string
-  command: string
-  id: string
-}>
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/gu, character => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  })[character] ?? character)
 }
 
 function renderSitemapUrl(
@@ -149,21 +66,6 @@ export function renderSitemapXml(): string {
 ${entries.join("\n")}
 </urlset>
 `
-}
-
-function renderCopyCommand(options: CopyCommandOptions): string {
-  const alternateCommand = escapeHtml(options.alternateCommand)
-  const command = escapeHtml(options.command)
-  const id = escapeHtml(options.id)
-
-  return `<div class="copy-command" data-copy-command>
-    <code class="copy-command__value" data-copy-command-value>${command}</code>
-    <button aria-describedby="${id}" aria-label="Copy install command" class="copy-command__button"
-      data-copy-command-button hidden type="button">Copy</button>
-    <p class="copy-command__note">Using Bun? <code>${alternateCommand}</code></p>
-    <p aria-atomic="true" aria-live="polite" class="copy-command__status"
-      data-copy-command-status id="${id}"></p>
-  </div>`
 }
 
 type BuildEnvironment = Readonly<Record<string, string | undefined>>
@@ -250,84 +152,34 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   previewFoundationPath: string
   previewStylesPath: string
   stylesPath: string
+  siteArtifacts: readonly SiteArtifact[]
+  siteEvidenceDirectory: string
+  siteFoundationPath: string
   themePath: string
 }>> {
   const environment = options.environment ?? process.env
   const outputDirectory = options.outputDirectory ?? defaultOutputDirectory
   const analyticsConfig = productionAnalyticsConfig(environment)
-  const [
-    indexTemplate,
-    notFoundTemplate,
-    productStyles,
-    designKitFontsStyles,
-    designKitProductMarketingStyles,
-    appearanceStyles,
-    hranessSiteFooterStyles,
-    theme,
-    socialImage,
-  ] = await Promise.all([
-    readFile(join(sourceDirectory, "index.html"), "utf8"),
-    readFile(join(sourceDirectory, "404.html"), "utf8"),
-    readFile(join(sourceDirectory, "styles.css"), "utf8"),
-    readFile(designKitFontsStylesPath, "utf8"),
-    readFile(designKitProductMarketingStylesPath, "utf8"),
-    readFile(appearanceMenuStylesPath, "utf8"),
-    readFile(hranessSiteFooterStylesPath, "utf8"),
-    bundleTheme(),
-    renderAtetSocialImage(),
+  const [theme, socialImage] = await Promise.all([
+    bundleTheme(), renderAtetSocialImage(),
   ])
-  const styles = new TextEncoder().encode(
-    `${designKitFontsStyles.trim()}\n\n${designKitProductMarketingStyles.trim()}\n\n${productStyles.trimEnd()}\n\n${appearanceStyles.trim()}\n\n${hranessSiteFooterStyles.trim()}\n`,
-  )
-
-  const stylesPath = assetPath("styles.css", styles)
   const themePath = assetPath("theme.js", theme)
-  const commonAssets = {
-    "{{APPEARANCE_MENU}}": renderAppearanceMenu(),
-    "{{CSS_ASSET}}": stylesPath,
-    "{{HRANESS_SITE_FOOTER}}": renderHranessSiteFooter({
-      mailingList: { kind: "none" },
-    }),
-    "{{THEME_ASSET}}": themePath,
-  } as const
-  const publicPageAssets = (canonicalPath: string) => ({
-    ...commonAssets,
-    "{{ASK_AI_ABOUT_THIS}}": renderAskAiAboutThis(`${siteOrigin}${canonicalPath}`),
-  }) as const
   const analytics = analyticsConfig === null ? null : await bundleAnalytics(analyticsConfig)
   const analyticsPath = analytics === null ? null : assetPath("analytics.js", analytics)
-  const indexAssets = {
-    ...publicPageAssets("/"),
-    "{{PUBLISHED_VERSION}}": publishedRelease.version,
-    "{{ANALYTICS_SCRIPT}}": analyticsPath === null
-      ? ""
-      : `<script src="${analyticsPath}" type="module"></script>`,
-    "{{SKILL_INSTALL_COMMAND}}": renderCopyCommand({
-      alternateCommand: `bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
-      command: `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
-      id: "skill-install-copy-status",
-    }),
-  } as const
-  // Finalize and validate the complete private preview graph before replacing
-  // an existing public build. Only its closed, byte-bound projection is copied.
+  // Finalize both independent closed graphs before replacing a public build.
+  // All content and stylesheet substitutions happen inside the sealed producers.
+  const site = await buildSite(appDirectory, { themePath, analyticsPath })
   const preview = await buildPreview(appDirectory)
 
   await rm(outputDirectory, { force: true, recursive: true })
   await mkdir(join(outputDirectory, "assets"), { recursive: true })
 
   await Promise.all([
-    cp(designKitFontsDirectory, join(outputDirectory, "assets/fonts"), {
-      dereference: true,
-      recursive: true,
-    }),
-    writeFile(join(outputDirectory, "index.html"), renderDocument(indexTemplate, indexAssets)),
-    writeFile(join(outputDirectory, "404.html"), renderDocument(notFoundTemplate, commonAssets)),
-    ...preview.files.map(async ({ artifact, bytes }) => {
+    ...[...site.files, ...preview.files].map(async ({ artifact, bytes }) => {
       const destination = join(outputDirectory, artifact.path)
       await mkdir(dirname(destination), { recursive: true })
       await writeFile(destination, bytes, { flag: "wx", mode: 0o644 })
     }),
-    writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
     writeFile(join(outputDirectory, "og.png"), socialImage),
     ...(analyticsPath === null || analytics === null
@@ -352,7 +204,10 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   )))
 
   return {
-    analyticsPath, stylesPath, themePath,
+    analyticsPath, stylesPath: site.stylesPath, themePath,
+    siteArtifacts: site.files.map(item => item.artifact),
+    siteEvidenceDirectory: site.evidenceDirectory,
+    siteFoundationPath: site.foundationPath,
     previewArtifacts: preview.files.map(item => item.artifact),
     previewEvidenceDirectory: preview.evidenceDirectory,
     previewFoundationPath: preview.foundationPath,
@@ -364,8 +219,9 @@ if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 6 + result.previewArtifacts.length
+    + 2 + result.siteArtifacts.length + result.previewArtifacts.length
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
+  console.log(`Site compiler evidence retained in ${result.siteEvidenceDirectory}`)
   console.log(`Preview compiler evidence retained in ${result.previewEvidenceDirectory}`)
 }

@@ -1,0 +1,85 @@
+/* Ask AI row rendered from @hraness/ui */
+
+.atet-ask-ai {
+  display: flex;
+  width: min(100% - 2 * var(--gutter), 72rem);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 auto;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.atet-ask-ai [data-slot="ask-ai-about-this-label"] {
+  font-weight: 500;
+}
+
+.atet-ask-ai [data-slot="ask-ai-about-this-links"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.atet-ask-ai [data-slot="ask-ai-about-this-link"] {
+  display: inline-flex;
+  min-height: 1.875rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  color: inherit;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.atet-ask-ai [data-slot="ask-ai-about-this-link"]:hover {
+  border-color: currentColor;
+  color: var(--ink);
+}
+
+.atet-ask-ai [data-slot="ask-ai-about-this-icon"] {
+  display: block;
+  flex: 0 0 auto;
+}
+
+/* Temporary compatibility for the existing row, not a migrated family.
+   The ordinary page previously omitted UI's recipe sheet. Registering the
+   complete UI graph now activates those classes, so preserve the original
+   inherited/initial values that the old product overrides did not need. */
+.atet-ask-ai [data-slot="ask-ai-about-this-label"] {
+  color: inherit;
+  flex: 0 1 auto;
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: normal;
+  line-height: inherit;
+  text-transform: none;
+  white-space: normal;
+}
+
+.atet-ask-ai [data-slot="ask-ai-about-this-link"] {
+  background-color: transparent;
+  font-family: inherit;
+  white-space: normal;
+}
+
+.atet-ask-ai [data-slot="ask-ai-about-this-link"]:hover {
+  background-color: transparent;
+}
+
+.atet-ask-ai [data-slot="ask-ai-about-this-link"]:active {
+  transform: none;
+}
+
+.atet-ask-ai [data-slot="ask-ai-about-this-link"]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}

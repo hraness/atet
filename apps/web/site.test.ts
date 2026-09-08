@@ -386,7 +386,7 @@ describe("static Atet site", () => {
       expect(artifact.bytes).toBeGreaterThan(0)
       expect(artifact.sha256).toBe(new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
     }
-    expect(await readdir(join(appDirectory, "dist/graphs"))).toEqual(["preview-foundation"])
+    expect((await readdir(join(appDirectory, "dist/graphs"))).sort()).toEqual(["preview-foundation", "site-foundation"])
     expect(await readdir(join(appDirectory, "dist/graphs/preview-foundation"))).toEqual(["assets"])
     expect((await readdir(join(appDirectory, "dist/graphs/preview-foundation/assets"))).sort())
       .toEqual(paths.filter(path => path.startsWith("graphs/preview-foundation/assets/"))
@@ -399,6 +399,62 @@ describe("static Atet site", () => {
       return url.pathname.slice(1)
     }).sort()).toEqual([...fonts].sort())
     expect(foundation).not.toMatch(/sourceMappingURL|@import\b/u)
+  })
+
+  test("publishes two sealed ordinary documents with one complete union and bound local fonts", async () => {
+    const artifacts = builtAssets.siteArtifacts
+    const paths = artifacts.map(item => item.path)
+    expect(artifacts).toHaveLength(17)
+    expect(paths).toEqual([...paths].sort())
+    expect(new Set(paths).size).toBe(17)
+    expect(paths.filter(path => path.endsWith(".html"))).toEqual(["404.html", "index.html"])
+    expect(paths.filter(path => path.endsWith(".css")).sort()).toEqual([
+      builtAssets.stylesPath.slice(1), builtAssets.siteFoundationPath.slice(1),
+    ].sort())
+    expect(builtAssets.stylesPath).toMatch(/^\/assets\/site-[a-f0-9]{64}\.css$/u)
+    expect(builtAssets.siteFoundationPath).toMatch(/^\/graphs\/site-foundation\/assets\/[A-Za-z0-9_.-]+\.css$/u)
+    for (const artifact of artifacts) {
+      expect(Object.keys(artifact).sort()).toEqual(["bytes", "path", "sha256"])
+      const bytes = await readFile(join(appDirectory, "dist", artifact.path))
+      expect(artifact.bytes).toBe(bytes.byteLength)
+      expect(artifact.bytes).toBeGreaterThan(0)
+      expect(artifact.sha256).toBe(new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
+    }
+    const fonts = paths.filter(path => path.endsWith(".woff2"))
+    expect(fonts).toHaveLength(13)
+    const foundation = await readBuilt(builtAssets.siteFoundationPath.slice(1))
+    const union = await readBuilt(builtAssets.stylesPath.slice(1))
+    expect(foundation.match(/@font-face\b/gu)).toHaveLength(13)
+    expect([...foundation.matchAll(/url\(["']?([^"')]+)["']?\)/gu)].map(match => {
+      const url = new URL(match[1]!, "https://atet.sh" + builtAssets.siteFoundationPath)
+      expect(url.origin).toBe("https://atet.sh")
+      return url.pathname.slice(1)
+    }).sort()).toEqual([...fonts].sort())
+    expect(foundation).not.toMatch(/sourceMappingURL|@import\b/u)
+    expect(union).not.toMatch(/url\(|@font-face|sourceMappingURL/u)
+    expect(foundation).toContain("components.atet-legacy")
+    expect(union).toContain("components.hraness-stylex")
+    expect(await readdir(join(appDirectory, "dist/graphs/site-foundation"))).toEqual(["assets"])
+    expect((await readdir(join(appDirectory, "dist/graphs/site-foundation/assets"))).sort())
+      .toEqual(paths.filter(path => path.startsWith("graphs/site-foundation/assets/"))
+        .map(path => path.split("/").at(-1)!).sort())
+    const stylesheets = '<link rel="stylesheet" href="' + builtAssets.siteFoundationPath
+      + '">\n    <link rel="stylesheet" href="' + builtAssets.stylesPath + '">'
+    for (const path of ["index.html", "404.html"]) {
+      const html = await readBuilt(path)
+      expect(html).toContain(stylesheets)
+      expect(html.match(/<link rel="stylesheet"(?=\s|>)/gu)).toHaveLength(2)
+      expect(html).not.toMatch(/\{\{|<style\b|\sstyle\s*=|graphs\/site-renderer/u)
+      for (const marker of ["skip-link", "topbar", "wordmark", "topbar-actions"]) {
+        const classes = new RegExp('class="' + marker + ' ([^"]+)"', "u").exec(html)?.[1]?.split(" ")
+        expect(classes).toBeDefined()
+        expect(classes!.length).toBeGreaterThan(0)
+        for (const name of classes!) {
+          expect(name).toMatch(/^x[A-Za-z0-9_-]+$/u)
+          expect(union).toContain("." + name)
+        }
+      }
+    }
   })
 
   test("links the website, product, and source in structured data", async () => {
@@ -512,7 +568,7 @@ describe("static Atet site", () => {
   test("renders a progressively enhanced reusable copy command in the hero", async () => {
     const [html, build, client] = await Promise.all([
       readBuilt("index.html"),
-      readFile(join(appDirectory, "scripts/build.ts"), "utf8"),
+      readSource("site-content.ts"),
       readSource("copy-command.ts"),
     ])
 
@@ -543,7 +599,7 @@ describe("static Atet site", () => {
       'id="maker"',
     ]
     const positions = sections.map(section => html.indexOf(section))
-    const navigation = /<nav aria-label="Primary">([\s\S]*?)<\/nav>/u.exec(html)?.[1] ?? ""
+    const navigation = /<nav aria-label="Primary" class="\{\{SITE_NAVIGATION_CLASS\}\}">([\s\S]*?)<\/nav>/u.exec(html)?.[1] ?? ""
 
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
@@ -554,7 +610,7 @@ describe("static Atet site", () => {
       "https://github.com/hraness/atet",
       "#install",
     ])
-    expect(navigation).toContain('class="hraness-marketing-action" data-emphasis="primary" href="#install"')
+    expect(navigation).toContain('class="site-action {{SITE_NAVIGATION_ACTION_CLASS}}" data-emphasis="primary" href="#install"')
     expect(html).not.toContain('class="docs-index"')
     for (const role of [
       "pillars",
@@ -657,15 +713,15 @@ describe("static Atet site", () => {
     const ids = new Set([...html.matchAll(/\sid="([^"]+)"/gu)].map(match => match[1]))
 
     expect(html.match(/<h1\b/gu)).toHaveLength(1)
-    expect(html).toContain('<a class="skip-link" href="#main">')
-    expect(html).toContain('<nav aria-label="Primary">')
-    expect(html).toContain('<div class="topbar-actions">')
+    expect(html).toContain('<a class="skip-link {{SITE_SKIP_CLASS}}" href="#main">')
+    expect(html).toContain('<nav aria-label="Primary" class="{{SITE_NAVIGATION_CLASS}}">')
+    expect(html).toContain('<div class="topbar-actions {{SITE_ACTIONS_CLASS}}">')
     expect(html).toContain('<main id="main" tabindex="-1">')
     expect(html).not.toMatch(/<section(?![^>]*aria-labelledby)/)
     expect(fragmentLinks.every(fragment => ids.has(fragment))).toBe(true)
     expect(notFound.match(/<h1\b/gu)).toHaveLength(1)
-    expect(notFound).toContain('<a class="skip-link" href="#main">')
-    expect(notFound).toContain('<main class="route-state" id="main" tabindex="-1">')
+    expect(notFound).toContain('<a class="skip-link {{SITE_SKIP_CLASS}}" href="#main">')
+    expect(notFound).toContain('<main class="route-state {{SITE_RECOVERY_CLASS}}" id="main" tabindex="-1">')
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
     expect(notFound).toContain('<meta name="theme-color" content="#faf8f3" media="(prefers-color-scheme: light)">')
     expect(notFound).toContain('<meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">')
@@ -674,8 +730,8 @@ describe("static Atet site", () => {
     expect(notFound).toContain('href="/sitemap.xml"')
     expect(notFound).toContain("machine-readable site guide")
     expect(css).toContain(":where(a, button, [tabindex]):focus-visible")
-    expect(css).toContain(".topbar")
-    expect(css).toContain(".route-state")
+    expect(css).not.toContain(".topbar")
+    expect(css).not.toContain(".route-state")
     expect(css).not.toMatch(/\.reading-(?:article|card|index|module)/u)
     expect(css).toContain("@media (max-width: 64rem)")
     expect(css).toContain("@media (max-width: 48rem)")
@@ -692,7 +748,7 @@ describe("static Atet site", () => {
     for (const document of documents) {
       expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
       expect(document).toMatch(
-        /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
+        /<header class="topbar [^"]+">[\s\S]*?<div class="topbar-actions [^"]+">[\s\S]*?<nav aria-label="Primary" class="[^"]+">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
       )
       const footerStart = document.indexOf('data-slot="hraness-site-footer"')
       expect(footerStart).toBeGreaterThan(0)
@@ -719,7 +775,7 @@ describe("static Atet site", () => {
     expect(css).toContain('html[data-theme="dark"]')
     expect(css).not.toMatch(/--font-display|ui-serif|Baskerville|text-transform:\s*uppercase|letter-spacing:\s*0\.\d+em/u)
     expect(css).not.toMatch(/transition|animation|@keyframes/u)
-    expect(css).toContain(".topbar")
+    expect(css).not.toContain(".topbar")
     expect(css).toContain(".transcript")
     expect(css).toContain(".origin-note")
     expect(css).not.toMatch(/@font-face|url\([^)]*\.woff/)
@@ -727,16 +783,16 @@ describe("static Atet site", () => {
     expect(html).toContain('data-hraness-marketing="proof-frame"')
     expect(html).toContain("Built by Ben Guo")
     expect(html).not.toMatch(/<h1[^>]*>[^<]*(?:bounded|exact|authority|custody|immutable|inspectable|canonical|projection|receipt)/iu)
-    const builtCss = await readBuilt(builtAssets.stylesPath.slice(1))
-    expect(builtCss).toContain('font-family: "Nebula Sans";')
-    expect(builtCss).toContain('./fonts/nebula-sans/NebulaSans-Book.woff2')
+    const builtCss = await readBuilt(builtAssets.siteFoundationPath.slice(1))
+    expect(builtCss).toMatch(/font-family:\s*"?Nebula Sans"?/u)
     expect(builtCss).toContain(".hraness-marketing-hero")
     expect(builtCss).toContain(".hraness-marketing-interface-grid")
-    expect((await readFile(
-      join(appDirectory, "dist/assets/fonts/nebula-sans/NebulaSans-Book.woff2"),
-    )).byteLength).toBeGreaterThan(60_000)
-    expect(await readBuilt("assets/fonts/nebula-sans/PROVENANCE.md"))
-      .toContain("https://www.nebulasans.com/download/NebulaSans-1.010.zip")
+    const book = builtAssets.siteArtifacts.find(item => /\/NebulaSans-Book-[A-Za-z0-9_-]+\.woff2$/u.test(item.path))
+    expect(book).toBeDefined()
+    expect(book!.bytes).toBeGreaterThan(60_000)
+    expect((await readFile(join(appDirectory, "dist", book!.path))).byteLength).toBe(book!.bytes)
+    expect(builtAssets.siteArtifacts.filter(item => item.path.endsWith(".woff2"))).toHaveLength(13)
+    expect(builtAssets.siteArtifacts.some(item => /PROVENANCE|\.(?:otf|json|map|ts|js)$/u.test(item.path))).toBe(false)
   })
 
   test("ships reproducible correctly sized social and icon assets", async () => {
@@ -851,10 +907,10 @@ describe("static Atet site", () => {
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(new TextEncoder().encode(copyCommand).byteLength).toBeLessThan(4_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)
-    expect(html).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
+    expect(html).toContain("{{SITE_STYLES}}")
     expect(html).toContain('<script src="{{THEME_ASSET}}"></script>')
     expect(html.indexOf('<script src="{{THEME_ASSET}}"></script>'))
-      .toBeLessThan(html.indexOf('<link rel="stylesheet" href="{{CSS_ASSET}}">'))
+      .toBeLessThan(html.indexOf("{{SITE_STYLES}}"))
     expect(html).toContain("{{APPEARANCE_MENU}}")
     expect(html).toContain("{{ANALYTICS_SCRIPT}}")
     expect(html.match(/<script\b/gu)).toHaveLength(2)
@@ -875,10 +931,12 @@ describe("static Atet site", () => {
     expect(build).toContain('createHash("sha256")')
     expect(build).toContain("Bun.build")
     expect(build).toContain('format: "iife"')
-    expect(build).toContain('import.meta.resolve("@hraness/design-kit/appearance-menu.css")')
-    expect(build).toContain('import.meta.resolve("@hraness/design-kit/fonts.css")')
-    expect(build).toContain("renderAppearanceMenu()")
-    expect(build).toContain("renderCopyCommand({")
+    expect(await readSource("site-foundation.css"))
+      .toContain('@import "@hraness/design-kit/compiler-foundation.css"')
+    expect(await readFile(join(appDirectory, "scripts/build-site.ts"), "utf8"))
+      .toContain('import.meta.resolve("@hraness/design-kit/fonts.css")')
+    expect(await readSource("site-content.ts")).toContain("renderAppearanceMenu()")
+    expect(await readSource("site-content.ts")).toContain("renderCopyCommand({")
     expect(build).toContain('environment.VERCEL_ENV !== "production"')
     expect(build).not.toContain("docsTemplate")
     expect(build).not.toContain('outputDirectory, "docs"')
@@ -1002,6 +1060,10 @@ describe("static Atet site", () => {
       expect(second.previewFoundationPath).toBe(first.previewFoundationPath)
       expect(second.previewArtifacts).toEqual(first.previewArtifacts)
       expect(first.previewArtifacts).toEqual(builtAssets.previewArtifacts)
+      expect(second.siteArtifacts).toEqual(first.siteArtifacts)
+      expect(second.siteFoundationPath).toBe(first.siteFoundationPath)
+      expect(second.stylesPath).toBe(first.stylesPath)
+      expect(first.stylesPath).not.toBe(builtAssets.stylesPath)
 
       const [html, notFound, preview, asset] = await Promise.all([
         readFile(join(productionDirectory, "index.html"), "utf8"),
@@ -1083,21 +1145,23 @@ describe("static Atet site", () => {
       "sitemap.xml",
     ])
     expect(assetFiles.sort()).toEqual([
-      "fonts",
       builtAssets.previewStylesPath.split("/").at(-1)!,
       builtAssets.stylesPath.split("/").at(-1)!,
       builtAssets.themePath.split("/").at(-1)!,
     ].sort())
 
-    const [stylesAsset, themeAsset] = await Promise.all([
+    const [stylesAsset, foundationAsset, themeAsset] = await Promise.all([
       readFile(join(appDirectory, "dist", builtAssets.stylesPath.slice(1)), "utf8"),
+      readFile(join(appDirectory, "dist", builtAssets.siteFoundationPath.slice(1)), "utf8"),
       readFile(join(appDirectory, "dist", builtAssets.themePath.slice(1)), "utf8"),
     ])
-    expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
+    expect(foundationAsset).toContain(".hraness-design-theme-toggle__trigger")
     expect(stylesAsset).toContain("--hraness-site-footer-social-target")
     expect(stylesAsset).not.toContain("@import \"./dist/stylex.css\"")
-    expect(stylesAsset).toContain("@media (pointer: coarse)")
-    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(74_000)
+    expect(stylesAsset).toMatch(/@media\s*\(pointer:\s*coarse\)/u)
+    // The ordinary graph now includes the complete three-package union and
+    // captured compatibility foundation, never duplicated standalone sheets.
+    expect(new TextEncoder().encode(stylesAsset + foundationAsset).byteLength).toBeLessThan(256_000)
     expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
     expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
