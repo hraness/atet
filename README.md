@@ -40,16 +40,16 @@ an Atet service.
 Install the single Atet Agent Skill with either runner:
 
 ```sh
-npx skills add https://github.com/hraness/atet/tree/v3.2.1 --skill atet
+npx skills add https://github.com/hraness/atet/tree/v3.2.2 --skill atet
 # or
-bunx skills add https://github.com/hraness/atet/tree/v3.2.1 --skill atet
+bunx skills add https://github.com/hraness/atet/tree/v3.2.2 --skill atet
 ```
 
 Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
 then inspect the local media host:
 
 ```sh
-bun add --global @hraness/atet@3.2.1
+bun add --global @hraness/atet@3.2.2
 atet doctor
 ```
 
@@ -90,7 +90,7 @@ To install the guide only for the current repository, run
 packaged guide for inspection.
 
 The npm package and immutable GitHub release contain the same versioned CLI and
-Agent Skill. You can use `github:hraness/atet#v3.2.1` when you need to install
+Agent Skill. You can use `github:hraness/atet#v3.2.2` when you need to install
 the source tag directly.
 
 </details>
@@ -368,7 +368,7 @@ integration terms.
 Add the package to a Bun project:
 
 ```sh
-bun add @hraness/atet@3.2.1
+bun add @hraness/atet@3.2.2
 ```
 
 SDK imports do not start the CLI or inspect local project state:
