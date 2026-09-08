@@ -196,6 +196,21 @@ describe("compilation fixture ownership (controlled promises, no compiler)", () 
   })
 })
 
+test("analytics preserves an optional timestamp without manufacturing an undefined field", () => {
+  for (const timestamp of [undefined, new Date("2026-09-08T00:00:00.000Z")]) {
+    const sanitized = sanitizePageview({
+      event: "$pageview",
+      properties: { token: "phc_testtoken", distinct_id: posthogCookielessDistinctId,
+        $cookieless_mode: true, $raw_user_agent: "native test user agent" },
+      uuid: "0198c6a7-7c00-7000-8000-000000000000",
+      ...(timestamp === undefined ? {} : { timestamp }),
+    }, "phc_testtoken")
+    expect(sanitized).not.toBeNull()
+    expect(Object.hasOwn(sanitized!, "timestamp")).toBe(timestamp !== undefined)
+    expect(sanitized?.timestamp).toBe(timestamp)
+  }
+})
+
 describe("static Atet site", () => {
   beforeAll(async () => {
     try {

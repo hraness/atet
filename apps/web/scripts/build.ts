@@ -122,11 +122,12 @@ async function bundleAnalytics(config: Readonly<{ host: string; key: string }>):
     sourcemap: "none",
     target: "browser",
   })
-  if (!result.success || result.outputs.length !== 1) {
+  const output = result.outputs[0]
+  if (!result.success || result.outputs.length !== 1 || output === undefined) {
     const details = result.logs.map(log => log.message).join("\n")
     throw new Error(`Could not bundle the analytics client${details === "" ? "" : `: ${details}`}`)
   }
-  return new Uint8Array(await result.outputs[0].arrayBuffer())
+  return new Uint8Array(await output.arrayBuffer())
 }
 
 async function bundleTheme(): Promise<Uint8Array> {
@@ -138,11 +139,12 @@ async function bundleTheme(): Promise<Uint8Array> {
     sourcemap: "none",
     target: "browser",
   })
-  if (!result.success || result.outputs.length !== 1) {
+  const output = result.outputs[0]
+  if (!result.success || result.outputs.length !== 1 || output === undefined) {
     const details = result.logs.map(log => log.message).join("\n")
     throw new Error(`Could not bundle the appearance client${details === "" ? "" : `: ${details}`}`)
   }
-  return new Uint8Array(await result.outputs[0].arrayBuffer())
+  return new Uint8Array(await output.arrayBuffer())
 }
 
 export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly<{
