@@ -334,6 +334,26 @@ export async function denyShellWebSocket(socket: WebSocketRoute, error: (message
   await socket.close({ code: 1008, reason: "Ordinary static verification admits no sockets" })
 }
 
+/** A failed original sample remains red even if a later diagnostic frame settles. */
+export async function assertShellSkipReveal(rect: readonly number[], label: string, diagnostic: () => Promise<unknown>): Promise<void> {
+  if (rect[0]! >= 0 && rect[1]! >= 0 && rect[2]! > 0) return
+  assert.fail(`${label}: focused skip link is clipped ${JSON.stringify({ rect, diagnostic: await diagnostic() })}`)
+}
+
+async function skipRevealDiagnostic(page: Page): Promise<unknown> {
+  const sample = () => page.locator(".skip-link").evaluate(element => {
+    const rect = element.getBoundingClientRect(), style = getComputedStyle(element)
+    return { rect: [rect.x, rect.y, rect.width, rect.height], focused: document.activeElement === element,
+      focus: element.matches(":focus"), focusVisible: element.matches(":focus-visible"),
+      transform: style.transform, top: style.top, left: style.left,
+      transitionProperty: style.transitionProperty, transitionDuration: style.transitionDuration,
+      transitionDelay: style.transitionDelay, animationCount: element.getAnimations().length }
+  })
+  const before = await sample()
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+  return { before, afterTwoFrames: await sample() }
+}
+
 export async function checkShellCase(browser: Browser, payload: ShellPayload, scenario: ShellCase, negative: boolean): Promise<ShellEvidence> {
   const context = await browser.newContext({ viewport: { width: scenario.width, height: scenario.height },
     deviceScaleFactor: scenario.reflowEquivalent ? 2 : 1, colorScheme: scenario.system, forcedColors: scenario.forced,
@@ -389,7 +409,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     await page.keyboard.press("Tab")
     assert.equal(await page.locator(".skip-link").evaluate(element => document.activeElement === element), true)
     let skip = (await measure(page, [".skip-link"]))[0]!
-    assert.ok(skip.rect[0]! >= 0 && skip.rect[1]! >= 0 && skip.rect[2]! > 0)
+    await assertShellSkipReveal(skip.rect, `${negative ? "current" : "baseline"} ${scenario.name} initial`, () => skipRevealDiagnostic(page))
     await page.keyboard.press("Enter")
     assert.equal(await page.locator("#main").evaluate(element => document.activeElement === element), true, "Native skip did not focus main")
     await chooseAppearance(page, scenario.theme, scenario.system)
@@ -415,7 +435,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     await page.keyboard.press("Tab")
     assert.equal(await page.locator(".skip-link").evaluate(element => document.activeElement === element), true)
     skip = (await measure(page, [".skip-link"]))[0]!
-    assert.ok(skip.rect[0]! >= 0 && skip.rect[1]! >= 0 && skip.rect[2]! > 0)
+    await assertShellSkipReveal(skip.rect, `${negative ? "current" : "baseline"} ${scenario.name} reload`, () => skipRevealDiagnostic(page))
     await page.keyboard.press("Enter")
     assert.equal(await page.locator("#main").evaluate(element => document.activeElement === element), true)
     await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }))

@@ -1,8 +1,19 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
-import { assertShellNode, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellPhase, parseShellRequest,
+import { assertShellNode, assertShellSkipReveal, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellPhase, parseShellRequest,
   resolvedShellTheme, shellAppearanceSteps, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
+
+test("skip reveal diagnostics never turn a failed original frame into acceptance", async () => {
+  let reads = 0
+  const diagnostic = async () => { reads += 1; return { afterTwoFrames: { rect: [12, 12, 100, 48], focused: true } } }
+  await assertShellSkipReveal([12, 12, 100, 48], "current initial", diagnostic)
+  expect(reads).toBe(0)
+  for (const rect of [[-1, 12, 100, 48], [12, -1, 100, 48], [12, 12, 0, 48]]) {
+    await expect(assertShellSkipReveal(rect, "current reload", diagnostic)).rejects.toThrow("current reload: focused skip link is clipped")
+  }
+  expect(reads).toBe(3)
+})
 
 function request(): ShellRequest {
   const foundation = "/graphs/site-foundation/assets/style.css", union = `/assets/site-${"a".repeat(64)}.css`
