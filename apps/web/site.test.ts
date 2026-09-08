@@ -1,5 +1,5 @@
-import { beforeAll, describe, expect, test } from "bun:test"
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test"
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -43,9 +43,81 @@ const brandDescription = "Agentic creative coding toolkit. At the beginning of t
 const searchDescription = "Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos."
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
-beforeAll(async () => {
-  builtAssets = await buildWebsite({ environment: {} })
+// Each build compiles the independent ordinary-site and preview graphs. These
+// are compilation-fixture budgets, not deadlines for production operations or
+// the ordinary content assertions below.
+const compilationTimeoutMs = 60_000
+const repeatedCompilationTimeoutMs = 2 * compilationTimeoutMs
+type CompilationFixture = Readonly<{
+  build: typeof buildWebsite
+  temporaryDirectory: (prefix: string) => Promise<string>
+}>
+type CompilationOwner = Readonly<{ collect: () => Promise<void> }>
+let compilationOwner: CompilationOwner | undefined
+
+function ownedCompilation<T>(
+  body: (fixture: CompilationFixture) => Promise<T>,
+  compile: typeof buildWebsite = buildWebsite,
+): Promise<T> {
+  if (compilationOwner !== undefined) throw new Error("Previous compilation fixture has not settled")
+  const controller = new AbortController()
+  const directories = new Set<string>()
+  let collection: Promise<void> | undefined
+  // Register ownership before dispatch. Bun timing out a test does not cancel
+  // its promise; collection revokes the next build and joins the whole callback
+  // before removing any output directory or admitting another fixture.
+  const task = Promise.resolve().then(() => {
+    controller.signal.throwIfAborted()
+    return body({
+      build: async options => {
+        controller.signal.throwIfAborted()
+        const result = await compile(options)
+        controller.signal.throwIfAborted()
+        return result
+      },
+      temporaryDirectory: async prefix => {
+        controller.signal.throwIfAborted()
+        const directory = await mkdtemp(join(tmpdir(), prefix))
+        directories.add(directory)
+        controller.signal.throwIfAborted()
+        return directory
+      },
+    })
+  })
+  // Observe rejection immediately, including the timeout-to-afterEach window.
+  const settled = Promise.allSettled([task])
+  const owner: CompilationOwner = {
+    collect: () => {
+      if (collection !== undefined) return collection
+      controller.abort(new Error("Compilation fixture admission has ended"))
+      collection = (async () => {
+        await settled
+        const cleanup = await Promise.allSettled([...directories].map(directory =>
+          rm(directory, { force: true, recursive: true })))
+        const failures = cleanup.filter(result => result.status === "rejected")
+        if (failures.length !== 0) {
+          throw new AggregateError(failures.map(result => result.reason), "Compilation fixture cleanup failed")
+        }
+        if (compilationOwner === owner) compilationOwner = undefined
+      })()
+      return collection
+    },
+  }
+  compilationOwner = owner
+  return task
+}
+
+async function collectCompilation(): Promise<void> {
+  await compilationOwner?.collect()
+}
+
+beforeEach(() => {
+  // A timed-out collection never releases ownership, even if Bun proceeds to
+  // another case. Do not admit a new writer over its surviving continuation.
+  if (compilationOwner !== undefined) throw new Error("Previous compilation fixture has not settled")
 })
+afterEach(collectCompilation, repeatedCompilationTimeoutMs)
+afterAll(collectCompilation, repeatedCompilationTimeoutMs)
 
 async function readSource(path: string): Promise<string> {
   return await readFile(join(appDirectory, "src", path), "utf8")
@@ -55,7 +127,84 @@ async function readBuilt(path: string): Promise<string> {
   return await readFile(join(appDirectory, "dist", path), "utf8")
 }
 
+describe("compilation fixture ownership (controlled promises, no compiler)", () => {
+  test("collection before dispatch prevents any work from starting", async () => {
+    let dispatched = false
+    const task = ownedCompilation(async () => { dispatched = true })
+    const collection = collectCompilation()
+    await expect(task).rejects.toThrow("Compilation fixture admission has ended")
+    await collection
+    expect(dispatched).toBe(false)
+    expect(compilationOwner).toBeUndefined()
+  })
+
+  test("late build completion is joined before cleanup and cannot start another build", async () => {
+    let enter!: () => void
+    let release!: () => void
+    const entered = new Promise<void>(resolve => { enter = resolve })
+    const released = new Promise<void>(resolve => { release = resolve })
+    let directory = ""
+    let builds = 0
+    let reachedSecondBuild = false
+    const task = ownedCompilation(async fixture => {
+      directory = await fixture.temporaryDirectory("atet-web-owned-settlement-")
+      await fixture.build({ outputDirectory: directory })
+      reachedSecondBuild = true
+      await fixture.build({ outputDirectory: directory })
+    }, async () => {
+      builds += 1
+      enter()
+      await released
+      await writeFile(join(directory, "late-output.txt"), "settled before cleanup")
+      return builtAssets
+    })
+    await entered
+    let collected = false
+    const collection = collectCompilation().then(() => { collected = true })
+    try {
+      expect(compilationOwner).toBeDefined()
+      expect(() => ownedCompilation(async () => {})).toThrow("Previous compilation fixture has not settled")
+      expect(await readdir(directory)).toEqual([])
+      expect(collected).toBe(false)
+    } finally {
+      release()
+      await expect(task).rejects.toThrow("Compilation fixture admission has ended")
+      await collection
+    }
+    expect(builds).toBe(1)
+    expect(reachedSecondBuild).toBe(false)
+    expect(collected).toBe(true)
+    expect(compilationOwner).toBeUndefined()
+    await expect(readdir(directory)).rejects.toMatchObject({ code: "ENOENT" })
+  })
+
+  test("a rejected build retains its exact failure and outputs until collection", async () => {
+    const failure = new Error("controlled compiler rejection")
+    let directory = ""
+    const task = ownedCompilation(async fixture => {
+      directory = await fixture.temporaryDirectory("atet-web-owned-rejection-")
+      await fixture.build({ outputDirectory: directory })
+    }, async () => { throw failure })
+    await expect(task).rejects.toBe(failure)
+    expect(compilationOwner).toBeDefined()
+    expect(await readdir(directory)).toEqual([])
+    await collectCompilation()
+    expect(compilationOwner).toBeUndefined()
+    await expect(readdir(directory)).rejects.toMatchObject({ code: "ENOENT" })
+    await ownedCompilation(async () => {})
+    await collectCompilation()
+  })
+})
+
 describe("static Atet site", () => {
+  beforeAll(async () => {
+    try {
+      builtAssets = await ownedCompilation(fixture => fixture.build({ environment: {} }))
+    } finally {
+      await collectCompilation()
+    }
+  }, compilationTimeoutMs)
+
   test("published release separates public availability from the source candidate", async () => {
     expect(publishedRelease).toEqual({
       version: "3.2.2",
@@ -1044,16 +1193,16 @@ describe("static Atet site", () => {
   })
 
   test("emits analytics only for a configured Production build", async () => {
-    const productionDirectory = await mkdtemp(join(tmpdir(), "atet-web-production-"))
-    const secondDirectory = await mkdtemp(join(tmpdir(), "atet-web-production-repeat-"))
-    try {
+    await ownedCompilation(async fixture => {
+      const productionDirectory = await fixture.temporaryDirectory("atet-web-production-")
+      const secondDirectory = await fixture.temporaryDirectory("atet-web-production-repeat-")
       const environment = {
         NEXT_PUBLIC_POSTHOG_HOST: "https://us.i.posthog.com",
         NEXT_PUBLIC_POSTHOG_KEY: "phc_test-token_value",
         VERCEL_ENV: "production",
       } as const
-      const first = await buildWebsite({ environment, outputDirectory: productionDirectory })
-      const second = await buildWebsite({ environment, outputDirectory: secondDirectory })
+      const first = await fixture.build({ environment, outputDirectory: productionDirectory })
+      const second = await fixture.build({ environment, outputDirectory: secondDirectory })
       expect(first.analyticsPath).toMatch(/^\/assets\/analytics-[a-f0-9]{12}\.js$/u)
       expect(second.analyticsPath).toBe(first.analyticsPath)
       expect(second.previewStylesPath).toBe(first.previewStylesPath)
@@ -1079,18 +1228,13 @@ describe("static Atet site", () => {
       expect(asset).toStartWith("/*! posthog-js 1.413.2")
       expect(asset).toContain("Apache License\n                           Version 2.0")
       expect(new TextEncoder().encode(asset).byteLength).toBeLessThan(180_000)
-    } finally {
-      await Promise.all([
-        rm(productionDirectory, { force: true, recursive: true }),
-        rm(secondDirectory, { force: true, recursive: true }),
-      ])
-    }
-  })
+    })
+  }, repeatedCompilationTimeoutMs)
 
   test("keeps missing, Preview, and unsupported-host analytics builds inert", async () => {
-    const outputDirectory = await mkdtemp(join(tmpdir(), "atet-web-inert-"))
-    try {
-      const preview = await buildWebsite({
+    await ownedCompilation(async fixture => {
+      const outputDirectory = await fixture.temporaryDirectory("atet-web-inert-")
+      const preview = await fixture.build({
         environment: {
           NEXT_PUBLIC_POSTHOG_KEY: "phc_testtoken",
           VERCEL_ENV: "preview",
@@ -1101,7 +1245,7 @@ describe("static Atet site", () => {
       expect(await readFile(join(outputDirectory, "index.html"), "utf8"))
         .not.toMatch(/analytics-|phc_testtoken/)
 
-      await expect(buildWebsite({
+      await expect(fixture.build({
         environment: {
           NEXT_PUBLIC_POSTHOG_HOST: "https://example.com",
           NEXT_PUBLIC_POSTHOG_KEY: "phc_testtoken",
@@ -1109,10 +1253,8 @@ describe("static Atet site", () => {
         },
         outputDirectory,
       })).rejects.toThrow("NEXT_PUBLIC_POSTHOG_HOST must equal https://us.i.posthog.com")
-    } finally {
-      await rm(outputDirectory, { force: true, recursive: true })
-    }
-  })
+    })
+  }, compilationTimeoutMs)
 
   test("renders one closed static page with resolved content-hashed assets", async () => {
     const [html, notFound, rootFiles, assetFiles] = await Promise.all([

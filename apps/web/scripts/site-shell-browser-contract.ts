@@ -4,8 +4,8 @@ import type { Browser, Page, WebSocketRoute } from "playwright-core"
 import { bounded } from "./preview-browser-contract"
 
 export const siteShellDeadlineMs = 720_000
-export const siteShellBaselineRevision = "e4ef04c1f16a17da8dfdaf186ab8544fb552516f"
-export const siteShellBaselineTree = "f77376fcae77a200b4cb84844935bbc4be1ca9d7"
+export const siteShellBaselineRevision = "2104a004d3839e44c5985daf3ac7203e05c2f45a"
+export const siteShellBaselineTree = "a6e50b09eebad9007f259c428883521556a483d7"
 export const siteShellHeaders = Object.freeze({
   "content-security-policy": "default-src 'self'; base-uri 'none'; connect-src https://us.i.posthog.com; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'; upgrade-insecure-requests",
   "permissions-policy": "camera=(), display-capture=(), geolocation=(), microphone=(), payment=(), usb=()",
