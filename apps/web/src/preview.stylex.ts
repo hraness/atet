@@ -20,7 +20,9 @@ const previewStyles = stylex.create({
     backgroundColor: "transparent",
     backgroundImage: "radial-gradient(circle at 78% 18%, color-mix(in srgb, var(--gold-bright) 18%, transparent), transparent 30rem), linear-gradient(145deg, var(--paper-raised), var(--paper))",
     backgroundOrigin: "padding-box",
-    backgroundPosition: "0% 0%",
+    // Keep the old background shorthand's initial percentage position. A
+    // numeric zero position is serialized as a length by the final CSS writer.
+    backgroundPosition: "initial",
     backgroundRepeat: "repeat",
     backgroundSize: "auto auto",
   },
@@ -51,7 +53,7 @@ const previewStyles = stylex.create({
     backgroundColor: "color-mix(in srgb, var(--paper-raised) 94%, transparent)",
     backgroundImage: "none",
     backgroundOrigin: "padding-box",
-    backgroundPosition: "0% 0%",
+    backgroundPosition: "initial",
     backgroundRepeat: "repeat",
     backgroundSize: "auto auto",
     boxShadow: "0 1px 2px rgba(0, 0, 0, 0.06), 0 24px 48px -24px rgba(0, 0, 0, 0.28)",
@@ -74,7 +76,7 @@ const previewStyles = stylex.create({
     backgroundColor: "var(--gold-bright)",
     backgroundImage: "none",
     backgroundOrigin: "padding-box",
-    backgroundPosition: "0% 0%",
+    backgroundPosition: "initial",
     backgroundRepeat: "repeat",
     backgroundSize: "auto auto",
     boxShadow: "0 0 3rem color-mix(in srgb, var(--gold-bright) 38%, transparent)",

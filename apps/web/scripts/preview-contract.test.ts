@@ -135,6 +135,20 @@ describe("inert preview artifact boundary (pure synthetic contract controls)", (
     expect(() => projectPreviewArtifacts(complete, { ...expected, foundation: { ...expected.foundation, privateScriptPath: expected.foundation.cssPath } })).toThrow()
   })
 
+  test("preview background resets preserve the shorthand's initial percentage position", async () => {
+    const recipe = await readFile(new URL("../src/preview.stylex.ts", import.meta.url), "utf8")
+    // The original route, shell and sun backgrounds omit a position. Explicit
+    // numeric zero percentages are canonicalized to lengths in final CSS;
+    // preserve their actual initial value rather than relaxing native parity.
+    for (const name of ["route", "shell", "sun"]) {
+      const block = new RegExp(`\\n  ${name}: \\{([\\s\\S]*?)\\n  \\},`, "u").exec(recipe)?.[1]
+      expect(block).toBeDefined()
+      expect(block).toContain('backgroundPosition: "initial"')
+    }
+    expect([...recipe.matchAll(/backgroundPosition:\s*"([^"]+)"/gu)].map(match => match[1]))
+      .toEqual(["initial", "initial", "initial"])
+  })
+
   test("authored preview has static recipes and a private CSS-importing foundation, without changing ordinary entrypoints", async () => {
     const root = new URL("../", import.meta.url)
     const read = async (path: string) => readFile(fileURLToPath(new URL(path, root)), "utf8")
