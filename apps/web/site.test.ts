@@ -37,6 +37,7 @@ import middleware, { config as middlewareConfig } from "./middleware"
 import { buildWebsite, renderAskAiAboutThis, renderSitemapXml } from "./scripts/build"
 import { renderAtetSocialImage } from "./scripts/generate-og"
 import { parsePublishedRelease, publishedRelease } from "./src/published-release"
+import { replaceSiteSlot } from "./src/site-template"
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
 const brandDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
@@ -126,6 +127,32 @@ async function readSource(path: string): Promise<string> {
 async function readBuilt(path: string): Promise<string> {
   return await readFile(join(appDirectory, "dist", path), "utf8")
 }
+
+function assertAuthoredShellBudget(template: string): number {
+  let authored = replaceSiteSlot(template, "{{PUBLISHED_VERSION}}", publishedRelease.version, 8)
+  // Discount only the finite compiler-slot spelling, never authored classes or HTML.
+  for (const [slot, count] of [
+    ["{{SITE_SKIP_CLASS}}", 1], ["{{SITE_HEADER_CLASS}}", 1],
+    ["{{SITE_WORDMARK_CLASS}}", 1], ["{{SITE_ACTIONS_CLASS}}", 1],
+    ["{{SITE_NAVIGATION_CLASS}}", 1], ["{{SITE_HOME_NAVIGATION_LINK_CLASS}}", 4],
+    ["{{SITE_NAVIGATION_ACTION_CLASS}}", 1],
+  ] as const) authored = replaceSiteSlot(authored, slot, "", count)
+  if (/\{\{SITE_[^{}]*_CLASS\}\}/u.test(authored)) throw new Error("Unexpected site class slot")
+  const bytes = new TextEncoder().encode(authored).byteLength
+  if (bytes >= 32_000) throw new Error(`Authored site shell exceeds its 32,000-byte budget: ${bytes}`)
+  return bytes
+}
+
+test("authored shell budget rejects content growth and unapproved slot discounts without compilation", async () => {
+  const template = await readSource("index.html")
+  expect(assertAuthoredShellBudget(template)).toBeLessThan(32_000)
+  expect(() => assertAuthoredShellBudget(template.replace("</main>", `${"x".repeat(32_000)}</main>`)))
+    .toThrow("Authored site shell exceeds its 32,000-byte budget")
+  expect(() => assertAuthoredShellBudget(`${template}{{SITE_UNKNOWN_CLASS}}`))
+    .toThrow("Unexpected site class slot")
+  expect(() => assertAuthoredShellBudget(`${template}{{SITE_SKIP_CLASS}}`))
+    .toThrow("Site document must contain 1 instance(s) of {{SITE_SKIP_CLASS}}")
+})
 
 describe("compilation fixture ownership (controlled promises, no compiler)", () => {
   test("collection before dispatch prevents any work from starting", async () => {
@@ -1064,9 +1091,11 @@ describe("static Atet site", () => {
       expect(localLockfile).toContain(`"${name}": "${version}"`)
     }
     expect(localLockfile).not.toContain("catalog:")
-    // Measure the version-resolved shell, excluding only publication-token overhead.
-    const versionResolvedShell = html.replaceAll("{{PUBLISHED_VERSION}}", publishedRelease.version)
-    expect(new TextEncoder().encode(versionResolvedShell).byteLength).toBeLessThan(32_000)
+    expect(assertAuthoredShellBudget(html)).toBeLessThan(32_000)
+    // Bound the full sealed document separately, including compiled classes and content producers.
+    const emittedBytes = new TextEncoder().encode(await readBuilt("index.html")).byteLength
+    expect(builtAssets.siteArtifacts.find(artifact => artifact.path === "index.html")?.bytes).toBe(emittedBytes)
+    expect(emittedBytes).toBeLessThan(56_000)
     expect(new TextEncoder().encode(css).byteLength).toBeLessThan(36_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(new TextEncoder().encode(copyCommand).byteLength).toBeLessThan(4_000)

@@ -2181,7 +2181,8 @@ test("source 3.2.2 and verified-public installs preserve one Atet identity", asy
   const manifest = JSON.parse(
     await readFile(join(packageRoot, "package.json"), "utf8"),
   ) as { readonly bin?: unknown; readonly version?: unknown }
-  const [disclosure, publishing, readme, security, skillInstall, siteBuild, siteMarkdown, siteTemplate] =
+  const [disclosure, publishing, readme, security, skillInstall, siteBuild, siteProducer,
+    siteContent, siteRenderer, siteMarkdown, siteTemplate] =
     await Promise.all([
       readFile(join(packageRoot, "DISCLOSURE"), "utf8"),
       readFile(join(packageRoot, "docs", "publishing.md"), "utf8"),
@@ -2189,6 +2190,9 @@ test("source 3.2.2 and verified-public installs preserve one Atet identity", asy
       readFile(join(packageRoot, "SECURITY.md"), "utf8"),
       readFile(join(packageRoot, "skills", "atet", "references", "install.md"), "utf8"),
       readFile(join(packageRoot, "apps", "web", "scripts", "build.ts"), "utf8"),
+      readFile(join(packageRoot, "apps", "web", "scripts", "build-site.ts"), "utf8"),
+      readFile(join(packageRoot, "apps", "web", "src", "site-content.ts"), "utf8"),
+      readFile(join(packageRoot, "apps", "web", "src", "site-renderer.ts"), "utf8"),
       readFile(join(packageRoot, "apps", "web", "src", "agent-pages.ts"), "utf8"),
       readFile(join(packageRoot, "apps", "web", "src", "index.html"), "utf8"),
     ])
@@ -2210,8 +2214,25 @@ test("source 3.2.2 and verified-public installs preserve one Atet identity", asy
   for (const source of [readme, homeMarkdown]) {
     expect(source).toContain(immutableSkillInstall)
   }
-  expect(siteBuild).toContain('"{{PUBLISHED_VERSION}}": publishedRelease.version')
-  expect(siteBuild).toContain('https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet')
+  expect(siteContent).toContain('import { publishedRelease } from "./published-release"')
+  expect(siteContent).toContain('["{{PUBLISHED_VERSION}}", publishedRelease.version, 8]')
+  expect(siteTemplate.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(8)
+  expect(siteContent).toContain('alternateCommand: `bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`')
+  expect(siteContent).toContain('command: `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`')
+  expect(siteRenderer).toContain('import { siteContentSlots, type SiteAssets, type SiteDocument } from "./site-content"')
+  expect(siteRenderer).toContain("for (const [placeholder, value, count] of siteContentSlots(document, assets))")
+  expect(siteRenderer).toContain("rendered = replaceSiteSlot(rendered, placeholder, value, count)")
+  expect(siteBuild).toContain("const site = await buildSite(appDirectory, { themePath, analyticsPath })")
+  for (const source of ["src/site-content.ts", "src/site-renderer.ts", "src/published-release.ts"]) {
+    expect(siteProducer).toContain(`"${source}"`)
+  }
+  expect(siteProducer).toContain('entrypoints: [below(root, join(app, "src/site-renderer.ts"))], id: "site-renderer", kind: "ssr"')
+  const produce = siteProducer.indexOf("const html: unknown = module.renderSiteDocument(")
+  const seal = siteProducer.indexOf("await sealStylexProducedTemplate(generation, document)")
+  const finalize = siteProducer.indexOf("await finalizeStylexGeneration(")
+  expect(produce).toBeGreaterThan(-1)
+  expect(seal).toBeGreaterThan(produce)
+  expect(finalize).toBeGreaterThan(seal)
   expect(siteMarkdown).toContain('import { publishedRelease } from "./published-release"')
   expect(siteTemplate).toContain('"softwareVersion": "{{PUBLISHED_VERSION}}"')
   expect(siteTemplate).toContain('"version": "{{PUBLISHED_VERSION}}"')
