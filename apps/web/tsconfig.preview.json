@@ -28,6 +28,11 @@
     "scripts/preview-file.test.ts",
     "scripts/verify-preview-layout.ts",
     "scripts/preview-layout.test.ts",
+    "scripts/preview-browser-contract.ts",
+    "scripts/preview-browser-protocol.ts",
+    "scripts/preview-browser-protocol.test.ts",
+    "scripts/preview-browser-driver.ts",
+    "scripts/build-preview-browser-driver.ts",
     "src/preview-renderer.ts",
     "src/preview-foundation.ts",
     "src/preview.stylex.ts"

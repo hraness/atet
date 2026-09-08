@@ -4,6 +4,7 @@
 - `src/negotiate.ts`, `src/negotiate-request.ts`, and `middleware.ts` select HTML or markdown from `Accept` for document routes.
 - `scripts/build.ts` renders fingerprinted local assets into `dist/` from an explicit allowlist and bundles the pinned PostHog browser client only for a configured Production build.
 - `src/preview.stylex.ts`, `src/preview-renderer.ts`, and `src/preview-foundation.*` own the inert preview's static recipes, sealed HTML producer, and CSS-importing foundation entry. `scripts/build-preview.ts` compiles their public StyleX generation; `scripts/preview-contract.ts` bounds its publication projection.
+- The preview browser verifier keeps the Bun HTTP server and Direct-owned Chrome lifecycle in its parent. A separately owned Node 24 worker drives Playwright through a bounded request, phase and result protocol; acceptance follows collection of both process groups and the server.
 - `site.test.ts`, `package.json`, and `vercel.json` define the content, identity, accessibility, performance, legacy-host, and deployment contracts.
 
 # Guidelines
@@ -30,3 +31,4 @@
 - Preserve permanent production redirects for every reviewed predecessor host without redirecting canonical Atet hosts. Do not create a durable Preview hostname as a compatibility target.
 - Run `bun run check` in this directory after a site change.
 - `bun test ./scripts/preview-contract.test.ts` is a pure, process-free edit loop. `typecheck:preview` checks the new compiler boundary independently of the root SDK configuration. `site.test.ts` performs real compilation and `verify:preview` runs native Chromium; the integration owner runs those through the required host/repository admission, including an isolated frozen install and native preview evidence before delivery.
+- Set `NODE_EXECUTABLE_PATH` to the explicit Node 24 executable for preview browser verification. CI pins Node 24.18.1. Keep Playwright in the genuine Node worker, preserve the ten-second attachment deadline, and never accept a worker result before input revalidation, cancellation settlement, stream closure and positive owned-process absence.
