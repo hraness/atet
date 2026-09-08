@@ -818,6 +818,7 @@ describe("static Atet site", () => {
     })
     expect(manifest.devDependencies).toEqual({
       "@babel/core": "7.29.7",
+      "@hraness/direct": "github:hraness/direct#v0.7.20",
       "@stylexjs/babel-plugin": "0.19.0",
       "@stylexjs/stylex": "0.19.0",
       "@types/babel__core": "7.20.5",
@@ -826,6 +827,7 @@ describe("static Atet site", () => {
       "@types/react": "19.2.14",
       "@types/react-dom": "19.2.3",
       "lightningcss": "1.33.0",
+      "playwright-core": "1.62.0",
       "typescript": "5.9.3",
       "vite": "8.2.1",
     })

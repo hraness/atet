@@ -15,6 +15,7 @@
       },
       "devDependencies": {
         "@babel/core": "7.29.7",
+        "@hraness/direct": "github:hraness/direct#v0.7.20",
         "@stylexjs/babel-plugin": "0.19.0",
         "@stylexjs/stylex": "0.19.0",
         "@types/babel__core": "7.20.5",
@@ -23,6 +24,7 @@
         "@types/react": "19.2.14",
         "@types/react-dom": "19.2.3",
         "lightningcss": "1.33.0",
+        "playwright-core": "1.62.0",
         "typescript": "5.9.3",
         "vite": "8.2.1",
       },
@@ -64,6 +66,8 @@
     "@dual-bundle/import-meta-resolve": ["@dual-bundle/import-meta-resolve@4.2.1", "", {}, "sha512-id+7YRUgoUX6CgV0DtuhirQWodeeA7Lf4i2x71JS/vtA5pRb/hIGWlw+G6MeXvsM+MXrz0VAydTGElX1rAfgPg=="],
 
     "@hraness/design-kit": ["@hraness/design-kit@github:hraness/design-kit#0c7e339", { "dependencies": { "@hugeicons/core-free-icons": "^4.2.2", "@stylexjs/stylex": "0.19.0", "motion": "12.42.0", "next-themes": "0.4.6", "react-aria-components": "1.19.0", "recharts": "3.8.0", "sugar-high": "^1.2.1", "web-haptics": "0.0.6" }, "peerDependencies": { "@hraness/ui": ">=0.5.4 <0.6.0", "react": ">=18 <20", "react-dom": ">=18 <20" }, "optionalPeers": ["@hraness/ui"] }, "hraness-design-kit-0c7e339", "sha512-YEwnSYFvHkUN2hxuODjzU/0AnsWU/NcGwKmxB404o7y47xfMX8MhUtNiIbCWLuS0E/GVGgOtatSsBE8jX3Bz8g=="],
+
+    "@hraness/direct": ["@hraness/direct@github:hraness/direct#af954e7", { "peerDependencies": { "@antithesishq/bombadil": "0.7.2", "agent-browser": "0.32.3", "effect": "3.22.1", "react": ">=18 <20" }, "optionalPeers": ["@antithesishq/bombadil", "agent-browser", "effect", "react"] }, "hraness-direct-af954e7", "sha512-q1iauLS/UaP0gLknME4Roca46yosjsc2oQ3ULrH1cxiUBwbfRMREf0BeiQtiKJGPOkPsHNXUEJM6I68IgRqm/Q=="],
 
     "@hraness/site-footer": ["@hraness/site-footer@github:hraness/site-footer#590056b", { "peerDependencies": { "react": ">=18 <20" }, "optionalPeers": ["react"] }, "hraness-site-footer-590056b", "sha512-/Zi9u1j5uUn0Y0iubtaWfJ69qFO/c/8lyQvXkPyL0ULLCw4SjGRuOqB/ozB0T1QTgcPOR/uxaHVbGWjINYzSiw=="],
 
@@ -340,6 +344,8 @@
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
     "picomatch": ["picomatch@4.0.7", "", {}, "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="],
+
+    "playwright-core": ["playwright-core@1.62.0", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-nsNRyq0r2zsG8AcRHWknc9QRA5XCueC7gWMrs+Gx2tlZn9hcl8zudfh00lhJPY1DE7NmZ6bDsT9g2yey8mXljA=="],
 
     "postcss": ["postcss@8.5.28", "", { "dependencies": { "nanoid": "^3.3.18", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A=="],
 

@@ -26,6 +26,8 @@
     "scripts/preview-css.test.ts",
     "scripts/preview-file.ts",
     "scripts/preview-file.test.ts",
+    "scripts/verify-preview-layout.ts",
+    "scripts/preview-layout.test.ts",
     "src/preview-renderer.ts",
     "src/preview-foundation.ts",
     "src/preview.stylex.ts"
