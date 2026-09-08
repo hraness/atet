@@ -1,10 +1,142 @@
 import { expect, test } from "bun:test"
+import { readFile } from "node:fs/promises"
+import { VerificationServerOutputTimeoutError, type VerificationOutputSnapshot } from "@hraness/direct/tooling/browser-verification"
 import {
   assertBaselineManifest, assertPreviewEvidence, baselineRevision, comparePreviewEvidence,
   expectedPreviewHeaders, parsePreviewArguments, previewCases, readPreviewHeaders, resolvePreviewResource,
   createPreviewEndpointWaiter, parsePreviewEndpoint, withPreviewCancellation,
+  capturePreviewOutputTimeout, previewFailureSummary, runPreviewCli,
   type EndpointEvidence, type PreviewArtifact, type PreviewCase, type PreviewEvidence, type PreviewSignalSource,
 } from "./verify-preview-layout"
+
+function outputSnapshot(state: "pending" | "eof" | "error"): VerificationOutputSnapshot {
+  const counts = { bytesRead: 37, chunksRead: 2, countersSaturated: false, tail: "private native output" }
+  const stream = state === "pending" ? { ...counts, state, inFlightRead: true as const }
+    : state === "eof" ? { ...counts, state, inFlightRead: false as const }
+      : { ...counts, state, inFlightRead: false as const, error: "private stream failure" }
+  return { schema: "direct.verification-output/v1", stdout: stream, stderr: stream }
+}
+
+test("private timeout evidence preserves role and detached immutable pending, EOF and error snapshots", () => {
+  for (const role of ["worker", "chrome"] as const) for (const state of ["pending", "eof", "error"] as const) {
+    const original = outputSnapshot(state)
+    const failure = new VerificationServerOutputTimeoutError(5_000, { outputSnapshot: () => original })
+    const evidence = capturePreviewOutputTimeout(role, failure)
+    expect(evidence).toEqual({ role, source: "direct-output-timeout", outputSnapshot: original })
+    expect(evidence?.outputSnapshot).not.toBe(failure.outputSnapshot)
+    expect(evidence?.outputSnapshot?.stdout).not.toBe(failure.outputSnapshot?.stdout)
+    expect(Object.isFrozen(evidence)).toBe(true)
+    expect(Object.isFrozen(evidence?.outputSnapshot)).toBe(true)
+    expect(Object.isFrozen(evidence?.outputSnapshot?.stdout)).toBe(true)
+    expect(Object.isFrozen(evidence?.outputSnapshot?.stderr)).toBe(true)
+    Reflect.set(original.stdout, "state", "later-state")
+    expect(evidence?.outputSnapshot?.stdout.state).toBe(state)
+    expect(JSON.stringify(evidence)).toContain("private native output")
+  }
+})
+
+test("absent and failed Direct snapshot capture remain unknown, never synthetic EOF", () => {
+  expect(capturePreviewOutputTimeout("chrome", new Error("ordinary cleanup failure"))).toBeUndefined()
+  const missing = new VerificationServerOutputTimeoutError(5_000, {})
+  expect(capturePreviewOutputTimeout("chrome", missing)).toEqual({ role: "chrome",
+    source: "direct-output-timeout", outputSnapshot: null })
+  const unavailable = new VerificationServerOutputTimeoutError(5_000, {
+    outputSnapshot() { throw new Error("diagnostic capture unavailable") },
+  })
+  expect(capturePreviewOutputTimeout("worker", unavailable)).toEqual({ role: "worker",
+    source: "direct-output-timeout", outputSnapshot: null, outputSnapshotFailure: "diagnostic capture unavailable" })
+})
+
+test("malformed or accessor-backed timeout fields cannot replace the cleanup failure", () => {
+  let getterReads = 0
+  const accessor = Object.create(VerificationServerOutputTimeoutError.prototype) as unknown
+  Object.defineProperty(accessor, "outputSnapshot", { get() { getterReads += 1; throw new Error("private getter") } })
+  expect(capturePreviewOutputTimeout("chrome", accessor)).toEqual({ role: "chrome", source: "direct-output-timeout",
+    outputSnapshot: null, outputSnapshotFailure: "Direct deadline snapshot was unavailable or invalid" })
+  expect(getterReads).toBe(0)
+  for (const patch of [{ bytesRead: -1 }, { chunksRead: Number.POSITIVE_INFINITY },
+    { tail: "x".repeat(12_001) }, { state: "eof", inFlightRead: true },
+    { state: "error", inFlightRead: false, error: "x".repeat(1025) }]) {
+    const snapshot = outputSnapshot("pending")
+    const malformed = Object.assign(Object.create(VerificationServerOutputTimeoutError.prototype) as object, {
+      outputSnapshot: { ...snapshot, stdout: { ...snapshot.stdout, ...patch } },
+    })
+    const evidence = capturePreviewOutputTimeout("worker", malformed)
+    expect(evidence?.outputSnapshot).toBeNull()
+    expect(evidence?.outputSnapshotFailure).toBe("Direct deadline snapshot was unavailable or invalid")
+  }
+  for (const patch of [{ outputSnapshot: { schema: "unexpected" } },
+    { outputSnapshotFailure: "x".repeat(1025) }]) {
+    const malformed = Object.assign(Object.create(VerificationServerOutputTimeoutError.prototype) as object, patch)
+    expect(capturePreviewOutputTimeout("chrome", malformed)?.outputSnapshot).toBeNull()
+    expect(capturePreviewOutputTimeout("chrome", malformed)?.outputSnapshotFailure)
+      .toBe("Direct deadline snapshot was unavailable or invalid")
+  }
+})
+
+test("retaining deadline diagnostics cannot turn completed payload work into accepted custody", async () => {
+  const failure = new VerificationServerOutputTimeoutError(5_000, { outputSnapshot: () => outputSnapshot("pending") })
+  let accepted = false
+  let retained: ReturnType<typeof capturePreviewOutputTimeout>
+  const result = await withPreviewCancellation(signals().source, async () => "completed payload", async () => {
+    retained = capturePreviewOutputTimeout("chrome", failure)
+    throw failure
+  }).then(() => { accepted = true }, error => error as unknown)
+  expect(result).toBeInstanceOf(AggregateError)
+  expect((result as AggregateError).errors).toEqual([failure])
+  expect(retained?.outputSnapshot?.stdout.state).toBe("pending")
+  expect(accepted).toBe(false)
+})
+
+test("CLI summaries omit private tails, causes, serializers and hostile accessors", () => {
+  const failure = new VerificationServerOutputTimeoutError(5_000, { outputSnapshot: () => outputSnapshot("error") })
+  let getterReads = 0
+  Object.defineProperty(failure, "cause", { get() { getterReads += 1; return "private cause" } })
+  Object.defineProperty(failure, "toJSON", { value() { throw new Error("private serializer") } })
+  const aggregate = new AggregateError([failure], "Preview resource collection failed")
+  aggregate.errors.push(aggregate)
+  const summary = previewFailureSummary(aggregate)
+  expect(summary).toContain("verification server output did not settle within 5000ms after exit")
+  expect(summary).not.toMatch(/private native output|private stream failure|private cause|outputSnapshot|toJSON/u)
+  expect(getterReads).toBe(0)
+  const hostile = Object.defineProperty({}, "message", { get() { getterReads += 1; throw new Error("private message") } })
+  expect(previewFailureSummary(hostile)).toContain("Unreadable verification failure")
+  expect(getterReads).toBe(0)
+  const excessive = new AggregateError(Array.from({ length: 100 }, () => new Error("\u0000".repeat(10_000))), "large aggregate")
+  expect(Buffer.byteLength(previewFailureSummary(excessive))).toBeLessThanOrEqual(16_512)
+})
+
+test("CLI failure waits for private persistence and cleanup, then reports only text and nonzero", async () => {
+  const finish = deferred()
+  const failure = new VerificationServerOutputTimeoutError(5_000, { outputSnapshot: () => outputSnapshot("pending") })
+  const calls: string[] = []
+  let exitCode = 0
+  const completion = runPreviewCli([], {
+    async verify() { calls.push("verify"); await finish.promise; calls.push("private receipt and cleanup settled"); throw failure },
+    fail() { exitCode = 1; calls.push("nonzero") },
+    report(message) { expect(typeof message).toBe("string"); expect(message).not.toContain("private native output"); calls.push("summary") },
+  })
+  expect(exitCode).toBe(0)
+  expect(calls).toEqual(["verify"])
+  finish.resolve()
+  await completion
+  expect(exitCode).toBe(1)
+  expect(calls).toEqual(["verify", "private receipt and cleanup settled", "nonzero", "summary"])
+  const success: string[] = []
+  await runPreviewCli([], { async verify() { success.push("verified") }, fail() { success.push("failed") }, report() { success.push("reported") } })
+  expect(success).toEqual(["verified"])
+})
+
+test("deadline diagnostics stay in the private write-once receipt and never the public result", async () => {
+  const source = await readFile(new URL("./verify-preview-layout.ts", import.meta.url), "utf8")
+  expect(source).toContain('}, "worker")')
+  expect(source).toContain('}, "chrome")')
+  expect(source).toContain('await writeFile(path, receipt, { flag: "wx", mode: 0o600 })')
+  expect(source).toContain("Buffer.byteLength(receipt) <= 1024 * 1024")
+  expect(source).toContain("console.log(JSON.stringify({ ...record(result), processGroupAbsent, workerProcessGroupAbsent, evidenceDirectory: profile }))")
+  expect(source).toContain("if (import.meta.main) await runPreviewCli")
+  expect(source).not.toContain("console.error(error)")
+})
 
 function config() {
   return { headers: [{ source: "/preview", headers: Object.entries(expectedPreviewHeaders).map(([key, value]) => ({ key, value: String(value) })) }] }

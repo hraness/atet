@@ -7,7 +7,8 @@ import { access, mkdir, mkdtemp, opendir, realpath, writeFile } from "node:fs/pr
 import { tmpdir } from "node:os"
 import { dirname, isAbsolute, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { spawnVerificationServer, stopVerificationServer, type ManagedVerificationServer } from "@hraness/direct/tooling/browser-verification"
+import { spawnVerificationServer, stopVerificationServer, VerificationServerOutputTimeoutError,
+  type ManagedVerificationServer, type VerificationOutputSnapshot, type VerificationStreamSnapshot } from "@hraness/direct/tooling/browser-verification"
 import { inspectPreviewCssResources } from "./preview-css"
 import { readPreviewFile } from "./preview-file"
 import { expectedPreviewHeaders, bounded, contentType, withPreviewCancellation } from "./preview-browser-contract"
@@ -163,9 +164,94 @@ export function parsePreviewEndpoint(text: string): { port: number; browserPath:
   return { port: Number(match[1]), browserPath: match[2]! }
 }
 
-function errorEvidence(error: unknown): Record<string, unknown> {
-  return error instanceof Error ? { name: error.name, message: error.message.slice(0, 2048),
-    ...("code" in error ? { code: String(error.code).slice(0, 64) } : {}) } : { message: String(error).slice(0, 2048) }
+function ownData(value: unknown, name: string): unknown {
+  if (value === null || (typeof value !== "object" && typeof value !== "function")) return undefined
+  const descriptor = Object.getOwnPropertyDescriptor(value, name)
+  assert.ok(descriptor === undefined || "value" in descriptor, "Diagnostic accessors are not admitted")
+  return descriptor?.value
+}
+
+function errorEvidence(error: unknown): { name: string; message: string; code?: string } {
+  try {
+    const name = ownData(error, "name")
+    const message = ownData(error, "message")
+    const code = ownData(error, "code")
+    return { name: typeof name === "string" ? name.slice(0, 64) : "Error",
+      message: typeof message === "string" ? message.slice(0, 2048)
+        : typeof error === "string" ? error.slice(0, 2048) : "Non-text verification failure",
+      ...(typeof code === "string" || typeof code === "number" ? { code: String(code).slice(0, 64) } : {}) }
+  } catch { return { name: "Error", message: "Unreadable verification failure" } }
+}
+
+export interface PreviewOutputTimeoutEvidence {
+  readonly role: "worker" | "chrome"
+  readonly source: "direct-output-timeout"
+  readonly outputSnapshot: VerificationOutputSnapshot | null
+  readonly outputSnapshotFailure?: string
+}
+
+function copyTimeoutStream(value: unknown): VerificationStreamSnapshot {
+  const bytesRead = ownData(value, "bytesRead")
+  const chunksRead = ownData(value, "chunksRead")
+  const countersSaturated = ownData(value, "countersSaturated")
+  const tail = ownData(value, "tail")
+  const state = ownData(value, "state")
+  const inFlightRead = ownData(value, "inFlightRead")
+  assert.ok(typeof bytesRead === "number" && Number.isSafeInteger(bytesRead) && bytesRead >= 0
+    && typeof chunksRead === "number" && Number.isSafeInteger(chunksRead) && chunksRead >= 0
+    && typeof countersSaturated === "boolean" && typeof tail === "string" && tail.length <= 12_000
+    && typeof inFlightRead === "boolean", "Invalid Direct stream diagnostic bounds")
+  const counts = { bytesRead, chunksRead, countersSaturated, tail }
+  if (state === "pending") return Object.freeze({ ...counts, state, inFlightRead })
+  assert.equal(inFlightRead, false, "Terminal Direct stream diagnostic has an active read")
+  if (state === "eof") return Object.freeze({ ...counts, state, inFlightRead: false })
+  const error = ownData(value, "error")
+  assert.ok(state === "error" && typeof error === "string" && error.length <= 1024, "Invalid Direct stream diagnostic state")
+  return Object.freeze({ ...counts, state, inFlightRead: false, error })
+}
+
+/** Preserve only the timeout's deadline copy, never a later supervisor sample. */
+export function capturePreviewOutputTimeout(role: "worker" | "chrome", error: unknown): PreviewOutputTimeoutEvidence | undefined {
+  try { if (!(error instanceof VerificationServerOutputTimeoutError)) return undefined } catch { return undefined }
+  try {
+    const value = ownData(error, "outputSnapshot")
+    const failure = ownData(error, "outputSnapshotFailure")
+    assert.ok(failure === undefined || typeof failure === "string" && failure.length <= 1024, "Invalid Direct snapshot failure bounds")
+    let outputSnapshot: VerificationOutputSnapshot | null = null
+    if (value !== undefined) {
+      assert.equal(ownData(value, "schema"), "direct.verification-output/v1", "Invalid Direct output diagnostic schema")
+      outputSnapshot = Object.freeze({ schema: "direct.verification-output/v1",
+        stdout: copyTimeoutStream(ownData(value, "stdout")), stderr: copyTimeoutStream(ownData(value, "stderr")) })
+    }
+    return Object.freeze({ role, source: "direct-output-timeout", outputSnapshot,
+      ...(failure === undefined ? {} : { outputSnapshotFailure: failure }) })
+  } catch {
+    // Diagnostic failures must not replace the original cleanup rejection.
+    return Object.freeze({ role, source: "direct-output-timeout", outputSnapshot: null,
+      outputSnapshotFailure: "Direct deadline snapshot was unavailable or invalid" })
+  }
+}
+
+/** Never pass an Error object, cause, stream tail or custom serializer to stderr. */
+export function previewFailureSummary(error: unknown): string {
+  const summaries: ReturnType<typeof errorEvidence>[] = []
+  const seen = new Set<unknown>()
+  const visit = (value: unknown, depth: number): void => {
+    if (summaries.length >= 8 || seen.has(value)) return
+    seen.add(value)
+    const evidence = errorEvidence(value)
+    summaries.push({ ...evidence, message: evidence.message.slice(0, 256) })
+    if (depth >= 3) return
+    try {
+      const errors = ownData(value, "errors")
+      if (!Array.isArray(errors)) return
+      for (let index = 0; index < Math.min(errors.length, 8) && summaries.length < 8; index += 1) {
+        visit(ownData(errors, String(index)), depth + 1)
+      }
+    } catch { /* A foreign aggregate cannot escape the bounded public summary. */ }
+  }
+  visit(error, 0)
+  return `atet-preview: verification failed: ${JSON.stringify(summaries).slice(0, 4096)}`
 }
 
 export interface EndpointEvidence {
@@ -289,6 +375,7 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
   let signal: AbortSignal | undefined
   let chromeOutput: string | undefined
   let workerOutput: string | undefined
+  const outputTimeouts: PreviewOutputTimeoutEvidence[] = []
   let endpointBeforeCollection: unknown
   const endpointEvidence: EndpointEvidence = { deadlineMs: 10_000, attempts: 0 }
   const result = await withPreviewCancellation(process, async cancellation => {
@@ -356,8 +443,14 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
       currentArtifacts: current.artifacts, baseline: baseline === undefined ? null : { sourceRevision: baselineRevision, artifacts: baseline.artifacts } }
   }, async () => {
     const failures: unknown[] = []
-    const collect = async (operation: () => Promise<unknown>) => {
-      try { await operation() } catch (error) { failures.push(error) }
+    const collect = async (operation: () => Promise<unknown>, role?: "worker" | "chrome") => {
+      try { await operation() } catch (error) {
+        failures.push(error)
+        if (role !== undefined) {
+          const evidence = capturePreviewOutputTimeout(role, error)
+          if (evidence !== undefined) outputTimeouts.push(evidence)
+        }
+      }
     }
     if (profile !== undefined && (!verificationCompleted || signal?.aborted === true)) {
       try {
@@ -371,12 +464,12 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
       await stopVerificationServer(worker!, 5_000)
       workerProcessGroupAbsent = true
       console.error("atet-preview: worker-collected")
-    })
+    }, "worker")
     if (managed !== undefined) await collect(async () => {
       await stopVerificationServer(managed!, 5_000)
       processGroupAbsent = true
       console.error("atet-preview: browser-collected")
-    })
+    }, "chrome")
     if (worker !== undefined) await collect(async () => {
       workerOutput = await bounded(worker!.output, "Bounded worker diagnostic output", 5_000)
       assert.ok(Buffer.byteLength(workerOutput) <= 48_000, "Worker diagnostic output exceeded its bound")
@@ -414,9 +507,12 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
           endpointAtCollection = { text, parsed: parsePreviewEndpoint(text) }
         } catch (error) { endpointAtCollection = errorEvidence(error) }
         const path = join(profile!, "atet-preview-failure.json")
-        await writeFile(path, `${JSON.stringify({ accepted: false, verificationCompleted, cancelled: signal?.aborted === true,
+        const receipt = `${JSON.stringify({ accepted: false, verificationCompleted, cancelled: signal?.aborted === true,
           processGroupAbsent, workerProcessGroupAbsent, endpointEvidence, endpointBeforeCollection, endpointAtCollection,
-          profileEntries: entries.sort(), chromeOutput, workerOutput, cleanupFailures: failures.map(errorEvidence) }, null, 2)}\n`, { flag: "wx", mode: 0o600 })
+          profileEntries: entries.sort(), chromeOutput, workerOutput, outputTimeouts,
+          cleanupFailures: failures.map(errorEvidence) }, null, 2)}\n`
+        assert.ok(outputTimeouts.length <= 2 && Buffer.byteLength(receipt) <= 1024 * 1024, "Excessive private preview failure evidence")
+        await writeFile(path, receipt, { flag: "wx", mode: 0o600 })
         console.error(`atet-preview: failure evidence preserved at ${path}`)
       })
     }
@@ -425,4 +521,19 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
   console.log(JSON.stringify({ ...record(result), processGroupAbsent, workerProcessGroupAbsent, evidenceDirectory: profile }))
 }
 
-if (import.meta.main) await verifyPreview(process.argv.slice(2))
+export async function runPreviewCli(args: readonly string[], io: {
+  verify(args: readonly string[]): Promise<void>
+  fail(): void
+  report(message: string): void
+}): Promise<void> {
+  try { await io.verify(args) } catch (error) {
+    io.fail()
+    io.report(previewFailureSummary(error))
+  }
+}
+
+if (import.meta.main) await runPreviewCli(process.argv.slice(2), {
+  verify: verifyPreview,
+  fail() { process.exitCode = 1 },
+  report(message) { console.error(message) },
+})
