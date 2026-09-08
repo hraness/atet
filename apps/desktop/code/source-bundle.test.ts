@@ -4,6 +4,7 @@ import {
   mkdtemp,
   mkdir,
   readFile,
+  readdir,
   realpath,
   rename,
   rm,
@@ -400,7 +401,6 @@ await coordinator.withLease(
   async lease => await sourceBundle.bundleWorkflowSource({
     afterBundlerRetirementGuardianReady: async details => {
       await writeFile(markerPath, JSON.stringify(details), { flag: "wx", mode: 0o600 });
-      setTimeout(() => process.kill(process.pid, "SIGKILL"), 100);
     },
     afterBundlerStarted: details => {
       process.kill(details.processId, "SIGSTOP");
@@ -431,6 +431,9 @@ await coordinator.withLease(
         stdout: "ignore",
       });
       const helperDiagnostic = new Response(helper.stderr).text();
+      const admissionController = new AbortController();
+      let admission: Promise<void> | undefined;
+      let failure: unknown;
       try {
         await waitForCondition(async () => !await missing(markerPath), "guardian-ready crash marker");
         const marker = JSON.parse(await readFile(markerPath, "utf8")) as {
@@ -446,7 +449,7 @@ await coordinator.withLease(
           stateRoot,
         });
         let admitted = false;
-        const admission = contender.withLease(
+        admission = contender.withLease(
           [{ amount: 1, resource: "cpu" }],
           () => {
             admitted = true;
@@ -455,9 +458,33 @@ await coordinator.withLease(
               marker.processStartIdentity,
             )).toBe("different-or-dead");
           },
+          { signal: admissionController.signal },
         );
-        await Bun.sleep(20);
+        void admission.catch(() => undefined);
+        await waitForCondition(async () => {
+          const names = (await readdir(stateRoot)).filter(name => name.startsWith("lease-"));
+          if (names.length !== 2) return false;
+          const phases = await Promise.all(names.map(async name => {
+            const document: unknown = JSON.parse(await readFile(join(stateRoot, name), "utf8"));
+            if (
+              typeof document !== "object"
+              || document === null
+              || !("phase" in document)
+              || (document.phase !== "A" && document.phase !== "W")
+            ) throw new Error("Crash fixture observed an invalid host-resource marker.");
+            return document.phase;
+          }));
+          return phases.includes("A") && phases.includes("W");
+        }, "active preparation lease and waiting contender");
+        expect(workerProcessStartIdentityStatus(
+          marker.processId,
+          marker.processStartIdentity,
+        )).toBe("exact-live-worker");
         expect(admitted).toBe(false);
+        expect(helper.exitCode).toBeNull();
+        // Only the parent can trigger the crash, after observing contention.
+        // A delayed observer cannot race successful retirement and admission.
+        helper.kill("SIGKILL");
         expect(await helper.exited).not.toBe(0);
         await admission;
         expect(admitted).toBe(true);
@@ -467,17 +494,21 @@ await coordinator.withLease(
           1_000,
         );
       } catch (error) {
-        const diagnostic = (await helperDiagnostic).trim();
-        throw new Error(
-          `${error instanceof Error ? (error.stack ?? error.message) : String(error)}${diagnostic === "" ? "" : `\nhelper: ${diagnostic}`}`,
-        );
+        failure = error;
       } finally {
+        admissionController.abort();
         try {
           helper.kill("SIGKILL");
         } catch {
-          // The crash fixture normally exits itself after publishing its marker.
+          // The parent normally killed the crash fixture after proving contention.
         }
-        await Promise.allSettled([helper.exited, helperDiagnostic]);
+        await Promise.allSettled([helper.exited, helperDiagnostic, admission]);
+      }
+      if (failure !== undefined) {
+        const diagnostic = (await helperDiagnostic).trim();
+        throw new Error(
+          `${failure instanceof Error ? (failure.stack ?? failure.message) : String(failure)}${diagnostic === "" ? "" : `\nhelper: ${diagnostic}`}`,
+        );
       }
     },
     20_000,

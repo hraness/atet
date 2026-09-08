@@ -10,24 +10,24 @@
     <meta name="description" content="Atet is an agentic creative coding toolkit for images, diagrams, animated loops, and video.">
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
     <link rel="canonical" href="https://atet.sh/">
-    <link rel="stylesheet" href="{{CSS_ASSET}}">
+    {{PREVIEW_STYLES}}
   </head>
-  <body class="preview-route">
-    <main aria-labelledby="preview-title" class="preview-shell">
-      <div aria-hidden="true" class="preview-mark">
-        <span class="preview-mark__sun"></span>
-        <span class="preview-mark__path"></span>
+  <body class="preview-route {{PREVIEW_ROUTE_CLASS}}">
+    <main aria-labelledby="preview-title" class="preview-shell {{PREVIEW_SHELL_CLASS}}">
+      <div aria-hidden="true" class="preview-mark {{PREVIEW_MARK_CLASS}}">
+        <span class="preview-mark__sun {{PREVIEW_SUN_CLASS}}"></span>
+        <span class="preview-mark__path {{PREVIEW_PATH_CLASS}}"></span>
       </div>
-      <p class="preview-kicker">agentic creative coding toolkit</p>
-      <h1 id="preview-title">Atet</h1>
-      <p class="preview-summary">Make and edit visual media with your coding agent.</p>
-      <ul aria-label="Atet output families" class="preview-outputs">
-        <li><span>01</span>images</li>
-        <li><span>02</span>diagrams</li>
-        <li><span>03</span>animated loops</li>
-        <li><span>04</span>video</li>
+      <p class="preview-kicker {{PREVIEW_KICKER_CLASS}}">agentic creative coding toolkit</p>
+      <h1 id="preview-title" class="{{PREVIEW_TITLE_CLASS}}">Atet</h1>
+      <p class="preview-summary {{PREVIEW_SUMMARY_CLASS}}">Make and edit visual media with your coding agent.</p>
+      <ul aria-label="Atet output families" class="preview-outputs {{PREVIEW_OUTPUTS_CLASS}}">
+        <li class="{{PREVIEW_FIRST_OUTPUT_CLASS}}"><span class="{{PREVIEW_NUMBER_CLASS}}">01</span>images</li>
+        <li class="{{PREVIEW_SECOND_OUTPUT_CLASS}}"><span class="{{PREVIEW_NUMBER_CLASS}}">02</span>diagrams</li>
+        <li class="{{PREVIEW_THIRD_OUTPUT_CLASS}}"><span class="{{PREVIEW_NUMBER_CLASS}}">03</span>animated loops</li>
+        <li class="{{PREVIEW_FOURTH_OUTPUT_CLASS}}"><span class="{{PREVIEW_NUMBER_CLASS}}">04</span>video</li>
       </ul>
-      <p class="preview-note">Local tools for generation, editing, motion, and delivery.</p>
+      <p class="preview-note {{PREVIEW_NOTE_CLASS}}">Local tools for generation, editing, motion, and delivery.</p>
     </main>
   </body>
 </html>

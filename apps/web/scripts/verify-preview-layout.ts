@@ -1,277 +1,539 @@
 #!/usr/bin/env bun
 
+import assert from "node:assert/strict"
+import { createHash, randomUUID } from "node:crypto"
 import { constants } from "node:fs"
-import { access, mkdtemp, readFile, rm } from "node:fs/promises"
+import { access, mkdir, mkdtemp, opendir, realpath, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { dirname, join, resolve, sep } from "node:path"
+import { dirname, isAbsolute, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { spawnVerificationServer, stopVerificationServer, VerificationServerOutputTimeoutError,
+  type ManagedVerificationServer, type VerificationOutputSnapshot, type VerificationStreamSnapshot } from "@hraness/direct/tooling/browser-verification"
+import { inspectPreviewCssResources } from "./preview-css"
+import { readPreviewFile } from "./preview-file"
+import { expectedPreviewHeaders, bounded, contentType, withPreviewCancellation } from "./preview-browser-contract"
+import { buildPreviewBrowserDriver, findPreviewNode } from "./build-preview-browser-driver"
+import { assertCollectedWorkerProtocol, assertWorkerInputsUnchanged, encodeWorkerJson, observeWorker, parseWorkerRequest,
+  readWorkerInput, workerDriverLimit, workerProtocolLimit,
+  type PreviewWorkerRequest, type WorkerInputSnapshot, type WorkerObservation, type WorkerPayload } from "./preview-browser-protocol"
+export { expectedPreviewHeaders, previewCases, assertPreviewEvidence, comparePreviewEvidence, withPreviewCancellation } from "./preview-browser-contract"
+export type { PreviewCase, PreviewEvidence, PreviewSignalSource } from "./preview-browser-contract"
 
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
-const outputDirectory = join(appDirectory, "dist")
-const viewport = Object.freeze({ height: 180, width: 320 })
-const chromeTimeoutMs = 30_000
+export const baselineRevision = "0130b9ac79dc4ea5abcb31104f64657931a398e8"
+const baselineSources = Object.freeze({
+  "package.json": "b45819abbe30d326aff9b48dd5752f53165d57d7db9a61c3c481b6e6f6f29244",
+  "bun.lock": "2143567331ff2f1cdd9bf4ac9b87a9032a3cfdefbcbddaf50fc161e80dc8b096",
+  "src/preview.html": "9e055c91b27eba9018f0c1562de7bd6cb7406a7445381ddfb68ce6bb3c988211",
+  "src/styles.css": "49838797ae8c977f3c446482299a3f20a8db4197f1592f3388fdb018e9d469cc",
+  "scripts/build.ts": "ac86f314caf41261d20fe8e8f75134c7fa8ae3f2f967b1e3e1dee19fafa515ee",
+  "vercel.json": "9b80a7b9f73ffe1a40c5a6ec02bbdf62821962e2b7fa375796f037aaae7c6313",
+})
 
-interface PreviewLayoutEvidence {
-  readonly bodyScrollWidth: number
-  readonly devicePixelRatio: number
-  readonly documentClientHeight: number
-  readonly documentClientWidth: number
-  readonly documentScrollHeight: number
-  readonly documentScrollWidth: number
-  readonly finalNoteBottom: number
-  readonly finalNoteTop: number
-  readonly horizontalFailures: readonly string[]
-  readonly maxScrollY: number
-  readonly reachedScrollY: number
-  readonly verticalFailures: readonly string[]
-  readonly viewportHeight: number
-  readonly viewportWidth: number
+function record(value: unknown): Record<string, unknown> {
+  assert.ok(value !== null && typeof value === "object" && !Array.isArray(value), "Expected an object")
+  return value as Record<string, unknown>
 }
 
-const measurementScript = String.raw`<script>
-(() => {
-  const evidenceTarget = window.parent === window
-    ? document.body
-    : window.parent.document.body;
-  const recordError = (error) => {
-    evidenceTarget.dataset.previewLayoutError = encodeURIComponent(String(error?.stack || error));
-  };
-  const measure = () => {
-    if (document.fonts.status !== "loaded") {
-      throw new Error("Preview fonts did not finish loading");
+export function parsePreviewArguments(args: readonly string[]): { baseline?: string; manifest?: string } {
+  if (args.length === 0) return {}
+  const [flag, baseline, manifestFlag, manifest] = args
+  assert.ok(args.length === 4 && flag === "--baseline" && manifestFlag === "--baseline-manifest"
+    && baseline !== undefined && manifest !== undefined && isAbsolute(baseline) && isAbsolute(manifest),
+  "Usage: verify-preview-layout.ts [--baseline <absolute old apps/web> --baseline-manifest <absolute JSON>]")
+  return { baseline, manifest }
+}
+
+export function readPreviewHeaders(value: unknown): Record<string, string> {
+  const entries = record(value).headers
+  assert.ok(Array.isArray(entries) && entries.length <= 64, "Invalid Vercel header inventory")
+  const matches = entries.filter(entry => record(entry).source === "/preview")
+  assert.equal(matches.length, 1, "Expected one exact /preview header rule")
+  const headers = record(matches[0]).headers
+  assert.ok(Array.isArray(headers) && headers.length === 9, "Invalid preview header inventory")
+  const result: Record<string, string> = {}
+  for (const value of headers) {
+    const header = record(value)
+    assert.deepEqual(Object.keys(header).sort(), ["key", "value"])
+    assert.ok(typeof header.key === "string" && /^[a-z-]+$/iu.test(header.key)
+      && typeof header.value === "string" && header.value.length <= 1024 && !/[\r\n]/u.test(header.value))
+    const key = header.key.toLowerCase()
+    assert.ok(!Object.hasOwn(result, key), "Duplicate preview header")
+    result[key] = header.value
+  }
+  assert.deepEqual(result, expectedPreviewHeaders, "Preview headers differ from the reviewed strict contract")
+  return result
+}
+
+export function resolvePreviewResource(reference: string, stylesheet: string): string {
+  assert.ok(reference.length > 0 && reference.length <= 512 && !/[\\%\s?#]/u.test(reference)
+    && !reference.split("/").includes(".."), "Invalid preview resource reference")
+  const url = new URL(reference, `http://preview.invalid${stylesheet}`)
+  assert.ok(url.origin === "http://preview.invalid" && url.search === "" && url.hash === ""
+    && /^\/(?:assets\/|graphs\/preview-foundation\/assets\/)[A-Za-z0-9_./\[\]-]+\.woff2$/u.test(url.pathname),
+  "Preview CSS may request only inventory-bound local WOFF2 fonts")
+  return url.pathname
+}
+
+export interface PreviewArtifact { readonly path: string; readonly bytes: number; readonly sha256: string }
+
+export function assertBaselineManifest(value: unknown, artifacts: readonly PreviewArtifact[]): void {
+  const manifest = record(value)
+  assert.deepEqual(Object.keys(manifest).sort(), ["artifacts", "schemaVersion", "sourceRevision"])
+  assert.equal(manifest.schemaVersion, 1)
+  assert.equal(manifest.sourceRevision, baselineRevision)
+  assert.equal(artifacts.length, 15, "Baseline must bind HTML, one stylesheet and thirteen fonts")
+  assert.deepEqual(manifest.artifacts, artifacts, "Baseline artifact bytes differ from its explicit manifest")
+}
+
+function digest(bytes: Uint8Array): string { return createHash("sha256").update(bytes).digest("hex") }
+
+interface Payload {
+  readonly files: ReadonlyMap<string, Uint8Array>
+  readonly headers: Readonly<Record<string, string>>
+  readonly stylesheets: readonly string[]
+  readonly artifacts: readonly PreviewArtifact[]
+}
+
+async function readPayload(directory: string, manifestPath?: string): Promise<Payload> {
+  assert.equal(await realpath(directory), directory, "Preview directory must have a physical absolute path")
+  const headers = readPreviewHeaders(JSON.parse(Buffer.from(await readPreviewFile(join(directory, "vercel.json"), 64 * 1024)).toString()))
+  const output = join(directory, "dist")
+  const htmlBytes = await readPreviewFile(join(output, "preview.html"), 64 * 1024)
+  const html = Buffer.from(htmlBytes).toString()
+  assert.ok(!/<(?:script|style|a|button|input|select|textarea|form|iframe|object|embed)\b|\s(?:on\w+|style|tabindex|contenteditable)\s*=/iu.test(html),
+    "Preview must remain inert: no actions, inline styles or scripts")
+  const stylesheets = [...html.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"\s*\/?\s*>/gu)].map(match => match[1]!)
+  assert.equal(stylesheets.length, manifestPath === undefined ? 2 : 1)
+  assert.equal(new Set(stylesheets).size, stylesheets.length)
+  const files = new Map<string, Uint8Array>([["/preview", htmlBytes]])
+  const fonts = new Set<string>()
+  for (const path of stylesheets) {
+    assert.ok(/^\/(?:assets\/|graphs\/preview-foundation\/assets\/)[A-Za-z0-9_-]+\.css$/u.test(path), "Invalid preview CSS path")
+    const bytes = await readPreviewFile(join(output, path.slice(1)))
+    files.set(path, bytes)
+    for (const reference of inspectPreviewCssResources(Buffer.from(bytes).toString(), path)) {
+      fonts.add(resolvePreviewResource(reference, path))
     }
-    const root = document.documentElement;
-    const body = document.body;
-    root.style.scrollBehavior = "auto";
-    body.style.scrollBehavior = "auto";
-
-    const horizontalTargets = [
-      ...document.querySelectorAll(".preview-shell, .preview-shell *"),
-    ];
-    const verticalTargets = horizontalTargets.filter((element) =>
-      !element.classList.contains("preview-shell")
-      && element.closest('[aria-hidden="true"]') === null);
-    const label = (element, index) =>
-      element.id || [...element.classList].join(".") || element.tagName.toLowerCase() + "-" + index;
-    const horizontalFailures = [];
-    const viewportWidth = root.clientWidth;
-
-    if (root.scrollWidth > viewportWidth + 1) {
-      horizontalFailures.push("document scroll width exceeds its client width");
+  }
+  assert.equal(fonts.size, 13, "Preview must bind all thirteen local font files")
+  for (const path of [...fonts].sort()) files.set(path, await readPreviewFile(join(output, path.slice(1)), 2 * 1024 * 1024))
+  const artifacts = [...files].map(([path, bytes]) => ({
+    path: path === "/preview" ? "preview.html" : path.slice(1), bytes: bytes.byteLength, sha256: digest(bytes),
+  })).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
+  if (manifestPath !== undefined) {
+    for (const [path, hash] of Object.entries(baselineSources)) {
+      assert.equal(digest(await readPreviewFile(join(directory, path))), hash, `Baseline is not exact ${baselineRevision}: ${path}`)
     }
-    if (body.scrollWidth > viewportWidth + 1) {
-      horizontalFailures.push("body scroll width exceeds the document client width");
+    assertBaselineManifest(JSON.parse(Buffer.from(await readPreviewFile(manifestPath, 64 * 1024)).toString()), artifacts)
+  }
+  return { files, headers, stylesheets, artifacts }
+}
+
+function serve(payload: Payload) {
+  const rejected: string[] = []
+  const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch(request) {
+    const url = new URL(request.url)
+    const bytes = payload.files.get(url.pathname)
+    if (request.method !== "GET" || url.search !== "" || bytes === undefined) {
+      if (rejected.length < 128) rejected.push(`${request.method} ${url.pathname}`)
+      return new Response("Not Found", { status: 404 })
     }
-    horizontalTargets.forEach((element, index) => {
-      const rect = element.getBoundingClientRect();
-      const name = label(element, index);
-      if (rect.width <= 0 || rect.height <= 0) {
-        horizontalFailures.push(name + " is not rendered");
-      }
-      if (rect.left < -0.5 || rect.right > viewportWidth + 0.5) {
-        horizontalFailures.push(name + " leaves the horizontal viewport");
-      }
-      const overflowX = getComputedStyle(element).overflowX;
-      if (
-        element.scrollWidth > element.clientWidth + 1
-        && (overflowX !== "visible" || rect.left + element.scrollWidth > viewportWidth + 0.5)
-      ) {
-        horizontalFailures.push(name + " clips its own horizontal content");
-      }
-    });
-
-    const maxScrollY = Math.max(0, root.scrollHeight - root.clientHeight);
-    const verticalFailures = [];
-    for (const [index, element] of verticalTargets.entries()) {
-      const initialRect = element.getBoundingClientRect();
-      const absoluteTop = initialRect.top + window.scrollY;
-      const targetScrollY = Math.min(
-        maxScrollY,
-        Math.max(0, absoluteTop - (root.clientHeight - initialRect.height) / 2),
-      );
-      window.scrollTo(0, targetScrollY);
-      const rect = element.getBoundingClientRect();
-      if (rect.top < -0.5 || rect.bottom > root.clientHeight + 0.5) {
-        verticalFailures.push(label(element, index) + " cannot be fully reached by vertical scrolling");
-      }
-    }
-
-    window.scrollTo(0, maxScrollY);
-    const finalNote = document.querySelector(".preview-note").getBoundingClientRect();
-    const result = {
-      bodyScrollWidth: body.scrollWidth,
-      devicePixelRatio: window.devicePixelRatio,
-      documentClientHeight: root.clientHeight,
-      documentClientWidth: root.clientWidth,
-      documentScrollHeight: root.scrollHeight,
-      documentScrollWidth: root.scrollWidth,
-      finalNoteBottom: finalNote.bottom,
-      finalNoteTop: finalNote.top,
-      horizontalFailures,
-      maxScrollY,
-      reachedScrollY: window.scrollY,
-      verticalFailures,
-      viewportHeight: window.innerHeight,
-      viewportWidth: window.innerWidth,
-    };
-    evidenceTarget.dataset.previewLayout = encodeURIComponent(JSON.stringify(result));
-  };
-
-  document.fonts.ready.then(measure).catch(recordError);
-})();
-</script>`
+    return new Response(Uint8Array.from(bytes), { headers: {
+      ...(url.pathname === "/preview" ? payload.headers : {}),
+      "content-type": contentType(url.pathname), "cache-control": "no-store",
+    } })
+  } })
+  return { server, rejected }
+}
 
 async function findChrome(): Promise<string> {
-  const candidates = [
-    process.env.ATET_CHROME_PATH,
-    process.env.CHROME_PATH,
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  ].filter((candidate): candidate is string => candidate !== undefined && candidate !== "")
+  for (const candidate of [process.env.ATET_CHROME_PATH, process.env.CHROME_PATH, "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]) {
+    if (candidate === undefined || candidate === "") continue
+    try { await access(candidate, constants.X_OK); return candidate } catch { /* Try the next explicit executable. */ }
+  }
+  throw new Error("Chrome is required; set ATET_CHROME_PATH")
+}
 
-  for (const candidate of candidates) {
+export function parsePreviewEndpoint(text: string): { port: number; browserPath: string } {
+  assert.ok(Buffer.byteLength(text) <= 1024, "Excessive Chrome endpoint file")
+  const match = /^(\d{1,5})\n(\/devtools\/browser\/[a-f0-9-]+)\n?$/u.exec(text)
+  assert.ok(match !== null && Number(match[1]) > 0 && Number(match[1]) <= 65535, "Invalid Chrome endpoint")
+  return { port: Number(match[1]), browserPath: match[2]! }
+}
+
+function ownData(value: unknown, name: string): unknown {
+  if (value === null || (typeof value !== "object" && typeof value !== "function")) return undefined
+  const descriptor = Object.getOwnPropertyDescriptor(value, name)
+  assert.ok(descriptor === undefined || "value" in descriptor, "Diagnostic accessors are not admitted")
+  return descriptor?.value
+}
+
+function errorEvidence(error: unknown): { name: string; message: string; code?: string } {
+  try {
+    const name = ownData(error, "name")
+    const message = ownData(error, "message")
+    const code = ownData(error, "code")
+    return { name: typeof name === "string" ? name.slice(0, 64) : "Error",
+      message: typeof message === "string" ? message.slice(0, 2048)
+        : typeof error === "string" ? error.slice(0, 2048) : "Non-text verification failure",
+      ...(typeof code === "string" || typeof code === "number" ? { code: String(code).slice(0, 64) } : {}) }
+  } catch { return { name: "Error", message: "Unreadable verification failure" } }
+}
+
+export interface PreviewOutputTimeoutEvidence {
+  readonly role: "worker" | "chrome"
+  readonly source: "direct-output-timeout"
+  readonly outputSnapshot: VerificationOutputSnapshot | null
+  readonly outputSnapshotFailure?: string
+}
+
+function copyTimeoutStream(value: unknown): VerificationStreamSnapshot {
+  const bytesRead = ownData(value, "bytesRead")
+  const chunksRead = ownData(value, "chunksRead")
+  const countersSaturated = ownData(value, "countersSaturated")
+  const tail = ownData(value, "tail")
+  const state = ownData(value, "state")
+  const inFlightRead = ownData(value, "inFlightRead")
+  assert.ok(typeof bytesRead === "number" && Number.isSafeInteger(bytesRead) && bytesRead >= 0
+    && typeof chunksRead === "number" && Number.isSafeInteger(chunksRead) && chunksRead >= 0
+    && typeof countersSaturated === "boolean" && typeof tail === "string" && tail.length <= 12_000
+    && typeof inFlightRead === "boolean", "Invalid Direct stream diagnostic bounds")
+  const counts = { bytesRead, chunksRead, countersSaturated, tail }
+  if (state === "pending") return Object.freeze({ ...counts, state, inFlightRead })
+  assert.equal(inFlightRead, false, "Terminal Direct stream diagnostic has an active read")
+  if (state === "eof") return Object.freeze({ ...counts, state, inFlightRead: false })
+  const error = ownData(value, "error")
+  assert.ok(state === "error" && typeof error === "string" && error.length <= 1024, "Invalid Direct stream diagnostic state")
+  return Object.freeze({ ...counts, state, inFlightRead: false, error })
+}
+
+/** Preserve only the timeout's deadline copy, never a later supervisor sample. */
+export function capturePreviewOutputTimeout(role: "worker" | "chrome", error: unknown): PreviewOutputTimeoutEvidence | undefined {
+  try { if (!(error instanceof VerificationServerOutputTimeoutError)) return undefined } catch { return undefined }
+  try {
+    const value = ownData(error, "outputSnapshot")
+    const failure = ownData(error, "outputSnapshotFailure")
+    assert.ok(failure === undefined || typeof failure === "string" && failure.length <= 1024, "Invalid Direct snapshot failure bounds")
+    let outputSnapshot: VerificationOutputSnapshot | null = null
+    if (value !== undefined) {
+      assert.equal(ownData(value, "schema"), "direct.verification-output/v1", "Invalid Direct output diagnostic schema")
+      outputSnapshot = Object.freeze({ schema: "direct.verification-output/v1",
+        stdout: copyTimeoutStream(ownData(value, "stdout")), stderr: copyTimeoutStream(ownData(value, "stderr")) })
+    }
+    return Object.freeze({ role, source: "direct-output-timeout", outputSnapshot,
+      ...(failure === undefined ? {} : { outputSnapshotFailure: failure }) })
+  } catch {
+    // Diagnostic failures must not replace the original cleanup rejection.
+    return Object.freeze({ role, source: "direct-output-timeout", outputSnapshot: null,
+      outputSnapshotFailure: "Direct deadline snapshot was unavailable or invalid" })
+  }
+}
+
+/** Never pass an Error object, cause, stream tail or custom serializer to stderr. */
+export function previewFailureSummary(error: unknown): string {
+  const summaries: ReturnType<typeof errorEvidence>[] = []
+  const seen = new Set<unknown>()
+  const visit = (value: unknown, depth: number): void => {
+    if (summaries.length >= 8 || seen.has(value)) return
+    seen.add(value)
+    const evidence = errorEvidence(value)
+    summaries.push({ ...evidence, message: evidence.message.slice(0, 256) })
+    if (depth >= 3) return
     try {
-      await access(candidate, constants.X_OK)
-      return candidate
-    } catch {
-      // Continue to the next explicit executable candidate.
-    }
+      const errors = ownData(value, "errors")
+      if (!Array.isArray(errors)) return
+      for (let index = 0; index < Math.min(errors.length, 8) && summaries.length < 8; index += 1) {
+        visit(ownData(errors, String(index)), depth + 1)
+      }
+    } catch { /* A foreign aggregate cannot escape the bounded public summary. */ }
   }
-  throw new Error("Chrome is required for the preview layout check; set ATET_CHROME_PATH")
+  visit(error, 0)
+  return `atet-preview: verification failed: ${JSON.stringify(summaries).slice(0, 4096)}`
 }
 
-function instrumentPreview(html: string): string {
-  if (!html.includes("</body>")) {
-    throw new Error("Built preview is missing its closing body tag")
-  }
-  return html.replace("</body>", `${measurementScript}</body>`)
+export interface EndpointEvidence {
+  readonly deadlineMs: number
+  attempts: number
+  lastRead?: { elapsedMs: number; bytes?: number; error?: Record<string, unknown> }
+  outcome?: "connected" | "timeout" | "cancelled" | "exited" | "failed"
 }
 
-function decodeEvidence(document: string): PreviewLayoutEvidence {
-  const error = /data-preview-layout-error="([^"]+)"/u.exec(document)?.[1]
-  if (error !== undefined) {
-    throw new Error(`Preview layout measurement failed: ${decodeURIComponent(error)}`)
-  }
-  const encoded = /data-preview-layout="([^"]+)"/u.exec(document)?.[1]
-  if (encoded === undefined) {
-    throw new Error("Chrome exited without preview layout evidence")
-  }
-  return JSON.parse(decodeURIComponent(encoded)) as PreviewLayoutEvidence
+interface PreviewEndpointIo {
+  now(): number
+  schedule(callback: () => void, delayMs: number): () => void
+  read(path: string, maximum: number): Promise<Uint8Array>
 }
 
-function assertEvidence(evidence: PreviewLayoutEvidence): void {
-  const failures = [
-    ...evidence.horizontalFailures,
-    ...evidence.verticalFailures,
-  ]
-  if (evidence.viewportWidth !== viewport.width || evidence.viewportHeight !== viewport.height) {
-    failures.push(
-      `expected a ${viewport.width}x${viewport.height} CSS viewport, received ${evidence.viewportWidth}x${evidence.viewportHeight}`,
-    )
-  }
-  if (Math.abs(evidence.devicePixelRatio - 2) > 0.01) {
-    failures.push(`expected a 2x device scale, received ${evidence.devicePixelRatio}`)
-  }
-  if (evidence.maxScrollY <= 0) {
-    failures.push("short viewport did not require vertical scrolling")
-  }
-  if (evidence.reachedScrollY < evidence.maxScrollY - 1) {
-    failures.push(`vertical scroll stopped at ${evidence.reachedScrollY} of ${evidence.maxScrollY}`)
-  }
-  if (
-    evidence.finalNoteTop < -0.5
-    || evidence.finalNoteBottom > evidence.documentClientHeight + 0.5
-  ) {
-    failures.push("final preview content is not fully visible at the bottom scroll boundary")
-  }
-  if (failures.length > 0) {
-    throw new Error(`Preview layout check failed:\n- ${failures.join("\n- ")}`)
-  }
-}
-
-const profileDirectory = await mkdtemp(join(tmpdir(), "atet-preview-layout-"))
-const preview = instrumentPreview(await readFile(join(outputDirectory, "preview.html"), "utf8"))
-const harness = `<!doctype html>
-<html lang="en">
-  <head><meta charset="utf-8"><title>Atet preview layout harness</title></head>
-  <body style="margin:0">
-    <iframe src="/preview" title="Atet preview" style="width:${viewport.width}px;height:${viewport.height}px;border:0"></iframe>
-  </body>
-</html>`
-const server = Bun.serve({
-  hostname: "127.0.0.1",
-  port: 0,
-  async fetch(request) {
-    const url = new URL(request.url)
-    if (url.pathname === "/harness") {
-      return new Response(harness, {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
+/** Internal deterministic seam. Native admission below always uses the strict
+ * physical-file reader; filesystem notifications are not readiness evidence. */
+export function createPreviewEndpointWaiter(io: PreviewEndpointIo) {
+  return async function waitEndpoint(profile: string, exited: Promise<unknown>, signal: AbortSignal, evidence: EndpointEvidence): Promise<string> {
+    signal.throwIfAborted()
+    assert.equal(evidence.deadlineMs, 10_000, "Chrome endpoint deadline must remain ten seconds")
+    assert.equal(evidence.attempts, 0, "Chrome endpoint evidence cannot be reused")
+    return new Promise((resolve, reject) => {
+      let finished = false
+      let lastError: unknown
+      let cancelDeadline = () => {}
+      let cancelRetry = () => {}
+      const started = io.now()
+      const deadline = started + evidence.deadlineMs
+      const finish = (error?: unknown, value?: string) => {
+        if (finished) return
+        finished = true
+        cancelDeadline()
+        cancelRetry()
+        signal.removeEventListener("abort", abort)
+        if (error !== undefined) reject(error)
+        else resolve(value!)
+      }
+      const expire = () => {
+        if (finished) return
+        evidence.outcome = "timeout"
+        finish(new Error("Chrome endpoint startup timed out", { cause: lastError }))
+      }
+      const abort = () => {
+        if (finished) return
+        evidence.outcome = "cancelled"
+        finish(signal.reason)
+      }
+      const inspect = async () => {
+        if (finished) return
+        if (io.now() >= deadline) { expire(); return }
+        if (evidence.attempts >= 201) {
+          evidence.outcome = "failed"
+          finish(new Error("Excessive Chrome endpoint readiness reads"))
+          return
+        }
+        evidence.attempts += 1
+        try {
+          const text = Buffer.from(await io.read(join(profile, "DevToolsActivePort"), 1024)).toString()
+          if (finished) return
+          if (signal.aborted) { abort(); return }
+          // A delayed timer callback must not admit bytes completed past the
+          // original absolute deadline, nor may a late read change its outcome.
+          if (io.now() >= deadline) { expire(); return }
+          const endpoint = parsePreviewEndpoint(text)
+          evidence.lastRead = { elapsedMs: Math.round(io.now() - started), bytes: Buffer.byteLength(text) }
+          evidence.outcome = "connected"
+          finish(undefined, `ws://127.0.0.1:${endpoint.port}${endpoint.browserPath}`)
+        } catch (error) {
+          if (finished) return
+          lastError = error
+          evidence.lastRead = { elapsedMs: Math.round(io.now() - started), error: errorEvidence(error) }
+          if (io.now() >= deadline) expire()
+        } finally {
+          // Schedule only after the current strict read has settled. Missing,
+          // partial or changed files never produce overlapping descriptor reads.
+          if (!finished) cancelRetry = io.schedule(() => { void inspect() }, Math.min(50, Math.max(0, deadline - io.now())))
+        }
+      }
+      cancelDeadline = io.schedule(expire, evidence.deadlineMs)
+      signal.addEventListener("abort", abort, { once: true })
+      if (signal.aborted) abort()
+      void exited.then(() => {
+        if (finished) return
+        evidence.outcome = "exited"
+        finish(new Error("Chrome exited before protocol attachment"))
+      }, error => {
+        if (finished) return
+        evidence.outcome = "failed"
+        finish(new Error("Chrome process wait failed", { cause: error }))
       })
-    }
-    if (url.pathname === "/preview" || url.pathname === "/preview.html") {
-      return new Response(preview, {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      })
-    }
+      void inspect()
+    })
+  }
+}
 
-    const candidate = resolve(outputDirectory, `.${decodeURIComponent(url.pathname)}`)
-    if (
-      candidate === outputDirectory
-      || !candidate.startsWith(`${outputDirectory}${sep}`)
-    ) {
-      return new Response("Not Found", { status: 404 })
-    }
-    const file = Bun.file(candidate)
-    if (!await file.exists()) {
-      return new Response("Not Found", { status: 404 })
-    }
-    return new Response(file)
+const waitBrowserEndpoint = createPreviewEndpointWaiter({
+  now: () => performance.now(),
+  read: readPreviewFile,
+  schedule(callback, delayMs) {
+    const timer = setTimeout(callback, delayMs)
+    return () => clearTimeout(timer)
   },
 })
 
-try {
-  const chrome = await findChrome()
-  const browser = Bun.spawn([
-    chrome,
-    "--headless=new",
-    "--no-sandbox",
-    "--disable-background-networking",
-    "--disable-component-update",
-    "--disable-default-apps",
-    "--disable-extensions",
-    "--disable-gpu",
-    "--disable-sync",
-    "--force-color-profile=srgb",
-    "--force-device-scale-factor=2",
-    "--metrics-recording-only",
-    "--mute-audio",
-    "--no-first-run",
-    "--run-all-compositor-stages-before-draw",
-    `--user-data-dir=${profileDirectory}`,
-    "--virtual-time-budget=5000",
-    "--window-size=800,600",
-    "--dump-dom",
-    new URL("/harness", server.url).href,
-  ], {
-    stderr: "pipe",
-    stdout: "pipe",
-  })
-  const stdoutPromise = new Response(browser.stdout).text()
-  const stderrPromise = new Response(browser.stderr).text()
-  const timeout = setTimeout(() => browser.kill(), chromeTimeoutMs)
-  const exitCode = await browser.exited
-  clearTimeout(timeout)
-  const [document, diagnostic] = await Promise.all([stdoutPromise, stderrPromise])
-  if (exitCode !== 0) {
-    throw new Error(`Chrome exited ${exitCode}: ${diagnostic.trim()}`)
-  }
-  const evidence = decodeEvidence(document)
-  assertEvidence(evidence)
-  console.log(JSON.stringify(evidence))
-} finally {
-  await server.stop(true)
-  await rm(profileDirectory, { force: true, recursive: true })
+function workerPayload(payload: Payload, origin: string): WorkerPayload {
+  return { origin, headers: payload.headers, stylesheets: payload.stylesheets, resources: [...payload.files.keys()].sort() }
 }
+
+export async function verifyPreview(args: readonly string[] = []): Promise<void> {
+  let profile: string | undefined
+  const servers: ReturnType<typeof serve>[] = []
+  let managed: ManagedVerificationServer | undefined
+  let worker: ManagedVerificationServer | undefined
+  let observation: WorkerObservation | undefined
+  let workerInputs: readonly WorkerInputSnapshot[] | undefined
+  let protocolDirectory: string | undefined
+  let processGroupAbsent = false
+  let workerProcessGroupAbsent = false
+  let verificationCompleted = false
+  let signal: AbortSignal | undefined
+  let chromeOutput: string | undefined
+  let workerOutput: string | undefined
+  const outputTimeouts: PreviewOutputTimeoutEvidence[] = []
+  let endpointBeforeCollection: unknown
+  const endpointEvidence: EndpointEvidence = { deadlineMs: 10_000, attempts: 0 }
+  const result = await withPreviewCancellation(process, async cancellation => {
+    signal = cancellation.signal
+    const options = parsePreviewArguments(args)
+    const current = await cancellation.wait(async () => readPayload(await realpath(appDirectory)))
+    const baseline = options.baseline === undefined ? undefined : await cancellation.wait(() => readPayload(options.baseline!, options.manifest))
+    // Capture every resource acquisition before cancellation can enter cleanup.
+    profile = await mkdtemp(join(await realpath(tmpdir()), "atet-preview-layout-"))
+    cancellation.signal.throwIfAborted()
+    const driver = await buildPreviewBrowserDriver(await realpath(appDirectory), profile)
+    cancellation.signal.throwIfAborted()
+    const node = await cancellation.wait(findPreviewNode)
+    const currentServer = serve(current)
+    servers.push(currentServer)
+    const oldServer = baseline === undefined ? undefined : serve(baseline)
+    if (oldServer !== undefined) servers.push(oldServer)
+    const chrome = await cancellation.wait(findChrome)
+    cancellation.signal.throwIfAborted()
+    managed = spawnVerificationServer({ cwd: appDirectory, detachedProcessGroup: true, logLimit: 12_000, command: [
+      chrome, "--headless=new", "--no-sandbox", "--disable-background-networking", "--disable-component-update",
+      "--disable-default-apps", "--disable-extensions", "--disable-gpu", "--disable-sync", "--force-color-profile=srgb",
+      "--metrics-recording-only", "--mute-audio", "--no-first-run", "--remote-debugging-address=127.0.0.1",
+      "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank",
+    ] })
+    console.error("atet-preview: browser-started")
+    const endpoint = await waitBrowserEndpoint(profile, managed.exited, cancellation.signal, endpointEvidence)
+    protocolDirectory = join(profile, "worker-protocol")
+    await mkdir(protocolDirectory, { mode: 0o700 })
+    const request: PreviewWorkerRequest = parseWorkerRequest({ schemaVersion: 1, token: randomUUID(),
+      appDirectory: await realpath(appDirectory), endpoint,
+      current: workerPayload(current, currentServer.server.url.origin),
+      baseline: baseline === undefined || oldServer === undefined ? null : workerPayload(baseline, oldServer.server.url.origin) })
+    const requestPath = join(profile, "preview-browser-request.json")
+    const requestBytes = encodeWorkerJson(request)
+    await writeFile(requestPath, requestBytes, { flag: "wx", mode: 0o600 })
+    workerInputs = [await readWorkerInput(driver.path, workerDriverLimit), await readWorkerInput(requestPath, workerProtocolLimit)]
+    assert.ok(Buffer.from(workerInputs[0]!.bytes).equals(Buffer.from(driver.bytes)), "Compiled driver changed before dispatch")
+    assert.ok(Buffer.from(workerInputs[1]!.bytes).equals(Buffer.from(requestBytes)), "Worker request changed before dispatch")
+    // Retain original bytes independently of the executed paths, plus their
+    // physical identities, for failure diagnosis and reproducible admission.
+    for (const [index, name] of ["preview-browser-driver.snapshot.mjs", "preview-browser-request.snapshot.json"].entries()) {
+      await writeFile(join(profile, name), workerInputs[index]!.bytes, { flag: "wx", mode: 0o600 })
+    }
+    await writeFile(join(profile, "preview-browser-inputs.json"), encodeWorkerJson({ schemaVersion: 1,
+      inputs: workerInputs.map(input => ({ path: input.path, identity: input.identity, bytes: input.bytes.byteLength, sha256: digest(input.bytes) })) }),
+    { flag: "wx", mode: 0o600 })
+    cancellation.signal.throwIfAborted()
+    worker = spawnVerificationServer({ cwd: appDirectory, detachedProcessGroup: true, logLimit: 12_000,
+      omitEnvironment: ["NODE_OPTIONS", "NODE_PATH"],
+      command: [node, driver.path, request.appDirectory, requestPath] })
+    console.error("atet-preview: worker-started")
+    observation = await observeWorker(protocolDirectory, request, cancellation.signal, worker.exited, () => {
+      console.error("atet-preview: browser-connected")
+    })
+    // A result is provisional until genuine zero exit and both Direct custody
+    // settlements succeed. A late result can never override cancellation.
+    await cancellation.wait(() => bounded(worker!.exited, "Preview worker exit after result", 5_000))
+    assert.equal(worker.exitCode(), 0, "Preview worker did not exit successfully")
+    for (const server of servers) assert.deepEqual(server.rejected, [], "Server received unadmitted resource requests")
+    verificationCompleted = true
+    return { browser: observation.result.browser, node: observation.result.node, playwright: observation.result.playwright,
+      cases: observation.result.cases, nativeBrowserZoom: false, internetRequestsAllowed: false,
+      exactHeaders: true, noActions: true, resourceErrors: 0, cspErrors: 0, negativeStylesheetRestored: true,
+      currentArtifacts: current.artifacts, baseline: baseline === undefined ? null : { sourceRevision: baselineRevision, artifacts: baseline.artifacts } }
+  }, async () => {
+    const failures: unknown[] = []
+    const collect = async (operation: () => Promise<unknown>, role?: "worker" | "chrome") => {
+      try { await operation() } catch (error) {
+        failures.push(error)
+        if (role !== undefined) {
+          const evidence = capturePreviewOutputTimeout(role, error)
+          if (evidence !== undefined) outputTimeouts.push(evidence)
+        }
+      }
+    }
+    if (profile !== undefined && (!verificationCompleted || signal?.aborted === true)) {
+      try {
+        const text = Buffer.from(await readPreviewFile(join(profile, "DevToolsActivePort"), 1024)).toString()
+        endpointBeforeCollection = { text, parsed: parsePreviewEndpoint(text) }
+      } catch (error) { endpointBeforeCollection = errorEvidence(error) }
+    }
+    // Collect the client first; its owned Node group may not retain a live CDP
+    // transport while the Chrome group and inherited output pipes are reaped.
+    if (worker !== undefined) await collect(async () => {
+      await stopVerificationServer(worker!, 5_000)
+      workerProcessGroupAbsent = true
+      console.error("atet-preview: worker-collected")
+    }, "worker")
+    if (managed !== undefined) await collect(async () => {
+      await stopVerificationServer(managed!, 5_000)
+      processGroupAbsent = true
+      console.error("atet-preview: browser-collected")
+    }, "chrome")
+    if (worker !== undefined) await collect(async () => {
+      workerOutput = await bounded(worker!.output, "Bounded worker diagnostic output", 5_000)
+      assert.ok(Buffer.byteLength(workerOutput) <= 48_000, "Worker diagnostic output exceeded its bound")
+    })
+    if (managed !== undefined) await collect(async () => {
+      chromeOutput = await bounded(managed!.output, "Bounded Chrome diagnostic output", 5_000)
+      assert.ok(Buffer.byteLength(chromeOutput) <= 48_000, "Supervisor diagnostic output exceeded its bound")
+    })
+    for (const server of servers) await collect(() => bounded(server.server.stop(true), "Preview server close", 5_000))
+    if (verificationCompleted && observation !== undefined && protocolDirectory !== undefined) await collect(async () => {
+      assert.ok(workerProcessGroupAbsent && processGroupAbsent, "Both owned process groups must be absent before protocol acceptance")
+      assert.equal(worker!.exitCode(), 0)
+      assert.equal(workerOutput, "", "Successful worker must not emit an alternate stdout/stderr receipt")
+      assert.ok(workerInputs !== undefined)
+      const currentInputs: WorkerInputSnapshot[] = []
+      for (const input of workerInputs) currentInputs.push(await readWorkerInput(input.path, input.maximum))
+      assertWorkerInputsUnchanged(workerInputs, currentInputs)
+      await assertCollectedWorkerProtocol(protocolDirectory!, observation!)
+      for (const server of servers) assert.deepEqual(server.rejected, [], "Server received late unadmitted resource requests")
+    })
+    if (profile !== undefined) {
+      if (managed !== undefined && !processGroupAbsent) failures.push(new Error(`Browser process-group absence is unproved; preserved profile: ${profile}`))
+      if (worker !== undefined && !workerProcessGroupAbsent) failures.push(new Error(`Worker process-group absence is unproved; preserved profile: ${profile}`))
+      // Never delete admission or protocol evidence inside a cancellable turn,
+      // including after success. Separate guarded reclamation owns its removal.
+      if (!verificationCompleted || signal?.aborted === true || failures.length > 0 || !processGroupAbsent || !workerProcessGroupAbsent) await collect(async () => {
+        const entries: string[] = []
+        for await (const entry of await opendir(profile!)) {
+          entries.push(entry.name)
+          if (entries.length >= 64) break
+        }
+        let endpointAtCollection: unknown
+        try {
+          const text = Buffer.from(await readPreviewFile(join(profile!, "DevToolsActivePort"), 1024)).toString()
+          endpointAtCollection = { text, parsed: parsePreviewEndpoint(text) }
+        } catch (error) { endpointAtCollection = errorEvidence(error) }
+        const path = join(profile!, "atet-preview-failure.json")
+        const receipt = `${JSON.stringify({ accepted: false, verificationCompleted, cancelled: signal?.aborted === true,
+          processGroupAbsent, workerProcessGroupAbsent, endpointEvidence, endpointBeforeCollection, endpointAtCollection,
+          profileEntries: entries.sort(), chromeOutput, workerOutput, outputTimeouts,
+          cleanupFailures: failures.map(errorEvidence) }, null, 2)}\n`
+        assert.ok(outputTimeouts.length <= 2 && Buffer.byteLength(receipt) <= 1024 * 1024, "Excessive private preview failure evidence")
+        await writeFile(path, receipt, { flag: "wx", mode: 0o600 })
+        console.error(`atet-preview: failure evidence preserved at ${path}`)
+      })
+    }
+    if (failures.length > 0) throw new AggregateError(failures, "Preview resource collection failed")
+  })
+  console.log(JSON.stringify({ ...record(result), processGroupAbsent, workerProcessGroupAbsent, evidenceDirectory: profile }))
+}
+
+export async function runPreviewCli(args: readonly string[], io: {
+  verify(args: readonly string[]): Promise<void>
+  fail(): void
+  report(message: string): void
+}): Promise<void> {
+  try { await io.verify(args) } catch (error) {
+    io.fail()
+    io.report(previewFailureSummary(error))
+  }
+}
+
+if (import.meta.main) await runPreviewCli(process.argv.slice(2), {
+  verify: verifyPreview,
+  fail() { process.exitCode = 1 },
+  report(message) { console.error(message) },
+})
