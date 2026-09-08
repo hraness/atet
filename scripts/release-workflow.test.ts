@@ -138,6 +138,33 @@ test("public CI routes independent Atet SDK, local-runtime, site, and native pro
   expect(workflow).not.toContain(["projects", "atet"].join("/"))
 })
 
+test("site CI installs app-pinned Chromium in runner temp before the unchanged native gate", async () => {
+  const workflow = await readWorkflow("public-ci.yml", "ci.yml")
+  const site = workflow.slice(workflow.indexOf("\n  site:\n"), workflow.indexOf("\n  package:\n"))
+  expect(site).toContain("timeout-minutes: 10")
+  expect(site).toContain('bun-version: "1.3.14"')
+  expect(site).toContain("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020")
+  expect(site).toContain('node-version: "24.18.1"')
+  expect(site).toContain("package-manager-cache: false")
+  expect(site).toContain("bun install --frozen-lockfile --ignore-scripts")
+  expect(site.indexOf("bun install --frozen-lockfile --ignore-scripts")).toBeLessThan(
+    site.indexOf("Verify the site with pinned Node and Chromium"),
+  )
+  const script = workflowStepScript(site, "Verify the site with pinned Node and Chromium")
+  expect(script.trim().split("\n")).toEqual([
+    "set -euo pipefail",
+    'NODE_EXECUTABLE_PATH="$(command -v node)"',
+    'PLAYWRIGHT_BROWSERS_PATH="$(mktemp -d "$RUNNER_TEMP/atet-playwright.XXXXXX")"',
+    "export NODE_EXECUTABLE_PATH PLAYWRIGHT_BROWSERS_PATH",
+    'playwright_cli="$("$NODE_EXECUTABLE_PATH" -e \'const { createRequire } = require("node:module"); const { dirname, resolve } = require("node:path"); const appRequire = createRequire(resolve("apps/web/package.json")); const manifest = appRequire.resolve("playwright-core/package.json"); console.log(resolve(dirname(manifest), appRequire(manifest).bin["playwright-core"]))\')"',
+    '"$NODE_EXECUTABLE_PATH" "$playwright_cli" install --no-shell chromium',
+    'ATET_CHROME_PATH="$("$NODE_EXECUTABLE_PATH" -e \'const { createRequire } = require("node:module"); const { resolve } = require("node:path"); console.log(createRequire(resolve("apps/web/package.json"))("playwright-core").chromium.executablePath())\')"',
+    'test -x "$ATET_CHROME_PATH"',
+    "export ATET_CHROME_PATH",
+    "bun run check:web",
+  ])
+})
+
 test("hostile actor or sender drift cannot reach the protected release workflow", async () => {
   const workflow = await readWorkflow("public-release.yml", "release.yml")
   expect(() => requireOwnerReleaseAuthorization(workflow)).not.toThrow()
