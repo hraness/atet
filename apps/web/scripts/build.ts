@@ -9,6 +9,8 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
 import { renderAtetSocialImage } from "./generate-og"
+import { buildPreview } from "./build-preview"
+import type { PreviewArtifact } from "./preview-contract"
 import { publishedRelease } from "../src/published-release"
 import {
   homeMarkdown,
@@ -243,6 +245,10 @@ async function bundleTheme(): Promise<Uint8Array> {
 
 export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly<{
   analyticsPath: string | null
+  previewArtifacts: readonly PreviewArtifact[]
+  previewEvidenceDirectory: string
+  previewFoundationPath: string
+  previewStylesPath: string
   stylesPath: string
   themePath: string
 }>> {
@@ -252,7 +258,6 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   const [
     indexTemplate,
     notFoundTemplate,
-    previewTemplate,
     productStyles,
     designKitFontsStyles,
     designKitProductMarketingStyles,
@@ -263,7 +268,6 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   ] = await Promise.all([
     readFile(join(sourceDirectory, "index.html"), "utf8"),
     readFile(join(sourceDirectory, "404.html"), "utf8"),
-    readFile(join(sourceDirectory, "preview.html"), "utf8"),
     readFile(join(sourceDirectory, "styles.css"), "utf8"),
     readFile(designKitFontsStylesPath, "utf8"),
     readFile(designKitProductMarketingStylesPath, "utf8"),
@@ -304,9 +308,9 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
       id: "skill-install-copy-status",
     }),
   } as const
-  const previewAssets = {
-    "{{CSS_ASSET}}": stylesPath,
-  } as const
+  // Finalize and validate the complete private preview graph before replacing
+  // an existing public build. Only its closed, byte-bound projection is copied.
+  const preview = await buildPreview(appDirectory)
 
   await rm(outputDirectory, { force: true, recursive: true })
   await mkdir(join(outputDirectory, "assets"), { recursive: true })
@@ -318,10 +322,11 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     }),
     writeFile(join(outputDirectory, "index.html"), renderDocument(indexTemplate, indexAssets)),
     writeFile(join(outputDirectory, "404.html"), renderDocument(notFoundTemplate, commonAssets)),
-    writeFile(
-      join(outputDirectory, "preview.html"),
-      renderDocument(previewTemplate, previewAssets),
-    ),
+    ...preview.files.map(async ({ artifact, bytes }) => {
+      const destination = join(outputDirectory, artifact.path)
+      await mkdir(dirname(destination), { recursive: true })
+      await writeFile(destination, bytes, { flag: "wx", mode: 0o644 })
+    }),
     writeFile(join(outputDirectory, stylesPath.slice(1)), styles),
     writeFile(join(outputDirectory, themePath.slice(1)), theme),
     writeFile(join(outputDirectory, "og.png"), socialImage),
@@ -346,14 +351,21 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
     writeFile(join(outputDirectory, file), contents)
   )))
 
-  return { analyticsPath, stylesPath, themePath }
+  return {
+    analyticsPath, stylesPath, themePath,
+    previewArtifacts: preview.files.map(item => item.artifact),
+    previewEvidenceDirectory: preview.evidenceDirectory,
+    previewFoundationPath: preview.foundationPath,
+    previewStylesPath: preview.stylesPath,
+  }
 }
 
 if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 7
+    + 6 + result.previewArtifacts.length
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
+  console.log(`Preview compiler evidence retained in ${result.previewEvidenceDirectory}`)
 }

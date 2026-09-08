@@ -1,0 +1,38 @@
+/* Only the inert preview uses this compiler graph. Ordinary pages retain
+   their raw-HTML compatibility stylesheet until separately migrated. */
+@layer base, components;
+@import "@hraness/ui/compiler-foundation.css";
+@import "@hraness/design-kit/fonts.css" layer(base);
+@import "./styles.css" layer(base);
+
+/* The preview predates the shared reset. Retain its original UA defaults for
+   properties that the required compiler foundation would otherwise add.
+   Product globals above and the finalized preview atoms remain authoritative. */
+@layer base {
+  html, body {
+    min-width: revert;
+    min-height: revert;
+    overflow-x: revert;
+  }
+
+  html {
+    -webkit-text-size-adjust: revert;
+    text-size-adjust: revert;
+  }
+
+  body {
+    font-synthesis: revert;
+    font-variant-ligatures: revert;
+    text-rendering: revert;
+  }
+
+  :where(h1, p, li) {
+    font-family: inherit;
+    overflow-wrap: revert;
+  }
+
+  ::selection {
+    background: revert;
+    color: revert;
+  }
+}

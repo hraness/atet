@@ -270,39 +270,135 @@ describe("static Atet site", () => {
   })
 
   test("builds an inert noindex Atet preview with the homepage as canonical", async () => {
-    const [source, built, css] = await Promise.all([
+    const [source, built, productCss, recipes, css] = await Promise.all([
       readSource("preview.html"),
       readBuilt("preview.html"),
       readSource("styles.css"),
+      readSource("preview.stylex.ts"),
+      readBuilt(builtAssets.previewStylesPath.slice(1)),
     ])
+    const semanticHooks = [
+      "preview-route", "preview-shell", "preview-mark", "preview-mark__sun",
+      "preview-mark__path", "preview-kicker", "preview-summary", "preview-outputs", "preview-note",
+    ]
 
     for (const html of [source, built]) {
       expect(html.match(/<h1\b/gu)).toHaveLength(1)
-      expect(html).toContain("<h1 id=\"preview-title\">Atet</h1>")
+      expect(html).toMatch(/<h1 id="preview-title" class="[^"]+">Atet<\/h1>/u)
+      expect(html).toMatch(/<main aria-labelledby="preview-title" class="preview-shell [^"]+">/u)
       expect(html).toContain("Make and edit visual media with your coding agent.")
       expect(html).toContain('<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">')
       expect(html).toContain('<link rel="canonical" href="https://atet.sh/">')
-      expect(html).not.toMatch(/<script\b|<a\b|<button\b|<form\b|<input\b|<select\b|<textarea\b|contenteditable/iu)
+      expect(html).not.toMatch(/<script\b|<style\b|\sstyle\s*=|<a\b|<button\b|<form\b|<input\b|<select\b|<textarea\b|contenteditable/iu)
       expect(html).not.toMatch(/analytics|posthog|account|authentication|authorization|sign[ -]?in|user data/iu)
       expect(html).not.toContain('rel="alternate"')
       expect(html).not.toContain('rel="sitemap"')
       expect(html).not.toContain('rel="describedby"')
       expect(html).not.toContain("data-hraness-appearance-menu")
       expect(html).not.toContain('data-slot="hraness-site-footer"')
+      expect([...html.matchAll(/\sclass="([^"]+)"/gu)]
+        .flatMap(match => match[1]!.split(/\s+/u))
+        .filter(token => token.startsWith("preview-"))).toEqual(semanticHooks)
     }
 
-    expect(source).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
-    expect(built).toContain(`<link rel="stylesheet" href="${builtAssets.stylesPath}">`)
+    expect(source.trimEnd().split("\n")).toHaveLength(33)
+    expect(source).toContain("    {{PREVIEW_STYLES}}\n")
+    expect(source.match(/\{\{PREVIEW_[A-Z_]+_CLASS\}\}/gu)).toHaveLength(18)
+    expect(source.match(/\{\{PREVIEW_NUMBER_CLASS\}\}/gu)).toHaveLength(4)
+    const stylesheetLinks = `<link rel="stylesheet" href="${builtAssets.previewFoundationPath}">\n    <link rel="stylesheet" href="${builtAssets.previewStylesPath}">`
+    expect(built).toContain(stylesheetLinks)
+    expect(built.match(/<link rel="stylesheet"(?=\s|>)/gu)).toHaveLength(2)
+    expect(built).not.toContain(builtAssets.stylesPath)
     expect(built).not.toContain("{{")
-    expect([...built.matchAll(/<li><span>0[1-4]<\/span>([^<]+)<\/li>/gu)]
-      .map(match => match[1])).toEqual(["images", "diagrams", "animated loops", "video"])
-    expect(css).toContain(".preview-route")
-    expect(css).toContain(".preview-shell")
-    expect(css).toContain(".preview-mark__sun")
-    expect(css).toContain(".preview-outputs")
-    expect(css).toMatch(/\.preview-route\s*\{[^}]*place-items:\s*safe center;[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/su)
-    expect(css).toMatch(/\.preview-shell\s*\{[^}]*min-height:\s*min\(38rem, calc\(100svh - 2rem\)\);/su)
-    expect(css).not.toMatch(/\.preview-(?:route|shell)\s*\{[^}]*overflow:\s*hidden;/su)
+    const withoutRecipeClasses = (html: string): string => html.replace(/\sclass="([^"]+)"/gu, (_attribute, value: string) => {
+      const hooks = value.split(/\s+/u).filter(token => semanticHooks.includes(token))
+      return hooks.length === 0 ? "" : ` class="${hooks.join(" ")}"`
+    })
+    expect(withoutRecipeClasses(built.replace(stylesheetLinks, "{{PREVIEW_STYLES}}")))
+      .toBe(withoutRecipeClasses(source))
+    const outputs = [...built.matchAll(/<li class="([^"]+)"><span class="([^"]+)">(0[1-4])<\/span>([^<]+)<\/li>/gu)]
+    expect(outputs.map(match => [match[3], match[4]])).toEqual([
+      ["01", "images"], ["02", "diagrams"], ["03", "animated loops"], ["04", "video"],
+    ])
+    const classAttributes = [...built.matchAll(/\sclass="([^"]+)"/gu)].map(match => match[1]!)
+    expect(classAttributes).toHaveLength(18)
+    for (const attribute of classAttributes) {
+      expect(attribute).toMatch(/^[A-Za-z0-9_-]+(?: [A-Za-z0-9_-]+)*$/u)
+      const compiled = attribute.split(" ").filter(token => !semanticHooks.includes(token))
+      expect(compiled.length).toBeGreaterThan(0)
+      for (const token of compiled) expect(css).toContain(`.${token}`)
+    }
+
+    const declarations = (classes: string): string => {
+      const selectors = classes.split(" ").map(token => new RegExp(`\\.${token}(?=[^A-Za-z0-9_-]|$)`, "u"))
+      return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/gu)]
+        .filter(match => selectors.some(selector => selector.test(match[1]!)))
+        .map(match => match[2]).join(";").replace(/\s+/gu, "")
+    }
+    const routeCss = declarations(classAttributes[0]!)
+    const shellCss = declarations(classAttributes[1]!)
+    expect(routeCss).toContain("align-items:safecenter")
+    expect(routeCss).toContain("justify-items:safecenter")
+    expect(routeCss).toContain("overflow-x:hidden")
+    expect(routeCss).toContain("overflow-y:auto")
+    expect(routeCss).toContain("min-height:100svh")
+    expect(shellCss).toMatch(/min-height:min\(38rem,(?:calc\()?100svh-2rem\)\)?/u)
+    expect(shellCss).toContain("min-height:calc(100svh-1rem)")
+    expect(`${routeCss};${shellCss}`).not.toMatch(/(?:^|;)overflow:hidden(?:;|$)/u)
+    // The compiler normalizes max-width to its equivalent inclusive range.
+    expect(css).toMatch(/@media\s*\((?:max-width:\s*|width\s*<=\s*)48rem\)/u)
+    expect(css).toMatch(/@media\s*\(forced-colors:\s*active\)/u)
+    expect(shellCss).toMatch(/border(?:-(?:top|right|bottom|left))?-color:CanvasText/iu)
+    const outputGridCss = declarations(classAttributes[8]!)
+    expect(outputGridCss).toContain("grid-template-columns:repeat(4,minmax(0,1fr))")
+    expect(outputGridCss).toContain("grid-template-columns:repeat(2,minmax(0,1fr))")
+    expect(declarations(outputs[2]![1]!)).toMatch(/border-left-width:0(?:px)?(?:;|$)/u)
+    for (const output of outputs.slice(2)) {
+      expect(declarations(output[1]!)).toContain("border-top-width:1px")
+      expect(declarations(output[1]!)).toContain("border-top-style:solid")
+    }
+    expect(productCss).not.toMatch(/\.preview-(?:route|shell|mark|kicker|summary|outputs|note)\b/u)
+    expect(recipes).toContain('import * as stylex from "@stylexjs/stylex"')
+    expect(recipes).toContain('default: "min(38rem, calc(100svh - 2rem))"')
+    expect(recipes).toContain('[compactViewport]: "calc(100svh - 1rem)"')
+  })
+
+  test("publishes exactly the preview HTML, two stylesheets, and thirteen approved font assets", async () => {
+    expect(builtAssets.previewStylesPath).toMatch(/^\/assets\/preview-[a-f0-9]{64}\.css$/u)
+    expect(builtAssets.previewFoundationPath).toMatch(/^\/graphs\/preview-foundation\/assets\/[A-Za-z0-9_.-]+\.css$/u)
+    const artifacts = builtAssets.previewArtifacts
+    const paths = artifacts.map(artifact => artifact.path)
+    expect(artifacts).toHaveLength(16)
+    expect(paths).toEqual([...paths].sort())
+    expect(new Set(paths).size).toBe(16)
+    expect(paths.filter(path => path.endsWith(".html"))).toEqual(["preview.html"])
+    expect(paths.filter(path => path.endsWith(".css")).sort()).toEqual([
+      builtAssets.previewStylesPath.slice(1), builtAssets.previewFoundationPath.slice(1),
+    ].sort())
+    const fonts = paths.filter(path => path.endsWith(".woff2"))
+    expect(fonts).toHaveLength(13)
+    for (const font of fonts) expect(font).toMatch(/^graphs\/preview-foundation\/assets\/[A-Za-z0-9_.-]+\.woff2$/u)
+    for (const artifact of artifacts) {
+      expect(Object.keys(artifact).sort()).toEqual(["bytes", "path", "sha256"])
+      expect(artifact.sha256).toMatch(/^[a-f0-9]{64}$/u)
+      const bytes = await readFile(join(appDirectory, "dist", artifact.path))
+      expect(artifact.bytes).toBe(bytes.byteLength)
+      expect(artifact.bytes).toBeGreaterThan(0)
+      expect(artifact.sha256).toBe(new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
+    }
+    expect(await readdir(join(appDirectory, "dist/graphs"))).toEqual(["preview-foundation"])
+    expect(await readdir(join(appDirectory, "dist/graphs/preview-foundation"))).toEqual(["assets"])
+    expect((await readdir(join(appDirectory, "dist/graphs/preview-foundation/assets"))).sort())
+      .toEqual(paths.filter(path => path.startsWith("graphs/preview-foundation/assets/"))
+        .map(path => path.split("/").at(-1)!).sort())
+    const foundation = await readBuilt(builtAssets.previewFoundationPath.slice(1))
+    expect(foundation.match(/@font-face\b/gu)).toHaveLength(13)
+    expect([...foundation.matchAll(/url\(["']?([^"')]+)["']?\)/gu)].map(match => {
+      const url = new URL(match[1]!, `https://atet.sh${builtAssets.previewFoundationPath}`)
+      expect(url.origin).toBe("https://atet.sh")
+      return url.pathname.slice(1)
+    }).sort()).toEqual([...fonts].sort())
+    expect(foundation).not.toMatch(/sourceMappingURL|@import\b/u)
   })
 
   test("links the website, product, and source in structured data", async () => {
@@ -712,27 +808,39 @@ describe("static Atet site", () => {
     const localLockfile = await readFile(join(appDirectory, "bun.lock"), "utf8")
 
     expect(manifest.dependencies).toEqual({
-      "@hraness/design-kit": "github:hraness/design-kit#v0.4.0",
+      "@hraness/design-kit": "github:hraness/design-kit#v0.5.2",
       "@hraness/site-footer": "github:hraness/site-footer#v0.6.1",
-      "@hraness/ui": "github:hraness/ui#v0.4.10",
+      "@hraness/ui": "github:hraness/ui#v0.5.6",
       "@resvg/resvg-js": "2.6.2",
       "posthog-js": "1.413.2",
       "react": "19.2.3",
       "react-dom": "19.2.3",
     })
     expect(manifest.devDependencies).toEqual({
+      "@babel/core": "7.29.7",
+      "@stylexjs/babel-plugin": "0.19.0",
+      "@stylexjs/stylex": "0.19.0",
+      "@types/babel__core": "7.20.5",
+      "@types/bun": "1.3.14",
+      "@types/node": "24.13.3",
       "@types/react": "19.2.14",
       "@types/react-dom": "19.2.3",
+      "lightningcss": "1.33.0",
+      "typescript": "5.9.3",
+      "vite": "8.2.1",
     })
     expect(rootManifest.workspaces?.catalog?.["posthog-js"]).toBeUndefined()
     expect(rootManifest.workspaces?.catalog?.["@hraness/design-kit"]).toBeUndefined()
-    expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.4.0"')
+    expect(localLockfile).toContain('"@hraness/design-kit": "github:hraness/design-kit#v0.5.2"')
     expect(localLockfile).toContain(
       '"@hraness/site-footer": "github:hraness/site-footer#v0.6.1"',
     )
-    expect(localLockfile).toContain('"@hraness/ui": "github:hraness/ui#v0.4.10"')
+    expect(localLockfile).toContain('"@hraness/ui": "github:hraness/ui#v0.5.6"')
     expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
+    for (const [name, version] of Object.entries(manifest.devDependencies ?? {})) {
+      expect(localLockfile).toContain(`"${name}": "${version}"`)
+    }
     expect(localLockfile).not.toContain("catalog:")
     // Measure the version-resolved shell, excluding only publication-token overhead.
     const versionResolvedShell = html.replaceAll("{{PUBLISHED_VERSION}}", publishedRelease.version)
@@ -888,6 +996,10 @@ describe("static Atet site", () => {
       const second = await buildWebsite({ environment, outputDirectory: secondDirectory })
       expect(first.analyticsPath).toMatch(/^\/assets\/analytics-[a-f0-9]{12}\.js$/u)
       expect(second.analyticsPath).toBe(first.analyticsPath)
+      expect(second.previewStylesPath).toBe(first.previewStylesPath)
+      expect(second.previewFoundationPath).toBe(first.previewFoundationPath)
+      expect(second.previewArtifacts).toEqual(first.previewArtifacts)
+      expect(first.previewArtifacts).toEqual(builtAssets.previewArtifacts)
 
       const [html, notFound, preview, asset] = await Promise.all([
         readFile(join(productionDirectory, "index.html"), "utf8"),
@@ -957,6 +1069,7 @@ describe("static Atet site", () => {
       "404.html",
       "apple-touch-icon.png",
       "assets",
+      "graphs",
       "icon.svg",
       "index.html",
       "index.md",
@@ -969,6 +1082,7 @@ describe("static Atet site", () => {
     ])
     expect(assetFiles.sort()).toEqual([
       "fonts",
+      builtAssets.previewStylesPath.split("/").at(-1)!,
       builtAssets.stylesPath.split("/").at(-1)!,
       builtAssets.themePath.split("/").at(-1)!,
     ].sort())

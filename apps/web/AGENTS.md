@@ -3,11 +3,15 @@
 - `src/` contains the static `atet.sh` homepage and documentation, inert `/preview` composition, visual system, appearance control, crawler files, favicons, social preview, and machine-readable page bodies.
 - `src/negotiate.ts`, `src/negotiate-request.ts`, and `middleware.ts` select HTML or markdown from `Accept` for document routes.
 - `scripts/build.ts` renders fingerprinted local assets into `dist/` from an explicit allowlist and bundles the pinned PostHog browser client only for a configured Production build.
+- `src/preview.stylex.ts`, `src/preview-renderer.ts`, and `src/preview-foundation.*` own the inert preview's static recipes, sealed HTML producer, and CSS-importing foundation entry. `scripts/build-preview.ts` compiles their public StyleX generation; `scripts/preview-contract.ts` bounds its publication projection.
 - `site.test.ts`, `package.json`, and `vercel.json` define the content, identity, accessibility, performance, legacy-host, and deployment contracts.
 
 # Guidelines
 
 - Keep the site static and useful without JavaScript. Browser code may load only fingerprinted local assets. The sole runtime request is the reviewed PostHog pageview boundary below.
+- Author `/preview` presentation in product-owned literal StyleX recipes. Use the released `@hraness/ui/stylex-build` generation, Vite and Bun adapters, produced-template seal, and finalizer. Keep the ordinary site's raw-HTML compatibility styles separate; they remain unmigrated and must not be described as compiler-backed.
+- The supported preview compiler profile is Bun 1.3.14 with Vite 8.2.1, production only, no React plugin, source maps, watch mode, or client renderer. The Vite foundation entry is TypeScript importing CSS, never a CSS-only bundler input. Capture its single empty JavaScript entry as private graph evidence, then publish only the sealed HTML, final StyleX union, captured foundation CSS, and all thirteen identity-checked installed WOFF2 files. Never publish graph JavaScript, source, receipts, manifests, or source maps. Keep fonts local and the preview's existing `style-src 'self'` and `font-src 'self'` CSP unchanged.
+- The preview's final CSS URL is addressed by the complete captured source, lockfile, toolchain, and package-input fingerprint because the public generation API binds its URL before compilation. The finalized completion record separately binds the emitted CSS bytes. Preserve private generation evidence on success and failure; do not copy it into `dist/` or rewrite sealed HTML/CSS to rename assets.
 - Use the framework-neutral `@hraness/design-kit` appearance menu as the final action in every ordinary HTML header. Keep exactly one Light, Dark, and System icon-menu control per page, default to System, and never place it inside navigation or a footer.
 - Keep `apps/web` independently installable from its Vercel Root Directory: pin every dependency exactly in this package and commit its local `bun.lock`. Verify an isolated `bun install --frozen-lockfile --ignore-scripts`; do not depend on the parent workspace catalog or lockfile.
 - Describe the released SDK, local host, and desktop capture shell as one Atet system. Do not introduce a hosted account, billing, authentication, or generation service.
@@ -25,3 +29,4 @@
 - Do not add a public API, OAuth, GraphQL, MCP, account, or commerce surface to the website.
 - Preserve permanent production redirects for every reviewed predecessor host without redirecting canonical Atet hosts. Do not create a durable Preview hostname as a compatibility target.
 - Run `bun run check` in this directory after a site change.
+- `bun test ./scripts/preview-contract.test.ts` is a pure, process-free edit loop. `typecheck:preview` checks the new compiler boundary independently of the root SDK configuration. `site.test.ts` performs real compilation and `verify:preview` runs native Chromium; the integration owner runs those through the required host/repository admission, including an isolated frozen install and native preview evidence before delivery.
