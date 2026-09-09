@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
 import { assertShellFocusFragments, assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellCaseFailure, parseShellPhase, parseShellRequest,
-  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellCaseFailure, shellContextLifecycle, shellFocusFragments, shellOperationTracker, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders, withShellCaseCleanup,
+  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellCaseFailure, shellContextLifecycle, shellFocusFragments, shellOperationTracker, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders, withShellCaseCleanup, withShellSettledNavigation,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
 
 function operationDeferred() {
@@ -9,6 +9,40 @@ function operationDeferred() {
   const promise = new Promise<void>((yes, no) => { resolve = yes; reject = no })
   return { promise, resolve, reject }
 }
+
+test("intentional reload waits for live document paint and its admitted resource completion", async () => {
+  const document = operationDeferred(), resource = operationDeferred(), order: string[] = [], errors: string[] = []
+  const tracker = shellOperationTracker(message => errors.push(message))
+  let navigated = false
+  const navigation = withShellSettledNavigation(async () => {
+    await document.promise
+    order.push("document")
+    void tracker.track("Request /icon.svg", resource.promise.then(() => { order.push("resource") }))
+  }, () => tracker.settle("prior document"), async () => { order.push("reload"); navigated = true; return "new document" })
+  for (let index = 0; index < 4; index++) await Promise.resolve()
+  expect(navigated).toBe(false)
+  document.resolve()
+  for (let index = 0; index < 8; index++) await Promise.resolve()
+  expect(order).toEqual(["document"])
+  expect(tracker.size).toBe(1)
+  expect(navigated).toBe(false)
+  resource.resolve()
+  expect(await navigation).toBe("new document")
+  expect(order).toEqual(["document", "resource", "reload"])
+  expect(errors).toEqual([])
+})
+
+test("failed live document or resource settlement forbids the replacement navigation", async () => {
+  for (const failedPhase of ["document", "resources"] as const) {
+    const failure = new Error(`${failedPhase} failed`), order: string[] = []
+    await expect(withShellSettledNavigation(async () => {
+      order.push("document"); if (failedPhase === "document") throw failure
+    }, async () => {
+      order.push("resources"); throw failure
+    }, async () => { order.push("reload") })).rejects.toBe(failure)
+    expect(order).toEqual(failedPhase === "document" ? ["document"] : ["document", "resources"])
+  }
+})
 
 test("case cleanup preserves the primary failure and independently reports teardown failure", async () => {
   for (const primaryFails of [false, true]) for (const cleanupFails of [false, true]) {

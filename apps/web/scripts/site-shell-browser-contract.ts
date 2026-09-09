@@ -885,6 +885,16 @@ export async function withShellCaseCleanup<T>(run: () => Promise<T>, cleanup: ()
   return result
 }
 
+/** A load event does not complete resources started by document presentation
+ * (including its icon). Collect the live document before intentionally replacing
+ * it, rather than abandoning its requests and accepting them as cleanup noise. */
+export async function withShellSettledNavigation<T>(settleDocument: () => Promise<unknown>,
+  settleOperations: () => Promise<void>, navigate: () => Promise<T>): Promise<T> {
+  await settleDocument()
+  await settleOperations()
+  return navigate()
+}
+
 export function shellContextLifecycle(error: (message: string) => void) {
   let intentionalContextClose = false
   return {
@@ -991,7 +1001,12 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     // fragment, whose browser focus restoration would otherwise start Tab at
     // main instead of the document's first keyboard control.
     await page.goto(`${payload.origin}${scenario.route}`, { waitUntil: "load" })
-    await page.reload({ waitUntil: "load" })
+    await withShellSettledNavigation(settleCase,
+      async () => {
+        await operations.settle("Route-restoration operations before reload")
+        assert.deepEqual(errors, [], `${scenario.name}: browser errors before reload`)
+      },
+      () => page.reload({ waitUntil: "load" }))
     await settleCase()
     await assertAppearancePreference(page, scenario.theme, scenario.system)
     await page.keyboard.press("Tab")
