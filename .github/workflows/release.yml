@@ -56,76 +56,65 @@ jobs:
     name: Verify
     needs: authorize
     permissions:
+      actions: read
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
     outputs:
-      npm_attestation_url: ${{ steps.npm_authority.outputs.npm_attestation_url }}
-      npm_integrity: ${{ steps.npm_authority.outputs.npm_integrity }}
-      stage_run_attempt: ${{ steps.npm_authority.outputs.stage_run_attempt }}
-      stage_run_id: ${{ steps.npm_authority.outputs.stage_run_id }}
-      verified_tag: ${{ steps.identity.outputs.tag }}
+      archive_sha256: ${{ steps.pack.outputs.archive_sha256 }}
+      pack_sha256: ${{ steps.pack.outputs.pack_sha256 }}
+      manifest_sha256: ${{ steps.pack.outputs.manifest_sha256 }}
+      sums_sha256: ${{ steps.pack.outputs.sums_sha256 }}
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      archive_name: ${{ steps.pack.outputs.archive_name }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: 0
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          fetch-tags: false
           persist-credentials: false
+      - name: Fetch only governed release history
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --unshallow origin "refs/heads/main:refs/remotes/origin/main"
+          git fetch --no-tags origin "refs/tags/$GITHUB_REF_NAME:refs/atet-release-tags/$GITHUB_REF_NAME"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "24"
+          node-version: "24.18.1"
           package-manager-cache: false
-          registry-url: "https://registry.npmjs.org"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.3.14"
-      - run: >-
-          npm install --global --ignore-scripts npm@11.19.0
-          --registry=https://registry.npmjs.org
-      - name: Install FFmpeg
-        run: bash scripts/install-ci-ffmpeg.sh
+      - name: Authorize exact source and current helper closure
+        id: authority
+        run: node scripts/github-release.ts authorize "$RUNNER_TEMP"
       - name: Verify release identity
-        id: identity
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          REF_PROTECTED: ${{ github.ref_protected }}
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" != push || "$REF_PROTECTED" != true ]]; then
-            echo "::error::Release requires a protected owner-created stable tag"
-            exit 1
-          fi
-          git fetch --no-tags origin \
-            "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
-          package_version="$(bun -e 'const value = await Bun.file("package.json").json(); if (typeof value.version !== "string") process.exit(1); process.stdout.write(value.version)')"
-          if [[ ! "$package_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "::error::Package version $package_version is not a stable semantic version"
-            exit 1
-          fi
-          expected_tag="v$package_version"
-          if [[ "$GITHUB_REF" != "refs/tags/$expected_tag" || \
-                "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match package version $expected_tag"
-            exit 1
-          fi
-          release_ref="refs/atet-release-tags/$expected_tag"
-          git fetch --no-tags origin "refs/tags/$expected_tag:$release_ref"
-          if [[ "$(git cat-file -t "$release_ref")" != tag || \
-                "$(git rev-parse "$release_ref^{commit}")" != "$GITHUB_SHA" ]]; then
-            echo "::error::Release requires the exact annotated release tag"
-            exit 1
-          fi
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"; then
-            echo "::error::Tag $GITHUB_REF_NAME is not reachable from $DEFAULT_BRANCH"
-            exit 1
-          fi
-          newest_stable_tag="$(git tag --list 'v*' | grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' | LC_ALL=C sort -V | tail -n 1)"
-          if [[ "$newest_stable_tag" != "$GITHUB_REF_NAME" ]]; then
-            echo "::error::Tag $GITHUB_REF_NAME is not newer than $newest_stable_tag"
-            exit 1
-          fi
-          printf 'tag=%s\n' "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          package_version="$(node -p 'require("./package.json").version')"
+          [[ "$GITHUB_REF_NAME" == "v$package_version" ]]
+          [[ "$(git cat-file -t "refs/atet-release-tags/$GITHUB_REF_NAME")" == tag ]]
+          [[ "$(git rev-parse "refs/atet-release-tags/$GITHUB_REF_NAME^{commit}")" == "$GITHUB_SHA" ]]
+          git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main
+      - run: npm install --global --ignore-scripts npm@11.19.0 --registry=https://registry.npmjs.org
+      - name: Install FFmpeg
+        run: bash scripts/install-ci-ffmpeg.sh
       - run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run check
+      - name: Verify with pinned Node and Chromium
+        run: |
+          set -euo pipefail
+          NODE_EXECUTABLE_PATH="$(command -v node)"
+          PLAYWRIGHT_BROWSERS_PATH="$(mktemp -d "$RUNNER_TEMP/atet-playwright.XXXXXX")"
+          export NODE_EXECUTABLE_PATH PLAYWRIGHT_BROWSERS_PATH
+          playwright_cli="$("$NODE_EXECUTABLE_PATH" -e 'const { createRequire } = require("node:module"); const { dirname, resolve } = require("node:path"); const appRequire = createRequire(resolve("apps/web/package.json")); const manifest = appRequire.resolve("playwright-core/package.json"); console.log(resolve(dirname(manifest), appRequire(manifest).bin["playwright-core"]))')"
+          "$NODE_EXECUTABLE_PATH" "$playwright_cli" install --no-shell chromium
+          ATET_CHROME_PATH="$("$NODE_EXECUTABLE_PATH" -e 'const { createRequire } = require("node:module"); const { resolve } = require("node:path"); console.log(createRequire(resolve("apps/web/package.json"))("playwright-core").chromium.executablePath())')"
+          test -x "$ATET_CHROME_PATH"
+          export ATET_CHROME_PATH
+          bun run check
       - name: Verify clean source tree
         run: |
           set -euo pipefail
@@ -134,121 +123,29 @@ jobs:
             printf '%s\n' "$source_status"
             exit 1
           fi
-      - name: Verify exact public npm artifact
-        id: npm_authority
+      - name: Pack and verify canonical artifact
+        id: pack
+        env:
+          CURRENT_AUTHORITY_SHA: ${{ steps.authority.outputs.authority_sha }}
         run: |
           set -euo pipefail
-          package_name="$(node -p 'require("./package.json").name')"
+          release_directory="$RUNNER_TEMP/atet-release"
+          mkdir "$release_directory"
+          npm pack --ignore-scripts --json --pack-destination "$release_directory" --registry=https://registry.npmjs.org > "$release_directory/npm-pack.json"
           package_version="$(node -p 'require("./package.json").version')"
           archive_name="hraness-atet-$package_version.tgz"
-          source_directory="$RUNNER_TEMP/npm-source"
-          registry_directory="$RUNNER_TEMP/npm-registry"
-          source_metadata="$source_directory/npm-pack.json"
-          registry_metadata="$registry_directory/npm-pack.json"
-          registry_view="$registry_directory/npm-view.json"
-          mkdir -p "$source_directory" "$registry_directory"
-          registry_ready=false
-          for registry_poll in {1..60}; do
-            published_version="$(npm view "$package_name@$package_version" version --json \
-              --@hraness:registry=https://registry.npmjs.org \
-              --registry=https://registry.npmjs.org 2>/dev/null || true)"
-            if [[ "$published_version" == "\"$package_version\"" ]]; then
-              registry_ready=true
-              break
-            fi
-            sleep 10
-          done
-          if [[ "$registry_ready" != true ]]; then
-            echo "::error::$package_name@$package_version did not become readable from npm in time"
-            exit 1
-          fi
-          npm pack --ignore-scripts --json \
-            --pack-destination "$source_directory" \
-            --registry=https://registry.npmjs.org \
-            > "$source_metadata"
-          npm pack "$package_name@$package_version" \
-            --ignore-scripts --json \
-            --pack-destination "$registry_directory" \
-            --@hraness:registry=https://registry.npmjs.org \
-            --registry=https://registry.npmjs.org \
-            > "$registry_metadata"
-          npm view "$package_name@$package_version" name version dist dist-tags --json \
-            --@hraness:registry=https://registry.npmjs.org \
-            --registry=https://registry.npmjs.org \
-            > "$registry_view"
-          cat "$source_metadata"
-          cat "$registry_metadata"
-          cat "$registry_view"
-          source_archive="$source_directory/$archive_name"
-          registry_archive="$registry_directory/$archive_name"
-          bun run ./scripts/npm-package-identity.ts \
-            "$source_metadata" "$source_archive" \
-            "$registry_metadata" "$registry_archive" \
-            "$registry_view" \
-            "$package_name" "$package_version" "$archive_name"
-          bun run ./scripts/package-smoke.ts \
-            --archive "$registry_archive" \
-            --pack-json "$registry_metadata"
-          npm_tool_directory="$RUNNER_TEMP/npm-audit-cli"
-          npm_audit_directory="$RUNNER_TEMP/npm-audit-package"
-          npm_audit_json="$RUNNER_TEMP/npm-audit-signatures.json"
-          npm_authority_receipt="$RUNNER_TEMP/npm-authority-receipt.tsv"
-          mkdir -p "$npm_tool_directory" "$npm_audit_directory"
-          npm install npm@11.19.0 \
-            --prefix "$npm_tool_directory" \
-            --ignore-scripts \
-            --no-audit \
-            --no-fund \
-            --no-save \
-            --package-lock=false \
-            --registry=https://registry.npmjs.org
-          npm_cli="$npm_tool_directory/node_modules/npm/bin/npm-cli.js"
-          [[ "$(node "$npm_cli" --version)" == "11.19.0" ]]
-          AUDIT_DIRECTORY="$npm_audit_directory" \
-            PACKAGE_NAME="$package_name" \
-            PACKAGE_VERSION="$package_version" node <<'NODE'
-          const { writeFileSync } = require("node:fs");
-          const manifest = {
-            name: "atet-npm-authority-audit",
-            private: true,
-            dependencies: { [process.env.PACKAGE_NAME]: process.env.PACKAGE_VERSION },
-          };
-          writeFileSync(`${process.env.AUDIT_DIRECTORY}/package.json`, `${JSON.stringify(manifest)}\n`, { mode: 0o600 });
-          NODE
-          node "$npm_cli" install \
-            --prefix "$npm_audit_directory" \
-            --ignore-scripts \
-            --no-audit \
-            --no-fund \
-            --package-lock=false \
-            --@hraness:registry=https://registry.npmjs.org \
-            --registry=https://registry.npmjs.org
-          (
-            cd "$npm_audit_directory"
-            node "$npm_cli" audit signatures \
-              --json \
-              --include-attestations \
-              --omit=dev \
-              --@hraness:registry=https://registry.npmjs.org \
-              --registry=https://registry.npmjs.org
-          ) > "$npm_audit_json"
-          bun run ./scripts/npm-publish-authority.ts \
-            "$npm_audit_json" "$registry_view" "$registry_archive" \
-            "$package_name" "$package_version" "$GITHUB_SHA" \
-            > "$npm_authority_receipt"
-          IFS=$'\t' read -r stage_run_id stage_run_attempt npm_integrity npm_attestation_url \
-            < "$npm_authority_receipt"
-          if [[ ! "$stage_run_id" =~ ^[1-9][0-9]*$ || \
-                ! "$stage_run_attempt" =~ ^[1-9][0-9]*$ || \
-                ! "$npm_integrity" =~ ^sha512-[A-Za-z0-9+/]{86}==$ || \
-                "$npm_attestation_url" != "https://registry.npmjs.org/-/npm/v1/attestations/@hraness%2fatet@$package_version" || \
-                "$(wc -l < "$npm_authority_receipt" | tr -d ' ')" != 1 ]]; then
-            echo "::error::Verified npm provenance did not return one exact stage run attempt"
-            exit 1
-          fi
-          printf 'stage_run_id=%s\nstage_run_attempt=%s\nnpm_integrity=%s\nnpm_attestation_url=%s\n' \
-            "$stage_run_id" "$stage_run_attempt" "$npm_integrity" "$npm_attestation_url" \
-            >> "$GITHUB_OUTPUT"
+          bun run scripts/prepare-github-release.ts "$release_directory"
+          bun run scripts/package-smoke.ts --archive "$release_directory/$archive_name" --pack-json "$release_directory/npm-pack.json"
+          printf 'archive_name=%s\n' "$archive_name" >> "$GITHUB_OUTPUT"
+      - name: Upload verified canonical artifact
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: atet-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/atet-release
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
 
   official_vtracer:
     name: Atet VTracer (${{ matrix.target }})
@@ -315,382 +212,157 @@ jobs:
       - run: bun run test:desktop:macos
       - run: bun run package:desktop:macos
 
-  publish:
-    name: Publish
+  attest:
+    name: Attest canonical artifact
     needs: [verify, official_vtracer, native_macos]
     permissions:
       actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_ARCHIVE_SHA256: ${{ needs.verify.outputs.archive_sha256 }}
+      EXPECTED_PACK_SHA256: ${{ needs.verify.outputs.pack_sha256 }}
+      EXPECTED_MANIFEST_SHA256: ${{ needs.verify.outputs.manifest_sha256 }}
+      EXPECTED_SUMS_SHA256: ${{ needs.verify.outputs.sums_sha256 }}
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.18.1"
+          package-manager-cache: false
+      - name: Load current release authority
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { writeFileSync } from 'node:fs';
+          const e = process.env;
+          if (e.GITHUB_REPOSITORY !== 'hraness/atet' || e.GITHUB_REPOSITORY_ID !== '1310516748'
+            || e.GITHUB_ACTOR_ID !== '894119' || e.GITHUB_EVENT_NAME !== 'push'
+            || !/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.test(e.GITHUB_REF_NAME ?? '')
+            || e.GITHUB_REF !== `refs/tags/${e.GITHUB_REF_NAME}` || !/^[a-f0-9]{40}$/u.test(e.GITHUB_SHA ?? '')) throw new Error('Unexpected release request');
+          const api = path => JSON.parse(execFileSync('gh', ['api', `repos/hraness/atet/${path}`],
+            { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL', maxBuffer: 1000000, stdio: ['ignore', 'pipe', 'pipe'] }));
+          const run = api(`actions/runs/${e.GITHUB_RUN_ID}/attempts/${e.GITHUB_RUN_ATTEMPT}`);
+          if (run.id !== Number(e.GITHUB_RUN_ID) || run.run_attempt !== Number(e.GITHUB_RUN_ATTEMPT)
+            || run.head_sha !== e.GITHUB_SHA || run.head_branch !== e.GITHUB_REF_NAME || run.event !== 'push'
+            || run.workflow_id !== 320001524 || run.path !== '.github/workflows/release.yml'
+            || run.actor?.id !== 894119 || run.actor?.type !== 'User' || run.triggering_actor?.id !== 894119 || run.triggering_actor?.type !== 'User'
+            || run.repository?.id !== 1310516748 || run.repository?.full_name !== 'hraness/atet' || run.repository?.private !== false
+            || run.status !== 'in_progress' || run.conclusion !== null) throw new Error('Untrusted release attempt');
+          const main = api('git/ref/heads/main').object;
+          if (main?.type !== 'commit' || !/^[a-f0-9]{40}$/u.test(main.sha ?? '')) throw new Error('Invalid current main');
+          for (const path of ['.github/workflows/release.yml', 'scripts/github-release.ts', 'scripts/prepare-github-release.ts', 'scripts/package-smoke.ts', 'scripts/npm-package-identity.ts', 'scripts/npm-publish-policy.ts', 'package.json', 'bun.lock']) {
+            const decode = ref => {
+              const file = api(`contents/${path}?ref=${ref}`);
+              if (file.type !== 'file' || file.encoding !== 'base64' || typeof file.content !== 'string' || file.content.length > 300000) throw new Error('Unsafe authority file');
+              return Buffer.from(file.content, 'base64');
+            };
+            const current = decode(main.sha);
+            if (!current.equals(decode(e.GITHUB_SHA))) throw new Error(`Current authority changed: ${path}`);
+            if (path === 'scripts/github-release.ts') writeFileSync(`${e.RUNNER_TEMP}/github-release.ts`, current, { flag: 'wx', mode: 0o600 });
+          }
+          NODE
+          node "$RUNNER_TEMP/github-release.ts" authorize "$RUNNER_TEMP"
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          artifact-ids: ${{ needs.verify.outputs.artifact_id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/atet-release
+      - name: Rebind verified artifact before OIDC
+        run: node "$RUNNER_TEMP/github-release.ts" verify "$RUNNER_TEMP/atet-release"
+      - name: Attest exact canonical files
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            ${{ runner.temp }}/atet-release/${{ needs.verify.outputs.archive_name }}
+            ${{ runner.temp }}/atet-release/npm-pack.json
+            ${{ runner.temp }}/atet-release/release-manifest.json
+            ${{ runner.temp }}/atet-release/SHA256SUMS
+          push-to-registry: false
+          create-storage-record: false
+      - name: Preserve signed bundle and verify it
+        env:
+          BUNDLE_PATH: ${{ steps.provenance.outputs.bundle-path }}
+          EXPECT_SIGNED: "true"
+        run: |
+          set -euo pipefail
+          test -f "$BUNDLE_PATH" && test ! -L "$BUNDLE_PATH"
+          cp "$BUNDLE_PATH" "$RUNNER_TEMP/atet-release/provenance.jsonl"
+          node "$RUNNER_TEMP/github-release.ts" verify "$RUNNER_TEMP/atet-release"
+      - name: Upload attested canonical artifact
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: atet-attested-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/atet-release
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish
+    needs: [verify, official_vtracer, native_macos, attest]
+    permissions:
+      actions: read
       contents: write
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
-      VERIFIED_NPM_ATTESTATION_URL: ${{ needs.verify.outputs.npm_attestation_url }}
-      VERIFIED_NPM_INTEGRITY: ${{ needs.verify.outputs.npm_integrity }}
-      VERIFIED_TAG: ${{ needs.verify.outputs.verified_tag }}
-      VERIFIED_STAGE_RUN_ATTEMPT: ${{ needs.verify.outputs.stage_run_attempt }}
-      VERIFIED_STAGE_RUN_ID: ${{ needs.verify.outputs.stage_run_id }}
+      EXPECTED_ARCHIVE_SHA256: ${{ needs.verify.outputs.archive_sha256 }}
+      EXPECTED_PACK_SHA256: ${{ needs.verify.outputs.pack_sha256 }}
+      EXPECTED_MANIFEST_SHA256: ${{ needs.verify.outputs.manifest_sha256 }}
+      EXPECTED_SUMS_SHA256: ${{ needs.verify.outputs.sums_sha256 }}
     steps:
-      - name: Reauthorize current release attempt
-        env:
-          EXPECTED_ACTOR_ID: "894119"
-          EXPECTED_REPOSITORY: "hraness/atet"
-          EXPECTED_REPOSITORY_ID: "1310516748"
-          EXPECTED_DEFAULT_BRANCH: "main"
-          EXPECTED_WORKFLOW_ID: "320001524"
-          EXPECTED_WORKFLOW_NAME: "Release"
-          EXPECTED_WORKFLOW_PATH: ".github/workflows/release.yml"
-          EXPECTED_STAGE_WORKFLOW_ID: "344208600"
-          EXPECTED_STAGE_WORKFLOW_NAME: "Stage npm package"
-          EXPECTED_STAGE_WORKFLOW_PATH: ".github/workflows/npm-stage.yml"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.18.1"
+          package-manager-cache: false
+      - name: Load current release authority
         run: |
           set -euo pipefail
-          if [[ ! "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ || \
-                ! "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ || \
-                "$GITHUB_EVENT_NAME" != push || \
-                "$GITHUB_REPOSITORY" != "$EXPECTED_REPOSITORY" || \
-                "$GITHUB_REPOSITORY_ID" != "$EXPECTED_REPOSITORY_ID" || \
-                "$GITHUB_REF" != "refs/tags/$VERIFIED_TAG" ]]; then
-            echo "::error::Current release attempt is not the exact protected tag run"
-            exit 1
-          fi
-          attempt_json="$(mktemp "$RUNNER_TEMP/atet-release-attempt.XXXXXX")"
-          workflow_json="$(mktemp "$RUNNER_TEMP/atet-release-workflow.XXXXXX")"
-          stage_attempt_json="$(mktemp "$RUNNER_TEMP/atet-stage-attempt.XXXXXX")"
-          stage_jobs_json="$(mktemp "$RUNNER_TEMP/atet-stage-jobs.XXXXXX")"
-          stage_workflow_json="$(mktemp "$RUNNER_TEMP/atet-stage-workflow.XXXXXX")"
-          repository_json="$(mktemp "$RUNNER_TEMP/atet-release-repository.XXXXXX")"
-          gh api --method GET \
-            "/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT" \
-            > "$attempt_json"
-          gh api --method GET \
-            "/repos/$GITHUB_REPOSITORY/actions/workflows/$EXPECTED_WORKFLOW_ID" \
-            > "$workflow_json"
-          gh api --method GET \
-            "/repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_STAGE_RUN_ID/attempts/$VERIFIED_STAGE_RUN_ATTEMPT" \
-            > "$stage_attempt_json"
-          gh api --method GET \
-            "/repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_STAGE_RUN_ID/attempts/$VERIFIED_STAGE_RUN_ATTEMPT/jobs?per_page=100" \
-            > "$stage_jobs_json"
-          gh api --method GET \
-            "/repos/$GITHUB_REPOSITORY/actions/workflows/$EXPECTED_STAGE_WORKFLOW_ID" \
-            > "$stage_workflow_json"
-          gh api --method GET "/repos/$GITHUB_REPOSITORY" > "$repository_json"
-          ATTEMPT_JSON="$attempt_json" \
-            WORKFLOW_JSON="$workflow_json" \
-            STAGE_ATTEMPT_JSON="$stage_attempt_json" \
-            STAGE_JOBS_JSON="$stage_jobs_json" \
-            STAGE_WORKFLOW_JSON="$stage_workflow_json" \
-            REPOSITORY_JSON="$repository_json" \
-            EXPECTED_ACTOR_ID="$EXPECTED_ACTOR_ID" \
-            EXPECTED_REPOSITORY="$EXPECTED_REPOSITORY" \
-            EXPECTED_REPOSITORY_ID="$EXPECTED_REPOSITORY_ID" \
-            EXPECTED_RUN_ID="$GITHUB_RUN_ID" \
-            EXPECTED_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
-            EXPECTED_SHA="$GITHUB_SHA" \
-            EXPECTED_TAG="$VERIFIED_TAG" \
-            EXPECTED_VERSION="${VERIFIED_TAG#v}" \
-            EXPECTED_WORKFLOW_ID="$EXPECTED_WORKFLOW_ID" \
-            EXPECTED_WORKFLOW_NAME="$EXPECTED_WORKFLOW_NAME" \
-            EXPECTED_WORKFLOW_PATH="$EXPECTED_WORKFLOW_PATH" \
-            EXPECTED_STAGE_RUN_ID="$VERIFIED_STAGE_RUN_ID" \
-            EXPECTED_STAGE_RUN_ATTEMPT="$VERIFIED_STAGE_RUN_ATTEMPT" \
-            EXPECTED_STAGE_WORKFLOW_ID="$EXPECTED_STAGE_WORKFLOW_ID" \
-            EXPECTED_STAGE_WORKFLOW_NAME="$EXPECTED_STAGE_WORKFLOW_NAME" \
-            EXPECTED_STAGE_WORKFLOW_PATH="$EXPECTED_STAGE_WORKFLOW_PATH" node <<'NODE'
-          const { readFileSync } = require("node:fs");
-          const positiveInteger = (name) => {
-            const value = process.env[name] ?? "";
-            if (!/^[1-9][0-9]*$/u.test(value)) throw new Error(`Invalid ${name}`);
-            const number = Number(value);
-            if (!Number.isSafeInteger(number)) throw new Error(`Unsafe ${name}`);
-            return number;
-          };
-          const attempt = JSON.parse(readFileSync(process.env.ATTEMPT_JSON, "utf8"));
-          const workflow = JSON.parse(readFileSync(process.env.WORKFLOW_JSON, "utf8"));
-          const stageAttempt = JSON.parse(readFileSync(process.env.STAGE_ATTEMPT_JSON, "utf8"));
-          const stageJobs = JSON.parse(readFileSync(process.env.STAGE_JOBS_JSON, "utf8"));
-          const stageWorkflow = JSON.parse(readFileSync(process.env.STAGE_WORKFLOW_JSON, "utf8"));
-          const repository = JSON.parse(readFileSync(process.env.REPOSITORY_JSON, "utf8"));
-          const actorId = positiveInteger("EXPECTED_ACTOR_ID");
-          const repositoryId = positiveInteger("EXPECTED_REPOSITORY_ID");
-          const runId = positiveInteger("EXPECTED_RUN_ID");
-          const runAttempt = positiveInteger("EXPECTED_RUN_ATTEMPT");
-          const workflowId = positiveInteger("EXPECTED_WORKFLOW_ID");
-          const stageRunId = positiveInteger("EXPECTED_STAGE_RUN_ID");
-          const stageRunAttempt = positiveInteger("EXPECTED_STAGE_RUN_ATTEMPT");
-          const stageWorkflowId = positiveInteger("EXPECTED_STAGE_WORKFLOW_ID");
-          const expectedVersion = process.env.EXPECTED_VERSION ?? "";
-          const terminalConclusions = new Set(["success", "failure", "cancelled", "timed_out"]);
-          if (
-            attempt.id !== runId
-            || attempt.run_attempt !== runAttempt
-            || attempt.workflow_id !== workflowId
-            || attempt.name !== process.env.EXPECTED_WORKFLOW_NAME
-            || attempt.path !== process.env.EXPECTED_WORKFLOW_PATH
-            || attempt.event !== "push"
-            || attempt.head_branch !== process.env.EXPECTED_TAG
-            || attempt.head_sha !== process.env.EXPECTED_SHA
-            || attempt.status !== "in_progress"
-            || attempt.conclusion !== null
-            || attempt.actor?.id !== actorId
-            || attempt.actor?.type !== "User"
-            || attempt.triggering_actor?.id !== actorId
-            || attempt.triggering_actor?.type !== "User"
-            || attempt.repository?.id !== repositoryId
-            || attempt.repository?.full_name !== process.env.EXPECTED_REPOSITORY
-            || attempt.repository?.private !== false
-            || workflow.id !== workflowId
-            || workflow.name !== process.env.EXPECTED_WORKFLOW_NAME
-            || workflow.path !== process.env.EXPECTED_WORKFLOW_PATH
-            || workflow.state !== "active"
-            || repository.id !== repositoryId
-            || repository.full_name !== process.env.EXPECTED_REPOSITORY
-            || repository.visibility !== "public"
-            || repository.private !== false
-            || repository.default_branch !== process.env.EXPECTED_DEFAULT_BRANCH
-          ) throw new Error("Current release attempt is not owner-authorized for this exact public workflow");
-          if (
-            stageAttempt.id !== stageRunId
-            || stageAttempt.run_attempt !== stageRunAttempt
-            || stageAttempt.workflow_id !== stageWorkflowId
-            || stageAttempt.name !== process.env.EXPECTED_STAGE_WORKFLOW_NAME
-            || stageAttempt.path !== process.env.EXPECTED_STAGE_WORKFLOW_PATH
-            || stageAttempt.event !== "workflow_dispatch"
-            || stageAttempt.head_branch !== process.env.EXPECTED_DEFAULT_BRANCH
-            || stageAttempt.head_sha !== process.env.EXPECTED_SHA
-            || stageAttempt.status !== "completed"
-            || !terminalConclusions.has(stageAttempt.conclusion)
-            || stageAttempt.actor?.id !== actorId
-            || stageAttempt.actor?.type !== "User"
-            || stageAttempt.triggering_actor?.id !== actorId
-            || stageAttempt.triggering_actor?.type !== "User"
-            || stageAttempt.repository?.id !== repositoryId
-            || stageAttempt.repository?.full_name !== process.env.EXPECTED_REPOSITORY
-            || stageAttempt.repository?.private !== false
-            || stageWorkflow.id !== stageWorkflowId
-            || stageWorkflow.name !== process.env.EXPECTED_STAGE_WORKFLOW_NAME
-            || stageWorkflow.path !== process.env.EXPECTED_STAGE_WORKFLOW_PATH
-            || stageWorkflow.state !== "active"
-          ) throw new Error("Signed npm provenance does not resolve to the owner-authorized staging attempt");
-          if (
-            !/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.test(expectedVersion)
-            || !stageJobs
-            || typeof stageJobs !== "object"
-            || !Number.isSafeInteger(stageJobs.total_count)
-            || stageJobs.total_count < 0
-            || stageJobs.total_count > 100
-            || !Array.isArray(stageJobs.jobs)
-            || stageJobs.jobs.length !== stageJobs.total_count
-          ) throw new Error("Provenance-linked staging jobs are invalid or exceed the reviewed bound");
-          const matchingJobs = stageJobs.jobs.filter(job => (
-            job?.name === `Stage exact package v${expectedVersion}`
-          ));
-          if (matchingJobs.length !== 1) {
-            throw new Error("Signed npm provenance does not resolve to one version-bound staging job");
-          }
-          const stageJob = matchingJobs[0];
-          if (
-            stageJob.head_sha !== process.env.EXPECTED_SHA
-            || !terminalConclusions.has(stageJob.conclusion)
-            || !Array.isArray(stageJob.steps)
-            || stageJob.steps.length > 100
-          ) throw new Error("Provenance-linked staging job identity is invalid");
-          const intentIndexes = [];
-          const mutationIndexes = [];
-          for (const [index, step] of stageJob.steps.entries()) {
-            if (
-              step?.name === "Record exclusive stable-stage intent"
-              && step?.conclusion === "success"
-            ) intentIndexes.push(index);
-            if (
-              step?.name === "Revalidate current main and stage exact package"
-              && terminalConclusions.has(step?.conclusion)
-            ) mutationIndexes.push(index);
-          }
-          if (
-            intentIndexes.length !== 1
-            || mutationIndexes.length !== 1
-            || mutationIndexes[0] !== intentIndexes[0] + 1
-          ) throw new Error("Provenance-linked staging job lacks the exact pre-mutation intent");
-          NODE
-          current_tag_sha="$(gh api --method GET --jq '.sha' \
-            "/repos/$GITHUB_REPOSITORY/commits/$VERIFIED_TAG")"
-          current_default_sha="$(gh api --method GET --jq '.sha' \
-            "/repos/$GITHUB_REPOSITORY/commits/$EXPECTED_DEFAULT_BRANCH")"
-          if [[ "$current_tag_sha" != "$GITHUB_SHA" ]]; then
-            echo "::error::Tag $VERIFIED_TAG moved to $current_tag_sha after verification"
-            exit 1
-          fi
-          comparison_status="$(gh api --method GET --jq '.status' \
-            "/repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...$current_default_sha")"
-          if [[ "$comparison_status" != ahead && "$comparison_status" != identical ]]; then
-            echo "::error::Tag $VERIFIED_TAG is no longer reachable from $EXPECTED_DEFAULT_BRANCH"
-            exit 1
-          fi
-      - name: Revalidate live public npm authority
-        run: |
-          set -euo pipefail
-          package_version="${VERIFIED_TAG#v}"
-          if [[ "$VERIFIED_TAG" != "v$package_version" || \
-                ! "$package_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ || \
-                ! "$VERIFIED_NPM_INTEGRITY" =~ ^sha512-[A-Za-z0-9+/]{86}==$ || \
-                -z "$VERIFIED_NPM_ATTESTATION_URL" ]]; then
-            echo "::error::Verified npm authority outputs are malformed"
-            exit 1
-          fi
-          version_view="$(mktemp "$RUNNER_TEMP/atet-live-npm-version.XXXXXX")"
-          dist_tags="$(mktemp "$RUNNER_TEMP/atet-live-npm-tags.XXXXXX")"
-          curl --disable --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 30 \
-            "https://registry.npmjs.org/@hraness%2Fatet/$package_version" \
-            > "$version_view"
-          curl --disable --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 30 \
-            "https://registry.npmjs.org/-/package/@hraness%2Fatet/dist-tags" \
-            > "$dist_tags"
-          VERSION_VIEW="$version_view" \
-            DIST_TAGS="$dist_tags" \
-            EXPECTED_ATTESTATION_URL="$VERIFIED_NPM_ATTESTATION_URL" \
-            EXPECTED_INTEGRITY="$VERIFIED_NPM_INTEGRITY" \
-            EXPECTED_VERSION="$package_version" node <<'NODE'
-          const { readFileSync } = require("node:fs");
-          const version = JSON.parse(readFileSync(process.env.VERSION_VIEW, "utf8"));
-          const tags = JSON.parse(readFileSync(process.env.DIST_TAGS, "utf8"));
-          const dist = version?.dist;
-          const signatures = dist?.signatures;
-          const canonicalBase64 = (value) => {
-            if (typeof value !== "string" || value.length === 0 || value.length > 4096
-              || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) return false;
-            return Buffer.from(value, "base64").toString("base64") === value;
-          };
-          if (
-            version?.name !== "@hraness/atet"
-            || version?.version !== process.env.EXPECTED_VERSION
-            || tags?.latest !== process.env.EXPECTED_VERSION
-            || dist?.integrity !== process.env.EXPECTED_INTEGRITY
-            || !Array.isArray(signatures)
-            || signatures.length === 0
-            || signatures.length > 10
-            || signatures.some(signature => (
-              typeof signature?.keyid !== "string"
-              || signature.keyid.length === 0
-              || signature.keyid.length > 512
-              || !canonicalBase64(signature.sig)
-            ))
-            || dist?.attestations?.url !== process.env.EXPECTED_ATTESTATION_URL
-            || dist?.attestations?.provenance?.predicateType !== "https://slsa.dev/provenance/v1"
-          ) throw new Error("Live npm latest, archive, signatures, or attestations changed after cryptographic verification");
-          NODE
-      - name: Publish verified GitHub Release
-        env:
-          EXPECTED_RELEASE_AUTHOR_ID: "41898282"
-          EXPECTED_RELEASE_AUTHOR_LOGIN: "github-actions[bot]"
-        run: |
-          set -euo pipefail
-          if [[ -z "$VERIFIED_TAG" || "$VERIFIED_TAG" != "$GITHUB_REF_NAME" ]]; then
-            echo "::error::Publish request does not match the verified tag"
-            exit 1
-          fi
-          package_version="${VERIFIED_TAG#v}"
-          immediate_latest="$(curl --disable --fail --silent --show-error \
-            --proto '=https' --tlsv1.2 --max-time 30 \
-            "https://registry.npmjs.org/-/package/@hraness%2Fatet/dist-tags")"
-          IMMEDIATE_LATEST="$immediate_latest" EXPECTED_VERSION="$package_version" node <<'NODE'
-          const tags = JSON.parse(process.env.IMMEDIATE_LATEST ?? "null");
-          if (
-            tags === null
-            || typeof tags !== "object"
-            || Array.isArray(tags)
-            || tags.latest !== process.env.EXPECTED_VERSION
-          ) throw new Error("npm latest changed immediately before GitHub Release publication");
-          NODE
-          release_notes="$(mktemp "$RUNNER_TEMP/atet-release-notes.XXXXXX")"
-          cat > "$release_notes" <<EOF
-          <!-- atet-release-provenance:v1
-          workflow=.github/workflows/release.yml
-          repository=$GITHUB_REPOSITORY
-          tag=$VERIFIED_TAG
-          source-sha=$GITHUB_SHA
-          stage-run-id=$VERIFIED_STAGE_RUN_ID
-          stage-run-attempt=$VERIFIED_STAGE_RUN_ATTEMPT
-          npm-integrity=$VERIFIED_NPM_INTEGRITY
-          npm-attestation=$VERIFIED_NPM_ATTESTATION_URL
-          -->
-          EOF
-          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            published_tags="$(gh api --paginate \
-              "/repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-              --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')"
-            printf '%s\n' "$published_tags" | NEXT_TAG="$GITHUB_REF_NAME" node -e '
-              const fs = require("node:fs");
-              const pattern = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
-              const parse = (tag) => {
-                const match = pattern.exec(tag);
-                return match === null ? null : match.slice(1).map(BigInt);
-              };
-              const compare = (left, right) => {
-                for (let index = 0; index < 3; index += 1) {
-                  if (left[index] !== right[index]) {
-                    return left[index] > right[index] ? 1 : -1;
-                  }
-                }
-                return 0;
-              };
-              const next = parse(process.env.NEXT_TAG ?? "");
-              if (next === null) process.exit(1);
-              for (const tag of fs.readFileSync(0, "utf8").split(/\r?\n/u)) {
-                const current = parse(tag);
-                if (current !== null && compare(next, current) <= 0) {
-                  console.error("::error::Release " + process.env.NEXT_TAG + " is not newer than " + tag);
-                  process.exit(1);
-                }
-              }
-            '
-            gh release create "$GITHUB_REF_NAME" \
-              --verify-tag \
-              --generate-notes \
-              --notes-file "$release_notes" \
-              --latest \
-              --title "Atet $GITHUB_REF_NAME"
-          fi
-          release_json="$(mktemp "$RUNNER_TEMP/atet-release.XXXXXX")"
-          gh api --method GET \
-            "/repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" \
-            > "$release_json"
-          RELEASE_JSON="$release_json" \
-            RELEASE_NOTES="$release_notes" \
-            EXPECTED_TAG="$GITHUB_REF_NAME" \
-            EXPECTED_TITLE="Atet $GITHUB_REF_NAME" \
-            EXPECTED_RELEASE_AUTHOR_ID="$EXPECTED_RELEASE_AUTHOR_ID" \
-            EXPECTED_RELEASE_AUTHOR_LOGIN="$EXPECTED_RELEASE_AUTHOR_LOGIN" node <<'NODE'
-          const { readFileSync } = require("node:fs");
-          const release = JSON.parse(readFileSync(process.env.RELEASE_JSON, "utf8"));
-          const provenance = readFileSync(process.env.RELEASE_NOTES, "utf8");
-          const authorId = Number(process.env.EXPECTED_RELEASE_AUTHOR_ID);
-          if (
-            !Number.isSafeInteger(authorId)
-            || release?.tag_name !== process.env.EXPECTED_TAG
-            || release?.name !== process.env.EXPECTED_TITLE
-            || release?.draft !== false
-            || release?.prerelease !== false
-            || release?.author?.id !== authorId
-            || release?.author?.login !== process.env.EXPECTED_RELEASE_AUTHOR_LOGIN
-            || typeof release?.body !== "string"
-            || !release.body.startsWith(provenance)
-          ) {
-            throw new Error("Existing GitHub Release is not the exact GitHub Actions provenance-bound release");
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { writeFileSync } from 'node:fs';
+          const e = process.env;
+          if (e.GITHUB_REPOSITORY !== 'hraness/atet' || e.GITHUB_REPOSITORY_ID !== '1310516748'
+            || e.GITHUB_ACTOR_ID !== '894119' || e.GITHUB_EVENT_NAME !== 'push'
+            || !/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.test(e.GITHUB_REF_NAME ?? '')
+            || e.GITHUB_REF !== `refs/tags/${e.GITHUB_REF_NAME}` || !/^[a-f0-9]{40}$/u.test(e.GITHUB_SHA ?? '')) throw new Error('Unexpected release request');
+          const api = path => JSON.parse(execFileSync('gh', ['api', `repos/hraness/atet/${path}`],
+            { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL', maxBuffer: 1000000, stdio: ['ignore', 'pipe', 'pipe'] }));
+          const run = api(`actions/runs/${e.GITHUB_RUN_ID}/attempts/${e.GITHUB_RUN_ATTEMPT}`);
+          if (run.id !== Number(e.GITHUB_RUN_ID) || run.run_attempt !== Number(e.GITHUB_RUN_ATTEMPT)
+            || run.head_sha !== e.GITHUB_SHA || run.head_branch !== e.GITHUB_REF_NAME || run.event !== 'push'
+            || run.workflow_id !== 320001524 || run.path !== '.github/workflows/release.yml'
+            || run.actor?.id !== 894119 || run.actor?.type !== 'User' || run.triggering_actor?.id !== 894119 || run.triggering_actor?.type !== 'User'
+            || run.repository?.id !== 1310516748 || run.repository?.full_name !== 'hraness/atet' || run.repository?.private !== false
+            || run.status !== 'in_progress' || run.conclusion !== null) throw new Error('Untrusted release attempt');
+          const main = api('git/ref/heads/main').object;
+          if (main?.type !== 'commit' || !/^[a-f0-9]{40}$/u.test(main.sha ?? '')) throw new Error('Invalid current main');
+          for (const path of ['.github/workflows/release.yml', 'scripts/github-release.ts', 'scripts/prepare-github-release.ts', 'scripts/package-smoke.ts', 'scripts/npm-package-identity.ts', 'scripts/npm-publish-policy.ts', 'package.json', 'bun.lock']) {
+            const decode = ref => {
+              const file = api(`contents/${path}?ref=${ref}`);
+              if (file.type !== 'file' || file.encoding !== 'base64' || typeof file.content !== 'string' || file.content.length > 300000) throw new Error('Unsafe authority file');
+              return Buffer.from(file.content, 'base64');
+            };
+            const current = decode(main.sha);
+            if (!current.equals(decode(e.GITHUB_SHA))) throw new Error(`Current authority changed: ${path}`);
+            if (path === 'scripts/github-release.ts') writeFileSync(`${e.RUNNER_TEMP}/github-release.ts`, current, { flag: 'wx', mode: 0o600 });
           }
           NODE
-          release_state="$(gh release view "$GITHUB_REF_NAME" \
-            --json assets,isDraft,isImmutable,isPrerelease,name,tagName \
-            --jq '[.tagName, .name, .isDraft, .isPrerelease, .isImmutable, (.assets | length)] | @tsv')"
-          expected_state="$GITHUB_REF_NAME"$'\t'"Atet $GITHUB_REF_NAME"$'\tfalse\tfalse\ttrue\t0'
-          if [[ "$release_state" != "$expected_state" ]]; then
-            echo "::error::Release $GITHUB_REF_NAME is not published and immutable"
-            exit 1
-          fi
-          latest_tag="$(gh api "/repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')"
-          if [[ "$latest_tag" != "$GITHUB_REF_NAME" ]]; then
-            echo "::error::Latest release is $latest_tag, expected $GITHUB_REF_NAME"
-            exit 1
-          fi
+          node "$RUNNER_TEMP/github-release.ts" authorize "$RUNNER_TEMP"
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          artifact-ids: ${{ needs.attest.outputs.artifact_id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/atet-release
+      - name: Publish verified immutable GitHub Release
+        run: node "$RUNNER_TEMP/github-release.ts" publish "$RUNNER_TEMP/atet-release"
