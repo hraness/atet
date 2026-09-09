@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
-import { assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellPhase, parseShellRequest,
-  resolvedShellTheme, settleShellFocusState, shellAppearanceSteps, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
+import { assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellPhase, parseShellRequest,
+  resolvedShellTheme, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
 
 test("skip reveal diagnostics never turn a failed settled frame into acceptance", async () => {
@@ -118,6 +118,223 @@ function skipFixture(initial: Partial<SkipSample> = {}, mainInitial: Partial<Ski
     get pending() { return [frames.size, timers.size, [...listeners.values()].flatMap(events => [...events.values()]).reduce((total, set) => total + set.size, 0)] },
   }
 }
+
+interface SystemPaintOwner {
+  readonly rect: readonly number[]
+  readonly styles: Readonly<Record<string, string>>
+  readonly animations: readonly SkipAnimation[]
+  readonly connected: boolean
+}
+interface SystemPaintSample {
+  readonly dark: boolean
+  readonly preference: string | null
+  readonly resolved: string | null
+  readonly html: SystemPaintOwner
+  readonly body: SystemPaintOwner
+}
+function systemPaintFixture(system: "light" | "dark" = "light", initial: Partial<SystemPaintSample> = {}) {
+  const styles = { color: "rgb(23, 22, 18)", "background-color": "rgb(250, 248, 243)", "color-scheme": system,
+    "--paper": "#faf8f3", "--ink": "#171612", "--ui-background": "#faf8f3", "--ui-foreground": "#171612" }
+  const defaultOwner = { rect: [0, 0, 320, 900], styles, animations: [], connected: true }
+  let sample: SystemPaintSample = { dark: system === "dark", preference: "system", resolved: system,
+    html: defaultOwner, body: defaultOwner, ...initial }
+  let now = 0, sequence = 0, readCost = 0, observerCallback: MutationCallback | undefined
+  const frames = new Map<number, () => void>(), timers = new Map<number, { at: number; callback: () => void }>()
+  const mediaListeners = new Set<(event: MediaQueryListEvent) => void>(), observed = new Set<Node>(), records: MutationRecord[] = []
+  const reads: string[] = [], selected = new Map<string, Element[]>()
+  let html: Element, body: Element, menu: Element, observer: MutationObserver
+  const media = { get matches() { return sample.dark },
+    addEventListener: (_type: string, callback: (event: MediaQueryListEvent) => void) => { mediaListeners.add(callback) },
+    removeEventListener: (_type: string, callback: (event: MediaQueryListEvent) => void) => { mediaListeners.delete(callback) } }
+  const document = { get documentElement() { return html }, get body() { return body },
+    querySelectorAll: (selector: string) => selected.get(selector) ?? [],
+    querySelector: (selector: string) => selected.get(selector)?.[0] ?? null, defaultView: {
+      performance: { now: () => now },
+      matchMedia: (query: string) => { expect(query).toBe("(prefers-color-scheme: dark)"); return media },
+      getComputedStyle: (owner: Element) => {
+        reads.push(owner === html ? "html:style" : "body:style")
+        return { getPropertyValue: (property: string) => (owner === html ? sample.html : sample.body).styles[property] ?? "" }
+      },
+      requestAnimationFrame: (callback: () => void) => { frames.set(++sequence, callback); return sequence },
+      cancelAnimationFrame: (id: number) => { frames.delete(id) },
+      setTimeout: (callback: () => void, delay: number) => { timers.set(++sequence, { at: now + delay, callback }); return sequence },
+      clearTimeout: (id: number) => { timers.delete(id) },
+      MutationObserver: class {
+        constructor(callback: MutationCallback) { observerCallback = callback; observer = this as unknown as MutationObserver }
+        observe(owner: Node, options: MutationObserverInit) {
+          expect(options).toEqual({ attributes: true, attributeFilter: [owner === html ? "data-theme" : "data-theme-value"], attributeOldValue: true })
+          observed.add(owner)
+        }
+        takeRecords() { return records.splice(0) }
+        disconnect() { observed.clear(); records.length = 0 }
+      },
+    } }
+  const makeOwner = (key: "html" | "body") => {
+    const owner = { ownerDocument: document, get isConnected() { return sample[key].connected },
+      getAttribute: () => sample.resolved,
+      getBoundingClientRect: () => { reads.push(`${key}:rect`); now += readCost
+        const rect = sample[key].rect; return { x: rect[0], y: rect[1], width: rect[2], height: rect[3] } },
+      getAnimations: () => { reads.push(`${key}:animations`); return sample[key].animations.map(animation => ({
+        playState: animation.playState ?? "running", pending: animation.pending ?? false, playbackRate: animation.playbackRate ?? 1,
+        effect: { target: animation.owned === false ? {} : owner, getComputedTiming: () => ({
+          endTime: animation.endTime ?? 0.01, duration: animation.duration ?? 0.01, iterations: animation.iterations ?? 1,
+        }) },
+      })) },
+    } as unknown as Element
+    return owner
+  }
+  html = makeOwner("html"); body = makeOwner("body")
+  menu = { ownerDocument: document, isConnected: true, getAttribute: () => sample.preference } as unknown as Element
+  selected.set("[data-hraness-appearance-menu]", [menu])
+  return {
+    start(label = "current /-320-system-light System alternate dark") {
+      const result = settleShellSystemPaint(html, { label, system }); void result.catch(() => {}); return result
+    },
+    patch(patch: Partial<SystemPaintSample>) { sample = { ...sample, ...patch } },
+    owner(key: "html" | "body", patch: Partial<SystemPaintOwner>) { sample = { ...sample, [key]: { ...sample[key], ...patch } } },
+    frame(at = now + 16) { now = at; const callbacks = [...frames.values()]; frames.clear(); for (const callback of callbacks) callback() },
+    advance(at: number) { now = at; for (const [id, timer] of [...timers]) if (timer.at <= at) { timers.delete(id); timer.callback() } },
+    attribute(key: "resolved" | "preference", value: string | null) {
+      const target = key === "resolved" ? html : menu
+      if (observed.has(target)) records.push({ target, oldValue: sample[key] } as unknown as MutationRecord)
+      sample = { ...sample, [key]: value }
+    },
+    deliverMutations() { if (observed.size > 0) observerCallback!(records.splice(0), observer) },
+    mediaEvent(matches: boolean) { for (const callback of [...mediaListeners]) callback({ matches } as MediaQueryListEvent) },
+    changeMenu() { selected.set("[data-hraness-appearance-menu]", []) },
+    setReadCost(cost: number) { readCost = cost },
+    get reads() { return reads },
+    get styles() { return styles },
+    get pending() { return [frames.size, timers.size, observed.size, mediaListeners.size] },
+  }
+}
+
+test("System paint samples native HTML/body style before animations and requires two stable RAFs for both sources", async () => {
+  for (const source of ["current", "baseline"] as const) for (const system of ["light", "dark"] as const) {
+    const fixture = systemPaintFixture(system), result = fixture.start(`${source} /-320-system-${system} System restored ${system}`)
+    expect(fixture.reads).toEqual(["html:rect", "html:style", "html:animations", "body:rect", "body:style", "body:animations"])
+    fixture.attribute("resolved", system); fixture.attribute("preference", "system"); fixture.deliverMutations()
+    fixture.mediaEvent(system === "dark")
+    fixture.frame()
+    expect(fixture.pending).toEqual([1, 1, 2, 1])
+    fixture.frame()
+    expect((await result).elements.map(owner => owner.key)).toEqual(["html", "body"])
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+})
+
+test("System paint waits for each finite owner animation and stable actual paint/geometry without palette polling", async () => {
+  const fixture = systemPaintFixture()
+  fixture.owner("html", { animations: [{}] }); fixture.owner("body", { animations: [{}] })
+  const result = fixture.start()
+  fixture.frame(); fixture.owner("html", { animations: [{ playState: "finished" }] }); fixture.frame()
+  expect(fixture.pending).toEqual([1, 1, 2, 1])
+  fixture.owner("body", { animations: [{ playState: "finished" }] }); fixture.frame()
+  fixture.owner("body", { styles: { ...fixture.styles, color: "rgb(101, 102, 103)" } }); fixture.frame()
+  fixture.owner("html", { rect: [0, 0, 321, 900] }); fixture.frame()
+  expect(fixture.pending).toEqual([1, 1, 2, 1])
+  fixture.frame()
+  expect((await result).bodyColor).toBe("rgb(101, 102, 103)")
+  expect(fixture.pending).toEqual([0, 0, 0, 0])
+})
+
+test("stable wrong System paint remains red at the original inequality, with bounded scenario/source/phase diagnostics", async () => {
+  const alternate = systemPaintFixture("dark"), restored = systemPaintFixture("light")
+  const first = alternate.start(), second = restored.start()
+  for (const fixture of [alternate, restored]) { fixture.frame(); fixture.frame() }
+  const changed = await first, reset = await second
+  expect(changed.bodyColor).toBe(reset.bodyColor)
+  expect(() => assertShellSystemPaintChanged(changed, reset, "current /-320-system-light System alternate/restored"))
+    .toThrow("current /-320-system-light System alternate/restored: System appearance did not follow the native media setting")
+  expect(() => assertShellSystemPaintChanged(changed, { ...reset, bodyColor: "rgb(244, 241, 232)" }, "baseline System alternate/restored")).not.toThrow()
+  const bad = systemPaintFixture("light", { dark: true })
+  const error = await bad.start("x".repeat(500)).catch(value => value as Error)
+  expect(String(error)).toContain("media, preference or resolved appearance changed")
+  expect(String(error).length).toBeLessThan(4_500)
+  expect(bad.pending).toEqual([0, 0, 0, 0])
+})
+
+test("System paint rejects paused, infinite, invalid-rate and foreign-owner animations on either exact owner", async () => {
+  for (const key of ["html", "body"] as const) for (const animation of [
+    { playState: "paused" }, { endTime: Infinity }, { duration: Infinity }, { iterations: Infinity },
+    { endTime: -1 }, { duration: -1 }, { iterations: -1 }, { playbackRate: 0 }, { playbackRate: NaN }, { owned: false },
+  ] satisfies SkipAnimation[]) {
+    const fixture = systemPaintFixture(); fixture.owner(key, { animations: [animation] })
+    await expect(fixture.start("baseline /404.html-390-system-light System restored light")).rejects.toThrow(
+      animation.owned === false ? "no exact element owner" : "finite and unpaused")
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+  for (const animation of [{ playState: "paused" }, { endTime: Infinity }] satisfies SkipAnimation[]) {
+    const fixture = systemPaintFixture(), result = fixture.start(); fixture.frame()
+    fixture.owner("body", { animations: [animation] }); fixture.frame()
+    await expect(result).rejects.toThrow("finite and unpaused")
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+})
+
+test("System paint rejects semantic loss immediately, during RAF and between samples even after regain", async () => {
+  for (const patch of [{ dark: true }, { preference: "dark" }, { resolved: "dark" }]) {
+    const immediate = systemPaintFixture("light", patch)
+    await expect(immediate.start()).rejects.toThrow("media, preference or resolved appearance changed")
+    expect(immediate.pending).toEqual([0, 0, 0, 0])
+    const later = systemPaintFixture(), result = later.start(); later.frame(); later.patch(patch); later.frame()
+    await expect(result).rejects.toThrow("media, preference or resolved appearance changed")
+    expect(later.pending).toEqual([0, 0, 0, 0])
+  }
+  for (const attribute of ["resolved", "preference"] as const) for (const deliver of [true, false]) {
+    const fixture = systemPaintFixture(), result = fixture.start(); fixture.frame()
+    fixture.attribute(attribute, "dark"); fixture.attribute(attribute, attribute === "resolved" ? "light" : "system")
+    if (deliver) fixture.deliverMutations()
+    fixture.frame(); fixture.frame()
+    await expect(result).rejects.toThrow("appearance changed between native samples")
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+  const media = systemPaintFixture(), result = media.start(); media.frame(); media.mediaEvent(true); media.mediaEvent(false); media.frame()
+  await expect(result).rejects.toThrow("media changed between native samples")
+  expect(media.pending).toEqual([0, 0, 0, 0])
+})
+
+test("System paint refuses nonsettling paint, geometry or animation, missing RAF and late synchronous samples", async () => {
+  const timely = systemPaintFixture(), timelyResult = timely.start(); timely.frame(998); timely.frame(999)
+  expect((await timelyResult).bodyColor).toBe("rgb(23, 22, 18)")
+  expect(timely.pending).toEqual([0, 0, 0, 0])
+  for (const kind of ["paint", "geometry", "animation", "pending", "missing"] as const) {
+    const fixture = systemPaintFixture()
+    if (kind === "animation") fixture.owner("body", { animations: [{}] })
+    if (kind === "pending") fixture.owner("body", { animations: [{ playState: "finished", pending: true }] })
+    const result = fixture.start()
+    if (kind !== "missing") for (let at = 16; at < 1_000; at += 16) {
+      if (kind === "paint") fixture.owner("body", { styles: { ...fixture.styles, color: `rgb(${at}, 0, 0)` } })
+      if (kind === "geometry") fixture.owner("html", { rect: [0, 0, at, 900] })
+      fixture.frame(at)
+    }
+    fixture.advance(1_000)
+    await expect(result).rejects.toThrow("1000ms local deadline")
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+  for (const at of [1_000, 1_001, NaN, -1]) {
+    const fixture = systemPaintFixture(), result = fixture.start(); fixture.frame(16); fixture.frame(at)
+    await expect(result).rejects.toThrow("1000ms local deadline")
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+  const slow = systemPaintFixture(), result = slow.start(); slow.frame(16); slow.setReadCost(500); slow.frame(32)
+  await expect(result).rejects.toThrow("1000ms local deadline")
+  expect(slow.pending).toEqual([0, 0, 0, 0])
+})
+
+test("System paint retains exact owner, finite geometry and bounded native inventories", async () => {
+  for (const change of ["menu", "html", "body", "geometry", "paint", "animations"] as const) {
+    const fixture = systemPaintFixture(), result = fixture.start(); fixture.frame()
+    if (change === "menu") fixture.changeMenu()
+    else if (change === "html" || change === "body") fixture.owner(change, { connected: false })
+    else if (change === "geometry") fixture.owner("body", { rect: [NaN, 0, 320, 900] })
+    else if (change === "paint") fixture.owner("body", { styles: { ...fixture.styles, color: "x".repeat(257) } })
+    else fixture.owner("body", { animations: Array.from({ length: 65 }, () => ({})) })
+    fixture.frame()
+    await expect(result).rejects.toThrow("System paint")
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+})
 
 test("skip settlement requires two native RAF samples even without an animation", async () => {
   const fixture = skipFixture(), result = fixture.start("baseline reload")

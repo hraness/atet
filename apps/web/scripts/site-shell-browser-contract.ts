@@ -291,9 +291,144 @@ async function settle(page: Page, direction?: "rtl"): Promise<void> {
 export function resolvedShellTheme(preference: ShellCase["theme"], system: ShellCase["system"]): ShellCase["system"] {
   return preference === "system" ? system : preference
 }
-async function assertAppearancePreference(page: Page, preference: ShellCase["theme"], system: ShellCase["system"]): Promise<void> {
-  assert.equal(await page.locator(appearanceRoot).getAttribute("data-theme-value"), preference, "Appearance preference changed")
-  assert.equal(await page.locator("html").getAttribute("data-theme"), resolvedShellTheme(preference, system), "Resolved appearance changed")
+async function assertAppearancePreference(page: Page, preference: ShellCase["theme"], system: ShellCase["system"], label = ""): Promise<void> {
+  const prefix = label === "" ? "" : `${label}: `
+  assert.equal(await page.locator(appearanceRoot).getAttribute("data-theme-value"), preference, `${prefix}Appearance preference changed`)
+  assert.equal(await page.locator("html").getAttribute("data-theme"), resolvedShellTheme(preference, system), `${prefix}Resolved appearance changed`)
+}
+
+export interface ShellSystemPaint {
+  readonly bodyColor: string
+  readonly elements: readonly Pick<ShellElement, "key" | "rect" | "styles">[]
+}
+/** Serialized native observer, shared by current and baseline. Settlement is
+ * independent of palette validity: stable wrong paint reaches the unchanged
+ * inequality/parity assertions. No expected color is supplied to this function. */
+export async function settleShellSystemPaint(element: Element, options: {
+  readonly label: string; readonly system: ShellCase["system"]
+}): Promise<ShellSystemPaint> {
+  const label = options.label.slice(0, 192), { system } = options
+  const document = element.ownerDocument, view = document.defaultView
+  if (view === null) throw new Error(`${label}: System paint document has no native window`)
+  const html = document.documentElement, body = document.body
+  const menus = document.querySelectorAll("[data-hraness-appearance-menu]")
+  if (element !== html || body === null || menus.length !== 1 || (system !== "light" && system !== "dark")) {
+    throw new Error(`${label}: System paint owners or media setting are invalid`)
+  }
+  const menu = menus[0]!, media = view.matchMedia("(prefers-color-scheme: dark)")
+  const properties = ["color", "background-color", "color-scheme", "--paper", "--ink", "--ui-background", "--ui-foreground"]
+  const started = view.performance.now(), deadline = started + 1_000
+  return new Promise((resolve, reject) => {
+    let frame: number | undefined, timer: number | undefined, ended = false, lastTime = started
+    let previous: string | undefined, last: unknown = null
+    const failure = (message: string) => new Error(`${label}: ${message}; last native paint ${JSON.stringify(last).slice(0, 4_096)}`)
+    const finish = (error?: unknown, value?: ShellSystemPaint) => {
+      if (ended) return
+      ended = true
+      if (frame !== undefined) view.cancelAnimationFrame(frame)
+      if (timer !== undefined) view.clearTimeout(timer)
+      observer.disconnect()
+      media.removeEventListener("change", mediaChanged)
+      if (error !== undefined) reject(error)
+      else resolve(value!)
+    }
+    const checkDeadline = () => {
+      const now = view.performance.now()
+      if (!Number.isFinite(started) || !Number.isFinite(now) || now < lastTime || now >= deadline) {
+        throw failure("System paint settlement exceeded its 1000ms local deadline")
+      }
+      lastTime = now
+    }
+    const semantics = () => {
+      const state = { dark: media.matches, preference: menu.getAttribute("data-theme-value"), resolved: html.getAttribute("data-theme") }
+      last = { ...state, preference: state.preference?.slice(0, 128), resolved: state.resolved?.slice(0, 128) }
+      if (html !== document.documentElement || body !== document.body || document.querySelectorAll("[data-hraness-appearance-menu]").length !== 1
+        || document.querySelector("[data-hraness-appearance-menu]") !== menu
+        || [html, body, menu].some(owner => !owner.isConnected || owner.ownerDocument !== document)) {
+        throw failure("System paint owners changed")
+      }
+      if (state.dark !== (system === "dark") || state.preference !== "system" || state.resolved !== system) {
+        throw failure("System paint media, preference or resolved appearance changed")
+      }
+      return state
+    }
+    // Observe losses between RAF samples as well, including loss and regain in
+    // one task. Rewriting the same correct attribute remains harmless.
+    const mutations = (records: readonly MutationRecord[]) => {
+      for (const record of records) {
+        const expected = record.target === html ? system : "system"
+        if (record.oldValue !== expected) throw failure("System paint appearance changed between native samples")
+      }
+      semantics()
+    }
+    const observer = new view.MutationObserver(records => {
+      try { checkDeadline(); mutations(records) } catch (error) { finish(error) }
+    })
+    const mediaChanged = (event: MediaQueryListEvent) => {
+      try {
+        checkDeadline()
+        if (event.matches !== (system === "dark")) throw failure("System paint media changed between native samples")
+        semantics()
+      } catch (error) { finish(error) }
+    }
+    const read = () => {
+      checkDeadline()
+      mutations(observer.takeRecords())
+      const state = semantics(), samples: unknown[] = []
+      last = { ...state, elements: samples }
+      let active = false
+      const elements = [html, body].map((owner, index) => {
+        // Discover the actual style/layout change before asking whether its
+        // native transitions have finished. Font readiness alone cannot do so.
+        const bounds = owner.getBoundingClientRect(), style = view.getComputedStyle(owner)
+        const rect = [bounds.x, bounds.y, bounds.width, bounds.height]
+        if (!rect.every(Number.isFinite)) throw failure("System paint geometry is invalid")
+        const styles = Object.fromEntries(properties.map(property => [property, style.getPropertyValue(property)]))
+        if (Object.values(styles).some(value => value.length > 256)) throw failure("System paint value exceeds its bound")
+        const animations = owner.getAnimations()
+        samples.push({ key: index === 0 ? "html" : "body", rect, styles, animationCount: animations.length,
+          animations: animations.slice(0, 8).map(animation => ({ state: animation.playState, pending: animation.pending, rate: animation.playbackRate })) })
+        if (animations.length > 64) throw failure("System paint animation inventory exceeds its bound")
+        for (const animation of animations) {
+          const effect = animation.effect
+          if (effect === null || !("target" in effect) || effect.target !== owner) throw failure("System paint animation has no exact element owner")
+          const timing = effect.getComputedTiming()
+          if (typeof timing.endTime !== "number" || !Number.isFinite(timing.endTime) || timing.endTime < 0
+            || typeof timing.duration !== "number" || !Number.isFinite(timing.duration) || timing.duration < 0
+            || typeof timing.iterations !== "number" || !Number.isFinite(timing.iterations) || timing.iterations < 0
+            || animation.playState === "paused" || !Number.isFinite(animation.playbackRate) || animation.playbackRate === 0) {
+            throw failure("System paint animation must be finite and unpaused")
+          }
+          active ||= animation.pending || animation.playState === "running"
+        }
+        return { key: index === 0 ? "html" : "body", rect, styles }
+      })
+      checkDeadline()
+      return { active, bodyColor: elements[1]!.styles.color!, elements }
+    }
+    const observe = () => {
+      try {
+        const { active, ...value } = read(), observed = JSON.stringify(value)
+        checkDeadline()
+        if (!active && previous === observed) { finish(undefined, value); return }
+        previous = active ? undefined : observed
+        frame = view.requestAnimationFrame(observe)
+      } catch (error) { finish(error) }
+    }
+    try {
+      observer.observe(html, { attributes: true, attributeFilter: ["data-theme"], attributeOldValue: true })
+      observer.observe(menu, { attributes: true, attributeFilter: ["data-theme-value"], attributeOldValue: true })
+      media.addEventListener("change", mediaChanged)
+      timer = view.setTimeout(() => finish(failure("System paint settlement exceeded its 1000ms local deadline")), 1_000)
+      read() // Immediate semantic/animation checks are not a settled RAF sample.
+      frame = view.requestAnimationFrame(observe)
+    } catch (error) { finish(error) }
+  })
+}
+
+export function assertShellSystemPaintChanged(alternate: ShellSystemPaint, restored: ShellSystemPaint, label: string): void {
+  assert.notEqual(restored.bodyColor, alternate.bodyColor,
+    `${label.slice(0, 192)}: System appearance did not follow the native media setting; alternate/restored native paint ${JSON.stringify({ alternate, restored }).slice(0, 8_192)}`)
 }
 async function chooseAppearance(page: Page, value: ShellCase["theme"], system: ShellCase["system"]): Promise<void> {
   const trigger = page.locator("[data-hraness-appearance-menu] button")
@@ -580,15 +715,16 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     await chooseAppearance(page, scenario.theme, scenario.system)
     if (scenario.theme === "system") {
       const alternate = scenario.system === "dark" ? "light" : "dark"
-      await page.emulateMedia({ colorScheme: alternate })
-      await settleCase()
-      await assertAppearancePreference(page, "system", alternate)
-      const changed = await page.locator("body").evaluate(element => getComputedStyle(element).color)
-      await page.emulateMedia({ colorScheme: scenario.system })
-      await settleCase()
-      await assertAppearancePreference(page, "system", scenario.system)
-      if (scenario.forced === "none") assert.notEqual(await page.locator("body").evaluate(element => getComputedStyle(element).color), changed,
-        "System appearance did not follow the native media setting")
+      const sampleSystemPaint = async (system: ShellCase["system"], phase: "alternate" | "restored") => {
+        const label = `${source} ${scenario.name} System ${phase} ${system}`
+        await page.emulateMedia({ colorScheme: system })
+        await settleCase()
+        await assertAppearancePreference(page, "system", system, label)
+        return page.locator("html").evaluate(settleShellSystemPaint, { label, system })
+      }
+      const changed = await sampleSystemPaint(alternate, "alternate")
+      const restored = await sampleSystemPaint(scenario.system, "restored")
+      if (scenario.forced === "none") assertShellSystemPaintChanged(changed, restored, `${source} ${scenario.name} System alternate/restored`)
     }
     // Restore the exact route before reload: the preceding native skip adds a
     // fragment, whose browser focus restoration would otherwise start Tab at
