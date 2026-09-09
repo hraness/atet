@@ -1,8 +1,6 @@
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { verifyNpmPublishConfig } from "./npm-publish-policy";
-
 const EXPECTED_ACTOR_ID = 894119;
 const EXPECTED_PACKAGE = "@hraness/atet";
 const EXPECTED_REPOSITORY = "hraness/atet";
@@ -16,7 +14,6 @@ const DEFAULT_BRANCH = "main";
 const CI_WORKFLOW_NAME = "CI";
 const CI_WORKFLOW_PATH = ".github/workflows/ci.yml";
 const CI_REQUIRED_JOB = "Required";
-const RELEASE_ENVIRONMENT = "npm-stage";
 const RELEASE_RULESET_POLICIES = [
   { bypassOwner: true, name: "Release tag creation", rules: ["creation"] },
   { bypassOwner: false, name: "Immutable version tags", rules: ["deletion", "update"] },
@@ -66,7 +63,7 @@ export function parseReleaseVersion(value: string): ReleaseVersion {
   }
   const parts = Object.freeze([BigInt(major), BigInt(minor), BigInt(patch)]) as readonly [bigint, bigint, bigint];
   if (parts.some(component => component > MAXIMUM_SEMVER_COMPONENT)) {
-    throw new Error(`Release version ${value} exceeds npm 11's safe SemVer component bound.`);
+    throw new Error(`Release version ${value} exceeds the safe SemVer component bound.`);
   }
   return Object.freeze({
     parts,
@@ -103,32 +100,6 @@ export function admitRepository(value: unknown): void {
     || repository.visibility !== "public"
   ) {
     throw new Error(`Release-tag authentication must address active ${EXPECTED_REPOSITORY} with default branch ${DEFAULT_BRANCH}.`);
-  }
-}
-
-export function admitReleaseEnvironment(environmentValue: unknown, policiesValue: unknown): void {
-  const environment = record(environmentValue, "npm release environment receipt");
-  const deploymentPolicy = record(environment.deployment_branch_policy, "npm release deployment policy");
-  if (
-    environment.name !== RELEASE_ENVIRONMENT
-    || environment.can_admins_bypass !== false
-    || deploymentPolicy.custom_branch_policies !== true
-    || deploymentPolicy.protected_branches !== false
-    || !Array.isArray(environment.protection_rules)
-    || environment.protection_rules.length !== 1
-    || record(environment.protection_rules[0], "npm release protection rule").type !== "branch_policy"
-  ) {
-    throw new Error(`${RELEASE_ENVIRONMENT} must have no administrator bypass or reviewers and use only branch_policy protection.`);
-  }
-  const policies = record(policiesValue, "npm release deployment-policy receipt");
-  if (
-    policies.total_count !== 1
-    || !Array.isArray(policies.branch_policies)
-    || policies.branch_policies.length !== 1
-  ) throw new Error(`${RELEASE_ENVIRONMENT} must admit exactly one deployment policy.`);
-  const policy = record(policies.branch_policies[0], "npm release deployment policy entry");
-  if (policy.name !== DEFAULT_BRANCH || policy.type !== "branch") {
-    throw new Error(`${RELEASE_ENVIRONMENT} must admit only the selected ${DEFAULT_BRANCH} branch.`);
   }
 }
 
@@ -212,14 +183,17 @@ export function admitRemoteRoutes(fetchOutput: string, pushOutput: string): void
   ) throw new Error(`Origin fetch and push routing must each name only canonical ${EXPECTED_REPOSITORY}.`);
 }
 
-export function admitPublishedNpmVersion(value: unknown, expectedVersion: string): void {
-  const receipt = record(value, "public npm release receipt");
-  const distTags = record(receipt["dist-tags"], "public npm dist-tags receipt");
-  if (
-    receipt.name !== EXPECTED_PACKAGE
-    || receipt.version !== expectedVersion
-    || distTags.latest !== expectedVersion
-  ) throw new Error(`Public npm latest must identify ${EXPECTED_PACKAGE}@${expectedVersion} before tag creation.`);
+export function admitPublishedGitHubRelease(value: unknown, expectedVersion: string): void {
+  const receipt = record(value, "latest GitHub release receipt");
+  const author = record(receipt.author, "latest release author");
+  if (typeof receipt.tag_name !== "string" || !receipt.tag_name.startsWith("v")
+    || receipt.draft !== false || receipt.prerelease !== false || receipt.immutable !== true
+    || author.id !== 41898282 || author.login !== "github-actions[bot]") {
+    throw new Error("Latest GitHub release is not the immutable Actions-authored authority.");
+  }
+  if (compareReleaseVersions(parseReleaseVersion(expectedVersion), parseReleaseVersion(receipt.tag_name.slice(1))) < 0) {
+    throw new Error("A newer immutable GitHub release already exists.");
+  }
 }
 
 export function admitProtectedBranch(value: unknown, expectedSha: string): void {
@@ -493,7 +467,7 @@ async function requireLocalTag(root: string, tag: string, sha: string, message: 
 async function main(): Promise<void> {
   const [versionArgument, ...extraArguments] = Bun.argv.slice(2);
   if (versionArgument === undefined || extraArguments.length !== 0) {
-    throw new Error("Usage: bun run ./scripts/push-npm-release-tag.ts <stable-version>");
+    throw new Error("Usage: bun run ./scripts/push-release-tag.ts <stable-version>");
   }
   const release = parseReleaseVersion(versionArgument);
   const root = realpathSync(resolve(import.meta.dir, ".."));
@@ -524,7 +498,6 @@ async function main(): Promise<void> {
   if (packageJson.name !== EXPECTED_PACKAGE || packageJson.version !== release.version) {
     throw new Error(`Requested version must exactly match ${EXPECTED_PACKAGE} in package.json.`);
   }
-  verifyNpmPublishConfig(packageJson.publishConfig);
 
   admitOwner(await jsonCommand(["gh", "api", "user"], root, "Verify GitHub authentication"));
   admitRepository(
@@ -543,22 +516,6 @@ async function main(): Promise<void> {
     );
   }
   admitReleaseRulesets(rulesetList, rulesetDetails);
-  admitReleaseEnvironment(
-    await jsonCommand(
-      ["gh", "api", `repos/${EXPECTED_REPOSITORY}/environments/${RELEASE_ENVIRONMENT}`],
-      root,
-      "Verify npm release environment",
-    ),
-    await jsonCommand(
-      [
-        "gh", "api", "--method", "GET",
-        `repos/${EXPECTED_REPOSITORY}/environments/${RELEASE_ENVIRONMENT}/deployment-branch-policies`,
-        "-f", "per_page=100",
-      ],
-      root,
-      "Verify npm release deployment policies",
-    ),
-  );
   const sha = await refreshMain(root);
   admitProtectedBranch(
     await jsonCommand(["gh", "api", `repos/${EXPECTED_REPOSITORY}/branches/${DEFAULT_BRANCH}`], root, "Verify protected main"),
@@ -590,15 +547,8 @@ async function main(): Promise<void> {
     "Read exact CI attempt jobs",
   );
   const jobId = admitCiRequiredJob(jobs, run, sha);
-  admitPublishedNpmVersion(
-    await jsonCommand(
-      [
-        "npm", "view", `${EXPECTED_PACKAGE}@${release.version}`, "name", "version", "dist-tags", "--json",
-        "--@hraness:registry=https://registry.npmjs.org", "--registry=https://registry.npmjs.org",
-      ],
-      root,
-      "Verify public npm latest",
-    ),
+  admitPublishedGitHubRelease(
+    await jsonCommand(["gh", "api", `repos/${EXPECTED_REPOSITORY}/releases/latest`], root, "Verify latest immutable GitHub release"),
     release.version,
   );
 

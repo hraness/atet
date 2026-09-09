@@ -1339,7 +1339,7 @@ class AtetMcpToolRuntime {
 }
 
 // src/version.ts
-var ATET_VERSION = "3.2.2";
+var ATET_VERSION = "3.2.3";
 
 // src/mcp/server.ts
 var atetMcpProtocolVersion = "2025-11-25";
