@@ -1,10 +1,62 @@
 import { describe, expect, test } from "bun:test"
 import { readFile } from "node:fs/promises"
+import { fileURLToPath } from "node:url"
+import { createStylexTransformCollector, type StylexTransformResult } from "@hraness/ui/stylex-build"
 import { assertCompiledSiteClass, replaceSiteSlot } from "../src/site-template"
 
 const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), "utf8")
 
+function assertPrimaryActionColors(compiled: StylexTransformResult): void {
+  for (const slot of ["navigationAction", "recoveryAction"]) {
+    // Bind the rules to each emitted action, not unrelated package or shell CSS.
+    const matches = [...compiled.code.matchAll(new RegExp(`\\b${slot}: \\{\\s*className: "([^"]+)"\\s*\\}\\.className`, "gu"))]
+    expect(matches).toHaveLength(1)
+    const classes = new Set(matches[0]![1]!.split(" "))
+    const rules = compiled.rules.filter(([name]) => classes.has(name)).map(([name, value]) => {
+      expect(value.rtl).toBeNull()
+      return value.ltr.replaceAll(`.${name}`, ".action")
+    })
+    const accent = "var(--hraness-marketing-accent)"
+    const hover = `color-mix(in oklch,${accent} 84%,black)`
+    expect(rules.filter(rule => /\bborder(?:-(?:top|right|bottom|left))?-color:/u.test(rule)).sort()).toEqual([
+      `.action:hover{border-color:${hover}}`, `.action{border-color:${accent}}`,
+    ].sort())
+    expect(rules).toContain(".action{border-width:1px}")
+    expect(rules).toContain(".action{border-style:solid}")
+    expect(rules.filter(rule => /\bbackground-color:/u.test(rule)).sort()).toEqual([
+      `.action:hover{background-color:${hover}}`, `.action{background-color:${accent}}`,
+      "@media (forced-colors: active){.action.action{background-color:CanvasText}}",
+    ].sort())
+    expect(rules.join("\n")).not.toMatch(/forced-color-adjust:/u)
+  }
+}
+
 describe("ordinary shell authored contract (pure, process-free)", () => {
+  test("compiled home and recovery actions preserve native forced border adjustment and ordinary/hover colors", async () => {
+    const path = fileURLToPath(new URL("../src/site-shell.stylex.ts", import.meta.url))
+    const root = fileURLToPath(new URL("../", import.meta.url))
+    const source = await read("src/site-shell.stylex.ts")
+    const compile = (value: string) => createStylexTransformCollector(root).transform(value, path)
+    assertPrimaryActionColors(await compile(source))
+
+    // In-memory mutations prove the check rejects the native regression and
+    // loss of the retained states without rebuilding or changing any file.
+    const border = `borderColor: {\n      default: "var(--hraness-marketing-accent)",\n      ":hover": "color-mix(in oklch, var(--hraness-marketing-accent) 84%, black)",\n    }`
+    expect(source.split(border)).toHaveLength(2)
+    const mutations = [
+      source.replace(border, border.replace("borderColor: {", 'borderColor: {\n      [forcedColors]: "CanvasText",')),
+      source.replace(border, border.replace('      default: "var(--hraness-marketing-accent)",\n', "")),
+      source.replace(border, border.replace('      ":hover": "color-mix(in oklch, var(--hraness-marketing-accent) 84%, black)",\n', "")),
+      source.replace('      [forcedColors]: "CanvasText",\n', ""),
+      source.replace("  primaryAction: {", '  primaryAction: {\n    forcedColorAdjust: "none",'),
+    ]
+    for (const mutation of mutations) {
+      expect(mutation).not.toBe(source)
+      const compiled = await compile(mutation)
+      expect(() => assertPrimaryActionColors(compiled)).toThrow()
+    }
+  })
+
   test("replaces only the exact counted slot and preserves literal replacement bytes", () => {
     expect(replaceSiteSlot("a {{SITE_SLOT}} b {{SITE_SLOT}}", "{{SITE_SLOT}}", "$& literal", 2))
       .toBe("a $& literal b $& literal")
@@ -53,7 +105,7 @@ describe("ordinary shell authored contract (pure, process-free)", () => {
     expect(recipes).toContain('stylex.props(shell.primaryAction, shell.navigationAction)')
     expect(recipes).toContain('stylex.props(shell.primaryAction, shell.recoveryAction)')
     expect(recipes).toContain('const coarsePointer = "@media (pointer: coarse)"')
-    expect(recipes.match(/\[forcedColors\]: "CanvasText"/gu)).toHaveLength(2)
+    expect(recipes.match(/\[forcedColors\]: "CanvasText"/gu)).toHaveLength(1)
     expect(recipes).toContain('minHeight: { default: "var(--hraness-marketing-action-height)", [coarsePointer]: "3rem" }')
     expect(renderer).toContain('document === "index.html" ? homeSlots : recoverySlots')
     expect(legacy).not.toMatch(/\.skip-link|\.topbar|\.wordmark|\.route-state/u)

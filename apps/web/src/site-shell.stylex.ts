@@ -107,7 +107,6 @@ const shell = stylex.create({
     borderStyle: "solid",
     borderColor: {
       default: "var(--hraness-marketing-accent)",
-      [forcedColors]: "CanvasText",
       ":hover": "color-mix(in oklch, var(--hraness-marketing-accent) 84%, black)",
     },
     borderImageSource: "none",
