@@ -91,7 +91,23 @@ describe("operation registry", () => {
       operation.inputSchemaId.startsWith("atet.operation.")
       && operation.outputSchemaId.startsWith("atet.operation.")
     ))).toBe(true);
-    expect(descriptions).toHaveLength(49);
+    expect(descriptions).toHaveLength(62);
+    expect(registry.list().filter(operation => (
+      operation.kind.startsWith("scene.") || operation.kind.startsWith("spatial.project.")
+    )).map(operation => `${operation.kind}@${operation.version}`)).toEqual([
+      "scene.evaluate@1",
+      "scene.inspect@1",
+      "scene.patch@1",
+      "scene.render@1",
+      "spatial.project.add-candidate@1",
+      "spatial.project.add-shot@1",
+      "spatial.project.migrate@1",
+      "spatial.project.patch@1",
+      "spatial.project.reconcile@1",
+      "spatial.project.restore@1",
+      "spatial.project.select-candidate@1",
+      "spatial.project.snapshot@1",
+    ]);
     const portableKinds = new Set<string>(
       PORTABLE_ATET_OPERATION_KINDS.map(
         kind => PORTABLE_ATET_OPERATION_CONTRACTS[kind].kind,
@@ -126,7 +142,7 @@ describe("operation registry", () => {
     )).map(operation => operation.version)).toEqual([1, 2]);
     expect(registry.list().filter(operation => (
       operation.kind === "render.project"
-    )).map(operation => operation.version)).toEqual([1, 2, 3]);
+    )).map(operation => operation.version)).toEqual([1, 2, 3, 4]);
     expect(registry.describe("render.project", 2).policy.resources).toEqual([
       { amount: 1, resource: "cpu" },
       { amount: 1, resource: "local-io" },

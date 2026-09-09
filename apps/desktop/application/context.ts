@@ -69,6 +69,13 @@ export interface ApplicationHostResourceLease extends HostResourceLease {
 }
 
 export interface ApplicationContext {
+  /** Adapter-owned current project lease; never serialized as operation input. */
+  readonly spatialProjectCustody?: {
+    readonly projectDirectory: string;
+    readonly projectId: string;
+    assertHeld(): Promise<void>;
+    assertLegacyTransactionSettled(): Promise<void>;
+  };
   readonly capability: (
     name: ApplicationCapabilityName,
   ) => Promise<ApplicationCapability>;

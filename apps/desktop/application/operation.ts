@@ -7,6 +7,18 @@ import type { ApplicationContext } from "./context";
 export const ATET_APPLICATION_TOOL_VERSION = "atet-3.2.2" as const;
 
 export const OPERATION_KINDS = [
+  "scene.inspect",
+  "scene.patch",
+  "scene.evaluate",
+  "scene.render",
+  "spatial.project.snapshot",
+  "spatial.project.migrate",
+  "spatial.project.patch",
+  "spatial.project.restore",
+  "spatial.project.add-shot",
+  "spatial.project.add-candidate",
+  "spatial.project.select-candidate",
+  "spatial.project.reconcile",
   "project.snapshot",
   "analysis.project-inactivity",
   "analysis.faces",

@@ -41,9 +41,11 @@ const importSpecifiers = [
   `${packageName}/local/html-overlay`,
 ] as const;
 const nodeImportSpecifiers = importSpecifiers.slice(0, 8);
-const maximumPackedFiles = 350;
-const maximumPackedBytes = 3_750_000;
-const maximumUnpackedBytes = 8_900_000;
+// Rebuilt scene foundation: 368 files, 3,739,672 packed and 9,752,721 unpacked bytes.
+// Keep bounded headroom aligned with the independent release artifact readers.
+const maximumPackedFiles = 400;
+const maximumPackedBytes = 4_000_000;
+const maximumUnpackedBytes = 10_500_000;
 const requiredPackedPaths = [
   "DISCLOSURE",
   "LICENSE",
@@ -843,6 +845,16 @@ try {
   await run([
     process.execPath,
     "-e",
+    `const { createSpatialSceneStarter, inspectSpatialScene, applySpatialScenePatch, evaluateSpatialScene } = await import("@hraness/atet/code");
+const scene = createSpatialSceneStarter();
+const before = inspectSpatialScene(scene);
+const changed = applySpatialScenePatch(scene, { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: before.sceneSha256, operations: [{ kind: "set-color", entityId: "entity_product", color: "#f97316" }] });
+const evaluated = evaluateSpatialScene(changed.scene, { cameraId: "camera_hero", timeUs: 1000000 });
+if (changed.sceneSha256 === before.sceneSha256 || evaluated.sceneSha256 !== changed.sceneSha256 || inspectSpatialScene(scene).sceneSha256 !== before.sceneSha256) throw new Error("Packed spatial SDK lost immutable edit/evaluation identity.");`,
+  ], consumer);
+  await run([
+    process.execPath,
+    "-e",
     `const { renderPng, renderSvg } = await import("@hraness/atet");
 const source = weight => ({ version: 1, name: \`installed-font-proof-\${weight}\`, canvas: { width: 320, height: 120 }, shapes: [{ id: "label", type: "text", x: 16, y: 16, text: "Nebula Sans", fontSize: 42, weight }] });
 const blank = await renderSvg({ version: 1, name: "installed-font-blank", canvas: { width: 320, height: 120 }, shapes: [] }, "light", {});
@@ -952,6 +964,17 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
     throw new Error(
       `Packed CLI reports version ${JSON.stringify(doctor.version)} instead of package version ${JSON.stringify(packageJson.version)}.`,
     );
+  }
+  const installedScene = join(consumer, "installed.scene.json");
+  const initializedScene = record(JSON.parse(await runOutput([
+    join(consumer, "node_modules", ".bin", "atet"), "scene", "init", installedScene, "--json",
+  ], consumer)) as unknown, "packed scene init");
+  const inspectedScene = record(JSON.parse(await runOutput([
+    join(consumer, "node_modules", ".bin", "atet"), "scene", "inspect", installedScene, "--json",
+  ], consumer)) as unknown, "packed scene inspect");
+  if (typeof initializedScene.sceneSha256 !== "string" || initializedScene.sceneSha256 !== inspectedScene.sceneSha256
+    || !Array.isArray(inspectedScene.entities) || inspectedScene.entities.length !== 4) {
+    throw new Error("Packed CLI did not retain and inspect the authored scene starter.");
   }
   const operationsText = await runOutput([
     join(consumer, "node_modules", ".bin", "atet"),

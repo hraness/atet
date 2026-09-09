@@ -24,3 +24,6 @@ export * from "./render/project-plan";
 export * from "./render/project";
 export * from "./render/materialize-selection";
 export * from "./atet-visuals";
+export * from "./spatial-scene";
+export * from "./spatial-project";
+export * from "./spatial-render";

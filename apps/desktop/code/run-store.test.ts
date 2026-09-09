@@ -1,8 +1,10 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { createHash, randomUUID } from "node:crypto";
+import * as fs from "node:fs/promises";
 import {
   appendFile,
   chmod,
+  link,
   lstat,
   mkdtemp,
   readFile,
@@ -11,6 +13,7 @@ import {
   rm,
   symlink,
   truncate,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -695,6 +698,207 @@ describe("durable workflow run store", () => {
     expect(store.writeNode(fence, current)).rejects.toThrow(
       "identity changed while its claim was active",
     );
+    await store.releaseClaim(fence);
+  });
+
+  test("reverifies exact immutable bytes after ctime-only changes and refreshes the active claim", async () => {
+    const root = await temporaryDirectory();
+    const store = new RunStore({ root });
+    const input = fixture();
+    const initial = await store.create(input);
+    const summary = { ...initial, startedAt: initial.updatedAt, status: "running" as const };
+    const fence = await store.acquireClaim(input.runId, { owner: "writer" });
+    for (const name of [
+      "graph-plan.json", ".initialized.json", "graph.json", "workflow.json", "runtime.json", "workflow.bundle.js",
+    ]) {
+      const path = join(root, input.runId, name);
+      const before = await lstat(path);
+      await chmod(path, 0o600);
+      const after = await lstat(path);
+      expect(after.ctimeMs).not.toBe(before.ctimeMs);
+      expect(after.mtimeMs).toBe(before.mtimeMs);
+    }
+    const nativeOpen = fs.open;
+    let bundleReads = 0;
+    const openSpy = spyOn(fs, "open").mockImplementation(async (...args) => {
+      if (args[0] === join(root, input.runId, "workflow.bundle.js")) bundleReads += 1;
+      return await nativeOpen(...args);
+    });
+    try {
+      await store.writeSummary(fence, summary);
+      expect(bundleReads).toBe(1);
+      // The successful revalidation refreshes the snapshot rather than adding
+      // repeated full identity reads to every subsequent fenced publication.
+      await store.writeSummary(fence, summary);
+      expect(bundleReads).toBe(1);
+    } finally { openSpy.mockRestore(); }
+    expect(await store.summary(input.runId)).toEqual(summary);
+    await store.releaseClaim(fence);
+  });
+
+  test.each([
+    "graph-plan.json", ".initialized.json", "graph.json", "workflow.json", "runtime.json", "workflow.bundle.js",
+  ])("rejects changed physical %s bytes even when size, mtime, and parsed identity are preserved", async name => {
+    const root = await temporaryDirectory();
+    const store = new RunStore({ root });
+    const input = fixture();
+    const summary = await store.create(input);
+    const path = join(root, input.runId, name);
+    const stamp = new Date("2026-01-01T00:00:00Z");
+    await utimes(path, stamp, stamp);
+    const fence = await store.acquireClaim(input.runId, { owner: "writer" });
+    const before = await lstat(path);
+    const original = await readFile(path, "utf8");
+    expect(original.endsWith("\n")).toBe(true);
+    const changed = `${original.slice(0, -1)} `;
+    if (name.endsWith(".json")) expect(JSON.parse(changed)).toEqual(JSON.parse(original));
+    await writeFile(path, changed);
+    await utimes(path, stamp, stamp);
+    const after = await lstat(path);
+    expect([after.dev, after.ino, after.size, after.mtimeMs, after.mode, after.blocks]).toEqual(
+      [before.dev, before.ino, before.size, before.mtimeMs, before.mode, before.blocks],
+    );
+    expect(after.ctimeMs).not.toBe(before.ctimeMs);
+    const summaryPath = join(root, input.runId, "summary.json");
+    const originalSummary = await lstat(summaryPath);
+    await expect(store.writeSummary(fence, summary)).rejects.toThrow("Run identity bytes changed");
+    expect((await lstat(summaryPath)).ino).toBe(originalSummary.ino);
+    await store.releaseClaim(fence);
+  });
+
+  test.each(["mode", "hard-link", "replacement", "symlink"] as const)(
+    "rejects %s identity changes before summary publication", async mutation => {
+      const root = await temporaryDirectory();
+      const store = new RunStore({ root });
+      const input = fixture();
+      const summary = await store.create(input);
+      const fence = await store.acquireClaim(input.runId, { owner: "writer" });
+      const path = join(root, input.runId, "runtime.json");
+      if (mutation === "mode") await chmod(path, 0o640);
+      else if (mutation === "hard-link") await link(path, `${path}.linked`);
+      else if (mutation === "replacement") {
+        await writeFile(`${path}.new`, await readFile(path), { mode: 0o600 });
+        await rename(`${path}.new`, path);
+      } else {
+        await rename(path, `${path}.original`);
+        await symlink(`${path}.original`, path);
+      }
+      const summaryPath = join(root, input.runId, "summary.json");
+      const originalSummary = await lstat(summaryPath);
+      await expect(store.writeSummary(fence, summary)).rejects.toThrow("identity changed while its claim was active");
+      expect((await lstat(summaryPath)).ino).toBe(originalSummary.ino);
+      await store.releaseClaim(fence);
+    },
+  );
+
+  test("rejects another metadata transition during the bounded identity revalidation", async () => {
+    const root = await temporaryDirectory();
+    const store = new RunStore({ root });
+    const input = fixture();
+    const summary = await store.create(input);
+    const fence = await store.acquireClaim(input.runId, { owner: "writer" });
+    const path = join(root, input.runId, "workflow.bundle.js");
+    await chmod(path, 0o600);
+    const nativeOpen = fs.open;
+    let transitions = 0;
+    const openSpy = spyOn(fs, "open").mockImplementation(async (...args) => {
+      const handle = await nativeOpen(...args);
+      if (args[0] === path) {
+        await chmod(path, 0o600);
+        transitions += 1;
+      }
+      return handle;
+    });
+    const summaryPath = join(root, input.runId, "summary.json");
+    const originalSummary = await lstat(summaryPath);
+    try {
+      await expect(store.writeSummary(fence, summary)).rejects.toThrow("Run identity changed during revalidation");
+      expect(transitions).toBe(1);
+      expect((await lstat(summaryPath)).ino).toBe(originalSummary.ino);
+    } finally { openSpy.mockRestore(); }
+    await store.releaseClaim(fence);
+  });
+
+  test.each([".initialized.json", ".claim.json"])(
+    "coherently validates fresh %s reads across a bounded ctime-only transition", async name => {
+      for (const transition of ["open", "once", "repeated", "content", "mode", "path"] as const) {
+        const root = await temporaryDirectory();
+        const store = new RunStore({ root });
+        const input = fixture();
+        await store.create(input);
+        const fence = await store.acquireClaim(input.runId, { owner: "writer" });
+        const path = join(root, input.runId, name);
+        const stamp = new Date("2026-01-01T00:00:00Z");
+        await utimes(path, stamp, stamp);
+        const original = await readFile(path, "utf8");
+        const nativeOpen = fs.open;
+        let passes = 0;
+        let opens = 0;
+        const openSpy = spyOn(fs, "open").mockImplementation(async (...args) => {
+          const handle = await nativeOpen(...args);
+          if (args[0] !== path) return handle;
+          opens += 1;
+          if (transition === "open") await chmod(path, 0o600);
+          const nativeRead = handle.read.bind(handle);
+          // Intercept the actual bounded positional read without substituting
+          // its bytes or stat results. Mutation happens after its observed EOF.
+          Object.defineProperty(handle, "read", { value: async (buffer: Buffer, offset: number, length: number, position: number) => {
+            const result = await nativeRead(buffer, offset, length, position);
+            if (result.bytesRead !== 0) return result;
+            passes += 1;
+            if (transition === "repeated" || (transition === "once" && passes === 1)) await chmod(path, 0o600);
+            else if (transition === "content" && passes === 1) {
+              await writeFile(path, `${original.slice(0, -1)} `);
+              await utimes(path, stamp, stamp);
+            } else if (transition === "mode" && passes === 1) await chmod(path, 0o640);
+            else if (transition === "path" && passes === 1) {
+              await rename(path, `${path}.original`);
+              await writeFile(path, original, { mode: 0o600 });
+            }
+            return result;
+          } });
+          return handle;
+        });
+        try {
+          const operation = name === ".claim.json" ? store.assertFence(fence) : store.nodes(input.runId);
+          if (transition === "open" || transition === "once") await operation;
+          else await expect(operation).rejects.toThrow("Run artifact changed during read");
+          expect(opens).toBe(1);
+          expect(passes).toBe(transition === "mode" || transition === "path" ? 1 : 2);
+        } finally { openSpy.mockRestore(); }
+        // Rejected reads leave the held claim in place and do not publish a
+        // replacement identity. Test cleanup explicitly restores its bytes.
+        expect(await lstat(join(root, input.runId, ".claim.json"))).toBeDefined();
+        if (transition === "mode") await chmod(path, 0o600);
+        if (transition === "path") {
+          await rm(path);
+          await rename(`${path}.original`, path);
+        }
+        if (transition === "content") await writeFile(path, original);
+        await store.releaseClaim(fence);
+      }
+    },
+  );
+
+  test("binds initial claim identity hashes to the coherently parsed bytes", async () => {
+    const root = await temporaryDirectory();
+    const store = new RunStore({ root });
+    const input = fixture();
+    await store.create(input);
+    const path = join(root, input.runId, ".initialized.json");
+    const nativeOpen = fs.open;
+    let reads = 0;
+    const openSpy = spyOn(fs, "open").mockImplementation(async (...args) => {
+      const handle = await nativeOpen(...args);
+      if (args[0] === path && reads++ === 0) await chmod(path, 0o600);
+      return handle;
+    });
+    let fence: RunFence;
+    try {
+      fence = await store.acquireClaim(input.runId, { owner: "writer" });
+      expect(reads).toBe(2);
+    } finally { openSpy.mockRestore(); }
+    await store.assertFence(fence);
     await store.releaseClaim(fence);
   });
 

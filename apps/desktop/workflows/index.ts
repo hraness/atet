@@ -8,6 +8,7 @@ import {
 } from "../code/define-workflow";
 import type { WorkflowOutputValue } from "../code/contracts";
 import { chapteredDemo } from "./chaptered-demo";
+import { directedScene } from "./scene-direction";
 import { creativeIteration } from "./creative-iteration";
 import { creativeSelection } from "./creative-selection";
 import { polishedScreenDemo } from "./polished-screen-demo";
@@ -47,6 +48,10 @@ function catalogEntry<Input, Output extends WorkflowOutputValue>(
 }
 
 export const BUILT_IN_WORKFLOWS: readonly BuiltInWorkflow[] = Object.freeze([
+  catalogEntry(directedScene, {
+    description: "Render a prepared immutable spatial scene composition with exact frame timing and retained project audio.",
+    title: "Directed scene",
+  }),
   catalogEntry(chapteredDemo, {
     description: "Freeze the current chapter, overlay, and media composition and render an exact video.",
     title: "Chaptered demo",
@@ -79,6 +84,7 @@ export function builtInWorkflow(id: string): BuiltInWorkflow | undefined {
 
 export {
   chapteredDemo,
+  directedScene,
   creativeIteration,
   creativeSelection,
   polishedScreenDemo,

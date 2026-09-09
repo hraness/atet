@@ -717,6 +717,7 @@ async function verifyExistingContentAddress(
 }
 
 export async function publishContentAddressedMedia(options: {
+  readonly beforePublication?: () => Promise<void>;
   readonly context: OperationExecutionContext;
   readonly extension: string;
   readonly maximumBytes: number;
@@ -743,6 +744,7 @@ export async function publishContentAddressedMedia(options: {
     `${staged.sha256}${options.extension}`,
   );
   await options.context.workflow?.beforePublication();
+  await options.beforePublication?.();
   throwIfAborted(options.context.abortSignal);
   let created = false;
   try {
@@ -775,6 +777,7 @@ export async function publishContentAddressedMedia(options: {
 }
 
 export async function publishContentAddressedReceipt(options: {
+  readonly beforePublication?: () => Promise<void>;
   readonly context: OperationExecutionContext;
   readonly receipt: unknown;
   readonly workspace: MediaOperationWorkspace;
@@ -812,6 +815,7 @@ export async function publishContentAddressedReceipt(options: {
   );
   const destination = join(directory, `${sha256}.json`);
   await options.context.workflow?.beforePublication();
+  await options.beforePublication?.();
   throwIfAborted(options.context.abortSignal);
   try {
     await link(temporary, destination);

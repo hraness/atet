@@ -74,6 +74,12 @@ export function operationFileClaims(
   input: GraphInputValue | JsonValue,
 ): readonly FileClaim[] {
   if (!record(input)) return [];
+  if (operation === "scene.render") {
+    return [
+      ...optionalClaim(field(input, "source")),
+      ...array(field(input, "assets")).flatMap(asset => optionalClaim(field(asset, "artifact"))),
+    ];
+  }
   if (operation === "media.ingest") {
     return optionalClaim(Reflect.get(input, "source"));
   }

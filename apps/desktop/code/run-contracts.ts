@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SpatialProjectMutationOutputSchema } from "../contracts/spatial-project";
 
 import { OPERATION_KINDS } from "../application/operation";
 import {
@@ -215,6 +216,7 @@ export function createRunOutputsDigest(input: z.input<typeof JsonValueSchema>): 
 }
 
 const RunNodeFailureSchema = z.strictObject({
+  spatialPublication: SpatialProjectMutationOutputSchema.optional(),
   code: z.enum([
     "authorization-required",
     "cancelled",

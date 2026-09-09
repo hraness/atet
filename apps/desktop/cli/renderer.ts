@@ -742,11 +742,21 @@ function assertMetadataSpriteWithinLimit(width: number, height: number, label: s
   }
 }
 
+function metadataCadence(frameRate: number, exactFrameRate?: Readonly<{ numerator: number; denominator: number }>): string {
+  if (exactFrameRate === undefined) return decimal(frameRate);
+  const { numerator, denominator } = exactFrameRate;
+  if (!Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || numerator <= 0 || denominator <= 0
+    || numerator > 1_000_000 || denominator > 1_000_000 || numerator / denominator !== frameRate) throw new CliError("invalid-data", "Metadata sprite cadence does not match its exact output rate.");
+  return `${numerator}/${denominator}`;
+}
+
 export function buildMetadataCursorSprite(
   cursor: Pick<EnabledCursorEffect, "scale" | "style">,
   frameRate: number,
   durationUs: number,
+  exactFrameRate?: Readonly<{ numerator: number; denominator: number }>,
 ): MetadataCursorSpriteSource {
+  const emittedRate = metadataCadence(frameRate, exactFrameRate);
   if (cursor.style === "captured") {
     const height = Math.max(8, Math.min(256, Math.round(40 * cursor.scale)));
     const designScale = height / 40;
@@ -763,7 +773,7 @@ export function buildMetadataCursorSprite(
     );
     return {
       filters: [
-        `color=c=black@0.0:s=${width}x${height}:r=${decimal(frameRate)}:d=${seconds(durationUs)}`,
+        `color=c=black@0.0:s=${width}x${height}:r=${emittedRate}:d=${seconds(durationUs)}`,
         "format=rgba",
         grayscaleGeq(inner, outer, shadow),
       ],
@@ -798,7 +808,7 @@ export function buildMetadataCursorSprite(
   }
   return {
     filters: [
-      `color=c=black@0.0:s=${size}x${size}:r=${decimal(frameRate)}:d=${seconds(durationUs)}`,
+      `color=c=black@0.0:s=${size}x${size}:r=${emittedRate}:d=${seconds(durationUs)}`,
       "format=rgba",
       grayscaleGeq(inner, outer, shadow),
     ],
@@ -830,7 +840,9 @@ export function buildMetadataClickSprite(
   click: Pick<EnabledClickEffect, "color" | "radiusPx" | "style">,
   frameRate: number,
   durationUs: number,
+  exactFrameRate?: Readonly<{ numerator: number; denominator: number }>,
 ): MetadataSpriteSource {
+  const emittedRate = metadataCadence(frameRate, exactFrameRate);
   const diameter = Math.max(5, Math.ceil(click.radiusPx * 2) + 4);
   assertMetadataSpriteWithinLimit(diameter, diameter, "Click highlight");
   const radius = Math.min(click.radiusPx, (diameter - 1) / 2);
@@ -840,7 +852,7 @@ export function buildMetadataClickSprite(
     : ringMask(radius, Math.max(0, radius - thickness));
   const color = rgbaChannels(click.color);
   const filters = [
-    `color=c=black@0.0:s=${diameter}x${diameter}:r=${decimal(frameRate)}:d=${seconds(durationUs)}`,
+    `color=c=black@0.0:s=${diameter}x${diameter}:r=${emittedRate}:d=${seconds(durationUs)}`,
     "format=rgba",
     `geq=r='${color.red}':g='${color.green}':b='${color.blue}':a='${color.alpha}*(${mask})'`,
   ];
@@ -880,6 +892,7 @@ export function applyMetadataEffects(
   filters: string[],
   initialVideo: string,
   initialSerial: number,
+  exactFrameRate?: Readonly<{ numerator: number; denominator: number }>,
 ): { readonly currentVideo: string; readonly serial: number } {
   const filterCount = metadataFilterCount(plan);
   if (filterCount > MAX_METADATA_FILTERS) {
@@ -896,6 +909,7 @@ export function applyMetadataEffects(
       plan.effects.cursor,
       plan.output.frameRate,
       plan.output.durationUs,
+      exactFrameRate,
     );
     const sourceLabel = `cursor_source_${serial++}`;
     filters.push(`${cursorSprite.filters.join(",")}[${sourceLabel}]`);
@@ -925,6 +939,7 @@ export function applyMetadataEffects(
         plan.effects.clicks,
         plan.output.frameRate,
         durationUs,
+        exactFrameRate,
       );
       const sourceLabel = `click_source_${serial++}`;
       const clickFilters = [

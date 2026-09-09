@@ -1302,6 +1302,52 @@ test("fades only true audio discontinuities, not internal speed or anchor slice 
   }
 });
 
+test.skipIf(FFMPEG === null || FFPROBE === null)("places decoded slice and overlay audio at their output positions", async () => {
+  if (FFMPEG === null || FFPROBE === null) return;
+  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-project-audio-position-")));
+  try {
+    await mkdir(join(root, "renders"));
+    const sourcePath = join(root, "tone.mp4");
+    const generated = await runProcess([FFMPEG, "-v", "error", "-nostdin",
+      "-f", "lavfi", "-i", "color=c=blue:s=32x24:r=30:d=0.2",
+      "-f", "lavfi", "-i", "sine=frequency=431:sample_rate=48000:duration=0.2",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", sourcePath]);
+    if (generated.exitCode !== 0) throw new Error(generated.stderr);
+    const expected = await fileIntegrity(sourcePath);
+    const range = { startUs: 0, endUs: 200_000 };
+    const operation = OverlayOperationSchema.parse({ ...overlay("overlay_tone0001", 0, {
+      kind: "video", asset: { ...expected, path: "tone.mp4", mediaType: "video/mp4",
+        provenance: { kind: "imported", originalName: "tone.mp4", sourceSha256: expected.sha256 } },
+      audioPolicy: { kind: "mix", volume: 1 },
+      playback: { endBehavior: "hide", playbackRate: 1, sourceInUs: 0, sourceOutUs: 200_000 },
+    }), intrinsicSize: { width: 32, height: 24 }, range: { startUs: 600_000, endUs: 800_000 } });
+    const plan = renderPlan({ output: { background: "#000000ff", durationUs: 1_000_000, frameRate: 30, pixelWidth: 32, pixelHeight: 24 },
+      audioSlices: [ProjectRenderPlanV1Schema.shape.audioSlices.element.parse({ ...expected, kind: "audio", assetId: "asset_audio001", placementId: "placement_audio001",
+        streamId: "stream_audio001", streamIndex: 1, role: "music", codec: "aac", container: "mp4", path: "tone.mp4",
+        assetRange: range, fileRange: range, projectRange: range, projectSpeed: 2,
+        outputRange: { startUs: 200_010, endUs: 300_010 }, presentation: { enabled: true, gainDb: 0, pan: 0 } })],
+      overlays: [{ operation, outputRange: operation.range, projectRange: operation.range, playbackOffsetUs: 0, visibleDurationUs: 200_000 }],
+    });
+    const outputPath = join(root, "renders", "placed.mp4");
+    const built = await buildProjectFfmpegInvocation(plan, { ffmpeg: FFMPEG, ffprobe: FFPROBE, outputPath,
+      projectDirectory: root, repositoryRoot: root, runner });
+    const rendered = await runProcess(built.argv);
+    if (rendered.exitCode !== 0) throw new Error(rendered.stderr);
+    const decodedPath = join(root, "decoded.f32le");
+    const decoded = await runProcess([FFMPEG, "-v", "error", "-nostdin", "-i", outputPath, "-map", "0:a:0",
+      "-ac", "1", "-ar", "48000", "-c:a", "pcm_f32le", "-f", "f32le", decodedPath]);
+    if (decoded.exitCode !== 0) throw new Error(decoded.stderr);
+    const samples = await readFile(decodedPath);
+    for (const [center, audible] of [[.1, false], [.25, true], [.45, false], [.7, true], [.9, false]] as const) {
+      let sum = 0;
+      for (let i = 0; i < 960; i++) sum += samples.readFloatLE((Math.round((center - .01) * 48_000) + i) * 4) ** 2;
+      const rms = Math.sqrt(sum / 960);
+      if (audible) expect(rms).toBeGreaterThan(.03);
+      else expect(rms).toBeLessThan(.003);
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
+}, 20_000);
+
 test.skipIf(FFMPEG === null)("keeps project speed through zoom cadence normalization", async () => {
   if (FFMPEG === null) return;
   const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-project-zoom-speed-"));
