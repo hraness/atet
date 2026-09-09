@@ -478,7 +478,11 @@ async function checkOpenAppearance(page: Page, scenario: ShellCase): Promise<She
       direction: scenario.direction ?? "ltr", active: step.active, focusVisible: true,
       items: ["light", "dark", "system"].map(value => ({ value, checked: String(value === scenario.theme),
         selected: value === scenario.theme, tabindex: "-1" })) }, `${scenario.name}: native appearance ${step.name}`)
+    const label = `${scenario.name} appearance ${step.name}`
+    const settled = await page.locator(appearanceRoot).evaluate(settleShellAppearancePaint,
+      { label, active: step.active, preference: scenario.theme, properties })
     const elements = await measure(page, appearanceSelectors)
+    assertShellFocusUnchanged(settled, elements, label)
     for (const element of elements) {
       assert.ok(element.rect[2]! > 0 && element.rect[3]! > 0 && element.styles.display !== "none" && element.styles.visibility === "visible",
         `${scenario.name} ${element.key}: open appearance landmark not visible`)
@@ -509,6 +513,131 @@ export async function denyShellWebSocket(socket: WebSocketRoute, error: (message
 export interface ShellFocusSettlement {
   readonly elements: readonly Pick<ShellElement, "key" | "rect" | "styles">[]
   readonly scrollY: number
+}
+/** Observe the real open-menu paint, not a desired palette. The shared reset's
+ * reduced-motion duration also applies to the items' default transition: all;
+ * fonts plus RAFs alone do not flush or finish those native focus transitions. */
+export async function settleShellAppearancePaint(root: Element, options: {
+  readonly label: string; readonly active: "light" | "dark" | "system"
+  readonly preference: ShellCase["theme"]; readonly properties: readonly string[]
+}): Promise<ShellFocusSettlement> {
+  const { label, active, preference, properties } = options
+  const document = root.ownerDocument, view = document.defaultView
+  if (view === null) throw new Error(`${label}: appearance document has no native window`)
+  const base = "[data-hraness-appearance-menu]", items = `${base} [role="menuitemradio"]`
+  const selectors = [base, `${base} button`, `${base} .hraness-design-theme-toggle__popover`, `${base} [role="menu"]`,
+    items, `${items} .hraness-appearance-icon`, `${items} .hraness-appearance-icon svg`]
+  const attributes = ["class", "hidden", "role", "tabindex", "aria-expanded", "aria-controls", "aria-checked", "data-ready",
+    "data-theme-value", "data-selected", "data-focused", "data-hovered"]
+  const capture = () => selectors.flatMap((selector, index) => {
+    const found = [...document.querySelectorAll(selector)]
+    if (found.length !== (index < 4 ? 1 : 3)) throw new Error(`${label}: appearance owner inventory changed`)
+    return found.map((owner, offset) => ({ owner, key: `${selector}[${offset}]` }))
+  })
+  const owners = capture(), html = document.documentElement
+  const focused = owners[4 + ["light", "dark", "system"].indexOf(active)]?.owner
+  if (owners[0]?.owner !== root || focused === undefined || !["light", "dark", "system"].includes(preference)
+    || properties.length > 256 || new Set(properties).size !== properties.length
+    || !["background-color", "outline-style", "outline-width", "outline-color", "outline-offset"].every(property => properties.includes(property))) {
+    throw new Error(`${label}: incomplete appearance owner or paint inventory`)
+  }
+  const originalAttributes = new Map(owners.map(({ owner }) => [owner,
+    new Map(attributes.map(attribute => [attribute, owner.getAttribute(attribute)]))]))
+  originalAttributes.set(html, new Map([["data-theme", html.getAttribute("data-theme")]]))
+  const started = view.performance.now(), deadline = started + 1_000
+  return new Promise((resolve, reject) => {
+    let frame: number | undefined, timer: number | undefined, ended = false, previous: string | undefined, lastTime = started
+    const failure = (message: string) => new Error(`${label}: appearance ${message}`)
+    const finish = (error?: unknown, value?: ShellFocusSettlement) => {
+      if (ended) return
+      ended = true
+      if (frame !== undefined) view.cancelAnimationFrame(frame)
+      if (timer !== undefined) view.clearTimeout(timer)
+      observer.disconnect(); focused.removeEventListener("blur", lostFocus)
+      if (error !== undefined) reject(error)
+      else resolve(value!)
+    }
+    const lostFocus = () => finish(failure("lost native focus during settlement"))
+    const checkDeadline = () => {
+      const now = view.performance.now()
+      if (!Number.isFinite(started) || !Number.isFinite(now) || now < lastTime || now >= deadline) {
+        throw failure("settlement exceeded its 1000ms local deadline")
+      }
+      lastTime = now
+    }
+    const semantics = () => {
+      const current = capture()
+      if (document.documentElement !== html || current.some(({ owner }, index) => owner !== owners[index]!.owner
+        || !owner.isConnected || owner.ownerDocument !== document)) throw failure("owners changed")
+      if (document.activeElement !== focused || !focused.matches(":focus") || !focused.matches(":focus-visible")
+        || focused.getAttribute("data-theme-value") !== active || root.getAttribute("data-theme-value") !== preference
+        || root.getAttribute("data-ready") !== "true" || owners[1]!.owner.getAttribute("aria-expanded") !== "true"
+        || owners[2]!.owner.hasAttribute("hidden")) throw failure("open-menu focus or preference changed")
+      for (const [owner, expected] of originalAttributes) for (const [attribute, value] of expected) {
+        if (owner.getAttribute(attribute) !== value) throw failure("semantics changed")
+      }
+    }
+    const mutations = (records: readonly MutationRecord[]) => {
+      for (const record of records) {
+        const expected = originalAttributes.get(record.target as Element)
+        if (record.type !== "attributes" || record.attributeName === null || expected === undefined
+          || !expected.has(record.attributeName) || expected.get(record.attributeName) !== record.oldValue) {
+          throw failure("owners or semantics changed between native samples")
+        }
+      }
+      semantics()
+    }
+    const observer = new view.MutationObserver(records => {
+      try { checkDeadline(); mutations(records) } catch (error) { finish(error) }
+    })
+    const read = () => {
+      checkDeadline(); mutations(observer.takeRecords())
+      const scrollY = view.scrollY
+      if (!Number.isFinite(scrollY)) throw failure("geometry is invalid")
+      let animating = false
+      const elements = owners.map(({ owner, key }) => {
+        // Style/layout must be flushed before getAnimations: opening a hidden
+        // popover can defer discovery of the focus transition until that flush.
+        const bounds = owner.getBoundingClientRect(), style = view.getComputedStyle(owner)
+        const rect = [bounds.x, bounds.y, bounds.width, bounds.height]
+        const styles = Object.fromEntries(properties.map(property => [property, style.getPropertyValue(property)]))
+        if (!rect.every(Number.isFinite) || Object.values(styles).some(value => value.length > 4_096)) throw failure("paint or geometry is invalid")
+        const animations = owner.getAnimations()
+        if (animations.length > 64) throw failure("animation inventory exceeds its bound")
+        for (const animation of animations) {
+          const effect = animation.effect
+          if (effect === null || !("target" in effect) || effect.target !== owner) throw failure("animation has no exact element owner")
+          const timing = effect.getComputedTiming()
+          if (typeof timing.endTime !== "number" || !Number.isFinite(timing.endTime) || timing.endTime < 0
+            || typeof timing.duration !== "number" || !Number.isFinite(timing.duration) || timing.duration < 0
+            || typeof timing.iterations !== "number" || !Number.isFinite(timing.iterations) || timing.iterations < 0
+            || animation.playState === "paused" || !Number.isFinite(animation.playbackRate) || animation.playbackRate === 0) {
+            throw failure("animation must be finite and unpaused")
+          }
+          animating ||= animation.pending || animation.playState === "running"
+        }
+        return { key, rect, styles }
+      })
+      checkDeadline()
+      return { elements, scrollY, animating }
+    }
+    const observe = () => {
+      try {
+        const { animating, ...value } = read(), current = JSON.stringify(value)
+        if (!animating && previous === current) { finish(undefined, value); return }
+        previous = animating ? undefined : current
+        frame = view.requestAnimationFrame(observe)
+      } catch (error) { finish(error) }
+    }
+    try {
+      observer.observe(root, { subtree: true, attributes: true, attributeFilter: attributes, attributeOldValue: true, childList: true })
+      observer.observe(html, { attributes: true, attributeFilter: ["data-theme"], attributeOldValue: true })
+      focused.addEventListener("blur", lostFocus)
+      timer = view.setTimeout(() => finish(failure("settlement exceeded its 1000ms local deadline")), 1_000)
+      read() // Immediate checks are not a stable animation-frame sample.
+      frame = view.requestAnimationFrame(observe)
+    } catch (error) { finish(error) }
+  })
 }
 /** This serialized observer has no module dependencies. It samples actual
  * geometry and paint, never desired visibility or baseline values. A stable

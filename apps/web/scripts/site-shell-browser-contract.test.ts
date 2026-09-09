@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
 import { assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellPhase, parseShellRequest,
-  resolvedShellTheme, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
+  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
 
 test("skip reveal diagnostics never turn a failed settled frame into acceptance", async () => {
@@ -36,6 +36,188 @@ interface SkipSample {
 }
 const focusPaint = { transform: "matrix(1, 0, 0, 1, 0, 0)", "outline-style": "none", "outline-width": "0px",
   "outline-color": "rgb(23, 22, 18)", "outline-offset": "3px" }
+const appearancePaint = { ...focusPaint, "background-color": "color(srgb 0.147137 0.117961 0.0821961)" }
+function appearancePaintFixture() {
+  let now = 0, sequence = 0, readCost = 0, scrollY = 0, observerCallback: MutationCallback | undefined
+  const frames = new Map<number, () => void>(), timers = new Map<number, { at: number; callback: () => void }>()
+  const events = new Set<() => void>(), observed = new Set<Node>(), records: MutationRecord[] = [], reads: string[] = []
+  const selectorOwners = new Map<string, Element[]>(), states = Array.from({ length: 14 }, (_, index) => ({
+    rect: [0, 0, 182, 40], styles: appearancePaint as Readonly<Record<string, string>>, animations: [] as SkipAnimation[],
+    connected: true, focus: index === 4, focusVisible: index === 4, attributes: new Map<string, string>(),
+  }))
+  let activeElement: Element, observer: MutationObserver
+  const document = { documentElement: undefined as unknown as Element, get activeElement() { return activeElement },
+    querySelectorAll: (selector: string) => selectorOwners.get(selector) ?? [], defaultView: {
+      performance: { now: () => now }, get scrollY() { return scrollY },
+      requestAnimationFrame: (callback: () => void) => { frames.set(++sequence, callback); return sequence },
+      cancelAnimationFrame: (id: number) => { frames.delete(id) },
+      setTimeout: (callback: () => void, delay: number) => { timers.set(++sequence, { at: now + delay, callback }); return sequence },
+      clearTimeout: (id: number) => { timers.delete(id) },
+      getComputedStyle: (owner: Element) => {
+        const index = owners.indexOf(owner); reads.push(`${index}:style`)
+        return { getPropertyValue: (property: string) => states[index]!.styles[property] ?? "" }
+      },
+      MutationObserver: class {
+        constructor(callback: MutationCallback) { observerCallback = callback; observer = this as unknown as MutationObserver }
+        observe(owner: Node) { observed.add(owner) }
+        takeRecords() { return records.splice(0) }
+        disconnect() { observed.clear(); records.length = 0 }
+      },
+    } }
+  const owners = states.map((state, index) => {
+    const owner = { ownerDocument: document, get isConnected() { return state.connected },
+      getAttribute: (attribute: string) => state.attributes.get(attribute) ?? null,
+      hasAttribute: (attribute: string) => state.attributes.has(attribute),
+      matches: (selector: string) => selector === ":focus" ? state.focus : state.focusVisible,
+      addEventListener: (_type: string, callback: () => void) => { events.add(callback) },
+      removeEventListener: (_type: string, callback: () => void) => { events.delete(callback) },
+      getBoundingClientRect: () => { reads.push(`${index}:rect`); now += readCost
+        return { x: state.rect[0], y: state.rect[1], width: state.rect[2], height: state.rect[3] } },
+      getAnimations: () => { reads.push(`${index}:animations`); return state.animations.map(animation => ({
+        playState: animation.playState ?? "running", pending: animation.pending ?? false, playbackRate: animation.playbackRate ?? 1,
+        effect: { target: animation.owned === false ? {} : owner, getComputedTiming: () => ({
+          endTime: animation.endTime ?? 0.01, duration: animation.duration ?? 0.01, iterations: animation.iterations ?? 1,
+        }) },
+      })) },
+    } as unknown as Element
+    return owner
+  })
+  const base = "[data-hraness-appearance-menu]", items = `${base} [role="menuitemradio"]`
+  const selectors = [base, `${base} button`, `${base} .hraness-design-theme-toggle__popover`, `${base} [role="menu"]`,
+    items, `${items} .hraness-appearance-icon`, `${items} .hraness-appearance-icon svg`]
+  let offset = 0
+  for (const [index, selector] of selectors.entries()) { const size = index < 4 ? 1 : 3
+    selectorOwners.set(selector, owners.slice(offset, offset + size)); offset += size }
+  states[0]!.attributes.set("data-theme-value", "dark"); states[0]!.attributes.set("data-ready", "true")
+  states[1]!.attributes.set("aria-expanded", "true")
+  for (const [index, value] of ["light", "dark", "system"].entries()) states[4 + index]!.attributes.set("data-theme-value", value)
+  states[13]!.attributes.set("data-theme", "dark")
+  document.documentElement = owners[13]!; activeElement = owners[4]!
+  return {
+    start(label = "current /-320-dark-light arrow-down-opens-first", properties = Object.keys(appearancePaint)) {
+      const result = settleShellAppearancePaint(owners[0]!, { label, active: "light", preference: "dark", properties })
+      void result.catch(() => {}); return result
+    },
+    state(index: number, patch: Partial<(typeof states)[number]>) { Object.assign(states[index]!, patch) },
+    frame(at = now + 16) { now = at; const callbacks = [...frames.values()]; frames.clear(); for (const callback of callbacks) callback() },
+    advance(at: number) { now = at; for (const [id, timer] of [...timers]) if (timer.at <= at) { timers.delete(id); timer.callback() } },
+    attribute(index: number, name: string, value: string | null) {
+      const state = states[index]!
+      if (observed.size > 0) records.push({ type: "attributes", target: owners[index]!, attributeName: name,
+        oldValue: state.attributes.get(name) ?? null } as unknown as MutationRecord)
+      if (value === null) state.attributes.delete(name); else state.attributes.set(name, value)
+    },
+    mutateTree() { records.push({ type: "childList", target: owners[0]! } as unknown as MutationRecord) },
+    deliverMutations() { if (observed.size > 0) observerCallback!(records.splice(0), observer) },
+    changeOwner() { selectorOwners.set(items, [owners[4]!, owners[5]!]) },
+    blurAndRegain() { for (const callback of [...events]) callback() },
+    setReadCost(cost: number) { readCost = cost }, setScroll(value: number) { scrollY = value },
+    get reads() { return reads }, get pending() { return [frames.size, timers.size, observed.size, events.size] },
+  }
+}
+
+test("appearance observes all exact landmark styles before animations and requires two stable RAFs", async () => {
+  for (const source of ["current", "baseline"]) {
+    const fixture = appearancePaintFixture(), result = fixture.start(`${source} arrow-down-opens-first`)
+    expect(fixture.reads).toEqual(Array.from({ length: 13 }, (_, index) => [`${index}:rect`, `${index}:style`, `${index}:animations`]).flat())
+    fixture.frame(); expect(fixture.pending).toEqual([1, 1, 2, 1]); fixture.frame()
+    expect((await result).elements).toHaveLength(13)
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+})
+
+test("appearance waits for native focus transitions and stable real paint without polling expected colors", async () => {
+  const fixture = appearancePaintFixture()
+  const before = { ...appearancePaint, "background-color": "oklab(0 0 0 / 0)", "outline-width": "3px", "outline-offset": "0px" }
+  fixture.state(4, { styles: before, animations: [{}] }); fixture.state(1, { animations: [{}] })
+  const result = fixture.start(); fixture.frame()
+  fixture.state(4, { styles: appearancePaint, animations: [] }); fixture.frame()
+  expect(fixture.pending).toEqual([1, 1, 2, 1])
+  fixture.state(1, { animations: [{ playState: "finished", pending: true }] }); fixture.frame()
+  fixture.state(1, { animations: [] }); fixture.frame()
+  fixture.state(12, { rect: [1, 0, 182, 40] }); fixture.frame(); fixture.setScroll(1); fixture.frame()
+  expect(fixture.pending).toEqual([1, 1, 2, 1]); fixture.frame()
+  expect((await result).elements[4]!.styles).toEqual(appearancePaint)
+  expect(fixture.pending).toEqual([0, 0, 0, 0])
+  const wrong = appearancePaintFixture(); wrong.state(4, { styles: before })
+  const bad = wrong.start(); wrong.frame(); wrong.frame()
+  const evidence = await bad, item = evidence.elements[4]!
+  const actual: ShellElement = { ...item, text: "Light", semantics: {} }
+  expect(() => compareShellElements([actual], [{ ...actual, styles: appearancePaint }], "unchanged parity")).toThrow("paired element differences")
+  expect(wrong.pending).toEqual([0, 0, 0, 0])
+})
+
+test("appearance refuses sticky focus loss, changed semantics and transient owner or preference changes", async () => {
+  for (const kind of ["blur", "focus", "visible", "detached", "owner", "closed", "preference", "theme", "tree"] as const) {
+    const fixture = appearancePaintFixture(), result = fixture.start(); fixture.frame()
+    if (kind === "blur") fixture.blurAndRegain()
+    else if (kind === "focus") fixture.state(4, { focus: false })
+    else if (kind === "visible") fixture.state(4, { focusVisible: false })
+    else if (kind === "detached") fixture.state(12, { connected: false })
+    else if (kind === "owner") fixture.changeOwner()
+    else if (kind === "tree") fixture.mutateTree()
+    else if (kind === "closed") { fixture.attribute(1, "aria-expanded", "false"); fixture.attribute(1, "aria-expanded", "true") }
+    else if (kind === "preference") { fixture.attribute(0, "data-theme-value", "light"); fixture.attribute(0, "data-theme-value", "dark") }
+    else { fixture.attribute(13, "data-theme", "light"); fixture.attribute(13, "data-theme", "dark") }
+    fixture.frame(); await expect(result).rejects.toThrow("appearance")
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+  const fixture = appearancePaintFixture(), result = fixture.start()
+  fixture.attribute(1, "aria-expanded", "true"); fixture.deliverMutations(); fixture.frame(); fixture.frame()
+  expect((await result).elements).toHaveLength(13)
+})
+
+test("appearance retains bounded exact animation ownership and finite native paint", async () => {
+  for (const animation of [{ playState: "paused" as const }, { endTime: Infinity }, { duration: Infinity }, { iterations: Infinity },
+    { playbackRate: 0 }, { playbackRate: NaN }, { owned: false }]) {
+    const fixture = appearancePaintFixture(); fixture.state(4, { animations: [animation] })
+    await expect(fixture.start()).rejects.toThrow(/animation.*(?:finite and unpaused|exact element owner)/u)
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+  for (const patch of [{ rect: [NaN, 0, 182, 40] }, { styles: { ...appearancePaint, "background-color": "x".repeat(4_097) } },
+    { animations: Array.from({ length: 65 }, () => ({})) }]) {
+    const fixture = appearancePaintFixture(); fixture.state(4, patch)
+    await expect(fixture.start()).rejects.toThrow("appearance")
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+  const incomplete = appearancePaintFixture()
+  await expect(incomplete.start("current", ["outline-style"])).rejects.toThrow("paint inventory")
+  expect(incomplete.pending).toEqual([0, 0, 0, 0])
+})
+
+test("appearance stability is invariant across every landmark owner and arbitrary finite final paint", async () => {
+  for (let owner = 0; owner < 13; owner++) {
+    const fixture = appearancePaintFixture(), finalPaint = { ...appearancePaint, "background-color": `rgb(${owner * 17},${255 - owner * 13},29)` }
+    fixture.state(owner, { animations: [{}] })
+    const result = fixture.start(); fixture.frame()
+    fixture.state(owner, { animations: [], styles: finalPaint }); fixture.frame()
+    expect(fixture.pending).toEqual([1, 1, 2, 1]); fixture.frame()
+    expect((await result).elements[owner]!.styles).toEqual(finalPaint)
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+})
+
+test("appearance rejects missing frames, moving paint and deadline races without renewing the deadline", async () => {
+  for (const kind of ["missing", "animation", "paint"] as const) {
+    const fixture = appearancePaintFixture()
+    if (kind === "animation") fixture.state(4, { animations: [{}] })
+    const result = fixture.start()
+    if (kind !== "missing") for (let at = 16; at < 1_000; at += 16) {
+      if (kind === "paint") fixture.state(4, { styles: { ...appearancePaint, "background-color": `rgb(${at},0,0)` } })
+      fixture.frame(at)
+    }
+    fixture.advance(1_000); await expect(result).rejects.toThrow("1000ms local deadline")
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+  for (const at of [1_000, 1_001, NaN, -1]) {
+    const fixture = appearancePaintFixture(), result = fixture.start(); fixture.frame(16); fixture.frame(at)
+    await expect(result).rejects.toThrow("1000ms local deadline")
+    expect(fixture.pending).toEqual([0, 0, 0, 0])
+  }
+  const fixture = appearancePaintFixture(), result = fixture.start(); fixture.frame(); fixture.setReadCost(100); fixture.frame()
+  await expect(result).rejects.toThrow("1000ms local deadline")
+  expect(fixture.pending).toEqual([0, 0, 0, 0])
+})
 // Exercise the exact serialized page function with a deterministic native-API
 // surface, without global replacements, a browser, wall-clock sleeps or CSS.
 function skipFixture(initial: Partial<SkipSample> = {}, mainInitial: Partial<SkipSample> = {}) {
