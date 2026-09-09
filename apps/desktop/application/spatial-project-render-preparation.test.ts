@@ -19,6 +19,7 @@ import type { ApplicationContext } from "./context";
 import { ApplicationError } from "./errors";
 import { bindHtmlOverlayBrowserRuntime } from "./html-overlay-browser-runtime";
 import { createHtmlOverlayExecutionBundle } from "./html-overlay-integrity";
+import { hardwareEvidenceFixture } from "../html-overlay/execution-profile.testing";
 import type { OperationExecutionContext } from "./operation";
 import { bindProjectRenderInputV4 } from "./operations/render/project";
 import { hashProjectGeneration } from "./project-store";
@@ -85,8 +86,9 @@ async function fixture(options: { shotCount?: number; durationUs?: number; width
       const count = request.authoring.timing.durationUs / 1_000_000;
       const png = await sharp({ create: { width: request.authoring.canvas.width, height: request.authoring.canvas.height, channels: 4, background: { r: 255, g: 10, b: 50, alpha: 0.5 } } }).png().toBuffer();
       for (let index = 0; index < count; index++) await writeFile(join(directory, `frame-${String(index).padStart(8, "0")}.png`), png);
-      const bundle = createHtmlOverlayExecutionBundle(request.authoring, request.browserRuntime);
-      return { executionIntegrity: bundle.integrity, libraryLocks: bundle.libraryLocks, frameCount: count, framePattern: join(directory, "frame-%08d.png") };
+      const bundle = createHtmlOverlayExecutionBundle(request.authoring, request.browserRuntime, request.executionProfile);
+      return { executionIntegrity: bundle.integrity, libraryLocks: bundle.libraryLocks, frameCount: count, framePattern: join(directory, "frame-%08d.png"),
+        ...(request.executionProfile === undefined ? {} : { gpuEvidence: hardwareEvidenceFixture(request.executionProfile) }) };
     } },
     runner: { async run(argv) {
       if (argv.includes("-show_frames")) {
@@ -130,6 +132,17 @@ test("prepares a real materialized shot through V4 binding while preserving the 
   expect(receipt.workflow).toBeUndefined();
   expect(receipt.source.originalSceneArtifact?.path).toContain("spatial/scenes/");
   expect(Object.isFrozen(result.spatial.projection.shots)).toBe(true);
+});
+
+test("hardware project preparation survives V4 receipt rederivation with its exact profile", async () => {
+  const value = await fixture();
+  const result = await prepareSpatialProjectRender(value.context, { ...value.input, profile: { ...value.input.profile, executionProfile: "three-webgl2-hardware-v1" } }, { renderDependencies });
+  expect(result.projection.output.executionProfile).toBe("three-webgl2-hardware-v1");
+  const bound = await bindProjectRenderInputV4(value.context.application, requested(result));
+  expect(bound.spatial?.projection.output.executionProfile).toBe("three-webgl2-hardware-v1");
+  const receipt = SpatialRenderReceiptSchema.parse(JSON.parse(await readFile(join(value.projectDirectory, `spatial/receipts/${result.materializedShots[0]!.receiptSha256}.json`), "utf8")));
+  expect(receipt.request.executionProfile).toBe("three-webgl2-hardware-v1");
+  expect(receipt.runtime.gpuEvidence).toEqual(hardwareEvidenceFixture());
 });
 
 test("V4 rejects a self-consistent physical receipt and projection whose request no longer matches its source shot", async () => {

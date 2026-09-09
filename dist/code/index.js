@@ -176,7 +176,8 @@ var SpatialAssetInterpretationSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("diagram"), schemaVersion: z.literal(1), theme: z.enum(["light", "dark"]) }),
   z.strictObject({ kind: z.literal("gltf"), format: z.enum(["glb", "gltf"]), metersPerUnit: positiveDimension, sourceUp: z.enum(["x", "y", "z"]) }),
   z.strictObject({ kind: z.literal("font"), format: z.enum(["otf", "woff2"]), family: z.string().min(1).max(128) }),
-  z.strictObject({ kind: z.literal("splat"), format: z.enum(["spz", "ply"]), metersPerUnit: positiveDimension, sourceUp: z.enum(["x", "y", "z"]) })
+  z.strictObject({ kind: z.literal("splat"), format: z.enum(["spz", "ply"]), metersPerUnit: positiveDimension, sourceUp: z.enum(["x", "y", "z"]) }),
+  z.strictObject({ kind: z.literal("metadata"), format: z.literal("json"), schema: z.enum(["atet.spatial-world-import", "atet.world-labs-provenance"]) })
 ]);
 var SpatialAssetManifestSchema = z.strictObject({
   assetId: SpatialAssetIdSchema,
@@ -540,6 +541,8 @@ function parseSpatialScene(input) {
       throw new SpatialSceneError("invalid-data", "Asset closure exceeds 256 MiB.", "assets");
     if ((asset.interpretation.kind === "image" || asset.interpretation.kind === "video") && asset.interpretation.width * asset.interpretation.height > 33554432)
       throw new SpatialSceneError("invalid-data", "Asset exceeds the 32-megapixel limit.", "assets");
+    if (asset.interpretation.kind === "metadata" && asset.payload.bytes > 1048576)
+      throw new SpatialSceneError("invalid-data", "Retained metadata exceeds one MiB.", "assets");
   }
   spatialTopologicalIds(new Map(scene.assets.map((asset) => [asset.assetId, asset.dependencies])), "asset dependencies");
   spatialTopologicalIds(new Map(scene.entities.map((entity) => [entity.entityId, entity.parentId === null ? [] : [entity.parentId]])), "entity hierarchy");

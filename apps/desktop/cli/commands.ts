@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { executeSpatialSceneCommand } from "./spatial-scene-service";
 import { executeSpatialProjectCommand } from "./spatial-project-service";
+import { executeSpatialWorldCommand } from "./spatial-world-service";
 import { constants } from "node:fs";
 import { link, lstat, open, realpath, rm } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
@@ -303,6 +304,7 @@ const MAXIMUM_LEGACY_RECORDING_RENDER_OUTPUT_BYTES = 32 * 1024 * 1024 * 1024;
 const MAXIMUM_LEGACY_PROJECT_RENDER_OUTPUT_BYTES = 32 * 1024 * 1024 * 1024;
 
 export interface CliDependencies {
+  readonly abortSignal?: AbortSignal;
   readonly stateRoot?: string;
   readonly clock?: () => number;
   readonly fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -320,6 +322,7 @@ export interface CliDependencies {
 }
 
 interface CommandContext {
+  readonly abortSignal?: AbortSignal;
   readonly stateRoot: string;
   readonly capability: (
     name: CapabilityName,
@@ -485,7 +488,7 @@ async function withCommandHostResources(
     command,
     context.hostResourceCoordinator,
   );
-  await withHostResourceClaims(context, hostClaims, callback);
+  await withHostResourceClaims(context, hostClaims, callback, context.abortSignal);
 }
 
 async function withHostResourceClaims<T>(
@@ -5742,6 +5745,14 @@ async function handleMediaColor(
 
 async function dispatch(context: CommandContext, command: CliCommand): Promise<void> {
   switch (command.kind) {
+    case "spatial-world": {
+      const output = await executeSpatialWorldCommand(applicationContext(context), command, {
+        environment: context.io.env, fetch: context.fetch, download: context.gatewayMediaDownload,
+        ...(context.abortSignal === undefined ? {} : { signal: context.abortSignal }),
+      });
+      writeValue(context.io, command.json, output, () => JSON.stringify(output, null, 2));
+      return;
+    }
     case "spatial-scene": {
       const output = await executeSpatialSceneCommand(applicationContext(context), command);
       writeValue(context.io, command.json, output, () => JSON.stringify(output, null, 2));
@@ -6536,6 +6547,7 @@ type MutationReference =
 
 function commandMutationReference(command: CliCommand): MutationReference | undefined {
   switch (command.kind) {
+    case "spatial-world": return undefined; // Immutable world attempts and imports own their publication custody.
     case "spatial-scene": return command.action === "init" || command.action === "patch" ? { kind: "workspace-private" } : undefined;
     case "spatial-project": return undefined; // Its explicit application adapter owns one version-aware lease.
     case "project-camera-edit": return command.action === "show"
@@ -6716,6 +6728,7 @@ export async function runCli(argv: readonly string[], dependencies: CliDependenc
       return pending;
     };
     const context: CommandContext = {
+      ...(dependencies.abortSignal === undefined ? {} : { abortSignal: dependencies.abortSignal }),
       stateRoot,
       capability,
       capabilities: inheritedFileDescriptors => {

@@ -27,6 +27,7 @@ import {
 import {
   PlaywrightHtmlOverlayRenderer,
   createHtmlOverlayBrowserLaunchArgs,
+  HtmlOverlayBrowserCleanupError,
 } from "./html-overlay-renderer";
 
 const roots: string[] = [];
@@ -86,6 +87,54 @@ function failingBrowser(onClose: () => void): Browser {
 }
 
 describe("private HTML-overlay browser runtime launch", () => {
+  test("unsettled browser launch retains its runtime after the cleanup deadline", async () => {
+    const item = await setup();
+    await mkdir(item.frames, { mode: 0o700 });
+    let snapshot = "";
+    const renderer = new PlaywrightHtmlOverlayRenderer({ cacheRoot: item.cache, browserStepTimeoutMs: 100, launch: options => {
+      snapshot = dirname(options.executablePath!);
+      return new Promise<Browser>(() => {});
+    } });
+    const error = await renderer.renderFrames({ authoring: item.authoring, browserRuntime: item.browserRuntime, outputDirectory: item.frames, resources: [] }, new AbortController().signal).catch(error => error);
+    expect(snapshot).not.toBe("");
+    roots.push(snapshot); // No native process was launched by this fixture.
+    expect(error.details.runtimeSnapshot).toBe(snapshot);
+    expect(error.cause).toBeInstanceOf(HtmlOverlayBrowserCleanupError);
+    expect(error.cause.message).toContain("launch late settlement");
+    expect(JSON.parse(await readFile(join(snapshot, ".atet-runtime-lease.json"), "utf8")).state).toBe("active");
+    expect(await readdir(item.frames)).toEqual([]);
+  });
+
+  test.each([false, true])("failed browser close preserves the active runtime snapshot and primary failure (cancelled=%s)", async cancelled => {
+    const item = await setup(), controller = new AbortController(), cancellation = new Error("fixture cancellation");
+    await mkdir(item.frames, { mode: 0o700 });
+    let snapshot = "";
+    const renderer = new PlaywrightHtmlOverlayRenderer({ cacheRoot: item.cache, launch: async options => {
+      snapshot = dirname(options.executablePath!);
+      return {
+        close: () => Promise.reject(new Error("fixture close failed")),
+        newContext: () => {
+          if (cancelled) controller.abort(cancellation);
+          return Promise.reject(new Error("fixture context lost"));
+        },
+      } as unknown as Browser;
+    } });
+    const error = await renderer.renderFrames({ authoring: item.authoring, browserRuntime: item.browserRuntime, outputDirectory: item.frames, resources: [] }, controller.signal).catch(error => error);
+    // The fake launcher never executes its inert fixture. This exact retained
+    // directory is safe for the test's afterEach; production leaves it intact.
+    expect(snapshot).not.toBe("");
+    roots.push(snapshot);
+    expect(error.details.runtimeSnapshot).toBe(snapshot);
+    expect(error.details.leaseState).toBe("active");
+    expect(error.details.cleanup.cleanupError).toBe("fixture close failed");
+    expect(error.cause).toBeInstanceOf(HtmlOverlayBrowserCleanupError);
+    expect(error.cause.cause).toBeInstanceOf(AggregateError);
+    if (cancelled) expect(error.cause.cause.errors[0]).toBe(cancellation);
+    else expect(error.cause.cause.errors[0].details.cause).toBe("fixture context lost");
+    expect(JSON.parse(await readFile(join(snapshot, ".atet-runtime-lease.json"), "utf8")).state).toBe("active");
+    expect(await readdir(item.frames)).toEqual([]);
+  });
+
   test("adds the integrity-bound WebGPU flags only for vgpu", () => {
     const flags = [
       "--enable-unsafe-webgpu",

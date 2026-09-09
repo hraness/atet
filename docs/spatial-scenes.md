@@ -2,7 +2,7 @@
 
 Atet keeps a visual composition as editable scene data and renders it through named cameras. A scene can combine geometry, images, video, diagrams, text, and animation. Agents inspect stable entity IDs and apply typed changes to retained source; frames and videos carry receipts identifying the source that produced them.
 
-This is the initial scene foundation. The Three.js renderer supports a bounded asset profile and offline rendering. Interactive world editing, neural world representations, simulation, and automatic video-model refinement are future adapters. Existing HTML authoring and media-editing commands remain available.
+The Three.js renderer supports bounded offline rendering, explicit hardware acceleration, and retained Gaussian-splat environments. World Labs generation is a separate paid provider operation; importing and directing a saved world works locally. Interactive world editing, simulation, and automatic video-model refinement remain future adapters. Existing HTML authoring and media-editing commands remain available.
 
 ## Render an editable scene
 
@@ -55,6 +55,65 @@ Each sample renders at the camera's calibrated resolution, then resizes into its
 ```
 
 The video profile uses lossless qtrle with straight alpha. Final project delivery converts scene footage through the ordinary project compositor.
+
+## Select hardware acceleration
+
+```sh
+atet scene render product.scene.json --request frame.json --profile three-webgl2-hardware-v1 --json
+```
+
+The initial hardware profile requires macOS, WebGL2 through ANGLE Metal, and matching observations from the active graphics context and browser. It rejects software or unknown fallback. The receipt records the actual device, operating system, browser and graphics capabilities. This uses hardware for scene rasterization; it does not select a hardware video encoder or promise identical regenerated pixels across graphics drivers. Three WebGPU/TSL, the vgpu bridge and shared GPU resources, and stateful GPU effects remain deferred.
+
+The same profile works on `scene plan` and `scene project prepare-render`. Alternatively put `executionProfile` in the render request, or inside a project preparation request's `profile`. A CLI selection must agree with an existing request field. When the field and option are both absent, the historical software contract is preserved.
+
+Use `three-spark-webgl2-hardware-v1` for scenes containing splats. Its pinned Spark and Three dependency closure has a separate bounded worker/WASM runtime. Ordinary overlays and the mesh-only hardware profile retain their existing network and worker isolation. Both hardware profiles retain the same explicit scene clock, linear color compositing and output conversion. Frame publication fails on context loss or unsettled work.
+
+## Generate and retain an AI world
+
+Save a request as `world.json`:
+
+```json
+{
+  "attemptId": "courtyard_01",
+  "displayName": "Morning courtyard",
+  "prompt": "A small quiet limestone courtyard, olive tree, pale plaster walls, warm morning sunlight, architectural photography, no people or text",
+  "quality": "100k"
+}
+```
+
+```sh
+atet scene world plan --input world.json --json
+atet scene world generate --input world.json --budget-id courtyard-study --maximum-credits 6250 --allow-paid-generation --json
+atet scene world resume courtyard_01 --json
+atet scene world inspect courtyard_01 --json
+```
+
+Generation reads `WORLDLABS_API_KEY` from the command environment and sends one text request to the fixed World Labs API origin. The pinned model is `marble-1.1`. The reviewed price is 1,580 credits per text world: 1,500 for the world and 80 for the panorama. Confirm current [World Labs API pricing](https://docs.worldlabs.ai/api/pricing) when authorizing a budget. `quality` chooses the retained 100k or 500k splat export; it does not change the generation model or its price.
+
+The budget is an immutable local ceiling on reserved credits shared by its named attempts in this repository. Reuse one budget ID for a study. A reservation remains occupied after failures or uncertainty; the local ledger never assumes a refund. Reservations use the documented price and are not a provider billing hard cap. A reported final cost above the pinned price quarantines that budget against further generation while retaining the actual cost, operation and available assets. Concurrent requests already dispatched cannot be recalled. Credentials and signed download URLs are excluded from receipts and tool-child environments.
+
+`generate` journals the exact request before its only POST. `resume` reads one existing operation and retains completed assets; repeat that command while the operation is pending. Once retained, `inspect` and `resume` verify local bytes without contacting the provider. If dispatch returned no trustworthy operation ID, preserve the attempt, find the corresponding operation on the provider platform, and explicitly reconcile it with `scene world recover <attempt-id> --operation-id <known-id>`. Recovery never submits another generation.
+
+The result retains SPZ, an approximate collider GLB and a provider provenance receipt below `artifacts/atet/generated/worlds`. Retention preserves paid bytes even when later geometric admission rejects them. A seed is not a promise that the provider can reproduce the world; the saved bytes are the replay source.
+
+## Import a saved world
+
+`scene world import` accepts exact local payload references and a declared normalization. The input contains:
+
+- `splat`: a root-relative `path`, `bytes`, and SHA-256. An optional `collider` uses the same payload reference.
+- `identities`: stable `assetId`, `entityId`, and `name`; supply `colliderAssetId` exactly when a collider is present.
+- `normalization`: `metersPerUnit`, `sourceUp`, `sourceHandedness: "right"`, and a complete `transform` with position, XYZW rotation and uniform scale.
+- `provenance`: `kind: "saved"` or `"worldlabs-marble"` and a description. World Labs provenance requires `worldId`, the exact retained collider, and the provider `receipt`, whose world and payload identities must match the import.
+
+Use the provider's returned scale/ground metadata when available, then verify the imported orientation and camera framing. Missing metadata is unknown; explicitly calibrate it rather than labeling an assumed scale as measured.
+
+```sh
+atet scene world import --input import.json --source-root . --output-root artifacts/atet/generated/courtyard --json
+```
+
+The output contains an import manifest, retained asset manifests and one splat entity. Add all returned assets and that entity to a scene, and save the scene JSON inside the import output directory, for example `artifacts/atet/generated/courtyard/scene.json`. Returned payload paths resolve relative to that scene file; preserve them when assembling the scene. Metadata and any supplied collider are explicit dependencies, so scene rendering retains them with the splat even after the original import directory disappears. A supplied collider is retained as approximate geometry; it is not automatically visible and has no validated physics semantics. Worlds without a collider remain renderable and explicitly report physics as unavailable.
+
+Direct a splat wrapper with a perspective camera, world placement and uniform, unsheared world scale. The initial Spark profile admits opaque 3D meshes, alpha-tested surfaces and camera-view overlays alongside splats; it rejects interleaved transparent 3D surfaces. Captured appearance is not relightable and has no independently editable material or object structure. The Spark profile always renders beauty only, including scenes that happen to contain no splat. It provides no simulation reset, stepping, actions, rewards or validated physics.
 
 ## Make a semantic edit
 
@@ -165,21 +224,22 @@ The initial preparation path rejects legacy `zooms` and enabled click, cursor, k
 | --- | --- |
 | Geometry | Boxes, planes, spheres, cylinders, and a closed GLB 2 triangle subset with TRS hierarchy and STEP/LINEAR transform clips |
 | GLB appearance | Base-color PBR material and embedded PNG/JPEG textures; explicit entity-material or source-material mode |
+| AI environments | Bounded retained SPZ with the explicit Spark hardware profile; approximate collider and provenance dependencies |
 | Images | PNG/JPEG with the admitted color profile, and inert shape-only SVG |
 | Video | Bounded MOV/MP4, exact source PTS selection, alpha where supported, explicit once/loop/freeze and source offset |
 | Diagrams | Existing version-one diagram source rasterized with declared fonts |
 | Text | Declared OTF font and verified glyph coverage; missing glyphs reject instead of using a system fallback |
-| Placement | World coordinates or camera-view pixel/normalized layers; view layers preserve flat-media framing |
-| Cameras | Calibrated perspective and orthographic projection; explicit dimensions, clipping range, and pose |
-| Outputs | Beauty PNG/MOV, contact sheet, stable object-ID pass, and encoded axial-depth pass with coverage and units |
+| Placement | World coordinates or camera-view pixel/normalized layers; splat entities use world placement and uniform scale |
+| Cameras | Calibrated perspective and orthographic projection; the Spark profile requires perspective |
+| Outputs | Beauty PNG/MOV and contact sheet; mesh profiles also support stable object IDs and encoded axial depth |
 
 Use right-handed Y-up coordinates in meters, camera-local negative Z, and XYZW quaternions. Author time in integer microseconds. Frame sampling uses the rational frame rate before one microsecond quantization; ranges are half-open.
 
-The renderer rejects external GLB resources, unsupported extensions, skins, morph targets, sparse accessors, compressed meshes, cubic animation, WOFF2 fonts, undeclared text fallback, untagged YUV, and unsupported HDR/color profiles. Splat data has an authored representation slot but no admitted native renderer. Object-ID and depth passes have explicit alpha and no-hit rules in their receipts; they are picking and camera-depth products, not physics labels.
+The renderer rejects external GLB resources, unsupported extensions, skins, morph targets, sparse accessors, compressed meshes, cubic animation, WOFF2 fonts, undeclared text fallback, untagged YUV, and unsupported HDR/color profiles. The initial saved-world parser admits non-AA gzip SPZ v2/v3 (`flags=0`) without LoD, with an aggregate rendered-world limit of 500,000 splats. Each SPZ source is at most 128 MiB compressed and 64 MiB decompressed. SPZ GPU allocation estimates plus the framebuffer allowance stay within 256 MiB; SPZ host-buffer estimates stay within 768 MiB. Mesh, texture and media allocations follow their separate scene limits; these estimates are neither a complete mixed-scene memory cap nor a bound on browser or driver RSS. Other containers, versions and filtering modes require separate qualification. Object-ID and depth passes have explicit alpha and no-hit rules in their receipts; they are picking and camera-depth products, not physics labels.
 
 ## Bounds and recovery
 
-One source is at most 2 MiB, with up to 4,096 entities, 128 assets, and 64 cameras. A native scene render admits at most 1,800 frames, 1.1 billion rendered pixels, 256 MiB of source payloads, and 256 MiB of final output. Contact sheets admit 64 samples. Rendering proceeds in batches of 32 frames. The staged asset/frame budget is 8 GiB; this excludes the separately managed browser runtime, caches, and process memory. Output compression is not guaranteed, so a video that exceeds its hard byte limit fails qualification.
+One source is at most 2 MiB, with up to 4,096 entities, 128 assets, and 64 cameras. A native scene render admits at most 1,800 frames, 1.1 billion rendered pixels, 256 MiB of source payloads, and 256 MiB of final output. Contact sheets admit 64 samples. Preparation uses windows of at most 32 frames. Explicit hardware profiles subdivide a window before browser execution when its serialized scene exceeds the per-document limit; the software profile retains its historical batching. One frame that exceeds a hard limit still rejects. The staged asset/frame budget is 8 GiB; this excludes the separately managed browser runtime, caches, and process memory. Output compression is not guaranteed, so a video that exceeds its hard byte limit fails qualification.
 
 Project preparation additionally limits the program to 64 shots and shares the 1,800-frame, 1.1-billion-pixel, and 8-GiB staging budgets across them. It retains at most 1 GiB of distinct shot video inputs. These are first-release admission bounds, not claims about unlimited scene or world scale.
 

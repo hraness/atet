@@ -15,6 +15,7 @@ import { PlaywrightHtmlOverlayRenderer } from "../cli/html-overlay-renderer";
 import type { ApplicationCapability, ApplicationContext } from "../application/context";
 import { bindSpatialRenderInput, executeSpatialRender, recoverSpatialRenderOutput } from "../application/operations/spatial-render";
 import { SpatialRenderReceiptSchema, type SpatialRenderRequest, type SpatialRenderResult } from "../application/spatial-render";
+import { decodeSpatialAxialDepth, spatialSelectionColor } from "../html-overlay/spatial";
 
 const repositoryRoot = await realpath(resolve(import.meta.dir, "../../.."));
 const root = join(repositoryRoot, "artifacts", "spatial-qualification", new Date().toISOString().replaceAll(":", "-"));
@@ -24,9 +25,11 @@ const hash = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).
 const nativeRunner = new BunProcessRunner();
 const referenceProfile = process.argv.includes("--reference");
 const shotProfile = process.argv.includes("--shot");
+const hardwareProfile = process.argv.includes("--hardware") ? "three-webgl2-hardware-v1" as const : undefined;
 assert.ok(!(referenceProfile && shotProfile), "Choose one qualification profile.");
 let activeRender = "fixture", activeBatch = 0, activeBrowsers = 0;
 let cancellation: { controller: AbortController; requestedAt?: number } | undefined;
+let injectContextLoss = false, contextLossRequested = false;
 const measures = { native: [] as { render: string; argv: readonly string[]; milliseconds: number }[], launches: [] as { render: string; batch: number; milliseconds: number; arguments: readonly string[] }[],
   frames: [] as { render: string; batch: number; frame: number; evaluationStart: number; evaluationMs: number; screenshotMs?: number; completeMs?: number }[],
   batches: [] as { render: string; batch: number; milliseconds: number; frames: number }[], libraryFetches: [] as { render: string; url: string }[], parentPeakRssBytes: 0,
@@ -72,6 +75,14 @@ const actualRenderer = new PlaywrightHtmlOverlayRenderer({ cacheRoot: join(root,
             measures.graphics.push({ render: activeRender, batch: activeBatch, ...graphics });
           }
           if (cancellation !== undefined && cancellation.requestedAt === undefined) { cancellation.requestedAt = performance.now(); cancellation.controller.abort(new Error("Qualification cancellation after first actual frame")); }
+          if(injectContextLoss&&!contextLossRequested){
+            await (result as Page).evaluate(async()=>{
+              const canvas=document.querySelector("canvas")!,gl=canvas.getContext("webgl2")!;
+              const extension=gl.getExtension("WEBGL_lose_context");if(extension===null)throw new Error("Native context-loss injection is unavailable");
+              await new Promise<void>(accept=>{canvas.addEventListener("webglcontextlost",()=>accept(),{once:true});extension.loseContext();});
+            });
+            contextLossRequested=true;
+          }
           return value;
         },
       }),
@@ -151,6 +162,7 @@ const checks: {name:string;passed:true}[] = [];const checked=(name:string,condit
 const results: Record<string, SpatialRenderResult> = {};const timings: Record<string,number> = {};
 const starts: Record<string, number> = {};
 async function render(name:string,source:string,request:SpatialRenderRequest,extraAssets?:{assetId:string;artifact:SpatialRenderResult["artifact"]}[],signal = new AbortController().signal) {
+  if(hardwareProfile!==undefined) request={...request,executionProfile:hardwareProfile};
   activeRender = name; activeBatch = 0;
   console.log(JSON.stringify({event:"render-start",name,root}));const start=performance.now();
   starts[name] = start;
@@ -200,6 +212,27 @@ const a=evaluateSpatialScene(scene,{cameraId:"camera_main",timeUs:0}),b=evaluate
 checked("Two cameras share evaluated world state",a.stateSha256===b.stateSha256&&a.viewSha256!==b.viewSha256);
 if(results.rational===undefined)await render("rational",scenePath,rationalRequest);
 checked("Actual MOV preserves 30000/1001 cadence",results.rational!.render.encodedEvidence?.frameCount===6&&results.rational!.render.encodedEvidence?.endPts==="6006");
+if(hardwareProfile!==undefined){
+  const coverage={kind:"alpha-threshold",threshold:.5} as const;
+  const objectIds=await render("hardware-object-id",scenePath,{cameraId:"camera_main",mode:{kind:"object-id",coverage},selection:{kind:"frame",timeUs:0}});
+  const depth=await render("hardware-axial-depth",scenePath,{cameraId:"camera_main",mode:{kind:"axial-depth",coverage},selection:{kind:"frame",timeUs:0}});
+  const idPixels=await sharp(join(repositoryRoot,objectIds.artifact.path)).ensureAlpha().raw().toBuffer();
+  const depthPixels=await sharp(join(repositoryRoot,depth.artifact.path)).ensureAlpha().raw().toBuffer();
+  const offset=(90*320+160)*4;
+  const selected=a.entities.find(item=>item.entity.entityId==="entity_model")!;
+  checked("Native hardware object ID selects the retained model at the camera center",JSON.stringify([...idPixels.subarray(offset,offset+4)])===JSON.stringify([...spatialSelectionColor(selected.selectionId),255]));
+  const actualDepth=decodeSpatialAxialDepth([...depthPixels.subarray(offset,offset+4)],.1,20);
+  checked("Native hardware axial depth preserves the five-meter camera distance",actualDepth!==null&&Math.abs(actualDepth-5)<.0001);
+  cancellation={controller:new AbortController()};
+  let cancelled=false;
+  try{await render("hardware-cancellation",scenePath,{cameraId:"camera_main",mode:{kind:"beauty"},selection:{kind:"video",range:{startUs:0,endUs:1_000_000},frameRate:{numerator:30,denominator:1}}},undefined,cancellation.controller.signal);}catch(error){cancelled=error instanceof Error&&error.message==="Qualification cancellation after first actual frame";}
+  checked("Hardware cancellation preserves its cause and closes browser connections after an actual screenshot",cancelled&&cancellation.requestedAt!==undefined&&activeBrowsers===0);
+  cancellation=undefined;
+  injectContextLoss=true;let contextFailure=false;
+  try{await render("hardware-context-loss",scenePath,{cameraId:"camera_main",mode:{kind:"beauty"},selection:{kind:"frame",timeUs:0}});}catch(error){contextFailure=error instanceof Error&&/context (?:was )?lost|context loss/iu.test(`${error.message} ${JSON.stringify(error,Object.getOwnPropertyNames(error))}`);}
+  checked("Actual hardware context loss rejects capture with its cause and closes browser connections",contextFailure&&contextLossRequested&&activeBrowsers===0);
+  injectContextLoss=false;
+}
 await rename(assetsRoot,`${assetsRoot}.removed`);
 const replay=await render("replay",join(repositoryRoot,original.sceneSource.path),contact,original.retainedAssets.map(({assetId,artifact})=>({assetId,artifact})));
 checked("Retained closure replays after original directory is unavailable",replay.artifact.sha256===original.artifact.sha256);

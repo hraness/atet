@@ -22,7 +22,7 @@
 
 # Guidelines
 
-- Use Bun 1.3.14 and run `bun run check` before handing off a change.
+- Use Bun 1.3.14 and complete the source gate in `CONTRIBUTING.md`: focused local checks and independent impact review, then fresh complete CI on the exact current integration candidate, or the local `bun run check` fallback. Preserve every explicit local, native, browser, installation, live, release and npm-mirror gate.
 - Follow `WRITING.md` for internal prose and `STYLE.md` for public prose, preserving facts, exact terms, literals, quotations, links, and necessary uncertainty.
 - Follow the shared [README guidelines](https://github.com/hraness/.github/blob/main/README_GUIDELINES.md) for the root README and any site copy that summarizes it.
 - Apply unreasonably robust programming when agent work is cheap. Prefer coherent cross-file correctness and focused deterministic evidence while treating production risk, provider coordination, rollout, and observation as real costs.

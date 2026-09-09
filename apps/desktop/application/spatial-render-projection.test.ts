@@ -67,6 +67,17 @@ test("projection retains mixed audio, sync, cuts and speed and retimes source sh
   expect(result.revision.project.placements.filter(placement => placement.placementId.startsWith("placement_spatial_")).every(placement => placement.audio.length === 0)).toBe(true);
 });
 
+test("projection binds explicit hardware selection without changing its source authority or cadence", () => {
+  const input = fixture();
+  const legacy = createSpatialRenderProjection(input);
+  const hardware = createSpatialRenderProjection({ ...input, output: { ...input.output, executionProfile: "three-webgl2-hardware-v1" } });
+  expect(Object.hasOwn(legacy.projection.output, "executionProfile")).toBe(false);
+  expect(hardware.projection.output.executionProfile).toBe("three-webgl2-hardware-v1");
+  expect(hardware.projectionSha256).not.toBe(legacy.projectionSha256);
+  expect(hardware.projection.source).toEqual(legacy.projection.source);
+  expect(hardware.projection.legacyFrameRateAdapter).toEqual(legacy.projection.legacyFrameRateAdapter);
+});
+
 test("outer V2 binding and exact rational encoder contract never replace the V1 revision hash meaning", () => {
   const input = fixture();
   const result = createSpatialRenderProjection(input);

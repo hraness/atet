@@ -84,6 +84,19 @@ export async function main(
     daemonCommand: daemonCommand(),
     helperExecutable,
   });
+  if (earlyCommand.kind === "spatial-world") {
+    const controller = new AbortController();
+    const cancel = () => controller.abort(new CliError("cancelled", "World command interrupted."));
+    process.on("SIGINT", cancel);
+    process.on("SIGTERM", cancel);
+    try {
+      return await runCli(unifiedArgv, { io: processIo, paths, recordingController,
+        runner: new BunProcessRunner(), abortSignal: controller.signal });
+    } finally {
+      process.off("SIGINT", cancel);
+      process.off("SIGTERM", cancel);
+    }
+  }
   return await runCli(unifiedArgv, {
     io: processIo,
     paths,

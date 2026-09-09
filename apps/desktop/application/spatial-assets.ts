@@ -17,6 +17,9 @@ import {
 import { spatialAssetClosureDigests } from "../../../src/spatial-scene/identity";
 import { evaluateSpatialGlb, parseSpatialGlb, type SpatialGlbModel } from "../../../src/spatial-scene/gltf";
 import { canonicalJsonSha256 } from "../core/canonical-json";
+import { SpatialWorldImportManifestSchema, SPATIAL_SPLAT_LIMITS } from "../contracts/spatial-world";
+import { inspectSpatialSpz } from "./spatial-spz";
+import { WorldLabsProvenanceSchema } from "./world-labs-port";
 import {
   PreparedSpatialAssetSchema, SPATIAL_OVERLAY_LIMITS, SpatialOverlayCapabilityError, spatialTextRasterContentSha256,
   spatialGeometryContentSha256, spatialVideoRasterContentSha256,
@@ -399,6 +402,14 @@ export async function withPreparedSpatialAssets<Result>(
         sourceBytes += manifest.payload.bytes;
         if (sourceBytes > SPATIAL_ASSET_PREPARATION_LIMITS.sourceBytes) throw new RangeError("Spatial source assets exceed the aggregate byte budget.");
         const bytes = await readVerifiedAsset(assetRoot, manifest, signal);
+        if (manifest.interpretation.kind === "metadata") {
+          if (bytes.byteLength > SPATIAL_SPLAT_LIMITS.metadataBytes) throw new RangeError("Retained metadata exceeds its byte bound.");
+          const captured = createBoundedJsonSnapshot(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)), SPATIAL_SPLAT_LIMITS.metadataBytes, "Retained world metadata", { maximumDepth: 24, maximumValues: 32_768 });
+          const metadata = captured.value as Record<string, unknown>;
+          if (metadata.kind !== manifest.interpretation.schema || metadata.schemaVersion !== 1) throw new RangeError("Retained metadata does not match its declared schema.");
+          if (manifest.interpretation.schema === "atet.spatial-world-import") SpatialWorldImportManifestSchema.parse(metadata);
+          else WorldLabsProvenanceSchema.parse(metadata);
+        }
         const record = { manifest, manifestSha256: closures[manifest.assetId]!, bytes };
         verified.set(manifest.assetId, record);
         const path = join(workspace, "source", manifest.assetId);
@@ -411,11 +422,25 @@ export async function withPreparedSpatialAssets<Result>(
       aborted(signal);
       const entity = entry.entity;
       if (entity.kind === "group" || entity.kind === "light" || entity.kind === "mesh" && entity.geometry.kind !== "asset") continue;
-      if (entity.kind === "splat") capability("splat", "Splat preparation requires a qualified representation adapter.");
       const assetId = entity.kind === "text" ? entity.fontAssetId : entity.kind === "mesh" && entity.geometry.kind === "asset" ? entity.geometry.assetId : "assetId" in entity ? entity.assetId : "";
       const asset = verified.get(assetId);
       if (asset === undefined) throw new RangeError(`Missing manifest for spatial asset ${assetId}.`);
       const interpretation = asset.manifest.interpretation;
+      if (entity.kind === "splat") {
+        if (interpretation.kind !== "splat" || interpretation.format !== "spz") capability("splat-format", "The qualified world profile accepts gzip SPZ v2/v3 only.");
+        const key = `${assetId}:${entity.entityId}:splat`;
+        if (preparedAssets.has(key)) continue;
+        const facts = await inspectSpatialSpz(asset.bytes, signal);
+        const name = `splat-${asset.manifestSha256.slice(0, 40)}`;
+        const resource = { name, sha256: asset.manifest.payload.sha256, bytes: asset.bytes.byteLength, mediaType: "application/octet-stream", urlPath: `${name}.spz` };
+        if (!resources.has(name)) {
+          if (resources.size >= 64 || outputBytes + asset.bytes.byteLength > SPATIAL_ASSET_PREPARATION_LIMITS.outputBytes) throw new RangeError("Prepared splat resources exceed their byte budget.");
+          resources.set(name, { ...resource, absolutePath: paths.get(assetId)! }); outputBytes += asset.bytes.byteLength;
+        }
+        preparedAssets.set(key, PreparedSpatialAssetSchema.parse({ kind: "splat", assetId, entityId: entity.entityId, assetManifestSha256: asset.manifestSha256, resource, facts }));
+        profiles.add("atet.spz-v2-v3-spark-2.1.0-full-resolution-v1");
+        continue;
+      }
       if (entity.kind === "mesh") {
         if (entity.geometry.kind !== "asset") throw new RangeError("Expected asset mesh.");
         if (interpretation.kind !== "gltf" || interpretation.format !== "glb") capability("gltf", "Asset meshes require the qualified self-contained GLB profile.");

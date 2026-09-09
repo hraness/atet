@@ -19,6 +19,8 @@ import {
 describe("HTML overlay locked libraries", () => {
   test("pins the exact active self-contained browser modules", () => {
     expect(ACTIVE_HTML_OVERLAY_LIBRARY_LOCKS).toEqual([
+      { bytes: 5_063_871, license: "MIT", sha256: "70050257ce2326c2ce1d2688e6f58987147adf764f8ff7ba4aa17ab7ae5870c0", specifier: "@sparkjsdev/spark", version: "2.1.0", url: "https://esm.sh/@sparkjsdev/spark@2.1.0/X-ZXRocmVl/es2022/spark.bundle.mjs" },
+      { bytes: 840, license: "MIT", sha256: "fc15bae8534b3b21911df509b88b585f1ca375d0bc5047e6bfe07add3403da4b", specifier: "three/addons/postprocessing/Pass.js", version: "0.185.1", url: "https://esm.sh/three@0.185.1/X-ZXRocmVl/es2022/addons/postprocessing/Pass.bundle.mjs" },
       {
         bytes: 196_909,
         license: "Apache-2.0",
@@ -108,7 +110,7 @@ describe("HTML overlay locked libraries", () => {
     ]).map(lock => lock.specifier)).toEqual(["p5", "two.js"]);
   });
 
-  test("allows only exact bare specifiers and rejects duplicates", () => {
+  test("allows only exact approved specifiers and rejects duplicates", () => {
     expect(HtmlOverlayLibrarySelectionSchema.parse([
       "vgpu",
       "three",

@@ -138,6 +138,64 @@ test("public CI routes independent Atet SDK, local-runtime, site, and native pro
   expect(workflow).not.toContain(["projects", "atet"].join("/"))
 })
 
+function requireCompleteSourceCoverage(workflow: string): void {
+  let priorWorkflow = workflow
+  for (const [job, phase, label] of [
+    ["sdk", "check:sdk", "SDK"],
+    ["desktop", "check:desktop", "desktop"],
+    ["site", "check:web", "site"],
+  ]) {
+    const jobSource = workflow.match(new RegExp(`\\n  ${job}:\\n[\\s\\S]*?(?=\\n  [a-z]+:\\n|$)`))?.[0]
+    const scan = `      - name: Check generated ${label} standalone boundary\n        run: bun run check:standalone\n`
+    if (jobSource === undefined || jobSource.split(scan).length !== 2
+      || jobSource.indexOf(scan) < jobSource.indexOf(`bun run ${phase}`)) {
+      throw new Error(`CI must scan ${job} generated output after its complete phase`)
+    }
+    priorWorkflow = priorWorkflow.replace(scan, "")
+  }
+  // This additive comparison preserves every prior job, condition, command,
+  // deadline and failure boundary. A future update needs a coverage review.
+  const priorDigest = createHash("sha256").update(priorWorkflow).digest("hex")
+  if (priorDigest !== "4b010ecc6370d783e20545f92e8a1efff7ef6f8d6569f3581daa69e708fbfce5") {
+    throw new Error("CI differs from the independently reviewed prior coverage")
+  }
+}
+
+test("complete source CI preserves every aggregate phase and adds post-build scans without weakening prior coverage", async () => {
+  const workflow = await readWorkflow("public-ci.yml", "ci.yml")
+  const root = JSON.parse(await readFile(join(import.meta.dir, "../package.json"), "utf8"))
+  const site = JSON.parse(await readFile(join(import.meta.dir, "../apps/web/package.json"), "utf8"))
+  expect(root.scripts.check.split(" && ")).toEqual([
+    "bun run check:standalone", "bun run check:sdk", "bun run check:desktop",
+    "bun run check:web", "bun run check:standalone", "bun run test:package",
+  ])
+  expect(root.scripts["check:sdk"].split(" && ")).toEqual([
+    "bun run typecheck:sdk", "bun run lint:sdk", "bun run build:sdk",
+    "bun run test:sdk", "bun run check:release-workflows", "bun run check:schema", "bun run check:skill",
+  ])
+  expect(root.scripts["check:desktop"].split(" && ")).toEqual([
+    "bun run check:effect", "bun run typecheck:desktop", "bun run lint:desktop",
+    "bun run test:desktop", "bun run build:desktop",
+  ])
+  expect(root.scripts["check:web"]).toBe("bun run --cwd apps/web check")
+  expect(site.scripts.check.split(" && ")).toEqual([
+    "bun run typecheck:preview", "bun run test", "bun run build", "bun run verify:preview",
+  ])
+  expect(() => requireCompleteSourceCoverage(workflow)).not.toThrow()
+
+  const sdkScan = "      - name: Check generated SDK standalone boundary\n        run: bun run check:standalone\n"
+  expect(() => requireCompleteSourceCoverage(workflow.replace(sdkScan, ""))).toThrow("after its complete phase")
+  expect(() => requireCompleteSourceCoverage(workflow.replace(
+    `      - run: bun run check:sdk\n${sdkScan}`, `${sdkScan}      - run: bun run check:sdk\n`,
+  ))).toThrow("after its complete phase")
+  expect(() => requireCompleteSourceCoverage(workflow.replace(
+    "if: needs.plan.outputs.sdk == 'true'", "if: false",
+  ))).toThrow("prior coverage")
+  expect(() => requireCompleteSourceCoverage(workflow.replace(
+    "      - run: bun run check:desktop\n", "      - run: bun run check:desktop\n        continue-on-error: true\n",
+  ))).toThrow("prior coverage")
+})
+
 test("site CI installs app-pinned Chromium in runner temp before the unchanged native gate", async () => {
   const workflow = await readWorkflow("public-ci.yml", "ci.yml")
   const site = workflow.slice(workflow.indexOf("\n  site:\n"), workflow.indexOf("\n  package:\n"))

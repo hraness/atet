@@ -11,6 +11,7 @@ import type { HtmlOverlayBrowserRuntimeBinding } from "./html-overlay-browser-ru
 import {
   HTML_OVERLAY_RENDERER_CONTRACT,
   createHtmlOverlayExecutionBundle,
+  htmlOverlayRendererContract,
 } from "./html-overlay-integrity";
 
 const browser: ExactCapabilityBinding = {
@@ -60,6 +61,22 @@ const authoring = HtmlOverlayAuthoringInputSchema.parse({
 });
 
 describe("HTML-overlay browser execution integrity", () => {
+  test("hardware changes only the selected renderer contract while preserving absent legacy identity", () => {
+    const input = { ...authoring, libraries: ["three" as const] };
+    const legacy = createHtmlOverlayExecutionBundle(input, browserRuntime);
+    expect(createHtmlOverlayExecutionBundle(input, browserRuntime, undefined)).toEqual(legacy);
+    expect(htmlOverlayRendererContract()).toBe(HTML_OVERLAY_RENDERER_CONTRACT);
+    const hardware = createHtmlOverlayExecutionBundle(input, browserRuntime, "three-webgl2-hardware-v1");
+    expect(hardware.integrity.rootSha256).not.toBe(legacy.integrity.rootSha256);
+    expect(hardware.runtimeSource).toBe(legacy.runtimeSource);
+    expect(hardware.integrity.leaves.filter(leaf => leaf.key !== "renderer-contract")).toEqual(legacy.integrity.leaves.filter(leaf => leaf.key !== "renderer-contract"));
+    expect(htmlOverlayRendererContract("three-webgl2-hardware-v1").contentSecurityPolicy).toEqual(HTML_OVERLAY_RENDERER_CONTRACT.contentSecurityPolicy);
+    const spark = htmlOverlayRendererContract("three-spark-webgl2-hardware-v1");
+    expect(spark.contentSecurityPolicy).toContain("worker-src blob:");
+    expect(spark.contentSecurityPolicy).toContain("connect-src https://atet-overlay.invalid data:");
+    expect(spark.contentSecurityPolicy.some(value => value.includes("'wasm-unsafe-eval'"))).toBe(true);
+    expect(() => createHtmlOverlayExecutionBundle(authoring, browserRuntime, "three-webgl2-hardware-v1")).toThrow("exact approved scene library");
+  });
   test("pins the exact installed Playwright behavior version", () => {
     expect(HTML_OVERLAY_RENDERER_CONTRACT.browserVersion).toBe("1.62.0");
     expect(HTML_OVERLAY_RENDERER_CONTRACT.environment.inherited).toEqual([]);

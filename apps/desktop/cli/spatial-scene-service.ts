@@ -9,7 +9,7 @@ import type { ApplicationContext } from "../application/context";
 import { createApplicationOperationRegistry } from "../application/default-registry";
 import { planSpatialRender } from "../application/spatial-render";
 import { createNodeBundleFileSystem } from "../core/storage";
-import type { SpatialSceneCommand } from "./args";
+import type { SpatialCliExecutionProfile, SpatialSceneCommand } from "./args";
 import { CliError } from "./errors";
 
 /** Capture an explicit local regular file once, without following a leaf symlink. */
@@ -41,6 +41,14 @@ export async function publishSpatialSource(path: string, value: unknown, beforeP
   if (written !== "created") throw new CliError("conflict", "Scene output already exists. Choose a new path to retain both revisions.");
 }
 
+/** An explicit CLI profile may fill an omitted request field, never replace one. */
+export function bindSpatialCliExecutionProfile(request: unknown, executionProfile: SpatialCliExecutionProfile | undefined): unknown {
+  if (executionProfile === undefined) return request;
+  if (typeof request !== "object" || request === null || Array.isArray(request)) throw new CliError("invalid-data", "A spatial render request must be a JSON object.");
+  if ("executionProfile" in request && request.executionProfile !== executionProfile) throw new CliError("conflict", "--profile differs from the execution profile retained in the request.");
+  return { ...request, executionProfile };
+}
+
 export async function executeSpatialSceneCommand(application: ApplicationContext, command: SpatialSceneCommand): Promise<unknown> {
   const sourcePath = resolve(application.paths.repositoryRoot, command.path);
   if (command.action === "init") {
@@ -50,7 +58,7 @@ export async function executeSpatialSceneCommand(application: ApplicationContext
   }
   const scene = parseSpatialScene(await readSpatialJson(sourcePath));
   if (command.action === "plan" || command.action === "render") {
-    const request = await readSpatialJson(resolve(application.paths.repositoryRoot, command.request));
+    const request = bindSpatialCliExecutionProfile(await readSpatialJson(resolve(application.paths.repositoryRoot, command.request)), command.executionProfile);
     if (command.action === "plan") return planSpatialRender(scene, request);
     const result = await createApplicationOperationRegistry().execute({ application, abortSignal: new AbortController().signal }, {
       kind: "scene.render", version: 1, input: {
