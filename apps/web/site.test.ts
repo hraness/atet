@@ -36,7 +36,7 @@ import {
 import middleware, { config as middlewareConfig } from "./middleware"
 import { buildWebsite, renderAskAiAboutThis, renderSitemapXml } from "./scripts/build"
 import { renderAtetSocialImage } from "./scripts/generate-og"
-import { parsePublishedRelease, publishedRelease } from "./src/published-release"
+import { parsePublishedRelease, publishedArchiveUrl, publishedRelease } from "./src/published-release"
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
 const brandDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
@@ -58,23 +58,27 @@ async function readBuilt(path: string): Promise<string> {
 describe("static Atet site", () => {
   test("published release separates public availability from the source candidate", async () => {
     expect(publishedRelease).toEqual({
-      version: "3.2.2",
-      releaseUrl: "https://github.com/hraness/atet/releases/tag/v3.2.2",
+      version: "3.2.3",
+      releaseUrl: "https://github.com/hraness/atet/releases/tag/v3.2.3",
     })
     expect(Object.isFrozen(publishedRelease)).toBe(true)
     const template = await readSource("index.html")
     const html = await readBuilt("index.html")
-    expect(template.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(8)
+    expect(template.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(7)
     expect(template).not.toContain(publishedRelease.version)
     expect(html).not.toContain("{{PUBLISHED_VERSION}}")
+    expect(html).not.toContain("{{PUBLISHED_ARCHIVE_URL}}")
+    expect(html).not.toContain("{{PUBLISHED_RELEASE_URL}}")
+    expect(publishedArchiveUrl).toBe("https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz")
     expect(html).toContain(`"softwareVersion": "${publishedRelease.version}"`)
     expect(html).toContain(`"version": "${publishedRelease.version}"`)
     expect(html).toContain(`Local release · v${publishedRelease.version}`)
-    expect(html).toContain(`bun add --global @hraness/atet@${publishedRelease.version}`)
+    expect(html).toContain(`bun add --global ${publishedArchiveUrl}`)
     expect(homeMarkdown).toContain(`Version ${publishedRelease.version}.`)
+    expect(homeMarkdown).toContain(`bun add --global ${publishedArchiveUrl}`)
     expect(await readBuilt("index.md")).toBe(homeMarkdown)
     for (const publicText of [html, homeMarkdown, llmsTxt]) {
-      expect(publicText).not.toContain("3.2.1")
+      expect(publicText).not.toContain("3.2.2")
     }
   })
 
@@ -199,8 +203,8 @@ describe("static Atet site", () => {
     expect(searchableReadme).toContain(brandDescription.toLowerCase())
 
     expect(readme).toContain(`npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`)
-    expect(readme).toContain(`bun add --global @hraness/atet@${publishedRelease.version}`)
-    expect(readme).toContain(`bun add @hraness/atet@${publishedRelease.version}`)
+    expect(readme).toContain(`bun add --global ${publishedArchiveUrl}`)
+    expect(readme).toContain(`bun add ${publishedArchiveUrl}`)
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
     expect(readme).toContain("atet ai video generate")
@@ -265,7 +269,7 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta name="twitter:image:alt" content="Atet, AI media generation and video editing for coding agents, beside an abstract solar disk and barque path">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
-    expect(html).toContain('<a href="https://www.npmjs.com/package/@hraness/atet">@hraness/atet npm package</a>')
+    expect(html).toContain('<a href="{{PUBLISHED_RELEASE_URL}}">immutable Atet release</a>')
     expect(html).toContain('<a href="https://skills.sh/hraness/atet">Atet Agent Skill</a>')
   })
 
@@ -471,9 +475,9 @@ describe("static Atet site", () => {
     const html = await readBuilt("index.html")
     const searchableHtml = html.replace(/\s+/gu, " ")
     const commands = [
-      `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
-      `bun add --global @hraness/atet@${publishedRelease.version}`,
+      `bun add --global ${publishedArchiveUrl}`,
       "atet doctor",
+      `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
     ]
     const installMarker = html.indexOf('data-hraness-marketing="install"')
     const installStart = html.lastIndexOf("<section", installMarker)
@@ -502,7 +506,7 @@ describe("static Atet site", () => {
     expect(html).toContain("atet skill install --target claude")
     expect(html).toContain("atet skill install --target agents")
     expect(html).toContain("--scope project")
-    expect(html).toContain(`@hraness/atet@${publishedRelease.version}`)
+    expect(html).toContain(publishedArchiveUrl)
     expect(html).toContain('data-hraness-marketing="hero"')
     expect(html).toContain('data-hraness-marketing="flow"')
     expect(html).toContain('data-hraness-marketing="facts"')
@@ -846,6 +850,8 @@ describe("static Atet site", () => {
     expect(localLockfile).not.toContain("catalog:")
     // Measure the version-resolved shell, excluding only publication-token overhead.
     const versionResolvedShell = html.replaceAll("{{PUBLISHED_VERSION}}", publishedRelease.version)
+      .replaceAll("{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl)
+      .replaceAll("{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl)
     expect(new TextEncoder().encode(versionResolvedShell).byteLength).toBeLessThan(32_000)
     expect(new TextEncoder().encode(css).byteLength).toBeLessThan(36_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
