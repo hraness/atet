@@ -5788,7 +5788,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
       return;
     }
     case "spatial-scene": {
-      const output = await executeSpatialSceneCommand(applicationContext(context), command);
+      const output = await executeSpatialSceneCommand(applicationContext(context), command, context.abortSignal);
       writeValue(context.io, command.json, output, () => JSON.stringify(output, null, 2));
       return;
     }
@@ -6584,7 +6584,7 @@ function commandMutationReference(command: CliCommand): MutationReference | unde
     case "studio": return undefined; // Native jobs and the machine custody marker own explicit leases.
     case "directing": return undefined; // The directing store owns its explicit lease.
     case "spatial-world": return undefined; // Immutable world attempts and imports own their publication custody.
-    case "spatial-scene": return command.action === "init" || command.action === "patch" ? { kind: "workspace-private" } : undefined;
+    case "spatial-scene": return command.action === "init" || command.action === "patch" || command.action === "camera-track" ? { kind: "workspace-private" } : undefined;
     case "spatial-project": return undefined; // Its explicit application adapter owns one version-aware lease.
     case "project-camera-edit": return command.action === "show"
       ? undefined

@@ -144,6 +144,18 @@ describe("HTML overlay authoring contracts", () => {
       { ...resources[1], name: resources[0].name },
     ]).success).toBe(false);
   });
+
+  test("resource fetch transport is explicit, closed, and absent from legacy values", () => {
+    const resource = authoringInput().resources[0];
+    const legacy = HtmlOverlayDeclaredResourcesSchema.parse([resource])[0]!;
+    expect(legacy).toEqual(resource);
+    expect(Object.hasOwn(legacy, "transport")).toBe(false);
+    expect(HtmlOverlayDeclaredResourcesSchema.parse([{ ...resource, transport: "fetch" }])[0])
+      .toEqual({ ...resource, transport: "fetch" });
+    for (const transport of ["", "auto", "websocket", "script", null, true]) {
+      expect(HtmlOverlayDeclaredResourcesSchema.safeParse([{ ...resource, transport }]).success).toBe(false);
+    }
+  });
 });
 
 describe("HTML overlay absolute frames", () => {

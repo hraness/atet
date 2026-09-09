@@ -518,6 +518,7 @@ export function createHtmlOverlayOperationDefinition(
             mediaType: resource.mediaType,
             name: resource.name,
             sha256: resource.sha256,
+            ...(resource.transport === undefined ? {} : { transport: resource.transport }),
             urlPath: resource.urlPath,
           })),
           schemaVersion: 1,

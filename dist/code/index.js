@@ -1361,7 +1361,8 @@ var finite = z3.number().finite().min(-1e6).max(1e6);
 var index = z3.number().int().min(0).max(65535);
 var unit2 = z3.number().finite().min(0).max(1);
 var vec32 = z3.tuple([finite, finite, finite]);
-var quaternion = z3.tuple([unit2.min(-1), unit2.min(-1), unit2.min(-1), unit2.min(-1)]);
+var signedUnit = z3.number().finite().min(-1).max(1);
+var quaternion = z3.tuple([signedUnit, signedUnit, signedUnit, signedUnit]);
 var metadata = { name: z3.string().max(1024).optional(), extras: z3.unknown().optional(), extensions: z3.never().optional() };
 var byteOffset = z3.number().int().min(0).max(SPATIAL_GLB_LIMITS.bytes);
 var textureInfo = z3.strictObject({ ...metadata, index, texCoord: z3.literal(0).optional() });
@@ -1996,6 +1997,87 @@ function evaluateSpatialGlb(model, options) {
     fail("Evaluation requires a parsed GLB model.");
   return model.evaluate(options);
 }
+
+// src/spatial-scene/camera-track.ts
+import { z as z4 } from "zod";
+var SPATIAL_CAMERA_TRACK_MAX_FRAMES = 2048;
+var clockSchema = z4.strictObject({
+  startUs: SpatialTimeUsSchema,
+  frameRate: SpatialFrameRateSchema,
+  frameCount: z4.number().int().min(1).max(SPATIAL_CAMERA_TRACK_MAX_FRAMES)
+});
+var rationalSchema = z4.strictObject({
+  numerator: z4.string().regex(/^(0|[1-9][0-9]{0,19})$/u),
+  denominator: z4.string().regex(/^[1-9][0-9]{0,6}$/u)
+});
+var SpatialCameraTrackSchema = z4.strictObject({
+  kind: z4.literal("atet.spatial-camera-track"),
+  schemaVersion: z4.literal(1),
+  sceneSha256: SpatialDigestSchema,
+  cameraId: SpatialCameraIdSchema,
+  clock: clockSchema,
+  samples: z4.array(z4.strictObject({
+    frameIndex: z4.number().int().min(0).max(SPATIAL_CAMERA_TRACK_MAX_FRAMES - 1),
+    timeUs: SpatialTimeUsSchema,
+    exactTimeUs: rationalSchema,
+    camera: SpatialCameraSchema
+  })).min(1).max(SPATIAL_CAMERA_TRACK_MAX_FRAMES)
+});
+var optionsSchema2 = clockSchema.extend({ cameraId: SpatialCameraIdSchema });
+function absoluteSample(frameIndex, clock) {
+  const sample = spatialFrameSample(frameIndex, 3600000000, clock.frameRate);
+  const denominator = BigInt(sample.exactTimeUs.denominator);
+  return { frameIndex, timeUs: clock.startUs + sample.timeUs, exactTimeUs: {
+    numerator: String(BigInt(clock.startUs) * denominator + BigInt(sample.exactTimeUs.numerator)),
+    denominator: String(denominator)
+  } };
+}
+function parseSpatialCameraTrack(input) {
+  const track = parseSpatialValue(SpatialCameraTrackSchema, input, "camera track");
+  const rate = reduceSpatialFrameRate(track.clock.frameRate);
+  if (rate.numerator !== track.clock.frameRate.numerator || rate.denominator !== track.clock.frameRate.denominator || track.samples.length !== track.clock.frameCount)
+    throw new SpatialSceneError("invalid-data", "Camera track clock or coverage is not canonical.");
+  const first = track.samples[0].camera.projection;
+  for (const [index2, sample] of track.samples.entries()) {
+    const expected = absoluteSample(index2, track.clock);
+    if (sample.frameIndex !== index2 || sample.timeUs !== expected.timeUs || sample.exactTimeUs.numerator !== expected.exactTimeUs.numerator || sample.exactTimeUs.denominator !== expected.exactTimeUs.denominator || sample.camera.cameraId !== track.cameraId || sample.camera.projection.width !== first.width || sample.camera.projection.height !== first.height) {
+      throw new SpatialSceneError("invalid-data", "Camera track must preserve exact clock, camera identity, order and image dimensions.");
+    }
+  }
+  return deepFreezeJson(track);
+}
+function sampleSpatialCameraTrack(sceneInput, optionsInput) {
+  const scene = parseSpatialScene(sceneInput);
+  const { cameraId, ...inputClock } = parseSpatialValue(optionsSchema2, optionsInput, "camera track options");
+  const clock = { ...inputClock, frameRate: reduceSpatialFrameRate(inputClock.frameRate) };
+  const last = absoluteSample(clock.frameCount - 1, clock);
+  if (BigInt(last.exactTimeUs.numerator) >= BigInt(scene.durationUs) * BigInt(last.exactTimeUs.denominator)) {
+    throw new SpatialSceneError("invalid-data", "Camera samples exceed the half-open scene duration.");
+  }
+  const camera2 = scene.cameras.find((item) => item.cameraId === cameraId);
+  if (!camera2)
+    throw new SpatialSceneError("not-found", `Unknown camera ${cameraId}.`);
+  const cameraScene = {
+    ...scene,
+    cameras: [camera2],
+    entities: [],
+    assets: [],
+    generators: [],
+    overrides: [],
+    animations: scene.animations.filter((channel) => channel.targetId === cameraId)
+  };
+  return parseSpatialCameraTrack({
+    kind: "atet.spatial-camera-track",
+    schemaVersion: 1,
+    sceneSha256: spatialValueSha256(scene),
+    cameraId,
+    clock,
+    samples: Array.from({ length: clock.frameCount }, (_, frameIndex) => {
+      const sample = absoluteSample(frameIndex, clock);
+      return { ...sample, camera: evaluateSpatialScene(cameraScene, { cameraId, timeUs: sample.timeUs }).camera };
+    })
+  });
+}
 // src/code/index.ts
 function compileWorkflowGraph2(options) {
   return compileWorkflowGraph({
@@ -2026,6 +2108,7 @@ export {
   slerpQuaternion,
   sha256Hex,
   seconds,
+  sampleSpatialCameraTrack,
   runWorkflow,
   runBuiltWorkflow,
   reduceSpatialFrameRate,
@@ -2034,6 +2117,7 @@ export {
   parseSpatialValue,
   parseSpatialScene,
   parseSpatialGlb,
+  parseSpatialCameraTrack,
   normalizeQuaternion,
   multiplyTransforms,
   mergeSpatialOverrides,
@@ -2100,6 +2184,7 @@ export {
   SpatialEntityIdSchema,
   SpatialDigestSchema,
   SpatialChannelIdSchema,
+  SpatialCameraTrackSchema,
   SpatialCameraSchema,
   SpatialCameraIdSchema,
   SpatialAssetManifestSchema,
@@ -2110,6 +2195,7 @@ export {
   SPATIAL_SCENE_LIMITS,
   SPATIAL_GLB_PROFILE,
   SPATIAL_GLB_LIMITS,
+  SPATIAL_CAMERA_TRACK_MAX_FRAMES,
   RequirementEnvelopeSchema,
   REQUIREMENT_ENVELOPE_VERSION,
   PortableWorkflowBuilder,

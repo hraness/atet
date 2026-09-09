@@ -16,7 +16,7 @@ import {
 } from "../../../src/spatial-scene/contracts";
 import { spatialAssetClosureDigests } from "../../../src/spatial-scene/identity";
 import { evaluateSpatialGlb, parseSpatialGlb, type SpatialGlbModel } from "../../../src/spatial-scene/gltf";
-import { canonicalJsonSha256 } from "../core/canonical-json";
+import { canonicalJson, canonicalJsonSha256 } from "../core/canonical-json";
 import { SpatialWorldImportManifestSchema, SPATIAL_SPLAT_LIMITS } from "../contracts/spatial-world";
 import { inspectSpatialSpz } from "./spatial-spz";
 import { WorldLabsProvenanceSchema } from "./spatial-world-provenance";
@@ -361,6 +361,26 @@ export async function withPreparedSpatialAssets<Result>(
   const verified = new Map<string, SpatialVerifiedAsset>(), paths = new Map<string, string>(), resources = new Map<string, BoundHtmlOverlayResource>();
   const preparedAssets = new Map<string, PreparedSpatialAsset>(), profiles = new Set<string>();
   let sourceBytes = 0, outputBytes = 0;
+  const publishGeometry = async (geometry: Extract<PreparedSpatialAsset, { kind: "geometry" }>) => {
+    const captured = createBoundedJsonSnapshot(geometry.primitives, SPATIAL_OVERLAY_LIMITS.requestBytes, "Prepared geometry resource", {
+      maximumDepth: 48, maximumValues: SPATIAL_OVERLAY_LIMITS.requestValues,
+    });
+    const bytes = new TextEncoder().encode(canonicalJson(captured.value));
+    const sha256 = digest(bytes), name = `geometry-${sha256.slice(0, 40)}`;
+    const resource = { name, sha256, bytes: bytes.byteLength, mediaType: "application/json", urlPath: `${name}.json`, transport: "fetch" as const };
+    const existing = resources.get(name);
+    if (existing !== undefined) {
+      if (existing.sha256 !== sha256 || existing.bytes !== bytes.byteLength || existing.mediaType !== resource.mediaType) throw new RangeError("Prepared geometry resource name is bound to different bytes.");
+    } else {
+      if (resources.size >= 64 || outputBytes + bytes.byteLength > SPATIAL_ASSET_PREPARATION_LIMITS.outputBytes) throw new RangeError("Prepared geometry resources exceed the output budget.");
+      const path = join(workspace, `${sha256}.json`);
+      aborted(signal);
+      await writeFile(path, bytes, { flag: "wx", mode: 0o600 });
+      aborted(signal);
+      resources.set(name, { ...resource, absolutePath: path }); outputBytes += bytes.byteLength;
+    }
+    return PreparedSpatialAssetSchema.parse({ ...geometry, resource });
+  };
   const publishRaster = async (image: Awaited<ReturnType<typeof raster>>, preferredName?: string) => {
     const sha256 = digest(image.bytes), name = preferredName ?? `image-${sha256.slice(0, 40)}`;
     const existing = resources.get(name);
@@ -466,7 +486,9 @@ export async function withPreparedSpatialAssets<Result>(
             return { ...primitive, texture: { ...primitive.texture, ...image } };
           });
           if (used.size !== images.size) throw new RangeError("Geometry preparer returned unused image bytes.");
-          preparedAssets.set(key, PreparedSpatialAssetSchema.parse({ ...geometry, primitives })); profiles.add(result.profile);
+          const resolved = PreparedSpatialAssetSchema.parse({ ...geometry, primitives });
+          if (resolved.kind !== "geometry") throw new RangeError("Expected prepared geometry.");
+          preparedAssets.set(key, await publishGeometry(resolved)); profiles.add(result.profile);
         } else {
           if (asset.manifest.dependencies.length !== 0) capability("glb-dependencies", "The built-in GLB profile accepts only self-contained payloads.");
           let model = glbModels.get(assetId);
@@ -492,12 +514,15 @@ export async function withPreparedSpatialAssets<Result>(
               ...(texture === undefined ? {} : { texture }),
             });
           }
-          preparedAssets.set(key, PreparedSpatialAssetSchema.parse({ kind: "geometry", assetId, entityId: entity.entityId,
+          const resolved = PreparedSpatialAssetSchema.parse({ kind: "geometry", assetId, entityId: entity.entityId,
             entityGeometrySha256: spatialGeometryContentSha256(entity),
             assetManifestSha256: asset.manifestSha256, timeUs: entity.geometry.clip === undefined ? null : snapshot.timeUs,
-            ...(entity.geometry.nodeIndex === undefined ? {} : { nodeIndex: entity.geometry.nodeIndex }), primitives }));
+            ...(entity.geometry.nodeIndex === undefined ? {} : { nodeIndex: entity.geometry.nodeIndex }), primitives });
+          if (resolved.kind !== "geometry") throw new RangeError("Expected prepared geometry.");
+          preparedAssets.set(key, await publishGeometry(resolved));
           profiles.add(geometry.profile);
         }
+        profiles.add("atet.prepared-geometry-canonical-json-resource-v1");
         continue;
       }
       const staticKey = `${assetId}:${entity.entityId}:static`, key = entity.kind === "video" ? `${assetId}:${entity.entityId}:${snapshot.timeUs}` : staticKey;
@@ -537,7 +562,7 @@ export async function withPreparedSpatialAssets<Result>(
         if (timeline === undefined) {
           const raw = await native([ports.ffprobeCommand, "-v", "error", "-protocol_whitelist", "file", "-format_whitelist", "mov", "-enable_drefs", "0", "-use_absolute_path", "0", "-select_streams", "v:0", "-show_streams", "-show_frames", "-show_entries", "stream=width,height,pix_fmt,avg_frame_rate,time_base,color_transfer,color_primaries,color_space:frame=best_effort_timestamp,best_effort_timestamp_time,duration,pkt_duration", "-of", "json", paths.get(assetId)!], SPATIAL_ASSET_PREPARATION_LIMITS.probeBytes);
           const probe = probeSchema.parse(JSON.parse(raw) as unknown), stream = probe.streams[0]!;
-          if (stream.width !== interpretation.width || stream.height !== interpretation.height || !["yuv420p", "yuv422p", "yuv444p", "rgba", "bgra", "rgb24", "bgr24", "argb"].includes(stream.pix_fmt)
+          if (stream.width !== interpretation.width || stream.height !== interpretation.height || !["yuv420p", "yuv422p", "yuv444p", "rgba", "bgra", "rgb24", "bgr24", "argb", "gbrp"].includes(stream.pix_fmt)
             || stream.color_transfer !== undefined && !["bt709", "iec61966-2-1", "unknown"].includes(stream.color_transfer)
             || stream.color_primaries !== undefined && !["bt709", "unknown"].includes(stream.color_primaries)
             || stream.color_space !== undefined && !["bt709", "gbr", "unknown"].includes(stream.color_space)) capability("video-sdr", "Video requires matching dimensions and qualified 8-bit SDR metadata.");

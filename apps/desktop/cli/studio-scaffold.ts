@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { parseStudioJob, parseStudioSourceBundle, studioSourceBundleSha256 } from "../../../src/studio";
 import blenderProduct from "../../../examples/studio/blender/product.py" with { type: "text" };
 import blenderCharacter from "../../../examples/studio/blender/character.py" with { type: "text" };
+import blenderShadedStreet from "../../../examples/studio/blender/shaded_street.py" with { type: "text" };
 import blenderCloth from "../../../examples/studio/blender/cloth.py" with { type: "text" };
 import blenderFluid from "../../../examples/studio/blender/fluid.py" with { type: "text" };
 import blenderToolkit from "../../../examples/studio/blender/studio_scene.py" with { type: "text" };
@@ -19,14 +20,16 @@ import type { StudioTemplate } from "./studio-template-names";
 export function studioStarter(template: StudioTemplate) {
   const engine = template.startsWith("blender-") ? "blender" : template === "cadquery-bracket" ? "cadquery" : "manim";
   const files: Record<string, string> = engine === "blender" ? {
-    "scene.py": ({ "blender-product": blenderProduct, "blender-character": blenderCharacter, "blender-cloth": blenderCloth, "blender-fluid": blenderFluid } as Record<string, string>)[template]!,
+    "scene.py": ({ "blender-product": blenderProduct, "blender-character": blenderCharacter, "blender-shaded-street": blenderShadedStreet, "blender-cloth": blenderCloth, "blender-fluid": blenderFluid } as Record<string, string>)[template]!,
     "studio_scene.py": blenderToolkit,
+    ...(template === "blender-shaded-street" ? { "character.py": blenderCharacter } : {}),
   } : engine === "cadquery" ? { "scene.py": cadqueryBracket } : { "scene.py": educationScene, "lesson.json": studioJson(educationLesson), "lesson.py": educationValidation, "toolkit.py": educationToolkit };
   const source = { engine, entrypoint: { kind: "python", path: "scene.py" }, files: Object.keys(files).sort() };
   const bundle = parseStudioSourceBundle({ kind: "atet.studio-source-bundle", schemaVersion: 1, engine, entrypoint: source.entrypoint,
     files: Object.entries(files).map(([path, text]) => ({ path, bytes: Buffer.byteLength(text), sha256: studioBytesSha256(text) })) });
   const raster = { kind: "raster", colorSpace: "srgb", alpha: "opaque", dataType: "uint8", channels: ["R", "G", "B"], semantic: "color", unit: "unitless" };
   const simulation = template === "blender-cloth" || template === "blender-fluid";
+  const portraitCity = template === "blender-shaded-street";
   const outputs = engine === "cadquery" ? [
     { id: "solid", kind: "file", role: "model", format: "step", path: "model.step", interpretation: { kind: "model", sourceSpace: { units: "millimeters", upAxis: "z", handedness: "right" } } },
     { id: "preview", kind: "file", role: "model", format: "glb", path: "model.glb", interpretation: { kind: "model", sourceSpace: { units: "meters", upAxis: "y", handedness: "right" } } },
@@ -40,12 +43,12 @@ export function studioStarter(template: StudioTemplate) {
   ];
   const job = parseStudioJob({ kind: "atet.studio-job", schemaVersion: 1, jobId: `studio_${template.replaceAll("-", "_")}_${randomUUID()}`, bundleSha256: studioSourceBundleSha256(bundle),
     stage: engine === "cadquery" ? "build" : simulation ? "bake" : "render",
-    parameters: engine === "manim" ? { lessonFile: "lesson.json" } : {},
-    engine: engine === "blender" ? { engine, renderer: "cycles", device: "gpu", samples: 32, transparent: false, viewTransform: "AgX", denoise: true, seed: 0 }
+    parameters: engine === "manim" ? { lessonFile: "lesson.json" } : portraitCity ? { shot: "establish", motion: "approach" } : {},
+    engine: engine === "blender" ? { engine, renderer: "cycles", device: "gpu", samples: portraitCity ? 16 : 32, transparent: false, viewTransform: portraitCity ? "Standard" : "AgX", denoise: true, seed: 0 }
       : engine === "manim" ? { engine, scene: "PythagoreanLesson", renderer: "cairo", transparent: false }
         : { engine, exportVariable: "model", tolerance: 0.05, angularTolerance: 0.1 },
-    ...(engine === "cadquery" ? {} : { render: { width: engine === "manim" ? 480 : 640, height: engine === "manim" ? 854 : 360, frameRate: { numerator: 24, denominator: 1 },
-      startFrame: simulation ? 1 : 0, endFrameExclusive: engine === "manim" ? 240 : template === "blender-cloth" ? 41 : template === "blender-fluid" ? 33 : 72 } }),
+    ...(engine === "cadquery" ? {} : { render: { width: engine === "manim" ? 480 : portraitCity ? 360 : 640, height: engine === "manim" ? 854 : portraitCity ? 640 : 360, frameRate: { numerator: 24, denominator: 1 },
+      startFrame: simulation || portraitCity ? 1 : 0, endFrameExclusive: engine === "manim" ? 240 : template === "blender-cloth" ? 41 : template === "blender-fluid" ? 33 : portraitCity ? 73 : 72 } }),
     outputs, limits: { timeoutSeconds: 900, maximumOutputBytes: 2_147_483_648, maximumOutputFiles: 2048 },
     execution: { trust: "trusted-current-user", isolation: "none", hermetic: false },
   });

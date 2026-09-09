@@ -10,11 +10,11 @@ Usage: atet <command> [options]
 Commands:
   operations list|show           Discover host-owned typed operations and policies
   diagram init|check|render      Create, validate, or render portable diagram sources
-  scene init|check|inspect|patch|evaluate|plan|render
+  scene init|check|inspect|patch|evaluate|camera-track|plan|render
                                  Author and inspect editable directed 3D scene sources
   direct init|plan|start|generate|review|assemble
                                  Direct short Gateway clips with retained takes and budgets
-  studio init|bundle|plan|probe|run|encode|assemble|inspect|reconcile
+  studio init|bundle|plan|probe|run|encode|asset|assemble|inspect|reconcile
                                  Author and render retained Blender, CAD and Manim productions
   image vectorize|generate      Create a local SVG or generated image file
   html catalog|scaffold          Inspect or create a transparent HTML overlay starter
@@ -47,13 +47,14 @@ Run atet help <command> for command-specific help.`;
 
 const HELP: Readonly<Record<string, string>> = {
   studio: `Usage:
-  atet studio init <new-directory> [--template blender-product|blender-character|blender-cloth|blender-fluid|cadquery-bracket|manim-lesson] [--json]
+  atet studio init <new-directory> [--template blender-product|blender-character|blender-shaded-street|blender-cloth|blender-fluid|cadquery-bracket|manim-lesson] [--json]
   atet studio bundle <source.json> [--source-root <directory>] [--json]
   atet studio plan <job.json> [--json]
   atet studio probe <job.json> [--blender-bin <executable>|--python <venv-python>] [--json]
   atet studio run <job.json> --allow-trusted-code [--blender-bin <executable>|--python <venv-python>] [--json]
   atet studio inspect|reconcile <studio-id> [--json]
   atet studio encode <studio-id> --output-id <sequence-id> [--json]
+  atet studio asset <studio-id> --output-id <id> --asset-id <asset-id> --representation native|encoded-video [--frame <integer>] [--json]
   atet studio assemble <studio-id> --output-id <sequence-id> [--name <title>] [--json]
   atet studio assets search <query.json> [--json]
   atet studio assets describe <poly-haven-asset-id> [--json]
@@ -116,6 +117,7 @@ or real-time session. Use atet ai models list --type video for live model discov
   atet scene inspect <scene.json> [--json]
   atet scene patch <scene.json> --patch <patch.json> --output <new-scene.json> [--json]
   atet scene evaluate <scene.json> --camera <camera-id> --time-us <integer> [--json]
+  atet scene camera-track <scene.json> --request <sampling.json> --output <new-track.json> [--json]
   atet scene plan|render <scene.json> --request <request.json> [--assets <bindings.json>] [--profile <profile>] [--json]
   atet scene project snapshot <project-id> [--json]
   atet scene project prepare-render <project-id> --input <request.json> --output <prepared-render.json> [--profile <profile>] [--json]
@@ -475,7 +477,7 @@ export function completions(words: readonly string[]): readonly string[] {
   if (words.length <= 1) return topLevel;
   const command = words[0];
   if (command === "direct") return ["init", "anchor", "plan", "start", "inspect", "revise", "generate", "resume", "review", "assemble", "cleanup"];
-  if (command === "studio") return words[2] === "assets" || words[1] === "assets" ? ["search", "describe", "plan", "import"] : ["init", "bundle", "plan", "probe", "run", "encode", "assemble", "inspect", "reconcile", "assets"];
+  if (command === "studio") return words[2] === "assets" || words[1] === "assets" ? ["search", "describe", "plan", "import"] : ["init", "bundle", "plan", "probe", "run", "encode", "asset", "assemble", "inspect", "reconcile", "assets"];
   if (command === "operations") return ["list", "show"];
   if (command === "diagram") return ["check", "render"];
   if (command === "image") return ["vectorize"];

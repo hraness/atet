@@ -9,6 +9,7 @@ import { readSpatialJson } from "./spatial-scene-service";
 import { captureStudioSource, retainStudioSource } from "./studio-files";
 import { assembleStudioJob } from "./studio-assemble";
 import { encodeStudioSequence } from "./studio-encode";
+import { admitStudioSpatialAsset } from "./studio-spatial-asset";
 import { createStudioScaffold } from "./studio-scaffold";
 import { createStudioService, studioStorageRoot } from "./studio-service";
 import { ensurePhysicalPrivateDirectoryWithin } from "./paths";
@@ -43,6 +44,9 @@ export async function executeStudioCommand(application: ApplicationContext, comm
     ...(command.python === undefined ? {} : { python: resolve(application.paths.repositoryRoot, command.python) }),
   }) };
   const service = createStudioService({ application, selection });
+  if (command.action === "asset") return await admitStudioSpatialAsset({ application, service,
+    selection: { jobId: command.id, outputId: command.outputId, representation: command.representation, ...(command.frame === undefined ? {} : { frame: command.frame }) },
+    assetId: command.assetId, signal, beforePublication: fence });
   if (command.action === "assemble") return await assembleStudioJob({ application, service, jobId: command.id, outputId: command.outputId, signal, beforePublication: fence, ...(command.title === undefined ? {} : { title: command.title }) });
   if (command.action === "encode") return await encodeStudioSequence({ application, service, jobId: command.id, outputId: command.outputId, signal, beforePublication: fence });
   if (command.action === "inspect") return await service.inspect(command.id);

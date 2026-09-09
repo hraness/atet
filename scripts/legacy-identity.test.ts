@@ -11,7 +11,7 @@ import {
 
 describe("Atet predecessor identity inventory", () => {
   test("canonical film feature paths still require exact reviewed source inventories", () => {
-    for (const path of ["src/studio/contracts.ts", "apps/desktop/studio/drivers/blender_driver.py", "examples/studio/blender/product.py", "apps/desktop/cli/studio-service.ts", "docs/studio.md"]) expect(isNativeFilmStudioPath(path)).toBe(true);
+    for (const path of ["src/studio/contracts.ts", "apps/desktop/studio/drivers/blender_driver.py", "examples/studio/blender/product.py", "apps/desktop/cli/studio-service.ts", "apps/desktop/cli/studio-spatial-asset.ts", "apps/desktop/cli/studio-spatial-asset.test.ts", "apps/desktop/cli/studio-bridge-args.test.ts", "docs/studio.md"]) expect(isNativeFilmStudioPath(path)).toBe(true);
     for (const path of ["apps/studio/main.ts", "src/studio-old.ts", "apps/desktop/cli/studio-legacy.ts", "src/studio/../legacy.ts", "src\\studio\\old.ts", "src/studio/hraness.graphics.ts", "src/studio/old-studio.ts"]) expect(isNativeFilmStudioPath(path)).toBe(false);
     const snapshot = legacyIdentitySnapshot("src/studio/contracts.ts", "export const kind = 'atet.studio-job';")!;
     expect(compareLegacyIdentityInventory([], [snapshot], new Set())).toEqual(["legacy identity inventory is missing src/studio/contracts.ts"]);

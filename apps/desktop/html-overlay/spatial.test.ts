@@ -3,11 +3,13 @@ import { describe, expect, test } from "bun:test";
 import { EvaluatedSpatialSceneSchema, type EvaluatedSpatialScene, type SpatialEntity } from "../../../src/spatial-scene/contracts";
 import { spatialAssetClosureDigests } from "../../../src/spatial-scene/identity";
 import { IDENTITY_MATRIX, composeTransform } from "../../../src/spatial-scene/math";
-import { htmlOverlayFrameCount } from "./contracts";
+import { canonicalJson, canonicalJsonSha256 } from "../core/canonical-json";
+import { HTML_OVERLAY_MAX_HTML_BYTES, htmlOverlayFrameCount } from "./contracts";
 import {
   createSpatialOverlayBatch, decodeSpatialAxialDepth, spatialSelectionColor,
   spatialTextRasterContentSha256, spatialWebGlProjection, PreparedSpatialAssetSchema,
   spatialVideoRasterContentSha256,
+  spatialGeometryContentSha256,
   SPATIAL_DEPTH_MAX_CODE, SPATIAL_OVERLAY_LIMITS, type PreparedSpatialAsset,
 } from "./spatial";
 
@@ -128,6 +130,33 @@ describe("immutable spatial snapshot lowering", () => {
 });
 
 describe("prepared surface and geometry boundary", () => {
+  test("ordinary dense geometry crosses the private resource boundary without expanding the HTML cap", () => {
+    const entity = { ...mesh(), kind: "mesh" as const, geometry: { kind: "asset" as const, assetId: "asset_city" },
+      material: { kind: "unlit" as const, color: "#ffffff", opacity: 1 } };
+    const asset = { assetId: "asset_city", payload: { path: "city.glb", bytes: 831_384, sha256: digest },
+      interpretation: { kind: "gltf", format: "glb", metersPerUnit: 1, sourceUp: "y" }, dependencies: [], provenance: { source: "authored", description: "Original dense city fixture" } };
+    const frame = EvaluatedSpatialSceneSchema.parse({ ...snapshot(entity), assets: [asset] });
+    const primitives = [{ positions: Array.from({ length: 108_000 }, (_, index) => index / 108_001), matrix: [...IDENTITY_MATRIX] }];
+    const bytes = new TextEncoder().encode(canonicalJson(primitives));
+    expect(bytes.byteLength).toBeGreaterThan(HTML_OVERLAY_MAX_HTML_BYTES);
+    const prepared = { kind: "geometry", assetId: "asset_city", entityId: entity.entityId,
+      assetManifestSha256: spatialAssetClosureDigests(frame.assets).asset_city!, entityGeometrySha256: spatialGeometryContentSha256(entity), timeUs: null, primitives };
+    expect(() => createSpatialOverlayBatch({ ...request([frame]), preparedAssets: [prepared] })).toThrow();
+    const resource = { name: "city-geometry", urlPath: "city.json", mediaType: "application/json", bytes: bytes.byteLength, sha256: canonicalJsonSha256(primitives), transport: "fetch" as const };
+    const result = createSpatialOverlayBatch({ ...request([frame, { ...frame, timeUs: 500_000 }, frame]), preparedAssets: [{ ...prepared, resource }] });
+    expect(result.authoring.resources).toEqual([resource]);
+    expect(result.metadata.costs.htmlBytes).toBeLessThan(30_000);
+    expect(result.metadata.costs.resourceBytes).toBe(bytes.byteLength);
+    expect(embedded(result).geometry).toEqual({});
+    expect(embedded(result).geometryResources).toMatchObject([{ key: "asset_city:entity_box:all:static", resource }]);
+    expect(result.metadata.frames.map(value => value.timeUs)).toEqual([0, 500_000, 0]);
+    for (const changed of [{ sha256: digest }, { bytes: bytes.byteLength - 1 }, { mediaType: "application/octet-stream" }]) {
+      expect(() => createSpatialOverlayBatch({ ...request([frame]), preparedAssets: [{ ...prepared, resource: { ...resource, ...changed } }] })).toThrow("exact canonical validated primitives");
+    }
+    const invalid = [{ ...primitives[0], positions: [NaN, 0, 0, 1, 0, 0, 0, 1, 0] }];
+    expect(() => createSpatialOverlayBatch({ ...request([frame]), preparedAssets: [{ ...prepared, resource, primitives: invalid }] })).toThrow();
+  });
+
   test("binds exact resource and interpretation digest, with centered contain and cover", () => {
     const { frame, prepared } = rasterFixture();
     const result = createSpatialOverlayBatch({ ...request([frame]), preparedAssets: [prepared] });
