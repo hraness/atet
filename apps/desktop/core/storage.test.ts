@@ -9,6 +9,7 @@ import {
   readdir,
   rm,
   symlink,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -348,6 +349,58 @@ test.skipIf(process.platform === "win32")("bundle inspection rejects a different
   } finally {
     await rm(temporary, { force: true, recursive: true });
   }
+});
+
+test.skipIf(process.platform === "win32")("immutable copies require one stable exact rehash after a ctime-only transition", async () => {
+  const root = await mkdtemp(join(tmpdir(), "atet-storage-copy-ctime-"));
+  try {
+    const path = join(root, "source.bin");
+    const source = "a".repeat(3 * 1024 * 1024 + 37);
+    const expected = { bytes: source.length, sha256: sha256Hex(source) };
+    const timestamp = new Date("2024-01-01T00:00:00.000Z");
+    for (const transition of ["once", "repeated", "content", "permission", "replacement", "revoked"] as const) {
+      await rm(path, { force: true });
+      await writeFile(path, source, { mode: 0o600 });
+      await utimes(path, timestamp, timestamp);
+      const attempts: number[] = [];
+      let publicationChecks = 0;
+      const fs = createNodeBundleFileSystem(root, {
+        duringFileCopyForTesting: async ({ attempt }) => {
+          attempts.push(attempt);
+          if (attempt === 1) {
+            const before = await lstat(path);
+            if (transition === "content") {
+              // Preserve the visible content metadata. The required second
+              // read must reject the different bytes despite the first hash.
+              await writeFile(path, "b".repeat(source.length));
+              await utimes(path, timestamp, timestamp);
+            } else if (transition === "permission") await chmod(path, 0o400);
+            else if (transition === "replacement") {
+              await rm(path);
+              await writeFile(path, source, { mode: 0o600 });
+            } else await chmod(path, 0o600);
+            expect((await lstat(path)).ctimeMs).not.toBe(before.ctimeMs);
+          } else if (transition === "repeated") await chmod(path, 0o600);
+        },
+      });
+      const destination = `${transition}.bin`;
+      const publication = fs.copyFileNoReplace!("source.bin", destination, expected, async () => {
+        publicationChecks++;
+        if (transition === "revoked") throw new Error("custody revoked after rehash");
+      });
+      if (transition === "once") {
+        expect(await publication).toBe("created");
+        expect(await fs.inspectFile!(destination, expected.bytes)).toEqual(expected);
+        expect(publicationChecks).toBe(1);
+      } else {
+        await expect(publication).rejects.toThrow(transition === "revoked" ? "custody revoked" : /changed|failed verification/u);
+        await expect(lstat(join(root, destination))).rejects.toMatchObject({ code: "ENOENT" });
+        expect(publicationChecks).toBe(transition === "revoked" ? 1 : 0);
+      }
+      expect(attempts).toEqual(transition === "permission" || transition === "replacement" ? [1] : [1, 2]);
+      expect((await readdir(root)).some(name => name.startsWith(".atet-copy-"))).toBe(false);
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("immutable bundle copies publish atomically and preserve no-replace recovery", async () => {

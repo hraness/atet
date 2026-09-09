@@ -2,7 +2,7 @@
 
 Atet keeps a visual composition as editable scene data and renders it through named cameras. A scene can combine geometry, images, video, diagrams, text, and animation. Agents inspect stable entity IDs and apply typed changes to retained source; frames and videos carry receipts identifying the source that produced them.
 
-The Three.js renderer supports bounded offline rendering, explicit hardware acceleration, and retained Gaussian-splat environments. World Labs generation is a separate paid provider operation; importing and directing a saved world works locally. Interactive world editing, simulation, and automatic video-model refinement remain future adapters. Existing HTML authoring and media-editing commands remain available.
+The Three.js renderer supports bounded offline rendering, explicit hardware acceleration, and retained Gaussian-splat environments. Importing and directing a saved world works locally without a provider account. Interactive world editing, simulation, and automatic video-model refinement remain future adapters. Existing HTML authoring and media-editing commands remain available.
 
 ## Render an editable scene
 
@@ -68,34 +68,6 @@ The same profile works on `scene plan` and `scene project prepare-render`. Alter
 
 Use `three-spark-webgl2-hardware-v1` for scenes containing splats. Its pinned Spark and Three dependency closure has a separate bounded worker/WASM runtime. Ordinary overlays and the mesh-only hardware profile retain their existing network and worker isolation. Both hardware profiles retain the same explicit scene clock, linear color compositing and output conversion. Frame publication fails on context loss or unsettled work.
 
-## Generate and retain an AI world
-
-Save a request as `world.json`:
-
-```json
-{
-  "attemptId": "courtyard_01",
-  "displayName": "Morning courtyard",
-  "prompt": "A small quiet limestone courtyard, olive tree, pale plaster walls, warm morning sunlight, architectural photography, no people or text",
-  "quality": "100k"
-}
-```
-
-```sh
-atet scene world plan --input world.json --json
-atet scene world generate --input world.json --budget-id courtyard-study --maximum-credits 6250 --allow-paid-generation --json
-atet scene world resume courtyard_01 --json
-atet scene world inspect courtyard_01 --json
-```
-
-Generation reads `WORLDLABS_API_KEY` from the command environment and sends one text request to the fixed World Labs API origin. The pinned model is `marble-1.1`. The reviewed price is 1,580 credits per text world: 1,500 for the world and 80 for the panorama. Confirm current [World Labs API pricing](https://docs.worldlabs.ai/api/pricing) when authorizing a budget. `quality` chooses the retained 100k or 500k splat export; it does not change the generation model or its price.
-
-The budget is an immutable local ceiling on reserved credits shared by its named attempts in this repository. Reuse one budget ID for a study. A reservation remains occupied after failures or uncertainty; the local ledger never assumes a refund. Reservations use the documented price and are not a provider billing hard cap. A reported final cost above the pinned price quarantines that budget against further generation while retaining the actual cost, operation and available assets. Concurrent requests already dispatched cannot be recalled. Credentials and signed download URLs are excluded from receipts and tool-child environments.
-
-`generate` journals the exact request before its only POST. `resume` reads one existing operation and retains completed assets; repeat that command while the operation is pending. Once retained, `inspect` and `resume` verify local bytes without contacting the provider. If dispatch returned no trustworthy operation ID, preserve the attempt, find the corresponding operation on the provider platform, and explicitly reconcile it with `scene world recover <attempt-id> --operation-id <known-id>`. Recovery never submits another generation.
-
-The result retains SPZ, an approximate collider GLB and a provider provenance receipt below `artifacts/atet/generated/worlds`. Retention preserves paid bytes even when later geometric admission rejects them. A seed is not a promise that the provider can reproduce the world; the saved bytes are the replay source.
-
 ## Import a saved world
 
 `scene world import` accepts exact local payload references and a declared normalization. The input contains:
@@ -104,6 +76,8 @@ The result retains SPZ, an approximate collider GLB and a provider provenance re
 - `identities`: stable `assetId`, `entityId`, and `name`; supply `colliderAssetId` exactly when a collider is present.
 - `normalization`: `metersPerUnit`, `sourceUp`, `sourceHandedness: "right"`, and a complete `transform` with position, XYZW rotation and uniform scale.
 - `provenance`: `kind: "saved"` or `"worldlabs-marble"` and a description. World Labs provenance requires `worldId`, the exact retained collider, and the provider `receipt`, whose world and payload identities must match the import.
+
+Existing `atet.world-labs-provenance` receipts remain readable for imported worlds. Their exact metadata and payload hashes are validated locally; source files and historical provider attempt records remain unchanged. The paid World Labs generation commands have been removed.
 
 Use the provider's returned scale/ground metadata when available, then verify the imported orientation and camera framing. Missing metadata is unknown; explicitly calibrate it rather than labeling an assumed scale as measured.
 

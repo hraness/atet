@@ -1161,7 +1161,7 @@ function parseMediaType(value: unknown): string {
   return mediaType;
 }
 
-function parseRemoteMediaInputUrl(value: unknown): string {
+export function validateGatewayMediaSourceUrl(value: unknown): string {
   if (typeof value !== "string" || value.length < 1 || value.length > 8_192) {
     throw new GatewayMediaExecutionError("invalid-request");
   }
@@ -1261,7 +1261,7 @@ function parseInput(
     : {
         ...(facts === undefined ? {} : { facts }),
         mediaType,
-        url: parseRemoteMediaInputUrl(value.url),
+        url: validateGatewayMediaSourceUrl(value.url),
       };
 }
 

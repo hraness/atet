@@ -172,12 +172,13 @@ export function commandHostResourceClaims(
     case "diagram-render":
     case "image-vectorize":
       return claims(coordinator, ["cpu", "local-io"]);
+    case "directing":
+      // The command adapter admits local media phases separately from paid waits.
+      return command.action === "generate" ? claims(coordinator, ["network", "paid-call"])
+        : command.action === "plan" || command.action === "cleanup" ? claims(coordinator, ["network"])
+          : [];
     case "spatial-world":
-      // A bounded invocation may retain and hash two 128 MiB payloads. There
-      // is no background polling loop holding these local resources.
-      return command.action === "generate" ? claims(coordinator, ["cpu", "local-io", "network", "paid-call"])
-        : command.action === "resume" || command.action === "recover" ? claims(coordinator, ["cpu", "local-io", "network"])
-          : claims(coordinator, ["cpu", "local-io"]);
+      return claims(coordinator, ["cpu", "local-io"]);
     case "spatial-scene":
       return command.action === "render"
         ? claims(coordinator, ["cpu", "local-io", "browser", "ffmpeg", "output-publication"])

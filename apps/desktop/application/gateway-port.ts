@@ -541,6 +541,12 @@ export type GatewayPortReconciliation = z.infer<
 
 export interface GatewayPortDispatch {
   /**
+   * Revalidate adapter-owned custody immediately before the durable paid
+   * dispatch transition. Rejection must leave the request undispatched.
+   * This callback is ephemeral authority, outside request identity and receipts.
+   */
+  readonly beforeDispatch?: () => Promise<void>;
+  /**
    * Revalidates the workflow fence immediately before generated artifacts are
    * atomically published. The host service must invoke this at its final safe
    * publication boundary.
@@ -551,6 +557,18 @@ export interface GatewayPortDispatch {
    * host authority, never part of the persisted or hashed Gateway request.
    */
   readonly hostResourceLease?: ApplicationContext["hostResourceLease"];
+  /**
+   * Optional trusted video transport for URL-only providers. The host first
+   * verifies this exact local source, then passes an isolated copy of its bytes.
+   * The adapter owns upload consent and must expose those same bytes. Returning
+   * undefined keeps inline transport. URLs and this hook are never serialized;
+   * completed request replay must not invoke the adapter again.
+   */
+  readonly resolveSourceUrl?: (
+    source: GatewayMediaSourceReference,
+    data: Uint8Array,
+    signal: AbortSignal,
+  ) => Promise<string | undefined>;
   /**
    * The host must durably claim this key before crossing the paid-dispatch
    * boundary. Repeating it may return a completed receipt but must never cause
@@ -816,7 +834,13 @@ export async function dispatchGatewayOperation(
   const requestId = GatewayRequestIdSchema.parse(input.requestId);
   const result = GatewayOperationResultSchema.parse(
     await requireGatewayPort(application).dispatch({
+      ...(input.beforeDispatch === undefined
+        ? {}
+        : { beforeDispatch: input.beforeDispatch }),
       beforePublication: input.beforePublication,
+      ...(input.resolveSourceUrl === undefined
+        ? {}
+        : { resolveSourceUrl: input.resolveSourceUrl }),
       ...(application.hostResourceLease === undefined
         ? {}
         : { hostResourceLease: application.hostResourceLease }),
