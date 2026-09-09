@@ -1,3 +1,4 @@
+import type { StudioRunInput, StudioRunOutput } from "../application/studio-port";
 import type {
   SpatialRenderInput,
   CandidateProjectRenderInput,
@@ -1026,6 +1027,11 @@ export class WorkflowBuilder {
         version: 1,
       }, options),
     ),
+  });
+
+  readonly studio = Object.freeze({
+    run: (key: string, input: StudioRunInput | OperationInputValue<StudioRunInput>, options?: OperationNodeOptions): Ref<StudioRunOutput> =>
+      this.#graph.operationByKind(key, { input, kind: "atet.studio.run", version: 1 }, options),
   });
 
   readonly scene = Object.freeze({

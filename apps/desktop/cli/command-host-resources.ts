@@ -177,6 +177,10 @@ export function commandHostResourceClaims(
       return command.action === "generate" ? claims(coordinator, ["network", "paid-call"])
         : command.action === "plan" || command.action === "cleanup" ? claims(coordinator, ["network"])
           : [];
+    case "studio":
+      return command.action === "assets" ? claims(coordinator, ["cpu", "local-io", "network"]) : command.action === "run" || command.action === "probe" || command.action === "encode" || command.action === "assemble"
+        ? claims(coordinator, ["cpu", "local-io", "ffmpeg", "output-publication"])
+        : claims(coordinator, ["cpu", "local-io"]);
     case "spatial-world":
       return claims(coordinator, ["cpu", "local-io"]);
     case "spatial-scene":

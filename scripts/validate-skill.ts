@@ -76,6 +76,7 @@ for (const relativePath of [
   "references/gateway-media.md",
   "references/install.md",
   "references/reference-led-3d.md",
+  "references/native-studio.md",
   "references/rubber-stamp-field-notes.md",
   "references/video-projects.md",
   "references/visual-communication.md",

@@ -61,6 +61,7 @@ describe("verified-receipt reconciliation", () => {
   test("registers every local receipt-backed recovery boundary", () => {
     expect(LOCAL_VERIFIED_RECEIPT_OPERATION_KINDS).toEqual([
       "scene.render",
+      "atet.studio.run",
       "analysis.faces",
       "analysis.music",
       "analysis.project-inactivity",

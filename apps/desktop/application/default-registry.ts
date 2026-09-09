@@ -51,6 +51,7 @@ import {
   spatialPatchOperationDefinition,
   spatialEvaluateOperationDefinition,
   spatialRenderOperationDefinition,
+  studioRunOperationDefinition,
   spatialProjectSnapshotOperationDefinition,
   spatialProjectMigrateOperationDefinition,
   spatialProjectPatchOperationDefinition,
@@ -80,6 +81,7 @@ export function createApplicationOperationRegistry(
   registry.register(spatialPatchOperationDefinition);
   registry.register(spatialEvaluateOperationDefinition);
   registry.register(spatialRenderOperationDefinition);
+  registry.register(studioRunOperationDefinition);
   registry.register(spatialProjectSnapshotOperationDefinition);
   registry.register(spatialProjectMigrateOperationDefinition);
   registry.register(spatialProjectPatchOperationDefinition);

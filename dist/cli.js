@@ -11,11 +11,12 @@ import {
   renderDiagramFile,
   runMcpServer,
   selectDesktopAsset
-} from "./index-qbym3kt7.js";
+} from "./index-twgfp3wm.js";
 import {
   installSkill,
   pathExists
 } from "./index-pc34q4wz.js";
+import"./index-dttxgnv5.js";
 import"./index-6ab7r00w.js";
 import {
   atetOperationCodes,

@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { bindStudioRunInput } from "../application/operations/studio";
 import { bindSpatialRenderInput } from "../application/operations/spatial-render";
 
 import type { ApplicationContext } from "../application/context";
@@ -184,6 +185,7 @@ async function exactOperationInput(
   request: NodeExecutionPlanningRequest,
 ): Promise<JsonValue> {
   let deterministic = deterministicAnalysisInput(request);
+  if (request.operation.kind === "atet.studio.run") return JsonValueSchema.parse(await bindStudioRunInput(request.application ?? application, deterministic, request.abortSignal, request.beforePublication));
   if (request.operation.kind === "scene.render") return JsonValueSchema.parse(await bindSpatialRenderInput(application, deterministic));
   if (request.operation.kind === "spatial.project.snapshot") {
     const project = projectReference(deterministic);
@@ -411,6 +413,9 @@ function publicationKeys(
   input: JsonValue,
   project: string | undefined,
 ): readonly string[] {
+  if (request.operation.kind === "atet.studio.run" && jsonObject(input) && input.job !== undefined && jsonObject(input.job) && typeof input.job.jobId === "string") {
+    return [`output:studio:${input.job.jobId}`];
+  }
   if (request.operation.version === 2 && jsonObject(input)) {
     if (
       request.operation.kind === "atet.diagram.render"

@@ -167,6 +167,11 @@ describe("workflow file candidate provenance", () => {
   test("applies file authority to every progressive Atet visual source", () => {
     const cases = [
       {
+        input: { bundle: { path: "artifacts/atet/private/studio/bundles/fixture/bundle.json" } },
+        kind: "atet.studio.run",
+        path: "artifacts/atet/private/studio/bundles/fixture/bundle.json",
+      },
+      {
         input: { path: "fixtures/system.diagram.json" },
         kind: "atet.diagram.check",
         path: "fixtures/system.diagram.json",

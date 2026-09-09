@@ -211,10 +211,18 @@ export async function resolveRepositoryPaths(
   cwd: string,
   env: Readonly<Record<string, string | undefined>>,
   installedFrom: string = import.meta.dir,
+  executable: string = process.execPath,
 ): Promise<RepositoryPaths> {
-  const toolRoot = await discoverRepositoryRoot(installedFrom);
+  // A copied Bun executable embeds its source under a read-only virtual root.
+  // Optional native helpers may live beside that executable; state never does.
+  const desktopRoot = installedFrom.startsWith("/$bunfs/")
+    ? dirname(await realpath(executable))
+    : join(await discoverRepositoryRoot(installedFrom), "apps", "desktop");
   const repositoryRootInput = env.ATET_REPOSITORY_ROOT;
   const requestedRoot = resolve(repositoryRootInput ?? cwd);
+  if (requestedRoot === "/$bunfs" || requestedRoot.startsWith("/$bunfs/")) {
+    throw new CliError("unsafe-path", "Atet project state requires a physical caller workspace, not the embedded executable filesystem.");
+  }
   if (!await isDirectory(requestedRoot)) {
     throw new CliError("not-found", `Atet project root is not a directory: ${requestedRoot}`);
   }
@@ -249,7 +257,7 @@ export async function resolveRepositoryPaths(
   ]);
   return {
     artifactRoot,
-    desktopRoot: join(toolRoot, "apps", "desktop"),
+    desktopRoot,
     privateRoot,
     projectRoot,
     repositoryRoot,

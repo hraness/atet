@@ -27,3 +27,5 @@ export * from "./atet-visuals";
 export * from "./spatial-scene";
 export * from "./spatial-project";
 export * from "./spatial-render";
+
+export * from "./studio";

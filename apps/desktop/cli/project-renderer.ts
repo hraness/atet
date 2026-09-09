@@ -705,6 +705,7 @@ function projectCameraFilters(
     // source cadence or discard the project's speed map.
     `fps=${rationalRate ?? decimal(plan.output.frameRate)}`,
     `zoompan=z='${layout.width}/(${viewport.width})':x='${viewport.x}':y='${viewport.y}':d=1:s=${layout.width}x${layout.height}:fps=${rationalRate ?? decimal(plan.output.frameRate)}`,
+    "settb=AVTB",
     `setpts=PTS-STARTPTS+${seconds(slice.outputRange.startUs)}/TB`,
     "format=rgba",
   ];
@@ -1289,15 +1290,21 @@ export async function buildProjectFfmpegInvocation(
     const transform = videoTransform(slice, plan.output.pixelWidth, plan.output.pixelHeight);
     const chain = [
       `trim=start=${seconds(slice.fileRange.startUs)}:end=${seconds(slice.fileRange.endUs)}`,
+      // A source may use a coarse clock such as 1/24. Apply project offsets in
+      // microseconds so a fractional cut cannot truncate away a whole frame.
+      "settb=AVTB",
       `setpts=(PTS-STARTPTS)*${decimal(outputDurationUs / inputDurationUs)}+${seconds(slice.outputRange.startUs)}/TB`,
       ...transform.filters,
       ...projectCameraFilters(plan, slice, cameraIndex, rationalRate),
     ];
     filters.push(`[${inputSpecifier(input, slice.streamIndex)}]${chain.join(",")}[${label}]`);
     const next = `canvas_${serial++}`;
+    // EOF is the last decoded PTS, not the end of that frame's presentation.
+    // Hold its pixels only inside the compiler's declared half-open interval.
+    const enable = `gte(t,${seconds(slice.outputRange.startUs)})*lt(t,${seconds(slice.outputRange.endUs)})`;
     if (slice.presentation.blendMode === "normal") {
       filters.push(
-        `[${currentVideo}][${label}]overlay=x=${transform.x}:y=${transform.y}:eof_action=pass:repeatlast=0:enable='between(t,${seconds(slice.outputRange.startUs)},${seconds(slice.outputRange.endUs)})'[${next}]`,
+        `[${currentVideo}][${label}]overlay=x=${transform.x}:y=${transform.y}:eof_action=repeat:repeatlast=1:enable='${enable}'[${next}]`,
       );
     } else {
       const transparent = `video_blend_canvas_${serial++}`;
@@ -1308,10 +1315,9 @@ export async function buildProjectFfmpegInvocation(
       const baseBlend = `video_blend_base_${serial++}`;
       const baseMerge = `video_blend_merge_${serial++}`;
       const blended = `video_blend_result_${serial++}`;
-      const enable = `between(t,${seconds(slice.outputRange.startUs)},${seconds(slice.outputRange.endUs)})`;
       filters.push(
         `color=c=black@0:s=${plan.output.pixelWidth}x${plan.output.pixelHeight}:r=${emittedRate}:d=${seconds(plan.output.durationUs)},format=rgba[${transparent}]`,
-        `[${transparent}][${label}]overlay=x=${transform.x}:y=${transform.y}:eof_action=pass:repeatlast=0:enable='${enable}'[${positioned}]`,
+        `[${transparent}][${label}]overlay=x=${transform.x}:y=${transform.y}:eof_action=repeat:repeatlast=1:enable='${enable}'[${positioned}]`,
         `[${positioned}]format=rgba,split=2[${layerColor}][${layerAlphaSource}]`,
         `[${layerAlphaSource}]alphaextract[${layerMask}]`,
         `[${currentVideo}]split=2[${baseBlend}][${baseMerge}]`,

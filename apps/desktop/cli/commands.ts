@@ -154,6 +154,8 @@ import {
 } from "./paths";
 import { renamedEnvironmentValue } from "./renamed-environment";
 import { withMutationLock } from "./mutation-lock";
+import { executeStudioCommand } from "./studio-command";
+import { withStudioWorkflowApplication } from "./studio-workflow";
 import {
   commitProjectStateTransaction,
   projectStateTransactionMayHaveCommitted,
@@ -5759,6 +5761,11 @@ async function handleMediaColor(
 
 async function dispatch(context: CommandContext, command: CliCommand): Promise<void> {
   switch (command.kind) {
+    case "studio": {
+      const output = await executeStudioCommand(applicationContext(context), command, context.abortSignal ?? new AbortController().signal);
+      writeValue(context.io, command.json, output, () => JSON.stringify(output, null, 2));
+      return;
+    }
     case "directing": {
       const output = await executeDirectingCommand(applicationContext(context), command, {
         catalog: gatewayCatalogCache(context),
@@ -5989,7 +5996,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
         context.io.cwd(),
         command.providerOptions,
       );
-      const application = applicationContext(context, providerOptions);
+      const application = withStudioWorkflowApplication(applicationContext(context, providerOptions), command);
       const registry = createApplicationOperationRegistry({ toolVersion: context.version });
       const preparationClaims = codePreparationHostResourceClaims(
         context.hostResourceCoordinator,
@@ -5998,7 +6005,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
         context,
         preparationClaims,
         async admittedContext => await planCatalogWorkflow({
-          application: applicationContext(admittedContext, providerOptions),
+          application: withStudioWorkflowApplication(applicationContext(admittedContext, providerOptions), command),
           inputPath: command.input,
           registry,
           workflow,
@@ -6039,7 +6046,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
         context.io.cwd(),
         command.providerOptions,
       );
-      const application = applicationContext(context, providerOptions);
+      const application = withStudioWorkflowApplication(applicationContext(context, providerOptions), command);
       const registry = createApplicationOperationRegistry({ toolVersion: context.version });
       const preparationClaims = codePreparationHostResourceClaims(
         context.hostResourceCoordinator,
@@ -6048,7 +6055,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
         context,
         preparationClaims,
         async admittedContext => await prepareCustomWorkflowRun({
-          application: applicationContext(admittedContext, providerOptions),
+          application: withStudioWorkflowApplication(applicationContext(admittedContext, providerOptions), command),
           inputPath: command.input,
           registry,
           sourcePath: command.path,
@@ -6184,7 +6191,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
         context.io.cwd(),
         command.providerOptions,
       );
-      const application = applicationContext(context, providerOptions);
+      const application = withStudioWorkflowApplication(applicationContext(context, providerOptions), command);
       const result = await runWorkflow({
         application,
         jobs: command.jobs,
@@ -6574,6 +6581,7 @@ type MutationReference =
 
 function commandMutationReference(command: CliCommand): MutationReference | undefined {
   switch (command.kind) {
+    case "studio": return undefined; // Native jobs and the machine custody marker own explicit leases.
     case "directing": return undefined; // The directing store owns its explicit lease.
     case "spatial-world": return undefined; // Immutable world attempts and imports own their publication custody.
     case "spatial-scene": return command.action === "init" || command.action === "patch" ? { kind: "workspace-private" } : undefined;

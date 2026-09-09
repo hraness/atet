@@ -6,10 +6,11 @@
 - `portable-surface.ts` – routing to the canonical headless diagram/file-image parser plus non-overwriting HTML scaffolds and the project image-generation alias.
 - `build-compiled.ts`, `compiled-bootstrap.ts`, and `native-media-runtime.macos.ts` – the copied-binary-tested macOS CLI build, private native-asset bootstrap, and exact embedded Sharp/libvips bridge.
 - `mutation-lock.ts`, project transactions, and `project-media-integrity.ts` – physical leases, crash recovery, containment, length, and SHA-256 enforcement.
+- `studio-*.ts` – explicit native-source scaffolding and retention, fixed engine probes, machine-wide process custody, output validation and CLI/workflow trust envelopes.
 - Face-analysis/camera modules – signed local evidence, deterministic selection, camera mutation, and bounded receipts.
 - Gateway modules and `media-effects-service.ts` – live catalog/settings validation, environment credential loading, bounded paid dispatch, immutable artifacts, and safe FFmpeg transforms.
 - `run-cli-test-helper.ts`, colocated fixtures, and process tests – deterministic process-local CLI verification that cannot contend with production machine-wide admission.
-- `compiled-portable-surface.macos.test.ts` – copied-binary proof for bundled native diagram rendering and isolated vectorization.
+- `compiled-portable-surface.macos.test.ts` – copied-binary proof for bundled native diagram rendering, isolated vectorization, studio starters and fixed native driver identity.
 
 # Guidelines
 
@@ -26,3 +27,4 @@
 - Publish outputs below the ignored generated root with hashes, lengths, catalog/model revision, settings, input digests, warnings, fulfillment counts, and next commands. Bound downloads, redirects, media types, and no-replace publication. Preserve paid bytes that fail decode but emit no import command.
 - Build FFmpeg effects only from typed presets with digest-pinned inputs and fresh outputs; reverify after render. Surface output-without-receipt orphans as conflicts. Import scene contracts and provider-neutral types from `@hraness/atet/scene`, never CLI-local copies.
 - Route in-process CLI tests through `run-cli-test-helper.ts`. Give mutation-lock concurrency cases distinct profiles per invocation; machine-global admission behavior belongs in dedicated host-resource tests.
+- Native studio execution requires explicit trusted-code authorization independent of workflow write grants. Scrub child credentials, supervise process groups with bounded termination/drain grace, retain unresolved machine custody, and never publish success before exact declared outputs are verified. Terminal custody bookkeeping must remain possible after operation cancellation.

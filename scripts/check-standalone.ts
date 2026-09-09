@@ -5,6 +5,7 @@ import {
   compareLegacyIdentityInventory,
   duplicateIdentityAlternatives,
   isGeneratedLegacyIdentityPath,
+  isNativeFilmStudioPath,
   legacyIdentitySnapshot,
   planLegacyIdentityInventoryUpdate,
   validateInventoryEntries,
@@ -83,6 +84,7 @@ const TEXT_EXTENSIONS = new Set([
   ".mm",
   ".mjs",
   ".plist",
+  ".py",
   ".sh",
   ".swift",
   ".svg",
@@ -258,7 +260,7 @@ const sourceProblems: string[] = [];
 const legacyIdentitySnapshots: LegacyIdentitySnapshot[] = [];
 for (const file of files) {
   const rootRelative = relative(ROOT, file).split(sep).join("/");
-  if (LEGACY_IDENTITY.test(rootRelative)) {
+  if (LEGACY_IDENTITY.test(rootRelative) && !isNativeFilmStudioPath(rootRelative)) {
     sourceProblems.push(`${rootRelative} retains a pre-Atet source path`);
   }
   if (

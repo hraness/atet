@@ -42,6 +42,7 @@ const APPLICATION_BUILD_DOMAIN = "studio.application-build/v1";
 const HOST_APPLICATION_BUILD_DOMAIN = "studio.host-application-build/v1";
 const APPLICATION_SOURCE_EXTENSIONS = new Set([
   ".json",
+  ".py",
   ".swift",
   ".toml",
   ".ts",
@@ -57,6 +58,7 @@ const DESKTOP_SOURCE_DIRECTORIES = [
   "contracts",
   "core",
   "runtime",
+  "studio",
   "workflows",
 ] as const;
 const MAXIMUM_APPLICATION_SOURCE_FILES = 4_096;
@@ -73,6 +75,10 @@ function isWithin(root: string, candidate: string): boolean {
 
 function productionSourceFile(name: string): boolean {
   return APPLICATION_SOURCE_EXTENSIONS.has(extname(name))
+    && !name.startsWith("test_")
+    && !name.startsWith("qualify_")
+    && !name.startsWith("qualify-")
+    && !name.endsWith("test-support.ts")
     && !name.endsWith(".test.ts")
     && !name.endsWith(".test.tsx")
     && !name.endsWith(".property.test.ts")

@@ -11,6 +11,7 @@ export const OPERATION_KINDS = [
   "scene.patch",
   "scene.evaluate",
   "scene.render",
+  "atet.studio.run",
   "spatial.project.snapshot",
   "spatial.project.migrate",
   "spatial.project.patch",

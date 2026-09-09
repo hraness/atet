@@ -1,5 +1,6 @@
 import type { HostResourceLease } from "@hraness/atet/host-resources";
 
+import type { ApplicationStudioAuthorization, ApplicationStudioPort } from "./studio-port";
 import type { ApplicationGatewayPort } from "./gateway-port";
 import type { HtmlOverlayRenderer } from "./html-overlay-renderer";
 
@@ -84,6 +85,8 @@ export interface ApplicationContext {
   ) => Promise<readonly ApplicationCapability[]>;
   readonly clock: ApplicationClock;
   readonly gatewayPort?: ApplicationGatewayPort;
+  readonly studioPort?: ApplicationStudioPort;
+  readonly studioAuthorization?: ApplicationStudioAuthorization;
   readonly hostResourceLease?: ApplicationHostResourceLease;
   readonly htmlOverlayRenderer?: HtmlOverlayRenderer;
   /** Per-user host state shared by repository worktrees for mutation leases. */

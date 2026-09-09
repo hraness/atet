@@ -163,6 +163,7 @@ export * from "./cloud-errors.js"
 export * from "./generate.js"
 export * from "./host-resources.js"
 export * from "./operations.js"
+export * from "./studio/index.js"
 export * from "./workflow.js"
 export type * from "./types.js"
 export type {

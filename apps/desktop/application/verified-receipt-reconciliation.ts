@@ -1,3 +1,4 @@
+import { reconcileStudioRun } from "./operations/studio";
 import { createHash } from "node:crypto";
 import { recoverSpatialRenderAttempt, recoverSpatialRenderOutput } from "./operations/spatial-render";
 import { constants } from "node:fs";
@@ -106,6 +107,7 @@ import {
 
 export const LOCAL_VERIFIED_RECEIPT_OPERATION_KINDS = Object.freeze([
   "scene.render",
+  "atet.studio.run",
   "analysis.faces",
   "analysis.music",
   "analysis.project-inactivity",
@@ -1452,7 +1454,7 @@ async function recoverCheckpointMedia(
 async function recoverCheckpointAtetVisual(
   application: ApplicationContext,
   request: VerifiedReceiptReconciliationRequest,
-  kind: Extract<LocalVerifiedReceiptOperationKind, `atet.${string}`>,
+  kind: Extract<LocalVerifiedReceiptOperationKind, "atet.diagram.render" | "atet.image.vectorize">,
   output: unknown,
 ): Promise<VerifiedReceiptReconciliation> {
   switch (kind) {
@@ -1490,7 +1492,7 @@ function isLocalAnalysisKind(
 
 function isLocalAtetVisualKind(
   kind: LocalVerifiedReceiptOperationKind,
-): kind is Extract<LocalVerifiedReceiptOperationKind, `atet.${string}`> {
+): kind is Extract<LocalVerifiedReceiptOperationKind, "atet.diagram.render" | "atet.image.vectorize"> {
   return kind === "atet.diagram.render"
     || kind === "atet.image.vectorize";
 }
@@ -1513,6 +1515,13 @@ export async function reconcileLocalVerifiedReceiptOperation(
       privateRoot: application.paths.privateRoot,
       workspaceDirectory: request.workspaceDirectory,
     });
+    if (kind === "atet.studio.run") {
+      const recovered = await reconcileStudioRun({ application, abortSignal: request.abortSignal, workflow: {
+        ...request.identity, workspaceDirectory: request.workspaceDirectory, beforePublication: request.beforePublication,
+      } }, request.exactInput, checkpoint?.output);
+      if (recovered.kind !== "completed") return recovered;
+      return { ...recovered, receiptReference: recovered.output.receipt.path, summary: { jobId: recovered.output.document.jobId, planSha256: recovered.output.document.planSha256, outputs: recovered.output.outputs.length } };
+    }
     if (isLocalAnalysisKind(kind)) {
       const recovered = await recoverAnalysis(
         application,

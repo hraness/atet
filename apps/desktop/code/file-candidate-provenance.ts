@@ -74,6 +74,7 @@ export function operationFileClaims(
   input: GraphInputValue | JsonValue,
 ): readonly FileClaim[] {
   if (!record(input)) return [];
+  if (operation === "atet.studio.run") return optionalClaim(field(input, "bundle"));
   if (operation === "scene.render") {
     return [
       ...optionalClaim(field(input, "source")),

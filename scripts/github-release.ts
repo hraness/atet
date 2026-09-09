@@ -69,7 +69,7 @@ export function parseManifest(value: unknown): ReleaseManifest {
   if (item.schema !== "hraness-github-release-v1" || item.repository !== repository || item.repositoryId !== repositoryId
     || item.package !== packageName || item.tag !== `v${version}` || item.workflow !== workflow
     || typeof item.sourceSha !== "string" || !sha.test(item.sourceSha) || typeof item.workflowSha !== "string" || !sha.test(item.workflowSha)
-    || archive.name !== `hraness-atet-${version}.tgz` || positive(archive.bytes, "Archive size") > 4_000_000
+    || archive.name !== `hraness-atet-${version}.tgz` || positive(archive.bytes, "Archive size") > 4_300_000
     || typeof archive.sha256 !== "string" || !digest.test(archive.sha256)
     || typeof archive.sha512 !== "string" || !/^[a-f0-9]{128}$/u.test(archive.sha512)) throw new Error("Release manifest identity is invalid.");
   positive(item.runId, "Run ID");

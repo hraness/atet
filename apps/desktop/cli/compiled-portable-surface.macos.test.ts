@@ -5,7 +5,9 @@ import {
   readFile,
   realpath,
   rm,
+  writeFile,
 } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -79,6 +81,59 @@ test.skipIf(!RUN_COMPILED_SMOKE)(
       outputPath: await realpath(join(root, "vectorized.svg")),
       receiptVersion: 1,
     });
+  },
+  120_000,
+);
+
+test.skipIf(!RUN_COMPILED_SMOKE)(
+  "ships every native studio source scaffold inside the copied binary without invoking an engine",
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), "atet-compiled-studio-")); roots.push(root);
+    const executable = join(root, "atet");
+    await copyFile(resolve(import.meta.dir, "..", "dist", "atet"), executable);
+    await chmod(executable, 0o755);
+    for (const template of ["blender-product", "blender-character", "blender-cloth", "blender-fluid", "cadquery-bracket", "manim-lesson"]) {
+      const initialized = JSON.parse(await run(executable, ["studio", "init", template, "--template", template, "--json"], root));
+      const bundled = JSON.parse(await run(executable, ["studio", "bundle", initialized.source, "--json"], root));
+      const planned = JSON.parse(await run(executable, ["studio", "plan", initialized.job, "--json"], root));
+      expect(bundled.bundleSha256).toBe(initialized.bundleSha256);
+      expect(planned.readiness).toBe("runtime-unbound");
+      expect(planned.bundle.entrypoint.path).toBe("scene.py");
+      expect(await readFile(join(root, template, "scene.py"), "utf8")).not.toBe("");
+    }
+  },
+  120_000,
+);
+
+test.skipIf(!RUN_COMPILED_SMOKE)(
+  "stages exact embedded native drivers when the copied CLI probes an explicit runtime",
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), "atet-compiled-drivers-")); roots.push(root);
+    const executable = join(root, "atet"), runtime = join(root, "inspecting-runtime");
+    await copyFile(resolve(import.meta.dir, "..", "dist", "atet"), executable); await chmod(executable, 0o755);
+    const profiles = [
+      ["blender-product", "drivers/blender_driver.py", "--blender-bin"],
+      ["cadquery-bracket", "drivers/cadquery_driver.py", "--python"],
+      ["manim-lesson", "education/driver.py", "--python"],
+    ] as const;
+    const hashes = await Promise.all(profiles.map(async ([, path]) => createHash("sha256").update(await readFile(resolve(import.meta.dir, "../studio", path))).digest("hex")));
+    await writeFile(runtime, `#!${process.execPath}
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+const args = process.argv.slice(2);
+if (!args.includes("--probe")) throw new Error("Fixture runtime only permits fixed probing");
+const driver = args.includes("--python") ? args[args.indexOf("--python") + 1] : args[0];
+const hash = createHash("sha256").update(readFileSync(driver)).digest("hex");
+if (!${JSON.stringify(hashes)}.includes(hash)) throw new Error("Copied CLI driver differs from owned source");
+console.log("ATET_STUDIO_PROBE=" + JSON.stringify({name:"inspected fixed driver",version:"1",packages:{},capabilities:[]}));
+`, { mode: 0o755 });
+    for (const [index, [template, , flag]] of profiles.entries()) {
+      const scaffold = JSON.parse(await run(executable, ["studio", "init", template, "--template", template, "--json"], root));
+      await run(executable, ["studio", "bundle", scaffold.source, "--json"], root);
+      const bound = JSON.parse(await run(executable, ["studio", "probe", scaffold.job, flag, runtime, "--json"], root));
+      expect(bound.runtime.driverSha256).toBe(hashes[index]);
+      expect(bound.runtime.tool.name).toBe("inspected fixed driver");
+    }
   },
   120_000,
 );
