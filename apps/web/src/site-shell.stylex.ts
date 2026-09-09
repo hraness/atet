@@ -117,7 +117,10 @@ const shell = stylex.create({
     borderRadius: "var(--hraness-marketing-radius)",
     backgroundColor: {
       default: "var(--hraness-marketing-accent)",
-      [forcedColors]: "CanvasText",
+      [forcedColors]: {
+        default: "CanvasText",
+        ":hover": "color-mix(in oklch, var(--hraness-marketing-accent) 84%, black)",
+      },
       ":hover": "color-mix(in oklch, var(--hraness-marketing-accent) 84%, black)",
     },
     backgroundImage: "none",

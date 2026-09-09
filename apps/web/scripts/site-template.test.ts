@@ -26,7 +26,19 @@ function assertPrimaryActionColors(compiled: StylexTransformResult): void {
     expect(rules.filter(rule => /\bbackground-color:/u.test(rule)).sort()).toEqual([
       `.action:hover{background-color:${hover}}`, `.action{background-color:${accent}}`,
       "@media (forced-colors: active){.action.action{background-color:CanvasText}}",
+      `@media (forced-colors: active){.action.action:hover{background-color:${hover}}}`,
     ].sort())
+    const backgrounds = compiled.rules.filter(([name, value]) => classes.has(name) && /\bbackground-color:/u.test(value.ltr))
+    for (const forced of [false, true]) {
+      for (const hovered of [false, true]) {
+        // These exact four selectors have no focus/active condition, so the
+        // same background precedence also holds while focused or pressed.
+        const applicable = backgrounds.filter(([, value]) => (forced || !value.ltr.startsWith("@media"))
+          && (hovered || !value.ltr.includes(":hover"))).sort((left, right) => right[2] - left[2])
+        expect(applicable[0]![1].ltr.match(/background-color:([^}]+)/u)?.[1])
+          .toBe(hovered ? hover : forced ? "CanvasText" : accent)
+      }
+    }
     expect(rules.join("\n")).not.toMatch(/forced-color-adjust:/u)
   }
 }
@@ -42,12 +54,16 @@ describe("ordinary shell authored contract (pure, process-free)", () => {
     // In-memory mutations prove the check rejects the native regression and
     // loss of the retained states without rebuilding or changing any file.
     const border = `borderColor: {\n      default: "var(--hraness-marketing-accent)",\n      ":hover": "color-mix(in oklch, var(--hraness-marketing-accent) 84%, black)",\n    }`
+    const forcedBackground = `[forcedColors]: {\n        default: "CanvasText",\n        ":hover": "color-mix(in oklch, var(--hraness-marketing-accent) 84%, black)",\n      },`
     expect(source.split(border)).toHaveLength(2)
+    expect(source.split(forcedBackground)).toHaveLength(2)
     const mutations = [
       source.replace(border, border.replace("borderColor: {", 'borderColor: {\n      [forcedColors]: "CanvasText",')),
       source.replace(border, border.replace('      default: "var(--hraness-marketing-accent)",\n', "")),
       source.replace(border, border.replace('      ":hover": "color-mix(in oklch, var(--hraness-marketing-accent) 84%, black)",\n', "")),
-      source.replace('      [forcedColors]: "CanvasText",\n', ""),
+      source.replace(forcedBackground, ""),
+      source.replace(forcedBackground, '[forcedColors]: "CanvasText",'),
+      source.replace(forcedBackground, forcedBackground.replace('        default: "CanvasText",\n', "")),
       source.replace("  primaryAction: {", '  primaryAction: {\n    forcedColorAdjust: "none",'),
     ]
     for (const mutation of mutations) {
@@ -105,7 +121,7 @@ describe("ordinary shell authored contract (pure, process-free)", () => {
     expect(recipes).toContain('stylex.props(shell.primaryAction, shell.navigationAction)')
     expect(recipes).toContain('stylex.props(shell.primaryAction, shell.recoveryAction)')
     expect(recipes).toContain('const coarsePointer = "@media (pointer: coarse)"')
-    expect(recipes.match(/\[forcedColors\]: "CanvasText"/gu)).toHaveLength(1)
+    expect(recipes).toContain('[forcedColors]: {\n        default: "CanvasText",')
     expect(recipes).toContain('minHeight: { default: "var(--hraness-marketing-action-height)", [coarsePointer]: "3rem" }')
     expect(renderer).toContain('document === "index.html" ? homeSlots : recoverySlots')
     expect(legacy).not.toMatch(/\.skip-link|\.topbar|\.wordmark|\.route-state/u)
