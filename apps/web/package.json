@@ -8,7 +8,7 @@
   "dependencies": {
     "@hraness/design-kit": "github:hraness/design-kit#v0.5.2",
     "@hraness/site-footer": "github:hraness/site-footer#v0.6.1",
-    "@hraness/ui": "github:hraness/ui#v0.5.6",
+    "@hraness/ui": "github:hraness/ui#v0.5.7",
     "@resvg/resvg-js": "2.6.2",
     "posthog-js": "1.413.2",
     "react": "19.2.3",
@@ -33,8 +33,9 @@
     "build": "bun run ./scripts/build.ts",
     "check": "bun run typecheck:preview && bun run test && bun run build && bun run verify:preview",
     "generate:og": "bun run ./scripts/generate-og.ts",
-    "test": "bun test ./site.test.ts ./scripts/preview-contract.test.ts ./scripts/preview-css.test.ts ./scripts/preview-file.test.ts ./scripts/preview-layout.test.ts ./scripts/preview-browser-protocol.test.ts",
+    "test": "bun test ./site.test.ts ./scripts/preview-contract.test.ts ./scripts/preview-css.test.ts ./scripts/preview-file.test.ts ./scripts/preview-layout.test.ts ./scripts/preview-browser-protocol.test.ts ./scripts/site-contract.test.ts ./scripts/site-template.test.ts ./scripts/site-shell-browser-contract.test.ts",
     "typecheck:preview": "tsc --project tsconfig.preview.json",
-    "verify:preview": "bun run ./scripts/verify-preview-layout.ts"
+    "verify:preview": "bun run ./scripts/verify-preview-layout.ts",
+    "verify:shell": "bun run ./scripts/verify-site-shell.ts"
   }
 }

@@ -2136,26 +2136,37 @@ describe("durable workflow scheduler", () => {
   }, 20_000);
 
   test("hard-bounds a non-cancellable live executor as ambiguous without aborting it", async () => {
-    let liveSignal: AbortSignal | undefined;
+    const started = deferred<AbortSignal>();
     let executions = 0;
     const registry = registryFixture((context) => {
       executions += 1;
-      liveSignal = context.abortSignal;
+      started.resolve(context.abortSignal);
       return new Promise<FixtureOutput>(() => undefined);
     }, {
       cancellable: false,
       effect: "live-control",
-      maxDurationMs: 300,
+      // The node budget includes durable fencing, admission and staging before
+      // execute. Give that setup the fixture's ordinary I/O budget, then prove
+      // this test actually reached the live executor before accepting timeout.
+      maxDurationMs: 5_000,
       resources: [{ amount: 1, resource: "capture-device" }],
     }, "non-resumable-live");
     const run = await createRun(registry, [{ id: "live" }], "run_node_deadline02");
-
-    const result = await settleWithin(
-      scheduler(run.store, registry).run("run_node_deadline02"),
-    );
+    const resultPromise = scheduler(run.store, registry).run("run_node_deadline02");
+    const liveSignal = await settleWithin(Promise.race([
+      started.promise,
+      resultPromise.then(result => {
+        throw new Error(
+          `Scheduler settled ${result.summary.status} before the live executor started.`,
+        );
+      }),
+    ]), 7_000);
+    expect(executions).toBe(1);
+    expect(liveSignal.aborted).toBe(false);
+    const result = await settleWithin(resultPromise, 8_000);
 
     expect(result.summary.status).toBe("failed");
-    expect(liveSignal?.aborted).toBe(false);
+    expect(liveSignal.aborted).toBe(false);
     expect((await run.store.node("run_node_deadline02", "live"))).toMatchObject({
       failure: {
         code: "ambiguous",
@@ -2170,7 +2181,7 @@ describe("durable workflow scheduler", () => {
     );
     expect(resumed.summary.status).toBe("failed");
     expect(executions).toBe(1);
-  }, 10_000);
+  }, 20_000);
 
   test("the workflow wall-clock deadline bounds a never-settling executor and cancels queued work", async () => {
     const started = deferred<void>();

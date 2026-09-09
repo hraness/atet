@@ -1,0 +1,69 @@
+/* The ordinary pages predate the compiler reset. Restore its additional UA
+   defaults before applying Atet's retained explicit global styles. This is a
+   finite reset bridge, not product component presentation or a blanket reset. */
+* {
+  margin: revert;
+}
+
+html,
+body {
+  min-width: revert;
+  min-height: revert;
+  overflow-x: revert;
+}
+
+html {
+  -webkit-text-size-adjust: revert;
+  text-size-adjust: revert;
+}
+
+body {
+  font-synthesis: revert;
+  font-variant-ligatures: revert;
+  text-rendering: revert;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: revert;
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  font-family: inherit;
+}
+
+select,
+textarea {
+  font: revert;
+}
+
+:where(button, select, input[type="button"], input[type="submit"], input[type="reset"]):not(.hraness-design-theme-toggle__trigger) {
+  touch-action: revert;
+}
+
+button:not(:disabled):not(.hraness-design-theme-toggle__trigger) {
+  cursor: revert;
+}
+
+:where(blockquote, dd, dt, figcaption, h1, h2, h3, h4, h5, h6, li, p) {
+  overflow-wrap: revert;
+}
+
+:where(canvas, img, picture, svg, video) {
+  max-inline-size: revert;
+}
+
+:focus-visible {
+  outline: revert;
+  outline-offset: revert;
+}
+
+::selection {
+  background: revert;
+  color: revert;
+}
+
+/* Shared reduced-motion and forced-colors protections remain in the captured
+   foundation. Atet's later explicit focus and reduced-scroll rules remain. */

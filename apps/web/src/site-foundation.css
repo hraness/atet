@@ -1,0 +1,14 @@
+@layer base, components;
+@layer base.hraness-foundation, base.atet-ua;
+@layer components.hraness-ui, components.hraness-design-kit, components.hraness-site-footer, components.atet-legacy;
+
+/* The exact released foundation includes UI, local fonts and the standards-
+   only appearance fallback. Its unlayered theme tokens must remain below the
+   existing Atet tokens. The finalizer alone owns the later recipe union. */
+@import "@hraness/design-kit/compiler-foundation.css" layer(base.hraness-foundation);
+@import "@hraness/site-footer/compiler-foundation.css";
+@import "@hraness/design-kit/product-marketing.css";
+@import "./site-ua-compatibility.css" layer(base.atet-ua);
+@import "./styles.css" layer(components.atet-legacy);
+@import "./site-ask-ai-compatibility.css";
+@import "./site-footer-compatibility.css";

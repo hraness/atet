@@ -37,7 +37,7 @@ export function sanitizePageview(event: CaptureResult | null, publicKey: string)
       site_id: siteId,
       token: publicKey,
     },
-    timestamp: event.timestamp,
+    ...(event.timestamp === undefined ? {} : { timestamp: event.timestamp }),
     uuid: event.uuid,
   }
 }

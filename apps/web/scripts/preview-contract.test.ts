@@ -38,7 +38,7 @@ function completeFixture() {
     ],
     compilerSha256: digest, finalCss, generationId: "atet-preview",
     graphs: ["preview-foundation", "preview-renderer"].map(id => ({ id, receiptSha256: digest })),
-    kind: "hraness-stylex-complete-generation", packages: [{ manifestSha256: digest, name: "@hraness/ui", version: "0.5.6" }],
+    kind: "hraness-stylex-complete-generation", packages: [{ manifestSha256: digest, name: "@hraness/ui", version: "0.5.7" }],
     planSha256: digest, schemaVersion: 2, state: "complete", unionPolicySha256: digest,
   }
   const expected = { compilerSha256: digest, finalCssPath: finalCss.path, foundation, manifestSha256: digest, planSha256: digest, unionPolicySha256: digest }
@@ -122,7 +122,7 @@ describe("inert preview artifact boundary (pure synthetic contract controls)", (
       (value: any) => { value.unionPolicySha256 = previewSha256("other") },
       (value: any) => { value.planSha256 = previewSha256("other") },
       (value: any) => { value.state = "building" },
-      (value: any) => { value.packages[0].version = "0.5.5" },
+      (value: any) => { value.packages[0].version = "0.5.6" },
       (value: any) => { value.packages[0].manifestSha256 = previewSha256("other") },
       (value: any) => { value.graphs[0].id = "other" },
       (value: any) => { value.absoluteSource = "/private/source" },

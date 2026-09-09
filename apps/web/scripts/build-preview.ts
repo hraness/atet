@@ -63,7 +63,7 @@ export async function buildPreview(appDirectory: string): Promise<BuiltPreview> 
   const root = await sourceRoot(app)
   const manifestPath = await realpath(fileURLToPath(import.meta.resolve("@hraness/ui/stylex-manifest.json")))
   const manifest = await readStylexPackageManifest(manifestPath)
-  assert.deepEqual(manifest.package, { name: "@hraness/ui", version: "0.5.6" })
+  assert.deepEqual(manifest.package, { name: "@hraness/ui", version: "0.5.7" })
   const manifestSha256 = previewSha256(`${canonicalJson(manifest)}\n`)
   const fontCss = await realpath(fileURLToPath(import.meta.resolve("@hraness/design-kit/fonts.css")))
   const fonts = await Promise.all(fontFiles.map(async path => {

@@ -1,5 +1,5 @@
-import { beforeAll, describe, expect, test } from "bun:test"
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test"
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -37,15 +37,88 @@ import middleware, { config as middlewareConfig } from "./middleware"
 import { buildWebsite, renderAskAiAboutThis, renderSitemapXml } from "./scripts/build"
 import { renderAtetSocialImage } from "./scripts/generate-og"
 import { parsePublishedRelease, publishedArchiveUrl, publishedRelease } from "./src/published-release"
+import { replaceSiteSlot } from "./src/site-template"
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
 const brandDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
 const searchDescription = "Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos."
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
-beforeAll(async () => {
-  builtAssets = await buildWebsite({ environment: {} })
+// Each build compiles the independent ordinary-site and preview graphs. These
+// are compilation-fixture budgets, not deadlines for production operations or
+// the ordinary content assertions below.
+const compilationTimeoutMs = 60_000
+const repeatedCompilationTimeoutMs = 2 * compilationTimeoutMs
+type CompilationFixture = Readonly<{
+  build: typeof buildWebsite
+  temporaryDirectory: (prefix: string) => Promise<string>
+}>
+type CompilationOwner = Readonly<{ collect: () => Promise<void> }>
+let compilationOwner: CompilationOwner | undefined
+
+function ownedCompilation<T>(
+  body: (fixture: CompilationFixture) => Promise<T>,
+  compile: typeof buildWebsite = buildWebsite,
+): Promise<T> {
+  if (compilationOwner !== undefined) throw new Error("Previous compilation fixture has not settled")
+  const controller = new AbortController()
+  const directories = new Set<string>()
+  let collection: Promise<void> | undefined
+  // Register ownership before dispatch. Bun timing out a test does not cancel
+  // its promise; collection revokes the next build and joins the whole callback
+  // before removing any output directory or admitting another fixture.
+  const task = Promise.resolve().then(() => {
+    controller.signal.throwIfAborted()
+    return body({
+      build: async options => {
+        controller.signal.throwIfAborted()
+        const result = await compile(options)
+        controller.signal.throwIfAborted()
+        return result
+      },
+      temporaryDirectory: async prefix => {
+        controller.signal.throwIfAborted()
+        const directory = await mkdtemp(join(tmpdir(), prefix))
+        directories.add(directory)
+        controller.signal.throwIfAborted()
+        return directory
+      },
+    })
+  })
+  // Observe rejection immediately, including the timeout-to-afterEach window.
+  const settled = Promise.allSettled([task])
+  const owner: CompilationOwner = {
+    collect: () => {
+      if (collection !== undefined) return collection
+      controller.abort(new Error("Compilation fixture admission has ended"))
+      collection = (async () => {
+        await settled
+        const cleanup = await Promise.allSettled([...directories].map(directory =>
+          rm(directory, { force: true, recursive: true })))
+        const failures = cleanup.filter(result => result.status === "rejected")
+        if (failures.length !== 0) {
+          throw new AggregateError(failures.map(result => result.reason), "Compilation fixture cleanup failed")
+        }
+        if (compilationOwner === owner) compilationOwner = undefined
+      })()
+      return collection
+    },
+  }
+  compilationOwner = owner
+  return task
+}
+
+async function collectCompilation(): Promise<void> {
+  await compilationOwner?.collect()
+}
+
+beforeEach(() => {
+  // A timed-out collection never releases ownership, even if Bun proceeds to
+  // another case. Do not admit a new writer over its surviving continuation.
+  if (compilationOwner !== undefined) throw new Error("Previous compilation fixture has not settled")
 })
+afterEach(collectCompilation, repeatedCompilationTimeoutMs)
+afterAll(collectCompilation, repeatedCompilationTimeoutMs)
 
 async function readSource(path: string): Promise<string> {
   return await readFile(join(appDirectory, "src", path), "utf8")
@@ -55,7 +128,131 @@ async function readBuilt(path: string): Promise<string> {
   return await readFile(join(appDirectory, "dist", path), "utf8")
 }
 
+function assertAuthoredShellBudget(template: string): number {
+  let authored = replaceSiteSlot(template, "{{PUBLISHED_VERSION}}", publishedRelease.version, 7)
+  authored = replaceSiteSlot(authored, "{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1)
+  authored = replaceSiteSlot(authored, "{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl, 1)
+  // Discount only the finite compiler-slot spelling, never authored classes or HTML.
+  for (const [slot, count] of [
+    ["{{SITE_SKIP_CLASS}}", 1], ["{{SITE_HEADER_CLASS}}", 1],
+    ["{{SITE_WORDMARK_CLASS}}", 1], ["{{SITE_ACTIONS_CLASS}}", 1],
+    ["{{SITE_NAVIGATION_CLASS}}", 1], ["{{SITE_HOME_NAVIGATION_LINK_CLASS}}", 4],
+    ["{{SITE_NAVIGATION_ACTION_CLASS}}", 1],
+  ] as const) authored = replaceSiteSlot(authored, slot, "", count)
+  if (/\{\{SITE_[^{}]*_CLASS\}\}/u.test(authored)) throw new Error("Unexpected site class slot")
+  const bytes = new TextEncoder().encode(authored).byteLength
+  if (bytes >= 32_000) throw new Error(`Authored site shell exceeds its 32,000-byte budget: ${bytes}`)
+  return bytes
+}
+
+test("authored shell budget rejects content growth and unapproved slot discounts without compilation", async () => {
+  const template = await readSource("index.html")
+  expect(assertAuthoredShellBudget(template)).toBeLessThan(32_000)
+  expect(() => assertAuthoredShellBudget(template.replace("</main>", `${"x".repeat(32_000)}</main>`)))
+    .toThrow("Authored site shell exceeds its 32,000-byte budget")
+  expect(() => assertAuthoredShellBudget(`${template}{{SITE_UNKNOWN_CLASS}}`))
+    .toThrow("Unexpected site class slot")
+  expect(() => assertAuthoredShellBudget(`${template}{{SITE_SKIP_CLASS}}`))
+    .toThrow("Site document must contain 1 instance(s) of {{SITE_SKIP_CLASS}}")
+  for (const slot of ["PUBLISHED_ARCHIVE_URL", "PUBLISHED_RELEASE_URL"]) {
+    expect(() => assertAuthoredShellBudget(`${template}{{${slot}}}`))
+      .toThrow(`Site document must contain 1 instance(s) of {{${slot}}}`)
+  }
+})
+
+describe("compilation fixture ownership (controlled promises, no compiler)", () => {
+  test("collection before dispatch prevents any work from starting", async () => {
+    let dispatched = false
+    const task = ownedCompilation(async () => { dispatched = true })
+    const collection = collectCompilation()
+    await expect(task).rejects.toThrow("Compilation fixture admission has ended")
+    await collection
+    expect(dispatched).toBe(false)
+    expect(compilationOwner).toBeUndefined()
+  })
+
+  test("late build completion is joined before cleanup and cannot start another build", async () => {
+    let enter!: () => void
+    let release!: () => void
+    const entered = new Promise<void>(resolve => { enter = resolve })
+    const released = new Promise<void>(resolve => { release = resolve })
+    let directory = ""
+    let builds = 0
+    let reachedSecondBuild = false
+    const task = ownedCompilation(async fixture => {
+      directory = await fixture.temporaryDirectory("atet-web-owned-settlement-")
+      await fixture.build({ outputDirectory: directory })
+      reachedSecondBuild = true
+      await fixture.build({ outputDirectory: directory })
+    }, async () => {
+      builds += 1
+      enter()
+      await released
+      await writeFile(join(directory, "late-output.txt"), "settled before cleanup")
+      return builtAssets
+    })
+    await entered
+    let collected = false
+    const collection = collectCompilation().then(() => { collected = true })
+    try {
+      expect(compilationOwner).toBeDefined()
+      expect(() => ownedCompilation(async () => {})).toThrow("Previous compilation fixture has not settled")
+      expect(await readdir(directory)).toEqual([])
+      expect(collected).toBe(false)
+    } finally {
+      release()
+      await expect(task).rejects.toThrow("Compilation fixture admission has ended")
+      await collection
+    }
+    expect(builds).toBe(1)
+    expect(reachedSecondBuild).toBe(false)
+    expect(collected).toBe(true)
+    expect(compilationOwner).toBeUndefined()
+    await expect(readdir(directory)).rejects.toMatchObject({ code: "ENOENT" })
+  })
+
+  test("a rejected build retains its exact failure and outputs until collection", async () => {
+    const failure = new Error("controlled compiler rejection")
+    let directory = ""
+    const task = ownedCompilation(async fixture => {
+      directory = await fixture.temporaryDirectory("atet-web-owned-rejection-")
+      await fixture.build({ outputDirectory: directory })
+    }, async () => { throw failure })
+    await expect(task).rejects.toBe(failure)
+    expect(compilationOwner).toBeDefined()
+    expect(await readdir(directory)).toEqual([])
+    await collectCompilation()
+    expect(compilationOwner).toBeUndefined()
+    await expect(readdir(directory)).rejects.toMatchObject({ code: "ENOENT" })
+    await ownedCompilation(async () => {})
+    await collectCompilation()
+  })
+})
+
+test("analytics preserves an optional timestamp without manufacturing an undefined field", () => {
+  for (const timestamp of [undefined, new Date("2026-09-08T00:00:00.000Z")]) {
+    const sanitized = sanitizePageview({
+      event: "$pageview",
+      properties: { token: "phc_testtoken", distinct_id: posthogCookielessDistinctId,
+        $cookieless_mode: true, $raw_user_agent: "native test user agent" },
+      uuid: "0198c6a7-7c00-7000-8000-000000000000",
+      ...(timestamp === undefined ? {} : { timestamp }),
+    }, "phc_testtoken")
+    expect(sanitized).not.toBeNull()
+    expect(Object.hasOwn(sanitized!, "timestamp")).toBe(timestamp !== undefined)
+    expect(sanitized?.timestamp).toBe(timestamp)
+  }
+})
+
 describe("static Atet site", () => {
+  beforeAll(async () => {
+    try {
+      builtAssets = await ownedCompilation(fixture => fixture.build({ environment: {} }))
+    } finally {
+      await collectCompilation()
+    }
+  }, compilationTimeoutMs)
+
   test("published release separates public availability from the source candidate", async () => {
     expect(publishedRelease).toEqual({
       version: "3.2.3",
@@ -390,7 +587,7 @@ describe("static Atet site", () => {
       expect(artifact.bytes).toBeGreaterThan(0)
       expect(artifact.sha256).toBe(new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
     }
-    expect(await readdir(join(appDirectory, "dist/graphs"))).toEqual(["preview-foundation"])
+    expect((await readdir(join(appDirectory, "dist/graphs"))).sort()).toEqual(["preview-foundation", "site-foundation"])
     expect(await readdir(join(appDirectory, "dist/graphs/preview-foundation"))).toEqual(["assets"])
     expect((await readdir(join(appDirectory, "dist/graphs/preview-foundation/assets"))).sort())
       .toEqual(paths.filter(path => path.startsWith("graphs/preview-foundation/assets/"))
@@ -403,6 +600,62 @@ describe("static Atet site", () => {
       return url.pathname.slice(1)
     }).sort()).toEqual([...fonts].sort())
     expect(foundation).not.toMatch(/sourceMappingURL|@import\b/u)
+  })
+
+  test("publishes two sealed ordinary documents with one complete union and bound local fonts", async () => {
+    const artifacts = builtAssets.siteArtifacts
+    const paths = artifacts.map(item => item.path)
+    expect(artifacts).toHaveLength(17)
+    expect(paths).toEqual([...paths].sort())
+    expect(new Set(paths).size).toBe(17)
+    expect(paths.filter(path => path.endsWith(".html"))).toEqual(["404.html", "index.html"])
+    expect(paths.filter(path => path.endsWith(".css")).sort()).toEqual([
+      builtAssets.stylesPath.slice(1), builtAssets.siteFoundationPath.slice(1),
+    ].sort())
+    expect(builtAssets.stylesPath).toMatch(/^\/assets\/site-[a-f0-9]{64}\.css$/u)
+    expect(builtAssets.siteFoundationPath).toMatch(/^\/graphs\/site-foundation\/assets\/[A-Za-z0-9_.-]+\.css$/u)
+    for (const artifact of artifacts) {
+      expect(Object.keys(artifact).sort()).toEqual(["bytes", "path", "sha256"])
+      const bytes = await readFile(join(appDirectory, "dist", artifact.path))
+      expect(artifact.bytes).toBe(bytes.byteLength)
+      expect(artifact.bytes).toBeGreaterThan(0)
+      expect(artifact.sha256).toBe(new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
+    }
+    const fonts = paths.filter(path => path.endsWith(".woff2"))
+    expect(fonts).toHaveLength(13)
+    const foundation = await readBuilt(builtAssets.siteFoundationPath.slice(1))
+    const union = await readBuilt(builtAssets.stylesPath.slice(1))
+    expect(foundation.match(/@font-face\b/gu)).toHaveLength(13)
+    expect([...foundation.matchAll(/url\(["']?([^"')]+)["']?\)/gu)].map(match => {
+      const url = new URL(match[1]!, "https://atet.sh" + builtAssets.siteFoundationPath)
+      expect(url.origin).toBe("https://atet.sh")
+      return url.pathname.slice(1)
+    }).sort()).toEqual([...fonts].sort())
+    expect(foundation).not.toMatch(/sourceMappingURL|@import\b/u)
+    expect(union).not.toMatch(/url\(|@font-face|sourceMappingURL/u)
+    expect(foundation).toContain("components.atet-legacy")
+    expect(union).toContain("components.hraness-stylex")
+    expect(await readdir(join(appDirectory, "dist/graphs/site-foundation"))).toEqual(["assets"])
+    expect((await readdir(join(appDirectory, "dist/graphs/site-foundation/assets"))).sort())
+      .toEqual(paths.filter(path => path.startsWith("graphs/site-foundation/assets/"))
+        .map(path => path.split("/").at(-1)!).sort())
+    const stylesheets = '<link rel="stylesheet" href="' + builtAssets.siteFoundationPath
+      + '">\n    <link rel="stylesheet" href="' + builtAssets.stylesPath + '">'
+    for (const path of ["index.html", "404.html"]) {
+      const html = await readBuilt(path)
+      expect(html).toContain(stylesheets)
+      expect(html.match(/<link rel="stylesheet"(?=\s|>)/gu)).toHaveLength(2)
+      expect(html).not.toMatch(/\{\{|<style\b|\sstyle\s*=|graphs\/site-renderer/u)
+      for (const marker of ["skip-link", "topbar", "wordmark", "topbar-actions"]) {
+        const classes = new RegExp('class="' + marker + ' ([^"]+)"', "u").exec(html)?.[1]?.split(" ")
+        expect(classes).toBeDefined()
+        expect(classes!.length).toBeGreaterThan(0)
+        for (const name of classes!) {
+          expect(name).toMatch(/^x[A-Za-z0-9_-]+$/u)
+          expect(union).toContain("." + name)
+        }
+      }
+    }
   })
 
   test("links the website, product, and source in structured data", async () => {
@@ -516,7 +769,7 @@ describe("static Atet site", () => {
   test("renders a progressively enhanced reusable copy command in the hero", async () => {
     const [html, build, client] = await Promise.all([
       readBuilt("index.html"),
-      readFile(join(appDirectory, "scripts/build.ts"), "utf8"),
+      readSource("site-content.ts"),
       readSource("copy-command.ts"),
     ])
 
@@ -547,7 +800,7 @@ describe("static Atet site", () => {
       'id="maker"',
     ]
     const positions = sections.map(section => html.indexOf(section))
-    const navigation = /<nav aria-label="Primary">([\s\S]*?)<\/nav>/u.exec(html)?.[1] ?? ""
+    const navigation = /<nav aria-label="Primary" class="\{\{SITE_NAVIGATION_CLASS\}\}">([\s\S]*?)<\/nav>/u.exec(html)?.[1] ?? ""
 
     expect(positions.every(position => position >= 0)).toBe(true)
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
@@ -558,7 +811,7 @@ describe("static Atet site", () => {
       "https://github.com/hraness/atet",
       "#install",
     ])
-    expect(navigation).toContain('class="hraness-marketing-action" data-emphasis="primary" href="#install"')
+    expect(navigation).toContain('class="site-action {{SITE_NAVIGATION_ACTION_CLASS}}" data-emphasis="primary" href="#install"')
     expect(html).not.toContain('class="docs-index"')
     for (const role of [
       "pillars",
@@ -661,15 +914,15 @@ describe("static Atet site", () => {
     const ids = new Set([...html.matchAll(/\sid="([^"]+)"/gu)].map(match => match[1]))
 
     expect(html.match(/<h1\b/gu)).toHaveLength(1)
-    expect(html).toContain('<a class="skip-link" href="#main">')
-    expect(html).toContain('<nav aria-label="Primary">')
-    expect(html).toContain('<div class="topbar-actions">')
+    expect(html).toContain('<a class="skip-link {{SITE_SKIP_CLASS}}" href="#main">')
+    expect(html).toContain('<nav aria-label="Primary" class="{{SITE_NAVIGATION_CLASS}}">')
+    expect(html).toContain('<div class="topbar-actions {{SITE_ACTIONS_CLASS}}">')
     expect(html).toContain('<main id="main" tabindex="-1">')
     expect(html).not.toMatch(/<section(?![^>]*aria-labelledby)/)
     expect(fragmentLinks.every(fragment => ids.has(fragment))).toBe(true)
     expect(notFound.match(/<h1\b/gu)).toHaveLength(1)
-    expect(notFound).toContain('<a class="skip-link" href="#main">')
-    expect(notFound).toContain('<main class="route-state" id="main" tabindex="-1">')
+    expect(notFound).toContain('<a class="skip-link {{SITE_SKIP_CLASS}}" href="#main">')
+    expect(notFound).toContain('<main class="route-state {{SITE_RECOVERY_CLASS}}" id="main" tabindex="-1">')
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
     expect(notFound).toContain('<meta name="theme-color" content="#faf8f3" media="(prefers-color-scheme: light)">')
     expect(notFound).toContain('<meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">')
@@ -678,8 +931,8 @@ describe("static Atet site", () => {
     expect(notFound).toContain('href="/sitemap.xml"')
     expect(notFound).toContain("machine-readable site guide")
     expect(css).toContain(":where(a, button, [tabindex]):focus-visible")
-    expect(css).toContain(".topbar")
-    expect(css).toContain(".route-state")
+    expect(css).not.toContain(".topbar")
+    expect(css).not.toContain(".route-state")
     expect(css).not.toMatch(/\.reading-(?:article|card|index|module)/u)
     expect(css).toContain("@media (max-width: 64rem)")
     expect(css).toContain("@media (max-width: 48rem)")
@@ -696,7 +949,7 @@ describe("static Atet site", () => {
     for (const document of documents) {
       expect(document.match(/data-hraness-appearance-menu/gu)).toHaveLength(1)
       expect(document).toMatch(
-        /<header class="topbar">[\s\S]*?<div class="topbar-actions">[\s\S]*?<nav aria-label="Primary">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
+        /<header class="topbar [^"]+">[\s\S]*?<div class="topbar-actions [^"]+">[\s\S]*?<nav aria-label="Primary" class="[^"]+">[\s\S]*?<\/nav>\s*<div[^>]*data-hraness-appearance-menu[^>]*>[\s\S]*?<\/div>\s*<\/div>\s*<\/header>/u,
       )
       const footerStart = document.indexOf('data-slot="hraness-site-footer"')
       expect(footerStart).toBeGreaterThan(0)
@@ -723,7 +976,7 @@ describe("static Atet site", () => {
     expect(css).toContain('html[data-theme="dark"]')
     expect(css).not.toMatch(/--font-display|ui-serif|Baskerville|text-transform:\s*uppercase|letter-spacing:\s*0\.\d+em/u)
     expect(css).not.toMatch(/transition|animation|@keyframes/u)
-    expect(css).toContain(".topbar")
+    expect(css).not.toContain(".topbar")
     expect(css).toContain(".transcript")
     expect(css).toContain(".origin-note")
     expect(css).not.toMatch(/@font-face|url\([^)]*\.woff/)
@@ -731,16 +984,16 @@ describe("static Atet site", () => {
     expect(html).toContain('data-hraness-marketing="proof-frame"')
     expect(html).toContain("Built by Ben Guo")
     expect(html).not.toMatch(/<h1[^>]*>[^<]*(?:bounded|exact|authority|custody|immutable|inspectable|canonical|projection|receipt)/iu)
-    const builtCss = await readBuilt(builtAssets.stylesPath.slice(1))
-    expect(builtCss).toContain('font-family: "Nebula Sans";')
-    expect(builtCss).toContain('./fonts/nebula-sans/NebulaSans-Book.woff2')
+    const builtCss = await readBuilt(builtAssets.siteFoundationPath.slice(1))
+    expect(builtCss).toMatch(/font-family:\s*"?Nebula Sans"?/u)
     expect(builtCss).toContain(".hraness-marketing-hero")
     expect(builtCss).toContain(".hraness-marketing-interface-grid")
-    expect((await readFile(
-      join(appDirectory, "dist/assets/fonts/nebula-sans/NebulaSans-Book.woff2"),
-    )).byteLength).toBeGreaterThan(60_000)
-    expect(await readBuilt("assets/fonts/nebula-sans/PROVENANCE.md"))
-      .toContain("https://www.nebulasans.com/download/NebulaSans-1.010.zip")
+    const book = builtAssets.siteArtifacts.find(item => /\/NebulaSans-Book-[A-Za-z0-9_-]+\.woff2$/u.test(item.path))
+    expect(book).toBeDefined()
+    expect(book!.bytes).toBeGreaterThan(60_000)
+    expect((await readFile(join(appDirectory, "dist", book!.path))).byteLength).toBe(book!.bytes)
+    expect(builtAssets.siteArtifacts.filter(item => item.path.endsWith(".woff2"))).toHaveLength(13)
+    expect(builtAssets.siteArtifacts.some(item => /PROVENANCE|\.(?:otf|json|map|ts|js)$/u.test(item.path))).toBe(false)
   })
 
   test("ships reproducible correctly sized social and icon assets", async () => {
@@ -814,7 +1067,7 @@ describe("static Atet site", () => {
     expect(manifest.dependencies).toEqual({
       "@hraness/design-kit": "github:hraness/design-kit#v0.5.2",
       "@hraness/site-footer": "github:hraness/site-footer#v0.6.1",
-      "@hraness/ui": "github:hraness/ui#v0.5.6",
+      "@hraness/ui": "github:hraness/ui#v0.5.7",
       "@resvg/resvg-js": "2.6.2",
       "posthog-js": "1.413.2",
       "react": "19.2.3",
@@ -841,26 +1094,26 @@ describe("static Atet site", () => {
     expect(localLockfile).toContain(
       '"@hraness/site-footer": "github:hraness/site-footer#v0.6.1"',
     )
-    expect(localLockfile).toContain('"@hraness/ui": "github:hraness/ui#v0.5.6"')
+    expect(localLockfile).toContain('"@hraness/ui": "github:hraness/ui#v0.5.7"')
     expect(localLockfile).toContain('"@resvg/resvg-js": "2.6.2"')
     expect(localLockfile).toContain('"posthog-js": "1.413.2"')
     for (const [name, version] of Object.entries(manifest.devDependencies ?? {})) {
       expect(localLockfile).toContain(`"${name}": "${version}"`)
     }
     expect(localLockfile).not.toContain("catalog:")
-    // Measure the version-resolved shell, excluding only publication-token overhead.
-    const versionResolvedShell = html.replaceAll("{{PUBLISHED_VERSION}}", publishedRelease.version)
-      .replaceAll("{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl)
-      .replaceAll("{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl)
-    expect(new TextEncoder().encode(versionResolvedShell).byteLength).toBeLessThan(32_000)
+    expect(assertAuthoredShellBudget(html)).toBeLessThan(32_000)
+    // Bound the full sealed document separately, including compiled classes and content producers.
+    const emittedBytes = new TextEncoder().encode(await readBuilt("index.html")).byteLength
+    expect(builtAssets.siteArtifacts.find(artifact => artifact.path === "index.html")?.bytes).toBe(emittedBytes)
+    expect(emittedBytes).toBeLessThan(56_000)
     expect(new TextEncoder().encode(css).byteLength).toBeLessThan(36_000)
     expect(new TextEncoder().encode(theme).byteLength).toBeLessThan(3_000)
     expect(new TextEncoder().encode(copyCommand).byteLength).toBeLessThan(4_000)
     expect(html).not.toMatch(/https:\/\/[^"']+\.(?:css|js)/)
-    expect(html).toContain('<link rel="stylesheet" href="{{CSS_ASSET}}">')
+    expect(html).toContain("{{SITE_STYLES}}")
     expect(html).toContain('<script src="{{THEME_ASSET}}"></script>')
     expect(html.indexOf('<script src="{{THEME_ASSET}}"></script>'))
-      .toBeLessThan(html.indexOf('<link rel="stylesheet" href="{{CSS_ASSET}}">'))
+      .toBeLessThan(html.indexOf("{{SITE_STYLES}}"))
     expect(html).toContain("{{APPEARANCE_MENU}}")
     expect(html).toContain("{{ANALYTICS_SCRIPT}}")
     expect(html.match(/<script\b/gu)).toHaveLength(2)
@@ -881,10 +1134,12 @@ describe("static Atet site", () => {
     expect(build).toContain('createHash("sha256")')
     expect(build).toContain("Bun.build")
     expect(build).toContain('format: "iife"')
-    expect(build).toContain('import.meta.resolve("@hraness/design-kit/appearance-menu.css")')
-    expect(build).toContain('import.meta.resolve("@hraness/design-kit/fonts.css")')
-    expect(build).toContain("renderAppearanceMenu()")
-    expect(build).toContain("renderCopyCommand({")
+    expect(await readSource("site-foundation.css"))
+      .toContain('@import "@hraness/design-kit/compiler-foundation.css"')
+    expect(await readFile(join(appDirectory, "scripts/build-site.ts"), "utf8"))
+      .toContain('import.meta.resolve("@hraness/design-kit/fonts.css")')
+    expect(await readSource("site-content.ts")).toContain("renderAppearanceMenu()")
+    expect(await readSource("site-content.ts")).toContain("renderCopyCommand({")
     expect(build).toContain('environment.VERCEL_ENV !== "production"')
     expect(build).not.toContain("docsTemplate")
     expect(build).not.toContain('outputDirectory, "docs"')
@@ -992,22 +1247,26 @@ describe("static Atet site", () => {
   })
 
   test("emits analytics only for a configured Production build", async () => {
-    const productionDirectory = await mkdtemp(join(tmpdir(), "atet-web-production-"))
-    const secondDirectory = await mkdtemp(join(tmpdir(), "atet-web-production-repeat-"))
-    try {
+    await ownedCompilation(async fixture => {
+      const productionDirectory = await fixture.temporaryDirectory("atet-web-production-")
+      const secondDirectory = await fixture.temporaryDirectory("atet-web-production-repeat-")
       const environment = {
         NEXT_PUBLIC_POSTHOG_HOST: "https://us.i.posthog.com",
         NEXT_PUBLIC_POSTHOG_KEY: "phc_test-token_value",
         VERCEL_ENV: "production",
       } as const
-      const first = await buildWebsite({ environment, outputDirectory: productionDirectory })
-      const second = await buildWebsite({ environment, outputDirectory: secondDirectory })
+      const first = await fixture.build({ environment, outputDirectory: productionDirectory })
+      const second = await fixture.build({ environment, outputDirectory: secondDirectory })
       expect(first.analyticsPath).toMatch(/^\/assets\/analytics-[a-f0-9]{12}\.js$/u)
       expect(second.analyticsPath).toBe(first.analyticsPath)
       expect(second.previewStylesPath).toBe(first.previewStylesPath)
       expect(second.previewFoundationPath).toBe(first.previewFoundationPath)
       expect(second.previewArtifacts).toEqual(first.previewArtifacts)
       expect(first.previewArtifacts).toEqual(builtAssets.previewArtifacts)
+      expect(second.siteArtifacts).toEqual(first.siteArtifacts)
+      expect(second.siteFoundationPath).toBe(first.siteFoundationPath)
+      expect(second.stylesPath).toBe(first.stylesPath)
+      expect(first.stylesPath).not.toBe(builtAssets.stylesPath)
 
       const [html, notFound, preview, asset] = await Promise.all([
         readFile(join(productionDirectory, "index.html"), "utf8"),
@@ -1023,18 +1282,13 @@ describe("static Atet site", () => {
       expect(asset).toStartWith("/*! posthog-js 1.413.2")
       expect(asset).toContain("Apache License\n                           Version 2.0")
       expect(new TextEncoder().encode(asset).byteLength).toBeLessThan(180_000)
-    } finally {
-      await Promise.all([
-        rm(productionDirectory, { force: true, recursive: true }),
-        rm(secondDirectory, { force: true, recursive: true }),
-      ])
-    }
-  })
+    })
+  }, repeatedCompilationTimeoutMs)
 
   test("keeps missing, Preview, and unsupported-host analytics builds inert", async () => {
-    const outputDirectory = await mkdtemp(join(tmpdir(), "atet-web-inert-"))
-    try {
-      const preview = await buildWebsite({
+    await ownedCompilation(async fixture => {
+      const outputDirectory = await fixture.temporaryDirectory("atet-web-inert-")
+      const preview = await fixture.build({
         environment: {
           NEXT_PUBLIC_POSTHOG_KEY: "phc_testtoken",
           VERCEL_ENV: "preview",
@@ -1045,7 +1299,7 @@ describe("static Atet site", () => {
       expect(await readFile(join(outputDirectory, "index.html"), "utf8"))
         .not.toMatch(/analytics-|phc_testtoken/)
 
-      await expect(buildWebsite({
+      await expect(fixture.build({
         environment: {
           NEXT_PUBLIC_POSTHOG_HOST: "https://example.com",
           NEXT_PUBLIC_POSTHOG_KEY: "phc_testtoken",
@@ -1053,10 +1307,8 @@ describe("static Atet site", () => {
         },
         outputDirectory,
       })).rejects.toThrow("NEXT_PUBLIC_POSTHOG_HOST must equal https://us.i.posthog.com")
-    } finally {
-      await rm(outputDirectory, { force: true, recursive: true })
-    }
-  })
+    })
+  }, compilationTimeoutMs)
 
   test("renders one closed static page with resolved content-hashed assets", async () => {
     const [html, notFound, rootFiles, assetFiles] = await Promise.all([
@@ -1089,21 +1341,23 @@ describe("static Atet site", () => {
       "sitemap.xml",
     ])
     expect(assetFiles.sort()).toEqual([
-      "fonts",
       builtAssets.previewStylesPath.split("/").at(-1)!,
       builtAssets.stylesPath.split("/").at(-1)!,
       builtAssets.themePath.split("/").at(-1)!,
     ].sort())
 
-    const [stylesAsset, themeAsset] = await Promise.all([
+    const [stylesAsset, foundationAsset, themeAsset] = await Promise.all([
       readFile(join(appDirectory, "dist", builtAssets.stylesPath.slice(1)), "utf8"),
+      readFile(join(appDirectory, "dist", builtAssets.siteFoundationPath.slice(1)), "utf8"),
       readFile(join(appDirectory, "dist", builtAssets.themePath.slice(1)), "utf8"),
     ])
-    expect(stylesAsset).toContain(".hraness-design-theme-toggle__trigger")
+    expect(foundationAsset).toContain(".hraness-design-theme-toggle__trigger")
     expect(stylesAsset).toContain("--hraness-site-footer-social-target")
     expect(stylesAsset).not.toContain("@import \"./dist/stylex.css\"")
-    expect(stylesAsset).toContain("@media (pointer: coarse)")
-    expect(new TextEncoder().encode(stylesAsset).byteLength).toBeLessThan(74_000)
+    expect(stylesAsset).toMatch(/@media\s*\(pointer:\s*coarse\)/u)
+    // The ordinary graph now includes the complete three-package union and
+    // captured compatibility foundation, never duplicated standalone sheets.
+    expect(new TextEncoder().encode(stylesAsset + foundationAsset).byteLength).toBeLessThan(256_000)
     expect(new TextEncoder().encode(themeAsset).byteLength).toBeLessThan(24_000)
     expect(themeAsset).not.toMatch(/react|next-themes|react-aria/i)
     expect(themeAsset).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)

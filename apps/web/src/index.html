@@ -15,7 +15,7 @@
     <link rel="canonical" href="https://atet.sh/">
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <link rel="stylesheet" href="{{CSS_ASSET}}">
+    {{SITE_STYLES}}
     <link rel="sitemap" type="application/xml" href="/sitemap.xml">
     <link rel="alternate" type="text/markdown" href="/index.md">
     <link rel="describedby" href="/llms.txt">
@@ -86,12 +86,7 @@
       "installUrl": "https://atet.sh/#install",
       "isAccessibleForFree": true,
       "license": "https://opensource.org/license/mit",
-      "offers": {
-        "@type": "Offer",
-        "availability": "https://schema.org/InStock",
-        "price": 0,
-        "priceCurrency": "USD"
-      },
+      "offers": { "@type": "Offer", "availability": "https://schema.org/InStock", "price": 0, "priceCurrency": "USD" },
       "operatingSystem": ["macOS", "Linux", "Windows"],
       "publisher": { "@id": "https://hraness.com/#organization" },
       "sameAs": [
@@ -154,16 +149,16 @@
     {{ANALYTICS_SCRIPT}}
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-    <header class="topbar">
-      <a aria-label="Atet home" class="wordmark" href="/">Atet</a>
-      <div class="topbar-actions">
-        <nav aria-label="Primary">
-          <a href="#examples">Examples</a>
-          <a href="#workflow">Workflow</a>
-          <a href="#interfaces">Interfaces</a>
-          <a href="https://github.com/hraness/atet">GitHub</a>
-          <a class="hraness-marketing-action" data-emphasis="primary" href="#install">Install Atet</a>
+    <a class="skip-link {{SITE_SKIP_CLASS}}" href="#main">Skip to content</a>
+    <header class="topbar {{SITE_HEADER_CLASS}}">
+      <a aria-label="Atet home" class="wordmark {{SITE_WORDMARK_CLASS}}" href="/">Atet</a>
+      <div class="topbar-actions {{SITE_ACTIONS_CLASS}}">
+        <nav aria-label="Primary" class="{{SITE_NAVIGATION_CLASS}}">
+          <a class="{{SITE_HOME_NAVIGATION_LINK_CLASS}}" href="#examples">Examples</a>
+          <a class="{{SITE_HOME_NAVIGATION_LINK_CLASS}}" href="#workflow">Workflow</a>
+          <a class="{{SITE_HOME_NAVIGATION_LINK_CLASS}}" href="#interfaces">Interfaces</a>
+          <a class="{{SITE_HOME_NAVIGATION_LINK_CLASS}}" href="https://github.com/hraness/atet">GitHub</a>
+          <a class="site-action {{SITE_NAVIGATION_ACTION_CLASS}}" data-emphasis="primary" href="#install">Install Atet</a>
         </nav>
         {{APPEARANCE_MENU}}
       </div>
