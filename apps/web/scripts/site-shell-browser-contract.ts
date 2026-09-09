@@ -371,7 +371,86 @@ export async function denyShellWebSocket(socket: WebSocketRoute, error: (message
   await socket.close({ code: 1008, reason: "Ordinary static verification admits no sockets" })
 }
 
-/** A failed original sample remains red even if a later diagnostic frame settles. */
+/** Observe only this element's native animation/focus state. This function is
+ * serialized into the page, so it deliberately has no module dependencies.
+ * Geometry stability never tests visibility: a stable clipped result must
+ * reach the authoritative assertion below and stay red. */
+export async function settleShellSkipFocus(element: Element, label: string): Promise<{ rect: readonly number[]; scrollY: number }> {
+  const document = element.ownerDocument, view = document.defaultView
+  if (view === null) throw new Error(`${label}: skip document has no native window`)
+  const started = view.performance.now(), deadline = started + 1_000
+  return new Promise((resolve, reject) => {
+    let frame: number | undefined, timer: number | undefined, ended = false, lastTime = started
+    let previous: readonly number[] | undefined
+    const finish = (error?: unknown, value?: { rect: readonly number[]; scrollY: number }) => {
+      if (ended) return
+      ended = true
+      if (frame !== undefined) view.cancelAnimationFrame(frame)
+      if (timer !== undefined) view.clearTimeout(timer)
+      element.removeEventListener("blur", lostFocus)
+      if (error !== undefined) reject(error)
+      else resolve(value!)
+    }
+    // Blur is sticky, including loss and regain between two animation frames.
+    const lostFocus = () => finish(new Error(`${label}: skip lost native focus during settlement`))
+    const checkDeadline = () => {
+      const now = view.performance.now()
+      if (!Number.isFinite(started) || !Number.isFinite(now) || now < lastTime || now >= deadline) {
+        throw new Error(`${label}: skip settlement exceeded its 1000ms local deadline`)
+      }
+      lastTime = now
+    }
+    const read = () => {
+      checkDeadline()
+      if (!element.isConnected || element.ownerDocument !== document || document.activeElement !== element
+        || !element.matches(":focus") || !element.matches(":focus-visible")) {
+        throw new Error(`${label}: skip requires continuous native focus and focus-visible`)
+      }
+      // Flush the focus style/layout before asking which native animations own it.
+      const bounds = element.getBoundingClientRect()
+      void view.getComputedStyle(element).transform
+      const rect = [bounds.x, bounds.y, bounds.width, bounds.height], scrollY = view.scrollY
+      if (!rect.every(Number.isFinite) || !Number.isFinite(scrollY)) throw new Error(`${label}: invalid skip geometry`)
+      let active = false
+      for (const animation of element.getAnimations()) {
+        const effect = animation.effect
+        if (effect === null || !("target" in effect) || effect.target !== element) {
+          throw new Error(`${label}: skip animation has no exact element owner`)
+        }
+        const timing = effect.getComputedTiming()
+        if (typeof timing.endTime !== "number" || !Number.isFinite(timing.endTime) || timing.endTime < 0
+          || typeof timing.duration !== "number" || !Number.isFinite(timing.duration) || timing.duration < 0
+          || typeof timing.iterations !== "number" || !Number.isFinite(timing.iterations) || timing.iterations < 0
+          || animation.playState === "paused"
+          || !Number.isFinite(animation.playbackRate) || animation.playbackRate === 0) {
+          throw new Error(`${label}: skip animation must be finite and unpaused`)
+        }
+        active ||= animation.pending || animation.playState === "running"
+      }
+      checkDeadline() // A late synchronous style/layout read cannot win the timer race.
+      return { rect, scrollY, active }
+    }
+    const observe = () => {
+      try {
+        const value = read(), geometry = [...value.rect, value.scrollY]
+        if (!value.active && previous !== undefined && geometry.every((axis, index) => axis === previous![index])) {
+          finish(undefined, { rect: value.rect, scrollY: value.scrollY })
+          return
+        }
+        previous = value.active ? undefined : geometry
+        frame = view.requestAnimationFrame(observe)
+      } catch (error) { finish(error) }
+    }
+    element.addEventListener("blur", lostFocus)
+    timer = view.setTimeout(() => finish(new Error(`${label}: skip settlement exceeded its 1000ms local deadline`)), 1_000)
+    try {
+      read() // Immediate focus/animation checks do not count as a settled RAF.
+      frame = view.requestAnimationFrame(observe)
+    } catch (error) { finish(error) }
+  })
+}
+
+/** A failed settled sample remains red even if a later diagnostic frame changes. */
 export async function assertShellSkipReveal(rect: readonly number[], label: string, diagnostic: () => Promise<unknown>): Promise<void> {
   if (rect[0]! >= 0 && rect[1]! >= 0 && rect[2]! > 0) return
   assert.fail(`${label}: focused skip link is clipped ${JSON.stringify({ rect, diagnostic: await diagnostic() })}`)
@@ -391,7 +470,8 @@ async function skipRevealDiagnostic(page: Page): Promise<unknown> {
   return { before, afterTwoFrames: await sample() }
 }
 
-export async function checkShellCase(browser: Browser, payload: ShellPayload, scenario: ShellCase, negative: boolean): Promise<ShellEvidence> {
+export async function checkShellCase(browser: Browser, payload: ShellPayload, scenario: ShellCase,
+  source: "current" | "baseline", negative: boolean): Promise<ShellEvidence> {
   const context = await browser.newContext({ viewport: { width: scenario.width, height: scenario.height },
     deviceScaleFactor: scenario.reflowEquivalent ? 2 : 1, colorScheme: scenario.system, forcedColors: scenario.forced,
     hasTouch: scenario.coarse, bypassCSP: false, serviceWorkers: "block", reducedMotion: "reduce" })
@@ -413,6 +493,15 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     })
     const page = await context.newPage()
     const settleCase = () => settle(page, scenario.direction)
+    const focusedSkip = async (phase: "initial" | "reload") => {
+      const label = `${source} ${scenario.name} ${phase}`
+      const settled = await page.locator(".skip-link").evaluate(settleShellSkipFocus, label)
+      await assertShellSkipReveal(settled.rect, label, () => skipRevealDiagnostic(page))
+      const evidence = (await measure(page, [".skip-link"]))[0]!
+      assert.deepEqual(evidence.rect, [settled.rect[0], settled.rect[1]! + settled.scrollY, ...settled.rect.slice(2)],
+        `${label}: skip geometry changed after settlement`)
+      return evidence
+    }
     page.on("pageerror", failure => error(failure.message))
     page.on("console", message => {
       if (message.type() !== "error") return
@@ -444,9 +533,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     await assertAppearancePreference(page, "system", scenario.system)
     await settleCase()
     await page.keyboard.press("Tab")
-    assert.equal(await page.locator(".skip-link").evaluate(element => document.activeElement === element), true)
-    let skip = (await measure(page, [".skip-link"]))[0]!
-    await assertShellSkipReveal(skip.rect, `${negative ? "current" : "baseline"} ${scenario.name} initial`, () => skipRevealDiagnostic(page))
+    await focusedSkip("initial")
     await page.keyboard.press("Enter")
     assert.equal(await page.locator("#main").evaluate(element => document.activeElement === element), true, "Native skip did not focus main")
     await chooseAppearance(page, scenario.theme, scenario.system)
@@ -470,9 +557,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     await settleCase()
     await assertAppearancePreference(page, scenario.theme, scenario.system)
     await page.keyboard.press("Tab")
-    assert.equal(await page.locator(".skip-link").evaluate(element => document.activeElement === element), true)
-    skip = (await measure(page, [".skip-link"]))[0]!
-    await assertShellSkipReveal(skip.rect, `${negative ? "current" : "baseline"} ${scenario.name} reload`, () => skipRevealDiagnostic(page))
+    const skip = await focusedSkip("reload")
     await page.keyboard.press("Enter")
     assert.equal(await page.locator("#main").evaluate(element => document.activeElement === element), true)
     await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }))

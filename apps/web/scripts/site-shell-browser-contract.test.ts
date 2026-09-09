@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
 import { assertShellNode, assertShellSkipReveal, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellPhase, parseShellRequest,
-  resolvedShellTheme, shellAppearanceSteps, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
+  resolvedShellTheme, settleShellSkipFocus, shellAppearanceSteps, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
 
-test("skip reveal diagnostics never turn a failed original frame into acceptance", async () => {
+test("skip reveal diagnostics never turn a failed settled frame into acceptance", async () => {
   let reads = 0
   const diagnostic = async () => { reads += 1; return { afterTwoFrames: { rect: [12, 12, 100, 48], focused: true } } }
   await assertShellSkipReveal([12, 12, 100, 48], "current initial", diagnostic)
@@ -13,6 +13,205 @@ test("skip reveal diagnostics never turn a failed original frame into acceptance
     await expect(assertShellSkipReveal(rect, "current reload", diagnostic)).rejects.toThrow("current reload: focused skip link is clipped")
   }
   expect(reads).toBe(3)
+})
+
+interface SkipAnimation {
+  readonly playState?: AnimationPlayState
+  readonly pending?: boolean
+  readonly playbackRate?: number
+  readonly endTime?: number
+  readonly duration?: number
+  readonly iterations?: number
+  readonly owned?: boolean
+}
+interface SkipSample {
+  readonly rect: readonly number[]
+  readonly scrollY: number
+  readonly focused: boolean
+  readonly focus: boolean
+  readonly focusVisible: boolean
+  readonly connected: boolean
+  readonly animations: readonly SkipAnimation[]
+}
+// Exercise the exact serialized page function with a deterministic native-API
+// surface, without global replacements, a browser, wall-clock sleeps or CSS.
+function skipFixture(initial: Partial<SkipSample> = {}) {
+  let sample: SkipSample = { rect: [12, 12, 100, 48], scrollY: 0, focused: true, focus: true,
+    focusVisible: true, connected: true, animations: [], ...initial }
+  let now = 0, sequence = 0, reads = 0, readCost = 0
+  const frames = new Map<number, () => void>(), timers = new Map<number, { at: number; callback: () => void }>()
+  const blur = new Set<() => void>()
+  let element: Element
+  const document = { get activeElement() { return sample.focused ? element : null }, defaultView: {
+    performance: { now: () => now }, get scrollY() { return sample.scrollY },
+    getComputedStyle: () => ({ transform: "native fixture transform" }),
+    requestAnimationFrame: (callback: () => void) => { frames.set(++sequence, callback); return sequence },
+    cancelAnimationFrame: (id: number) => { frames.delete(id) },
+    setTimeout: (callback: () => void, delay: number) => { timers.set(++sequence, { at: now + delay, callback }); return sequence },
+    clearTimeout: (id: number) => { timers.delete(id) },
+  } }
+  element = {
+    ownerDocument: document, get isConnected() { return sample.connected },
+    matches: (selector: string) => selector === ":focus" ? sample.focus : sample.focusVisible,
+    getBoundingClientRect: () => { reads++; now += readCost; return { x: sample.rect[0], y: sample.rect[1], width: sample.rect[2], height: sample.rect[3] } },
+    getAnimations: () => sample.animations.map(animation => ({
+      playState: animation.playState ?? "running", pending: animation.pending ?? false, playbackRate: animation.playbackRate ?? 1,
+      effect: { target: animation.owned === false ? {} : element, getComputedTiming: () => ({
+        endTime: animation.endTime ?? 0.01, duration: animation.duration ?? 0.01, iterations: animation.iterations ?? 1,
+      }) },
+    })),
+    addEventListener: (_type: string, callback: () => void) => { blur.add(callback) },
+    removeEventListener: (_type: string, callback: () => void) => { blur.delete(callback) },
+  } as unknown as Element
+  return {
+    start(label = "current initial") {
+      const result = settleShellSkipFocus(element, label)
+      void result.catch(() => {})
+      return result
+    },
+    frame(patch: Partial<SkipSample> = {}, at = now + 16) {
+      sample = { ...sample, ...patch }; now = at
+      const callbacks = [...frames.values()]; frames.clear()
+      for (const callback of callbacks) callback()
+    },
+    advance(at: number) {
+      now = at
+      for (const [id, timer] of [...timers]) if (timer.at <= at) { timers.delete(id); timer.callback() }
+    },
+    blurAndRegain() { for (const callback of [...blur]) callback() },
+    setReadCost(milliseconds: number) { readCost = milliseconds },
+    get reads() { return reads },
+    get pending() { return [frames.size, timers.size, blur.size] },
+  }
+}
+
+test("skip settlement requires two native RAF samples even without an animation", async () => {
+  const fixture = skipFixture(), result = fixture.start("baseline reload")
+  expect(fixture.reads).toBe(1) // Immediate native focus/style check.
+  expect(fixture.pending).toEqual([1, 1, 1])
+  fixture.frame()
+  expect(fixture.pending).toEqual([1, 1, 1])
+  fixture.frame()
+  expect(await result).toEqual({ rect: [12, 12, 100, 48], scrollY: 0 })
+  expect(fixture.reads).toBe(3)
+  expect(fixture.pending).toEqual([0, 0, 0])
+})
+
+test("skip settlement waits for finite native transitions, then stable geometry without visibility polling", async () => {
+  const fixture = skipFixture({ rect: [12, -73, 100, 48], animations: [{}] }), result = fixture.start()
+  fixture.frame({ rect: [12, -20, 100, 48] })
+  fixture.frame({ rect: [12, 12, 100, 48], animations: [] })
+  expect(fixture.pending).toEqual([1, 1, 1])
+  fixture.frame()
+  expect(await result).toEqual({ rect: [12, 12, 100, 48], scrollY: 0 })
+  expect(fixture.pending).toEqual([0, 0, 0])
+})
+
+test("skip settlement rejects stable clipping once and later valid geometry cannot heal it", async () => {
+  for (const rect of [[-1, 12, 100, 48], [12, -1, 100, 48], [12, 12, 0, 48]]) {
+    const fixture = skipFixture({ rect }), result = fixture.start()
+    fixture.frame(); fixture.frame()
+    const settled = await result
+    expect(settled.rect).toEqual(rect)
+    expect(fixture.reads).toBe(3)
+    let assertions = 0, diagnostics = 0
+    const verify = async () => {
+      assertions++
+      await assertShellSkipReveal(settled.rect, "current initial", async () => {
+        diagnostics++
+        fixture.frame({ rect: [12, 12, 100, 48] })
+        return { later: [12, 12, 100, 48] }
+      })
+    }
+    await expect(verify()).rejects.toThrow("current initial: focused skip link is clipped")
+    expect([assertions, diagnostics]).toEqual([1, 1])
+    expect(fixture.pending).toEqual([0, 0, 0])
+  }
+})
+
+test("skip settlement rejects immediate and later native focus or focus-visible loss", async () => {
+  for (const patch of [{ focused: false }, { focus: false }, { focusVisible: false }, { connected: false }]) {
+    const immediate = skipFixture(patch)
+    await expect(immediate.start()).rejects.toThrow("continuous native focus and focus-visible")
+    expect(immediate.reads).toBe(0)
+    expect(immediate.pending).toEqual([0, 0, 0])
+    const later = skipFixture(), result = later.start("baseline reload")
+    later.frame(patch)
+    await expect(result).rejects.toThrow("baseline reload: skip requires continuous native focus and focus-visible")
+    expect(later.pending).toEqual([0, 0, 0])
+  }
+  const regained = skipFixture(), result = regained.start()
+  regained.blurAndRegain()
+  regained.frame(); regained.frame()
+  await expect(result).rejects.toThrow("lost native focus during settlement")
+  expect(regained.pending).toEqual([0, 0, 0])
+})
+
+test("skip settlement rejects paused, infinite, stopped-rate and foreign-owned native animations", async () => {
+  for (const animation of [{ playState: "paused" as const }, { endTime: Infinity }, { duration: Infinity },
+    { iterations: Infinity }, { playbackRate: 0 }, { playbackRate: NaN }, { duration: NaN }, { owned: false }]) {
+    const fixture = skipFixture({ animations: [animation] })
+    await expect(fixture.start()).rejects.toThrow(/animation.*(?:finite and unpaused|exact element owner)/u)
+    expect(fixture.pending).toEqual([0, 0, 0])
+    const late = skipFixture(), result = late.start()
+    late.frame({ animations: [animation] })
+    await expect(result).rejects.toThrow(/animation.*(?:finite and unpaused|exact element owner)/u)
+    expect(late.pending).toEqual([0, 0, 0])
+  }
+})
+
+test("skip settlement waits for pending animations and restarts stability when geometry or scroll changes", async () => {
+  const fixture = skipFixture({ animations: [{ playState: "finished", pending: true }] }), result = fixture.start()
+  fixture.frame()
+  fixture.frame({ animations: [{ playState: "finished" }] })
+  fixture.frame({ rect: [13, 12, 100, 48] })
+  fixture.frame({ scrollY: 10 })
+  expect(fixture.pending).toEqual([1, 1, 1])
+  fixture.frame()
+  expect(await result).toEqual({ rect: [13, 12, 100, 48], scrollY: 10 })
+  expect(fixture.pending).toEqual([0, 0, 0])
+})
+
+test("skip settlement rejects nonsettling animation or geometry, missing RAF and deadline-boundary frames", async () => {
+  const moving = skipFixture(), movingResult = moving.start()
+  const running = skipFixture({ animations: [{}] }), runningResult = running.start()
+  for (let at = 16; at < 1_000; at += 16) {
+    moving.frame({ rect: [at, 12, 100, 48] }, at)
+    running.frame({}, at)
+  }
+  for (const [fixture, result] of [[moving, movingResult], [running, runningResult]] as const) {
+    fixture.advance(1_000)
+    await expect(result).rejects.toThrow("1000ms local deadline")
+    expect(fixture.pending).toEqual([0, 0, 0])
+  }
+  const absent = skipFixture(), absentResult = absent.start()
+  absent.advance(1_000)
+  await expect(absentResult).rejects.toThrow("1000ms local deadline")
+  expect(absent.pending).toEqual([0, 0, 0])
+  for (const at of [1_000, 1_001, NaN, -1]) {
+    const fixture = skipFixture(), result = fixture.start()
+    fixture.frame({}, 16); fixture.frame({}, at)
+    await expect(result).rejects.toThrow("1000ms local deadline")
+    expect(fixture.pending).toEqual([0, 0, 0])
+  }
+  const slow = skipFixture(), slowResult = slow.start()
+  slow.frame()
+  slow.setReadCost(1_000)
+  slow.frame()
+  await expect(slowResult).rejects.toThrow("1000ms local deadline")
+  expect(slow.pending).toEqual([0, 0, 0])
+  const timely = skipFixture(), timelyResult = timely.start()
+  timely.frame({}, 998); timely.frame({}, 999)
+  expect(await timelyResult).toEqual({ rect: [12, 12, 100, 48], scrollY: 0 })
+  expect(timely.pending).toEqual([0, 0, 0])
+})
+
+test("skip settlement refuses nonfinite geometry instead of waiting for a valid rectangle", async () => {
+  for (const patch of [{ rect: [12, NaN, 100, 48] }, { rect: [12, 12, Infinity, 48] }, { scrollY: Infinity }]) {
+    const fixture = skipFixture(patch)
+    await expect(fixture.start()).rejects.toThrow("invalid skip geometry")
+    expect(fixture.pending).toEqual([0, 0, 0])
+  }
 })
 
 function request(): ShellRequest {

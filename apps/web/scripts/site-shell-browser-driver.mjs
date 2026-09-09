@@ -50,11 +50,11 @@ async function main() {
       assert.ok(remaining > 0, "Shell matrix exceeded its absolute deadline")
       const negative = scenario.width === 1440 && scenario.theme === "system" && scenario.system === "light"
       const evidence = await cancellation.wait(() => {
-        activeCase = checkShellCase(browser, request.current, scenario, negative)
+        activeCase = checkShellCase(browser, request.current, scenario, "current", negative)
         return bounded(activeCase, `Current ${scenario.name}`, Math.min(60_000, remaining))
       })
       const old = await cancellation.wait(() => {
-        activeCase = checkShellCase(browser, request.baseline, scenario, false)
+        activeCase = checkShellCase(browser, request.baseline, scenario, "baseline", false)
         return bounded(activeCase, `Baseline ${scenario.name}`, Math.min(60_000, Math.max(1, siteShellDeadlineMs - (performance.now() - started))))
       })
       compareShellEvidence(evidence, old, scenario.name)
