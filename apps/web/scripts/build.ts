@@ -11,7 +11,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { renderAtetSocialImage } from "./generate-og"
 import { buildPreview } from "./build-preview"
 import type { PreviewArtifact } from "./preview-contract"
-import { publishedRelease } from "../src/published-release"
+import { publishedArchiveUrl, publishedRelease } from "../src/published-release"
 import {
   homeMarkdown,
   llmsTxt,
@@ -299,6 +299,8 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   const indexAssets = {
     ...publicPageAssets("/"),
     "{{PUBLISHED_VERSION}}": publishedRelease.version,
+    "{{PUBLISHED_ARCHIVE_URL}}": publishedArchiveUrl,
+    "{{PUBLISHED_RELEASE_URL}}": publishedRelease.releaseUrl,
     "{{ANALYTICS_SCRIPT}}": analyticsPath === null
       ? ""
       : `<script src="${analyticsPath}" type="module"></script>`,
