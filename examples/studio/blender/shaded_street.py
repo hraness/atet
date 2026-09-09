@@ -166,6 +166,22 @@ def presenter():
     return scene
 
 
+def speaking_blink_value(index):
+    return {49: .45, 50: 1.0, 51: .45}.get(index % 85, 0)
+
+
+def animate_speaking_catchlights(first, sample_count):
+    """Hide geometric eye highlights whenever the native eyelids close."""
+    glints = [obj for obj in bpy.context.scene.objects if obj.name.startswith("Eye catchlight")]
+    if len(glints) != 2:
+        raise ValueError("The original presenter requires two eye catchlights")
+    for index in range(sample_count):
+        for obj in glints:
+            obj.hide_render = speaking_blink_value(index) > 0
+            obj.keyframe_insert("hide_render", frame=first + index)
+    return [obj.name for obj in glints]
+
+
 def speaking_animation(parameters):
     """Optional explicit audio-amplitude samples, one per native frame at 24fps.
 
@@ -196,9 +212,9 @@ def speaking_animation(parameters):
                     blocks[name].keyframe_insert("value", frame=frame)
             if "Blink" in blocks:
                 # A restrained native blink, independent of the speech envelope.
-                phase = index % 85
-                blocks["Blink"].value = {49: .45, 50: 1.0, 51: .45}.get(phase, 0)
+                blocks["Blink"].value = speaking_blink_value(index)
                 blocks["Blink"].keyframe_insert("value", frame=frame)
+    animate_speaking_catchlights(first, len(values))
     return {"kind": "amplitude-mouth-v1", "startFrame": first,
             "endFrameExclusive": first + len(values), "frameRate": {"numerator": 24, "denominator": 1},
             "samples": values, "limitations": "Audio-amplitude mouth motion, not phoneme-aligned lip sync."}
