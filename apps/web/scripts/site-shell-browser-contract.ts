@@ -371,83 +371,122 @@ export async function denyShellWebSocket(socket: WebSocketRoute, error: (message
   await socket.close({ code: 1008, reason: "Ordinary static verification admits no sockets" })
 }
 
-/** Observe only this element's native animation/focus state. This function is
- * serialized into the page, so it deliberately has no module dependencies.
- * Geometry stability never tests visibility: a stable clipped result must
- * reach the authoritative assertion below and stay red. */
-export async function settleShellSkipFocus(element: Element, label: string): Promise<{ rect: readonly number[]; scrollY: number }> {
+export interface ShellFocusSettlement {
+  readonly elements: readonly Pick<ShellElement, "key" | "rect" | "styles">[]
+  readonly scrollY: number
+}
+/** This serialized observer has no module dependencies. It samples actual
+ * geometry and paint, never desired visibility or baseline values. A stable
+ * wrong result must reach the authoritative reveal/parity assertions unchanged. */
+export async function settleShellFocusState(element: Element, options: {
+  readonly label: string; readonly focus: "skip" | "main"; readonly properties: readonly string[]
+}): Promise<ShellFocusSettlement> {
+  const { label, focus, properties } = options
   const document = element.ownerDocument, view = document.defaultView
   if (view === null) throw new Error(`${label}: skip document has no native window`)
+  const skip = document.querySelectorAll(".skip-link"), main = document.querySelectorAll("#main")
+  if (skip.length !== 1 || main.length !== 1 || skip[0] === main[0]
+    || element !== (focus === "skip" ? skip[0] : main[0])) throw new Error(`${label}: native focus owners changed`)
+  const owners = focus === "skip" ? [skip[0]!] : [skip[0]!, main[0]!]
+  if (properties.length > 256 || new Set(properties).size !== properties.length
+    || !["transform", "outline-style", "outline-width", "outline-color", "outline-offset"].every(property => properties.includes(property))) {
+    throw new Error(`${label}: incomplete native focus paint inventory`)
+  }
   const started = view.performance.now(), deadline = started + 1_000
   return new Promise((resolve, reject) => {
     let frame: number | undefined, timer: number | undefined, ended = false, lastTime = started
-    let previous: readonly number[] | undefined
-    const finish = (error?: unknown, value?: { rect: readonly number[]; scrollY: number }) => {
+    let previous: string | undefined
+    const finish = (error?: unknown, value?: ShellFocusSettlement) => {
       if (ended) return
       ended = true
       if (frame !== undefined) view.cancelAnimationFrame(frame)
       if (timer !== undefined) view.clearTimeout(timer)
       element.removeEventListener("blur", lostFocus)
+      if (focus === "main") skip[0]!.removeEventListener("focus", lostFocus)
       if (error !== undefined) reject(error)
       else resolve(value!)
     }
     // Blur is sticky, including loss and regain between two animation frames.
-    const lostFocus = () => finish(new Error(`${label}: skip lost native focus during settlement`))
+    const lostFocus = () => finish(new Error(`${label}: ${focus} lost native focus during settlement`))
     const checkDeadline = () => {
       const now = view.performance.now()
       if (!Number.isFinite(started) || !Number.isFinite(now) || now < lastTime || now >= deadline) {
-        throw new Error(`${label}: skip settlement exceeded its 1000ms local deadline`)
+        throw new Error(`${label}: ${focus} settlement exceeded its 1000ms local deadline`)
       }
       lastTime = now
     }
     const read = () => {
       checkDeadline()
-      if (!element.isConnected || element.ownerDocument !== document || document.activeElement !== element
-        || !element.matches(":focus") || !element.matches(":focus-visible")) {
-        throw new Error(`${label}: skip requires continuous native focus and focus-visible`)
+      if (owners.some(owner => !owner.isConnected || owner.ownerDocument !== document)
+        || document.querySelectorAll(".skip-link").length !== 1 || document.querySelector(".skip-link") !== skip[0]
+        || document.querySelectorAll("#main").length !== 1 || document.querySelector("#main") !== main[0]) {
+        throw new Error(`${label}: native focus owners changed`)
       }
-      // Flush the focus style/layout before asking which native animations own it.
-      const bounds = element.getBoundingClientRect()
-      void view.getComputedStyle(element).transform
-      const rect = [bounds.x, bounds.y, bounds.width, bounds.height], scrollY = view.scrollY
-      if (!rect.every(Number.isFinite) || !Number.isFinite(scrollY)) throw new Error(`${label}: invalid skip geometry`)
+      if (document.activeElement !== element || !element.matches(":focus") || (focus === "skip"
+        ? !element.matches(":focus-visible") : skip[0]!.matches(":focus") || skip[0]!.matches(":focus-visible"))) {
+        throw new Error(`${label}: ${focus === "skip" ? "skip requires continuous native focus and focus-visible"
+          : "main requires continuous native focus and skip-not-focused"}`)
+      }
+      const scrollY = view.scrollY
+      if (!Number.isFinite(scrollY)) throw new Error(`${label}: invalid ${focus} geometry`)
       let active = false
-      for (const animation of element.getAnimations()) {
-        const effect = animation.effect
-        if (effect === null || !("target" in effect) || effect.target !== element) {
-          throw new Error(`${label}: skip animation has no exact element owner`)
+      const elements = owners.map((owner, index) => {
+        // Flush each exact owner's style/layout before observing its animations.
+        const bounds = owner.getBoundingClientRect(), style = view.getComputedStyle(owner)
+        const rect = [bounds.x, bounds.y, bounds.width, bounds.height]
+        if (!rect.every(Number.isFinite)) throw new Error(`${label}: invalid ${focus} geometry`)
+        const styles = Object.fromEntries(properties.map(property => [property, style.getPropertyValue(property)]))
+        for (const animation of owner.getAnimations()) {
+          const effect = animation.effect
+          if (effect === null || !("target" in effect) || effect.target !== owner) {
+            throw new Error(`${label}: ${focus} animation has no exact element owner`)
+          }
+          const timing = effect.getComputedTiming()
+          if (typeof timing.endTime !== "number" || !Number.isFinite(timing.endTime) || timing.endTime < 0
+            || typeof timing.duration !== "number" || !Number.isFinite(timing.duration) || timing.duration < 0
+            || typeof timing.iterations !== "number" || !Number.isFinite(timing.iterations) || timing.iterations < 0
+            || animation.playState === "paused"
+            || !Number.isFinite(animation.playbackRate) || animation.playbackRate === 0) {
+            throw new Error(`${label}: ${focus} animation must be finite and unpaused`)
+          }
+          active ||= animation.pending || animation.playState === "running"
         }
-        const timing = effect.getComputedTiming()
-        if (typeof timing.endTime !== "number" || !Number.isFinite(timing.endTime) || timing.endTime < 0
-          || typeof timing.duration !== "number" || !Number.isFinite(timing.duration) || timing.duration < 0
-          || typeof timing.iterations !== "number" || !Number.isFinite(timing.iterations) || timing.iterations < 0
-          || animation.playState === "paused"
-          || !Number.isFinite(animation.playbackRate) || animation.playbackRate === 0) {
-          throw new Error(`${label}: skip animation must be finite and unpaused`)
-        }
-        active ||= animation.pending || animation.playState === "running"
-      }
+        return { key: index === 0 ? ".skip-link[0]" : "#main[0]", rect, styles }
+      })
       checkDeadline() // A late synchronous style/layout read cannot win the timer race.
-      return { rect, scrollY, active }
+      return { elements, scrollY, active }
     }
     const observe = () => {
       try {
-        const value = read(), geometry = [...value.rect, value.scrollY]
-        if (!value.active && previous !== undefined && geometry.every((axis, index) => axis === previous![index])) {
-          finish(undefined, { rect: value.rect, scrollY: value.scrollY })
+        const { active, ...value } = read(), observed = JSON.stringify(value)
+        checkDeadline()
+        if (!active && previous === observed) {
+          finish(undefined, value)
           return
         }
-        previous = value.active ? undefined : geometry
+        previous = active ? undefined : observed
         frame = view.requestAnimationFrame(observe)
       } catch (error) { finish(error) }
     }
     element.addEventListener("blur", lostFocus)
-    timer = view.setTimeout(() => finish(new Error(`${label}: skip settlement exceeded its 1000ms local deadline`)), 1_000)
+    if (focus === "main") skip[0]!.addEventListener("focus", lostFocus)
+    timer = view.setTimeout(() => finish(new Error(`${label}: ${focus} settlement exceeded its 1000ms local deadline`)), 1_000)
     try {
       read() // Immediate focus/animation checks do not count as a settled RAF.
       frame = view.requestAnimationFrame(observe)
     } catch (error) { finish(error) }
   })
+}
+
+export function assertShellFocusUnchanged(settled: ShellFocusSettlement, evidence: readonly ShellElement[], label: string): void {
+  for (const owner of settled.elements) {
+    const matches = evidence.filter(item => item.key === owner.key)
+    assert.equal(matches.length, 1, `${label}: settled focus owner inventory changed`)
+    const actual = matches[0]!
+    assert.deepEqual(actual.rect, [owner.rect[0], owner.rect[1]! + settled.scrollY, ...owner.rect.slice(2)],
+      `${label}: ${owner.key} geometry changed after settlement`)
+    assert.deepEqual(actual.styles, owner.styles, `${label}: ${owner.key} paint changed after settlement`)
+  }
 }
 
 /** A failed settled sample remains red even if a later diagnostic frame changes. */
@@ -495,13 +534,14 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     const settleCase = () => settle(page, scenario.direction)
     const focusedSkip = async (phase: "initial" | "reload") => {
       const label = `${source} ${scenario.name} ${phase}`
-      const settled = await page.locator(".skip-link").evaluate(settleShellSkipFocus, label)
-      await assertShellSkipReveal(settled.rect, label, () => skipRevealDiagnostic(page))
+      const settled = await page.locator(".skip-link").evaluate(settleShellFocusState, { label, focus: "skip" as const, properties })
+      await assertShellSkipReveal(settled.elements[0]!.rect, label, () => skipRevealDiagnostic(page))
       const evidence = (await measure(page, [".skip-link"]))[0]!
-      assert.deepEqual(evidence.rect, [settled.rect[0], settled.rect[1]! + settled.scrollY, ...settled.rect.slice(2)],
-        `${label}: skip geometry changed after settlement`)
+      assertShellFocusUnchanged(settled, [evidence], label)
       return evidence
     }
+    const transferredFocus = (phase: "initial" | "reload") => page.locator("#main").evaluate(settleShellFocusState,
+      { label: `${source} ${scenario.name} ${phase} transfer`, focus: "main" as const, properties })
     page.on("pageerror", failure => error(failure.message))
     page.on("console", message => {
       if (message.type() !== "error") return
@@ -536,6 +576,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     await focusedSkip("initial")
     await page.keyboard.press("Enter")
     assert.equal(await page.locator("#main").evaluate(element => document.activeElement === element), true, "Native skip did not focus main")
+    await transferredFocus("initial")
     await chooseAppearance(page, scenario.theme, scenario.system)
     if (scenario.theme === "system") {
       const alternate = scenario.system === "dark" ? "light" : "dark"
@@ -561,6 +602,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     await page.keyboard.press("Enter")
     assert.equal(await page.locator("#main").evaluate(element => document.activeElement === element), true)
     await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }))
+    const transferred = await transferredFocus("reload")
     const media = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, coarse: matchMedia("(pointer: coarse)").matches,
       forced: matchMedia("(forced-colors: active)").matches, dark: matchMedia("(prefers-color-scheme: dark)").matches,
       direction: getComputedStyle(document.documentElement).direction,
@@ -582,6 +624,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       return root.outerHTML
     })
     const elements = await measure(page, selectors)
+    assertShellFocusUnchanged(transferred, elements, `${source} ${scenario.name} reload transfer`)
     const nav = elements.filter(item => item.key.startsWith('.topbar nav[aria-label="Primary"] a['))
     assert.equal(nav.length, scenario.route === "/" ? 5 : 2)
     assert.deepEqual(nav.map(item => item.styles.display === "none"), scenario.route === "/" && scenario.width <= 544

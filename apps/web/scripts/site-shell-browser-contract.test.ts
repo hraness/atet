@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
-import { assertShellNode, assertShellSkipReveal, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellPhase, parseShellRequest,
-  resolvedShellTheme, settleShellSkipFocus, shellAppearanceSteps, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
+import { assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellPhase, parseShellRequest,
+  resolvedShellTheme, settleShellFocusState, shellAppearanceSteps, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
 
 test("skip reveal diagnostics never turn a failed settled frame into acceptance", async () => {
@@ -32,56 +32,90 @@ interface SkipSample {
   readonly focusVisible: boolean
   readonly connected: boolean
   readonly animations: readonly SkipAnimation[]
+  readonly styles: Readonly<Record<string, string>>
 }
+const focusPaint = { transform: "matrix(1, 0, 0, 1, 0, 0)", "outline-style": "none", "outline-width": "0px",
+  "outline-color": "rgb(23, 22, 18)", "outline-offset": "3px" }
 // Exercise the exact serialized page function with a deterministic native-API
 // surface, without global replacements, a browser, wall-clock sleeps or CSS.
-function skipFixture(initial: Partial<SkipSample> = {}) {
+function skipFixture(initial: Partial<SkipSample> = {}, mainInitial: Partial<SkipSample> = {}) {
   let sample: SkipSample = { rect: [12, 12, 100, 48], scrollY: 0, focused: true, focus: true,
-    focusVisible: true, connected: true, animations: [], ...initial }
+    focusVisible: true, connected: true, animations: [], styles: focusPaint, ...initial }
+  let mainSample: SkipSample = { ...sample, rect: [0, 100, 320, 900], focused: false, focus: false,
+    focusVisible: false, ...mainInitial }
   let now = 0, sequence = 0, reads = 0, readCost = 0
   const frames = new Map<number, () => void>(), timers = new Map<number, { at: number; callback: () => void }>()
-  const blur = new Set<() => void>()
-  let element: Element
-  const document = { get activeElement() { return sample.focused ? element : null }, defaultView: {
+  const listeners = new Map<Element, Map<string, Set<() => void>>>()
+  let element: Element, main: Element
+  const selected = new Map<string, Element[]>()
+  const document = { get activeElement() { return sample.focused ? element : mainSample.focused ? main : null },
+    querySelectorAll: (selector: string) => selected.get(selector) ?? [],
+    querySelector: (selector: string) => selected.get(selector)?.[0] ?? null, defaultView: {
     performance: { now: () => now }, get scrollY() { return sample.scrollY },
-    getComputedStyle: () => ({ transform: "native fixture transform" }),
+    getComputedStyle: (owner: Element) => ({ getPropertyValue: (property: string) => (owner === element ? sample : mainSample).styles[property] ?? "" }),
     requestAnimationFrame: (callback: () => void) => { frames.set(++sequence, callback); return sequence },
     cancelAnimationFrame: (id: number) => { frames.delete(id) },
     setTimeout: (callback: () => void, delay: number) => { timers.set(++sequence, { at: now + delay, callback }); return sequence },
     clearTimeout: (id: number) => { timers.delete(id) },
   } }
-  element = {
-    ownerDocument: document, get isConnected() { return sample.connected },
-    matches: (selector: string) => selector === ":focus" ? sample.focus : sample.focusVisible,
-    getBoundingClientRect: () => { reads++; now += readCost; return { x: sample.rect[0], y: sample.rect[1], width: sample.rect[2], height: sample.rect[3] } },
-    getAnimations: () => sample.animations.map(animation => ({
-      playState: animation.playState ?? "running", pending: animation.pending ?? false, playbackRate: animation.playbackRate ?? 1,
-      effect: { target: animation.owned === false ? {} : element, getComputedTiming: () => ({
-        endTime: animation.endTime ?? 0.01, duration: animation.duration ?? 0.01, iterations: animation.iterations ?? 1,
-      }) },
-    })),
-    addEventListener: (_type: string, callback: () => void) => { blur.add(callback) },
-    removeEventListener: (_type: string, callback: () => void) => { blur.delete(callback) },
-  } as unknown as Element
+  const makeOwner = (state: () => SkipSample) => {
+    const events = new Map<string, Set<() => void>>()
+    const owner = {
+      ownerDocument: document, get isConnected() { return state().connected },
+      matches: (selector: string) => selector === ":focus" ? state().focus : state().focusVisible,
+      getBoundingClientRect: () => {
+        reads++; now += readCost
+        const rect = state().rect
+        return { x: rect[0], y: rect[1], width: rect[2], height: rect[3] }
+      },
+      getAnimations: () => state().animations.map(animation => ({
+        playState: animation.playState ?? "running", pending: animation.pending ?? false, playbackRate: animation.playbackRate ?? 1,
+        effect: { target: animation.owned === false ? {} : owner, getComputedTiming: () => ({
+          endTime: animation.endTime ?? 0.01, duration: animation.duration ?? 0.01, iterations: animation.iterations ?? 1,
+        }) },
+      })),
+      addEventListener: (type: string, callback: () => void) => { const set = events.get(type) ?? new Set(); set.add(callback); events.set(type, set) },
+      removeEventListener: (type: string, callback: () => void) => { events.get(type)?.delete(callback) },
+    } as unknown as Element
+    listeners.set(owner, events)
+    return owner
+  }
+  element = makeOwner(() => sample); main = makeOwner(() => mainSample)
+  selected.set(".skip-link", [element]); selected.set("#main", [main])
+  const startState = (focus: "skip" | "main", label = "current initial", properties = Object.keys(focusPaint)) => {
+    const result = settleShellFocusState(focus === "skip" ? element : main, { label, focus, properties })
+    void result.catch(() => {})
+    return result
+  }
+  const frame = (patch: Partial<SkipSample> = {}, at = now + 16, mainPatch: Partial<SkipSample> = {}) => {
+    sample = { ...sample, ...patch }; mainSample = { ...mainSample, ...mainPatch }; now = at
+    const callbacks = [...frames.values()]; frames.clear()
+    for (const callback of callbacks) callback()
+  }
+  const dispatch = (owner: Element, type: string) => { for (const callback of [...listeners.get(owner)?.get(type) ?? []]) callback() }
   return {
+    startState,
     start(label = "current initial") {
-      const result = settleShellSkipFocus(element, label)
+      const result = startState("skip", label).then(value => ({ rect: value.elements[0]!.rect, scrollY: value.scrollY }))
       void result.catch(() => {})
       return result
     },
-    frame(patch: Partial<SkipSample> = {}, at = now + 16) {
-      sample = { ...sample, ...patch }; now = at
-      const callbacks = [...frames.values()]; frames.clear()
-      for (const callback of callbacks) callback()
-    },
+    frame,
+    mainFrame(mainPatch: Partial<SkipSample> = {}, patch: Partial<SkipSample> = {}, at = now + 16) { frame(patch, at, mainPatch) },
     advance(at: number) {
       now = at
       for (const [id, timer] of [...timers]) if (timer.at <= at) { timers.delete(id); timer.callback() }
     },
-    blurAndRegain() { for (const callback of [...blur]) callback() },
+    blurAndRegain() { dispatch(element, "blur") },
+    mainBlurAndRegain() { dispatch(main, "blur") },
+    skipFocusAndLose() { dispatch(element, "focus") },
+    changeOwner(selector: ".skip-link" | "#main", change: "missing" | "duplicate" | "replaced") {
+      const owner = selector === ".skip-link" ? element : main
+      selected.set(selector, change === "missing" ? [] : change === "duplicate" ? [owner, owner] : [makeOwner(() => sample)])
+    },
     setReadCost(milliseconds: number) { readCost = milliseconds },
     get reads() { return reads },
-    get pending() { return [frames.size, timers.size, blur.size] },
+    get pending() { return [frames.size, timers.size, [...listeners.values()].flatMap(events => [...events.values()]).reduce((total, set) => total + set.size, 0)] },
   }
 }
 
@@ -132,12 +166,13 @@ test("skip settlement rejects stable clipping once and later valid geometry cann
 test("skip settlement rejects immediate and later native focus or focus-visible loss", async () => {
   for (const patch of [{ focused: false }, { focus: false }, { focusVisible: false }, { connected: false }]) {
     const immediate = skipFixture(patch)
-    await expect(immediate.start()).rejects.toThrow("continuous native focus and focus-visible")
+    const error = "connected" in patch ? "native focus owners changed" : "skip requires continuous native focus and focus-visible"
+    await expect(immediate.start()).rejects.toThrow(error)
     expect(immediate.reads).toBe(0)
     expect(immediate.pending).toEqual([0, 0, 0])
     const later = skipFixture(), result = later.start("baseline reload")
     later.frame(patch)
-    await expect(result).rejects.toThrow("baseline reload: skip requires continuous native focus and focus-visible")
+    await expect(result).rejects.toThrow(`baseline reload: ${error}`)
     expect(later.pending).toEqual([0, 0, 0])
   }
   const regained = skipFixture(), result = regained.start()
@@ -210,6 +245,197 @@ test("skip settlement refuses nonfinite geometry instead of waiting for a valid 
   for (const patch of [{ rect: [12, NaN, 100, 48] }, { rect: [12, 12, Infinity, 48] }, { scrollY: Infinity }]) {
     const fixture = skipFixture(patch)
     await expect(fixture.start()).rejects.toThrow("invalid skip geometry")
+    expect(fixture.pending).toEqual([0, 0, 0])
+  }
+})
+
+function transferFixture(skip: Partial<SkipSample> = {}, main: Partial<SkipSample> = {}) {
+  return skipFixture({ focused: false, focus: false, focusVisible: false, ...skip },
+    { focused: true, focus: true, focusVisible: true, ...main })
+}
+
+test("native transfer requires immediate exact main focus and two stable RAF samples of both owners", async () => {
+  const fixture = transferFixture(), result = fixture.startState("main", "baseline reload transfer")
+  expect(fixture.reads).toBe(2)
+  expect(fixture.pending).toEqual([1, 1, 2])
+  fixture.mainFrame()
+  expect(fixture.pending).toEqual([1, 1, 2])
+  fixture.mainFrame()
+  expect(await result).toEqual({ scrollY: 0, elements: [
+    { key: ".skip-link[0]", rect: [12, 12, 100, 48], styles: focusPaint },
+    { key: "#main[0]", rect: [0, 100, 320, 900], styles: focusPaint },
+  ] })
+  expect(fixture.reads).toBe(6)
+  expect(fixture.pending).toEqual([0, 0, 0])
+})
+
+test("native transfer waits for both finite animation owners and restarts geometry and paint stability", async () => {
+  const fixture = transferFixture({ animations: [{}] }, { animations: [{ playState: "finished", pending: true }] })
+  const result = fixture.startState("main")
+  fixture.mainFrame({}, { animations: [] })
+  fixture.mainFrame({}, { rect: [12, -73, 100, 48] })
+  expect(fixture.pending).toEqual([1, 1, 2]) // Main's pending animation still owns settlement.
+  fixture.mainFrame({ animations: [] })
+  fixture.mainFrame({ rect: [0, 101, 320, 900] })
+  fixture.mainFrame({ styles: { ...focusPaint, "outline-width": "3px" } })
+  expect(fixture.pending).toEqual([1, 1, 2])
+  fixture.mainFrame()
+  const value = await result
+  expect(value.elements[0]!.rect).toEqual([12, -73, 100, 48])
+  expect(value.elements[1]!.rect).toEqual([0, 101, 320, 900])
+  expect(value.elements[1]!.styles["outline-width"]).toBe("3px")
+  expect(fixture.pending).toEqual([0, 0, 0])
+})
+
+test("reveal and transfer sample every admitted paint property even when native geometry is already stable", async () => {
+  for (const property of Object.keys(focusPaint)) {
+    for (const owner of ["reveal", "skip", "main"] as const) {
+      const fixture = owner === "reveal" ? skipFixture() : transferFixture()
+      const result = fixture.startState(owner === "reveal" ? "skip" : "main")
+      fixture.frame()
+      const styles = { ...focusPaint, [property]: `different-native-${property}` }
+      if (owner === "main") fixture.mainFrame({ styles })
+      else fixture.frame({ styles })
+      expect(fixture.pending).toEqual([1, 1, owner === "reveal" ? 1 : 2])
+      fixture.frame()
+      expect((await result).elements[owner === "main" ? 1 : 0]!.styles[property]).toBe(`different-native-${property}`)
+      expect(fixture.pending).toEqual([0, 0, 0])
+    }
+  }
+})
+
+test("stable wrong transfer geometry and paint reach strict parity unchanged and stay red", async () => {
+  const fixture = transferFixture({ rect: [12, 12, 100, 48], styles: { ...focusPaint, "outline-color": "rgb(138, 85, 0)" } })
+  const result = fixture.startState("main")
+  fixture.frame(); fixture.frame()
+  const settled = await result
+  const actual = settled.elements.map(owner => ({ ...owner, text: "", semantics: {} }))
+  expect(() => assertShellFocusUnchanged(settled, actual, "observed transfer")).not.toThrow()
+  const baseline = actual.map(owner => owner.key === ".skip-link[0]"
+    ? { ...owner, rect: [12, -73, 100, 48], styles: focusPaint } : owner)
+  expect(() => compareShellElements(actual, baseline, "paired transfer")).toThrow("paired element differences")
+  fixture.frame({ rect: [12, -73, 100, 48], styles: focusPaint })
+  expect(() => compareShellElements(actual, baseline, "paired transfer")).toThrow("paired element differences")
+  expect(fixture.pending).toEqual([0, 0, 0])
+})
+
+test("recorded focus evidence cannot change geometry, paint or owner inventory after settlement", async () => {
+  const fixture = transferFixture({ scrollY: 40 }), result = fixture.startState("main")
+  fixture.frame(); fixture.frame()
+  const settled = await result
+  const evidence = settled.elements.map(owner => ({ ...owner,
+    rect: [owner.rect[0]!, owner.rect[1]! + settled.scrollY, ...owner.rect.slice(2)], text: "", semantics: {} }))
+  expect(() => assertShellFocusUnchanged(settled, evidence, "transfer")).not.toThrow()
+  for (const index of [0, 1]) {
+    const owner = evidence[index]!
+    for (const patch of [{ rect: owner.rect.map(value => value + 1) },
+      { styles: { ...owner.styles, "outline-color": "rgb(255, 0, 0)" } }]) {
+      const changed = evidence.map((item, position) => position === index ? { ...item, ...patch } : item)
+      expect(() => assertShellFocusUnchanged(settled, changed, "transfer")).toThrow("changed after settlement")
+    }
+    expect(() => assertShellFocusUnchanged(settled, evidence.filter((_, position) => position !== index), "transfer")).toThrow("owner inventory changed")
+    expect(() => assertShellFocusUnchanged(settled, [...evidence, owner], "transfer")).toThrow("owner inventory changed")
+  }
+})
+
+test("native transfer rejects main focus loss or skip focus immediately, continuously and after transient regain", async () => {
+  for (const owner of ["skip", "main"] as const) {
+    for (const patch of owner === "skip" ? [{ focused: true }, { focus: true }, { focusVisible: true }]
+      : [{ focused: false }, { focus: false }]) {
+      const immediate = transferFixture(owner === "skip" ? patch : {}, owner === "main" ? patch : {})
+      await expect(immediate.startState("main")).rejects.toThrow("main requires continuous native focus and skip-not-focused")
+      expect(immediate.reads).toBe(0)
+      expect(immediate.pending).toEqual([0, 0, 0])
+      const later = transferFixture(), result = later.startState("main", "current reload transfer")
+      if (owner === "skip") later.frame(patch)
+      else later.mainFrame(patch)
+      await expect(result).rejects.toThrow("current reload transfer: main requires continuous native focus and skip-not-focused")
+      expect(later.pending).toEqual([0, 0, 0])
+    }
+  }
+  for (const event of ["mainBlurAndRegain", "skipFocusAndLose"] as const) {
+    const fixture = transferFixture(), result = fixture.startState("main")
+    fixture[event]()
+    fixture.frame(); fixture.frame()
+    await expect(result).rejects.toThrow("main lost native focus during settlement")
+    expect(fixture.pending).toEqual([0, 0, 0])
+  }
+})
+
+test("native focus settlement rejects disconnected, missing, duplicate or replaced exact owners", async () => {
+  for (const mode of ["skip", "main"] as const) {
+    for (const selector of [".skip-link", "#main"] as const) {
+      for (const change of ["missing", "duplicate", "replaced"] as const) {
+        const fixture = mode === "skip" ? skipFixture() : transferFixture(), result = fixture.startState(mode)
+        fixture.changeOwner(selector, change)
+        fixture.frame()
+        await expect(result).rejects.toThrow("native focus owners changed")
+        expect(fixture.pending).toEqual([0, 0, 0])
+      }
+    }
+  }
+  for (const owner of ["skip", "main"] as const) {
+    const fixture = transferFixture(), result = fixture.startState("main")
+    if (owner === "skip") fixture.frame({ connected: false })
+    else fixture.mainFrame({ connected: false })
+    await expect(result).rejects.toThrow("native focus owners changed")
+    expect(fixture.pending).toEqual([0, 0, 0])
+  }
+})
+
+test("native transfer rejects paused, infinite, stopped-rate and foreign-owned animations on either owner", async () => {
+  for (const owner of ["skip", "main"] as const) {
+    for (const animation of [{ playState: "paused" as const }, { endTime: Infinity }, { duration: Infinity },
+      { iterations: Infinity }, { playbackRate: 0 }, { playbackRate: NaN }, { duration: NaN }, { owned: false }]) {
+      const patch = { animations: [animation] }
+      const immediate = transferFixture(owner === "skip" ? patch : {}, owner === "main" ? patch : {})
+      await expect(immediate.startState("main")).rejects.toThrow(/animation.*(?:finite and unpaused|exact element owner)/u)
+      expect(immediate.pending).toEqual([0, 0, 0])
+      const fixture = transferFixture(), result = fixture.startState("main")
+      if (owner === "skip") fixture.frame(patch)
+      else fixture.mainFrame(patch)
+      await expect(result).rejects.toThrow(/animation.*(?:finite and unpaused|exact element owner)/u)
+      expect(fixture.pending).toEqual([0, 0, 0])
+    }
+  }
+})
+
+test("native transfer cannot settle nonsettling paint, geometry, running animations or missing RAF past its deadline", async () => {
+  for (const condition of ["skip-paint", "main-paint", "geometry", "running", "missing-raf", "late-read", "deadline-frame"] as const) {
+    const fixture = transferFixture({}, condition === "running" ? { animations: [{}] } : {})
+    const result = fixture.startState("main")
+    if (condition === "late-read") {
+      fixture.frame(); fixture.setReadCost(1_000); fixture.frame()
+    } else if (condition === "deadline-frame") {
+      fixture.frame({}, 999); fixture.frame({}, 1_000)
+    } else if (condition !== "missing-raf") {
+      for (let at = 16; at < 1_000; at += 16) {
+        const styles = { ...focusPaint, "outline-width": `${at}px` }
+        fixture.mainFrame(condition === "main-paint" ? { styles } : condition === "geometry" ? { rect: [at, 100, 320, 900] } : {},
+          condition === "skip-paint" ? { styles } : {}, at)
+      }
+    }
+    fixture.advance(1_000)
+    await expect(result).rejects.toThrow("main settlement exceeded its 1000ms local deadline")
+    expect(fixture.pending).toEqual([0, 0, 0])
+  }
+  const timely = transferFixture(), result = timely.startState("main")
+  timely.frame({}, 998); timely.frame({}, 999)
+  expect((await result).elements).toHaveLength(2)
+  expect(timely.pending).toEqual([0, 0, 0])
+})
+
+test("native transfer refuses nonfinite geometry and incomplete or duplicate paint inventories", async () => {
+  for (const owner of ["skip", "main"] as const) {
+    const fixture = transferFixture(), result = fixture.startState("main")
+    if (owner === "skip") fixture.frame({ rect: [12, NaN, 100, 48] })
+    else fixture.mainFrame({ rect: [0, 100, Infinity, 900] })
+    await expect(result).rejects.toThrow("invalid main geometry")
+    expect(fixture.pending).toEqual([0, 0, 0])
+  }
+  for (const properties of [[], Object.keys(focusPaint).slice(1), [...Object.keys(focusPaint), "transform"]]) {
+    const fixture = transferFixture()
+    await expect(fixture.startState("main", "transfer", properties)).rejects.toThrow("incomplete native focus paint inventory")
     expect(fixture.pending).toEqual([0, 0, 0])
   }
 })
