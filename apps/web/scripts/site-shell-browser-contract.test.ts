@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
 import { assertShellFocusFragments, assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellCaseFailure, parseShellPhase, parseShellRequest,
-  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellCaseFailure, shellContextLifecycle, shellFocusFragments, shellOperationTracker, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
+  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellCaseFailure, shellContextLifecycle, shellFocusFragments, shellOperationTracker, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders, withShellCaseCleanup,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
 
 function operationDeferred() {
@@ -9,6 +9,28 @@ function operationDeferred() {
   const promise = new Promise<void>((yes, no) => { resolve = yes; reject = no })
   return { promise, resolve, reject }
 }
+
+test("case cleanup preserves the primary failure and independently reports teardown failure", async () => {
+  for (const primaryFails of [false, true]) for (const cleanupFails of [false, true]) {
+    const primary = new Error("Original native assertion"), cleanup = new Error("Pending body cleanup")
+    const order: string[] = []
+    const result = withShellCaseCleanup(async () => {
+      order.push("case")
+      if (primaryFails) throw primary
+      return "evidence"
+    }, async () => { order.push("cleanup"); if (cleanupFails) throw cleanup })
+    if (primaryFails && cleanupFails) {
+      const failure = await result.catch((failure: unknown) => failure)
+      expect(failure).toBeInstanceOf(AggregateError)
+      if (!(failure instanceof AggregateError)) throw new Error("Missing both failure identities")
+      expect(failure.errors).toEqual([primary, cleanup])
+      expect(String(failure)).toContain("Original native assertion")
+      expect(String(failure)).toContain("Pending body cleanup")
+    } else if (primaryFails || cleanupFails) await expect(result).rejects.toBe(primaryFails ? primary : cleanup)
+    else expect(await result).toBe("evidence")
+    expect(order).toEqual(["case", "cleanup"])
+  }
+})
 
 test("case teardown admits only the owned page close and never a whole-browser disconnect", () => {
   for (const closing of [false, true]) {
@@ -58,7 +80,7 @@ test("browser operation settlement retains genuine failures and rejects late adm
 test("browser operation settlement has one finite deadline while preserving pending ownership", async () => {
   const errors: string[] = [], tracker = shellOperationTracker(message => errors.push(message)), live = operationDeferred()
   void tracker.track("unfinished request", live.promise)
-  await expect(tracker.settle("bounded live body", 10)).rejects.toThrow("bounded live body")
+  await expect(tracker.settle("bounded live body", 10)).rejects.toThrow('pending 1: ["unfinished request"]')
   expect(tracker.size).toBe(1)
   expect(() => tracker.seal()).toThrow("Browser operations still pending")
   live.resolve()

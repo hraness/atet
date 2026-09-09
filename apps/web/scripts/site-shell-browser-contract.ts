@@ -841,13 +841,13 @@ export function assertShellFocusFragments(fragments: readonly ShellFocusFragment
  * Drain to a fixed point under one deadline, then close admission synchronously.
  * Late work remains observed and fatal; it is never discarded as teardown noise. */
 export function shellOperationTracker(error: (message: string) => void) {
-  const pending = new Set<Promise<void>>()
+  const pending = new Map<Promise<void>, string>()
   let sealed = false
   const track = (label: string, operation: Promise<unknown>): Promise<void> => {
     if (sealed) error(`Browser operation after settlement: ${label}`)
     const observed = operation.then(() => {}, failure => error(`${label}: ${String(failure)}`))
       .finally(() => pending.delete(observed))
-    pending.add(observed)
+    pending.set(observed, label.slice(0, 256))
     return observed
   }
   return {
@@ -858,7 +858,10 @@ export function shellOperationTracker(error: (message: string) => void) {
       while (pending.size > 0) {
         const remaining = deadline - performance.now()
         assert.ok(remaining > 0, `${label} exceeded its absolute deadline`)
-        await bounded(Promise.all([...pending]), label, remaining)
+        try { await bounded(Promise.all(pending.keys()), label, remaining) }
+        catch (failure) {
+          throw new Error(`${label}: ${String(failure)}; pending ${pending.size}: ${JSON.stringify([...pending.values()].slice(0, 16))}`, { cause: failure })
+        }
       }
     },
     seal() {
@@ -867,6 +870,19 @@ export function shellOperationTracker(error: (message: string) => void) {
       sealed = true
     },
   }
+}
+
+/** Cleanup may fail independently; never replace the original evidence error
+ * with a teardown error. Both remain fatal and visible in the bounded receipt. */
+export async function withShellCaseCleanup<T>(run: () => Promise<T>, cleanup: () => Promise<void>): Promise<T> {
+  let result!: T
+  const failures: unknown[] = []
+  try { result = await run() } catch (failure) { failures.push(failure) }
+  try { await cleanup() } catch (failure) { failures.push(failure) }
+  if (failures.length === 1) throw failures[0]
+  if (failures.length > 1) throw new AggregateError(failures,
+    `Shell case failed: ${String(failures[0])}; cleanup failed: ${String(failures[1])}`)
+  return result
 }
 
 export function shellContextLifecycle(error: (message: string) => void) {
@@ -890,7 +906,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
   const operations = shellOperationTracker(error), requests = new Map<Request, () => void>()
   const lifecycle = shellContextLifecycle(error)
   browser.on("disconnected", lifecycle.browserDisconnected)
-  try {
+  return withShellCaseCleanup(async () => {
     await context.routeWebSocket("**/*", socket => operations.track("WebSocket denial", denyShellWebSocket(socket, error)))
     await context.route("**/*", route => operations.track("Resource route", (async () => {
       const request = route.request(), url = new URL(request.url())
@@ -1121,7 +1137,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     assert.deepEqual(errors, [], `${scenario.name}: pre-close browser error`)
     operations.seal()
     return { direction, dom, elements, skip, hover, focus, recovery, appearance }
-  } finally {
+  }, async () => {
     lifecycle.beginContextClose()
     try {
       await bounded(context.close(), "Shell browser context close", 5_000)
@@ -1131,5 +1147,5 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       assert.equal(requests.size, 0)
       assert.deepEqual(errors, [], `${scenario.name}: late browser error`)
     } finally { browser.off("disconnected", lifecycle.browserDisconnected) }
-  }
+  })
 }
