@@ -13,6 +13,9 @@ const profile = "three-webgl2-hardware-v1" as const;
 const mode = { kind: "beauty" } as const;
 const frameRate = { numerator: 1, denominator: 1 };
 
+// Repeatedly lower the real 160-entity/32-frame boundary to compare admission and
+// determinism. CI approaches five seconds; this is a correctness fixture, not a
+// five-second serialization performance contract.
 test("hardware serialization partitions actual oversized HTML while legacy bytes and rejection stay fixed", () => {
   const scene = { ...fixtureScene(), entities: Array.from({ length: 160 }, (_, index) => fixtureEntity(`entity_${index}`)) };
   const snapshots = Array.from({ length: 32 }, (_, index) => evaluateSpatialScene(scene, { cameraId: "camera_main", timeUs: (31 - index) * 1_000 }));
@@ -27,7 +30,7 @@ test("hardware serialization partitions actual oversized HTML while legacy bytes
   for (const part of parts) expect(Buffer.byteLength(part.batch.authoring.html)).toBeLessThanOrEqual(HTML_OVERLAY_MAX_HTML_BYTES);
   const small = { ...input, snapshots: snapshots.slice(0, 1) };
   expect(partitionSpatialRenderWindow(small)).toEqual([{ offset: 0, length: 1, preparedAssets: [], batch: createSpatialOverlayBatch(small) }]);
-});
+}, 30_000);
 
 test("partitioned timed surfaces retain only referenced resources and preserve the full source closure", () => {
   const asset = fixtureAsset();

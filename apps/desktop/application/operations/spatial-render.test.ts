@@ -85,6 +85,9 @@ test("hardware recovery validates retained GPU evidence without launching a brow
   await expect(recoverSpatialRenderOutput(f.application, input, { ...output, receipt: alteredReceipt }, identity, f.context.abortSignal)).rejects.toThrow("hardware identity");
 }));
 
+// This integration fixture crosses the real HTML byte limit, publishes 33 frames,
+// and rechecks durable closures five times. Allow slower CI filesystems without
+// treating Bun's five-second default as a product performance requirement.
 test("hardware variable partitions recover without the original and reject missing, reordered and substituted sample closure", async () => withFixture(async f => {
   await writeFile(f.sourcePath, JSON.stringify({ ...f.scene, entities: Array.from({ length: 160 }, (_, index) => fixtureEntity(`entity_${index}`)) }));
   const input = await bindSpatialRenderInput(f.application, { source: { path: "original.scene.json" }, request: { ...request, executionProfile: "three-webgl2-hardware-v1",
@@ -104,7 +107,7 @@ test("hardware variable partitions recover without the original and reject missi
   const altered = await publishJson(f, { ...retained, batches: [alteredBatch, ...retained.batches.slice(1)] });
   await expect(recoverSpatialRenderOutput(f.application, input, { ...output, receipt: altered }, identity, f.context.abortSignal)).rejects.toThrow("resource byte count");
   expect(f.renders()).toBe(count);
-}));
+}), 30_000);
 
 // Native renderer behavior is covered by spatial-render.test.ts; these cases own
 // the operation's exact capability, publication/recovery, and cleanup boundaries.

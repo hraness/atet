@@ -229,6 +229,9 @@ describe("spatial render execution", () => {
     expect(receipt.samples.at(-1)!.sample.exactTimeUs).toEqual({ numerator: "32000", denominator: "1" });
   });
 
+  // Exercise actual oversized serialization, 33 durable frame publications, and
+  // a second preparation ending in renderer failure. Slower CI filesystems need
+  // a finite integration deadline beyond Bun's five-second unit-test default.
   test("hardware oversized windows publish exact global sample partitions and never retry a failed browser", async () => {
     const lengths: number[] = [];
     const input = { ...scene(), entities: Array.from({ length: 160 }, (_, index) => fixtureEntity(`entity_${index}`)) };
@@ -251,7 +254,7 @@ describe("spatial render execution", () => {
     await expect(renderSpatialScene(failed.context, { scene: input, assetRoot: failed.root, request }, dependencies)).rejects.toThrow("GPU context lost");
     expect(failures).toBe(1);
     expect(await generatedFiles(failed.root)).toEqual([]);
-  });
+  }, 30_000);
 
   test("incorrect encoded timestamps reject before publication", async () => {
     const probe = probeFor(planSpatialRender(scene(), videoRequest)) as { frames: { pts: number }[] };
