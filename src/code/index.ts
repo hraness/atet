@@ -15,6 +15,8 @@ import {
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
 } from "./projection.js"
 
+export * from "../spatial-scene/index.js"
+
 export {
   DEFAULT_GRAPH_COMPILER_LIMITS,
   WORKFLOW_COMPILATION_HASH_DOMAIN,

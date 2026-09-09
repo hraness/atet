@@ -6,6 +6,7 @@
 - `apps/web/` – the static `atet.sh` site, with a local browser bundle and a production-only anonymous pageview boundary but no API, account, or credential surface.
 - `packages/scene/` – the shared local scene-analysis contract.
 - `src/code/` – portable declarative graph authoring, the closed public capability projection, compilation, planning, and execution contracts.
+- `src/spatial-scene/` – portable editable scene contracts, stable identity, semantic patches, calibrated evaluation, and bounded GLB parsing.
 - `schema/` – version-one diagram JSON Schema.
 - `skills/atet/` – the canonical Atet Agent Skill.
 - `.agents/skills/` – portable repository orchestration and knowledge-base workflows.

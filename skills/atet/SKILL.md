@@ -29,6 +29,8 @@ the skill was installed.
   [visual-communication.md](references/visual-communication.md) before
   composing it.
 - For local image-to-SVG conversion, use the vectorization workflow below.
+- For editable directed scenes, named-part edits, calibrated cameras, or scene
+  videos combined with a media project, read [directed-scenes.md](references/directed-scenes.md).
 - For a reference-led Three.js scene, transparent 3D loop, or metallic logo
   treatment, read [reference-led-3d.md](references/reference-led-3d.md).
 - For travel photos turned into rubber-stamp field-note posters (photo left,

@@ -408,9 +408,19 @@ export async function assertProjectStateTransactionSettled(
 
 export async function recoverProjectStateTransaction(
   fileSystem: BundleFileSystem,
+  expectedProjectId?: string,
 ): Promise<"none" | "settled" | "rolled-back" | "rolled-forward"> {
   const transaction = await readTransaction(fileSystem);
   if (transaction === null) return "none";
+  if (expectedProjectId !== undefined && transaction.projectId !== expectedProjectId) throw new CliError("conflict", "Legacy recovery journal belongs to a different project directory.");
+  // A historical V1 journal must never restore the pair over a V2 authority.
+  // Inspect the version marker before any recovery write, even for corrupt V2.
+  const authority: unknown = JSON.parse(await fileSystem.readText("project.json"));
+  if (typeof authority === "object" && authority !== null && !Array.isArray(authority)
+    && (("schemaVersion" in authority && authority.schemaVersion === 2)
+      || ("kind" in authority && authority.kind === "atet.spatial-project-head"))) {
+    throw new CliError("unsupported-plan", "This project uses spatial V2 authority. Use atet scene project commands; legacy recovery cannot modify it.");
+  }
   if (transaction.phase === "settled") {
     await publishTransactionSettlement(fileSystem, transaction);
     return "settled";

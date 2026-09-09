@@ -62,6 +62,9 @@ import {
   type ExpectedProjectMediaIntegrity,
 } from "./project-media-integrity";
 import { applyMetadataEffects } from "./renderer";
+import type { SpatialCompositorCadenceBindingV1 } from "../contracts/spatial-compositor";
+import { assertSpatialCompositorCadence } from "../core/spatial-compositor";
+import { spatialFrameCount } from "../../../src/spatial-scene/time";
 
 const MAXIMUM_SVG_CACHE_MANIFEST_BYTES = 64 * 1_024;
 const MAXIMUM_SVG_DERIVATIVE_BYTES = 512 * 1_024 * 1_024;
@@ -133,6 +136,13 @@ function seconds(microseconds: number): string {
 
 function decimal(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(10).replace(/0+$/u, "").replace(/\.$/u, "");
+}
+
+function audioPlacementFilters(startUs: number): string[] {
+  // amix consumes each input from its first sample; shifting timestamps alone
+  // does not place that input in the program. Insert silence at the output rate.
+  const samples = (BigInt(startUs) * 48_000n + 500_000n) / 1_000_000n;
+  return ["asetpts=PTS-STARTPTS", ...(samples === 0n ? [] : [`adelay=${samples}S:all=1`])];
 }
 
 function atempo(rate: number): string {
@@ -647,6 +657,7 @@ function projectCameraFilters(
   plan: ProjectRenderPlanV1,
   slice: ResolvedProjectVideoSlice,
   cameraIndex: ProjectCameraSpatialIndex,
+  rationalRate?: string,
 ): readonly string[] {
   const layerCamera = projectCameraSpatialLayer(
     cameraIndex,
@@ -677,7 +688,7 @@ function projectCameraFilters(
     throw new CliError("invalid-data", `Camera geometry no longer matches layer ${slice.placementId}:${slice.streamId}.`);
   }
   const globalTimeUs = `(${decimal(slice.outputRange.startUs)}+on*1000000/${
-    decimal(plan.output.frameRate)
+    rationalRate === undefined ? decimal(plan.output.frameRate) : `(${rationalRate})`
   })`;
   const viewport = evaluateProjectCameraSpatialViewport(
     activeCamera,
@@ -692,8 +703,8 @@ function projectCameraFilters(
     // zoompan's d=1 clock is frame-count based. Normalize the already
     // speed-adjusted slice to the output cadence first so it cannot restore
     // source cadence or discard the project's speed map.
-    `fps=${decimal(plan.output.frameRate)}`,
-    `zoompan=z='${layout.width}/(${viewport.width})':x='${viewport.x}':y='${viewport.y}':d=1:s=${layout.width}x${layout.height}:fps=${decimal(plan.output.frameRate)}`,
+    `fps=${rationalRate ?? decimal(plan.output.frameRate)}`,
+    `zoompan=z='${layout.width}/(${viewport.width})':x='${viewport.x}':y='${viewport.y}':d=1:s=${layout.width}x${layout.height}:fps=${rationalRate ?? decimal(plan.output.frameRate)}`,
     `setpts=PTS-STARTPTS+${seconds(slice.outputRange.startUs)}/TB`,
     "format=rgba",
   ];
@@ -888,6 +899,7 @@ function overlayVideoChain(
   fullStartUs: number,
   fullEndUs: number,
   frameRate: number,
+  spatialCadence?: SpatialCompositorCadenceBindingV1,
 ): { readonly filters: readonly string[]; readonly visibleEndUs: number } | null {
   const overlay = resolved.operation;
   const sliceDurationUs = resolved.outputRange.endUs - resolved.outputRange.startUs;
@@ -918,10 +930,12 @@ function overlayVideoChain(
     filters.push(
       `trim=start=${seconds(streamStartUs + playback.sourceInUs)}:end=${seconds(effectiveSourceOutUs)}`,
       "setpts=PTS-STARTPTS",
-      `fps=${decimal(frameRate)}`,
+      `fps=${spatialCadence === undefined ? decimal(frameRate) : `${spatialCadence.cadence.frameRate.numerator}/${spatialCadence.cadence.frameRate.denominator}`}`,
     );
     if (needsLoop) {
-      const frameCount = Math.max(1, Math.ceil(sourceWindowUs * frameRate / 1_000_000));
+      const frameCount = spatialCadence === undefined
+        ? Math.max(1, Math.ceil(sourceWindowUs * frameRate / 1_000_000))
+        : spatialFrameCount(sourceWindowUs, spatialCadence.cadence.frameRate);
       if (frameCount > 1_000_000) throw new CliError("unsupported-plan", "Animated overlay loop exceeds the frame buffer bound.");
       assertVideoLoopBufferWithinLimit({
         frameCount,
@@ -1040,7 +1054,7 @@ function overlayAudioChain(resolved: ResolvedProjectOverlay): {
   filters.push(
     `atrim=start=${seconds(offsetSourceUs)}:duration=${seconds(usableSourceUs)}`,
     atempo(playback.playbackRate),
-    `asetpts=PTS-STARTPTS+${seconds(resolved.outputRange.startUs)}/TB`,
+    ...audioPlacementFilters(resolved.outputRange.startUs),
     `volume=${decimal(source.audioPolicy.volume)}`,
   );
   return {
@@ -1117,6 +1131,8 @@ export interface ProjectRenderBuildOptions {
   readonly runner?: ProcessRunner;
   /** Host-owned private root for filter graphs and SVG derivatives. */
   readonly workspaceDirectory?: string;
+  /** V2 projection's versioned exact cadence; V1 numeric planning hashes retain their meaning. */
+  readonly spatialCadence?: SpatialCompositorCadenceBindingV1;
 }
 
 function projectRenderEncoderArguments(
@@ -1175,6 +1191,9 @@ export async function buildProjectFfmpegInvocation(
   options: ProjectRenderBuildOptions,
 ): Promise<BuiltProjectRenderInvocation> {
   if (plan.output.durationUs <= 0) throw new CliError("unsupported-plan", "A zero-duration project cannot render.");
+  const spatialCadence = options.spatialCadence === undefined ? undefined : assertSpatialCompositorCadence(options.spatialCadence, plan);
+  const rationalRate = spatialCadence === undefined ? undefined : `${spatialCadence.cadence.frameRate.numerator}/${spatialCadence.cadence.frameRate.denominator}`;
+  const emittedRate = rationalRate ?? decimal(plan.output.frameRate);
   const projectRoot = await realpath(options.projectDirectory);
   const output = resolve(options.outputPath);
   if (!isWithin(projectRoot, output)) throw new CliError("unsafe-path", "Project render output must remain in its project directory.");
@@ -1200,11 +1219,13 @@ export async function buildProjectFfmpegInvocation(
   const pinnedInputs: ProjectRenderPinnedInput[] = [];
   for (const [path, expected] of mediaIntegrity) {
     mediaInputIndex.set(path, mediaInputIndex.size);
+    const spatialOutput = spatialCadence === undefined ? null : /^spatial\/outputs\/([a-f0-9]{64})\.(?:mov|mp4|webm)$/u.exec(path);
+    if (spatialOutput !== null && spatialOutput[1] !== expected.sha256) throw new CliError("invalid-data", "Spatial materialized media filename does not match its exact payload digest.");
     const physical = await resolveVerifiedProjectMedia({
       expected,
       label: `Project media ${path}`,
       path,
-      repositoryRoot: options.repositoryRoot,
+      repositoryRoot: spatialOutput === null ? options.repositoryRoot : projectRoot,
     });
     inputArguments.push(
       ...projectRenderDecoderThreadArguments(encoderRecipe),
@@ -1254,7 +1275,7 @@ export async function buildProjectFfmpegInvocation(
   }
 
   const filters: string[] = [
-    `color=c=${plan.output.background}:s=${plan.output.pixelWidth}x${plan.output.pixelHeight}:r=${decimal(plan.output.frameRate)}:d=${seconds(plan.output.durationUs)},format=rgba[canvas_0]`,
+    `color=c=${plan.output.background}:s=${plan.output.pixelWidth}x${plan.output.pixelHeight}:r=${emittedRate}:d=${seconds(plan.output.durationUs)},format=rgba[canvas_0]`,
   ];
   const cameraIndex = buildProjectCameraSpatialIndex(plan);
   let currentVideo = "canvas_0";
@@ -1270,7 +1291,7 @@ export async function buildProjectFfmpegInvocation(
       `trim=start=${seconds(slice.fileRange.startUs)}:end=${seconds(slice.fileRange.endUs)}`,
       `setpts=(PTS-STARTPTS)*${decimal(outputDurationUs / inputDurationUs)}+${seconds(slice.outputRange.startUs)}/TB`,
       ...transform.filters,
-      ...projectCameraFilters(plan, slice, cameraIndex),
+      ...projectCameraFilters(plan, slice, cameraIndex, rationalRate),
     ];
     filters.push(`[${inputSpecifier(input, slice.streamIndex)}]${chain.join(",")}[${label}]`);
     const next = `canvas_${serial++}`;
@@ -1289,7 +1310,7 @@ export async function buildProjectFfmpegInvocation(
       const blended = `video_blend_result_${serial++}`;
       const enable = `between(t,${seconds(slice.outputRange.startUs)},${seconds(slice.outputRange.endUs)})`;
       filters.push(
-        `color=c=black@0:s=${plan.output.pixelWidth}x${plan.output.pixelHeight}:r=${decimal(plan.output.frameRate)}:d=${seconds(plan.output.durationUs)},format=rgba[${transparent}]`,
+        `color=c=black@0:s=${plan.output.pixelWidth}x${plan.output.pixelHeight}:r=${emittedRate}:d=${seconds(plan.output.durationUs)},format=rgba[${transparent}]`,
         `[${transparent}][${label}]overlay=x=${transform.x}:y=${transform.y}:eof_action=pass:repeatlast=0:enable='${enable}'[${positioned}]`,
         `[${positioned}]format=rgba,split=2[${layerColor}][${layerAlphaSource}]`,
         `[${layerAlphaSource}]alphaextract[${layerMask}]`,
@@ -1305,7 +1326,7 @@ export async function buildProjectFfmpegInvocation(
     cameraKeyframes: [],
     effects: plan.effects,
     output: plan.output,
-  }, filters, currentVideo, serial));
+  }, filters, currentVideo, serial, spatialCadence?.cadence.frameRate));
 
   const orderedOverlays = [...plan.overlays].sort((left, right) => (
     left.operation.zIndex - right.operation.zIndex
@@ -1323,7 +1344,7 @@ export async function buildProjectFfmpegInvocation(
   for (const resolvedOverlay of orderedOverlays) {
     const bounds = overlayBounds.get(resolvedOverlay.operation.overlayId)!;
     const visibleFullEndUs = overlayVisibleEndUs(resolvedOverlay.operation, bounds.startUs, bounds.endUs);
-    const chain = overlayVideoChain(resolvedOverlay, bounds.startUs, visibleFullEndUs, plan.output.frameRate);
+    const chain = overlayVideoChain(resolvedOverlay, bounds.startUs, visibleFullEndUs, plan.output.frameRate, spatialCadence);
     if (chain === null) continue;
     const input = overlayInputIndex.get(resolvedOverlay.operation.overlayId)!;
     const label = `graphic_${serial++}`;
@@ -1354,7 +1375,7 @@ export async function buildProjectFfmpegInvocation(
       const baseMerge = `graphic_blend_merge_${serial++}`;
       const blended = `graphic_blend_result_${serial++}`;
       filters.push(
-        `color=c=black@0:s=${plan.output.pixelWidth}x${plan.output.pixelHeight}:r=${decimal(plan.output.frameRate)}:d=${seconds(plan.output.durationUs)},format=rgba[${transparent}]`,
+        `color=c=black@0:s=${plan.output.pixelWidth}x${plan.output.pixelHeight}:r=${emittedRate}:d=${seconds(plan.output.durationUs)},format=rgba[${transparent}]`,
         `[${transparent}][${label}]overlay=x='${x}':y='${y}':eof_action=pass:repeatlast=0:enable='${enable}'[${positioned}]`,
         `[${positioned}]format=rgba,split=2[${layerColor}][${layerAlphaSource}]`,
         `[${layerAlphaSource}]alphaextract[${layerMask}]`,
@@ -1365,7 +1386,9 @@ export async function buildProjectFfmpegInvocation(
     }
     currentVideo = next;
   }
-  filters.push(`[${currentVideo}]format=yuv420p[video_out]`);
+  filters.push(spatialCadence === undefined
+    ? `[${currentVideo}]format=yuv420p[video_out]`
+    : `[${currentVideo}]trim=end_frame=${spatialCadence.cadence.frameCount},settb=expr=${spatialCadence.cadence.frameRate.denominator}/${spatialCadence.cadence.frameRate.numerator},setpts=N,format=yuv420p[video_out]`);
 
   const audioLabels: string[] = [];
   const fadeBoundaries = audioFadeBoundaries(plan.audioSlices);
@@ -1391,7 +1414,7 @@ export async function buildProjectFfmpegInvocation(
       `volume=${decimal(slice.presentation.gainDb)}dB`,
       "aformat=channel_layouts=stereo",
       ...(slice.presentation.pan === 0 ? [] : [`stereotools=balance_out=${decimal(slice.presentation.pan)}`]),
-      `asetpts=PTS-STARTPTS+${seconds(slice.outputRange.startUs)}/TB`,
+      ...audioPlacementFilters(slice.outputRange.startUs),
     ];
     filters.push(`[${inputSpecifier(input, slice.streamIndex)}]${chain.join(",")}[${label}]`);
     audioLabels.push(label);
@@ -1444,6 +1467,11 @@ export async function buildProjectFfmpegInvocation(
     currentAudio = mixed;
   }
 
+  if (spatialCadence !== undefined) {
+    const boundedAudio = `spatial_audio_${serial++}`;
+    filters.push(`[${currentAudio}]atrim=duration=${seconds(plan.output.durationUs)}[${boundedAudio}]`);
+    currentAudio = boundedAudio;
+  }
   const filterGraph = await materializeFilterScript({
     graph: filters.join(";"),
     relativeDirectory: options.workspaceDirectory === undefined
@@ -1462,7 +1490,14 @@ export async function buildProjectFfmpegInvocation(
     ...projectRenderEncoderArguments(encoderRecipe),
     "-pix_fmt", encoderRecipe?.video.pixelFormat ?? "yuv420p",
     "-c:a", encoderRecipe?.audio.codec ?? "aac",
-    "-t", seconds(plan.output.durationUs),
+    ...(spatialCadence === undefined ? [] : [
+      "-r:v", rationalRate!, "-fps_mode:v", "cfr",
+      "-enc_time_base:v", `${spatialCadence.cadence.frameRate.denominator}:${spatialCadence.cadence.frameRate.numerator}`,
+      "-video_track_timescale", String(spatialCadence.cadence.frameRate.numerator),
+      // The default 1-kHz MOV edit-list clock would truncate sub-ms audio tails.
+      "-movie_timescale", "1000000",
+    ]),
+    ...(spatialCadence === undefined ? ["-t", seconds(plan.output.durationUs)] : []),
     "-movflags", encoderRecipe?.container.movflags ?? "+faststart",
     output,
   ];

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
-import { constants } from "node:fs";
+import { constants, type Stats } from "node:fs";
 import { link, lstat, open, opendir, realpath, unlink, type FileHandle } from "node:fs/promises";
 import { hostname, uptime } from "node:os";
 import { join } from "node:path";
@@ -34,12 +34,17 @@ const MutationLockOwnerSchema = z.object({
 type MutationLockOwner = z.infer<typeof MutationLockOwnerSchema>;
 
 interface LockSnapshot {
+  readonly birthtimeMs: number;
+  readonly blksize: number;
+  readonly blocks: number;
   readonly ctimeMs: number;
   readonly dev: number;
   readonly ino: number;
+  readonly gid: number;
   readonly mode: number;
   readonly mtimeMs: number;
   readonly nlink: number;
+  readonly rdev: number;
   readonly size: number;
   readonly uid: number;
 }
@@ -63,37 +68,71 @@ function errno(error: unknown, code: string): boolean {
   return error instanceof Error && "code" in error && error.code === code;
 }
 
-function snapshotOf(value: {
-  readonly ctimeMs: number;
-  readonly dev: number;
-  readonly ino: number;
-  readonly mode: number;
-  readonly mtimeMs: number;
-  readonly nlink: number;
-  readonly size: number;
-  readonly uid: number;
-}): LockSnapshot {
+function snapshotOf(value: Stats): LockSnapshot {
   return {
+    birthtimeMs: value.birthtimeMs,
+    blksize: value.blksize,
+    blocks: value.blocks,
     ctimeMs: value.ctimeMs,
     dev: value.dev,
     ino: value.ino,
+    gid: value.gid,
     mode: value.mode,
     mtimeMs: value.mtimeMs,
     nlink: value.nlink,
+    rdev: value.rdev,
     size: value.size,
     uid: value.uid,
   };
 }
 
 function sameSnapshot(left: LockSnapshot, right: LockSnapshot): boolean {
-  return left.dev === right.dev
-    && left.ino === right.ino
-    && left.mode === right.mode
-    && left.nlink === right.nlink
-    && left.size === right.size
-    && left.uid === right.uid
-    && left.mtimeMs === right.mtimeMs
-    && left.ctimeMs === right.ctimeMs;
+  return changedSnapshotFields(left, right).length === 0;
+}
+
+function changedSnapshotFields(left: LockSnapshot, right: LockSnapshot): readonly (keyof LockSnapshot)[] {
+  const fields = ["dev", "ino", "mode", "nlink", "size", "uid", "gid", "rdev", "blksize", "blocks", "mtimeMs", "ctimeMs", "birthtimeMs"] as const;
+  return fields.filter(field => left[field] !== right[field]);
+}
+
+function assertOwnedSnapshot(expected: LockSnapshot, actual: LockSnapshot, phase: string, allowCtime: boolean): void {
+  const fields = changedSnapshotFields(expected, actual);
+  if (fields.some(field => !allowCtime || field !== "ctimeMs")) {
+    throw new CliError("conflict", `Project mutation custody changed ${phase} (fields: ${fields.join(", ")}).`);
+  }
+}
+
+async function verifyExactOwnedLock(handle: FileHandle, path: string, expected: LockSnapshot, ownerBytes: Buffer): Promise<LockSnapshot> {
+  if (ownerBytes.length < 1 || ownerBytes.length > MAX_OWNER_BYTES || expected.size !== ownerBytes.length) {
+    throw new CliError("conflict", "Project mutation custody has an invalid owner byte bound.");
+  }
+  const buffer = Buffer.alloc(ownerBytes.length + 1);
+  let previous: LockSnapshot | undefined;
+  for (const attempt of [1, 2] as const) {
+    const held = await handle.stat();
+    if (!ownedPrivateFile(held)) throw new CliError("conflict", "Project mutation custody changed before owner verification (fields: mode, uid or file type).");
+    const before = snapshotOf(held);
+    assertOwnedSnapshot(expected, before, "before owner verification", true);
+    if (previous !== undefined) assertOwnedSnapshot(previous, before, "between owner verification reads", false);
+    let bytes = 0;
+    while (bytes < buffer.length) {
+      const read = await handle.read(buffer, bytes, buffer.length - bytes, bytes);
+      if (read.bytesRead === 0) break;
+      bytes += read.bytesRead;
+    }
+    const after = snapshotOf(await handle.stat());
+    const current = await lstat(path);
+    if (!ownedPrivateFile(current)) throw new CliError("conflict", "Project mutation custody changed at owner path readback (fields: mode, uid or file type).");
+    const retained = snapshotOf(current);
+    assertOwnedSnapshot(before, after, "during owner verification", attempt === 1);
+    assertOwnedSnapshot(after, retained, "at owner path readback", attempt === 1);
+    if (bytes !== ownerBytes.length || !buffer.subarray(0, bytes).equals(ownerBytes)) {
+      throw new CliError("conflict", "Project mutation custody changed during owner verification (fields: owner bytes).");
+    }
+    if (sameSnapshot(before, after) && sameSnapshot(after, retained)) return retained;
+    previous = retained;
+  }
+  throw new CliError("conflict", "Project mutation custody remained unstable during owner verification.");
 }
 
 function ownedPrivateFile(details: {
@@ -300,17 +339,18 @@ async function discardStagedOwner(path: string, handle: FileHandle): Promise<voi
 async function stageOwner(
   directory: string,
   owner: MutationLockOwner,
-): Promise<{ readonly handle: FileHandle; readonly path: string }> {
+): Promise<{ readonly handle: FileHandle; readonly path: string; readonly ownerBytes: Buffer }> {
   const path = join(directory, `${MUTATION_LOCK_TEMP_PREFIX}${randomUUID()}.tmp`);
+  const ownerBytes = Buffer.from(`${JSON.stringify(owner)}\n`);
   const handle = await open(
     path,
-    constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW | constants.O_WRONLY,
+    constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW | constants.O_RDWR,
     0o600,
   );
   try {
-    await handle.writeFile(`${JSON.stringify(owner)}\n`, { encoding: "utf8" });
+    await handle.writeFile(ownerBytes);
     await handle.sync();
-    return { handle, path };
+    return { handle, path, ownerBytes };
   } catch (error) {
     await discardStagedOwner(path, handle);
     throw error;
@@ -376,7 +416,7 @@ async function cleanupAbandonedAcquisitionTemps(
 async function acquire(
   bundleDirectory: string,
   options: MutationLockOptions,
-): Promise<{ readonly handle: FileHandle; readonly path: string; readonly snapshot: LockSnapshot }> {
+): Promise<{ readonly handle: FileHandle; readonly path: string; readonly snapshot: LockSnapshot; readonly ownerBytes: Buffer }> {
   const directory = await physicalBundleDirectory(bundleDirectory);
   const path = join(directory, MUTATION_LOCK_FILE);
   const now = (options.now ?? (() => new Date()))();
@@ -392,10 +432,8 @@ async function acquire(
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const staged = await stageOwner(directory, owner);
-    let claimed = false;
     try {
       await link(staged.path, path);
-      claimed = true;
     } catch (error) {
       await discardStagedOwner(staged.path, staged.handle);
       if (!errno(error, "EEXIST")) throw error;
@@ -406,15 +444,12 @@ async function acquire(
     try {
       await unlink(staged.path).catch(() => undefined);
       const snapshot = snapshotOf(await staged.handle.stat());
-      const published = await lstat(path);
-      if (!ownedPrivateFile(published) || !sameSnapshot(snapshot, snapshotOf(published))) {
-        throw new CliError("unsafe-path", `Published mutation lock changed during acquisition: ${path}`);
-      }
-      return { handle: staged.handle, path, snapshot };
+      const verified = await verifyExactOwnedLock(staged.handle, path, snapshot, staged.ownerBytes);
+      return { handle: staged.handle, path, snapshot: verified, ownerBytes: staged.ownerBytes };
     } catch (error) {
-      const snapshot = snapshotOf(await staged.handle.stat());
       await staged.handle.close().catch(() => undefined);
-      if (claimed) await unlinkIfSame(path, snapshot).catch(() => false);
+      // A published owner that failed exact verification is not safe to unlink.
+      // Preserve it for the existing conservative stale-owner protocol.
       throw error;
     }
   }
@@ -424,6 +459,7 @@ async function acquire(
 
 /** Native custody remains with this descriptor and exact published inode. */
 export interface MutationLease {
+  assertOwned(): Promise<void>;
   close(): Promise<void>;
   unlinkIfOwned(): Promise<void>;
 }
@@ -433,20 +469,57 @@ export async function acquireMutationLease(
   options: MutationLockOptions,
 ): Promise<MutationLease> {
   const lease = await acquire(bundleDirectory, options);
+  let snapshot = lease.snapshot, closed = false;
+  let pending: Promise<void> = Promise.resolve();
+  const serialize = (work: () => Promise<void>): Promise<void> => {
+    const result = pending.then(work);
+    pending = result.then(() => undefined, () => undefined);
+    return result;
+  };
   return {
-    close: async () => await lease.handle.close(),
-    unlinkIfOwned: async () => { await unlinkIfSame(lease.path, lease.snapshot); },
+    assertOwned: async () => await serialize(async () => {
+      if (closed) throw new CliError("conflict", "Project mutation custody changed before publication (fields: closed descriptor).");
+      const current = await lstat(lease.path);
+      const held = await lease.handle.stat();
+      if (!ownedPrivateFile(current) || !ownedPrivateFile(held)) throw new CliError("conflict", "Project mutation custody changed before publication (fields: mode, uid or file type).");
+      assertOwnedSnapshot(snapshot, snapshotOf(current), "at publication path", true);
+      assertOwnedSnapshot(snapshot, snapshotOf(held), "at publication descriptor", true);
+      if (!sameSnapshot(snapshot, snapshotOf(current)) || !sameSnapshot(snapshot, snapshotOf(held))) {
+        snapshot = await verifyExactOwnedLock(lease.handle, lease.path, snapshot, lease.ownerBytes);
+      }
+    }),
+    close: async () => await serialize(async () => {
+      if (closed) return;
+      closed = true;
+      await lease.handle.close();
+    }),
+    unlinkIfOwned: async () => await serialize(async () => {
+      let handle: FileHandle | undefined;
+      let verified: LockSnapshot | undefined;
+      try {
+        // The caller closes custody before cleanup. Reopen only our exact
+        // original inode and byte-for-byte owner, never a replacement owner.
+        handle = await open(lease.path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+        verified = await verifyExactOwnedLock(handle, lease.path, snapshot, lease.ownerBytes);
+      } catch (error) {
+        if (!errno(error, "ENOENT") && !errno(error, "ELOOP") && !(error instanceof CliError && error.code === "conflict")) throw error;
+      } finally { await handle?.close(); }
+      if (verified !== undefined) {
+        snapshot = verified;
+        await unlinkIfSame(lease.path, snapshot);
+      }
+    }),
   };
 }
 
 export async function withMutationLock<T>(
   bundleDirectory: string,
   options: MutationLockOptions,
-  mutate: () => Promise<T>,
+  mutate: (lease: MutationLease) => Promise<T>,
 ): Promise<T> {
   const lease = await acquireMutationLease(bundleDirectory, options);
   try {
-    return await mutate();
+    return await mutate(lease);
   } finally {
     try {
       await lease.close();

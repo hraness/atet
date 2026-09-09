@@ -172,6 +172,14 @@ export function commandHostResourceClaims(
     case "diagram-render":
     case "image-vectorize":
       return claims(coordinator, ["cpu", "local-io"]);
+    case "spatial-scene":
+      return command.action === "render"
+        ? claims(coordinator, ["cpu", "local-io", "browser", "ffmpeg", "output-publication"])
+        : claims(coordinator, ["cpu", "local-io"]);
+    case "spatial-project":
+      return command.action === "prepare-render"
+        ? claims(coordinator, ["cpu", "local-io", "browser", "ffmpeg", "output-publication", "project-render"])
+        : claims(coordinator, ["cpu", "local-io"]);
     case "project-add":
     case "project-overlay-edit":
       return claims(coordinator, ["cpu", "local-io"]);

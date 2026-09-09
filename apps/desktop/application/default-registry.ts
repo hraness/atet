@@ -37,6 +37,7 @@ import {
   projectRenderOperationDefinition,
   projectRenderOperationDefinitionV2,
   projectRenderOperationDefinitionV3,
+  projectRenderOperationDefinitionV4,
   projectSnapshotOperationDefinition,
   recordingPauseOperationDefinition,
   recordingResumeOperationDefinition,
@@ -46,6 +47,18 @@ import {
   atetDiagramCheckOperationDefinition,
   atetDiagramRenderOperationDefinition,
   atetImageVectorizeOperationDefinition,
+  spatialInspectOperationDefinition,
+  spatialPatchOperationDefinition,
+  spatialEvaluateOperationDefinition,
+  spatialRenderOperationDefinition,
+  spatialProjectSnapshotOperationDefinition,
+  spatialProjectMigrateOperationDefinition,
+  spatialProjectPatchOperationDefinition,
+  spatialProjectRestoreOperationDefinition,
+  spatialProjectAddShotOperationDefinition,
+  spatialProjectAddCandidateOperationDefinition,
+  spatialProjectSelectCandidateOperationDefinition,
+  spatialProjectReconcileOperationDefinition,
 } from "./operations";
 import { atetPortableOperationDefinitions } from "./operations/atet-portable";
 import { ATET_APPLICATION_TOOL_VERSION } from "./operation";
@@ -63,6 +76,18 @@ export function createApplicationOperationRegistry(
     ?? (() => `analysis_${randomUUID().replaceAll("-", "")}`);
   const toolVersion = options.toolVersion ?? ATET_APPLICATION_TOOL_VERSION;
   const registry = new OperationRegistry();
+  registry.register(spatialInspectOperationDefinition);
+  registry.register(spatialPatchOperationDefinition);
+  registry.register(spatialEvaluateOperationDefinition);
+  registry.register(spatialRenderOperationDefinition);
+  registry.register(spatialProjectSnapshotOperationDefinition);
+  registry.register(spatialProjectMigrateOperationDefinition);
+  registry.register(spatialProjectPatchOperationDefinition);
+  registry.register(spatialProjectRestoreOperationDefinition);
+  registry.register(spatialProjectAddShotOperationDefinition);
+  registry.register(spatialProjectAddCandidateOperationDefinition);
+  registry.register(spatialProjectSelectCandidateOperationDefinition);
+  registry.register(spatialProjectReconcileOperationDefinition);
   registry.register(projectSnapshotOperationDefinition);
   registry.register(createProjectInactivityOperationDefinition({
     nextAnalysisId,
@@ -102,6 +127,7 @@ export function createApplicationOperationRegistry(
   registry.register(projectRenderOperationDefinition);
   registry.register(projectRenderOperationDefinitionV2);
   registry.register(projectRenderOperationDefinitionV3);
+  registry.register(projectRenderOperationDefinitionV4);
   registry.register(materializeVariantSelectionOperationDefinition);
   registry.register(recordingStartOperationDefinitionV1);
   registry.register(recordingStartOperationDefinition);

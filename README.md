@@ -7,9 +7,12 @@
 **Local-first AI media generation and video editing for coding agents, with a
 Bun CLI, TypeScript SDK, MCP server, and Agent Skill.**
 
-Atet lets Codex, Claude, and other coding agents generate images, video, and
-voice; edit screen recordings and imported footage; add captions, graphics,
-and motion; and export finished videos from the files in your project.
+Atet lets Codex, Claude, and other coding agents build editable scenes,
+direct cameras, and turn visual ideas into images and video. Its media tools
+generate images, video, and voice; edit recordings and imported footage; and
+add captions, graphics, and motion. The initial directed-scene commands are
+available from this source checkout; see [Directed scenes](docs/spatial-scenes.md)
+for the supported profile and workflow.
 
 The toolkit runs on your computer. Its Agent Skill teaches your coding agent
 how to use the Bun CLI, local media engine, and Vercel AI Gateway as one
@@ -141,6 +144,18 @@ models, choose the necessary Atet operations, render a preview, and report the
 files it created. You do not need to learn the command tree first.
 
 ## What Atet does
+
+### Author directed scenes
+
+Keep geometry, images, video, diagrams, and text in an editable scene, direct
+it through named cameras, and render frames, contact sheets, or video. Agents
+inspect stable part IDs and apply typed edits while retained sources and
+receipts connect each output to its exact scene and media inputs.
+
+The initial Three.js scene profile includes calibrated cameras, explicit
+animation, a bounded GLB subset, and project delivery through the existing
+audio and video compositor. See [directed scenes](docs/spatial-scenes.md) for
+the source-checkout commands, supported assets, and current limits.
 
 ### Edit real video
 

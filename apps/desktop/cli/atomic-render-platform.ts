@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
+import { constants, linkSync, lstatSync, renameSync, type Stats } from "node:fs";
 import { link, lstat, open, realpath, rename, rm, type FileHandle } from "node:fs/promises";
 import { dirname, extname, join } from "node:path";
 import { Effect, Exit, Layer } from "effect";
@@ -150,6 +150,36 @@ export const nativeAtomicRenderPlatform: AtomicRenderPlatformService = {
   }),
   publish: (staging, request) => Effect.gen(function*() {
     yield* operationBoundary("publication", async () => {
+      if (request.beforeNativePublish !== undefined) {
+        const before = lstatSync(staging.path, { bigint: true });
+        if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n || before.size < 1n || before.size > BigInt(request.maximumOutputBytes)) throw new CliError("conflict", "Guarded render stage is unsafe.");
+        const parents = new Map<string, Stats>();
+        for (const path of [staging.path, request.finalOutputPath]) {
+          for (let directory = dirname(path);; directory = dirname(directory)) {
+            const snapshot = lstatSync(directory);
+            if (!snapshot.isDirectory() || snapshot.isSymbolicLink()) throw new CliError("unsafe-path", "Guarded render publication parent is unsafe.");
+            parents.set(directory, snapshot);
+            if (dirname(directory) === directory) break;
+          }
+        }
+        await request.beforeNativePublish(staging.path);
+        for (const [path, previous] of parents) {
+          const current = lstatSync(path);
+          if (!current.isDirectory() || current.isSymbolicLink() || current.dev !== previous.dev || current.ino !== previous.ino) throw new CliError("conflict", "Render publication parent changed during its final custody check.");
+        }
+        const after = lstatSync(staging.path, { bigint: true });
+        if (!after.isFile() || after.isSymbolicLink() || after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size
+          || after.mtimeNs !== before.mtimeNs || after.ctimeNs !== before.ctimeNs || after.nlink !== 1n || after.mode !== before.mode) throw new CliError("conflict", "Render stage changed during its final custody check.");
+        try {
+          if (request.requireFreshOutput === true) linkSync(staging.path, request.finalOutputPath);
+          else renameSync(staging.path, request.finalOutputPath);
+        } catch (error) {
+          if (error instanceof Error && "code" in error && error.code === "EEXIST") throw new CliError("conflict", `Render output was created concurrently: ${request.finalOutputPath}`);
+          throw error;
+        }
+        if (request.requireFreshOutput === true) await rm(staging.path);
+        return;
+      }
       if (request.requireFreshOutput === true) {
         try { await link(staging.path, request.finalOutputPath); }
         catch (error) {

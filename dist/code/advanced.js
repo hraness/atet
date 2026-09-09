@@ -131,7 +131,7 @@ import {
   seconds,
   sha256Hex,
   trustedComputePolicy
-} from "../index-hdahb146.js";
+} from "../index-yghkr2fe.js";
 import"../index-z1w83f81.js";
 export {
   trustedComputePolicy,

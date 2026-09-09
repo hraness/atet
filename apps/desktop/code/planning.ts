@@ -1,6 +1,9 @@
 import { ApplicationError } from "../application/errors";
 import type { ApplicationContext } from "../application/context";
 import { openLeasedProjectSnapshot } from "../application/project-publication-lease";
+import { withSpatialProjectLease } from "../application/spatial-project-lease";
+import { spatialProjectStorePorts } from "../application/spatial-project-authority";
+import { readSpatialProjectAuthority } from "../application/spatial-project-store";
 import type { OperationRegistry } from "../application/registry";
 import { canonicalJson, sha256Hex } from "../core/canonical-json";
 import type { BuiltInWorkflow } from "../workflows";
@@ -86,7 +89,19 @@ async function staticBindings(
   workflowInput: GraphPlanV1["workflowInput"],
 ) {
   const references = new Set<string>();
+  const spatialReferences = new Set<string>();
   for (const node of graph.nodes) {
+    if (isOperationGraphNode(node) && node.executor.operation.kind === "render.project" && node.executor.operation.version === 4) {
+      const input = node.input;
+      if (typeof input === "object" && input !== null && !Array.isArray(input) && "plan" in input) {
+        const plan = input.plan;
+        if (typeof plan === "object" && plan !== null && !Array.isArray(plan) && "projectId" in plan && typeof plan.projectId === "string") spatialReferences.add(plan.projectId);
+      }
+    }
+    if (isOperationGraphNode(node) && node.executor.operation.kind === "spatial.project.snapshot") {
+      const reference = projectReference(node.input);
+      if (reference !== undefined) spatialReferences.add(reference);
+    }
     if (
       !isOperationGraphNode(node)
       || node.executor.operation.kind !== "project.snapshot"
@@ -95,6 +110,12 @@ async function staticBindings(
     if (reference !== undefined) references.add(reference);
   }
   const initialSubjects: InitialSubjectBinding[] = [];
+  for (const reference of [...spatialReferences].sort()) {
+    const snapshot = await withSpatialProjectLease(application, reference, async leased =>
+      await readSpatialProjectAuthority(await spatialProjectStorePorts(leased, reference)));
+    const descriptor = { id: reference, kind: "spatial-project" as const, schemaVersion: 2 as const, basis: snapshot.basis };
+    initialSubjects.push({ ...descriptor, descriptorSha256: sha256Hex(`atet.workflow.spatial-project-binding/v1\0${canonicalJson(descriptor)}`) });
+  }
   for (const reference of [...references].sort()) {
     const snapshot = await openLeasedProjectSnapshot(application, reference);
     initialSubjects.push({

@@ -8,6 +8,19 @@ export {
   type WorkflowDefinition,
   type WorkflowDefinitionOptions,
 } from "./define-workflow";
+export * from "../../../src/spatial-scene/index";
+export type { SpatialRenderInput, BoundSpatialRenderInput } from "../application/operations/spatial-render";
+export type { SpatialRenderRequest, SpatialRenderResult } from "../application/spatial-render";
+export type { ProjectRenderInputV4, ProjectRenderOutputV4 } from "../application/operations/render/project";
+export type {
+  SpatialProjectSnapshotInput, SpatialProjectSnapshotOutput, SpatialProjectMigrateInput,
+  SpatialProjectPatchInput, SpatialProjectRestoreInput, SpatialProjectAddShotInput, SpatialProjectAddCandidateInput,
+  SpatialProjectSelectCandidateInput, SpatialProjectReconcileInput, SpatialProjectMutationOutput,
+} from "../application/operations/spatial-project";
+export type {
+  SpatialInspectInput, SpatialInspectOutput, SpatialPatchInput, SpatialPatchOutput,
+  SpatialEvaluateInput, SpatialEvaluateOutput,
+} from "../application/operations/spatial-scene";
 export {
   WORKFLOW_FILE_CANDIDATE_VERSION,
   WorkflowFileCandidateSchema,
@@ -50,6 +63,7 @@ export {
 export {
   defineWorkflowFragment,
   WorkflowBuilder,
+  type CompletedSpatialProjectMutation,
   type BindCreativeCandidateRevisionOptions,
   type BoundCreativeCandidateRevisionHandle,
   type CommittedProjectHandle,

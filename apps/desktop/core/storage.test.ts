@@ -25,6 +25,76 @@ import {
   saveVideoProject,
 } from "./storage";
 
+test("guarded publication rejects stage substitution and same-inode edits during custody checks", async () => {
+  for (const attack of ["symlink", "rewrite"] as const) {
+    const directory = await mkdtemp(join(tmpdir(), "atet-guarded-stage-"));
+    try {
+      const root = await import("node:fs/promises").then(fs => fs.realpath(directory));
+      const fs = createNodeBundleFileSystem(root);
+      await fs.writeTextAtomic("project.json", "old authority");
+      await writeFile(join(root, "external.json"), "external bytes");
+      await expect(fs.writeTextAtomicGuarded!("project.json", "new authority", async () => {
+        const staged = (await readdir(root)).find(name => name.startsWith("project.json.tmp-"))!;
+        if (attack === "symlink") {
+          await rm(join(root, staged));
+          await symlink(join(root, "external.json"), join(root, staged));
+        } else await writeFile(join(root, staged), "bad authority");
+      })).rejects.toThrow("stage changed");
+      expect(await readFile(join(root, "project.json"), "utf8")).toBe("old authority");
+      expect((await lstat(join(root, "project.json"))).isSymbolicLink()).toBe(false);
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  }
+});
+
+test("bundle structured reads and hashing reject caller byte limits before loading", async () => {
+  const root = await mkdtemp(join(tmpdir(), "atet-bounded-read-"));
+  try {
+    const fs = createNodeBundleFileSystem(root);
+    await writeFile(join(root, "large.json"), "x".repeat(1_024));
+    await expect(fs.readText("large.json", 16)).rejects.toThrow();
+    await expect(fs.inspectFile!("large.json", 16)).rejects.toThrow();
+    expect((await fs.inspectFile!("large.json", 1_024)).bytes).toBe(1_024);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("immutable writes and copies fence the exact staged bytes before publication", async () => {
+  const root = await mkdtemp(join(tmpdir(), "atet-immutable-fence-"));
+  try {
+    const fs = createNodeBundleFileSystem(root);
+    await writeFile(join(root, "source.mov"), "original");
+    const expected = { bytes: 8, sha256: sha256Hex("original") };
+    for (const kind of ["copy", "text"] as const) {
+      const destination = `${kind}.json`;
+      const publish = (guard: () => Promise<void>) => kind === "copy"
+        ? fs.copyFileNoReplace!("source.mov", destination, expected, guard)
+        : fs.writeTextNoReplace!(destination, "original", guard);
+      await expect(publish(async () => { throw new Error("custody revoked"); })).rejects.toThrow("custody revoked");
+      await expect(lstat(join(root, destination))).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(publish(async () => {
+        const stage = (await readdir(root)).find(name => kind === "copy" ? name.startsWith(".atet-copy-") : name.startsWith(`${destination}.tmp-`))!;
+        await writeFile(join(root, stage), "tampered");
+      })).rejects.toThrow("stage changed");
+      await expect(lstat(join(root, destination))).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await publish(async () => {})).toBe("created");
+      expect(await readFile(join(root, destination), "utf8")).toBe("original");
+      for (const code of ["EEXIST", "ENOENT"]) {
+        const rejected = Object.assign(new Error("rejected publication fence"), { code });
+        let calls = 0;
+        await expect(publish(async () => { calls++; throw rejected; })).rejects.toBe(rejected);
+        expect(calls).toBe(1);
+        expect(await readFile(join(root, destination), "utf8")).toBe("original");
+      }
+    }
+    const rejected = Object.assign(new Error("rejected new-copy fence"), { code: "EEXIST" });
+    await expect(fs.copyFileNoReplace!("source.mov", "absent.mov", expected, async () => { throw rejected; })).rejects.toBe(rejected);
+    await expect(lstat(join(root, "absent.mov"))).rejects.toMatchObject({ code: "ENOENT" });
+    let fenceCalled = false;
+    await expect(fs.copyFileNoReplace!("source.mov", "oversize.mov", { ...expected, bytes: 3 }, async () => { fenceCalled = true; })).rejects.toThrow("changed before opening");
+    expect(fenceCalled).toBe(false);
+    expect((await readdir(root)).some(name => name.startsWith(".atet-copy-"))).toBe(false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("mutable bundle persistence preserves Studio reads and writes canonical Atet", async () => {
   const files = new Map<string, string>();
   const fileSystem = {
@@ -179,6 +249,39 @@ test.skipIf(process.platform === "win32")("bundle inspection retries one hard-li
   } finally {
     await rm(temporary, { force: true, recursive: true });
   }
+});
+
+test.skipIf(process.platform === "win32")("bundle inspection rehashes a ctime-only transition and rejects continued changes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "atet-storage-ctime-"));
+  try {
+    const path = join(root, "asset.bin");
+    const source = "exact retained asset bytes";
+    for (const transition of ["once", "repeated", "content"] as const) {
+      await writeFile(path, source, { mode: 0o600 });
+      const mode = (await lstat(path)).mode & 0o777;
+      const attempts: number[] = [];
+      const fs = createNodeBundleFileSystem(root, {
+        duringFileInspectionForTesting: async ({ attempt }) => {
+          attempts.push(attempt);
+          if (attempt === 1 || transition === "repeated") {
+            const before = await lstat(path);
+            // Reapplying the current mode changes ctime without changing the
+            // security state or contents, as an asynchronous metadata update can.
+            await chmod(path, mode);
+            expect((await lstat(path)).ctimeMs).not.toBe(before.ctimeMs);
+          } else if (transition === "content") {
+            await writeFile(path, "x".repeat(source.length));
+          }
+        },
+      });
+      if (transition === "once") {
+        expect(await fs.inspectFile!("asset.bin")).toEqual({ bytes: source.length, sha256: sha256Hex(source) });
+      } else {
+        await expect(fs.inspectFile!("asset.bin")).rejects.toThrow("changed while it was inspected");
+      }
+      expect(attempts).toEqual([1, 2]);
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test.skipIf(process.platform === "win32")("bundle inspection rejects a destination unlinked during hard-link cleanup", async () => {

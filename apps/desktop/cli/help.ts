@@ -3,13 +3,15 @@ import { HTML_OVERLAY_SCAFFOLD_KINDS } from "../html-overlay";
 const HTML_OVERLAY_SCAFFOLD_KIND_HELP =
   HTML_OVERLAY_SCAFFOLD_KINDS.join("|");
 
-const GLOBAL_HELP = `atet — agent-first local screen recorder and non-destructive editor
+const GLOBAL_HELP = `atet — creative scenes and non-destructive media editing for coding agents
 
 Usage: atet <command> [options]
 
 Commands:
   operations list|show           Discover host-owned typed operations and policies
   diagram init|check|render      Create, validate, or render portable diagram sources
+  scene init|check|inspect|patch|evaluate|plan|render
+                                 Author and inspect editable directed 3D scene sources
   image vectorize|generate      Create a local SVG or generated image file
   html catalog|scaffold          Inspect or create a transparent HTML overlay starter
   workflows list|show|plan|run   Plan or run a reviewed reusable workflow
@@ -40,6 +42,27 @@ Commands:
 Run atet help <command> for command-specific help.`;
 
 const HELP: Readonly<Record<string, string>> = {
+  scene: `Usage:
+  atet scene init <scene.json> [--json]
+  atet scene check <scene.json> [--json]
+  atet scene inspect <scene.json> [--json]
+  atet scene patch <scene.json> --patch <patch.json> --output <new-scene.json> [--json]
+  atet scene evaluate <scene.json> --camera <camera-id> --time-us <integer> [--json]
+  atet scene plan|render <scene.json> --request <request.json> [--assets <bindings.json>] [--json]
+  atet scene project snapshot <project-id> [--json]
+  atet scene project prepare-render <project-id> --input <request.json> --output <prepared-render.json> [--json]
+  atet scene project migrate|patch|restore|add-shot|add-candidate|select-candidate|reconcile
+        <project-id> --input <request.json> [--json]
+
+Scene sources retain stable entities, cameras, asset manifests and animation channels.
+Inspect reports editable controls and known bounds without decoding assets. Patch requires
+the exact expected scene digest in its patch document and writes a new source without
+overwriting either revision. Evaluate samples absolute time without launching a renderer.
+Project operations use the exact full project ID and a versioned whole-project basis.
+Discover each request with atet operations show spatial.project.<action> --json.
+Migration retains the frozen media/edit pair in V2 authority. Legacy project commands
+cannot modify a migrated project. Ambiguous publication returns its attempt for explicit
+reconciliation and never automatically overwrites a later revision.`,
   diagram: `Usage:
   atet diagram init [diagram.json]
   atet diagram check <diagram.json> [--config <file>] [--strict]

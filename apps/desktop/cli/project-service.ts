@@ -108,6 +108,10 @@ export async function openProject(projectRoot: string, reference: string): Promi
   const fileSystem = createNodeBundleFileSystem(directory.path);
   try {
     await assertProjectStateTransactionSettled(fileSystem);
+    const authority: unknown = JSON.parse(await fileSystem.readText("project.json"));
+    if (typeof authority === "object" && authority !== null && "schemaVersion" in authority && authority.schemaVersion === 2) {
+      throw new CliError("unsupported-plan", "This project uses spatial V2 authority. Use atet scene project commands to inspect or edit its immutable revision.");
+    }
     const project = await loadVideoProject(fileSystem);
     if (project.projectId !== directory.id) {
       throw new CliError(

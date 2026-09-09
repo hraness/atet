@@ -1,7 +1,10 @@
 import { Effect } from "effect";
+import { bindSpatialRenderInput } from "../application/operations/spatial-render";
 
 import type { ApplicationContext } from "../application/context";
-import { reconcileProjectRenderEffect, type ProjectRenderReconciliation } from "../application/operations/render/project";
+import { SpatialProjectBasisSchema } from "../contracts/spatial-project";
+import { SpatialProjectSnapshotOutputSchema, SpatialProjectMutationOutputSchema } from "../application/operations/spatial-project";
+import { bindProjectRenderInputV4, reconcileProjectRenderV4, reconcileProjectRenderEffect, type ProjectRenderReconciliation } from "../application/operations/render/project";
 import {
   bindAtetPortableOperationInputV2,
   atetPortableOutputPublicationParent,
@@ -181,6 +184,15 @@ async function exactOperationInput(
   request: NodeExecutionPlanningRequest,
 ): Promise<JsonValue> {
   let deterministic = deterministicAnalysisInput(request);
+  if (request.operation.kind === "scene.render") return JsonValueSchema.parse(await bindSpatialRenderInput(application, deterministic));
+  if (request.operation.kind === "spatial.project.snapshot") {
+    const project = projectReference(deterministic);
+    const subject = request.graphPlan.staticBindings.initialSubjects.find(item => item.kind === "spatial-project" && item.id === project);
+    if (subject?.kind !== "spatial-project" || !jsonObject(deterministic)) throw new ApplicationError("authorization-required", "Spatial snapshots require an exact project binding established during planning.");
+    const exact = JsonValueSchema.parse({ ...deterministic, expected: deterministic.expected ?? subject.basis });
+    assertSpatialProjectBasisProvenance(request, exact);
+    return exact;
+  }
   if (request.operation.kind === "edit.create-candidate-revision") {
     return JsonValueSchema.parse(
       await bindCreateCandidateRevisionInput(application, deterministic),
@@ -339,6 +351,7 @@ async function exactOperationInput(
     );
   }
   if (request.operation.kind === "render.project") {
+    if (request.operation.version === 4) return JsonValueSchema.parse(await bindProjectRenderInputV4(application, deterministic));
     if (request.operation.version === 1) {
       return JsonValueSchema.parse(
         await bindProjectRenderInput(application, deterministic),
@@ -457,7 +470,7 @@ function assertProjectProvenance(
 ): void {
   if (project === undefined) return;
   const authorized = request.graphPlan.staticBindings.initialSubjects.some(subject => (
-    subject.kind === "project" && subject.id === project
+    subject.kind === (request.operation.kind.startsWith("spatial.project.") || (request.operation.kind === "render.project" && request.operation.version === 4) ? "spatial-project" : "project") && subject.id === project
   ));
   if (!authorized) {
     throw new ApplicationError(
@@ -603,6 +616,32 @@ function assertProjectEditBasisProvenance(
   }
 }
 
+function assertSpatialProjectBasisProvenance(request: NodeExecutionPlanningRequest, input: JsonValue): void {
+  if (!request.operation.kind.startsWith("spatial.project.")
+    || request.operation.kind === "spatial.project.reconcile") return;
+  if (!jsonObject(input) || typeof input.project !== "string") throw new ApplicationError("authorization-required", "Spatial mutation requires an exact bound project.");
+  const expected = SpatialProjectBasisSchema.parse(input.expected);
+  const bases = new Set<string>();
+  for (const subject of request.graphPlan.staticBindings.initialSubjects) {
+    if (subject.kind === "spatial-project" && subject.id === input.project) bases.add(canonicalJson(subject.basis));
+  }
+  const nodes = new Map(request.graphPlan.graph.nodes.map(node => [node.key, node]));
+  for (const [key, output] of Object.entries(request.dependencyOutputs)) {
+    const node = nodes.get(key);
+    if (node === undefined || !isOperationGraphNode(node)) continue;
+    if (node.executor.operation.kind === "spatial.project.snapshot") {
+      const snapshot = SpatialProjectSnapshotOutputSchema.safeParse(output.value);
+      if (snapshot.success && snapshot.data.projectId === input.project) bases.add(canonicalJson(snapshot.data.basis));
+    } else if (node.executor.operation.kind.startsWith("spatial.project.")) {
+      const mutation = SpatialProjectMutationOutputSchema.safeParse(output.value);
+      if (mutation.success && mutation.data.projectId === input.project && mutation.data.kind === "completed") {
+        bases.add(canonicalJson({ version: 2, sha256: mutation.data.projectRevisionSha256 }));
+      }
+    }
+  }
+  if (!bases.has(canonicalJson(expected))) throw new ApplicationError("authorization-required", "Spatial mutation basis must come from this project's bound snapshot or a completed typed mutation dependency.");
+}
+
 function assertCreativeBaseProvenance(
   request: NodeExecutionPlanningRequest,
   input: JsonValue,
@@ -675,6 +714,8 @@ function resolveExpectedProjectGeneration(
   input: JsonValue,
   project: string,
 ): string | undefined {
+  // Spatial operations carry their separately versioned aggregate basis.
+  if (request.operation.kind.startsWith("spatial.project.") || (request.operation.kind === "render.project" && request.operation.version === 4)) return undefined;
   if (request.operation.kind === "project.snapshot") {
     return staticProjectGeneration(request, project);
   }
@@ -778,6 +819,7 @@ export function createApplicationNodePlanner(
         projectReference(request.resolvedInput),
       );
       const exactInput = await exactOperationInput(application, request);
+      assertSpatialProjectBasisProvenance(request, exactInput);
       assertCreativeBaseProvenance(request, exactInput);
       const project = projectReference(exactInput);
       assertProjectProvenance(request, project);
@@ -830,7 +872,8 @@ async function reconcileRenderNode(
       message: "Interrupted render is missing its exact execution plan.",
     };
   }
-  const result = await reconcileProjectRender(
+  const reconcile = request.operation.version === 4 ? reconcileProjectRenderV4 : reconcileProjectRender;
+  const result = await reconcile(
     application,
     executionPlan.exactInput,
     {
@@ -850,6 +893,7 @@ function reconcileRenderNodeEffect(
   application: ApplicationContext,
   request: NodeReconciliationRequest,
 ): Effect.Effect<NodeReconciliation, WorkflowFailure> {
+  if (request.operation.version === 4) return workflowBoundary("authority", () => reconcileRenderNode(application, request));
   return Effect.gen(function*() {
     const executionPlan = request.executionPlan;
     if (executionPlan === undefined) {
@@ -864,7 +908,7 @@ function reconcileRenderNodeEffect(
   });
 }
 
-function renderNodeReconciliation(result: ProjectRenderReconciliation): NodeReconciliation {
+function renderNodeReconciliation(result: ProjectRenderReconciliation | Awaited<ReturnType<typeof reconcileProjectRenderV4>>): NodeReconciliation {
   if (result.kind === "retry") return result;
   if (result.kind === "conflict") {
     return { kind: "incompatible", message: result.message };

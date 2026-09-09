@@ -18,6 +18,22 @@ import {
 import { Cause, Context, Effect, Exit, Option, Ref } from "effect";
 import { z } from "zod";
 
+import { createBoundedJsonValueSnapshot } from "../../../../../src/code/json-snapshot";
+import { parseSpatialScene, spatialSceneSha256 } from "../../../../../src/spatial-scene/identity";
+import { SPATIAL_PROJECT_LIMITS, SpatialProjectRevisionV2Schema } from "../../../contracts/spatial-project";
+import { createNodeSpatialDurability } from "../../../core/spatial-durability";
+import { spatialProjectContents, spatialProjectDocumentText, spatialProjectRevisionSha256 } from "../../../core/spatial-project";
+import { verifySpatialCompositorOutput } from "../../../cli/spatial-compositor-verifier";
+import { createSpatialCompositorCadence } from "../../spatial-compositor-cadence";
+import { createSpatialRenderProjection } from "../../spatial-render-projection";
+import { planSpatialRender, SpatialRenderReceiptSchema, spatialShotRenderRequest } from "../../spatial-render";
+import { loadRepositoryMedia } from "../media/shared";
+import {
+  PROJECT_SPATIAL_RECEIPT_MAXIMUM_BYTES, ProjectRenderSpatialBindingV1Schema, ProjectRenderOutputSchemaV4,
+  ProjectSpatialRenderReceiptV1Schema, createProjectSpatialRenderReceipt,
+  type ProjectRenderOutputV4, type ProjectSpatialRenderReceiptV1,
+} from "./project-spatial-receipt";
+
 import {
   ProjectRenderTargetSchema,
   ProjectRenderOutputRequestSchema,
@@ -25,6 +41,7 @@ import {
   ProjectRenderToolIdentitySchema,
   ProjectRenderToolchainSchema,
   resolveProjectRenderTarget,
+  resolveProjectRenderEncoderRecipe,
   type ProjectRenderToolIdentity,
   type ProjectRenderToolchain,
   type ProjectRenderPlanV1,
@@ -32,6 +49,7 @@ import {
 import {
   canonicalJson,
   canonicalJsonSha256,
+  createNodeBundleFileSystem,
   sha256Hex,
 } from "../../../core";
 import { AtomicRenderPlatform, executeAtomicRenderEffect } from "../../../cli/atomic-render-effects";
@@ -72,6 +90,7 @@ import {
   ProjectRenderPlanReferenceSchema,
   ProjectRenderReceiptReferenceSchema,
   ProjectRenderReceiptV2Schema,
+  ProjectEditRevisionDocumentSchema,
   createProjectRenderReceiptV2,
   type ProjectRenderOutputReference,
   type ProjectRenderReceiptReference,
@@ -1627,3 +1646,277 @@ export const projectRenderOperationDefinitionV3 = {
   ProjectRenderInputV3,
   ProjectRenderOutput
 >;
+
+// V4 is an explicit spatial authority envelope. Existing V1–3 input, output,
+// receipt and recovery paths retain their original schemas and numeric clocks.
+const captureSpatialProjectRender = (input: unknown) => createBoundedJsonValueSnapshot(input, 16 * 1024 * 1024, "spatial project render input", { maximumDepth: 64, maximumValues: 1_000_000 }).value;
+const spatialInputShape = ProjectRenderInputSchemaV2.extend({ spatial: ProjectRenderSpatialBindingV1Schema }).superRefine((input, context) => {
+  const projection = input.spatial.projection;
+  const target = resolveProjectRenderTarget(input.target);
+  if (input.output.maximumBytes > 256 * 1024 * 1024 || input.plan.projectId !== projection.source.projectId
+    || input.plan.revisionSha256 !== projection.derivedV1RevisionSha256 || input.plan.planSha256 !== projection.compositionPlanSha256
+    || target.frameRate !== projection.legacyFrameRateAdapter.value || target.pixelWidth !== projection.output.pixelWidth || target.pixelHeight !== projection.output.pixelHeight) {
+    context.addIssue({ code: "custom", message: "Spatial project rendering requires an exact projection-bound plan/target and at most 256 MiB of output." });
+  }
+});
+export const ProjectRenderInputSchemaV4 = z.preprocess(captureSpatialProjectRender, spatialInputShape);
+export type ProjectRenderInputV4 = z.infer<typeof ProjectRenderInputSchemaV4>;
+const SPATIAL_RENDER_PRECOMMIT = "spatial-project-render-precommit.v1.json";
+export const SPATIAL_PROJECT_RENDER_INPUT_LIMITS = Object.freeze({ materializedBytes: 1024 * 1024 * 1024, sceneDocumentBytes: 32 * 1024 * 1024, receiptBytes: 16 * 1024 * 1024 });
+
+function equalSpatialRender(left: unknown, right: unknown, message: string): void {
+  if (canonicalJson(left) !== canonicalJson(right)) throw new ApplicationError("conflict", message);
+}
+async function loadSpatialRenderJson(application: ApplicationContext, absolutePath: string, maximumBytes: number, signal: AbortSignal,
+  expected?: { readonly sha256: string; readonly bytes: number }) {
+  const request = { path: relative(application.paths.repositoryRoot, absolutePath), ...(expected === undefined ? {} : { bytes: expected.bytes, sha256: expected.sha256 }) };
+  const loaded = await loadRepositoryMedia(application, request, signal, maximumBytes);
+  let value: unknown;
+  try { value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(loaded.data)); }
+  catch { throw new ApplicationError("invalid-data", "Spatial compositor artifact is not valid UTF-8 JSON."); }
+  return { value, artifact: loaded.artifact, text: new TextDecoder().decode(loaded.data) };
+}
+
+/** Re-derive from immutable source authority, never from mutable V1 project files. */
+async function assertSpatialProjectRenderSource(application: ApplicationContext, input: ProjectRenderInputV4, signal: AbortSignal) {
+  const exactPlan = await loadExactProjectRenderPlan(application, input.plan);
+  const spatial = input.spatial, projection = spatial.projection, head = projection.source;
+  const original = await loadSpatialRenderJson(application, join(exactPlan.directory, head.revision.path), SPATIAL_PROJECT_LIMITS.documentBytes, signal, head.revision);
+  const revision = SpatialProjectRevisionV2Schema.parse(original.value);
+  if (revision.projectId !== input.plan.projectId || revision.transactionId !== head.transactionId
+    || spatialProjectRevisionSha256(revision) !== head.projectRevisionSha256 || original.text !== spatialProjectDocumentText(revision)) {
+    throw new ApplicationError("conflict", "Spatial projection source revision differs from its exact retained authority.");
+  }
+  if (revision.scenes.reduce((sum, scene) => sum + scene.artifact.bytes, 0) > SPATIAL_PROJECT_RENDER_INPUT_LIMITS.sceneDocumentBytes) {
+    throw new ApplicationError("invalid-data", "Spatial compositor retained scene documents exceed their total byte budget.");
+  }
+  const materializedPayloads = new Map<string, number>();
+  for (const { materialized } of projection.shots) {
+    const prior = materializedPayloads.get(materialized.artifact.sha256);
+    if (prior !== undefined && prior !== materialized.artifact.bytes) throw new ApplicationError("conflict", "Materialized shots disagree on one content-addressed payload size.");
+    materializedPayloads.set(materialized.artifact.sha256, materialized.artifact.bytes);
+  }
+  if ([...materializedPayloads.values()].reduce((sum, bytes) => sum + bytes, 0) > SPATIAL_PROJECT_RENDER_INPUT_LIMITS.materializedBytes) {
+    throw new ApplicationError("invalid-data", "Spatial compositor materialized source videos exceed their total byte budget.");
+  }
+  const scenes = [];
+  for (const source of revision.scenes) {
+    const loaded = await loadSpatialRenderJson(application, join(exactPlan.directory, source.artifact.path), 2_097_153, signal, source.artifact);
+    const document = parseSpatialScene(loaded.value);
+    if (spatialSceneSha256(document) !== source.sceneSha256 || loaded.text !== spatialProjectDocumentText(document)) throw new ApplicationError("conflict", "Spatial source document differs from its retained scene reference.");
+    scenes.push({ document, sceneSha256: source.sceneSha256 });
+  }
+  const recomputed = createSpatialRenderProjection({
+    snapshot: { version: 2, head, revision, headText: spatialProjectDocumentText(head), basis: { version: 2, sha256: head.projectRevisionSha256 }, contents: spatialProjectContents(revision, scenes) },
+    materializedShots: projection.shots.map(item => item.materialized), policy: projection.policy, output: projection.output,
+  });
+  equalSpatialRender(recomputed.projection, projection, "Spatial render projection cannot be derived from its exact source revision.");
+  equalSpatialRender(recomputed.projectionSha256, spatial.projectionSha256, "Spatial projection digest differs from its recomputed identity.");
+  equalSpatialRender(recomputed.renderPlan, exactPlan.document.plan, "Spatial composition plan differs from the exact projection output.");
+  const derived = await loadSpatialRenderJson(application, join(exactPlan.directory, projection.derivedV1Revision.path), SPATIAL_PROJECT_LIMITS.documentBytes, signal, projection.derivedV1Revision);
+  const derivedRevision = ProjectEditRevisionDocumentSchema.parse(derived.value);
+  equalSpatialRender(derivedRevision, recomputed.revision, "Retained V1 composition revision differs from the spatial derivation.");
+  if (derived.text !== spatialProjectDocumentText(derivedRevision) || exactPlan.document.projectSha256 !== derivedRevision.projectSha256
+    || exactPlan.document.projectEditPlanSha256 !== derivedRevision.projectEditPlanSha256 || exactPlan.document.revisionSha256 !== derivedRevision.revisionSha256) {
+    throw new ApplicationError("conflict", "Spatial plan document does not bind its exact derived revision.");
+  }
+  equalSpatialRender(createSpatialCompositorCadence({ projection, projectionSha256: spatial.projectionSha256, plan: exactPlan.document.plan }), spatial.cadence, "Spatial compositor cadence differs from the exact projection and plan.");
+  const receiptCache = new Map<string, z.infer<typeof SpatialRenderReceiptSchema>>(), verifiedPayloads = new Set<string>();
+  let receiptBytes = 0;
+  for (const { shot, materialized } of projection.shots) {
+    let receipt = receiptCache.get(materialized.receiptSha256);
+    if (receipt === undefined) {
+      const loaded = await loadSpatialRenderJson(application, join(exactPlan.directory, `spatial/receipts/${materialized.receiptSha256}.json`), 1024 * 1024, signal);
+      receiptBytes += loaded.artifact.bytes;
+      if (loaded.artifact.sha256 !== materialized.receiptSha256) throw new ApplicationError("conflict", "Materialized shot receipt failed its physical content address.");
+      if (receiptBytes > SPATIAL_PROJECT_RENDER_INPUT_LIMITS.receiptBytes) throw new ApplicationError("invalid-data", "Spatial compositor source receipts exceed their total byte budget.");
+      receipt = SpatialRenderReceiptSchema.parse(loaded.value);
+      receiptCache.set(materialized.receiptSha256, receipt);
+    }
+    const source = scenes.find(scene => scene.sceneSha256 === shot.sceneSha256);
+    if (source === undefined) throw new ApplicationError("conflict", "Materialized shot source is absent.");
+    const requested = planSpatialRender(source.document, spatialShotRenderRequest(shot, projection.output.frameRate));
+    equalSpatialRender(receipt.request, requested.request, "Materialized shot receipt uses a different camera, overrides or exact source clock.");
+    equalSpatialRender(receipt.requestSha256, requested.requestSha256, "Materialized shot request digest differs from its exact shot.");
+    equalSpatialRender(receipt.samples.map(sample => sample.sample), requested.samples, "Materialized shot receipt samples differ from its exact source-clock mapping.");
+    const encoded = receipt.render.encodedEvidence;
+    if (receipt.sceneSha256 !== shot.sceneSha256 || receipt.render.kind !== "video" || receipt.render.width !== materialized.pixelWidth || receipt.render.height !== materialized.pixelHeight
+      || encoded === undefined || encoded.frameCount !== materialized.frameCount || encoded.codec !== materialized.codec || encoded.container !== materialized.container
+      || encoded.streamIndex !== materialized.streamIndex || encoded.alpha !== materialized.alpha || encoded.colorSpace !== materialized.colorSpace
+      || receipt.output.sha256 !== materialized.artifact.sha256 || receipt.output.bytes !== materialized.artifact.bytes) {
+      throw new ApplicationError("conflict", "Materialized shot video differs from its qualified source render receipt.");
+    }
+    equalSpatialRender(encoded.frameRate, materialized.frameRate, "Materialized shot encoded rate differs from its retained receipt.");
+    if (!verifiedPayloads.has(materialized.artifact.sha256)) {
+      await resolveVerifiedProjectMedia({ expected: materialized.artifact, path: materialized.artifact.path, label: "Materialized spatial shot", repositoryRoot: exactPlan.directory });
+      verifiedPayloads.add(materialized.artifact.sha256);
+    }
+  }
+  return exactPlan;
+}
+
+export async function bindProjectRenderInputV4(application: ApplicationContext, resolvedInput: unknown, signal = new AbortController().signal): Promise<ProjectRenderInputV4> {
+  // A V4 author already has a projection/cadence. Only the host toolchain may be filled here.
+  const requested = z.preprocess(captureSpatialProjectRender, ProjectRenderUnboundInputSchemaV2.extend({ spatial: ProjectRenderSpatialBindingV1Schema })).parse(resolvedInput);
+  const binding = await bindProjectRenderToolchain(application);
+  if (requested.binding !== undefined) equalSpatialRender(requested.binding, binding, "Spatial project compositor toolchain changed after planning.");
+  const input = ProjectRenderInputSchemaV4.parse({ ...requested, binding });
+  await assertSpatialProjectRenderSource(application, input, signal);
+  return input;
+}
+
+function spatialReceiptPath(nodePlanSha256: string): string { return `renders/receipts/${nodePlanSha256}.spatial.json`; }
+function spatialProjectRenderOutput(receipt: ProjectSpatialRenderReceiptV1): ProjectRenderOutputV4 {
+  const text = `${canonicalJson(receipt)}\n`, execution = receipt.execution;
+  return ProjectRenderOutputSchemaV4.parse({ output: execution.output, receipt: {
+    kind: "atet.spatial-project-render-receipt-reference", schemaVersion: 1,
+    bytes: Buffer.byteLength(text), sha256: sha256Hex(text), receiptSha256: receipt.receiptSha256,
+    path: spatialReceiptPath(execution.run.nodePlanSha256), projectId: execution.projectId, revisionSha256: execution.revisionSha256,
+    projectRevisionSha256: receipt.spatial.projection.source.projectRevisionSha256, projectionSha256: receipt.spatial.projectionSha256,
+    cadenceSha256: receipt.spatial.cadence.cadenceSha256, outputSha256: execution.output.sha256, nodePlanSha256: execution.run.nodePlanSha256,
+  } });
+}
+function assertSpatialReceiptMatches(input: ProjectRenderInputV4, receipt: ProjectSpatialRenderReceiptV1, execution: ProjectRenderExecutionIdentity, outputAbsolute: string): void {
+  assertReceiptMatchesExactRender({ input, receipt: receipt.execution, execution, outputAbsolute, renderPlanSha256: input.plan.renderPlanSha256 });
+  equalSpatialRender(input.spatial, receipt.spatial, "Spatial compositor receipt belongs to a different source authority or cadence.");
+}
+async function readSpatialProjectRenderReceipt(application: ApplicationContext, absolutePath: string, signal: AbortSignal): Promise<ProjectSpatialRenderReceiptV1> {
+  const read = await loadSpatialRenderJson(application, absolutePath, PROJECT_SPATIAL_RECEIPT_MAXIMUM_BYTES, signal);
+  const receipt = ProjectSpatialRenderReceiptV1Schema.parse(read.value);
+  if (read.text !== `${canonicalJson(receipt)}\n`) throw new ApplicationError("conflict", "Spatial compositor receipt is not its exact canonical document.");
+  return receipt;
+}
+async function publishSpatialProjectRenderReceipt(application: ApplicationContext, root: string, path: string, receipt: ProjectSpatialRenderReceiptV1, beforePublication?: () => Promise<void>): Promise<void> {
+  if (!isWithin(application.paths.repositoryRoot, root)) throw new ApplicationError("unsafe-path", "Spatial receipt root is outside the application repository.");
+  const text = `${canonicalJson(receipt)}\n`;
+  if (Buffer.byteLength(text) > PROJECT_SPATIAL_RECEIPT_MAXIMUM_BYTES) throw new ApplicationError("invalid-data", "Spatial compositor receipt exceeds its byte budget.");
+  const fs = createNodeBundleFileSystem(root);
+  if (fs.writeTextNoReplace === undefined) throw new ApplicationError("internal", "Spatial render storage lacks immutable publication.");
+  await fs.writeTextNoReplace(path, text, beforePublication);
+  const published = await fs.readText(path, PROJECT_SPATIAL_RECEIPT_MAXIMUM_BYTES);
+  if (published !== text) throw new ApplicationError("conflict", "Spatial compositor publication target contains different receipt bytes.");
+  await createNodeSpatialDurability(root).syncExactFile(path, { bytes: Buffer.byteLength(text), sha256: sha256Hex(text) });
+}
+
+function projectRenderProgramV4(context: OperationExecutionContext, value: unknown): Effect.Effect<ProjectRenderOutputV4, OperationEffectFailure, ProjectRenderServices | AtomicRenderPlatform> {
+  return Effect.gen(function*() {
+    const application = yield* ProjectRenderServices;
+    const workflow = yield* renderValidation(() => {
+      if (context.workflow === undefined) throw new ApplicationError("conflict", "Spatial project rendering requires an exact run-private execution context.");
+      throwIfAborted(context.abortSignal); return context.workflow;
+    });
+    const input = yield* renderBoundary("input", () => bindProjectRenderInputV4(application, value, context.abortSignal));
+    const exactPlan = yield* renderBoundary("project", () => loadExactProjectRenderPlan(application, input.plan));
+    yield* renderValidation(() => {
+      assertProjectRenderTarget(input, exactPlan.document.plan);
+      if (input.syncPolicy === "require-verified" && exactPlan.document.plan.warnings.some(warning => warning.code === "unverified-sync")) throw new ApplicationError("conflict", "Spatial composition includes unverified placement synchronization.");
+    });
+    const execution = { nodeKey: workflow.nodeKey, nodePlanSha256: workflow.nodePlanSha256, runId: workflow.runId };
+    const workspace = yield* renderBoundary("workspace", () => exactRunWorkflowWorkspace(application, execution, workflow.workspaceDirectory));
+    const runner = workflowRunner(new ExactCapabilityApplicationRunner(application.runner, [input.binding.ffmpeg, input.binding.ffprobe,
+      ...(input.binding.rsvgConvert === null ? [] : [input.binding.rsvgConvert])], application.paths.privateRoot), workspace);
+    const outputAbsolute = join(exactPlan.directory, input.output.path), receiptRelative = spatialReceiptPath(workflow.nodePlanSha256), receiptAbsolute = join(exactPlan.directory, receiptRelative);
+    yield* renderBoundary("workspace", async () => {
+      const outputParent = await ensurePhysicalPrivateDirectoryWithin(exactPlan.directory, dirname(input.output.path));
+      if (dirname(outputAbsolute) !== outputParent) throw new ApplicationError("unsafe-path", "Spatial compositor output parent changed.");
+      await ensurePhysicalPrivateDirectoryWithin(exactPlan.directory, dirname(receiptRelative));
+    });
+    return yield* withOutputPublicationLeaseEffect(application, { outputPath: input.output.path, projectId: input.plan.projectId }, Effect.gen(function*() {
+      yield* renderBoundary("publication", () => requireFreshPublicationTargets(outputAbsolute, receiptAbsolute));
+      const built = yield* renderBoundary("media", () => buildProjectFfmpegInvocation(exactPlan.document.plan, {
+        ffmpeg: input.binding.ffmpeg.executablePath, ffprobe: input.binding.ffprobe.executablePath,
+        outputPath: outputAbsolute, projectDirectory: exactPlan.directory, renderTier: input.target.tier, repositoryRoot: application.paths.repositoryRoot,
+        ...(input.binding.rsvgConvert === null ? {} : { rsvgConvert: input.binding.rsvgConvert.executablePath, rsvgConvertVersion: input.binding.rsvgConvert.version }),
+        runner, workspaceDirectory: workspace, spatialCadence: input.spatial.cadence,
+      }));
+      const publicationFence = async () => { await workflow.beforePublication(); await application.hostResourceLease?.assertOwned(); throwIfAborted(context.abortSignal); };
+      let preparedIntegrity: { readonly bytes: number; readonly sha256: string } | undefined;
+      const rendered = yield* executeAtomicRenderEffect({ abortSignal: context.abortSignal, argv: built.argv, failureLabel: "FFmpeg spatial project render failed",
+        finalOutputPath: outputAbsolute, maximumOutputBytes: input.output.maximumBytes, requireFreshOutput: true, runner, stagingDirectory: workspace, timeoutMs: PROJECT_RENDER_MAX_DURATION_MS,
+        beforeNativePublish: async stagedPath => {
+          if (preparedIntegrity === undefined) throw new ApplicationError("conflict", "Spatial publication requires its exact verified precommit integrity.");
+          await resolveVerifiedProjectMedia({ expected: preparedIntegrity, path: relative(application.paths.repositoryRoot, stagedPath), label: "Spatial output at final publication fence", repositoryRoot: application.paths.repositoryRoot });
+          await reverifyProjectRenderInputs(built.pinnedInputs);
+          await publicationFence();
+        },
+      }, {
+        prepare: (integrity, stagedPath) => Effect.gen(function*() {
+          const timing = yield* renderBoundary("media", () => verifySpatialCompositorOutput({ cadence: input.spatial.cadence, outputPath: stagedPath,
+            expectedVideo: { pixelWidth: exactPlan.document.plan.output.pixelWidth, pixelHeight: exactPlan.document.plan.output.pixelHeight, pixelFormat: resolveProjectRenderEncoderRecipe(input.target.tier).video.pixelFormat },
+            maximumBytes: input.output.maximumBytes, ffprobe: input.binding.ffprobe.executablePath, runner, signal: context.abortSignal }));
+          yield* renderBoundary("media", () => resolveVerifiedProjectMedia({ expected: integrity, path: relative(application.paths.repositoryRoot, stagedPath),
+            label: "Spatial output after timing verification", repositoryRoot: application.paths.repositoryRoot }));
+          yield* renderBoundary("publication", () => reverifyProjectRenderInputs(built.pinnedInputs));
+          yield* renderBoundary("publication", publicationFence);
+          const receipt = yield* renderValidation(() => createProjectSpatialRenderReceipt({
+            execution: createProjectRenderReceiptV2({ createdAt: application.clock.now().toISOString(), inputSha256: canonicalJsonSha256(input), invocation: built.invocation,
+              output: ProjectRenderOutputReferenceSchema.parse({ ...integrity, kind: "atet.project-render-output-reference", schemaVersion: 1, path: input.output.path,
+                planArtifactSha256: input.plan.artifact.sha256, projectId: input.plan.projectId, revisionSha256: input.plan.revisionSha256 }),
+              plan: input.plan, run: execution, syncPolicy: input.syncPolicy, toolchain: input.binding }), spatial: input.spatial, timing,
+          }));
+          yield* renderValidation(() => assertSpatialReceiptMatches(input, receipt, execution, outputAbsolute));
+          yield* renderBoundary("publication", () => publishSpatialProjectRenderReceipt(application, workspace, SPATIAL_RENDER_PRECOMMIT, receipt, publicationFence));
+          preparedIntegrity = integrity;
+          return receipt;
+        }),
+        companion: { finalPath: receiptAbsolute, publish: (receipt, integrity) => Effect.gen(function*() {
+          yield* renderValidation(() => {
+            if (receipt.execution.output.bytes !== integrity.bytes || receipt.execution.output.sha256 !== integrity.sha256) throw new ApplicationError("conflict", "Published spatial compositor bytes differ from the exact precommit.");
+          });
+          // After the public link, finish the bounded durable companion even if cancellation arrives.
+          yield* renderBoundary("publication", () => createNodeSpatialDurability(exactPlan.directory).syncExactFile(input.output.path, integrity));
+          yield* renderBoundary("publication", () => publishSpatialProjectRenderReceipt(application, exactPlan.directory, receiptRelative, receipt));
+        }) },
+      });
+      return yield* renderValidation(() => spatialProjectRenderOutput(rendered.prepared));
+    }));
+  });
+}
+
+export function projectRenderEffectV4(context: OperationExecutionContext, input: unknown): Effect.Effect<ProjectRenderOutputV4, OperationEffectFailure> {
+  return projectRenderProgramV4(context, input).pipe(Effect.provideService(ProjectRenderServices, context.application), Effect.provide(AtomicRenderPlatformLive));
+}
+export const projectRenderOperationDefinitionV4 = {
+  ...projectRenderOperationDefinitionV2, version: 4,
+  inputSchema: ProjectRenderInputSchemaV4, inputSchemaId: "atet.operation.render.project.input/v4",
+  outputSchema: ProjectRenderOutputSchemaV4, outputSchemaId: "atet.operation.render.project.output/v4",
+  lifecycle: { kind: "local-artifact", execute: async (context, input) => await runStandaloneOperation(projectRenderEffectV4(context, input)), executeEffect: projectRenderEffectV4 },
+  policy: { ...projectRenderOperationDefinitionV2.policy, maxInputBytes: 16 * 1024 * 1024, maxOutputBytes: 32 * 1024 },
+  receiptReference: output => output.receipt.path,
+  summarize: output => ({ kind: "render.project", fields: { outputSha256: output.output.sha256, projectRevisionSha256: output.receipt.projectRevisionSha256,
+    projectionSha256: output.receipt.projectionSha256, cadenceSha256: output.receipt.cadenceSha256 } }),
+} satisfies OperationDefinition<"render.project", ProjectRenderInputV4, ProjectRenderOutputV4>;
+
+export async function reconcileProjectRenderV4(application: ApplicationContext, value: unknown, execution: ProjectRenderExecutionIdentity, control: ProjectRenderReconciliationControl): Promise<
+  { readonly kind: "completed"; readonly output: ProjectRenderOutputV4 } | { readonly kind: "retry" } | { readonly kind: "conflict"; readonly message: string }
+> {
+  try {
+    const input = ProjectRenderInputSchemaV4.parse(value);
+    const exactPlan = await assertSpatialProjectRenderSource(application, input, control.abortSignal);
+    const outputAbsolute = join(exactPlan.directory, input.output.path), receiptRelative = spatialReceiptPath(execution.nodePlanSha256), receiptAbsolute = join(exactPlan.directory, receiptRelative);
+    const workspace = await expectedWorkflowWorkspaceIfPresent(application, execution);
+    const precommitPath = workspace === null ? undefined : join(workspace, SPATIAL_RENDER_PRECOMMIT);
+    const [hasOutput, hasReceipt, hasPrecommit] = await Promise.all([pathExists(outputAbsolute), pathExists(receiptAbsolute), precommitPath === undefined ? false : pathExists(precommitPath)]);
+    if (!hasOutput && !hasReceipt && !hasPrecommit) return { kind: "retry" };
+    if (!hasOutput) return { kind: "conflict", message: "Spatial compositor publication has receipt/precommit evidence without its output; reconcile this attempt before retrying." };
+    if (!hasReceipt && !hasPrecommit) return { kind: "conflict", message: "Spatial compositor output lacks its exact durable publication precommit." };
+    const receipt = await readSpatialProjectRenderReceipt(application, hasReceipt ? receiptAbsolute : precommitPath!, control.abortSignal);
+    if (hasReceipt && hasPrecommit) equalSpatialRender(receipt, await readSpatialProjectRenderReceipt(application, precommitPath!, control.abortSignal), "Spatial public receipt differs from its exact publication precommit.");
+    assertSpatialReceiptMatches(input, receipt, execution, outputAbsolute);
+    await resolveVerifiedProjectMedia({ expected: receipt.execution.output, path: input.output.path, label: "Reconciled spatial compositor output", repositoryRoot: exactPlan.directory });
+    const runner = new ExactCapabilityApplicationRunner(application.runner, [input.binding.ffprobe], application.paths.privateRoot);
+    const timing = await verifySpatialCompositorOutput({ cadence: input.spatial.cadence, outputPath: outputAbsolute, maximumBytes: input.output.maximumBytes,
+      expectedVideo: { pixelWidth: exactPlan.document.plan.output.pixelWidth, pixelHeight: exactPlan.document.plan.output.pixelHeight, pixelFormat: resolveProjectRenderEncoderRecipe(input.target.tier).video.pixelFormat },
+      ffprobe: input.binding.ffprobe.executablePath, runner, signal: control.abortSignal });
+    equalSpatialRender(timing, receipt.timing, "Retained spatial compositor timing differs from the actual encoded bytes.");
+    const publicationFence = async () => { await control.beforePublication(); await application.hostResourceLease?.assertOwned(); throwIfAborted(control.abortSignal); };
+    await publicationFence();
+    await createNodeSpatialDurability(exactPlan.directory).syncExactFile(input.output.path, receipt.execution.output);
+    if (!hasReceipt) await publishSpatialProjectRenderReceipt(application, exactPlan.directory, receiptRelative, receipt, publicationFence);
+    else await createNodeSpatialDurability(exactPlan.directory).syncExactFile(receiptRelative, { bytes: Buffer.byteLength(`${canonicalJson(receipt)}\n`), sha256: sha256Hex(`${canonicalJson(receipt)}\n`) });
+    return { kind: "completed", output: spatialProjectRenderOutput(receipt) };
+  } catch (error) { return { kind: "conflict", message: errorMessage(error) }; }
+}
+
+export { ProjectRenderOutputSchemaV4 };
+export type { ProjectRenderOutputV4 };

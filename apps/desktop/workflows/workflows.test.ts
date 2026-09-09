@@ -37,6 +37,7 @@ describe("built-in workflow catalog", () => {
       "chaptered-demo",
       "creative-iteration",
       "creative-selection",
+      "directed-scene",
       "polished-screen-demo",
       "social-variants",
       "talking-head-cleanup",
@@ -44,6 +45,7 @@ describe("built-in workflow catalog", () => {
     expect(builtInWorkflow("missing")).toBeUndefined();
     expect(BUILT_IN_WORKFLOWS.map(workflow => workflow.version)).toEqual([
       3,
+      1,
       1,
       1,
       4,
