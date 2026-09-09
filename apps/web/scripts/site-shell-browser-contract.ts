@@ -210,12 +210,22 @@ async function measure(page: Page, selectors: readonly string[]): Promise<ShellE
     })
   }), { selectors: [...selectors], properties })
 }
+function comparablePaintStyles(styles: ShellElement["styles"]): ShellElement["styles"] {
+  const shadow = styles["box-shadow"]
+  if (shadow === undefined) return styles
+  // CSSOM retains the authored color space. Zero-lightness, zero-chroma black
+  // has exactly the same paint in these two serializations. Keep alpha and
+  // every shadow offset, spread and blur exact; do not normalize other colors.
+  return { ...styles, "box-shadow": shadow.replace(/oklch\(0 0 0 \/ (0(?:\.\d+)?|1(?:\.0+)?)\)/gu,
+    (_, alpha: string) => `rgba(0, 0, 0, ${Number(alpha)})`) }
+}
 export function compareShellElements(actual: readonly ShellElement[], baseline: readonly ShellElement[], label: string): void {
   assert.equal(actual.length, baseline.length, `${label}: element inventory`)
   const differences = actual.flatMap((item, index) => {
     const old = baseline[index]!
+    const actualPaint = comparablePaintStyles(item.styles), baselinePaint = comparablePaintStyles(old.styles)
     const styles = [...new Set([...Object.keys(item.styles), ...Object.keys(old.styles)])]
-      .filter(property => item.styles[property] !== old.styles[property])
+      .filter(property => actualPaint[property] !== baselinePaint[property])
       .map(property => ({ property, baseline: old.styles[property], actual: item.styles[property] }))
     const geometry = item.rect.flatMap((axis, offset) =>
       Number.isFinite(axis) && Number.isFinite(old.rect[offset]) && Math.abs(axis - old.rect[offset]!) <= 0.5
@@ -227,7 +237,7 @@ export function compareShellElements(actual: readonly ShellElement[], baseline: 
     const old = baseline[index]!
     assert.equal(item.key, old.key); assert.equal(item.text, old.text, `${label} ${item.key}: text`)
     assert.deepEqual(item.semantics, old.semantics, `${label} ${item.key}: semantics`)
-    assert.deepEqual(item.styles, old.styles, `${label} ${item.key}: computed styles`)
+    assert.deepEqual(comparablePaintStyles(item.styles), comparablePaintStyles(old.styles), `${label} ${item.key}: computed styles`)
     assert.equal(item.rect.length, 4)
     item.rect.forEach((axis, offset) => assert.ok(Number.isFinite(axis) && Number.isFinite(old.rect[offset])
       && Math.abs(axis - old.rect[offset]!) <= 0.5, `${label} ${item.key}: geometry ${offset}: ${old.rect[offset]} -> ${axis}`))

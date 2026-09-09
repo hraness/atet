@@ -142,6 +142,23 @@ test("repeated descendant diagnostics stay bounded and retain distinct causes", 
   expect(diagnostic).toContain('"property":"white-space","baseline":"nowrap","actual":"normal"')
   expect(diagnostic).toContain('"geometryChanges":400')
 })
+test("shadow parity accepts only exact black color-space equivalence and preserves paint differences", () => {
+  const old = { ...element(), styles: { "box-shadow": "rgba(0, 0, 0, 0.32) 0px 18px 48px -18px" } }
+  const current = { ...old, styles: { "box-shadow": "oklch(0 0 0 / 0.32) 0px 18px 48px -18px" } }
+  expect(() => compareShellElements([current], [old], "equivalent black")).not.toThrow()
+  expect(current.styles["box-shadow"]).toContain("oklch") // Raw evidence is never rewritten.
+  for (const shadow of [
+    "oklch(0 0 0 / 0.33) 0px 18px 48px -18px",
+    "oklch(0.01 0 0 / 0.32) 0px 18px 48px -18px",
+    "oklch(0 0.01 0 / 0.32) 0px 18px 48px -18px",
+    "oklch(0 0 0 / 0.32) 0px 19px 48px -18px",
+    "oklch(0 0 0 / 0.32) 0px 18px 49px -18px",
+    "oklch(0 0 0 / 0.32) 0px 18px 48px -17px",
+    "none",
+  ]) expect(() => compareShellElements([{ ...current, styles: { "box-shadow": shadow } }], [old], "paint regression")).toThrow()
+  expect(() => compareShellElements([{ ...current, styles: { color: "oklch(0 0 0 / 0.32)" } }],
+    [{ ...old, styles: { color: "rgba(0, 0, 0, 0.32)" } }], "unreviewed property")).toThrow()
+})
 function evidence(): ShellEvidence {
   const old = element()
   const menuElements = [
