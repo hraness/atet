@@ -3,6 +3,8 @@
 - `spatial-scenes.ts` – actual browser rendering, media fidelity, retained replay, and reference-workload measurements.
 - `project.ts` – actual V2 migration and durable V4 workflow delivery from a qualified shot receipt.
 - `spatial-compositor.ts` – native rational-cadence and audio-endpoint fixtures.
+- `creative-scenes.ts`, `creative-geometry.ts` and `creative-render.ts` – authored product samples, hardware/software fidelity comparisons, semantic variants, and native exports for visual review.
+- `world-render.ts` – explicitly supplied saved worlds, directed camera sampling, retained replay, and native exports with source attribution.
 
 # Guidelines
 

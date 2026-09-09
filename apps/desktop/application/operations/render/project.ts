@@ -1735,7 +1735,7 @@ async function assertSpatialProjectRenderSource(application: ApplicationContext,
     }
     const source = scenes.find(scene => scene.sceneSha256 === shot.sceneSha256);
     if (source === undefined) throw new ApplicationError("conflict", "Materialized shot source is absent.");
-    const requested = planSpatialRender(source.document, spatialShotRenderRequest(shot, projection.output.frameRate));
+    const requested = planSpatialRender(source.document, spatialShotRenderRequest(shot, projection.output.frameRate, projection.output.executionProfile));
     equalSpatialRender(receipt.request, requested.request, "Materialized shot receipt uses a different camera, overrides or exact source clock.");
     equalSpatialRender(receipt.requestSha256, requested.requestSha256, "Materialized shot request digest differs from its exact shot.");
     equalSpatialRender(receipt.samples.map(sample => sample.sample), requested.samples, "Materialized shot receipt samples differ from its exact source-clock mapping.");

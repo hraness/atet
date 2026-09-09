@@ -14,6 +14,7 @@ import { canonicalJson, canonicalJsonSha256, sha256Hex } from "../../core/canoni
 import { createNodeSpatialDurability } from "../../core/spatial-durability";
 import { createNodeBundleFileSystem, saveImmutableText } from "../../core/storage";
 import { createSpatialOverlayBatch, PreparedSpatialAssetSchema, SPATIAL_OVERLAY_LIMITS } from "../../html-overlay/spatial";
+import { assertHtmlOverlayGpuEvidenceProfile, HtmlOverlayGpuEvidenceSchema } from "../../html-overlay/execution-profile";
 import { createHtmlOverlayExecutionBundle, HtmlOverlayExecutionIntegritySchema } from "../html-overlay-integrity";
 import { exactCapabilityByName } from "../capability-binding";
 import type { ApplicationContext } from "../context";
@@ -318,6 +319,7 @@ export async function recoverSpatialRenderOutput(application: ApplicationContext
   equal(plan.sceneSha256, input.sceneSha256, "Spatial source identity does not match the exact input.");
   equal(receipt.request, plan.request, "Spatial receipt has a different render request.");
   equal(receipt.requestSha256, plan.requestSha256, "Spatial request digest is invalid.");
+  assertHtmlOverlayGpuEvidenceProfile(plan.request.executionProfile, receipt.runtime.gpuEvidence);
   equal(receipt.source.sourceManifests, spatialAssetClosureDigests(scene.assets), "Spatial manifest closure digest is invalid.");
   if (output.retainedAssets.length !== scene.assets.length || new Set(output.retainedAssets.map(asset => asset.assetId)).size !== scene.assets.length) throw new ApplicationError("incompatible", "Spatial retained asset closure is incomplete or duplicated.");
   if (input.assets.length !== scene.assets.length || new Set(input.assets.map(asset => asset.assetId)).size !== scene.assets.length) throw new ApplicationError("incompatible", "Bound spatial asset closure is incomplete or duplicated.");
@@ -356,33 +358,42 @@ export async function recoverSpatialRenderOutput(application: ApplicationContext
   await bindRepositoryMedia(application, output.artifact, signal, plan.costs.outputBytesBound);
   await durability.syncExactFile(output.artifact.path, output.artifact);
   const batchSchema = z.strictObject({
+    gpuEvidence: HtmlOverlayGpuEvidenceSchema.optional(),
     metadata: z.unknown(), metadataSha256: SpatialDigestSchema, executionIntegrity: HtmlOverlayExecutionIntegritySchema,
-    libraryLocks: z.array(z.unknown()).min(1).max(1), preparedAssets: z.array(PreparedSpatialAssetSchema).max(SPATIAL_OVERLAY_LIMITS.preparedAssets),
+    libraryLocks: z.array(z.unknown()).min(1).max(3), preparedAssets: z.array(PreparedSpatialAssetSchema).max(SPATIAL_OVERLAY_LIMITS.preparedAssets),
     preparation: z.strictObject({ kind: z.literal("atet.spatial-asset-preparation"), schemaVersion: z.literal(1), sourceManifests: z.record(SpatialAssetIdSchema, SpatialDigestSchema),
       preparedSha256: SpatialDigestSchema, sourceBytes: z.number().int().safe().min(0).max(MAXIMUM_ASSET_BYTES), outputBytes: z.number().int().safe().min(0).max(MAXIMUM_ASSET_BYTES), profiles: z.array(z.string().min(1).max(256)).max(1_024) }),
     samples: SpatialRenderReceiptSchema.shape.samples,
   });
-  if (receipt.batches.length !== Math.ceil(plan.samples.length / SPATIAL_RENDER_LIMITS.batchFrames)
+  if ((plan.request.executionProfile === undefined && receipt.batches.length !== Math.ceil(plan.samples.length / SPATIAL_RENDER_LIMITS.batchFrames))
     || new Set(receipt.batches.map(batch => batch.path)).size !== receipt.batches.length) throw new ApplicationError("incompatible", "Spatial batch partitions are incomplete or duplicated.");
-  let metadataBytes = 0;
-  for (const [index, artifact] of receipt.batches.entries()) {
+  let metadataBytes = 0, offset = 0;
+  for (const artifact of receipt.batches) {
     metadataBytes += artifact.bytes;
     if (metadataBytes > SPATIAL_RENDER_LIMITS.metadataBytes) throw new ApplicationError("incompatible", "Spatial batch closure exceeds its total metadata budget.");
     const batch = batchSchema.parse(await readJson(artifact, SPATIAL_RENDER_LIMITS.metadataBytes));
-    const offset = index * SPATIAL_RENDER_LIMITS.batchFrames;
-    const snapshots = plan.samples.slice(offset, offset + SPATIAL_RENDER_LIMITS.batchFrames).map((_, index) => evaluatedSample(offset + index));
+    const length = plan.request.executionProfile === undefined ? Math.min(SPATIAL_RENDER_LIMITS.batchFrames, plan.samples.length - offset) : batch.samples.length;
+    if (length < 1 || length > SPATIAL_RENDER_LIMITS.batchFrames || offset + length > plan.samples.length
+      || Math.floor(offset / SPATIAL_RENDER_LIMITS.batchFrames) !== Math.floor((offset + length - 1) / SPATIAL_RENDER_LIMITS.batchFrames)) throw new ApplicationError("incompatible", "Spatial batch crosses its exact bounded preparation window.");
+    const snapshots = plan.samples.slice(offset, offset + length).map((_, index) => evaluatedSample(offset + index));
     const expectedBatch = createSpatialOverlayBatch({ snapshots,
+      ...(plan.request.executionProfile === undefined ? {} : { executionProfile: plan.request.executionProfile }),
       mode: plan.request.mode, frameRate: plan.request.selection.kind === "video" ? plan.request.selection.frameRate : { numerator: 1, denominator: 1 }, preparedAssets: batch.preparedAssets });
     equal(batch.metadata, expectedBatch.metadata, "Spatial batch metadata differs from the exact scene samples.");
     equal(batch.metadataSha256, expectedBatch.metadataSha256, "Spatial batch metadata digest is invalid.");
-    const execution = createHtmlOverlayExecutionBundle(expectedBatch.authoring, input.browserRuntime);
+    const execution = createHtmlOverlayExecutionBundle(expectedBatch.authoring, input.browserRuntime, plan.request.executionProfile);
+    assertHtmlOverlayGpuEvidenceProfile(plan.request.executionProfile, batch.gpuEvidence);
+    equal(batch.gpuEvidence, receipt.runtime.gpuEvidence, "Spatial batch hardware identity differs from its completion receipt.");
     equal(batch.executionIntegrity, execution.integrity, "Spatial batch execution integrity differs from its exact authored runtime.");
     equal(batch.libraryLocks, execution.libraryLocks, "Spatial batch library locks differ from the qualified runtime.");
-    equal(batch.samples, receipt.samples.slice(offset, offset + SPATIAL_RENDER_LIMITS.batchFrames), "Spatial batch sample partition differs from the completion receipt.");
+    equal(batch.samples, receipt.samples.slice(offset, offset + length), "Spatial batch sample partition differs from the completion receipt.");
     equal(batch.preparation.sourceManifests, receipt.source.sourceManifests, "Spatial batch source manifest closure is invalid.");
     equal(batch.preparation.preparedSha256, canonicalJsonSha256(batch.preparedAssets), "Spatial batch prepared content digest is invalid.");
     equal(batch.preparation.sourceBytes, scene.assets.reduce((sum, asset) => sum + asset.payload.bytes, 0), "Spatial batch source byte count is invalid.");
+    if (plan.request.executionProfile !== undefined) equal(batch.preparation.outputBytes, expectedBatch.authoring.resources.reduce((sum, resource) => sum + resource.bytes, 0), "Spatial batch prepared resource byte count is invalid.");
+    offset += length;
   }
+  if (offset !== plan.samples.length) throw new ApplicationError("incompatible", "Spatial batch partitions do not cover every exact sample.");
   equal(receipt.costs, { ...plan.costs, actualPngBytes: receipt.samples.reduce((sum, sample) => sum + sample.pngBytes, 0), actualBatchMetadataBytes: metadataBytes }, "Spatial receipt costs differ from its exact retained artifact counts.");
   if (receipt.costs.actualPngBytes > plan.costs.pngBytesBound || receipt.samples.some(sample => sample.pngBytes < 1)) throw new ApplicationError("incompatible", "Spatial frame byte accounting exceeds the admitted bound.");
   for (const [index, artifact] of receipt.frameArtifacts.entries()) {

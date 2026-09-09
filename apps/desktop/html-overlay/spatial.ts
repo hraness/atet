@@ -16,7 +16,7 @@ import {
   type SpatialEntity,
   type SpatialProjection,
 } from "../../../src/spatial-scene/contracts";
-import { cameraMathView, invertTransform, type Mat4 } from "../../../src/spatial-scene/math";
+import { cameraMathView, composeTransform, invertTransform, multiplyTransforms, type Mat4 } from "../../../src/spatial-scene/math";
 import { spatialAssetClosureDigests } from "../../../src/spatial-scene/identity";
 import { canonicalJson, canonicalJsonSha256 } from "../core/canonical-json";
 import {
@@ -26,6 +26,9 @@ import {
   type HtmlOverlayDeclaredResource,
 } from "./contracts";
 import { htmlOverlayAssetLocalUrl, serializeHtmlOverlayImportMap } from "./libraries";
+import { HtmlOverlayExecutionProfileSchema } from "./execution-profile";
+import { SpatialSpzFactsSchema, SPATIAL_SPLAT_LIMITS, spatialSpzAllocationBounds } from "../contracts/spatial-world";
+import { addSpatialSplatRuntime } from "./spatial-splat-runtime";
 
 export const SPATIAL_OVERLAY_LIMITS = Object.freeze({
   frames: 32,
@@ -85,6 +88,8 @@ const primitiveSchema = z.strictObject({
 });
 
 export const PreparedSpatialAssetSchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("splat"), assetId: SpatialAssetIdSchema, entityId: SpatialEntityIdSchema, assetManifestSha256: SpatialDigestSchema,
+    resource: HtmlOverlayDeclaredResourceSchema, facts: SpatialSpzFactsSchema }),
   z.strictObject({
     kind: z.literal("raster"),
     assetId: SpatialAssetIdSchema,
@@ -128,6 +133,7 @@ export const SpatialOverlayBatchInputSchema = z.strictObject({
   snapshots: z.array(EvaluatedSpatialSceneSchema).min(1).max(SPATIAL_OVERLAY_LIMITS.frames),
   frameRate: SpatialFrameRateSchema,
   mode: SpatialRenderModeSchema,
+  executionProfile: HtmlOverlayExecutionProfileSchema.optional(),
   preparedAssets: z.array(PreparedSpatialAssetSchema).max(SPATIAL_OVERLAY_LIMITS.preparedAssets).default([]),
 });
 type DeepReadonly<T> = T extends object ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> } : T;
@@ -136,6 +142,8 @@ export type SpatialRenderMode = DeepReadonly<z.infer<typeof SpatialRenderModeSch
 export type SpatialOverlayBatchInput = DeepReadonly<z.input<typeof SpatialOverlayBatchInputSchema>>;
 type PreparedRaster = Extract<PreparedSpatialAsset, { kind: "raster" }>;
 type PreparedGeometry = Extract<PreparedSpatialAsset, { kind: "geometry" }>;
+type PreparedSplat = Extract<PreparedSpatialAsset, { kind: "splat" }>;
+type LoweredSplat = Readonly<{ kind: "splat"; entityId: string; key: string; matrix: Mat4 }>;
 type Material = DeepReadonly<z.infer<typeof SpatialMaterialSchema>>;
 type Texture = DeepReadonly<z.infer<typeof primitiveSchema>["texture"]>;
 
@@ -234,6 +242,7 @@ function unsupported(capability: string, message: string): never {
 }
 
 function preparedKey(asset: PreparedSpatialAsset): string {
+  if (asset.kind === "splat") return `${asset.assetId}:${asset.entityId}:splat`;
   return asset.kind === "raster"
     ? `${asset.assetId}:${asset.entityId}:${asset.timeUs === null ? "static" : String(asset.timeUs)}`
     : `${asset.assetId}:${asset.entityId}:${asset.nodeIndex === undefined ? "all" : String(asset.nodeIndex)}:${asset.timeUs === null ? "static" : String(asset.timeUs)}`;
@@ -307,6 +316,7 @@ export function createSpatialOverlayBatch(input: unknown) {
   const height = first.camera.projection.height;
   const prepared = new Map<string, PreparedSpatialAsset>();
   const geometries = new Map<string, PreparedGeometry>();
+  const splats = new Map<string, PreparedSplat>();
   const resources = new Map<string, HtmlOverlayDeclaredResource>();
   const textures = new Map<string, { readonly width: number; readonly height: number; readonly alpha: "straight" | "opaque" }>();
   const usedPrepared = new Set<string>();
@@ -329,6 +339,13 @@ export function createSpatialOverlayBatch(input: unknown) {
     if (prepared.has(key)) throw new RangeError(`Duplicate prepared asset binding: ${key}`);
     prepared.set(key, asset);
     if (asset.kind === "geometry") geometries.set(key, asset);
+    if (asset.kind === "splat") {
+      const expected = spatialSpzAllocationBounds(asset.facts.splats, asset.resource.bytes, asset.facts.decompressedBytes);
+      if (asset.resource.mediaType !== "application/octet-stream" || asset.resource.bytes < 18 || expected.gpuBytesBound !== asset.facts.gpuBytesBound || expected.hostBytesBound !== asset.facts.hostBytesBound) throw new RangeError("Prepared SPZ allocation or binary resource evidence is invalid.");
+      const previous = resources.get(asset.resource.name);
+      if (previous !== undefined && canonicalJson(previous) !== canonicalJson(asset.resource)) throw new RangeError("Splat resource names must identify exact immutable bytes.");
+      splats.set(key, asset); resources.set(asset.resource.name, asset.resource);
+    }
   }
   const frameEvidence: Array<{
     readonly sceneSha256: string; readonly stateSha256: string; readonly viewSha256: string; readonly timeUs: number;
@@ -344,7 +361,7 @@ export function createSpatialOverlayBatch(input: unknown) {
     if (manifests.size !== snapshot.assets.length) throw new RangeError("Snapshot asset IDs must be unique.");
     const ids = new Set<string>();
     const selections = new Set<number>();
-    const objects: (LoweredMesh | LoweredLight)[] = [];
+    const objects: (LoweredMesh | LoweredLight | LoweredSplat)[] = [];
     const evidence: Array<{ entityId: string; selectionId: number; representation: string; placement: "world" | "view"; assetManifestSha256?: string }> = [];
     const bindAsset = (assetId: string, key: string): PreparedSpatialAsset => {
       const manifest = manifests.get(assetId);
@@ -362,7 +379,21 @@ export function createSpatialOverlayBatch(input: unknown) {
       if (ids.has(entity.entityId) || selections.has(entry.selectionId)) throw new RangeError("Snapshot entity and selection IDs must be unique.");
       ids.add(entity.entityId); selections.add(entry.selectionId);
       invertTransform(entry.worldMatrix);
-      if (entity.kind === "splat") unsupported("splat", "Splat rendering requires a separately qualified representation adapter.");
+      if (entity.kind === "splat") {
+        if (request.executionProfile !== "three-spark-webgl2-hardware-v1") unsupported("splat-profile", "Splat rendering requires the explicit Three/Spark hardware profile.");
+        if (request.mode.kind !== "beauty") unsupported("splat-aov", "Splat object-ID and axial-depth are unsupported; retained colliders are approximate evidence, not pixel truth.");
+        if (entity.placement.kind !== "world" || snapshot.camera.projection.kind !== "perspective") unsupported("splat-camera", "The initial Spark profile requires world placement and a perspective camera.");
+        const key = `${entity.assetId}:${entity.entityId}:splat`, preparedSplat = bindAsset(entity.assetId, key), manifest = manifests.get(entity.assetId)!;
+        if (preparedSplat.kind !== "splat" || manifest.interpretation.kind !== "splat" || manifest.interpretation.format !== "spz" || preparedSplat.resource.sha256 !== manifest.payload.sha256 || preparedSplat.resource.bytes !== manifest.payload.bytes) throw new RangeError("Splat resource does not match the exact source payload.");
+        const m = entry.worldMatrix, lengths = [Math.hypot(m[0]!, m[1]!, m[2]!), Math.hypot(m[4]!, m[5]!, m[6]!), Math.hypot(m[8]!, m[9]!, m[10]!)];
+        if (Math.max(...lengths) - Math.min(...lengths) > Math.max(...lengths) * 1e-6) unsupported("splat-transform", "The initial Spark profile requires uniform world scale.");
+        for (const [left, right] of [[0, 4], [0, 8], [4, 8]] as const) if (Math.abs(m[left]! * m[right]! + m[left + 1]! * m[right + 1]! + m[left + 2]! * m[right + 2]!) > lengths[0]! ** 2 * 1e-6) unsupported("splat-transform", "The initial Spark profile does not accept sheared world transforms.");
+        const rotation = manifest.interpretation.sourceUp === "x" ? [0, 0, Math.SQRT1_2, Math.SQRT1_2] as const : manifest.interpretation.sourceUp === "z" ? [-Math.SQRT1_2, 0, 0, Math.SQRT1_2] as const : [0, 0, 0, 1] as const;
+        const unit = manifest.interpretation.metersPerUnit;
+        if (entry.visible) objects.push({ kind: "splat", entityId: entity.entityId, key, matrix: multiplyTransforms(entry.worldMatrix, composeTransform({ position: [0, 0, 0], rotation, scale: [unit, unit, unit] })) });
+        evidence.push({ entityId: entity.entityId, selectionId: entry.selectionId, representation: "spz-static-radiance; authored-wrapper-id; no-depth-or-object-id", placement: "world", assetManifestSha256: preparedSplat.assetManifestSha256 });
+        continue;
+      }
       if (entity.kind === "group") continue;
       if (entity.kind === "light") {
         if (entity.placement.kind !== "world") unsupported("view-light", "Lights require world placement.");
@@ -443,33 +474,52 @@ export function createSpatialOverlayBatch(input: unknown) {
         ...(assetManifestSha256 === undefined ? {} : { assetManifestSha256 }) });
     }
     const meshes = objects.filter((object): object is LoweredMesh => object.kind === "mesh");
+    if (splats.size > 0 && meshes.some(mesh => mesh.placement.kind === "world" && (mesh.material.opacity < 1 || mesh.alphaMode === "BLEND" || mesh.textureAlpha === "straight" && mesh.alphaCutoff === 0))) unsupported("splat-transparency", "The initial world profile supports opaque 3D meshes and view overlays; interleaved transparent mesh/splat sorting is not qualified.");
     const triangles = meshes.reduce((sum, mesh) => sum + geometryTriangleCount(mesh, geometries), 0);
     if (meshes.length > SPATIAL_OVERLAY_LIMITS.drawCallsPerFrame || triangles > SPATIAL_OVERLAY_LIMITS.trianglesPerFrame) {
       throw new RangeError("Spatial overlay exceeds its per-frame draw-call or triangle budget.");
     }
     frameEvidence.push({ sceneSha256: snapshot.sceneSha256, stateSha256: snapshot.stateSha256, viewSha256: snapshot.viewSha256,
       timeUs: snapshot.timeUs, camera: snapshot.camera, objects: evidence });
-    return { camera: calibratedCamera(snapshot.camera), objects };
+    return { camera: calibratedCamera(snapshot.camera), objects, ...(request.executionProfile === "three-spark-webgl2-hardware-v1" ? { timeUs: snapshot.timeUs } : {}) };
   });
   if (usedPrepared.size !== prepared.size) throw new RangeError("Prepared assets must be referenced by this exact batch; unused bindings are rejected.");
   const declaredResources = HtmlOverlayDeclaredResourcesSchema.parse([...resources.values()]);
   const decodedTexturePixels = [...textures.values()].reduce((sum, texture) => sum + texture.width * texture.height, 0);
   if (decodedTexturePixels > SPATIAL_OVERLAY_LIMITS.decodedTexturePixels) throw new RangeError("Prepared textures exceed the decoded pixel budget.");
+  // Spark's SPZ decoder does not forward the header training flag. Its two
+  // renderer-global covariance terms therefore must be bound explicitly. The
+  // initial profile admits only non-AA training: add covariance without opacity
+  // compensation, rather than applying the AA-trained blur a second time.
+  // https://github.com/sparkjsdev/spark/blob/v2.1.0/src/SparkRenderer.ts#L115-L132
+  const splatKernel = { antialiased: false, preBlurAmount: 0.3, blurAmount: 0 };
   const payload = {
     mode: request.mode,
     frames,
     geometry: Object.fromEntries([...geometries].map(([key, asset]) => [key, asset.primitives])),
-    textures: declaredResources.map(resource => ({ ...textures.get(resource.name)!, name: resource.name, url: htmlOverlayAssetLocalUrl(resource) })),
+    textures: declaredResources.filter(resource => textures.has(resource.name)).map(resource => ({ ...textures.get(resource.name)!, name: resource.name, url: htmlOverlayAssetLocalUrl(resource) })),
+    ...(request.executionProfile === "three-spark-webgl2-hardware-v1" ? { splatKernel, splats: [...splats].map(([key, asset]) => ({ key, ...asset, url: htmlOverlayAssetLocalUrl(asset.resource) })) } : {}),
   };
-  const html = spatialDocument(escapeEmbeddedJson(payload));
+  const totalSplats = [...splats.values()].reduce((sum, asset) => sum + asset.facts.splats, 0);
+  // 32 B/pixel conservatively covers the RGBA16F/depth beauty target and the
+  // default RGBA8/depth canvas plus renderer framebuffer slack. Driver/process
+  // and platform compositor overhead remain outside this allocation accounting.
+  if (splats.size > 0 && (totalSplats > SPATIAL_SPLAT_LIMITS.splats || [...splats.values()].reduce((sum, asset) => sum + asset.facts.gpuBytesBound, width * height * 32) > SPATIAL_SPLAT_LIMITS.gpuBytes || [...splats.values()].reduce((sum, asset) => sum + asset.facts.hostBytesBound, 0) > SPATIAL_SPLAT_LIMITS.hostBytes)) throw new RangeError("Prepared world exceeds its aggregate splat/GPU/host allocation bounds.");
+  const sparkProfile = request.executionProfile === "three-spark-webgl2-hardware-v1";
+  if (sparkProfile && request.mode.kind !== "beauty") unsupported("splat-aov", "The initial Spark profile renders beauty only.");
+  const libraries = sparkProfile ? ["@sparkjsdev/spark", "three", "three/addons/postprocessing/Pass.js"] as const : ["three"] as const;
+  let html = spatialDocument(escapeEmbeddedJson(payload));
+  if (sparkProfile) html = addSpatialSplatRuntime(html.replace(serializeHtmlOverlayImportMap(["three"]), serializeHtmlOverlayImportMap(libraries)));
   const authoring = HtmlOverlayAuthoringInputSchema.parse({
     kind: "atet.html-overlay", schemaVersion: 1, canvas: { width, height, deviceScaleFactor: 1 },
-    html, libraries: ["three"], parameters: {}, resources: declaredResources, seed: 0,
+    html, libraries, parameters: {}, resources: declaredResources, seed: 0,
     timing: { fps: 1, durationUs: frames.length * 1_000_000 },
   });
   const metadataValue = {
     kind: "atet.spatial-overlay-batch", schemaVersion: 1,
     renderer: "three-webgl2-snapshot-v1", mode: request.mode,
+    ...(request.executionProfile === undefined ? {} : { executionProfile: request.executionProfile }),
+    ...(sparkProfile ? { splatProfile: { adapter: "spark-2.1.0-spz-v2-v3-ext-v1", kernel: splatKernel, lod: false, sorting: "await-explicit-camera-update", readback: "synchronous-exact-MRT-buffer-before-worker-sort", color: "srgb-radiance-to-linear", depth: "unsupported", objectId: "unsupported", collider: "approximate-retained-only", splats: totalSplats } } : {}),
     frameRate: request.frameRate,
     transport: { kind: "frame-index-only", fps: 1, frameCount: frames.length },
     color: request.mode.kind === "beauty"
@@ -496,7 +546,7 @@ export function createSpatialOverlayBatch(input: unknown) {
     })),
     costs: { requestBytes: captured.bytes, htmlBytes: new TextEncoder().encode(html).byteLength,
       decodedTexturePixels, resourceBytes: declaredResources.reduce((sum, resource) => sum + resource.bytes, 0),
-      note: "Each batch uses one isolated browser render; scenes and frame-local GPU objects are rebuilt for every selected snapshot. These are admission counts, not measured GPU performance." },
+      note: sparkProfile ? "One isolated browser per batch; retained SPZ sources load once, each exact camera sample awaits full-resolution sort. Admission bounds are not measured GPU performance." : "Each batch uses one isolated browser render; scenes and frame-local GPU objects are rebuilt for every selected snapshot. These are admission counts, not measured GPU performance." },
     frames: frameEvidence,
   };
   const metadata = createBoundedJsonSnapshot(metadataValue, SPATIAL_OVERLAY_LIMITS.requestBytes, "Spatial overlay metadata");

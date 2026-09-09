@@ -4,11 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
 
-import { fixtureCamera, fixtureScene } from "../../../../src/spatial-scene/test-fixture";
+import { fixtureCamera, fixtureEntity, fixtureScene } from "../../../../src/spatial-scene/test-fixture";
 import type { ApplicationContext } from "../context";
 import { ApplicationError } from "../errors";
 import { bindHtmlOverlayBrowserRuntime } from "../html-overlay-browser-runtime";
 import { createHtmlOverlayExecutionBundle } from "../html-overlay-integrity";
+import { hardwareEvidenceFixture } from "../../html-overlay/execution-profile.testing";
 import type { OperationExecutionContext } from "../operation";
 import type { OperationCheckpointExecutionIdentity } from "../operation-completion-checkpoint";
 import { renderSpatialScene, SpatialRenderReceiptSchema, SpatialRenderFailure, type SpatialRenderResult } from "../spatial-render";
@@ -47,8 +48,9 @@ async function fixture() {
       const count = rendered.authoring.timing.durationUs / 1_000_000;
       const bytes = await sharp({ create: { width: rendered.authoring.canvas.width, height: rendered.authoring.canvas.height, channels: 4, background: { r: 0, g: 255, b: 0, alpha: 0.5 } } }).png().toBuffer();
       for (let index = 0; index < count; index++) await writeFile(join(frames, `frame-${String(index).padStart(8, "0")}.png`), bytes);
-      const bundle = createHtmlOverlayExecutionBundle(rendered.authoring, rendered.browserRuntime);
-      return { frameCount: count, framePattern: join(frames, "frame-%08d.png"), executionIntegrity: bundle.integrity, libraryLocks: bundle.libraryLocks };
+      const bundle = createHtmlOverlayExecutionBundle(rendered.authoring, rendered.browserRuntime, rendered.executionProfile);
+      return { frameCount: count, framePattern: join(frames, "frame-%08d.png"), executionIntegrity: bundle.integrity, libraryLocks: bundle.libraryLocks,
+        ...(rendered.executionProfile === undefined ? {} : { gpuEvidence: hardwareEvidenceFixture(rendered.executionProfile) }) };
     } },
   };
   const context: OperationExecutionContext = { application, abortSignal: new AbortController().signal, workflow: { ...identity, workspaceDirectory: workspace, beforePublication: async () => {} } };
@@ -68,6 +70,41 @@ async function publishJson(f: Fixture, value: unknown): Promise<MediaArtifactRef
   return { path, sha256, bytes: Buffer.byteLength(text) };
 }
 async function receipt(f: Fixture, output: SpatialRenderResult) { return SpatialRenderReceiptSchema.parse(await json(f, output.receipt)); }
+
+test("hardware recovery validates retained GPU evidence without launching a browser", async () => withFixture(async f => {
+  const input = await bindSpatialRenderInput(f.application, { source: { path: "original.scene.json" }, request: { ...request, executionProfile: "three-webgl2-hardware-v1" } }, f.context.abortSignal, bindRuntime);
+  const output = await executeSpatialRender(f.context, input, dependencies);
+  const count = f.renders();
+  const retained = await receipt(f, output);
+  expect(retained.runtime.gpuEvidence).toEqual(hardwareEvidenceFixture());
+  expect(await recoverSpatialRenderOutput(f.application, input, output, identity, f.context.abortSignal)).toEqual(output);
+  expect(f.renders()).toBe(count);
+  const badBatch = await json(f, retained.batches[0]!) as Record<string, unknown>;
+  const alteredBatch = await publishJson(f, { ...badBatch, gpuEvidence: { ...hardwareEvidenceFixture(), osRelease: "26.0.0" } });
+  const alteredReceipt = await publishJson(f, { ...retained, batches: [alteredBatch] });
+  await expect(recoverSpatialRenderOutput(f.application, input, { ...output, receipt: alteredReceipt }, identity, f.context.abortSignal)).rejects.toThrow("hardware identity");
+}));
+
+test("hardware variable partitions recover without the original and reject missing, reordered and substituted sample closure", async () => withFixture(async f => {
+  await writeFile(f.sourcePath, JSON.stringify({ ...f.scene, entities: Array.from({ length: 160 }, (_, index) => fixtureEntity(`entity_${index}`)) }));
+  const input = await bindSpatialRenderInput(f.application, { source: { path: "original.scene.json" }, request: { ...request, executionProfile: "three-webgl2-hardware-v1",
+    selection: { kind: "contact-sheet", timesUs: Array.from({ length: 33 }, (_, index) => (32 - index) * 1_000), columns: 8, cellWidth: 8, cellHeight: 4 },
+  } }, f.context.abortSignal, bindRuntime);
+  const output = await executeSpatialRender(f.context, input, dependencies);
+  const retained = await receipt(f, output), count = f.renders();
+  expect(retained.batches.length).toBeGreaterThan(2);
+  await rm(f.sourcePath);
+  expect(await recoverSpatialRenderOutput(f.application, input, output, identity, f.context.abortSignal)).toEqual(output);
+  for (const batches of [retained.batches.slice(0, -1), [...retained.batches].reverse(), [retained.batches[0]!, ...retained.batches.slice(0, -1)]]) {
+    const altered = await publishJson(f, { ...retained, batches });
+    await expect(recoverSpatialRenderOutput(f.application, input, { ...output, receipt: altered }, identity, f.context.abortSignal)).rejects.toThrow();
+  }
+  const batch = await json(f, retained.batches[0]!) as { preparation: { outputBytes: number } };
+  const alteredBatch = await publishJson(f, { ...batch, preparation: { ...batch.preparation, outputBytes: 1 } });
+  const altered = await publishJson(f, { ...retained, batches: [alteredBatch, ...retained.batches.slice(1)] });
+  await expect(recoverSpatialRenderOutput(f.application, input, { ...output, receipt: altered }, identity, f.context.abortSignal)).rejects.toThrow("resource byte count");
+  expect(f.renders()).toBe(count);
+}));
 
 // Native renderer behavior is covered by spatial-render.test.ts; these cases own
 // the operation's exact capability, publication/recovery, and cleanup boundaries.

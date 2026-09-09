@@ -7,13 +7,14 @@ import { afterEach, describe, expect, test } from "bun:test";
 import sharp from "sharp";
 
 import type { SpatialSceneV1 } from "../../../src/spatial-scene/contracts";
-import { fixtureAsset, fixtureCamera, fixtureScene } from "../../../src/spatial-scene/test-fixture";
+import { fixtureAsset, fixtureCamera, fixtureEntity, fixtureScene } from "../../../src/spatial-scene/test-fixture";
 import { spatialAssetClosureDigests, spatialSceneSha256 } from "../../../src/spatial-scene/identity";
 import { createNodeSpatialDurability } from "../core/spatial-durability";
 import type { ApplicationContext } from "./context";
 import { bindHtmlOverlayBrowserRuntime } from "./html-overlay-browser-runtime";
 import { createHtmlOverlayExecutionBundle } from "./html-overlay-integrity";
 import type { HtmlOverlayRenderer } from "./html-overlay-renderer";
+import { hardwareEvidenceFixture } from "../html-overlay/execution-profile.testing";
 import type { OperationExecutionContext } from "./operation";
 import { publishContentAddressedMedia } from "./operations/media/shared";
 import {
@@ -62,8 +63,9 @@ async function fixture(options: {
           background: { r: (index + 1) * 11 % 256, g: 31, b: 53, alpha: 0.5 } } }).png().toBuffer();
         await writeFile(join(frames, `frame-${String(index).padStart(8, "0")}.png`), png);
       }
-      const bundle = createHtmlOverlayExecutionBundle(request.authoring, request.browserRuntime);
-      return { executionIntegrity: bundle.integrity, libraryLocks: bundle.libraryLocks, frameCount: count, framePattern: join(frames, "frame-%08d.png") };
+      const bundle = createHtmlOverlayExecutionBundle(request.authoring, request.browserRuntime, request.executionProfile);
+      return { executionIntegrity: bundle.integrity, libraryLocks: bundle.libraryLocks, frameCount: count, framePattern: join(frames, "frame-%08d.png"),
+        ...(request.executionProfile === undefined ? {} : { gpuEvidence: hardwareEvidenceFixture(request.executionProfile) }) };
     },
   };
   const application: ApplicationContext = {
@@ -131,6 +133,42 @@ describe("spatial render planning", () => {
 });
 
 describe("spatial render execution", () => {
+  test("hardware render binds its synthetic adapter evidence in the receipt and every retained batch", async () => {
+    const host = await fixture();
+    const request = { ...frameRequest, executionProfile: "three-webgl2-hardware-v1" } as const;
+    const result = await renderSpatialScene(host.context, { scene: scene(), assetRoot: host.root, request }, dependencies);
+    const receipt = SpatialRenderReceiptSchema.parse(JSON.parse(await readFile(join(host.root, result.receipt.path), "utf8")));
+    expect(receipt.runtime.gpuEvidence).toEqual(hardwareEvidenceFixture());
+    for (const reference of receipt.batches) {
+      const batch = JSON.parse(await readFile(join(host.root, reference.path), "utf8"));
+      expect(batch.gpuEvidence).toEqual(receipt.runtime.gpuEvidence);
+      expect(batch.metadata.executionProfile).toBe(request.executionProfile);
+    }
+    expect(SpatialRenderReceiptSchema.safeParse({ ...receipt, runtime: { ...receipt.runtime, gpuEvidence: undefined } }).success).toBe(false);
+    expect(SpatialRenderReceiptSchema.safeParse({ ...receipt, request: frameRequest }).success).toBe(false);
+  });
+
+  test("hardware render rejects missing GPU evidence before publication", async () => {
+    const host = await fixture({ renderer: base => ({ async renderFrames(request, signal) {
+      const result = await base.renderFrames(request, signal);
+      return { executionIntegrity: result.executionIntegrity, libraryLocks: result.libraryLocks, frameCount: result.frameCount, framePattern: result.framePattern };
+    } }) });
+    await expect(renderSpatialScene(host.context, { scene: scene(), assetRoot: host.root, request: { ...frameRequest, executionProfile: "three-webgl2-hardware-v1" } }, dependencies)).rejects.toThrow();
+    expect(await generatedFiles(host.root)).toEqual([]);
+  });
+
+  test("a hardware change between batches fails before publication", async () => {
+    let calls = 0;
+    const host = await fixture({ renderer: base => ({ async renderFrames(request, signal) {
+      const result = await base.renderFrames(request, signal);
+      const evidence = hardwareEvidenceFixture();
+      return { ...result, gpuEvidence: { ...evidence, osRelease: ++calls === 1 ? evidence.osRelease : "26.0.0" } };
+    } }) });
+    const request = { executionProfile: "three-webgl2-hardware-v1", cameraId: "camera_main", mode: { kind: "beauty" },
+      selection: { kind: "contact-sheet", timesUs: Array.from({ length: 33 }, () => 0), columns: 8, cellWidth: 8, cellHeight: 4 } };
+    await expect(renderSpatialScene(host.context, { scene: scene(), assetRoot: host.root, request }, dependencies)).rejects.toThrow("hardware between batches");
+    expect(await generatedFiles(host.root)).toEqual([]);
+  });
   test("publishes exact frame, canonical scene, original asset closure and calibrated selection evidence", async () => {
     const host = await fixture();
     const image = await sharp({ create: { width: 2, height: 2, channels: 4, background: "red" } }).png().toBuffer();
@@ -189,6 +227,30 @@ describe("spatial render execution", () => {
     expect(receipt.batches).toHaveLength(2);
     expect(receipt.samples.map(item => item.sample.index)).toEqual(Array.from({ length: 33 }, (_, index) => index));
     expect(receipt.samples.at(-1)!.sample.exactTimeUs).toEqual({ numerator: "32000", denominator: "1" });
+  });
+
+  test("hardware oversized windows publish exact global sample partitions and never retry a failed browser", async () => {
+    const lengths: number[] = [];
+    const input = { ...scene(), entities: Array.from({ length: 160 }, (_, index) => fixtureEntity(`entity_${index}`)) };
+    const request = { ...frameRequest, executionProfile: "three-webgl2-hardware-v1", selection: { kind: "contact-sheet", timesUs: Array.from({ length: 33 }, (_, index) => (32 - index) * 1_000), columns: 8, cellWidth: 8, cellHeight: 4 } };
+    const host = await fixture({ renderer: base => ({ async renderFrames(value, signal) {
+      lengths.push(value.authoring.timing.durationUs / 1_000_000);
+      return await base.renderFrames(value, signal);
+    } }) });
+    const result = await renderSpatialScene(host.context, { scene: input, assetRoot: host.root, request }, dependencies);
+    const receipt = SpatialRenderReceiptSchema.parse(JSON.parse(await readFile(join(host.root, result.receipt.path), "utf8")));
+    expect(lengths.length).toBeGreaterThan(2);
+    expect(lengths.at(-1)).toBe(1);
+    expect(lengths.reduce((sum, length) => sum + length, 0)).toBe(33);
+    const batches = await Promise.all(receipt.batches.map(async artifact => JSON.parse(await readFile(join(host.root, artifact.path), "utf8")) as { samples: unknown[]; preparation: { outputBytes: number } }));
+    expect(batches.map(batch => batch.samples.length)).toEqual(lengths);
+    expect(batches.flatMap(batch => batch.samples)).toEqual(receipt.samples);
+    expect(receipt.samples.map(item => item.sample.exactTimeUs)).toEqual(request.selection.timesUs.map(time => ({ numerator: String(time), denominator: "1" })));
+    let failures = 0;
+    const failed = await fixture({ renderer: () => ({ async renderFrames() { failures++; throw new Error("GPU context lost after admission"); } }) });
+    await expect(renderSpatialScene(failed.context, { scene: input, assetRoot: failed.root, request }, dependencies)).rejects.toThrow("GPU context lost");
+    expect(failures).toBe(1);
+    expect(await generatedFiles(failed.root)).toEqual([]);
   });
 
   test("incorrect encoded timestamps reject before publication", async () => {

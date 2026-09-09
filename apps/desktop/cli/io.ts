@@ -39,6 +39,7 @@ const DEFAULT_OUTPUT_LIMIT = 1_000_000;
 const FORBIDDEN_CHILD_ENVIRONMENT_NAMES = new Set([
   "AI_GATEWAY_API_KEY",
   "VERCEL_OIDC_TOKEN",
+  "WORLDLABS_API_KEY",
 ]);
 
 /** Credentials remain in the trusted process and never reach media/tool children. */

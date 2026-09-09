@@ -5,6 +5,7 @@ import type {
 } from "../html-overlay";
 import type { HtmlOverlayBrowserRuntimeBinding } from "./html-overlay-browser-runtime";
 import type { HtmlOverlayExecutionIntegrity } from "./html-overlay-integrity";
+import type { HtmlOverlayExecutionProfile, HtmlOverlayGpuEvidence } from "../html-overlay/execution-profile";
 
 export interface BoundHtmlOverlayResource extends HtmlOverlayDeclaredResource {
   /** Exact, descriptor-pinned source selected by the application boundary. */
@@ -12,6 +13,7 @@ export interface BoundHtmlOverlayResource extends HtmlOverlayDeclaredResource {
 }
 
 export interface HtmlOverlayFrameRenderRequest {
+  readonly executionProfile?: HtmlOverlayExecutionProfile;
   readonly authoring: HtmlOverlayAuthoringInput;
   /** Complete browser runtime tree captured during node planning. */
   readonly browserRuntime: HtmlOverlayBrowserRuntimeBinding;
@@ -20,6 +22,8 @@ export interface HtmlOverlayFrameRenderRequest {
 }
 
 export interface HtmlOverlayFrameRenderResult {
+  /** Host-observed hardware identity, present only for explicit hardware profiles. */
+  readonly gpuEvidence?: HtmlOverlayGpuEvidence;
   /** Merkle binding for the browser tree, document, runtime, modules, and assets used. */
   readonly executionIntegrity: HtmlOverlayExecutionIntegrity;
   readonly frameCount: number;
