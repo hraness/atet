@@ -53,22 +53,21 @@
 /* Temporary compatibility for the existing row, not a migrated family.
    The ordinary page previously omitted UI's recipe sheet. Registering the
    complete UI graph now activates those classes, so preserve the original
-   inherited/initial values that the old product overrides did not need. */
+   inherited/initial values that the old product overrides did not need.
+   Keep line-height and white-space atoms that the standalone footer sheet
+   already supplied to this row in the captured ordinary-page baseline. */
 .atet-ask-ai [data-slot="ask-ai-about-this-label"] {
   color: inherit;
   flex: 0 1 auto;
   font-family: inherit;
   font-size: inherit;
   letter-spacing: normal;
-  line-height: inherit;
   text-transform: none;
-  white-space: normal;
 }
 
 .atet-ask-ai [data-slot="ask-ai-about-this-link"] {
   background-color: transparent;
   font-family: inherit;
-  white-space: normal;
 }
 
 .atet-ask-ai [data-slot="ask-ai-about-this-link"]:hover {

@@ -235,7 +235,18 @@ export function compareShellElements(actual: readonly ShellElement[], baseline: 
   } catch (error) {
     // Diagnose descendants even when the first failure is an ancestor's height.
     // Keep the original strict assertion; this is not a tolerance or retry.
-    throw new AggregateError([error], `${label}: paired element differences ${JSON.stringify(differences)}`)
+    const properties = new Map<string, { key: string, property: string, baseline: string | undefined, actual: string | undefined, affectedElements: number }>()
+    for (const item of differences) for (const style of item.styles) {
+      const signature = JSON.stringify(style)
+      const previous = properties.get(signature)
+      if (previous) previous.affectedElements += 1
+      else properties.set(signature, { key: item.key, ...style, affectedElements: 1 })
+    }
+    // Group repeated descendant deltas so the bounded worker stderr retains
+    // the causal property changes instead of only a tail of shifted rectangles.
+    const diagnostic = { changedElements: differences.length, changedProperties: properties.size,
+      properties: [...properties.values()].slice(0, 20), geometryChanges: differences.reduce((count, item) => count + item.geometry.length, 0) }
+    throw new AggregateError([error], `${label}: paired element differences ${JSON.stringify(diagnostic)}`)
   }
 }
 export function compareShellEvidence(actual: ShellEvidence, baseline: ShellEvidence, label: string): void {

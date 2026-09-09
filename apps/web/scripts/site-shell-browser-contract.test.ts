@@ -130,6 +130,18 @@ test("ancestor failure retains later descendant differences without weakening pa
   expect(String(diagnostic.errors[0])).toContain("body[0]: computed styles")
   expect(() => compareShellElements([first, second], [first, second], "paired")).not.toThrow()
 })
+test("repeated descendant diagnostics stay bounded and retain distinct causes", () => {
+  const baseline = Array.from({ length: 100 }, (_, index) => ({ ...element(), key: `.child[${index}]`, styles: { "white-space": "nowrap" } }))
+  const actual = baseline.map(item => ({ ...item, rect: item.rect.map(axis => axis + 4), styles: { "white-space": "normal" } }))
+  let failure: unknown
+  try { compareShellElements(actual, baseline, "paired") } catch (error) { failure = error }
+  expect(failure).toBeInstanceOf(AggregateError)
+  const diagnostic = (failure as AggregateError).message
+  expect(diagnostic.length).toBeLessThan(1_000)
+  expect(diagnostic).toContain('"affectedElements":100')
+  expect(diagnostic).toContain('"property":"white-space","baseline":"nowrap","actual":"normal"')
+  expect(diagnostic).toContain('"geometryChanges":400')
+})
 function evidence(): ShellEvidence {
   const old = element()
   const menuElements = [

@@ -70,6 +70,10 @@ describe("ordinary shell authored contract (pure, process-free)", () => {
     for (const value of ["text-transform: none", "letter-spacing: normal", "font-family: inherit", "background-color: transparent", "transform: none", "outline-offset: 3px"]) {
       expect(source).toContain(value)
     }
+    // The captured standalone-footer baseline already supplies these atoms.
+    // Resetting them changes row wrapping and increases the label height.
+    expect(source).not.toContain("line-height: inherit")
+    expect(source).not.toContain("white-space:")
   })
 
   test("the complete ordinary graph remains separate from preview and package standalone CSS", async () => {
