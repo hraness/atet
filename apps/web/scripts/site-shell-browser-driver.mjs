@@ -1,12 +1,12 @@
 import assert from "node:assert/strict"
-import { realpath } from "node:fs/promises"
+import { realpath, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, isAbsolute, join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { bounded, withPreviewCancellation } from "./preview-browser-contract"
 import { assertShellNode, checkShellCase, compareShellEvidence, parseShellPhase, parseShellRequest,
-  siteShellCases, siteShellDeadlineMs } from "./site-shell-browser-contract"
-import { decodeWorkerJson, publishWorkerPhase, workerAttachmentMs, workerProtocolLimit } from "./preview-browser-protocol"
+  shellCaseFailure, siteShellCases, siteShellDeadlineMs } from "./site-shell-browser-contract"
+import { decodeWorkerJson, encodeWorkerJson, publishWorkerPhase, workerAttachmentMs, workerProtocolLimit } from "./preview-browser-protocol"
 import { readPreviewFile } from "./preview-file"
 import { assertOwnedPreviewEndpoint, closeOwnedPreviewBrowser } from "./preview-browser-shutdown"
 
@@ -46,20 +46,35 @@ async function main() {
     assert.equal(browser.version(), pinnedBrowser[0].browserVersion, "Connected browser version differs from pinned Chrome for Testing")
     const cases = [], negativeControls = []
     for (const scenario of siteShellCases) {
-      const remaining = siteShellDeadlineMs - (performance.now() - started)
-      assert.ok(remaining > 0, "Shell matrix exceeded its absolute deadline")
-      const negative = scenario.width === 1440 && scenario.theme === "system" && scenario.system === "light"
-      const evidence = await cancellation.wait(() => {
-        activeCase = checkShellCase(browser, request.current, scenario, "current", negative)
-        return bounded(activeCase, `Current ${scenario.name}`, Math.min(60_000, remaining))
-      })
-      const old = await cancellation.wait(() => {
-        activeCase = checkShellCase(browser, request.baseline, scenario, "baseline", false)
-        return bounded(activeCase, `Baseline ${scenario.name}`, Math.min(60_000, Math.max(1, siteShellDeadlineMs - (performance.now() - started))))
-      })
-      compareShellEvidence(evidence, old, scenario.name)
-      cases.push(scenario.name)
-      if (negative) negativeControls.push(scenario.route)
+      let stage = "current"
+      try {
+        const remaining = siteShellDeadlineMs - (performance.now() - started)
+        assert.ok(remaining > 0, "Shell matrix exceeded its absolute deadline")
+        const negative = scenario.width === 1440 && scenario.theme === "system" && scenario.system === "light"
+        const evidence = await cancellation.wait(() => {
+          activeCase = checkShellCase(browser, request.current, scenario, "current", negative)
+          return bounded(activeCase, `Current ${scenario.name}`, Math.min(60_000, remaining))
+        })
+        stage = "baseline"
+        const old = await cancellation.wait(() => {
+          activeCase = checkShellCase(browser, request.baseline, scenario, "baseline", false)
+          return bounded(activeCase, `Baseline ${scenario.name}`, Math.min(60_000, Math.max(1, siteShellDeadlineMs - (performance.now() - started))))
+        })
+        stage = "comparison"
+        compareShellEvidence(evidence, old, scenario.name)
+        cases.push(scenario.name)
+        if (negative) negativeControls.push(scenario.route)
+      } catch (error) {
+        // Preserve the exact failed scenario without manufacturing result.json.
+        // The parent reads this only after collecting the owned worker; success
+        // still requires the original complete three-phase protocol.
+        try {
+          await bounded(writeFile(join(dirname(requestPath), "site-shell-case-failure.json"),
+            encodeWorkerJson(shellCaseFailure(request, scenario.name, stage, cases, error)), { flag: "wx", mode: 0o600 }),
+          "Partial shell failure evidence", 5_000)
+        } catch (receiptError) { throw new AggregateError([error, receiptError], "Shell case failure and receipt publication failed") }
+        throw error
+      }
     }
     matrixCompleted = true
     return { ...common, ...runtime, sequence: 2, kind: "result", browser: browser.version(),

@@ -62,6 +62,37 @@ export interface ShellRequest {
   readonly current: ShellPayload
   readonly baseline: ShellPayload
 }
+export interface ShellCaseFailure {
+  readonly schemaVersion: 1
+  readonly token: string
+  readonly accepted: false
+  readonly completed: false
+  readonly scenario: string
+  readonly stage: "current" | "baseline" | "comparison"
+  readonly comparedCases: readonly string[]
+  readonly error: string
+}
+/** Failure evidence is never a terminal success phase. Only the exact fully
+ * compared prefix may precede the failed case; a measured current side alone
+ * does not count as a completed pair. */
+export function parseShellCaseFailure(value: unknown, request: Pick<ShellRequest, "token">): ShellCaseFailure {
+  const failure = shellRecord(value)
+  keys(failure, ["schemaVersion", "token", "accepted", "completed", "scenario", "stage", "comparedCases", "error"])
+  assert.equal(failure.schemaVersion, 1); assert.equal(failure.token, request.token)
+  assert.equal(failure.accepted, false); assert.equal(failure.completed, false)
+  assert.ok(failure.stage === "current" || failure.stage === "baseline" || failure.stage === "comparison")
+  assert.ok(Array.isArray(failure.comparedCases) && failure.comparedCases.length < siteShellCases.length)
+  assert.deepEqual(failure.comparedCases, siteShellCases.slice(0, failure.comparedCases.length).map(item => item.name))
+  assert.equal(failure.scenario, siteShellCases[failure.comparedCases.length]!.name)
+  assert.ok(typeof failure.error === "string" && failure.error.length > 0 && failure.error.length <= 2_048
+    && !/[\x00-\x1f]/u.test(failure.error))
+  return failure as unknown as ShellCaseFailure
+}
+export function shellCaseFailure(request: Pick<ShellRequest, "token">, scenario: string,
+  stage: ShellCaseFailure["stage"], comparedCases: readonly string[], error: unknown): ShellCaseFailure {
+  return parseShellCaseFailure({ schemaVersion: 1, token: request.token, accepted: false, completed: false,
+    scenario, stage, comparedCases: [...comparedCases], error: String(error).replace(/[\x00-\x1f]/gu, " ").slice(0, 2_048) || "Unknown failure" }, request)
+}
 export function shellRecord(value: unknown): Record<string, unknown> {
   assert.ok(value !== null && typeof value === "object" && !Array.isArray(value), "Expected a shell record")
   return value as Record<string, unknown>
@@ -773,6 +804,39 @@ async function skipRevealDiagnostic(page: Page): Promise<unknown> {
   return { before, afterTwoFrames: await sample() }
 }
 
+export interface ShellFocusFragment {
+  readonly rect: readonly [number, number, number, number]
+  readonly owned: boolean
+}
+/** Serialized synchronous observer: an inline union can include an empty gap
+ * between lines. Require hit ownership at every real fragment's center, never
+ * search for one convenient successful point or change paint to satisfy it. */
+export function shellFocusFragments(element: Element): ShellFocusFragment[] {
+  const document = element.ownerDocument
+  if (!element.isConnected || document.activeElement !== element || !element.matches(":focus-visible")) {
+    throw new Error("Native focused target lost focus or ownership")
+  }
+  const rectangles = [...element.getClientRects()]
+  if (rectangles.length === 0 || rectangles.length > 128) throw new Error("Invalid focused fragment count")
+  const fragments: ShellFocusFragment[] = []
+  for (const rect of rectangles) {
+    const values = [rect.x, rect.y, rect.width, rect.height] as const
+    if (!values.every(Number.isFinite) || rect.width < 0 || rect.height < 0) throw new Error("Invalid focused fragment geometry")
+    if (rect.width === 0 || rect.height === 0) continue
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+    fragments.push({ rect: values, owned: hit !== null && (element === hit || element.contains(hit)) })
+  }
+  if (fragments.length === 0) throw new Error("Native focused target has no painted fragments")
+  return fragments
+}
+export function assertShellFocusFragments(fragments: readonly ShellFocusFragment[], key: string): void {
+  assert.ok(fragments.length > 0 && fragments.length <= 128, `Native focused target has no bounded fragments: ${key}`)
+  for (const [index, fragment] of fragments.entries()) {
+    assert.ok(fragment.rect.length === 4 && fragment.rect.every(Number.isFinite) && fragment.rect[2] > 0 && fragment.rect[3] > 0)
+    assert.equal(fragment.owned, true, `Native focused target is covered: ${key} fragment ${index} ${JSON.stringify(fragment.rect)}`)
+  }
+}
+
 export async function checkShellCase(browser: Browser, payload: ShellPayload, scenario: ShellCase,
   source: "current" | "baseline", negative: boolean): Promise<ShellEvidence> {
   const context = await browser.newContext({ viewport: { width: scenario.width, height: scenario.height },
@@ -946,11 +1010,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       assert.equal(await target.evaluate(element => element.matches(":focus-visible")), true, "Keyboard focus-visible missing")
       const box = await target.boundingBox()
       assert.ok(box !== null && box.y >= -0.5 && box.y + box.height <= scenario.height + 0.5, `Focused target not reachable: ${key}`)
-      assert.equal(await target.evaluate(element => {
-        const rect = element.getBoundingClientRect()
-        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
-        return hit !== null && (element === hit || element.contains(hit))
-      }), true, `Native focused target is covered: ${key}`)
+      assertShellFocusFragments(await target.evaluate(shellFocusFragments), key)
       const measured = (await measure(page, [selector!]))[Number(index)]!
       assert.ok(measured.styles["outline-style"] !== "none" && Number.parseFloat(measured.styles["outline-width"]!) > 0,
         `Visible focus outline missing: ${key}`)

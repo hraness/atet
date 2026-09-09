@@ -15,7 +15,7 @@ import { assertWorkerInputsUnchanged, assertWorkerProtocolSnapshot, decodeWorker
   readWorkerInput, workerDriverLimit, workerPhaseFiles, workerProtocolLimit, type WorkerInputSnapshot } from "./preview-browser-protocol"
 import { capturePreviewOutputTimeout, createPreviewEndpointWaiter, previewFailureSummary,
   type EndpointEvidence, type PreviewOutputTimeoutEvidence } from "./verify-preview-layout"
-import { parseShellPhase, parseShellRequest, shellContentType, shellRecord, shellResource, siteShellBaselineRevision,
+import { parseShellCaseFailure, parseShellPhase, parseShellRequest, shellContentType, shellRecord, shellResource, siteShellBaselineRevision,
   siteShellBaselineTree, siteShellCases, siteShellDeadlineMs, siteShellHeaders, type ShellPayload, type ShellRequest } from "./site-shell-browser-contract"
 
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
@@ -229,6 +229,14 @@ async function collectProtocol(directory: string, observation: ShellObservation)
   assertWorkerProtocolSnapshot(paths, bytes, { phases: observation.phases,
     result: observation.result as unknown as Parameters<typeof assertWorkerProtocolSnapshot>[2]["result"] })
 }
+async function readCaseFailure(profile: string, request: ShellRequest) {
+  try {
+    return parseShellCaseFailure(decodeWorkerJson(await readPreviewFile(join(profile, "site-shell-case-failure.json"), workerProtocolLimit)), request)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return undefined
+    throw error
+  }
+}
 
 export async function verifySiteShell(args: readonly string[]): Promise<void> {
   const options = parseShellArguments(args), deadline = performance.now() + siteShellDeadlineMs
@@ -242,6 +250,7 @@ export async function verifySiteShell(args: readonly string[]): Promise<void> {
   let chromeAbsent = false, workerAbsent = false, completed = false
   let chromeOutput: string | undefined, workerOutput: string | undefined
   let signal: AbortSignal | undefined, observation: ShellObservation | undefined
+  let workerRequest: ShellRequest | undefined
   let inputs: readonly WorkerInputSnapshot[] | undefined, manifestBefore: Uint8Array | undefined
   let current: ShellSnapshot | undefined, baseline: ShellSnapshot | undefined
   let executableInputs: readonly { path: string; identity: readonly number[] }[] = []
@@ -290,6 +299,7 @@ export async function verifySiteShell(args: readonly string[]): Promise<void> {
       await mkdir(protocolDirectory, { mode: 0o700 })
       const request = parseShellRequest({ schemaVersion: 1, token: randomUUID(), appDirectory: actualApp, chromeExecutable: browserPath,
         endpoint, current: browserPayload(current, currentServer.server.url.origin), baseline: browserPayload(baseline, baselineServer.server.url.origin) })
+      workerRequest = request
       const requestPath = join(profile, "site-shell-browser-request.json"), bytes = encodeWorkerJson(request)
       await writeFile(requestPath, bytes, { flag: "wx", mode: 0o600 })
       inputs = [await readWorkerInput(driver.path, workerDriverLimit), await readWorkerInput(requestPath, workerProtocolLimit)]
@@ -338,6 +348,7 @@ export async function verifySiteShell(args: readonly string[]): Promise<void> {
         for (const input of inputs) after.push(await readWorkerInput(input.path, input.maximum))
         assertWorkerInputsUnchanged(inputs, after)
         await collectProtocol(protocolDirectory, observation)
+        assert.equal(await readCaseFailure(profile!, workerRequest!), undefined, "Successful shell worker also published failure evidence")
         for (const input of executableInputs) assert.deepEqual(await executableIdentity(input.path), input.identity, "Admitted executable changed")
         for (const input of packageInputs) {
           const after = await readWorkerInput(input.path, input.maximum)
@@ -352,8 +363,12 @@ export async function verifySiteShell(args: readonly string[]): Promise<void> {
         assert.ok(performance.now() < deadline, "Collection completed after the absolute deadline")
       })
       if (profile !== undefined && (!completed || failures.length > 0 || signal?.aborted === true)) await collect(async () => {
+        let caseFailure: ReturnType<typeof parseShellCaseFailure> | undefined
+        // Missing partial evidence is possible before the first case. Malformed
+        // evidence remains a collector failure, never a fallback success.
+        if (workerRequest !== undefined && workerAbsent) await collect(async () => { caseFailure = await readCaseFailure(profile!, workerRequest!) })
         const receipt = `${JSON.stringify({ accepted: false, completed, cancelled: signal?.aborted === true, chromeAbsent, workerAbsent,
-          endpointEvidence, timeoutEvidence, workerOutput, chromeOutput, failures: failures.map(error => previewFailureSummary(error)) })}\n`
+          endpointEvidence, timeoutEvidence, caseFailure, workerOutput, chromeOutput, failures: failures.map(error => previewFailureSummary(error)) })}\n`
         assert.ok(Buffer.byteLength(receipt) <= 1024 * 1024)
         await writeFile(join(profile!, "site-shell-failure.json"), receipt, { flag: "wx", mode: 0o600 })
         console.error(`atet-site-shell: retained failure evidence at ${profile}`)

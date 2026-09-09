@@ -1,8 +1,88 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
-import { assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellPhase, parseShellRequest,
-  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
+import { assertShellFocusFragments, assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellCaseFailure, parseShellPhase, parseShellRequest,
+  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellCaseFailure, shellFocusFragments, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
+
+function fragmentFixture(rectangles = [[53.75, 523.734375, 194, 21], [20, 551.625, 49.078125, 21]], covered = -1) {
+  const reads: number[][] = [], foreign = {} as Element, descendant = {} as Element
+  let connected = true, focused = true, visible = true, nested = false
+  const document = { get activeElement() { return focused ? element : foreign },
+    elementFromPoint(x: number, y: number): Element | null {
+      reads.push([x, y])
+      const index = rectangles.findIndex(([left, top, width, height]) => x > left! && x < left! + width! && y > top! && y < top! + height!)
+      return index < 0 || index === covered ? foreign : nested ? descendant : element
+    } }
+  const element = { ownerDocument: document, get isConnected() { return connected }, matches: () => visible,
+    contains: (node: Element) => node === descendant,
+    getClientRects: () => rectangles.map(([x, y, width, height]) => ({ x, y, width, height })),
+  } as unknown as Element
+  return { element, document, reads,
+    set(kind: "detached" | "blurred" | "invisible" | "descendant") {
+      if (kind === "detached") connected = false
+      else if (kind === "blurred") focused = false
+      else if (kind === "invisible") visible = false
+      else nested = true
+    } }
+}
+
+test("multiline native focus tests every actual fragment instead of the empty union gap", () => {
+  const fixture = fragmentFixture()
+  // Measured current and legacy 320px 404 geometry: this point hits the
+  // paragraph between lines, while both real link fragments remain reachable.
+  expect(fixture.document.elementFromPoint(133.875, 548.1796875)).not.toBe(fixture.element)
+  const fragments = shellFocusFragments(fixture.element)
+  expect(fragments.map(item => item.owned)).toEqual([true, true])
+  expect(fixture.reads.slice(1)).toEqual([[150.75, 534.234375], [44.5390625, 562.125]])
+  expect(() => assertShellFocusFragments(fragments, "recovery")).not.toThrow()
+  fixture.set("descendant")
+  expect(() => assertShellFocusFragments(shellFocusFragments(fixture.element), "nested icon")).not.toThrow()
+})
+
+test("one covered multiline fragment fails even when another fragment is hit-testable", () => {
+  for (const covered of [0, 1]) {
+    const fixture = fragmentFixture(undefined, covered)
+    const fragments = shellFocusFragments(fixture.element)
+    expect(fixture.reads).toHaveLength(2)
+    expect(fragments.filter(item => item.owned)).toHaveLength(1)
+    expect(() => assertShellFocusFragments(fragments, "recovery")).toThrow(`fragment ${covered}`)
+  }
+})
+
+test("native fragment observation retains focus ownership and bounded finite geometry", () => {
+  for (const kind of ["detached", "blurred", "invisible"] as const) {
+    const fixture = fragmentFixture(); fixture.set(kind)
+    expect(() => shellFocusFragments(fixture.element)).toThrow("lost focus or ownership")
+    expect(fixture.reads).toHaveLength(0)
+  }
+  for (const rectangles of [[], [[0, 0, 0, 0]], [[0, 0, Infinity, 1]], [[0, NaN, 1, 1]], [[0, 0, -1, 1]],
+    Array.from({ length: 129 }, () => [0, 0, 1, 1])]) {
+    expect(() => shellFocusFragments(fragmentFixture(rectangles).element)).toThrow()
+  }
+  expect(() => assertShellFocusFragments([], "missing")).toThrow()
+  expect(() => assertShellFocusFragments([{ rect: [0, 0, 0, 1], owned: true }], "empty")).toThrow()
+})
+
+test("partial shell failure records only the fully compared prefix and never accepts a pair", () => {
+  const request = { token: "11111111-1111-4111-8111-111111111111" }
+  const compared = siteShellCases.slice(0, 34).map(item => item.name), scenario = siteShellCases[34]!.name
+  for (const stage of ["current", "baseline", "comparison"] as const) {
+    const failure = shellCaseFailure(request, scenario, stage, compared, new Error("covered\nfragment"))
+    expect(failure).toEqual({ schemaVersion: 1, token: request.token, accepted: false, completed: false,
+      scenario, stage, comparedCases: compared, error: "Error: covered fragment" })
+    expect(parseShellCaseFailure(JSON.parse(JSON.stringify(failure)), request)).toEqual(failure)
+    expect(failure.comparedCases).not.toBe(compared)
+    expect(() => parseShellPhase(failure, 2, request as ShellRequest)).toThrow()
+  }
+  const first = shellCaseFailure(request, siteShellCases[0]!.name, "current", [], "x".repeat(4_096))
+  expect(first.error).toHaveLength(2_048); expect(first.comparedCases).toEqual([])
+  for (const patch of [{ accepted: true }, { completed: true }, { stage: "result" }, { stage: ["current"] }, { token: "wrong" },
+    { scenario: siteShellCases[1]!.name }, { comparedCases: [siteShellCases[0]!.name] },
+    { comparedCases: siteShellCases.map(item => item.name) }, { error: "\n" }, { error: "" }, { extra: true }]) {
+    expect(() => parseShellCaseFailure({ ...first, ...patch }, request)).toThrow()
+  }
+  expect(() => shellCaseFailure(request, scenario, "baseline", [...compared].reverse(), "wrong prefix")).toThrow()
+})
 
 test("skip reveal diagnostics never turn a failed settled frame into acceptance", async () => {
   let reads = 0
