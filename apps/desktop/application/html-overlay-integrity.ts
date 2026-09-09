@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 
 import { z } from "zod";
 import playwrightCorePackage from "playwright-core/package.json";
+import { HtmlOverlayExecutionProfileSchema, type HtmlOverlayExecutionProfile } from "../html-overlay/execution-profile";
+import { createSparkHtmlOverlayRuntimeSource } from "../html-overlay/spark-runtime";
 
 import { canonicalJson } from "../core/canonical-json";
 import {
@@ -145,6 +147,49 @@ export const HTML_OVERLAY_RENDERER_CONTRACT = Object.freeze({
   }),
 });
 
+/** Legacy contract above remains immutable so completed receipts remain verifiable. */
+const HARDWARE_LAUNCH_CONTRACT = Object.freeze({
+  ...HTML_OVERLAY_RENDERER_CONTRACT.launch,
+  args: Object.freeze([
+    ...HTML_OVERLAY_RENDERER_CONTRACT.launch.args.filter(argument => argument !== "--enable-unsafe-swiftshader" && argument !== "--use-angle=swiftshader"),
+    "--use-angle=metal",
+    "--disable-software-rasterizer",
+  ]),
+});
+export function htmlOverlayRendererContract(profileInput?: HtmlOverlayExecutionProfile) {
+  if (profileInput === undefined) return HTML_OVERLAY_RENDERER_CONTRACT;
+  const executionProfile = HtmlOverlayExecutionProfileSchema.parse(profileInput);
+  return Object.freeze({
+    ...HTML_OVERLAY_RENDERER_CONTRACT,
+    contentSecurityPolicy: executionProfile === "three-spark-webgl2-hardware-v1"
+      ? Object.freeze(HTML_OVERLAY_RENDERER_CONTRACT.contentSecurityPolicy.map(directive => {
+        if (directive === "worker-src 'none'") return "worker-src blob:";
+        if (directive === "connect-src 'none'") return "connect-src https://atet-overlay.invalid data:";
+        if (directive.startsWith("script-src ")) return `${directive} 'wasm-unsafe-eval'`;
+        return directive;
+      })) : HTML_OVERLAY_RENDERER_CONTRACT.contentSecurityPolicy,
+    executionProfile,
+    launch: HARDWARE_LAUNCH_CONTRACT,
+    gpu: Object.freeze({
+      admission: "matching-active-webgl2-and-cdp-angle-metal-v1",
+      capture: "host-held-native-context-health-before-and-after-every-screenshot",
+      fallback: "reject-software-or-unknown",
+      platform: "darwin",
+      receipt: "bounded-context-device-driver-os-evidence-per-batch",
+    }),
+    schemaVersion: 2,
+  });
+}
+
+export function assertHtmlOverlayExecutionProfileLibraries(
+  libraries: readonly string[], profile?: HtmlOverlayExecutionProfile,
+): void {
+  if (profile === undefined) return;
+  HtmlOverlayExecutionProfileSchema.parse(profile);
+  const expected = profile === "three-webgl2-hardware-v1" ? ["three"] : ["@sparkjsdev/spark", "three", "three/addons/postprocessing/Pass.js"];
+  if (canonicalJson([...libraries].sort()) !== canonicalJson(expected)) throw new Error("Hardware execution profile requires its exact approved scene library set.");
+}
+
 function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -189,8 +234,10 @@ function merkleRoot(leaves: readonly Readonly<{ key: string; sha256: string }>[]
 export function createHtmlOverlayExecutionBundle(
   authoringInput: HtmlOverlayAuthoringInput,
   browserRuntimeInput: HtmlOverlayBrowserRuntimeBinding,
+  executionProfile?: HtmlOverlayExecutionProfile,
 ): HtmlOverlayExecutionBundle {
   const authoring = HtmlOverlayAuthoringInputSchema.parse(authoringInput);
+  assertHtmlOverlayExecutionProfileLibraries(authoring.libraries, executionProfile);
   const browserRuntime = HtmlOverlayBrowserRuntimeBindingSchema.parse(
     browserRuntimeInput,
   );
@@ -198,13 +245,14 @@ export function createHtmlOverlayExecutionBundle(
     getApprovedHtmlOverlayLibraryLock,
   );
   const importMap = createHtmlOverlayImportMap(authoring.libraries);
-  const runtimeSource = createHtmlOverlayBrowserRuntimeSource({
+  const legacyRuntimeSource = createHtmlOverlayBrowserRuntimeSource({
     canvas: authoring.canvas,
     parameters: authoring.parameters,
     resources: authoring.resources,
     seed: authoring.seed,
     timing: authoring.timing,
   });
+  const runtimeSource = executionProfile === "three-spark-webgl2-hardware-v1" ? createSparkHtmlOverlayRuntimeSource(legacyRuntimeSource) : legacyRuntimeSource;
   const runtimeSha256 = sha256(Buffer.from(runtimeSource, "utf8"));
   const entries: Array<Readonly<{ key: string; value: unknown }>> = [
     {
@@ -219,7 +267,7 @@ export function createHtmlOverlayExecutionBundle(
       },
     },
     { key: "browser-runtime", value: browserRuntime },
-    { key: "renderer-contract", value: HTML_OVERLAY_RENDERER_CONTRACT },
+    { key: "renderer-contract", value: htmlOverlayRendererContract(executionProfile) },
     {
       key: "document",
       value: {

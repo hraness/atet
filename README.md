@@ -36,7 +36,8 @@ an Atet service.
 - **Local work has an explicit cloud boundary.** Editing, diagrams,
   vectorization, previews, and outputs stay local. Model-backed work uses the
   caller's Vercel AI Gateway credential and uploads selected media only after
-  the matching acknowledgement.
+  the matching acknowledgement. AI-world generation uses a separate World Labs
+  credential and an explicit credit budget.
 
 ## Install Atet
 
@@ -153,8 +154,10 @@ inspect stable part IDs and apply typed edits while retained sources and
 receipts connect each output to its exact scene and media inputs.
 
 The initial Three.js scene profile includes calibrated cameras, explicit
-animation, a bounded GLB subset, and project delivery through the existing
-audio and video compositor. See [directed scenes](docs/spatial-scenes.md) for
+animation, a bounded GLB subset, explicit hardware GPU rendering, and saved
+AI-world environments through Spark. World Labs generation retains splats,
+approximate colliders, and provenance for local camera direction. Project
+delivery uses the existing audio and video compositor. See [directed scenes](docs/spatial-scenes.md) for
 the source-checkout commands, supported assets, and current limits.
 
 ### Edit real video
@@ -231,7 +234,8 @@ and macOS desktop app.
   the macOS host and requires the corresponding operating-system permissions.
 - Model-backed generation requires caller-owned Vercel AI Gateway access.
   Local media is uploaded only when the command identifies it and receives the
-  matching acknowledgement.
+  matching acknowledgement. The AI-world provider requires separate World Labs
+  API access; importing saved worlds works offline.
 - The local MCP server confines paths to one caller-selected root, but it is
   not an operating-system sandbox against another process running as the same
   user.

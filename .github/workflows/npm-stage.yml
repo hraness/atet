@@ -1,13 +1,13 @@
 name: Stage npm package
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - package.json
   workflow_dispatch:
     inputs:
+      package_version:
+        description: Exact canonical GitHub version to mirror; defaults to current source version
+        required: false
+        default: ""
+        type: string
       publish_to_npm:
         description: Stage the verified package through npm trusted publishing
         required: false
@@ -30,6 +30,7 @@ jobs:
   verify:
     name: Verify exact package
     permissions:
+      actions: read
       contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 75
@@ -37,16 +38,19 @@ jobs:
       artifact_name: ${{ steps.pack.outputs.artifact_name }}
       package_version: ${{ steps.pack.outputs.package_version }}
       source_sha: ${{ steps.identity.outputs.source_sha }}
+      canonical_source_sha: ${{ steps.canonical.outputs.canonical_source_sha }}
       stage_required: ${{ steps.identity.outputs.stage_required }}
       tarball_name: ${{ steps.pack.outputs.tarball_name }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: 0
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          fetch-tags: false
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "24"
+          node-version: "24.18.1"
           package-manager-cache: false
           registry-url: "https://registry.npmjs.org"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -63,14 +67,14 @@ jobs:
         id: identity
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          PUSH_BEFORE: ${{ github.event.before }}
+          REQUESTED_VERSION: ${{ inputs.package_version }}
         run: |
           set -euo pipefail
           if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
             echo "::error::Run this workflow from $DEFAULT_BRANCH"
             exit 1
           fi
-          git fetch --no-tags origin \
+          git fetch --no-tags --unshallow origin \
             "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
           default_sha="$(git rev-parse "origin/$DEFAULT_BRANCH")"
           checked_out_sha="$(git rev-parse HEAD)"
@@ -79,7 +83,7 @@ jobs:
             exit 1
           fi
           package_name="$(node -p 'require("./package.json").name')"
-          package_version="$(node -p 'require("./package.json").version')"
+          package_version="${REQUESTED_VERSION:-$(node -p 'require("./package.json").version')}"
           if [[ "$package_name" != "@hraness/atet" ]]; then
             echo "::error::Unexpected package name $package_name"
             exit 1
@@ -88,71 +92,11 @@ jobs:
             echo "::error::Package version $package_version is not stable semver"
             exit 1
           fi
-          case "$GITHUB_EVENT_NAME" in
-            push)
-              if [[ ! "$PUSH_BEFORE" =~ ^[a-f0-9]{40}$ || \
-                    "$PUSH_BEFORE" == 0000000000000000000000000000000000000000 ]]; then
-                echo "::error::Push event does not identify the previous $DEFAULT_BRANCH commit"
-                exit 1
-              fi
-              if ! git cat-file -e "$PUSH_BEFORE^{commit}"; then
-                echo "::error::Previous $DEFAULT_BRANCH commit $PUSH_BEFORE is unavailable"
-                exit 1
-              fi
-              if ! git merge-base --is-ancestor "$PUSH_BEFORE" "$GITHUB_SHA"; then
-                echo "::error::Push event does not advance $DEFAULT_BRANCH from $PUSH_BEFORE"
-                exit 1
-              fi
-              previous_manifest="$(mktemp "$RUNNER_TEMP/atet-previous-package.XXXXXX")"
-              if ! git show "$PUSH_BEFORE:package.json" > "$previous_manifest"; then
-                echo "::error::Previous $DEFAULT_BRANCH commit has no readable package.json"
-                exit 1
-              fi
-              previous_name="$(node -e 'const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(value.name)' "$previous_manifest")"
-              previous_version="$(node -e 'const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(value.version)' "$previous_manifest")"
-              if [[ "$previous_name" != "$package_name" ]]; then
-                echo "::error::Package name changed from $previous_name to $package_name"
-                exit 1
-              fi
-              if [[ ! "$previous_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-                echo "::error::Previous package version $previous_version is not stable semver"
-                exit 1
-              fi
-              if [[ "$previous_version" == "$package_version" ]]; then
-                printf 'stage_required=false\n' >> "$GITHUB_OUTPUT"
-                echo "::notice::package.json changed without changing version $package_version; npm staging is not required"
-                exit 0
-              fi
-              PREVIOUS_VERSION="$previous_version" PACKAGE_VERSION="$package_version" node -e '
-                const pattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
-                const parse = (value) => pattern.exec(value).slice(1).map(BigInt);
-                const previous = parse(process.env.PREVIOUS_VERSION);
-                const next = parse(process.env.PACKAGE_VERSION);
-                const comparison = next[0] === previous[0]
-                  ? next[1] === previous[1]
-                    ? next[2] === previous[2]
-                      ? 0
-                      : next[2] > previous[2] ? 1 : -1
-                    : next[1] > previous[1] ? 1 : -1
-                  : next[0] > previous[0] ? 1 : -1;
-                if (comparison <= 0) {
-                  console.error(`::error::Package version ${process.env.PACKAGE_VERSION} must be newer than ${process.env.PREVIOUS_VERSION}`);
-                  process.exit(1);
-                }
-              '
-              ;;
-            workflow_dispatch)
-              ;;
-            *)
-              echo "::error::Unsupported npm staging event $GITHUB_EVENT_NAME"
-              exit 1
-              ;;
-          esac
-          printf 'stage_required=true\n' >> "$GITHUB_OUTPUT"
-          if git rev-parse --verify --quiet "refs/tags/v$package_version" >/dev/null; then
-            echo "::error::Create v$package_version only after npm delivery is verified"
+          if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch ]]; then
+            echo "::error::Optional npm mirroring requires an explicit workflow dispatch"
             exit 1
           fi
+          printf 'stage_required=true\n' >> "$GITHUB_OUTPUT"
           npm view "$package_name" name --json \
             --@hraness:registry=https://registry.npmjs.org \
             --registry=https://registry.npmjs.org >/dev/null
@@ -172,15 +116,49 @@ jobs:
             exit 1
           fi
           printf 'source_sha=%s\n' "$default_sha" >> "$GITHUB_OUTPUT"
+          printf 'package_version=%s\n' "$package_version" >> "$GITHUB_OUTPUT"
+      - name: Admit canonical archive and isolate its source
+        id: canonical
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_VERSION: ${{ steps.identity.outputs.package_version }}
+        run: |
+          set -euo pipefail
+          canonical_directory="$RUNNER_TEMP/atet-canonical-mirror"
+          mkdir "$canonical_directory"
+          node scripts/github-release.ts mirror "$canonical_directory"
+          canonical_source_sha="$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).sourceSha' "$canonical_directory/release-manifest.json")"
+          [[ "$canonical_source_sha" =~ ^[a-f0-9]{40}$ ]]
+          git merge-base --is-ancestor "$canonical_source_sha" "$GITHUB_SHA"
+          source_directory="$RUNNER_TEMP/atet-mirror-source"
+          git worktree add --detach "$source_directory" "$canonical_source_sha"
+          test "$(git -C "$source_directory" rev-parse HEAD)" = "$canonical_source_sha"
+          test "$(cd "$source_directory" && node -p 'require("./package.json").version')" = "$EXPECTED_VERSION"
+          printf 'source_directory=%s\n' "$source_directory" >> "$GITHUB_OUTPUT"
       - name: Install FFmpeg
         if: steps.identity.outputs.stage_required == 'true'
+        working-directory: ${{ steps.canonical.outputs.source_directory }}
         run: bash scripts/install-ci-ffmpeg.sh
       - if: steps.identity.outputs.stage_required == 'true'
+        working-directory: ${{ steps.canonical.outputs.source_directory }}
         run: bun install --frozen-lockfile --ignore-scripts
-      - if: steps.identity.outputs.stage_required == 'true'
-        run: bun run check
+      - name: Verify with pinned Node and Chromium
+        if: steps.identity.outputs.stage_required == 'true'
+        working-directory: ${{ steps.canonical.outputs.source_directory }}
+        run: |
+          set -euo pipefail
+          NODE_EXECUTABLE_PATH="$(command -v node)"
+          PLAYWRIGHT_BROWSERS_PATH="$(mktemp -d "$RUNNER_TEMP/atet-playwright.XXXXXX")"
+          export NODE_EXECUTABLE_PATH PLAYWRIGHT_BROWSERS_PATH
+          playwright_cli="$("$NODE_EXECUTABLE_PATH" -e 'const { createRequire } = require("node:module"); const { dirname, resolve } = require("node:path"); const appRequire = createRequire(resolve("apps/web/package.json")); const manifest = appRequire.resolve("playwright-core/package.json"); console.log(resolve(dirname(manifest), appRequire(manifest).bin["playwright-core"]))')"
+          "$NODE_EXECUTABLE_PATH" "$playwright_cli" install --no-shell chromium
+          ATET_CHROME_PATH="$("$NODE_EXECUTABLE_PATH" -e 'const { createRequire } = require("node:module"); const { resolve } = require("node:path"); console.log(createRequire(resolve("apps/web/package.json"))("playwright-core").chromium.executablePath())')"
+          test -x "$ATET_CHROME_PATH"
+          export ATET_CHROME_PATH
+          bun run check
       - name: Verify clean source tree
         if: steps.identity.outputs.stage_required == 'true'
+        working-directory: ${{ steps.canonical.outputs.source_directory }}
         run: |
           set -euo pipefail
           source_status="$(git status --porcelain --untracked-files=all)"
@@ -189,6 +167,10 @@ jobs:
             exit 1
           fi
       - name: Pack and verify the exact artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_VERSION: ${{ steps.canonical.outputs.package_version }}
+          SOURCE_DIRECTORY: ${{ steps.canonical.outputs.source_directory }}
         if: steps.identity.outputs.stage_required == 'true'
         id: pack
         run: |
@@ -197,10 +179,10 @@ jobs:
           metadata="$artifact_directory/npm-pack.json"
           digest="$artifact_directory/npm-package.sha256"
           mkdir -p "$artifact_directory"
-          npm pack --ignore-scripts --json \
-            --pack-destination "$artifact_directory" \
-            --registry=https://registry.npmjs.org \
-            > "$metadata"
+          canonical_directory="$RUNNER_TEMP/atet-canonical-mirror"
+          node scripts/github-release.ts mirror-verify "$canonical_directory"
+          cp "$canonical_directory/npm-pack.json" "$metadata"
+          cp "$canonical_directory/hraness-atet-$EXPECTED_VERSION.tgz" "$artifact_directory/"
           cat "$metadata"
           IFS=$'\t' read -r archive_name package_version < <(node -e '
             const input = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
@@ -215,9 +197,12 @@ jobs:
             exit 1
           fi
           archive="$artifact_directory/$archive_name"
-          bun run ./scripts/package-smoke.ts \
-            --archive "$archive" \
-            --pack-json "$metadata"
+          (
+            cd "$SOURCE_DIRECTORY"
+            bun run "$GITHUB_WORKSPACE/scripts/package-smoke.ts" \
+              --archive "$archive" \
+              --pack-json "$metadata"
+          )
           archive_sha256="$(sha256sum "$archive" | cut -d ' ' -f 1)"
           metadata_sha256="$(sha256sum "$metadata" | cut -d ' ' -f 1)"
           printf '%s  %s\n%s  npm-pack.json\n' \
@@ -1032,11 +1017,13 @@ jobs:
       - name: Revalidate current main and stage exact package
         id: publish
         env:
+          GH_TOKEN: ${{ github.token }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           EXPECTED_ARCHIVE_SHA256: ${{ steps.artifact.outputs.archive_sha256 }}
           EXPECTED_METADATA_SHA256: ${{ steps.artifact.outputs.metadata_sha256 }}
           EXPECTED_SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
           EXPECTED_VERSION: ${{ needs.verify.outputs.package_version }}
+          EXPECTED_CANONICAL_SOURCE_SHA: ${{ needs.verify.outputs.canonical_source_sha }}
           TARBALL: ${{ steps.artifact.outputs.tarball }}
         run: |
           set -euo pipefail
@@ -1106,34 +1093,38 @@ jobs:
             : candidate[0] > latest[0] ? 1 : -1;
           if (comparison <= 0) throw new Error("Staged candidate must be newer than current npm latest");
           NODE
-          tag_ref="refs/tags/v$EXPECTED_VERSION"
-          tag_error="$RUNNER_TEMP/atet-current-tag-error.txt"
-          set +e
-          tag_lookup_output="$(git ls-remote --exit-code --refs \
-            "https://github.com/$GITHUB_REPOSITORY.git" "$tag_ref" 2>"$tag_error")"
-          tag_lookup_status=$?
-          set -e
-          case "$tag_lookup_status" in
-            0)
-              if [[ -z "$tag_lookup_output" ]]; then
-                echo "::error::Remote tag lookup succeeded without returning the exact tag"
-              else
-                echo "::error::Tag v$EXPECTED_VERSION exists; npm delivery must precede the Git tag"
-              fi
-              exit 1
-              ;;
-            2)
-              if [[ -n "$tag_lookup_output" ]]; then
-                echo "::error::Remote tag lookup returned an ambiguous absence result"
-                exit 1
-              fi
-              ;;
-            *)
-              cat "$tag_error"
-              echo "::error::Could not prove that tag v$EXPECTED_VERSION is absent"
-              exit 1
-              ;;
-          esac
+          release_json="$(gh api --method GET "/repos/$GITHUB_REPOSITORY/releases/tags/v$EXPECTED_VERSION")"
+          RELEASE_JSON="$release_json" node <<'NODE'
+          const release = JSON.parse(process.env.RELEASE_JSON ?? 'null');
+          const assets = release?.assets;
+          const archiveName = `hraness-atet-${process.env.EXPECTED_VERSION}.tgz`;
+          const matches = Array.isArray(assets) ? assets.filter(asset => asset?.name === archiveName) : [];
+          const requiredNames = [archiveName, 'npm-pack.json', 'release-manifest.json', 'SHA256SUMS', 'provenance.jsonl'];
+          const metadata = Array.isArray(assets) ? assets.filter(asset => asset?.name === 'npm-pack.json') : [];
+          if (release?.tag_name !== `v${process.env.EXPECTED_VERSION}` || release?.target_commitish !== process.env.EXPECTED_CANONICAL_SOURCE_SHA
+            || release?.draft !== false || release?.prerelease !== false || release?.immutable !== true
+            || release?.author?.id !== 41898282 || release?.author?.login !== 'github-actions[bot]' || release?.author?.type !== 'Bot'
+            || !Number.isSafeInteger(release?.id) || release.id < 1 || !Array.isArray(assets) || assets.length !== 5
+            || new Set(assets.map(asset => asset?.id)).size !== 5 || new Set(assets.map(asset => asset?.name)).size !== 5
+            || assets.some(asset => !Number.isSafeInteger(asset?.id) || asset.id < 1 || asset.state !== 'uploaded' || !requiredNames.includes(asset.name))
+            || matches.length !== 1 || matches[0].digest !== `sha256:${process.env.EXPECTED_ARCHIVE_SHA256}`
+            || metadata.length !== 1 || metadata[0].digest !== `sha256:${process.env.EXPECTED_METADATA_SHA256}`) {
+            throw new Error('Canonical immutable GitHub mirror authority changed immediately before npm staging');
+          }
+          NODE
+          canonical_tag_json="$(gh api --method GET "/repos/$GITHUB_REPOSITORY/git/ref/tags/v$EXPECTED_VERSION")"
+          canonical_tag_object="$(CANONICAL_TAG_JSON="$canonical_tag_json" node -e '
+            const tag = JSON.parse(process.env.CANONICAL_TAG_JSON ?? "null");
+            if (tag?.object?.type !== "tag" || !/^[a-f0-9]{40}$/.test(tag.object.sha ?? "")) process.exit(1);
+            process.stdout.write(tag.object.sha);
+          ')"
+          canonical_target_json="$(gh api --method GET "/repos/$GITHUB_REPOSITORY/git/tags/$canonical_tag_object")"
+          CANONICAL_TARGET_JSON="$canonical_target_json" node -e '
+            const tag = JSON.parse(process.env.CANONICAL_TARGET_JSON ?? "null");
+            if (tag?.object?.type !== "commit" || tag.object.sha !== process.env.EXPECTED_CANONICAL_SOURCE_SHA) process.exit(1);
+          '
+          source_ancestry="$(gh api --method GET "/repos/$GITHUB_REPOSITORY/compare/$EXPECTED_CANONICAL_SOURCE_SHA...$EXPECTED_SOURCE_SHA" --jq .status)"
+          [[ "$source_ancestry" == ahead || "$source_ancestry" == identical ]]
           stage_result="$(mktemp "$RUNNER_TEMP/atet-stage-result.XXXXXX")"
           cd "$clean_npm_directory"
           npm stage publish "$TARBALL" \

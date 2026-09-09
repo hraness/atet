@@ -325,7 +325,7 @@ function json(value: unknown): string {
   return JSON.stringify(value);
 }
 
-async function verifyArchive(
+export async function verifyArchive(
   archivePath: string,
   metadataPath: string,
   label: string,

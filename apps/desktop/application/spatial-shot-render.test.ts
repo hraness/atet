@@ -6,6 +6,16 @@ import { planSpatialRender, spatialShotRenderRequest } from "./spatial-render";
 const scene = { ...fixtureScene(), durationUs: 1_000_000, cameras: [{ ...fixtureCamera(), projection: { ...fixtureCamera().projection, width: 8, height: 4 } }] };
 const shot = { shotId: "shot_clock", sceneSha256: spatialSceneSha256(scene), cameraId: "camera_main", overrides: [], sceneStartUs: 125000,
   range: { startUs: 4000000, endUs: 7000000 }, playback: "loop" };
+test("explicit GPU profile changes request identity while preserving exact shot and sample clocks", () => {
+  const legacyRequest = spatialShotRenderRequest(shot, { numerator: 30_000, denominator: 1_001 });
+  expect(Object.hasOwn(legacyRequest, "executionProfile")).toBe(false);
+  const hardwareRequest = spatialShotRenderRequest(shot, { numerator: 30_000, denominator: 1_001 }, "three-webgl2-hardware-v1");
+  expect(hardwareRequest).toEqual({ ...legacyRequest, executionProfile: "three-webgl2-hardware-v1" });
+  const legacy = planSpatialRender(scene, legacyRequest), hardware = planSpatialRender(scene, hardwareRequest);
+  expect(hardware.sceneSha256).toBe(legacy.sceneSha256);
+  expect(hardware.requestSha256).not.toBe(legacy.requestSha256);
+  expect(hardware.samples).toEqual(legacy.samples);
+});
 test("canonical shot requests bind explicit clocks, source offset, camera pose and overrides", () => {
   const pose: { position: [number, number, number]; rotation: [number, number, number, number] } = { position: [1, 2, 3], rotation: [0, 0, 0, 1] };
   const request = spatialShotRenderRequest({ ...shot, cameraPoseOverride: pose }, { numerator: 60000, denominator: 2002 });

@@ -1,9 +1,6 @@
 # Publish Atet
 
-Atet uses an interactive first npm publication and stage-only trusted
-publishing for later versions. npm cannot stage a package name that does not
-exist, and npm's dual-use policy requires two-factor authentication at the
-interactive publish or staged-promotion boundary.
+GitHub Releases are canonical. A protected stable tag produces one verified package archive, GitHub provenance, and an immutable Release. npm is an optional downstream mirror. The existing dual-use declaration and stage-only trusted publisher remain until npm approves a classification change; GitHub publication does not wait for npm or its interactive promotion.
 
 ## Bootstrap the npm package
 
@@ -111,9 +108,7 @@ the npm package settings with this exact identity:
 Create a GitHub environment named `npm-stage`. Disable administrator bypass.
 Its sole protection rule must be `branch_policy`, and its sole deployment
 policy must be the selected branch `main` with type `branch`. Configure no
-required deployment reviewers and add no environment secret. Pushes and default
-manual dispatches stop after the read-only verification job uploads the exact
-candidate artifact. The dependent staging job starts only when a current-main
+required deployment reviewers and add no environment secret. Optional manual dispatches first verify and upload the exact canonical GitHub archive without OIDC. A dispatch with its default false input stops there. The dependent staging job starts only when a current-main
 owner manual dispatch explicitly sets `publish_to_npm=true`. The staging job
 re-reads that exact run attempt and requires both the original actor and the
 attempt's triggering actor to be immutable owner `User` ID `894119` before it
@@ -157,128 +152,47 @@ the exact eight-byte USTAR signature (`ustar\0` plus `00`) and npm/node-tar's
 byte-475 prefix discriminator (zero means 130 prefix bytes; nonzero means 155).
 Shared hostile fixtures keep both tar consumers behaviorally aligned.
 
-## Stage a later version
+## Publish a canonical GitHub release
 
-Keep the source candidate version separate from the verified public release.
-`apps/web/published-release.json` records exactly `version` and `releaseUrl`;
-the URL must identify that version's immutable Atet GitHub Release. The website,
-README installation commands, and skill installation reference use this public
-version while a newer package candidate is prepared or staged. A merge to `main`
-can deploy the website before npm promotion, so do not advance those public
-instructions with the candidate's package and native-tool versions.
+Keep the source candidate separate from the verified public release. `apps/web/published-release.json` records the last verified public `version` and exact immutable `releaseUrl`. Public installation instructions retain that version while a new candidate is prepared. Never advertise an asset that has not passed live verification.
 
-1. Merge one new stable version to `main`. A push that changes `package.json`
-   starts **Stage npm package** automatically in build-only mode. Its read-only
-   verification job repeats the complete gate and uploads the exact candidate
-   artifact without requesting OIDC authority. A
-   `package.json` edit that leaves the stable version unchanged exits
-   successfully without building, uploading, or staging a package.
-2. Finish the previous staged version, public promotion, stable tag, and
-   immutable GitHub Release before preparing or dispatching another stable
-   version. GitHub concurrency serializes workflow executions, not npm stages
-   awaiting human approval; there must be at most one pending stable stage.
-3. Review the uniquely named artifact from the read-only verification job. It
-   contains exactly the tarball, `npm-pack.json`, and `npm-package.sha256`.
-   Confirm the source commit, version, inventory, sizes, SHA-1, SHA-512
-   integrity, independent SHA-256 digests, dual-use declaration, and
-   disclosure.
-4. When the stable train is intentionally ready for npm staging, the owner
-   dispatches the
-   exact workflow from current `main` with the explicit opt-in:
+1. Merge the new stable source through the current-head Required gate and complete the repository's local and native acceptance. From clean current `main`, run `bun run ./scripts/push-release-tag.ts <exact-stable-version>`. Its sole annotated-tag push follows owner, repository, protected-main, exact CI run/attempt/Required job, both live tag rulesets, immutable GitHub latest and monotonic remote-tag checks. It never publishes npm, moves a tag, or deletes a remote ref.
+2. The protected tag workflow repeats owner and sender ID `894119`, repository ID `1310516748`, annotated tag, source ancestry and current-main workflow/helper closure checks. The read-only job runs the complete source gate, builds one `npm pack --ignore-scripts` archive, independently validates its bounded USTAR inventory and metadata, and exercises the exact archive in isolated Bun and npm consumers. Five official VTracer targets and the existing macOS shell tests/package must pass before attestation.
+3. A checkout-free job reauthorizes the current run and loads only the byte-identical current-main/tagged release helper. It verifies the four-file handoff against the verification job's digests before requesting OIDC. Pinned `actions/attest` signs the archive, `npm-pack.json`, `release-manifest.json` and `SHA256SUMS`. `provenance.jsonl` carries the returned bundle. No package or product code runs with attestation or release credentials.
+4. The dependent publisher independently verifies the five exact files, cryptographic provenance and hosted source/run/attempt identity. It creates an Actions-authored draft, uploads only missing matching assets, checks all provider names, sizes and digests, rechecks live source/authority and version ordering, then publishes immutable Latest. It never overwrites an asset or deletes/recreates a release. Discover existing drafts through the bounded authenticated release list, require one exact-tag match, and use its positive release ID for readback; GitHub may return 404 for a draft at the tag endpoint. Matching state from the same attempt is reconciled; a prior attempt's different manifest or bundle stops with its exact state rather than relabeling historical provenance.
+5. Verify the live release, download its five assets into a fresh directory, and verify the archive before installation:
 
    ```sh
-   gh workflow run npm-stage.yml --ref main -f publish_to_npm=true
+   gh release verify v<version> --repo hraness/atet
+   gh release download v<version> --repo hraness/atet --dir <fresh-directory>
+   gh release verify-asset v<version> <fresh-directory>/hraness-atet-<version>.tgz --repo hraness/atet
+   gh attestation verify <fresh-directory>/hraness-atet-<version>.tgz --repo hraness/atet --signer-workflow hraness/atet/.github/workflows/release.yml --signer-digest <source-sha> --source-digest <source-sha> --source-ref refs/tags/v<version> --deny-self-hosted-runners --bundle <fresh-directory>/provenance.jsonl
    ```
 
-   The run repeats candidate verification before the dependent OIDC job starts.
-   Before using OIDC, that job proves the candidate is newer than the live
-   public `latest` version using npm 11's safe SemVer component bounds,
-   rejects any unresolved version-bound intent in this workflow's retained
-   Actions history across the current and completed runs' attempts while that
-   version is still newer than public `latest`, and reauthorizes the exact
-   protected-main workflow run, attempt, owner actor, owner triggering actor,
-   workflow ID, repository ID, and source commit.
-   The history scan recognizes every attempted terminal npm mutation before it
-   considers the stage-job display name. Each such write must have exactly one
-   successful durable intent at the immediately preceding safe positive Actions
-   step number, so renaming or reordering the job cannot detach the write from
-   its retained intent.
-   That job checks out no source and runs no repository code. It downloads and
-   revalidates the three verified files, fetches current `main` into a new bare
-   Git directory, rehashes the package, proves the matching Git tag is absent,
-   records a successful version-bound Actions intent, and only then runs the
-   stage-only command. It captures and validates npm's exact returned stage ID.
-   The intent persists even if the runner exits during the write, so a missing
-   or false input, a push, another branch, a stale commit, an existing version,
-   a branch advance, or an ambiguous write cannot silently admit another run.
-   Leave `resolved_stage_version` empty during ordinary dispatches. If an npm
-   mutation failed, returned ambiguously, or was explicitly rejected, first
-   resolve whether that exact version remains staged, then use an owner dispatch
-   naming the exact cleared intent to admit a later candidate. That dispatch
-   records the clearance as its own successful history step, so it stays
-   resolved for subsequent versions. Promotion advances public `latest`, so it
-   releases the corresponding intent automatically.
-5. Inspect the staged package with
-   `npm stage view <stage-id> --registry=https://registry.npmjs.org` and
-   download it with
-   `npm stage download <stage-id> --registry=https://registry.npmjs.org` when
-   an independent local inspection is required.
-6. Batch the unavoidable human gate into an intentional stable release, then
-   approve the exact stage with
-   `npm stage approve <stage-id> --registry=https://registry.npmjs.org` or
-   npmjs.com and complete two-factor authentication. This mandatory npm
-   approval is the only human approval in the stable train and is the action that
-   makes the staged package public.
-7. Download and verify the public registry artifact in a clean consumer. The
-   Release workflow installs npm 11.19.0 without lifecycle scripts in an
-   isolated directory, runs `npm audit signatures --json
-   --include-attestations --omit=dev`, and requires a valid registry signature
-   plus the cryptographically verified npm-publish and SLSA attestations. Their exact
-   package PURL and SHA-512 identify the downloaded tarball; the SLSA statement
-   must name `npm-stage.yml`, `refs/heads/main`, `workflow_dispatch`, repository
-   ID `1310516748`, owner ID `307125679`, the source commit, GitHub-hosted
-   builder, and one signed run-attempt URL. The final write job re-reads that
-   completed provenance-linked attempt and requires owner `actor` and
-   `triggering_actor`, the exact successful intent immediately before the npm
-   mutation, and the version-bound job identity. The attempt or job may have
-   failed, been cancelled, or timed out after npm accepted the stage; the
-   cryptographically verified public artifact is the durable acceptance proof.
-   The write job then re-reads canonical npm version metadata and
-   `dist-tags.latest`. The live integrity, signature set, attestation URL, and
-   SLSA summary must still match the cryptographically verified exact version.
-   Immediately before the GitHub mutation, the publish step reads
-   `dist-tags.latest` once more. It writes a provenance preamble binding the
-   release workflow path, repository, tag, source SHA, exact npm stage run
-   attempt, integrity, and attestation URL. A pre-existing Release is accepted
-   only when its author is GitHub Actions bot ID `41898282`, its title and tag
-   are exact, and its body starts with that same preamble; this prevents a
-   collaborator-created Release from front-running the immutable write.
-8. From a clean, current `main` checkout, create and push the matching annotated
-   `v<version>` tag with the guarded preflight-only tag command:
+   Check every checksum against the downloaded bytes and bind the manifest to the verified source, tag and release attempt. Run `scripts/package-smoke.ts --archive <archive> --pack-json <npm-pack.json>` against the exact tagged source in an isolated consumer. A checksum or unsigned manifest alone is not provenance.
+6. After live asset and installation acceptance, update the public release datum and installation references in a normal checked change, then verify Production HTML, Markdown and download targets. The one-command CLI install and update is `bun add --global https://github.com/hraness/atet/releases/download/v<version>/hraness-atet-<version>.tgz`; omit `--global` for an SDK dependency. Package and command names stay `@hraness/atet` and `atet`. Resolve Latest discovery to an immutable version before verification; do not install a mutable latest URL or pipe a downloaded script into a shell.
 
-   ```sh
-   bun run ./scripts/push-npm-release-tag.ts <exact-stable-version>
-   ```
+The manifest has exactly schema `hraness-github-release-v1`, repository/name and numeric repository ID, package, stable version/tag, source SHA, release workflow/current authority SHA, numeric run ID/attempt, and archive name/bytes/SHA-256/SHA-512. Every file is bounded and regular; unexpected files, symlinks, traversal, unsafe packed configuration and inconsistent bytes reject. Native package construction remains release acceptance; native binaries are not added to this distribution without separately enumerated asset and installation proof.
 
-   This command has no npm publication authority. Before its sole exact tag
-   push, it checks owner authentication, public repository identity, both live
-   tag rulesets, the live main-only `npm-stage` environment, protected current
-   `main`, the successful exact CI attempt and Required job, public npm
-   `latest`, remote tag monotonicity, and local tag absence. It creates one
-   canonical annotated tag and compare-deletes only the local tag it created if
-   remote verification fails. The protected tag workflow repeats owner and
-   event-sender ID `894119`, repository ID `1310516748`, npm authority, source,
-   VTracer, and immutable Latest Release checks.
-9. After the exact npm version and immutable GitHub Release both pass public
-   verification, update `apps/web/published-release.json` with that version and
-   its exact `https://github.com/hraness/atet/releases/tag/v<version>` URL.
-   Update the README and `skills/atet/references/install.md` installation
-   references to match, and update the current-public fixture in the site tests.
-   Retain the actual npm, tag, Release and workflow evidence in the release
-   record; do not invent a verification run in the datum. Run the required
-   source and site gates, deliver the status change through a normal pull
-   request, then verify the Production HTML, Markdown and install targets.
-   Historical archive, provenance and prior-release fixtures remain unchanged.
+## Mirror a canonical release to npm
+
+The **Stage npm package** workflow is dispatch-only. Canonical publication owns artifact construction; the optional mirror must download that exact immutable GitHub archive, verify its complete signed handoff and successful release attempt, and smoke it. It must not rebuild different bytes and call them the same canonical artifact. The mirror retains its full source gate, with pinned Node and Chromium, followed by fresh canonical provenance/asset admission and isolated installation of those exact bytes. A failed or incomplete canonical release run cannot admit a mirror.
+
+The dispatch runs from current protected `main`. `package_version` selects an exact canonical version and defaults to the current source version. Keep the immutable artifact source distinct from the workflow source: the full gate runs in an isolated checkout of the canonical source, while the current workflow's smoke and npm policy helpers admit its archive. The canonical source must remain an ancestor of current `main`; later documentation or version changes do not relabel it. Staging rechecks the current workflow, annotated canonical tag, immutable archive and metadata digests, complete asset identities and npm latest immediately before mutation.
+
+From current `main` at the released source, dispatch:
+
+```sh
+gh workflow run npm-stage.yml --ref main -f publish_to_npm=true
+```
+
+The current-main dispatch must be newer than npm's public `latest`. The checkout-free OIDC job retains its exact owner/triggering-actor, workflow, repository, environment and source guards. It recognizes every attempted terminal npm mutation before considering a stage-job display name. Every attempted write requires exactly one successful durable intent at the immediately preceding safe positive Actions step number. It revalidates the three-file staging handoff (`.tgz`, `npm-pack.json`, `npm-package.sha256`), independently parses the bounded archive/configuration, rechecks protected source and the immutable GitHub asset digest immediately before mutation, and captures npm's returned stage ID.
+
+Leave `resolved_stage_version` empty normally. Resolve an ambiguous or rejected exact provider attempt before an owner dispatch clears that version's retained intent. Public npm promotion advances `latest` and releases the intent automatically. Keep the stage-only publisher as the sole staging authority; a newer GitHub release does not clear an unresolved npm intent.
+
+Inspect the exact stage with `npm stage view <stage-id>` and, when needed, `npm stage download <stage-id>`. npm's current dual-use policy requires interactive two-factor authentication for `npm stage approve <stage-id>`. This approval affects only the optional mirror. Never weaken two-factor authentication, substitute a publishing token, or change the declaration without npm's approval.
+
+After promotion, download the registry archive and use `npm-package-identity.ts` plus isolated package smoke to compare the complete canonical content inventory, entry types, modes, sizes and hashes against the GitHub artifact. npm may re-encode transport bytes; preserve both archives and their own metadata rather than claim different gzip or tar bytes are identical. Verify registry signatures and the npm-publish/SLSA attestations using `npm audit signatures --json --include-attestations --omit=dev` and `npm-publish-authority.ts`. Those npm proofs remain mirror acceptance; they are no longer GitHub release authority. An npm write can succeed before its runner reports failure, so reconcile the cryptographically verified provider state before retrying.
 
 Never stage the next stable version while another stage awaits approval. npm
 11.19.0 deliberately permits multiple pending versions and exposes no atomic
@@ -306,8 +220,7 @@ GitHub Actions integration, an administrator, a repository role, a team, or
 another integration this bypass, and never combine creation with update or
 deletion. This one-time provider setup lets the already-authenticated owner
 create the exact release tag under standing task authority without a routine
-GitHub sudo approval. Never create probe tags, move a version tag, or tag before
-the matching staged package has been promoted and independently verified.
+GitHub sudo approval. Never create probe tags or move a version tag. The canonical GitHub gate is independent of optional npm mirroring.
 
 See npm's documentation for [trusted
 publishing](https://docs.npmjs.com/trusted-publishers/), [staged

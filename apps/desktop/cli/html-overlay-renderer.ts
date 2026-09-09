@@ -48,8 +48,12 @@ import {
 } from "../application/html-overlay-browser-runtime";
 import {
   HTML_OVERLAY_RENDERER_CONTRACT,
+  assertHtmlOverlayExecutionProfileLibraries,
   createHtmlOverlayExecutionBundle,
+  htmlOverlayRendererContract,
 } from "../application/html-overlay-integrity";
+import type { HtmlOverlayExecutionProfile, HtmlOverlayGpuEvidence } from "../html-overlay/execution-profile";
+import { createHtmlOverlayGpuEvidence, inspectHtmlOverlayBrowserGpu, installHtmlOverlayGpuProbe, type HtmlOverlayGpuProbe } from "./html-overlay-gpu";
 import { canonicalJson } from "../core/canonical-json";
 import {
   createHtmlOverlayRuntimeFrame,
@@ -67,14 +71,23 @@ const SYNTHETIC_ORIGIN = new URL(DOCUMENT_URL).origin;
 const MAXIMUM_DIAGNOSTICS = 32;
 const MAXIMUM_DIAGNOSTIC_LENGTH = 1_000;
 const MAXIMUM_LIBRARY_BYTES = 4 * 1024 * 1024;
+function maximumLibraryBytes(lock: HtmlOverlayActiveLibraryLock): number {
+  // Only this approved content-addressed Spark module exceeds the legacy ceiling.
+  return lock.specifier === "@sparkjsdev/spark" && lock.version === "2.1.0"
+    && lock.bytes === 5_063_871 && lock.sha256 === "70050257ce2326c2ce1d2688e6f58987147adf764f8ff7ba4aa17ab7ae5870c0"
+    ? lock.bytes : MAXIMUM_LIBRARY_BYTES;
+}
 const DEFAULT_BROWSER_STEP_TIMEOUT_MS = 60_000;
 const MAXIMUM_BROWSER_STEP_TIMEOUT_MS = 5 * 60_000;
 
 export function createHtmlOverlayBrowserLaunchArgs(
   libraries: readonly HtmlOverlayLibrarySpecifier[],
+  executionProfile?: HtmlOverlayExecutionProfile,
 ): string[] {
+  assertHtmlOverlayExecutionProfileLibraries(libraries, executionProfile);
+  const contract = htmlOverlayRendererContract(executionProfile);
   return [
-    ...HTML_OVERLAY_RENDERER_CONTRACT.launch.args,
+    ...contract.launch.args,
     ...(libraries.includes("vgpu")
       ? HTML_OVERLAY_RENDERER_CONTRACT.launch.libraryArgs.vgpu
       : []),
@@ -156,6 +169,18 @@ function cancellationReason(signal: AbortSignal): Error {
       );
 }
 
+/** A closed Playwright transport alone does not establish native process exit. */
+export class HtmlOverlayBrowserCleanupError extends ApplicationError {
+  constructor(label: string, cleanupError: unknown, primaryError?: unknown) {
+    super("unavailable", `HTML overlay browser ${label} did not settle; native process exit is unproven.`, {
+      cleanupError: boundedDiagnostic(cleanupError instanceof Error ? cleanupError.message : String(cleanupError)),
+      ...(primaryError === undefined ? {} : { primaryError: boundedDiagnostic(primaryError instanceof Error ? primaryError.message : String(primaryError)) }),
+    });
+    this.name = "HtmlOverlayBrowserCleanupError";
+    this.cause = primaryError === undefined ? cleanupError : new AggregateError([primaryError, cleanupError], "Browser operation and cleanup failed.");
+  }
+}
+
 export async function boundedBrowserStep<T>(
   start: () => Promise<T>,
   signal: AbortSignal,
@@ -192,25 +217,31 @@ export async function boundedBrowserStep<T>(
   } catch (error) {
     stopWaiting();
     if (onLateSuccess !== undefined) {
-      let cleanupTimeout: ReturnType<typeof setTimeout> | undefined;
       const lateCleanup = task.then(
         async value => await onLateSuccess(value),
         () => undefined,
       );
       try {
-        await Promise.race([
-          lateCleanup,
-          new Promise<void>(resolve => {
-            cleanupTimeout = setTimeout(resolve, timeoutMs);
-          }),
-        ]);
-      } finally {
-        if (cleanupTimeout !== undefined) clearTimeout(cleanupTimeout);
+        await boundedBrowserStep(() => lateCleanup, new AbortController().signal, timeoutMs, `${label} late settlement`);
+      } catch (cleanupError) {
+        throw new HtmlOverlayBrowserCleanupError(`${label} late settlement`, cleanupError, error);
       }
     }
     throw error;
   } finally {
     stopWaiting();
+  }
+}
+
+export async function requiredBrowserCleanup(
+  label: string,
+  start: () => Promise<unknown>,
+  timeoutMs = BROWSER_CLEANUP_TIMEOUT_MS,
+): Promise<void> {
+  try {
+    await boundedBrowserStep(start, new AbortController().signal, timeoutMs, label);
+  } catch (error) {
+    throw new HtmlOverlayBrowserCleanupError(label, error);
   }
 }
 
@@ -1684,7 +1715,7 @@ async function verifyCachedLibrary(
       details.isSymbolicLink()
       || !details.isFile()
       || details.size !== lock.bytes
-      || details.size > MAXIMUM_LIBRARY_BYTES
+      || details.size > maximumLibraryBytes(lock)
     ) {
       return undefined;
     }
@@ -1779,14 +1810,15 @@ async function exactResourceBytes(
   return bytes;
 }
 
-function contentSecurityPolicy(): string {
-  return HTML_OVERLAY_RENDERER_CONTRACT.contentSecurityPolicy.join("; ");
+function contentSecurityPolicy(executionProfile?: HtmlOverlayExecutionProfile): string {
+  return htmlOverlayRendererContract(executionProfile).contentSecurityPolicy.join("; ");
 }
 
 async function fulfillPreparedRoute(
   route: Route,
   routes: ReadonlyMap<string, PreparedRoute>,
   onBlocked: () => void,
+  executionProfile?: HtmlOverlayExecutionProfile,
 ): Promise<void> {
   const requestedUrl = new URL(route.request().url());
   const prepared = requestedUrl.origin === SYNTHETIC_ORIGIN
@@ -1802,7 +1834,7 @@ async function fulfillPreparedRoute(
     contentType: prepared.contentType,
     headers: {
       "Cache-Control": "no-store",
-      "Content-Security-Policy": contentSecurityPolicy(),
+      "Content-Security-Policy": contentSecurityPolicy(executionProfile),
       "Cross-Origin-Resource-Policy": "same-origin",
     },
     status: 200,
@@ -1869,7 +1901,7 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
       redirect: "error",
       signal,
     });
-    const bytes = await responseBytes(response, Math.min(lock.bytes, MAXIMUM_LIBRARY_BYTES));
+    const bytes = await responseBytes(response, Math.min(lock.bytes, maximumLibraryBytes(lock)));
     if (bytes.byteLength !== lock.bytes || sha256(bytes) !== lock.sha256) {
       throw new ApplicationError(
         "conflict",
@@ -1892,7 +1924,9 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
     const execution = createHtmlOverlayExecutionBundle(
       request.authoring,
       request.browserRuntime,
+      request.executionProfile,
     );
+    if (request.executionProfile !== undefined && process.platform !== "darwin") throw new ApplicationError("unsupported-plan", "Hardware scene profiles currently require qualified macOS ANGLE Metal execution.");
     const locks = execution.libraryLocks;
     const [libraryBodies, resourceBodies] = await Promise.all([
       Promise.all(locks.map(async lock => await this.#libraryBytes(lock, signal))),
@@ -1933,6 +1967,8 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
     const browserRuntimeMutations = new Set<string>();
     let renderFailure: Readonly<{ error: unknown }> | undefined;
     let renderResult: HtmlOverlayFrameRenderResult | undefined;
+    let gpuEvidence: HtmlOverlayGpuEvidence | undefined;
+    let browserShutdownRequired = false;
     try {
       const preparedBrowserRuntime = await prepareBrowserRuntimeSnapshot(
         this.#cacheRoot,
@@ -2004,6 +2040,7 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
       // the already-captured container ctime and therefore fails below.
       browserRuntimeMutations.clear();
       let browser: Browser | undefined;
+      let browserFailure: Readonly<{ error: unknown }> | undefined;
       try {
         await verifyBrowserRuntimeSnapshot(
           preparedBrowserRuntime,
@@ -2036,27 +2073,38 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
           "before browser launch",
         );
         const launchedBrowser = await boundedBrowserStep(
-          async () => await this.#launch({
-            args: createHtmlOverlayBrowserLaunchArgs(
-              request.authoring.libraries,
-            ),
-            env: {
-              ...HTML_OVERLAY_RENDERER_CONTRACT.environment.fixed,
-              HOME: preparedBrowserRuntime.browserHome,
-              TMPDIR: preparedBrowserRuntime.browserTemporaryDirectory,
-            },
-            executablePath: preparedBrowserRuntime.executablePath,
-            headless: HTML_OVERLAY_RENDERER_CONTRACT.launch.headless,
-            timeout: this.#browserStepTimeoutMs,
-          }),
+          async () => {
+            browserShutdownRequired = true;
+            try {
+              return await this.#launch({
+                args: createHtmlOverlayBrowserLaunchArgs(
+                  request.authoring.libraries,
+                  request.executionProfile,
+                ),
+                env: {
+                  ...HTML_OVERLAY_RENDERER_CONTRACT.environment.fixed,
+                  HOME: preparedBrowserRuntime.browserHome,
+                  TMPDIR: preparedBrowserRuntime.browserTemporaryDirectory,
+                },
+                executablePath: preparedBrowserRuntime.executablePath,
+                headless: HTML_OVERLAY_RENDERER_CONTRACT.launch.headless,
+                timeout: this.#browserStepTimeoutMs,
+              });
+            } catch (error) {
+              // A rejected launch promise has settled without exposing a browser.
+              browserShutdownRequired = false;
+              throw error;
+            }
+          },
           signal,
           this.#browserStepTimeoutMs,
           "launch",
           async lateBrowser => {
-            await boundedBestEffortBrowserCleanup(
+            await requiredBrowserCleanup(
               "late browser close",
               async () => await lateBrowser.close(),
             );
+            browserShutdownRequired = false;
           },
         );
         browser = launchedBrowser;
@@ -2124,6 +2172,7 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
                 () => {
                   blockedRequestCount += 1;
                 },
+                request.executionProfile,
               );
             }),
             signal,
@@ -2215,7 +2264,24 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
             this.#browserStepTimeoutMs,
             "runtime installation",
           );
+          let gpuProbe: JSHandle<HtmlOverlayGpuProbe> | undefined;
           try {
+            if (request.executionProfile !== undefined) gpuProbe = await boundedBrowserStep(
+              async () => await installHtmlOverlayGpuProbe(page), signal, this.#browserStepTimeoutMs, "hardware probe installation",
+            );
+            const inspectGpu = async () => {
+              if (gpuProbe === undefined || request.executionProfile === undefined) return;
+              const probe = gpuProbe;
+              const actualContext = await boundedBrowserStep(async () => await probe.evaluate(value => value.inspect()), signal, this.#browserStepTimeoutMs, "active hardware context inspection");
+              const browserGpu = gpuEvidence?.browserGpu ?? await boundedBrowserStep(async () => await inspectHtmlOverlayBrowserGpu(launchedBrowser), signal, this.#browserStepTimeoutMs, "browser hardware identity inspection");
+              const evidence = createHtmlOverlayGpuEvidence(request.executionProfile, actualContext, browserGpu);
+              const width = request.authoring.canvas.width * request.authoring.canvas.deviceScaleFactor;
+              const height = request.authoring.canvas.height * request.authoring.canvas.deviceScaleFactor;
+              if (Math.max(width, height) > Math.min(actualContext.maxTextureSize, actualContext.maxRenderbufferSize)
+                || width > actualContext.maxViewportDimensions[0] || height > actualContext.maxViewportDimensions[1]) throw new ApplicationError("unsupported-plan", "Scene dimensions exceed the observed hardware limits.");
+              if (gpuEvidence !== undefined && canonicalJson(evidence) !== canonicalJson(gpuEvidence)) throw new ApplicationError("conflict", "The active GPU changed during scene capture.");
+              gpuEvidence = evidence;
+            };
             const html = await htmlWithHostImports(
               page,
               request.authoring.html,
@@ -2262,6 +2328,7 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
                   `HTML overlay failed during frame ${String(frameIndex)}: ${pageErrors.join(" | ")}`,
                 );
               }
+              await inspectGpu();
               await boundedBrowserStep(
                 async () => await page.screenshot({
                   omitBackground: HTML_OVERLAY_RENDERER_CONTRACT.screenshot.omitBackground,
@@ -2276,6 +2343,7 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
                 this.#browserStepTimeoutMs,
                 `frame ${String(frameIndex)} screenshot`,
               );
+              await inspectGpu();
               await assertNoDeniedBrowserActivity(host);
               if (pageErrors.length > 0) {
                 throw new ApplicationError(
@@ -2284,7 +2352,15 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
                 );
               }
             }
+            if (gpuEvidence !== undefined) {
+              const finalBrowserGpu = await boundedBrowserStep(async () => await inspectHtmlOverlayBrowserGpu(launchedBrowser), signal, this.#browserStepTimeoutMs, "final browser hardware identity inspection");
+              if (canonicalJson(finalBrowserGpu) !== canonicalJson(gpuEvidence.browserGpu)) throw new ApplicationError("conflict", "The browser GPU changed before scene capture completed.");
+              await inspectGpu();
+              await assertNoDeniedBrowserActivity(host);
+            }
+            if (request.executionProfile !== undefined && gpuEvidence === undefined) throw new ApplicationError("invalid-data", "Hardware scene capture produced no measured GPU evidence.");
           } finally {
+            if (gpuProbe !== undefined) await boundedBestEffortBrowserCleanup("hardware probe disposal", async () => await gpuProbe!.dispose());
             await boundedBestEffortBrowserCleanup(
               "host handle disposal",
               async () => await host.dispose(),
@@ -2297,25 +2373,26 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
           );
         }
       } catch (error) {
-        if (signal.aborted) throw cancellationReason(signal);
-        if (error instanceof ApplicationError) throw error;
-        const suffix = diagnostics.length === 0
-          ? ""
-          : ` Browser diagnostics: ${diagnostics.join(" | ")}`;
-        throw new ApplicationError(
-          "invalid-data",
-          `HTML overlay browser rendering failed.${suffix}`,
-          { cause: error instanceof Error ? error.message : String(error) },
-        );
+        if (error instanceof HtmlOverlayBrowserCleanupError) browserFailure = { error };
+        else if (signal.aborted) browserFailure = { error: cancellationReason(signal) };
+        else if (error instanceof ApplicationError) browserFailure = { error };
+        else {
+          const suffix = diagnostics.length === 0 ? "" : ` Browser diagnostics: ${diagnostics.join(" | ")}`;
+          browserFailure = { error: new ApplicationError("invalid-data", `HTML overlay browser rendering failed.${suffix}`,
+            { cause: error instanceof Error ? error.message : String(error) }) };
+        }
       } finally {
         const launchedBrowser = browser;
         if (launchedBrowser !== undefined) {
-          await boundedBestEffortBrowserCleanup(
-            "browser close",
-            async () => await launchedBrowser.close(),
-          );
+          try {
+            await requiredBrowserCleanup("close", async () => await launchedBrowser.close());
+            browserShutdownRequired = false;
+          } catch (cleanupError) {
+            browserFailure = { error: new HtmlOverlayBrowserCleanupError("close", cleanupError instanceof HtmlOverlayBrowserCleanupError ? cleanupError.cause : cleanupError, browserFailure?.error) };
+          }
         }
       }
+      if (browserFailure !== undefined) throw browserFailure.error;
       await verifyBrowserRuntimeSnapshot(
         preparedBrowserRuntime,
         request.browserRuntime,
@@ -2347,6 +2424,7 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
         "through browser shutdown",
       );
       renderResult = {
+        ...(gpuEvidence === undefined ? {} : { gpuEvidence }),
         executionIntegrity: execution.integrity,
         frameCount,
         framePattern: join(finalFrameDirectory, "frame-%08d.png"),
@@ -2359,10 +2437,24 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
     } finally {
       for (const watcher of browserRuntimeWatchers) watcher.close();
       if (browserRuntimeSnapshot !== undefined) {
-        try {
-          await removeBrowserRuntimeSnapshot(browserRuntimeSnapshot);
-        } catch (cleanupError) {
-          renderFailure ??= { error: cleanupError };
+        if (browserShutdownRequired) {
+          const retainedError = new ApplicationError("unavailable", "HTML overlay browser shutdown is unproven; its active runtime snapshot was retained and frames were not published.", {
+            runtimeSnapshot: browserRuntimeSnapshot.directory,
+            runtimeRoot: browserRuntimeSnapshot.runtimeRoot,
+            leaseState: "active",
+            cause: boundedDiagnostic(renderFailure?.error instanceof Error ? renderFailure.error.message : String(renderFailure?.error)),
+            ...(renderFailure?.error instanceof HtmlOverlayBrowserCleanupError ? { cleanup: renderFailure.error.details } : {}),
+          });
+          retainedError.cause = renderFailure?.error;
+          try { await browserRuntimeSnapshot.leaseHandle.close(); }
+          catch (leaseError) { retainedError.cause = new AggregateError([renderFailure?.error, leaseError], "Browser cleanup and retained lease-handle close failed."); }
+          renderFailure = { error: retainedError };
+        } else {
+          try {
+            await removeBrowserRuntimeSnapshot(browserRuntimeSnapshot);
+          } catch (cleanupError) {
+            renderFailure ??= { error: cleanupError };
+          }
         }
       }
     }

@@ -81,7 +81,7 @@ const requiredPackedPaths = [
 ] as const;
 const forbiddenPackedPaths = [
   { label: "repository agent guide", pattern: /(?:^|\/)AGENTS\.md$/u },
-  { label: "test source", pattern: /\.test\.[cm]?[jt]sx?$/u },
+  { label: "test source", pattern: /\.(?:test|testing)\.[cm]?[jt]sx?$/u },
   { label: "test support", pattern: /(?:^|\/)test-support\.[cm]?[jt]sx?$/u },
   {
     label: "desktop capture build tree",

@@ -9,23 +9,25 @@ function outputBytes(value: string): number {
 }
 
 describe("BunProcessRunner", () => {
-  test("never forwards Gateway credentials to tool children", async () => {
+  test("never forwards provider credentials to tool children", async () => {
     const environment = environmentWithoutGatewayCredentials({
       AI_GATEWAY_API_KEY: "secret-api-key",
       Path: "/safe/bin",
       vercel_oidc_token: "secret-oidc-token",
+      worldlabs_api_key: "secret-world-key",
     });
     expect(environment).toEqual({ Path: "/safe/bin" });
 
     const result = await new BunProcessRunner().run([
       bun,
       "-e",
-      "process.stdout.write(JSON.stringify({ api: process.env.AI_GATEWAY_API_KEY, oidc: process.env.VERCEL_OIDC_TOKEN, marker: process.env.SAFE_MARKER }))",
+      "process.stdout.write(JSON.stringify({ api: process.env.AI_GATEWAY_API_KEY, oidc: process.env.VERCEL_OIDC_TOKEN, world: process.env.WORLDLABS_API_KEY, marker: process.env.SAFE_MARKER }))",
     ], {
       env: {
         AI_GATEWAY_API_KEY: "secret-api-key",
         SAFE_MARKER: "preserved",
         VERCEL_OIDC_TOKEN: "secret-oidc-token",
+        WORLDLABS_API_KEY: "secret-world-key",
       },
     });
     expect(JSON.parse(result.stdout)).toEqual({ marker: "preserved" });

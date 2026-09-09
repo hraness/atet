@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { HtmlOverlayExecutionProfileSchema } from "../html-overlay/execution-profile";
 
 import { createBoundedJsonValueSnapshot, deepFreezeJson } from "../../../src/code/json-snapshot";
 import { reduceSpatialFrameRate, spatialFrameCount } from "../../../src/spatial-scene/index";
@@ -19,6 +20,7 @@ export const SpatialSceneProgramPolicySchema = z.strictObject({
   alpha: z.enum(["opaque", "straight"]),
 });
 export const SpatialProjectionOutputSchema = z.strictObject({
+  executionProfile: HtmlOverlayExecutionProfileSchema.optional(),
   pixelWidth: z.number().int().positive().max(16_384),
   pixelHeight: z.number().int().positive().max(16_384),
   frameRate: SpatialFrameRateSchema,

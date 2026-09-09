@@ -55,7 +55,8 @@ const scene = parseSpatialScene(JSON.parse(sourceText));
 const frameRate = { numerator: 30_000, denominator: 1_001 }, sourceDurationUs = 1_001_000;
 const shot = SpatialShotV1Schema.parse({ shotId: "shot_qualified", sceneSha256: spatialSceneSha256(scene), cameraId: "camera_main",
   range: { startUs: 100_100, endUs: 300_300 }, sceneStartUs: 0, playback: "once", overrides: [] });
-const request = spatialShotRenderRequest(shot, frameRate), scenePlan = planSpatialRender(scene, request);
+const executionProfile = sceneReceipt.request.executionProfile;
+const request = spatialShotRenderRequest(shot, frameRate, executionProfile), scenePlan = planSpatialRender(scene, request);
 assert.deepEqual(sceneReceipt.request, request, "Only an actual render with this exact shot clock is reusable; never relabel an earlier receipt.");
 assert.equal(sceneReceipt.requestSha256, scenePlan.requestSha256);
 assert.deepEqual(sceneReceipt.samples.map(sample => sample.sample), scenePlan.samples);
@@ -151,7 +152,7 @@ const materialized = SpatialMaterializedShotVideoSchema.parse({ shotId: shot.sho
 await repositoryFileSystem.copyFileNoReplace!(sceneResult.artifact.path, relative(repositoryRoot, join(projectDirectory, materialized.artifact.path)), sceneResult.artifact);
 await repositoryFileSystem.copyFileNoReplace!(sceneResult.receipt.path, relative(repositoryRoot, join(projectDirectory, `spatial/receipts/${sceneResult.receipt.sha256}.json`)), sceneResult.receipt);
 const projected = createSpatialRenderProjection({ snapshot, materializedShots: [materialized], policy: { kind: "full-frame-above-legacy-video-below-overlays", alpha: "straight" },
-  output: { pixelWidth: 320, pixelHeight: 180, frameRate, background: "#101820ff", colorSpace: "srgb" } });
+  output: { pixelWidth: 320, pixelHeight: 180, frameRate, background: "#101820ff", colorSpace: "srgb", ...(executionProfile===undefined?{}:{executionProfile}) } });
 assert.equal(projected.renderPlan.output.durationUs, 800_800); assert.equal(projected.renderPlan.audioSlices.some(slice => slice.projectSpeed === 2), true);
 assert.equal(projected.renderPlan.videoSlices.filter(slice => slice.assetId.startsWith("asset_spatial_")).length, 1);
 assert.ok(projected.renderPlan.overlays.length > 0);

@@ -191,6 +191,7 @@ export function parseSpatialScene(input: unknown): SpatialSceneV1 {
     payloadBytes += asset.payload.bytes
     if (payloadBytes > 268_435_456) throw new SpatialSceneError("invalid-data", "Asset closure exceeds 256 MiB.", "assets")
     if ((asset.interpretation.kind === "image" || asset.interpretation.kind === "video") && asset.interpretation.width * asset.interpretation.height > 33_554_432) throw new SpatialSceneError("invalid-data", "Asset exceeds the 32-megapixel limit.", "assets")
+    if (asset.interpretation.kind === "metadata" && asset.payload.bytes > 1_048_576) throw new SpatialSceneError("invalid-data", "Retained metadata exceeds one MiB.", "assets")
   }
   spatialTopologicalIds(new Map(scene.assets.map(asset => [asset.assetId, asset.dependencies])), "asset dependencies")
   spatialTopologicalIds(new Map(scene.entities.map(entity => [entity.entityId, entity.parentId === null ? [] : [entity.parentId]])), "entity hierarchy")
