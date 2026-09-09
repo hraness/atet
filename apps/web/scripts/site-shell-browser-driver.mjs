@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { bounded, withPreviewCancellation } from "./preview-browser-contract"
 import { assertShellNode, checkShellCase, compareShellEvidence, parseShellPhase, parseShellRequest,
-  ShellPairFailure, settleShellPair, shellCaseFailure, siteShellCases, siteShellDeadlineMs } from "./site-shell-browser-contract"
+  ShellPairFailure, settleShellPair, shellCaseFailure, shellScopeFields, siteShellCases, siteShellDeadlineMs } from "./site-shell-browser-contract"
 import { decodeWorkerJson, encodeWorkerJson, publishWorkerPhase, workerAttachmentMs, workerProtocolLimit } from "./preview-browser-protocol"
 import { readPreviewFile } from "./preview-file"
 import { assertOwnedPreviewEndpoint, closeOwnedPreviewBrowser } from "./preview-browser-shutdown"
@@ -38,7 +38,7 @@ async function main() {
   const browserManifest = JSON.parse(Buffer.from(await readPreviewFile(join(dirname(packagePath), "browsers.json"), 64 * 1024)).toString())
   const pinnedBrowser = browserManifest.browsers.filter(value => value.name === "chromium")
   assert.equal(pinnedBrowser.length, 1)
-  const common = { schemaVersion: 1, token: request.token, ...(copy ? { scope: "install-copy" } : {}) }, runtime = { node, playwright: "1.62.0" }
+  const common = { schemaVersion: 1, token: request.token, ...shellScopeFields(request) }, runtime = { node, playwright: "1.62.0" }
   let browser, connection, activePair, signal, matrixCompleted = false
   const result = await withPreviewCancellation(process, async cancellation => {
     signal = cancellation.signal

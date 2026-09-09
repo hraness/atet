@@ -7,6 +7,9 @@ import { normalizeInstallTransport } from "./site-install-dom"
 export const siteShellDeadlineMs = 720_000
 export const siteShellBaselineRevision = "f417770111f55f3f3eb13fbae7b6a030c33a445d"
 export const siteShellBaselineTree = "1771922fea1f74cab40d92bd3cd0e4689e2ef2ce"
+export const siteInstallBaselineProfile = "install-family-ed48ebb3-v1"
+export const siteInstallBaselineRevision = "ed48ebb3bb3aceb30fe369586467d2efbfa42455"
+export const siteInstallBaselineTree = "b3a2708ae6fc0a09dbf7d3eb694b2eebecdc1342"
 export const siteShellHeaders = Object.freeze({
   "content-security-policy": "default-src 'self'; base-uri 'none'; connect-src https://us.i.posthog.com; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'; upgrade-insecure-requests",
   "permissions-policy": "camera=(), display-capture=(), geolocation=(), microphone=(), payment=(), usb=()",
@@ -62,7 +65,19 @@ export interface ShellRequest {
   readonly endpoint: string
   readonly current: ShellPayload
   readonly baseline: ShellPayload
-  readonly scope?: "install-copy"
+  readonly scope?: "install-copy" | "install-shell"
+  readonly baselineProfile?: typeof siteInstallBaselineProfile
+}
+/** Historical requests keep their original wire shape. New install scopes
+ * require one immutable profile; neither scope nor profile is caller-extensible. */
+export function shellScopeFields(request: Pick<ShellRequest, "scope" | "baselineProfile">): Record<string, string> {
+  if (!Object.hasOwn(request, "scope")) {
+    assert.ok(!Object.hasOwn(request, "baselineProfile"), "Historical scope cannot select a new baseline")
+    return {}
+  }
+  assert.ok(request.scope === "install-copy" || request.scope === "install-shell")
+  assert.equal(request.baselineProfile, siteInstallBaselineProfile)
+  return { scope: request.scope, baselineProfile: siteInstallBaselineProfile }
 }
 export interface ShellCaseFailure {
   readonly schemaVersion: 1
@@ -77,9 +92,12 @@ export interface ShellCaseFailure {
 /** Failure evidence is never a terminal success phase. Only the exact fully
  * compared prefix may precede the failed case; a measured current side alone
  * does not count as a completed pair. */
-export function parseShellCaseFailure(value: unknown, request: Pick<ShellRequest, "token">): ShellCaseFailure {
+export function parseShellCaseFailure(value: unknown, request: Pick<ShellRequest, "token" | "scope" | "baselineProfile">): ShellCaseFailure {
+  assert.ok(request.scope === undefined || request.scope === "install-shell")
+  const scopeFields = shellScopeFields(request)
   const failure = shellRecord(value)
-  keys(failure, ["schemaVersion", "token", "accepted", "completed", "scenario", "stage", "comparedCases", "error"])
+  keys(failure, ["schemaVersion", "token", "accepted", "completed", "scenario", "stage", "comparedCases", "error", ...Object.keys(scopeFields)])
+  for (const [key, expected] of Object.entries(scopeFields)) assert.equal(failure[key], expected)
   assert.equal(failure.schemaVersion, 1); assert.equal(failure.token, request.token)
   assert.equal(failure.accepted, false); assert.equal(failure.completed, false)
   assert.ok(failure.stage === "current" || failure.stage === "baseline" || failure.stage === "pair" || failure.stage === "comparison")
@@ -90,9 +108,9 @@ export function parseShellCaseFailure(value: unknown, request: Pick<ShellRequest
     && !/[\x00-\x1f]/u.test(failure.error))
   return failure as unknown as ShellCaseFailure
 }
-export function shellCaseFailure(request: Pick<ShellRequest, "token">, scenario: string,
+export function shellCaseFailure(request: Pick<ShellRequest, "token" | "scope" | "baselineProfile">, scenario: string,
   stage: ShellCaseFailure["stage"], comparedCases: readonly string[], error: unknown): ShellCaseFailure {
-  return parseShellCaseFailure({ schemaVersion: 1, token: request.token, accepted: false, completed: false,
+  return parseShellCaseFailure({ schemaVersion: 1, token: request.token, ...shellScopeFields(request), accepted: false, completed: false,
     scenario, stage, comparedCases: [...comparedCases], error: String(error).replace(/[\x00-\x1f]/gu, " ").slice(0, 2_048) || "Unknown failure" }, request)
 }
 export function shellRecord(value: unknown): Record<string, unknown> {
@@ -128,15 +146,15 @@ function payload(value: unknown, current: boolean): void {
 export function parseShellRequest(value: unknown): ShellRequest {
   const request = shellRecord(value)
   keys(request, ["schemaVersion", "token", "appDirectory", "chromeExecutable", "endpoint", "current", "baseline",
-    ...(Object.hasOwn(request, "scope") ? ["scope"] : [])])
-  if (Object.hasOwn(request, "scope")) assert.equal(request.scope, "install-copy")
+    ...(Object.hasOwn(request, "scope") ? ["scope", "baselineProfile"] : [])])
+  shellScopeFields(request as Pick<ShellRequest, "scope" | "baselineProfile">)
   assert.equal(request.schemaVersion, 1)
   assert.ok(typeof request.token === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(request.token))
   assert.ok(typeof request.appDirectory === "string" && request.appDirectory.length <= 4096 && isAbsolute(request.appDirectory))
   assert.ok(typeof request.chromeExecutable === "string" && request.chromeExecutable.length <= 4096 && isAbsolute(request.chromeExecutable))
   assert.ok(typeof request.endpoint === "string" && /^ws:\/\/127\.0\.0\.1:\d{1,5}\/devtools\/browser\/[a-f0-9-]+$/u.test(request.endpoint)
     && Number(new URL(request.endpoint).port) > 0 && Number(new URL(request.endpoint).port) <= 65535)
-  payload(request.current, true); payload(request.baseline, false)
+  payload(request.current, true); payload(request.baseline, Object.hasOwn(request, "scope"))
   assert.notEqual(shellRecord(request.current).origin, shellRecord(request.baseline).origin)
   return request as unknown as ShellRequest
 }
@@ -146,12 +164,14 @@ export function assertShellNode(versions: Readonly<Record<string, string | undef
   return versions.node!
 }
 export function parseShellPhase(value: unknown, sequence: 0 | 1 | 2, request: ShellRequest): Record<string, unknown> {
-  assert.equal(request.scope, undefined, "Copy-only requests cannot certify shell scope")
+  assert.ok(request.scope === undefined || request.scope === "install-shell", "Copy-only requests cannot certify shell scope")
+  const scopeFields = shellScopeFields(request)
   const phase = shellRecord(value)
-  const common = ["schemaVersion", "token", "sequence", "kind"]
+  const common = ["schemaVersion", "token", "sequence", "kind", ...Object.keys(scopeFields)]
   keys(phase, sequence === 1 ? common : sequence === 0 ? [...common, "node", "playwright"]
     : [...common, "node", "playwright", "browser", "cases", "baselineCompared", "closed", "negativeControls"])
   assert.equal(phase.schemaVersion, 1); assert.equal(phase.token, request.token)
+  for (const [key, expected] of Object.entries(scopeFields)) assert.equal(phase[key], expected)
   assert.equal(phase.sequence, sequence); assert.equal(phase.kind, ["started", "connected", "result"][sequence])
   if (sequence !== 1) {
     assertShellNode({ node: typeof phase.node === "string" ? phase.node : undefined })

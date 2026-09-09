@@ -88,7 +88,7 @@ export function siteContentSlots(document: SiteDocument, assets: SiteAssets): Re
   if (document === "404.html") return common
   return [...common,
     ["{{ASK_AI_ABOUT_THIS}}", renderAskAiAboutThis("https://atet.sh/"), 1],
-    ["{{PUBLISHED_VERSION}}", publishedRelease.version, 7],
+    ["{{PUBLISHED_VERSION}}", publishedRelease.version, 6],
     ["{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1],
     ["{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl, 1],
     ["{{ANALYTICS_SCRIPT}}", assets.analyticsPath === null ? "" : `<script src="${assets.analyticsPath}" type="module"></script>`, 1],

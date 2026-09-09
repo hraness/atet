@@ -16,7 +16,8 @@ import { assertWorkerInputsUnchanged, assertWorkerProtocolSnapshot, decodeWorker
 import { capturePreviewOutputTimeout, createPreviewEndpointWaiter, previewFailureSummary,
   type EndpointEvidence, type PreviewOutputTimeoutEvidence } from "./verify-preview-layout"
 import { parseShellCaseFailure, parseShellPhase, parseShellRequest, shellContentType, shellRecord, shellResource, siteShellBaselineRevision,
-  siteShellBaselineTree, siteShellCases, siteShellDeadlineMs, siteShellHeaders, type ShellPayload, type ShellRequest } from "./site-shell-browser-contract"
+  siteShellBaselineTree, siteInstallBaselineProfile, siteInstallBaselineRevision, siteInstallBaselineTree,
+  siteShellCases, siteShellDeadlineMs, siteShellHeaders, type ShellPayload, type ShellRequest } from "./site-shell-browser-contract"
 import { parseCopyCaseFailure, parseCopyPhase, siteCopyCases, siteCopyDeadlineMs } from "./site-copy-browser-contract"
 
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
@@ -128,13 +129,20 @@ export async function readShellSnapshot(directory: string, current: boolean): Pr
   assert.ok([...files.keys()].filter(path => path.endsWith(".woff2")).length >= 13)
   return { inputs: input.artifacts, artifacts, files, stylesheets: stylesheets[0]! }
 }
-export function assertShellBaselineManifest(value: unknown, snapshot: ShellSnapshot): void {
+export function assertShellBaselineManifest(value: unknown, snapshot: ShellSnapshot, profile?: typeof siteInstallBaselineProfile): void {
+  assert.ok(profile === undefined || profile === siteInstallBaselineProfile, "Unknown baseline profile")
   const manifest = shellRecord(value)
-  assert.deepEqual(Object.keys(manifest).sort(), ["artifacts", "checkoutRevision", "inputs", "schemaVersion", "sourceRevision", "sourceTree"])
-  assert.equal(manifest.schemaVersion, 1)
-  assert.equal(manifest.sourceRevision, siteShellBaselineRevision)
-  assert.equal(manifest.sourceTree, siteShellBaselineTree)
-  assert.ok(typeof manifest.checkoutRevision === "string" && /^[a-f0-9]{40}$/u.test(manifest.checkoutRevision))
+  assert.deepEqual(Object.keys(manifest).sort(), ["artifacts", "checkoutRevision", "inputs", "schemaVersion", "sourceRevision", "sourceTree",
+    ...(profile === undefined ? [] : ["baselineProfile"])].sort())
+  assert.equal(manifest.schemaVersion, profile === undefined ? 1 : 2)
+  assert.equal(manifest.sourceRevision, profile === undefined ? siteShellBaselineRevision : siteInstallBaselineRevision)
+  assert.equal(manifest.sourceTree, profile === undefined ? siteShellBaselineTree : siteInstallBaselineTree)
+  if (profile === undefined) assert.ok(typeof manifest.checkoutRevision === "string" && /^[a-f0-9]{40}$/u.test(manifest.checkoutRevision))
+  else {
+    assert.equal(manifest.baselineProfile, siteInstallBaselineProfile)
+    assert.equal(manifest.checkoutRevision, siteInstallBaselineRevision, "Install baseline must be the exact pre-migration checkout")
+  }
+  assert.equal(snapshot.stylesheets.length, profile === undefined ? 1 : 2)
   assert.deepEqual(manifest.inputs, snapshot.inputs, "Baseline source/config bytes differ from the reviewed manifest")
   assert.deepEqual(manifest.artifacts, snapshot.artifacts, "Baseline built bytes differ from the reviewed manifest")
 }
@@ -241,8 +249,9 @@ async function readCaseFailure(profile: string, request: ShellRequest) {
   }
 }
 
-export async function verifySiteShell(args: readonly string[], scope: "shell" | "install-copy" = "shell"): Promise<void> {
-  assert.ok(scope === "shell" || scope === "install-copy")
+export async function verifySiteShell(args: readonly string[], scope: "shell" | "install-copy" | "install-shell" = "shell"): Promise<void> {
+  assert.ok(scope === "shell" || scope === "install-copy" || scope === "install-shell")
+  const baselineProfile = scope === "shell" ? undefined : siteInstallBaselineProfile
   const limit = scope === "install-copy" ? siteCopyDeadlineMs : siteShellDeadlineMs
   const options = parseShellArguments(args), deadline = performance.now() + limit
   const actualApp = await realpath(appDirectory)
@@ -274,9 +283,9 @@ export async function verifySiteShell(args: readonly string[], scope: "shell" | 
         return result
       }
       current = await step(() => readShellSnapshot(actualApp, true))
-      baseline = await step(() => readShellSnapshot(options.baseline, false))
+      baseline = await step(() => readShellSnapshot(options.baseline, baselineProfile !== undefined))
       manifestBefore = Uint8Array.from(await step(() => readPreviewFile(options.manifest, 128 * 1024)))
-      assertShellBaselineManifest(JSON.parse(Buffer.from(manifestBefore).toString()), baseline)
+      assertShellBaselineManifest(JSON.parse(Buffer.from(manifestBefore).toString()), baseline, baselineProfile)
       const node = await step(() => executable("NODE_EXECUTABLE_PATH")), browserPath = await step(() => executable("ATET_CHROME_PATH"))
       assert.ok(process.env.PLAYWRIGHT_BROWSERS_PATH !== undefined && isAbsolute(process.env.PLAYWRIGHT_BROWSERS_PATH),
         "PLAYWRIGHT_BROWSERS_PATH must select the explicit task-owned pinned Chrome for Testing installation")
@@ -302,7 +311,7 @@ export async function verifySiteShell(args: readonly string[], scope: "shell" | 
       const endpoint = await waitEndpoint(profile, chrome.exited, signal, endpointEvidence)
       protocolDirectory = join(profile, "worker-protocol")
       await mkdir(protocolDirectory, { mode: 0o700 })
-      const request = parseShellRequest({ schemaVersion: 1, token: randomUUID(), ...(scope === "install-copy" ? { scope } : {}), appDirectory: actualApp, chromeExecutable: browserPath,
+      const request = parseShellRequest({ schemaVersion: 1, token: randomUUID(), ...(scope === "shell" ? {} : { scope, baselineProfile }), appDirectory: actualApp, chromeExecutable: browserPath,
         endpoint, current: browserPayload(current, currentServer.server.url.origin), baseline: browserPayload(baseline, baselineServer.server.url.origin) })
       workerRequest = request
       const requestPath = join(profile, "site-shell-browser-request.json"), bytes = encodeWorkerJson(request)
@@ -324,7 +333,7 @@ export async function verifySiteShell(args: readonly string[], scope: "shell" | 
       await step(() => bounded(worker!.exited, "Shell worker successful exit", 5_000))
       assert.equal(worker.exitCode(), 0)
       completed = true
-      return { ...observation.result, nativeBrowserZoom: false, reflowEquivalent: scope === "shell" ? "1440x900 at 200% => 720x450 CSS viewport" : false,
+      return { ...observation.result, nativeBrowserZoom: false, reflowEquivalent: scope !== "install-copy" ? "1440x900 at 200% => 720x450 CSS viewport" : false,
         productionHeaders: siteShellHeaders, internetRequestsAllowed: false, analytics: "unaltered scripts on neutral loopback origin",
         baselineManifestSha256: digest(manifestBefore), currentArtifacts: current.artifacts }
     }, async () => {
@@ -362,7 +371,7 @@ export async function verifySiteShell(args: readonly string[], scope: "shell" | 
         }
         assert.ok(manifestBefore !== undefined && Buffer.from(await readPreviewFile(options.manifest, 128 * 1024)).equals(Buffer.from(manifestBefore)), "Baseline input manifest changed")
         assertShellSnapshotUnchanged(current!, await readShellSnapshot(actualApp, true))
-        assertShellSnapshotUnchanged(baseline!, await readShellSnapshot(options.baseline, false))
+        assertShellSnapshotUnchanged(baseline!, await readShellSnapshot(options.baseline, baselineProfile !== undefined))
         for (const server of servers) assert.deepEqual(server.rejected, [], "Unadmitted or late server request")
         signal!.throwIfAborted()
         assert.ok(performance.now() < deadline, "Collection completed after the absolute deadline")

@@ -33,10 +33,11 @@
     "build": "bun run ./scripts/build.ts",
     "check": "bun run typecheck:preview && bun run test && bun run build && bun run verify:preview",
     "generate:og": "bun run ./scripts/generate-og.ts",
-    "test": "bun test ./site.test.ts ./scripts/preview-contract.test.ts ./scripts/preview-css.test.ts ./scripts/preview-file.test.ts ./scripts/preview-layout.test.ts ./scripts/preview-browser-protocol.test.ts ./scripts/site-contract.test.ts ./scripts/site-template.test.ts ./scripts/site-install.test.ts ./src/copy-command.test.ts ./scripts/site-shell-browser-contract.test.ts ./scripts/site-copy-browser-contract.test.ts",
+    "test": "bun test ./site.test.ts ./scripts/preview-contract.test.ts ./scripts/preview-css.test.ts ./scripts/preview-file.test.ts ./scripts/preview-layout.test.ts ./scripts/preview-browser-protocol.test.ts ./scripts/site-contract.test.ts ./scripts/site-template.test.ts ./scripts/site-install.test.ts ./src/copy-command.test.ts ./scripts/site-shell-browser-contract.test.ts ./scripts/site-copy-browser-contract.test.ts ./scripts/site-install-baseline.test.ts",
     "typecheck:preview": "tsc --project tsconfig.preview.json",
     "verify:preview": "bun run ./scripts/verify-preview-layout.ts",
     "verify:shell": "bun run ./scripts/verify-site-shell.ts",
+    "verify:install-shell": "bun run ./scripts/verify-site-install-shell.ts",
     "verify:copy": "bun run ./scripts/verify-site-copy.ts"
   }
 }

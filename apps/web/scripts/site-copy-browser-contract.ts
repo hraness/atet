@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import type { Browser, Page, Request } from "playwright-core"
 import { bounded } from "./preview-browser-contract"
 import { assertShellNode, chooseAppearance, compareShellElements, denyShellWebSocket, measure, settle,
-  shellContentType, shellContextLifecycle, shellOperationTracker, shellRecord, siteShellHeaders, withShellCaseCleanup,
+  shellContentType, shellContextLifecycle, shellOperationTracker, shellRecord, shellScopeFields, siteShellHeaders, withShellCaseCleanup,
   type ShellCase, type ShellCaseFailure, type ShellElement, type ShellPayload, type ShellRequest } from "./site-shell-browser-contract"
 
 export const siteCopyDeadlineMs = 180_000
@@ -51,10 +51,12 @@ export function summarizeCopyCase(current: CopyEvidence, baseline: CopyEvidence,
 }
 export function parseCopyPhase(value: unknown, sequence: 0 | 1 | 2, request: ShellRequest): Record<string, unknown> {
   assert.equal(request.scope, "install-copy")
-  const phase = shellRecord(value), common = ["schemaVersion", "token", "sequence", "kind", "scope"]
+  const scopeFields = shellScopeFields(request)
+  const phase = shellRecord(value), common = ["schemaVersion", "token", "sequence", "kind", ...Object.keys(scopeFields)]
   assert.deepEqual(Object.keys(phase).sort(), (sequence === 1 ? common : sequence === 0 ? [...common, "node", "playwright"]
     : [...common, "node", "playwright", "browser", "cases", "baselineCompared", "closed", "negativeControls", "observations"]).sort())
   assert.equal(phase.schemaVersion, 1); assert.equal(phase.token, request.token); assert.equal(phase.scope, "install-copy")
+  assert.equal(phase.baselineProfile, scopeFields.baselineProfile)
   assert.equal(phase.sequence, sequence); assert.equal(phase.kind, ["started", "connected", "result"][sequence])
   if (sequence !== 1) { assertShellNode({ node: String(phase.node) }); assert.equal(phase.playwright, "1.62.0") }
   if (sequence === 2) {
@@ -76,10 +78,13 @@ export function parseCopyPhase(value: unknown, sequence: 0 | 1 | 2, request: She
   }
   return phase
 }
-export function parseCopyCaseFailure(value: unknown, request: Pick<ShellRequest, "token">): ShellCaseFailure {
+export function parseCopyCaseFailure(value: unknown, request: Pick<ShellRequest, "token" | "scope" | "baselineProfile">): ShellCaseFailure {
+  assert.equal(request.scope, "install-copy")
+  const scopeFields = shellScopeFields(request)
   const failure = shellRecord(value)
-  assert.deepEqual(Object.keys(failure).sort(), ["schemaVersion", "token", "scope", "accepted", "completed", "scenario", "stage", "comparedCases", "error"].sort())
+  assert.deepEqual(Object.keys(failure).sort(), ["schemaVersion", "token", ...Object.keys(scopeFields), "accepted", "completed", "scenario", "stage", "comparedCases", "error"].sort())
   assert.equal(failure.schemaVersion, 1); assert.equal(failure.token, request.token); assert.equal(failure.scope, "install-copy")
+  assert.equal(failure.baselineProfile, scopeFields.baselineProfile)
   assert.equal(failure.accepted, false); assert.equal(failure.completed, false)
   assert.ok(["current", "baseline", "pair", "comparison"].includes(String(failure.stage)))
   assert.ok(Array.isArray(failure.comparedCases) && failure.comparedCases.length < siteCopyCases.length)
@@ -88,9 +93,9 @@ export function parseCopyCaseFailure(value: unknown, request: Pick<ShellRequest,
   assert.ok(typeof failure.error === "string" && failure.error.length > 0 && failure.error.length <= 2_048 && !/[\x00-\x1f]/u.test(failure.error))
   return failure as unknown as ShellCaseFailure
 }
-export function copyCaseFailure(request: Pick<ShellRequest, "token">, scenario: string, stage: ShellCaseFailure["stage"],
+export function copyCaseFailure(request: Pick<ShellRequest, "token" | "scope" | "baselineProfile">, scenario: string, stage: ShellCaseFailure["stage"],
   comparedCases: readonly string[], error: unknown): ShellCaseFailure {
-  return parseCopyCaseFailure({ schemaVersion: 1, token: request.token, scope: "install-copy", accepted: false, completed: false,
+  return parseCopyCaseFailure({ schemaVersion: 1, token: request.token, ...shellScopeFields(request), accepted: false, completed: false,
     scenario, stage, comparedCases, error: String(error).replace(/[\x00-\x1f]/gu, " ").slice(0, 2_048) || "Unknown failure" }, request)
 }
 

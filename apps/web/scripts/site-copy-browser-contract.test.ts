@@ -2,12 +2,12 @@ import { expect, test } from "bun:test"
 import type { Page } from "playwright-core"
 import { assertCopyPorts, compareCopyEvidence, copyCaseFailure, copyElementKeys, copyNegativeControls, copyProperties, copySteps, measureCopy, parseCopyCaseFailure,
   parseCopyPhase, siteCopyCases, siteCopyDeadlineMs, type CopyEvidence } from "./site-copy-browser-contract"
-import { parseShellPhase, parseShellRequest, siteShellCases, siteShellDeadlineMs, type ShellRequest } from "./site-shell-browser-contract"
+import { parseShellPhase, parseShellRequest, siteInstallBaselineProfile, siteShellCases, siteShellDeadlineMs, type ShellRequest } from "./site-shell-browser-contract"
 import { normalizeInstallTransport } from "./site-install-dom"
 import { decodeWorkerJson, encodeWorkerJson } from "./preview-browser-protocol"
 
-const request = { schemaVersion: 1, token: "12345678-1234-1234-1234-123456789abc", scope: "install-copy" } as ShellRequest
-const phase = { schemaVersion: 1, token: request.token, scope: "install-copy", sequence: 2, kind: "result", node: "24.18.1",
+const request = { schemaVersion: 1, token: "12345678-1234-1234-1234-123456789abc", scope: "install-copy", baselineProfile: siteInstallBaselineProfile } as ShellRequest
+const phase = { schemaVersion: 1, token: request.token, scope: "install-copy", baselineProfile: siteInstallBaselineProfile, sequence: 2, kind: "result", node: "24.18.1",
   playwright: "1.62.0", browser: "151.0.7922.34", cases: siteCopyCases.map(item => item.name),
   baselineCompared: true, closed: true, negativeControls: copyNegativeControls,
   get observations() { return siteCopyCases.map(item => ({ name: item.name, command, steps: copySteps, elementsPerSample: copyElementKeys.length, current: ports, baseline: ports })) } }
@@ -28,7 +28,7 @@ test("copy-only protocol is closed and cannot substitute for the original 76-cas
   const resources = ["/", "/404.html", ...Array.from({ length: 20 }, (_, index) => `/asset-${index}.woff2`), "/base.css", `/assets/site-${"a".repeat(64)}.css`].sort()
   const complete = { ...request, appDirectory: "/app", chromeExecutable: "/chrome", endpoint: "ws://127.0.0.1:1234/devtools/browser/abc-123",
     current: { origin: "http://127.0.0.1:1235", resources, stylesheets: ["/base.css", resources.find(path => path.startsWith("/assets/"))], finalCss: resources.find(path => path.startsWith("/assets/")) },
-    baseline: { origin: "http://127.0.0.1:1236", resources, stylesheets: ["/base.css"], finalCss: "/base.css" } }
+    baseline: { origin: "http://127.0.0.1:1236", resources, stylesheets: ["/base.css", resources.find(path => path.startsWith("/assets/"))], finalCss: resources.find(path => path.startsWith("/assets/")) } }
   expect(parseShellRequest(complete).scope).toBe("install-copy")
   for (const scope of [null, undefined, "shell", "copy", true]) expect(() => parseShellRequest({ ...complete, scope })).toThrow()
 })

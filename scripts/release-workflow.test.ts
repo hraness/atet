@@ -1542,10 +1542,10 @@ test("source 3.2.3 and verified-public installs preserve one Atet identity", asy
     expect(source).toContain(immutableSkillInstall)
   }
   expect(siteContent).toContain('import { publishedArchiveUrl, publishedRelease } from "./published-release"')
-  expect(siteContent).toContain('["{{PUBLISHED_VERSION}}", publishedRelease.version, 7]')
+  expect(siteContent).toContain('["{{PUBLISHED_VERSION}}", publishedRelease.version, 6]')
   expect(siteContent).toContain('["{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1]')
   expect(siteContent).toContain('["{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl, 1]')
-  expect(siteTemplate.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(7)
+  expect(siteTemplate.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(6)
   expect(siteTemplate.match(/\{\{PUBLISHED_ARCHIVE_URL\}\}/gu)).toHaveLength(1)
   expect(siteTemplate.match(/\{\{PUBLISHED_RELEASE_URL\}\}/gu)).toHaveLength(1)
   expect(siteContent).toContain('alternateCommand: `bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`')
