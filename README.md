@@ -9,7 +9,7 @@ Bun CLI, TypeScript SDK, MCP server, and Agent Skill.**
 
 Atet lets Codex, Claude, and other coding agents build editable scenes,
 direct cameras, and turn visual ideas into images and video. Its media tools
-generate images, video, and voice; edit recordings and imported footage; and
+generate images, video, and voice; edit screen recordings and imported footage; and
 add captions, graphics, and motion. The initial directed-scene commands are
 available from this source checkout; see [Directed scenes](docs/spatial-scenes.md)
 for the supported profile and workflow.
