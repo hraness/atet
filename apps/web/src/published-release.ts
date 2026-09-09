@@ -28,3 +28,5 @@ export function parsePublishedRelease(value: unknown): PublishedRelease {
 }
 
 export const publishedRelease = parsePublishedRelease(releaseData)
+
+export const publishedArchiveUrl = `https://github.com/hraness/atet/releases/download/v${publishedRelease.version}/hraness-atet-${publishedRelease.version}.tgz`

@@ -19,7 +19,7 @@ how to use the Bun CLI, local media engine, and Vercel AI Gateway as one
 creative workflow. Atet has no account system and does not upload a project to
 an Atet service.
 
-[Install](#install-atet) · [Try a request](#start-with-a-finished-job) · [Capabilities](#what-atet-does) · [Design](#how-atet-works) · [npm package](https://www.npmjs.com/package/@hraness/atet) · [atet.sh](https://atet.sh) · [Security](SECURITY.md)
+[Install](#install-atet) · [Try a request](#start-with-a-finished-job) · [Capabilities](#what-atet-does) · [Design](#how-atet-works) · [GitHub release](https://github.com/hraness/atet/releases/tag/v3.2.3) · [atet.sh](https://atet.sh) · [Security](SECURITY.md)
 
 ## Why Atet
 
@@ -41,20 +41,20 @@ an Atet service.
 
 ## Install Atet
 
-Install the single Atet Agent Skill with either runner:
-
-```sh
-npx skills add https://github.com/hraness/atet/tree/v3.2.2 --skill atet
-# or
-bunx skills add https://github.com/hraness/atet/tree/v3.2.2 --skill atet
-```
-
 Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
 then inspect the local media host:
 
 ```sh
-bun add --global @hraness/atet@3.2.2
+bun add --global https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz
 atet doctor
+```
+
+Install the matching Atet Agent Skill with either runner:
+
+```sh
+npx skills add https://github.com/hraness/atet/tree/v3.2.3 --skill atet
+# or
+bunx skills add https://github.com/hraness/atet/tree/v3.2.3 --skill atet
 ```
 
 The CLI carries the guide released with that exact CLI version. The public
@@ -93,8 +93,9 @@ To install the guide only for the current repository, run
 `--project <path>` to name a different repository. `atet skill path` prints the
 packaged guide for inspection.
 
-The npm package and immutable GitHub release contain the same versioned CLI and
-Agent Skill. You can use `github:hraness/atet#v3.2.2` when you need to install
+The immutable GitHub archive contains the versioned CLI and Agent Skill. npm
+may carry an optional mirror; the archive above is the canonical install. You
+can use `github:hraness/atet#v3.2.3` when you need to install
 the source tag directly.
 
 </details>
@@ -387,7 +388,7 @@ integration terms.
 Add the package to a Bun project:
 
 ```sh
-bun add @hraness/atet@3.2.2
+bun add https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz
 ```
 
 SDK imports do not start the CLI or inspect local project state:

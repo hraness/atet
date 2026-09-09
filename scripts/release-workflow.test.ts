@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url"
 import { gzipSync } from "node:zlib"
 
 import { verifyNpmPackageIdentity } from "./npm-package-identity"
-import { publishedRelease } from "../apps/web/src/published-release"
+import { publishedArchiveUrl, publishedRelease } from "../apps/web/src/published-release"
 import { homeMarkdown } from "../apps/web/src/agent-pages"
 import { verifyNpmPublishAuthority } from "./npm-publish-authority"
 import { verifyNpmPublishConfig, verifyNpmPublishManifest } from "./npm-publish-policy"
@@ -1532,18 +1532,22 @@ test("source 3.2.3 and verified-public installs preserve one Atet identity", asy
     class: "dual-use",
   })
 
-  const npmCliInstall = `@hraness/atet@${publishedRelease.version}`
+  const canonicalCliInstall = `bun add --global ${publishedArchiveUrl}`
   const immutableSkillInstall =
     `https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`
   for (const source of [readme, skillInstall, homeMarkdown]) {
-    expect(source).toContain(npmCliInstall)
+    expect(source).toContain(canonicalCliInstall)
   }
   for (const source of [readme, homeMarkdown]) {
     expect(source).toContain(immutableSkillInstall)
   }
-  expect(siteContent).toContain('import { publishedRelease } from "./published-release"')
-  expect(siteContent).toContain('["{{PUBLISHED_VERSION}}", publishedRelease.version, 8]')
-  expect(siteTemplate.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(8)
+  expect(siteContent).toContain('import { publishedArchiveUrl, publishedRelease } from "./published-release"')
+  expect(siteContent).toContain('["{{PUBLISHED_VERSION}}", publishedRelease.version, 7]')
+  expect(siteContent).toContain('["{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1]')
+  expect(siteContent).toContain('["{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl, 1]')
+  expect(siteTemplate.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(7)
+  expect(siteTemplate.match(/\{\{PUBLISHED_ARCHIVE_URL\}\}/gu)).toHaveLength(1)
+  expect(siteTemplate.match(/\{\{PUBLISHED_RELEASE_URL\}\}/gu)).toHaveLength(1)
   expect(siteContent).toContain('alternateCommand: `bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`')
   expect(siteContent).toContain('command: `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`')
   expect(siteRenderer).toContain('import { siteContentSlots, type SiteAssets, type SiteDocument } from "./site-content"')
@@ -1560,10 +1564,11 @@ test("source 3.2.3 and verified-public installs preserve one Atet identity", asy
   expect(produce).toBeGreaterThan(-1)
   expect(seal).toBeGreaterThan(produce)
   expect(finalize).toBeGreaterThan(seal)
-  expect(siteMarkdown).toContain('import { publishedRelease } from "./published-release"')
+  expect(siteMarkdown).toContain('import { publishedArchiveUrl, publishedRelease } from "./published-release"')
   expect(siteTemplate).toContain('"softwareVersion": "{{PUBLISHED_VERSION}}"')
   expect(siteTemplate).toContain('"version": "{{PUBLISHED_VERSION}}"')
-  expect(siteTemplate).toContain("@hraness/atet@{{PUBLISHED_VERSION}}")
+  expect(siteTemplate).toContain("bun add --global {{PUBLISHED_ARCHIVE_URL}}")
+  expect(siteContent).toContain('["{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1]')
   expect(readme).toContain(`github:hraness/atet#v${publishedRelease.version}`)
   for (const capability of [
     "screen",

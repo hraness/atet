@@ -1,4 +1,4 @@
-import { publishedRelease } from "./published-release"
+import { publishedArchiveUrl, publishedRelease } from "./published-release"
 
 export const homeMarkdown = `# Make and edit video with your coding agent
 
@@ -26,14 +26,16 @@ Atet covers four output families (images, diagrams, animated loops, and video) t
 Two installs: the Agent Skill teaches your agent the creative decisions, and the CLI does the work. Atet requires Bun 1.3.14 or newer.
 
 \`\`\`sh
+bun add --global ${publishedArchiveUrl}
+atet doctor
+\`\`\`
+
+Then install the matching Agent Skill:
+
+\`\`\`sh
 npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet
 # or
 bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet
-\`\`\`
-
-\`\`\`sh
-bun add --global @hraness/atet@${publishedRelease.version}
-atet doctor
 \`\`\`
 
 Run \`atet doctor\` inside the project you want to work in. Then start a new agent session and describe the finished result, naming the source files and details that must remain unchanged.

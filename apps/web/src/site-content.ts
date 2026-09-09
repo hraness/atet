@@ -2,7 +2,7 @@ import { renderHranessSiteFooter } from "@hraness/site-footer"
 import { AskAiAboutThis } from "@hraness/ui"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { publishedRelease } from "./published-release"
+import { publishedArchiveUrl, publishedRelease } from "./published-release"
 
 // Existing content producers run within the ordinary page's captured SSR
 // graph. They introduce no client renderer and retain their public APIs.
@@ -84,7 +84,9 @@ export function siteContentSlots(document: SiteDocument, assets: SiteAssets): Re
   if (document === "404.html") return common
   return [...common,
     ["{{ASK_AI_ABOUT_THIS}}", renderAskAiAboutThis("https://atet.sh/"), 1],
-    ["{{PUBLISHED_VERSION}}", publishedRelease.version, 8],
+    ["{{PUBLISHED_VERSION}}", publishedRelease.version, 7],
+    ["{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1],
+    ["{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl, 1],
     ["{{ANALYTICS_SCRIPT}}", assets.analyticsPath === null ? "" : `<script src="${assets.analyticsPath}" type="module"></script>`, 1],
     ["{{SKILL_INSTALL_COMMAND}}", renderCopyCommand({
       alternateCommand: `bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
