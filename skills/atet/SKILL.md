@@ -31,6 +31,10 @@ the skill was installed.
 - For local image-to-SVG conversion, use the vectorization workflow below.
 - For editable directed scenes, named-part edits, calibrated cameras, or scene
   videos combined with a media project, read [directed-scenes.md](references/directed-scenes.md).
+- For a sequence of generated video shots with retained takes, explicit reviews,
+  image continuity, a spending budget, or private reference hosting and cleanup,
+  use the
+  [short video directing workflow](references/directed-scenes.md#direct-short-generated-clips).
 - For a reference-led Three.js scene, transparent 3D loop, or metallic logo
   treatment, read [reference-led-3d.md](references/reference-led-3d.md).
 - For travel photos turned into rubber-stamp field-note posters (photo left,

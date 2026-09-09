@@ -321,10 +321,23 @@ function isWithin(root: string, candidate: string): boolean {
   return pathFromRoot === "" || (!pathFromRoot.startsWith(`..${sep}`) && pathFromRoot !== ".." && !isAbsolute(pathFromRoot));
 }
 
+function sameNonLinkSnapshot(before: Stats, after: Stats): boolean {
+  return after.isFile()
+    && after.dev === before.dev && after.ino === before.ino
+    && after.mode === before.mode && after.uid === before.uid && after.gid === before.gid
+    && after.rdev === before.rdev && after.size === before.size
+    && after.blksize === before.blksize && after.blocks === before.blocks
+    && after.mtimeMs === before.mtimeMs && after.birthtimeMs === before.birthtimeMs;
+}
+
 export function createNodeBundleFileSystem(
   bundleRoot: string,
   options: Readonly<{
     readonly duringFileInspectionForTesting?: (input: Readonly<{
+      readonly attempt: 1 | 2;
+      readonly path: string;
+    }>) => Promise<void>;
+    readonly duringFileCopyForTesting?: (input: Readonly<{
       readonly attempt: 1 | 2;
       readonly path: string;
     }>) => Promise<void>;
@@ -439,14 +452,6 @@ export function createNodeBundleFileSystem(
     if (lexical.isSymbolicLink() || !lexical.isFile() || lexical.size > maximumBytes) {
       throw new Error(`Bundle file must be a physical regular file: ${path}`);
     }
-    const sameNonLinkSnapshot = (before: Stats, after: Stats): boolean => (
-      after.isFile()
-      && after.dev === before.dev && after.ino === before.ino
-      && after.mode === before.mode && after.uid === before.uid && after.gid === before.gid
-      && after.rdev === before.rdev && after.size === before.size
-      && after.blksize === before.blksize && after.blocks === before.blocks
-      && after.mtimeMs === before.mtimeMs && after.birthtimeMs === before.birthtimeMs
-    );
     async function assertTargetStillNamesOpenedFile(
       expected: Stats,
     ): Promise<void> {
@@ -746,9 +751,8 @@ export function createNodeBundleFileSystem(
         const sourceBefore = await sourceHandle.stat();
         if (
           !sourceBefore.isFile()
-          || sourceBefore.dev !== lexicalSource.dev
-          || sourceBefore.ino !== lexicalSource.ino
-          || sourceBefore.size !== lexicalSource.size
+          || !sameNonLinkSnapshot(lexicalSource, sourceBefore)
+          || sourceBefore.nlink !== lexicalSource.nlink
           || sourceBefore.size !== expected.bytes
         ) {
           throw new Error(`Immutable bundle copy source changed before opening: ${sourcePath}`);
@@ -814,6 +818,7 @@ export function createNodeBundleFileSystem(
             throw new Error(`Bundle file exceeds safe byte accounting: ${sourcePath}`);
           }
         }
+        await options.duringFileCopyForTesting?.({ attempt: 1, path: sourcePath });
         const [sourceAfter, temporaryAfter] = await Promise.all([
           sourceHandle.stat(),
           temporaryHandle.stat(),
@@ -822,16 +827,48 @@ export function createNodeBundleFileSystem(
         if (
           bytes !== expected.bytes
           || copiedSha256 !== expected.sha256
-          || sourceAfter.dev !== sourceBefore.dev
-          || sourceAfter.ino !== sourceBefore.ino
-          || sourceAfter.size !== sourceBefore.size
-          || sourceAfter.mtimeMs !== sourceBefore.mtimeMs
-          || sourceAfter.ctimeMs !== sourceBefore.ctimeMs
+          || !sameNonLinkSnapshot(sourceBefore, sourceAfter)
+          || sourceAfter.nlink !== sourceBefore.nlink
           || temporaryAfter.dev !== temporaryBefore.dev
           || temporaryAfter.ino !== temporaryBefore.ino
           || temporaryAfter.size !== bytes
         ) {
           throw new Error(`Immutable bundle copy source changed or failed verification: ${sourcePath}`);
+        }
+        let verifiedSource = sourceAfter;
+        if (sourceAfter.ctimeMs !== sourceBefore.ctimeMs) {
+          // A metadata-only transition invalidates the first source read. Do
+          // not recopy or ignore it: one stable complete pass on the same open
+          // inode must independently reproduce the exact expected bytes.
+          const retryBefore = await sourceHandle.stat();
+          if (!sameNonLinkSnapshot(sourceAfter, retryBefore)
+            || retryBefore.nlink !== sourceAfter.nlink
+            || retryBefore.ctimeMs !== sourceAfter.ctimeMs) {
+            throw new Error(`Immutable bundle copy source changed before verification reread: ${sourcePath}`);
+          }
+          const retryDigest = createHash("sha256");
+          let retryBytes = 0;
+          while (true) {
+            const result = await sourceHandle.read(buffer, 0, Math.min(buffer.byteLength, expected.bytes - retryBytes + 1), retryBytes);
+            if (result.bytesRead === 0) break;
+            if (retryBytes + result.bytesRead > expected.bytes) throw new Error(`Immutable bundle copy source grew during verification reread: ${sourcePath}`);
+            retryDigest.update(buffer.subarray(0, result.bytesRead));
+            retryBytes += result.bytesRead;
+          }
+          await options.duringFileCopyForTesting?.({ attempt: 2, path: sourcePath });
+          const retryAfter = await sourceHandle.stat();
+          if (retryBytes !== expected.bytes || retryDigest.digest("hex") !== expected.sha256
+            || !sameNonLinkSnapshot(retryBefore, retryAfter)
+            || retryAfter.nlink !== retryBefore.nlink
+            || retryAfter.ctimeMs !== retryBefore.ctimeMs) {
+            throw new Error(`Immutable bundle copy source changed or failed verification reread: ${sourcePath}`);
+          }
+          verifiedSource = retryAfter;
+        }
+        const currentSource = await lstat(source);
+        if (currentSource.isSymbolicLink() || !sameNonLinkSnapshot(verifiedSource, currentSource)
+          || currentSource.nlink !== verifiedSource.nlink || currentSource.ctimeMs !== verifiedSource.ctimeMs) {
+          throw new Error(`Immutable bundle copy source path changed after verification: ${sourcePath}`);
         }
         await temporaryHandle.sync();
         await temporaryHandle.close();

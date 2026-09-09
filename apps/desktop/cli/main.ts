@@ -84,9 +84,9 @@ export async function main(
     daemonCommand: daemonCommand(),
     helperExecutable,
   });
-  if (earlyCommand.kind === "spatial-world") {
+  if (earlyCommand.kind === "spatial-world" || earlyCommand.kind === "directing") {
     const controller = new AbortController();
-    const cancel = () => controller.abort(new CliError("cancelled", "World command interrupted."));
+    const cancel = () => controller.abort(new CliError("cancelled", "Command interrupted."));
     process.on("SIGINT", cancel);
     process.on("SIGTERM", cancel);
     try {

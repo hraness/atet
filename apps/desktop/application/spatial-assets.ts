@@ -19,7 +19,7 @@ import { evaluateSpatialGlb, parseSpatialGlb, type SpatialGlbModel } from "../..
 import { canonicalJsonSha256 } from "../core/canonical-json";
 import { SpatialWorldImportManifestSchema, SPATIAL_SPLAT_LIMITS } from "../contracts/spatial-world";
 import { inspectSpatialSpz } from "./spatial-spz";
-import { WorldLabsProvenanceSchema } from "./world-labs-port";
+import { WorldLabsProvenanceSchema } from "./spatial-world-provenance";
 import {
   PreparedSpatialAssetSchema, SPATIAL_OVERLAY_LIMITS, SpatialOverlayCapabilityError, spatialTextRasterContentSha256,
   spatialGeometryContentSha256, spatialVideoRasterContentSha256,

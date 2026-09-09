@@ -1,3 +1,6 @@
+import { createDirectingBlobSession } from "./directing-blob";
+import { assembleDirectingClips, extractDirectingEndpoint, importDirectingAnchor } from "./directing-media";
+import { executeDirectingCommand } from "./directing-service";
 import { createHash, randomUUID } from "node:crypto";
 import { executeSpatialSceneCommand } from "./spatial-scene-service";
 import { executeSpatialProjectCommand } from "./spatial-project-service";
@@ -518,6 +521,17 @@ async function withHostResourceClaims<T>(
     }
     throw error;
   }
+}
+
+async function withDirectingLocalPhase<T>(context: CommandContext, signal: AbortSignal, execute: (application: ApplicationContext) => Promise<T>): Promise<T> {
+  const required = physicalHostResourceClaims([
+    { amount: 1, resource: "cpu" }, { amount: 1, resource: "ffmpeg" }, { amount: 1, resource: "local-io" },
+  ], context.hostResourceCoordinator);
+  if (context.hostResourceLease !== undefined) {
+    await context.hostResourceLease.assertOwned();
+    if (hostResourceClaimsCover(context.hostResourceLease.claims, required)) return await execute(applicationContext(context));
+  }
+  return await withHostResourceClaims(context, missingHostResourceClaims(context.hostResourceLease?.claims ?? [], required), async admitted => await execute(applicationContext(admitted)), signal);
 }
 
 function applicationContext(
@@ -5745,9 +5759,22 @@ async function handleMediaColor(
 
 async function dispatch(context: CommandContext, command: CliCommand): Promise<void> {
   switch (command.kind) {
+    case "directing": {
+      const output = await executeDirectingCommand(applicationContext(context), command, {
+        catalog: gatewayCatalogCache(context),
+        createReferenceHosting: (directingId, attemptId, signal) => createDirectingBlobSession({ application: applicationContext(context), environment: context.io.env, directingId, attemptId, signal }),
+        media: {
+          anchor: (_application, path, signal) => withDirectingLocalPhase(context, signal, app => importDirectingAnchor(app, path, signal)),
+          endpoint: (_application, source, position, signal) => withDirectingLocalPhase(context, signal, app => extractDirectingEndpoint(app, source, position, signal)),
+          assemble: (_application, input, signal) => withDirectingLocalPhase(context, signal, app => assembleDirectingClips(app, input, signal)),
+        },
+        ...(context.abortSignal === undefined ? {} : { signal: context.abortSignal }),
+      });
+      writeValue(context.io, command.json, output, () => JSON.stringify(output, null, 2));
+      return;
+    }
     case "spatial-world": {
       const output = await executeSpatialWorldCommand(applicationContext(context), command, {
-        environment: context.io.env, fetch: context.fetch, download: context.gatewayMediaDownload,
         ...(context.abortSignal === undefined ? {} : { signal: context.abortSignal }),
       });
       writeValue(context.io, command.json, output, () => JSON.stringify(output, null, 2));
@@ -6547,6 +6574,7 @@ type MutationReference =
 
 function commandMutationReference(command: CliCommand): MutationReference | undefined {
   switch (command.kind) {
+    case "directing": return undefined; // The directing store owns its explicit lease.
     case "spatial-world": return undefined; // Immutable world attempts and imports own their publication custody.
     case "spatial-scene": return command.action === "init" || command.action === "patch" ? { kind: "workspace-private" } : undefined;
     case "spatial-project": return undefined; // Its explicit application adapter owns one version-aware lease.

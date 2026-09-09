@@ -57,6 +57,71 @@ test("rejects a relative import that reaches the Direct workspace package", asyn
   }
 });
 
+test("relative Direct markers require a module segment or suffix boundary", async () => {
+  const desktop = await mkdtemp(join(tmpdir(), "atet-relative-boundary-"));
+  try {
+    await mkdir(join(desktop, "frontend", "src"), { recursive: true });
+    await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
+    await writeFile(join(desktop, "package.json"), '{"dependencies":{}}\n');
+    await writeFile(join(desktop, "frontend", "dist", "app.js"), "export {};\n");
+    const source = join(desktop, "frontend", "src", "main.ts");
+    for (const specifier of [
+      "./direct", "../direct", "../../direct", "./direct/index", "../direct/runtime",
+      "./direct.ts", "../direct.js", "./direct.mjs", "../direct.cjs", "./direct.tsx",
+      "../direct.zig", "./direct?raw", "../direct#fixture", "./direct/../direct/index",
+    ]) {
+      await writeFile(source, `import ${JSON.stringify(specifier)};\n`);
+      expect(await boundaryFailure(desktop)).toContain("./direct");
+    }
+    for (const contents of [
+      "export { fixture } from '../direct';\n",
+      "const fixture = import(`./direct`);\n",
+      "const fixture = require('../direct');\n",
+      "../direct", // A bare marker at EOF still has an exact suffix boundary.
+      "./direct\n",
+      'import "./direct\\\\runtime";\n',
+    ]) {
+      await writeFile(source, contents);
+      expect(await boundaryFailure(desktop)).toContain("./direct");
+    }
+    for (const specifier of [
+      "./directing-plan", "./directing-media.ts", "../directing-contract", "../../directing/index",
+      "./directory", "../director", "./direct-helper", "../direct_helpers", "./direct2",
+    ]) {
+      await writeFile(source, `import ${JSON.stringify(specifier)};\n`);
+      const result = await checkAtetProductionBoundary(desktop, join(desktop, "package.json"));
+      expect(result.source.scanned).toContain(source);
+      expect(result.source.violations).toEqual([]);
+    }
+    await writeFile(source, 'import "./directing-plan"; import "../direct/session";\n');
+    expect(await boundaryFailure(desktop)).toContain("../direct");
+    await writeFile(source, 'import "./directing-media"; import "@hraness/direct"; const wire = "direct.runtime/v99";\n');
+    const mixed = await boundaryFailure(desktop);
+    expect(mixed).toContain("@hraness/direct");
+    expect(mixed).toContain("direct.runtime/v");
+  } finally {
+    await rm(desktop, { force: true, recursive: true });
+  }
+});
+
+test("a legitimate directing module cannot bypass package or emitted Direct exclusions", async () => {
+  const desktop = await mkdtemp(join(tmpdir(), "atet-directing-boundary-"));
+  try {
+    await mkdir(join(desktop, "frontend", "src"), { recursive: true });
+    await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
+    const manifest = join(desktop, "package.json");
+    await writeFile(manifest, '{"dependencies":{"@hraness/direct":"1.0.0"}}\n');
+    await writeFile(join(desktop, "frontend", "src", "main.ts"), 'import "./directing-media";\n');
+    await writeFile(join(desktop, "frontend", "dist", "app.js"), "export {};\n");
+    expect(await boundaryFailure(desktop)).toContain("cannot be a production dependency");
+    await writeFile(manifest, '{"dependencies":{}}\n');
+    await writeFile(join(desktop, "frontend", "dist", "app.js"), '"__direct";\n');
+    expect(await boundaryFailure(desktop)).toContain("__direct");
+  } finally {
+    await rm(desktop, { force: true, recursive: true });
+  }
+});
+
 test("rejects future Direct probe schemas from production output", async () => {
   const desktop = await mkdtemp(join(tmpdir(), "atet-probe-boundary-"));
   try {

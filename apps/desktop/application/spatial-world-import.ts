@@ -11,7 +11,7 @@ import { createNodeSpatialDurability } from "../core/spatial-durability";
 import { createNodeBundleFileSystem } from "../core/storage";
 import { SavedSpatialWorldImportInputSchema, SavedSpatialWorldImportOutputSchema, SpatialWorldImportManifestSchema, SPATIAL_SPLAT_LIMITS, type SavedSpatialWorldImportOutput } from "../contracts/spatial-world";
 import { inspectSpatialSpz } from "./spatial-spz";
-import { WorldLabsProvenanceSchema } from "./world-labs-port";
+import { WorldLabsProvenanceSchema } from "./spatial-world-provenance";
 
 export { SavedSpatialWorldImportInputSchema } from "../contracts/spatial-world";
 export type { SavedSpatialWorldImportInput, SavedSpatialWorldImportOutput, SpatialWorldImportManifest } from "../contracts/spatial-world";

@@ -25,6 +25,13 @@ const coordinator = createProcessLocalHostResourceCoordinator({
 });
 
 describe("CLI command host-resource policy", () => {
+  test("directing paid waits release render pools and local phases admit separately", () => {
+    const paid = commandHostResourceClaims(command({ kind: "directing", action: "generate" }), coordinator);
+    expect(paid.map(claim => claim.resource)).toEqual(["network", "paid-call"]);
+    for (const action of ["anchor", "resume", "review", "assemble"]) expect(commandHostResourceClaims(command({ kind: "directing", action }), coordinator)).toEqual([]);
+    expect(commandHostResourceClaims(command({ kind: "spatial-world", action: "import" }), coordinator).map(claim => claim.resource)).toEqual(["cpu", "local-io"]);
+  });
+
   test("expands every FFmpeg command to the complete physical pools", () => {
     for (const value of [
       { kind: "align-analyze" },

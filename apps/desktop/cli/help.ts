@@ -12,6 +12,8 @@ Commands:
   diagram init|check|render      Create, validate, or render portable diagram sources
   scene init|check|inspect|patch|evaluate|plan|render
                                  Author and inspect editable directed 3D scene sources
+  direct init|plan|start|generate|review|assemble
+                                 Direct short Gateway clips with retained takes and budgets
   image vectorize|generate      Create a local SVG or generated image file
   html catalog|scaffold          Inspect or create a transparent HTML overlay starter
   workflows list|show|plan|run   Plan or run a reviewed reusable workflow
@@ -42,6 +44,42 @@ Commands:
 Run atet help <command> for command-specific help.`;
 
 const HELP: Readonly<Record<string, string>> = {
+  direct: `Usage:
+  atet direct init <recipe.json> [--json]
+  atet direct anchor --input <image> [--json]
+  atet direct plan <recipe.json> [--json]
+  atet direct start <recipe.json> --budget-usd <USD> [--json]
+  atet direct inspect <direct-id> [--json]
+  atet direct revise <direct-id> --recipe <recipe.json> [--json]
+  atet direct generate <direct-id> --shot <shot-id> --attempt <take-id>
+        --allow-paid-generation [--allow-cloud-upload] [--allow-reference-hosting] [--json]
+  atet direct cleanup <direct-id> --attempt <take-id> [--json]
+  atet direct resume <direct-id> --attempt <take-id> [--json]
+  atet direct review <direct-id> --attempt <take-id>
+        --decision accepted|rejected --note <review> [--json]
+  atet direct assemble <direct-id> [--json]
+
+Init writes a new recipe without overwriting. Edit its ID, shots, prompts and settings.
+Anchor imports one explicit local image and returns a hash-bound source reference.
+Plan checks live Gateway video capabilities and duration pricing without a paid call.
+Start retains one budget for the direct ID; starting again cannot reset it.
+Generate dispatches at most one new take and requires a unique take_<id>. Local images,
+including a predecessor's endpoint, require --allow-cloud-upload on that invocation.
+URL-only models require --allow-reference-hosting and a private Vercel Blob store.
+Only exact reference images receive short-lived signed read URLs. Signed URLs and
+credentials are not saved. Cleanup deletes those exact objects; inspect cleanup
+receipts and use direct cleanup after interruptions. Blob charges are separate
+from the model catalog estimate and require room in your overall spending limit.
+Every dispatched, rejected, or ambiguous take retains its catalog cost reservation.
+These USD reservations are estimates, not settled invoices or a provider-enforced cap.
+Resume only reconciles retained local receipts and extracts missing endpoints; it never
+resubmits a provider call. A completed take can be accepted after reviewing its video.
+A shot-end reference uses the accepted predecessor's actual final decoded frame.
+Revising a shot or choosing a different predecessor makes affected downstream takes stale.
+Assemble requires current accepted takes for all shots and publishes an ordinary video
+project for atet project render run. Review and assembly work without cloud credentials.
+This workflow retains image and prompt continuity; it has no provider neural checkpoint
+or real-time session. Use atet ai models list --type video for live model discovery.`,
   scene: `Usage:
   atet scene init <scene.json> [--json]
   atet scene check <scene.json> [--json]
@@ -53,19 +91,12 @@ const HELP: Readonly<Record<string, string>> = {
   atet scene project prepare-render <project-id> --input <request.json> --output <prepared-render.json> [--profile <profile>] [--json]
   atet scene project migrate|patch|restore|add-shot|add-candidate|select-candidate|reconcile
         <project-id> --input <request.json> [--json]
-  atet scene world plan --input <request.json> [--json]
-  atet scene world generate --input <request.json> --allow-paid-generation
-        --budget-id <id> --maximum-credits <integer> [--json]
-  atet scene world inspect|resume <attempt-id> [--json]
-  atet scene world recover <attempt-id> --operation-id <provider-operation-id> [--json]
   atet scene world import --input <import.json> --source-root <directory>
         --output-root <directory-below-artifacts/atet/generated> [--json]
 
 Hardware profiles: three-webgl2-hardware-v1 and three-spark-webgl2-hardware-v1.
 An explicit profile must agree with the request; omitting it preserves the request.
-World generation uses WORLDLABS_API_KEY and reserves 1,580 credits per text world.
-Use one named budget across attempts. Resume polls an existing operation once;
-it never resubmits generation. Inspect and saved-world import work offline.
+Saved-world import works offline and preserves imported provenance receipts.
 Scene sources retain stable entities, cameras, asset manifests and animation channels.
 Inspect reports editable controls and known bounds without decoding assets. Patch requires
 the exact expected scene digest in its patch document and writes a new source without
@@ -406,10 +437,11 @@ export function commandHelp(topic: readonly string[]): string {
 
 export function completions(words: readonly string[]): readonly string[] {
   const topLevel = [
-    "operations", "diagram", "image", "workflows", "code", "runs", "doctor", "ai", "media", "record", "recordings", "projects", "project", "inspect", "events", "edit", "analyze", "align", "faces", "fillers", "render", "assets",
+    "operations", "diagram", "direct", "image", "workflows", "code", "runs", "doctor", "ai", "media", "record", "recordings", "projects", "project", "inspect", "events", "edit", "analyze", "align", "faces", "fillers", "render", "assets",
   ];
   if (words.length <= 1) return topLevel;
   const command = words[0];
+  if (command === "direct") return ["init", "anchor", "plan", "start", "inspect", "revise", "generate", "resume", "review", "assemble", "cleanup"];
   if (command === "operations") return ["list", "show"];
   if (command === "diagram") return ["check", "render"];
   if (command === "image") return ["vectorize"];
