@@ -164,6 +164,8 @@ These generation commands can incur provider charges. Use the live catalog and e
 
 Use `atet diagram init|check|render` for structured diagrams, `atet image vectorize` for local vectorization, existing transcription for measured captions, and ordinary audio/media operations for narration, music and SFX. Rhubarb mouth cues can be retained as measured performance input using the toolkit's conversion helper; mouth shapes are not word timestamps. A supplied or generated voice needs an actual listening/alignment review before authored cues can be described as synchronized speech.
 
+Ordinary project overlays interpret `--position x,y` as a pixel offset from the selected anchor. Use `--anchor center --position 0,0` to center an overlay, or `--anchor top-left --position 42,70 --width 636 --height 180` to place a caption inside a 720×1280 portrait frame with 42-pixel side margins. A full-frame closing image uses `--anchor top-left --position 0,0` with the output dimensions. Inspect the rendered caption bounds and closing frame before delivery.
+
 The Manim driver owns silent visuals and exact frames. It rejects source-side audio so the existing ATET composition remains the audio owner. That separation lets an agent revise narration or sound independently while preserving the mathematical rendering and provider receipts.
 
 ## Qualified profiles and extension limits
