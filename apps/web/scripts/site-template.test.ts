@@ -126,7 +126,7 @@ describe("ordinary shell authored contract (pure, process-free)", () => {
     expect(renderer).toContain('document === "index.html" ? homeSlots : recoverySlots')
     expect(legacy).not.toMatch(/\.skip-link|\.topbar|\.wordmark|\.route-state/u)
     expect(legacy).toContain(".hraness-marketing-page")
-    expect(legacy).toContain(".copy-command")
+    expect(legacy).not.toContain(".copy-command")
   })
 
   test("the temporary Ask-AI compatibility cannot escape its existing row", async () => {
