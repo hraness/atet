@@ -1,8 +1,101 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
 import { assertShellFocusFragments, assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellCaseFailure, parseShellPhase, parseShellRequest,
-  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellCaseFailure, shellFocusFragments, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
+  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellCaseFailure, shellContextLifecycle, shellFocusFragments, shellOperationTracker, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
+
+function operationDeferred() {
+  let resolve!: () => void, reject!: (reason: Error) => void
+  const promise = new Promise<void>((yes, no) => { resolve = yes; reject = no })
+  return { promise, resolve, reject }
+}
+
+test("case teardown admits only the owned page close and never a whole-browser disconnect", () => {
+  for (const closing of [false, true]) {
+    const errors: string[] = [], lifecycle = shellContextLifecycle(message => errors.push(message))
+    if (closing) lifecycle.beginContextClose()
+    lifecycle.pageClosed()
+    expect(errors).toEqual(closing ? [] : ["Page closed before intentional context close"])
+    lifecycle.browserDisconnected()
+    expect(errors.at(-1)).toBe("Browser disconnected during shell case ownership")
+    expect(errors.length).toBe(closing ? 1 : 2)
+  }
+})
+
+test("browser operation settlement drains responses admitted by an earlier completion before close", async () => {
+  const errors: string[] = [], order: string[] = [], first = operationDeferred(), later = operationDeferred()
+  const tracker = shellOperationTracker(message => errors.push(message))
+  void tracker.track("request and route", first.promise.then(() => {
+    order.push("first")
+    void tracker.track("late response body", later.promise.then(() => { order.push("later") }))
+  }))
+  let settled = false
+  const done = tracker.settle("live bodies").then(() => { tracker.seal(); settled = true; order.push("close") })
+  first.resolve()
+  for (let index = 0; index < 8; index++) await Promise.resolve()
+  expect(settled).toBe(false)
+  expect(tracker.size).toBe(1)
+  expect(() => tracker.seal()).toThrow("Browser operations still pending")
+  later.resolve()
+  await done
+  expect(order).toEqual(["first", "later", "close"])
+  expect(errors).toEqual([])
+  expect(tracker.size).toBe(0)
+})
+
+test("browser operation settlement retains genuine failures and rejects late admissions", async () => {
+  const errors: string[] = [], tracker = shellOperationTracker(message => errors.push(message))
+  void tracker.track("live response", Promise.reject(new Error("Target page, context or browser has been closed")))
+  await tracker.settle("failed live body")
+  expect(errors).toEqual(["live response: Error: Target page, context or browser has been closed"])
+  tracker.seal()
+  expect(() => tracker.seal()).toThrow("Browser operation admission already sealed")
+  await tracker.track("late request", Promise.resolve())
+  expect(errors).toEqual(["live response: Error: Target page, context or browser has been closed", "Browser operation after settlement: late request"])
+  expect(tracker.size).toBe(0)
+})
+
+test("browser operation settlement has one finite deadline while preserving pending ownership", async () => {
+  const errors: string[] = [], tracker = shellOperationTracker(message => errors.push(message)), live = operationDeferred()
+  void tracker.track("unfinished request", live.promise)
+  await expect(tracker.settle("bounded live body", 10)).rejects.toThrow("bounded live body")
+  expect(tracker.size).toBe(1)
+  expect(() => tracker.seal()).toThrow("Browser operations still pending")
+  live.resolve()
+  await tracker.settle("collect live body")
+  tracker.seal()
+  expect(errors).toEqual([])
+})
+
+test("fixed-point browser collection preserves every finite admission tree regardless of sibling order", async () => {
+  // Exhaust the bounded depth, branching and sibling-order domain. Every
+  // completion admits its children after the original drain snapshot exists.
+  for (let depth = 0; depth <= 5; depth++) for (let width = 1; width <= 3; width++) for (const reverse of [false, true]) {
+    const errors: string[] = [], visited: string[] = [], tracker = shellOperationTracker(message => errors.push(message))
+    const expected: string[] = []
+    const plan = (id: string, remaining: number) => {
+      expected.push(id)
+      if (remaining > 0) for (let index = 0; index < width; index++) plan(`${id}.${index}`, remaining - 1)
+    }
+    const admit = (id: string, remaining: number) => {
+      void tracker.track(id, Promise.resolve().then(() => {
+        visited.push(id)
+        if (remaining > 0) {
+          const indices = Array.from({ length: width }, (_, index) => index)
+          if (reverse) indices.reverse()
+          for (const index of indices) admit(`${id}.${index}`, remaining - 1)
+        }
+      }))
+    }
+    plan("request", depth); admit("request", depth)
+    await tracker.settle("finite admission tree")
+    tracker.seal()
+    expect(visited.toSorted()).toEqual(expected.toSorted())
+    expect(new Set(visited).size).toBe(visited.length)
+    expect(tracker.size).toBe(0)
+    expect(errors).toEqual([])
+  }
+})
 
 function fragmentFixture(rectangles = [[53.75, 523.734375, 194, 21], [20, 551.625, 49.078125, 21]], covered = -1) {
   const reads: number[][] = [], foreign = {} as Element, descendant = {} as Element

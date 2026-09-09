@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { isAbsolute } from "node:path"
-import type { Browser, Page, WebSocketRoute } from "playwright-core"
+import type { Browser, Page, Request, WebSocketRoute } from "playwright-core"
 import { bounded } from "./preview-browser-contract"
 
 export const siteShellDeadlineMs = 720_000
@@ -837,28 +837,80 @@ export function assertShellFocusFragments(fragments: readonly ShellFocusFragment
   }
 }
 
+/** Response callbacks may admit more work while an earlier body is settling.
+ * Drain to a fixed point under one deadline, then close admission synchronously.
+ * Late work remains observed and fatal; it is never discarded as teardown noise. */
+export function shellOperationTracker(error: (message: string) => void) {
+  const pending = new Set<Promise<void>>()
+  let sealed = false
+  const track = (label: string, operation: Promise<unknown>): Promise<void> => {
+    if (sealed) error(`Browser operation after settlement: ${label}`)
+    const observed = operation.then(() => {}, failure => error(`${label}: ${String(failure)}`))
+      .finally(() => pending.delete(observed))
+    pending.add(observed)
+    return observed
+  }
+  return {
+    track,
+    get size() { return pending.size },
+    async settle(label: string, milliseconds = 5_000): Promise<void> {
+      const deadline = performance.now() + milliseconds
+      while (pending.size > 0) {
+        const remaining = deadline - performance.now()
+        assert.ok(remaining > 0, `${label} exceeded its absolute deadline`)
+        await bounded(Promise.all([...pending]), label, remaining)
+      }
+    },
+    seal() {
+      assert.equal(sealed, false, "Browser operation admission already sealed")
+      assert.equal(pending.size, 0, "Browser operations still pending at admission seal")
+      sealed = true
+    },
+  }
+}
+
+export function shellContextLifecycle(error: (message: string) => void) {
+  let intentionalContextClose = false
+  return {
+    beginContextClose() { intentionalContextClose = true },
+    pageClosed() { if (!intentionalContextClose) error("Page closed before intentional context close") },
+    // Closing a single case's context never owns whole-browser shutdown.
+    browserDisconnected() { error("Browser disconnected during shell case ownership") },
+  }
+}
+
 export async function checkShellCase(browser: Browser, payload: ShellPayload, scenario: ShellCase,
   source: "current" | "baseline", negative: boolean): Promise<ShellEvidence> {
   const context = await browser.newContext({ viewport: { width: scenario.width, height: scenario.height },
     deviceScaleFactor: scenario.reflowEquivalent ? 2 : 1, colorScheme: scenario.system, forcedColors: scenario.forced,
     hasTouch: scenario.coarse, bypassCSP: false, serviceWorkers: "block", reducedMotion: "reduce" })
   context.setDefaultTimeout(5_000)
-  const errors: string[] = [], pending = new Set<Promise<unknown>>(), received = new Set<string>()
+  const errors: string[] = [], received = new Set<string>()
   const error = (message: string) => { if (errors.length < 64) errors.push(message.slice(0, 512)) }
-  const track = (operation: Promise<unknown>) => {
-    pending.add(operation)
-    void operation.catch(failure => error(String(failure))).finally(() => pending.delete(operation))
-  }
+  const operations = shellOperationTracker(error), requests = new Map<Request, () => void>()
+  const lifecycle = shellContextLifecycle(error)
+  browser.on("disconnected", lifecycle.browserDisconnected)
   try {
-    await context.routeWebSocket("**/*", socket => denyShellWebSocket(socket, error))
-    await context.route("**/*", async route => {
+    await context.routeWebSocket("**/*", socket => operations.track("WebSocket denial", denyShellWebSocket(socket, error)))
+    await context.route("**/*", route => operations.track("Resource route", (async () => {
       const request = route.request(), url = new URL(request.url())
       if (request.method() !== "GET" || url.origin !== payload.origin || url.search !== "" || !payload.resources.includes(url.pathname)) {
         error(`Unadmitted request ${request.method()} ${url.origin}${url.pathname}`)
         await route.abort("blockedbyclient")
       } else await route.continue()
-    })
+    })()))
     const page = await context.newPage()
+    page.on("close", lifecycle.pageClosed)
+    page.on("request", request => {
+      const operation = new Promise<void>(resolve => { requests.set(request, resolve) })
+      void operations.track(`Request ${new URL(request.url()).pathname}`, operation)
+    })
+    const finishRequest = (request: Request) => {
+      const finish = requests.get(request)
+      if (finish === undefined) error(`Unobserved request completion ${new URL(request.url()).pathname}`)
+      else { requests.delete(request); finish() }
+    }
+    page.on("requestfinished", finishRequest)
     const settleCase = () => settle(page, scenario.direction)
     const focusedSkip = async (phase: "initial" | "reload") => {
       const label = `${source} ${scenario.name} ${phase}`
@@ -876,8 +928,8 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       if (message.location().url === `${payload.origin}/404.html` && /^Failed to load resource: the server responded with a status of 404 \(Not Found\)$/u.test(message.text())) return
       error(message.text())
     })
-    page.on("requestfailed", request => error(`Resource failure ${request.url()}`))
-    page.on("response", response => track((async () => {
+    page.on("requestfailed", request => { error(`Resource failure ${request.url()}`); finishRequest(request) })
+    page.on("response", response => operations.track(`Response ${new URL(response.url()).pathname}`, (async () => {
       const path = new URL(response.url()).pathname
       received.add(path)
       assert.equal(response.status(), path === "/404.html" ? 404 : 200, `Resource status ${path}`)
@@ -1053,18 +1105,31 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       await page.locator('.route-state a[href="/"]').last().click()
       await page.waitForURL(`${payload.origin}/`)
       assert.equal(await page.locator("#page-title").count(), 1)
+      await page.waitForLoadState("load")
+      await settleCase()
       recovery = true
     }
     for (const stylesheet of payload.stylesheets) assert.ok(received.has(stylesheet), `Stylesheet never loaded: ${stylesheet}`)
     assert.ok([...received].filter(path => path.endsWith(".woff2")).length >= 2, "Font responses missing")
-    await bounded(Promise.allSettled([...pending]), "Response listener settlement", 5_000)
+    await operations.settle("Request, route and response settlement")
     assert.deepEqual(errors, [], `${scenario.name}: network, script, console or CSP failure`)
     await protocol.detach()
+    await operations.settle("Post-protocol browser operation settlement")
+    assert.equal(page.isClosed(), false, "Page closed before evidence settlement")
+    assert.equal(browser.isConnected(), true, "Browser disconnected before evidence settlement")
+    assert.equal(requests.size, 0, "Requests still active at evidence settlement")
+    assert.deepEqual(errors, [], `${scenario.name}: pre-close browser error`)
+    operations.seal()
     return { direction, dom, elements, skip, hover, focus, recovery, appearance }
   } finally {
-    await bounded(context.close(), "Shell browser context close", 5_000)
-    await bounded(Promise.allSettled([...pending]), "Final response listener settlement", 5_000)
-    assert.equal(pending.size, 0)
-    assert.deepEqual(errors, [], `${scenario.name}: late browser error`)
+    lifecycle.beginContextClose()
+    try {
+      await bounded(context.close(), "Shell browser context close", 5_000)
+      assert.equal(browser.isConnected(), true, "Context close disconnected the owned browser")
+      await operations.settle("Final browser operation settlement")
+      assert.equal(operations.size, 0)
+      assert.equal(requests.size, 0)
+      assert.deepEqual(errors, [], `${scenario.name}: late browser error`)
+    } finally { browser.off("disconnected", lifecycle.browserDisconnected) }
   }
 }
