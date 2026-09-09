@@ -5,7 +5,7 @@ import { dirname, isAbsolute, join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { bounded, withPreviewCancellation } from "./preview-browser-contract"
 import { assertShellNode, checkShellCase, compareShellEvidence, parseShellPhase, parseShellRequest,
-  shellCaseFailure, siteShellCases, siteShellDeadlineMs } from "./site-shell-browser-contract"
+  ShellPairFailure, settleShellPair, shellCaseFailure, siteShellCases, siteShellDeadlineMs } from "./site-shell-browser-contract"
 import { decodeWorkerJson, encodeWorkerJson, publishWorkerPhase, workerAttachmentMs, workerProtocolLimit } from "./preview-browser-protocol"
 import { readPreviewFile } from "./preview-file"
 import { assertOwnedPreviewEndpoint, closeOwnedPreviewBrowser } from "./preview-browser-shutdown"
@@ -34,7 +34,7 @@ async function main() {
   const pinnedBrowser = browserManifest.browsers.filter(value => value.name === "chromium")
   assert.equal(pinnedBrowser.length, 1)
   const common = { schemaVersion: 1, token: request.token }, runtime = { node, playwright: "1.62.0" }
-  let browser, connection, activeCase, signal, matrixCompleted = false
+  let browser, connection, activePair, signal, matrixCompleted = false
   const result = await withPreviewCancellation(process, async cancellation => {
     signal = cancellation.signal
     await publishWorkerPhase(directory, 0, { ...common, ...runtime, sequence: 0, kind: "started" })
@@ -46,25 +46,26 @@ async function main() {
     assert.equal(browser.version(), pinnedBrowser[0].browserVersion, "Connected browser version differs from pinned Chrome for Testing")
     const cases = [], negativeControls = []
     for (const scenario of siteShellCases) {
-      let stage = "current"
+      let stage = "pair"
       try {
         const remaining = siteShellDeadlineMs - (performance.now() - started)
         assert.ok(remaining > 0, "Shell matrix exceeded its absolute deadline")
         const negative = scenario.width === 1440 && scenario.theme === "system" && scenario.system === "light"
-        const evidence = await cancellation.wait(() => {
-          activeCase = checkShellCase(browser, request.current, scenario, "current", negative)
-          return bounded(activeCase, `Current ${scenario.name}`, Math.min(60_000, remaining))
-        })
-        stage = "baseline"
-        const old = await cancellation.wait(() => {
-          activeCase = checkShellCase(browser, request.baseline, scenario, "baseline", false)
-          return bounded(activeCase, `Baseline ${scenario.name}`, Math.min(60_000, Math.max(1, siteShellDeadlineMs - (performance.now() - started))))
+        const [evidence, old] = await cancellation.wait(() => {
+          // Both callbacks create independent contexts and retain their complete
+          // page/input/route/media/error state. The same 60-second side ceiling
+          // starts at this common boundary; neither side borrows extra time.
+          activePair = settleShellPair(
+            () => checkShellCase(browser, request.current, scenario, "current", negative),
+            () => checkShellCase(browser, request.baseline, scenario, "baseline", false))
+          return bounded(activePair, `Current/baseline ${scenario.name}`, Math.min(60_000, remaining))
         })
         stage = "comparison"
         compareShellEvidence(evidence, old, scenario.name)
         cases.push(scenario.name)
         if (negative) negativeControls.push(scenario.route)
       } catch (error) {
+        if (error instanceof ShellPairFailure) stage = error.stage
         // Preserve the exact failed scenario without manufacturing result.json.
         // The parent reads this only after collecting the owned worker; success
         // still requires the original complete three-phase protocol.
@@ -90,7 +91,7 @@ async function main() {
       const late = await bounded(connection.then(value => value, () => undefined), "Late browser attachment settlement", 10_000)
       if (late !== undefined) await bounded(late.close(), "Late browser disconnect", 5_000)
     })
-    if (activeCase !== undefined) await collect(() => bounded(Promise.allSettled([activeCase]), "Active case settlement", 5_000))
+    if (activePair !== undefined) await collect(() => bounded(Promise.allSettled([activePair]), "Both underlying case settlements", 5_000))
     if (failures.length > 0) throw new AggregateError(failures, "Shell browser protocol collection failed")
   })
   parseShellPhase(result, 2, request)

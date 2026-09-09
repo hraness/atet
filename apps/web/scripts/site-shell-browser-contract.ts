@@ -68,7 +68,7 @@ export interface ShellCaseFailure {
   readonly accepted: false
   readonly completed: false
   readonly scenario: string
-  readonly stage: "current" | "baseline" | "comparison"
+  readonly stage: "current" | "baseline" | "pair" | "comparison"
   readonly comparedCases: readonly string[]
   readonly error: string
 }
@@ -80,7 +80,7 @@ export function parseShellCaseFailure(value: unknown, request: Pick<ShellRequest
   keys(failure, ["schemaVersion", "token", "accepted", "completed", "scenario", "stage", "comparedCases", "error"])
   assert.equal(failure.schemaVersion, 1); assert.equal(failure.token, request.token)
   assert.equal(failure.accepted, false); assert.equal(failure.completed, false)
-  assert.ok(failure.stage === "current" || failure.stage === "baseline" || failure.stage === "comparison")
+  assert.ok(failure.stage === "current" || failure.stage === "baseline" || failure.stage === "pair" || failure.stage === "comparison")
   assert.ok(Array.isArray(failure.comparedCases) && failure.comparedCases.length < siteShellCases.length)
   assert.deepEqual(failure.comparedCases, siteShellCases.slice(0, failure.comparedCases.length).map(item => item.name))
   assert.equal(failure.scenario, siteShellCases[failure.comparedCases.length]!.name)
@@ -912,6 +912,34 @@ export async function withShellCaseCleanup<T>(run: () => Promise<T>, cleanup: ()
   if (failures.length > 1) throw new AggregateError(failures,
     `Shell case failed: ${String(failures[0])}; cleanup failed: ${String(failures[1])}`)
   return result
+}
+
+export class ShellPairFailure extends AggregateError {
+  readonly stage: "current" | "baseline" | "pair"
+  constructor(failures: readonly { readonly source: "current" | "baseline"; readonly error: unknown }[]) {
+    assert.ok(failures.length === 1 || failures.length === 2)
+    assert.equal(new Set(failures.map(failure => failure.source)).size, failures.length)
+    // Keep both side summaries inside the existing 2048-character receipt;
+    // the AggregateError still retains each complete original error object.
+    const limit = failures.length === 2 ? 960 : 2_000
+    super(failures.map(failure => failure.error), failures.map(failure => `${failure.source}: ${String(failure.error).slice(0, limit)}`).join("; "))
+    this.stage = failures.length === 1 ? failures[0]!.source : "pair"
+  }
+}
+
+/** Only the two isolated sides of one case overlap. This promise retains both
+ * original case-and-cleanup promises, even after either fails. The driver must
+ * collect it after cancellation and cannot compare or admit another case until
+ * both settle. Source order, not completion order, binds the result and errors. */
+export async function settleShellPair<T>(current: () => Promise<T>, baseline: () => Promise<T>): Promise<readonly [T, T]> {
+  const settled = await Promise.allSettled([
+    Promise.resolve().then(current), Promise.resolve().then(baseline),
+  ])
+  const failures: { source: "current" | "baseline"; error: unknown }[] = []
+  if (settled[0].status === "rejected") failures.push({ source: "current", error: settled[0].reason })
+  if (settled[1].status === "rejected") failures.push({ source: "baseline", error: settled[1].reason })
+  if (settled[0].status === "rejected" || settled[1].status === "rejected") throw new ShellPairFailure(failures)
+  return [settled[0].value, settled[1].value]
 }
 
 /** A load event does not complete resources started by document presentation

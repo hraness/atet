@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
 import { assertShellFocusFragments, assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, observeShellFocus, parseShellCaseFailure, parseShellPhase, parseShellRequest,
-  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellCaseFailure, shellContextLifecycle, shellFocusFragments, shellOperationTracker, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders, withShellCaseCleanup, withShellSettledNavigation,
+  resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, ShellPairFailure, settleShellPair, shellAppearanceSteps, shellCaseFailure, shellContextLifecycle, shellFocusFragments, shellOperationTracker, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders, withShellCaseCleanup, withShellSettledNavigation,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
 
 function operationDeferred() {
@@ -9,6 +9,78 @@ function operationDeferred() {
   const promise = new Promise<void>((yes, no) => { resolve = yes; reject = no })
   return { promise, resolve, reject }
 }
+
+test("paired sides start together but results retain source order after both cleanups", async () => {
+  const current = operationDeferred(), baseline = operationDeferred(), cleanup = operationDeferred(), order: string[] = []
+  let complete = false
+  const pair = settleShellPair(async () => {
+    order.push("current:start"); await current.promise
+    order.push("current:cleanup"); await cleanup.promise
+    return "current result"
+  }, async () => { order.push("baseline:start"); await baseline.promise; order.push("baseline:cleanup"); return "baseline result" })
+  void pair.then(() => { complete = true })
+  await Promise.resolve()
+  expect(order).toEqual(["current:start", "baseline:start"])
+  baseline.resolve(); current.resolve()
+  for (let index = 0; index < 8; index++) await Promise.resolve()
+  expect(complete).toBe(false)
+  expect(order).toEqual(["current:start", "baseline:start", "baseline:cleanup", "current:cleanup"])
+  cleanup.resolve()
+  expect(await pair).toEqual(["current result", "baseline result"])
+})
+
+test("paired failure waits for both original case cleanups and retains each side failure", async () => {
+  for (const currentFails of [false, true]) for (const baselineFails of [false, true]) {
+    if (!currentFails && !baselineFails) continue
+    const currentError = new Error("current original"), baselineError = new Error("baseline original")
+    const currentCleanup = operationDeferred(), baselineCleanup = operationDeferred(), started: string[] = []
+    let settled = false
+    const run = (source: string, cleanup: ReturnType<typeof operationDeferred>, fails: boolean, error: Error) =>
+      withShellCaseCleanup(async () => { started.push(source); if (fails) throw error; return source }, () => cleanup.promise)
+    const pair = settleShellPair(() => run("current", currentCleanup, currentFails, currentError),
+      () => run("baseline", baselineCleanup, baselineFails, baselineError))
+    const observed = pair.catch((error: unknown) => { settled = true; return error })
+    await Promise.resolve()
+    expect(started).toEqual(["current", "baseline"])
+    baselineCleanup.resolve()
+    for (let index = 0; index < 8; index++) await Promise.resolve()
+    expect(settled).toBe(false)
+    currentCleanup.resolve()
+    const failure = await observed
+    expect(failure).toBeInstanceOf(ShellPairFailure)
+    if (!(failure instanceof ShellPairFailure)) throw new Error("side failures absent")
+    expect(failure.errors).toEqual([...(currentFails ? [currentError] : []), ...(baselineFails ? [baselineError] : [])])
+    expect(failure.stage).toBe(currentFails && baselineFails ? "pair" : currentFails ? "current" : "baseline")
+    for (const [source, fails] of [["current", currentFails], ["baseline", baselineFails]] as const) {
+      if (fails) expect(failure.message).toContain(`${source}: Error: ${source} original`)
+    }
+  }
+})
+
+test("synchronous side failure still admits and collects the other owned side", async () => {
+  const failure = new Error("synchronous callback failure"), other = operationDeferred(), calls: string[] = []
+  const pair = settleShellPair(() => { calls.push("current"); throw failure }, async () => { calls.push("baseline"); await other.promise; return 1 })
+  const observed = pair.catch((error: unknown) => error)
+  await Promise.resolve()
+  expect(calls).toEqual(["current", "baseline"])
+  other.resolve()
+  const result = await observed
+  expect(result).toBeInstanceOf(ShellPairFailure)
+  if (!(result instanceof ShellPairFailure)) throw new Error("synchronous original missing")
+  expect(result.errors).toEqual([failure]); expect(result.stage).toBe("current")
+})
+
+test("bounded pair receipt reserves both side summaries without truncating original errors", async () => {
+  const current = new Error("current " + "x".repeat(4_096)), baseline = new Error("baseline " + "y".repeat(4_096))
+  const failure: unknown = await settleShellPair(() => Promise.reject(current), () => Promise.reject(baseline)).catch((error: unknown) => error)
+  if (!(failure instanceof ShellPairFailure)) throw new Error("both original failures missing")
+  expect(failure.errors[0]).toBe(current); expect(failure.errors[1]).toBe(baseline)
+  const receipt = shellCaseFailure({ token: "pair-token" }, siteShellCases[0]!.name, failure.stage, [], failure)
+  expect(receipt.stage).toBe("pair")
+  expect(receipt.error).toContain("current: Error: current ")
+  expect(receipt.error).toContain("baseline: Error: baseline ")
+  expect(receipt.error.length).toBeLessThan(2_048)
+})
 
 test("intentional reload waits for live document paint and its admitted resource completion", async () => {
   const document = operationDeferred(), resource = operationDeferred(), order: string[] = [], errors: string[] = []
@@ -288,7 +360,7 @@ test("coalesced focus keeps every covered-fragment negative and finite viewport 
 test("partial shell failure records only the fully compared prefix and never accepts a pair", () => {
   const request = { token: "11111111-1111-4111-8111-111111111111" }
   const compared = siteShellCases.slice(0, 34).map(item => item.name), scenario = siteShellCases[34]!.name
-  for (const stage of ["current", "baseline", "comparison"] as const) {
+  for (const stage of ["current", "baseline", "pair", "comparison"] as const) {
     const failure = shellCaseFailure(request, scenario, stage, compared, new Error("covered\nfragment"))
     expect(failure).toEqual({ schemaVersion: 1, token: request.token, accepted: false, completed: false,
       scenario, stage, comparedCases: compared, error: "Error: covered fragment" })
