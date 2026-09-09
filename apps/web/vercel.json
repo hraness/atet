@@ -96,12 +96,12 @@
     },
     {
       "source": "/docs",
-      "destination": "/",
+      "destination": "https://github.com/hraness/atet/blob/main/docs/README.md",
       "permanent": true
     },
     {
       "source": "/docs/:path*",
-      "destination": "/",
+      "destination": "https://github.com/hraness/atet/blob/main/docs/README.md",
       "permanent": true
     }
   ],

@@ -16,7 +16,7 @@
 - `scripts/` – schema, skill, package, release, and official-vectorizer verification.
 - `dist/` and `apps/desktop/dist/cli/` – committed Bun-targeted entrypoints consumed by package and Git installs.
 - `.github/workflows/` – routed SDK, local-host, static-site, macOS-native, official VTracer, and immutable release checks.
-- `docs/` – current architecture, canonical GitHub distribution, optional npm mirroring, and Vercel provider runbooks.
+- `docs/` – the documentation entry point, first-result tutorials, creative task guides, capability and SDK reference, architecture explanations, and provider/release runbooks.
 - `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `LICENSE`, and `NOTICE.md` – public documentation, policy, and terms.
 - `WRITING.md` and `STYLE.md` – internal and public prose contracts.
 - `package.json`, `tsconfig.json`, and `bun.lock` – standalone package and verification configuration.
@@ -26,6 +26,7 @@
 - Use Bun 1.3.14 and complete the source gate in `CONTRIBUTING.md`: focused local checks and independent impact review, then fresh complete CI on the exact current integration candidate, or the local `bun run check` fallback. Preserve every explicit local, native, browser, installation, live, release and npm-mirror gate.
 - Follow `WRITING.md` for internal prose and `STYLE.md` for public prose, preserving facts, exact terms, literals, quotations, links, and necessary uncertainty.
 - Follow the shared [README guidelines](https://github.com/hraness/.github/blob/main/README_GUIDELINES.md) for the root README and any site copy that summarizes it.
+- Apply the shared [documentation guidelines](https://github.com/hraness/.github/blob/main/DOCUMENTATION_GUIDELINES.md) to every maintained documentation surface. Use Diátaxis to distinguish guided learning, task completion, factual reference and explanation; make each page's reader need clear without imposing four folders. Keep marketing, README, docs, CLI/SDK help and agent skills consistent with actual release, interface, platform and trust boundaries. Preserve historical sources and all local validation gates.
 - Apply unreasonably robust programming when agent work is cheap. Prefer coherent cross-file correctness and focused deterministic evidence while treating production risk, provider coordination, rollout, and observation as real costs.
 - Deliver changes to `main` through a current-head pull request. Keep the stable `Required` CI job green, resolve every review thread, and serialize merges. Human approval stays optional while one regular maintainer would otherwise self-review. Never force-push or bypass the gate.
 - Keep this repository independently buildable. Never depend on sibling paths, Git submodules, or coordinated `main` branches; consume external Hraness packages only through reviewed immutable release tags or commits.

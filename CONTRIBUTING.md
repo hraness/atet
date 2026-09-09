@@ -2,6 +2,13 @@
 
 Issues and focused pull requests are welcome. Describe the behavior that should change, include a minimal checked source or fixture when possible, and keep unrelated cleanup out of the same patch.
 
+Use the shared [documentation guidelines](https://github.com/hraness/.github/blob/main/DOCUMENTATION_GUIDELINES.md)
+for documentation and product copy. Keep guided learning, task instructions,
+reference and explanation focused on their reader needs, and update affected
+surfaces when capability, release, interface or trust facts change. Start from
+the [documentation index](docs/README.md); CLI help and checked schemas remain
+the authority for exact grammar.
+
 Install the pinned toolchain without dependency lifecycle scripts:
 
 ```sh

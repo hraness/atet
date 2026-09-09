@@ -1,55 +1,48 @@
 # Atet
 
-[![Atet: AI media generation and video editing for coding agents](https://atet.sh/og.png)](https://atet.sh)
+[![Atet: a visual studio for coding agents](https://atet.sh/og.png)](https://atet.sh)
 
 [![skills.sh](https://skills.sh/b/hraness/atet)](https://skills.sh/hraness/atet)
 
-**Local-first AI media generation and video editing for coding agents, with a
-Bun CLI, TypeScript SDK, MCP server, and Agent Skill.**
+**Atet is a local visual studio for coding agents. Author scenes, combine
+generated and recorded media, and export images, diagrams, animation, and video
+from retained sources.**
 
-Atet lets Codex, Claude, and other coding agents build editable scenes,
-direct cameras, and turn visual ideas into images and video. Its media tools
-generate images, video, and voice; edit screen recordings and imported footage; and
-add captions, graphics, and motion. The initial directed-scene commands are
-available from this source checkout; see [Directed scenes](docs/spatial-scenes.md)
-for the supported profile and workflow.
+Describe a finished result to Codex, Claude, or another coding agent. Atet gives
+it a Bun CLI, TypeScript SDK, and version-matched Agent Skill to inspect sources,
+direct cameras, edit a composition, and render the result. A separate MCP server
+exposes a fixed diagram and image toolset. There is no Atet account or hosted
+project database.
 
-The toolkit runs on your computer. Its Agent Skill teaches your coding agent
-how to use the Bun CLI, local media engine, and Vercel AI Gateway as one
-creative workflow. Atet has no account system and does not upload a project to
-an Atet service.
-
-[Install](#install-atet) · [Try a request](#start-with-a-finished-job) · [Capabilities](#what-atet-does) · [Design](#how-atet-works) · [GitHub release](https://github.com/hraness/atet/releases/tag/v3.2.3) · [atet.sh](https://atet.sh) · [Security](SECURITY.md)
+[Install](#install-atet) · [Make a first diagram](#make-your-first-diagram) · [Capabilities](#what-atet-does) · [Documentation](docs/README.md) · [GitHub release](https://github.com/hraness/atet/releases/tag/v3.2.3) · [atet.sh](https://atet.sh)
 
 ## Why Atet
 
-- **One brief becomes one inspectable media job.** The Agent Skill turns a
-  finished-result request into explicit CLI and SDK operations, while
-  `atet doctor` reports the recording, rendering, browser, and media tools that
-  are available on the current machine.
-- **Edits stay revisable.** Atet keeps source media unchanged and records cuts,
-  timing, framing, overlays, effects, candidates, and selections as explicit
-  project state.
-- **Review matches delivery.** Preview and final renders use the same timeline
-  and composition, so approval applies to the edit that produces the exported
-  files.
-- **Local work has an explicit cloud boundary.** Editing, diagrams,
-  vectorization, previews, and outputs stay local. Model-backed work uses the
-  caller's Vercel AI Gateway credential and uploads selected media only after
-  the matching acknowledgement. Directed video takes retain one explicit
-  budget across attempts and revisions.
+- **Keep creative work editable.** Native scenes, portable scenes, diagrams,
+  and video projects retain their own sources and settings. Rendered frames
+  and portable assets are derivatives; a video of a character does not retain
+  its rig.
+- **Give agents explicit operations.** Inspect a project, name a camera, plan
+  a render, review a candidate, and select a result. The CLI returns structured
+  results and keeps operation receipts that identify inputs and outputs.
+- **Revise without replacing the originals.** Normal media edits record cuts,
+  timing, framing, captions, and effects as project decisions. Preview and final
+  renders use the same timeline and composition.
+- **Choose where computation happens.** Local rendering and editing use your
+  machine. Optional model-backed work uses your Vercel AI Gateway access, with
+  explicit acknowledgement before named local media is uploaded. Native Python
+  authoring requires separate trust because it runs as your current user.
 
 ## Install Atet
 
-Atet requires [Bun 1.3.14 or newer](https://bun.sh). Install the current CLI,
-then inspect the local media host:
+Install [Bun 1.3.14 or newer](https://bun.sh), then the published CLI:
 
 ```sh
 bun add --global https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz
 atet doctor
 ```
 
-Install the matching Atet Agent Skill with either runner:
+Install the matching Agent Skill with either runner:
 
 ```sh
 npx skills add https://github.com/hraness/atet/tree/v3.2.3 --skill atet
@@ -57,400 +50,247 @@ npx skills add https://github.com/hraness/atet/tree/v3.2.3 --skill atet
 bunx skills add https://github.com/hraness/atet/tree/v3.2.3 --skill atet
 ```
 
-The CLI carries the guide released with that exact CLI version. The public
-`skills` command above installs the same immutable release. Use
-`atet skill install` when you specifically need the CLI's version-matched
-runner installer.
+Start a new agent session in the directory where you want to work. Name your
+sources, the finished result, and the details that must remain unchanged.
+`atet doctor` reports the local rendering, recording, browser, and media tools.
 
-Move into the project where you want Atet to work, then check the available
-recording, rendering, browser, and media tools:
-
-```sh
-cd /path/to/your/project
-atet doctor
-```
-
-Start a new agent session after installing the skill. It teaches Codex, Claude
-Code, Cursor, and other compatible agents how to turn a finished-media request
-into checked Atet operations.
+The GitHub archive and skill above are pinned to **v3.2.3**. That release includes
+portable scenes, the qualified Three.js hardware GPU profile, and saved worlds
+through Spark. Native `studio`, shot-recipe `direct`, and `scene camera-track`
+commands currently require a build from `main`; installing v3.2.3 does not add
+them. The [capability reference](docs/reference/capabilities.md) separates
+released features from current source and names their runtime requirements.
 
 <details>
 <summary>Other version-matched Agent Skill installs</summary>
 
-The public `skills` command follows the scope selected in that installer. If
-you use the CLI's packaged guide, `atet skill install` defaults to Codex across
-your user account.
-
-For Claude Code or another system that reads Agent Skills:
+The CLI carries its own released guide. `atet skill install` installs that guide
+for Codex by default; the public `skills` command follows the scope selected in
+its installer.
 
 ```sh
 atet skill install --target claude
 atet skill install --target agents
 ```
 
-To install the guide only for the current repository, run
-`atet skill install --scope project` from that repository. Use
-`--project <path>` to name a different repository. `atet skill path` prints the
-packaged guide for inspection.
-
-The immutable GitHub archive contains the versioned CLI and Agent Skill. npm
-may carry an optional mirror; the archive above is the canonical install. You
-can use `github:hraness/atet#v3.2.3` when you need to install
-the source tag directly.
+Use `atet skill install --scope project` inside a repository to limit the install
+to that project, or `--project <path>` to select one. `atet skill path` prints the
+packaged guide. npm may carry an optional mirror; the immutable GitHub archive
+is the canonical install.
 
 </details>
 
-Atet declares dual-use functionality because its macOS host can request access
-to selected displays, system audio, a camera, a microphone, and input-event
-metadata such as cursor movement, clicks, key activity, focused-input bounds,
-display topology, and changed-window snapshots. Typed-text capture is
-separately opt-in, and secure fields remain suppressed. Read
-[`DISCLOSURE`](DISCLOSURE) for the intended-use and consent boundary and
-[`SECURITY.md`](SECURITY.md) for the runtime trust boundary before recording
-sensitive material.
+## Make your first diagram
 
-## Start with a finished job
+This local task works with v3.2.3 and needs no model account. In a new directory,
+create the included diagram, check it, and render it:
 
-Open the project that contains your footage, artwork, script, or other source
-files. Start a new agent session and describe the finished result. These are
-the kinds of requests Atet is built to handle.
+```sh
+mkdir atet-first
+cd atet-first
+atet diagram init first.diagram.json
+atet diagram check first.diagram.json --strict
+atet diagram render first.diagram.json
+```
 
-### Edit a product demo
+You now have `example-flow.tldr`, `example-flow.light.svg`,
+`example-flow.dark.svg`, `example-flow.light.png`, and
+`example-flow.dark.png`. Open a PNG to inspect the result. The JSON remains
+editable, and the `.tldr` file is editable tldraw interchange. Rendering again
+replaces those five derived files.
 
-> Use Atet to record my screen, camera, microphone, and system audio while I
-> demo the app. When I stop, turn the recording into a polished two-minute
-> walkthrough. Remove long pauses and filler words, zoom in when I click or
-> type, keep me framed, add readable captions and `logo.svg`, and show me a
-> preview before exporting the final video.
-
-### Generate an opening sequence
-
-> Use Atet to create three opening-shot ideas from `product.png`. Show them to
-> me side by side, then animate the one I choose into a six-second widescreen
-> clip. Keep the product shape, colors, and lettering recognizable.
-
-### Add voice and deliver every format
-
-> Use Atet to generate a calm voiceover from `script.txt`, place it over the
-> approved edit, mix the music quietly underneath it, and export clean
-> and captioned versions in 16:9, 9:16, 1:1, and 4:5.
-
-### Explain a system visually
-
-> Use Atet to turn the services in this repository into an editable diagram,
-> then build a short animated version that introduces each service in order.
-
-Name the source files, the result you want, and any details that must remain
-unchanged. Your agent can inspect the current project, discover available
-models, choose the necessary Atet operations, render a preview, and report the
-files it created. You do not need to learn the command tree first.
+Follow [Your first diagram](docs/tutorials/first-diagram.md) to change a label and
+see the result. For a moving 3D subject, use [Directed scenes](docs/spatial-scenes.md).
+For detailed native 3D from the current source build, follow
+[Your first native film](docs/tutorials/first-native-film.md).
 
 ## What Atet does
 
-### Author directed scenes
+### Author scenes and direct cameras
 
-Keep geometry, images, video, diagrams, and text in an editable scene, direct
-it through named cameras, and render frames, contact sheets, or video. Agents
-inspect stable part IDs and apply typed edits while retained sources and
-receipts connect each output to its exact scene and media inputs.
+Place geometry, images, video, diagrams, and text in a portable scene. Inspect
+stable part IDs, make typed edits, select a named camera, and render frames,
+contact sheets, or video. The Three.js profile includes calibrated cameras,
+explicit animation, supported GLB geometry, and an explicitly selected hardware
+GPU path. Spark admits saved splat worlds for local camera direction.
 
-The initial Three.js scene profile includes calibrated cameras, explicit
-animation, a bounded GLB subset, explicit hardware GPU rendering, and saved
-AI-world environments through Spark. Imported splats retain provenance for
-local camera direction. The directing workflow turns authored image references
-and shot prompts into reviewable Gateway clips, then assembles accepted takes
-with the existing audio and video compositor. See
-[directed scenes](docs/spatial-scenes.md) for the source-checkout commands,
-supported assets, and current limits.
+> Create a short product reveal. Keep the model editable, orbit the camera,
+> mount the product diagram on a screen in the scene, and show me contact frames
+> before rendering the video.
 
-### Film a native virtual world
+The portable GLB profile has a defined geometry and material subset. Saved splats
+capture appearance; they do not establish collision geometry or editable native
+meshes. See [Directed scenes](docs/spatial-scenes.md).
 
-Use Blender for detailed sets, materials, lighting, cameras, skinned characters,
-cloth and liquid caches; CadQuery for parametric solids and STEP; and Manim
-Community for mathematical animation with an original cartoon presenter.
-Retain the source and exact job settings, render through an explicitly selected
-native engine, then bring the verified clip into an ordinary video project.
+### Film native worlds and educational animation
 
-The source-checkout `studio` commands include six editable starters, free
-Poly Haven HDRI/PBR/glTF acquisition, GPU rendering and verified frame-sequence
-encoding. Native source runs as the current user with explicit authorization;
-Blender and Python environments are installed separately. See the
-[native studio guide](docs/studio.md) for a complete first shot, supported
-profiles, color rules and recovery behavior.
+The current source build can direct Blender for detailed sets, materials,
+lighting, skinned characters, cloth and liquid caches; CadQuery for parametric
+solids and STEP; and Manim Community for mathematical animation. Seven editable
+starters include a product, character, shaded street, cloth, liquid, CAD bracket,
+and educational presenter.
 
-### Direct generated video
+> Build a shaded street with an original presenter. Explain the idea with an
+> animated diagram mounted in the world, then pull the camera back into the
+> city. Keep the native scenes and diagram sources for later edits.
 
-Create a shot recipe, inspect its live model capabilities and price, and retain
-one budget for the film. Each generation uses an explicit take ID. Review the
-video before accepting it; later shots can use its actual final decoded frame
-as their opening reference. Changes invalidate affected downstream selections
-while preserving earlier takes and paid-call receipts.
+Native source and exact job settings remain retained. Verified frames can become
+an ordinary project clip. Supported GLB derivatives and calibrated cameras can
+cross between native and portable scenes; rigs, solvers, and procedural materials
+remain native. Blender and Python environments are installed separately, and
+source execution requires explicit current-user trust. See [Native film studio](docs/studio.md)
+and [Make an educational video](docs/how-to/educational-video.md).
 
-Use a CLI built from this checkout with Gateway credentials and local FFmpeg
-and FFprobe. Edit the starter prompt after `init` before generating. The
-generation command spends provider credits against a retained catalog estimate;
-the budget is not a provider billing cap.
+### Build diagrams and motion graphics
 
-```sh
-atet direct init film.json
-# Edit film.json with the intended shot before continuing.
-atet direct plan film.json --json
-atet direct start film.json --budget-usd 5 --json
-atet direct generate direct_film --shot opening --attempt take_opening_1 --allow-paid-generation --json
-atet direct review direct_film --attempt take_opening_1 --decision accepted --note "Reviewed motion and subject identity" --json
-atet direct assemble direct_film --json
-```
+Create editable diagrams with tldraw, SVG, and PNG outputs, or turn raster artwork
+into SVG locally with VTracer. Animate graphic layers with HTML, SVG, Motion,
+p5, Two, Paper Shaders, or Three.js. Outputs can stand alone or join a video
+project. The optional vgpu example renders programmable WebGPU passes into
+retained raster frames for use on a world-space screen.
 
-See [directing video](docs/directing-video.md)
-for scene anchors, continuity, revisions, budget estimates, and recovery.
+Use `atet html catalog` to inspect the admitted local creative tools. The
+[creative toolkit reference](docs/html-overlay-creative-toolkit.md) distinguishes
+available profiles from upstream possibilities. vgpu does not enable shared GPU
+textures or a Three WebGPU renderer inside the current WebGL2/Spark profile.
 
-### Edit real video
+### Generate and direct media
 
-Atet keeps video work in a project, so each change can be reviewed and revised
-before export.
+Discover image, video, speech, and transcription models through your own Vercel
+AI Gateway access. Generate images from text and references, add a voiceover,
+transcribe sound, or create video shots using the selected model's supported
+inputs. Availability and pricing come from the live catalog.
 
-- Record the screen, camera, microphone, and system audio on macOS, or import
-  existing video, audio, images, and graphics.
-- Find silence, filler words, faces, scenes, music, clicks, cursor movement,
-  keystrokes, and typed text without changing the original media.
-- Cut, trim, retime, align audio, reframe the camera, follow a speaker, and add
-  screen zooms where the action needs attention.
-- Add images, SVG, GIFs, video, emoji, HTML, WebGPU Shading Language (WGSL)
-  effects, or Three.js scenes as overlays with controlled timing, placement,
-  motion, and audio behavior.
-- Apply captions, denoise and mix audio, adjust color, and render the same edit
-  for landscape, vertical, square, and portrait delivery.
-- Create several preview candidates from one frozen project, choose one, and
-  promote it without overwriting the alternatives.
+The current source build also provides `direct` shot recipes: retain a film
+budget across attempts, review each take before accepting it, and use an accepted
+clip's last decoded frame as the next shot's reference. Changed predecessors
+invalidate affected continuations while earlier paid results remain retained.
+Model continuity is reviewed, not guaranteed. Budget estimates are not a provider
+billing cap.
 
-Built-in workflows cover talking-head cleanup, polished screen demos,
-chaptered videos, creative alternatives, selection, and social variants. Run
-`atet workflows list` to see the exact catalog installed on the current
-machine.
+See [Generate media](docs/how-to/generate-media.md), [Direct short generated clips](docs/directing-video.md),
+and [Gateway configuration](docs/vercel.md). Generation uses caller-owned access;
+uploading local references requires the matching explicit acknowledgement.
 
-### Generate the media a project is missing
+### Edit footage and deliver finished videos
 
-Atet discovers the current image, video, speech, and transcription models
-available through [Vercel AI Gateway](https://vercel.com/ai-gateway). Your
-agent can then:
+Record a screen, camera, microphone, and system audio on macOS, or import existing
+footage. Remove pauses and filler words, align sound, reframe speakers, zoom into
+screen actions, and add captions, graphics, color, and audio treatment. Preview
+candidates before selecting a result, then export clean and captioned versions
+in 16:9, 9:16, 1:1, and 4:5 from the same edit.
 
-- generate images from text, reference images, or masks;
-- generate video from text, a source image, first and last frames, or other
-  visual references;
-- create spoken audio from a script, with the selected voice, language, pace,
-  instructions, and file format;
-- transcribe audio to text, JSON, SRT, and VTT; and
-- bring generated media back into a local video project for editing and
-  delivery.
+> Edit my product demo: cut the pauses, zoom into each important click, keep the
+> speaker framed, add captions and `logo.svg`, and show a preview before export.
 
-Local media never uploads implicitly. A command must explicitly acknowledge
-any local image, video, or audio that will be sent to a model provider. Atet
-uses the caller's Gateway credential, validates downloaded media, and writes
-outputs and receipts under `artifacts/atet/generated/`.
+Recording requires the corresponding macOS permissions. Input-event capture can
+include clicks, cursor movement, key activity, and focused-input information;
+typed-text capture is separately opt-in and secure fields are suppressed. Read
+[`DISCLOSURE`](DISCLOSURE) before recording sensitive material.
 
-### Build graphics and motion
-
-- Turn an explanation into an editable diagram with tldraw, SVG, and PNG
-  exports.
-- Convert caller-owned raster artwork to SVG locally with the pinned VTracer
-  runtime.
-- Build deterministic animated loops and transparent video layers with HTML,
-  SVG, Motion, p5.js, Two.js, Paper Shaders, [vgpu](https://vgpu.sh) with WGSL,
-  or Three.js. Run `atet html catalog` to choose one primary authoring surface;
-  the [creative-toolkit compendium](docs/html-overlay-creative-toolkit.md)
-  explains the wider current ecosystem and Atet's admission decisions.
-- Use an existing image as the visual reference for a reviewed 3D scene or
-  branded material treatment.
-
-Diagram sources support measured mixed-style label rows, primary and mono type
-roles, positioned connector ports, and independently styled relation labels.
-The same checked source produces editable tldraw interchange plus matching
-light and dark SVG and PNG exports.
-
-An image can become a video reference, an animated scene can become an
-overlay, and one approved edit can become every delivery format. The same
-project is available through the Agent Skill, CLI, TypeScript SDK, MCP server,
-and macOS desktop app.
-
-## Important limitations
-
-- Screen, camera, microphone, system-audio, and input-event capture belongs to
-  the macOS host and requires the corresponding operating-system permissions.
-- Model-backed generation requires caller-owned Vercel AI Gateway access.
-  Local media is uploaded only when the command identifies it and receives the
-  matching acknowledgement. Importing saved worlds works offline. Directed
-  video continuity uses retained images; it does not retain a model checkpoint.
-- The local MCP server confines paths to one caller-selected root, but it is
-  not an operating-system sandbox against another process running as the same
-  user.
-- Explicitly imported workflow modules are trusted current-user Bun code.
-  Review them before running them.
-- Atet has no hosted account, project database, or browser generation surface.
-  Model-backed work has no credential-free product fallback.
-
-Read [`DISCLOSURE`](DISCLOSURE) before recording or processing sensitive
-material and [`SECURITY.md`](SECURITY.md) for the complete runtime boundary.
-
-## How Atet works
-
-Atet keeps the creative process legible to both the person making a request
-and the agent doing the work.
-
-1. **Bring in the source.** Record a screen and camera, import existing media,
-   or point the agent to the files already in the repository.
-2. **Create what is missing.** Generate an image, video shot, voiceover, or
-   transcript through the caller's Gateway account when the project needs it.
-3. **Shape the edit.** The agent applies explicit operations to a local project
-   while the original media remains unchanged.
-4. **Review a real preview.** Preview renders use the same timeline and
-   composition as the final export at a lower cost.
-5. **Deliver the approved work.** Atet renders the selected project state to
-   the requested aspect ratios, caption treatments, and destinations.
-
-Project revisions are explicit. Alternatives begin from a named project state,
-important operations record what produced their outputs, and repeated work can
-reuse verified results. That makes the workflow inspectable without asking a
-person to manage low-level media commands.
-
-### Instructions for coding agents
-
-Agents using Atet should follow these rules:
-
-1. Read the repository's local instructions before changing anything.
-2. Inspect the named source files and search for an existing Atet project or
-   editable source for the same subject.
-3. Confirm the requested result, non-negotiable details, and delivery formats.
-   Ask only when a missing choice would materially change the work.
-4. Discover current capabilities instead of inventing model IDs, project IDs,
-   media stream IDs, or command options.
-5. Preserve original media. Change project state or editable source, then
-   regenerate previews and final outputs.
-6. For substantial video work, render a preview before the final delivery.
-7. Keep Gateway credentials in the process environment. Never put a key in a
-   command, project file, log, or generated artifact.
-8. Inspect visual output and report the useful source, preview, receipt, and
-   final output paths.
-
-Useful discovery commands:
+Start with [Edit a video](docs/how-to/edit-video.md) or inspect a reusable recipe:
 
 ```sh
-atet --help
-atet doctor --json
 atet workflows list --json
-atet ai models list --json
-atet operations list --json
-atet skill path
-```
-
-### Useful media commands
-
-Inspect the current model catalog before selecting a model:
-
-```sh
-atet ai models list --type image
-atet ai models list --type video
-atet ai models list --type speech
-atet ai models show <model-id>
-```
-
-Generate an image or a referenced video shot through Gateway:
-
-```sh
-atet ai image generate \
-  --model <image-model-id> \
-  --prompt-file image-brief.txt \
-  --aspect-ratio 16:9
-
-atet ai video generate \
-  --model <video-model-id> \
-  --prompt-file shot-brief.txt \
-  --image product.png \
-  --duration 6 \
-  --aspect-ratio 16:9 \
-  --allow-cloud-upload
-```
-
-Create a voiceover or transcript:
-
-```sh
-atet ai speech generate \
-  --model <speech-model-id> \
-  --text-file script.txt \
-  --format wav
-
-atet ai transcribe interview.wav \
-  --model <transcription-model-id> \
-  --format all \
-  --allow-cloud-audio-upload
-```
-
-Inspect a local video project and the built-in editing workflows:
-
-```sh
-atet projects list --json
-atet project inspect <project-id> --json
-atet workflows show talking-head-cleanup --json
 atet workflows show social-variants --json
 ```
 
-Run `atet help ai`, `atet help project`, or `atet help workflows` for the full
-current command grammar. The Agent Skill contains the decision rules an agent
-needs to turn a plain-language brief into those exact commands.
+## How Atet works
 
-For a connected MCP server, run
-`atet mcp --root /absolute/path/to/workspace`. The server limits file access to
-that workspace and exposes a fixed set of typed Atet operations rather than
-executing arbitrary commands supplied through MCP.
+Keep the source that owns each creative decision. A native scene owns a rig or
+simulation; a portable scene owns supported geometry, cameras, and media surfaces;
+a diagram owns its objects and labels; a video project owns cuts and delivery.
+ATET connects these through explicit assets and rendered derivatives.
+
+1. **Prepare the sources.** Import footage and assets or author a scene, diagram,
+   or native program. Inspect available tools before choosing an engine.
+2. **Direct the result.** Name cameras, shots, timing, composition, and output
+   settings. Generate missing media only when the job calls for it.
+3. **Review a render.** Inspect contact frames, motion, captions, sound, and
+   continuity. Preserve candidates and select the approved result.
+4. **Deliver and revise.** Export the required formats and retain source paths,
+   project decisions, and operation receipts for the next change.
+
+### Instructions for coding agents
+
+Read local project instructions and inspect sources before changing them. Use
+`atet --help`, `atet doctor --json`, `atet operations list --json`, and the
+installed skill to discover the exact local surface. Agree on material output
+requirements, preview substantial changes, inspect the resulting files, and
+report their paths. Do not infer provider access, native trust, or model quality
+from a successful plan.
+
+[Run agent workflows](docs/how-to/run-workflows.md) covers reusable recipes,
+declarative graphs, approvals, and resuming work.
+
+## Important limitations
+
+- **Runtime support varies.** The CLI uses Bun on macOS, Linux, and Windows;
+  capture is macOS-specific. Media, browser, GPU, and native studio profiles
+  have additional requirements. Use the capability reference and `atet doctor`.
+- **Interchange preserves a supported subset.** Native rigs and simulations do
+  not become editable Three scenes by exporting a GLB. An image or video on a
+  plane supplies pixels, not hidden geometry. Calibrated camera exchange does
+  not match lighting, depth of field, or color treatment automatically.
+- **Generated media requires review.** Models may change subject identity,
+  motion, or text. Saved AI worlds are appearance assets, not validated robotics
+  or reinforcement-learning environments.
+- **Trusted code is not sandboxed.** Native Python and caller-authored Bun
+  workflows run with the current user's access. Hashes and receipts identify
+  observed inputs and outputs; they do not make arbitrary code hermetic.
+- **MCP is a subset.** Its fixed tools check and render diagrams, vectorize
+  images, and generate images. It does not expose every local CLI operation.
 
 ## Design and trust
 
-- **No Atet account:** there is no hosted project database, login, or
-  subscription.
-- **Local project authority:** source media, project state, diagrams,
-  vectorization, deterministic rendering, previews, and outputs stay on the
-  computer running Atet.
-- **Caller-owned AI access:** model-backed work uses `AI_GATEWAY_API_KEY` or a
-  short-lived `VERCEL_OIDC_TOKEN` from the current process. Atet does not store
-  or print either credential.
-- **Non-destructive editing:** cuts, timing, framing, overlays, and effects are
-  recorded as project decisions rather than applied to the original media.
-- **Preview and final agree:** both use the same timeline and composition.
-- **Bounded work:** Atet checks paths, media types, decoded dimensions, byte
-  limits, process duration, and expensive concurrent operations.
-- **Inspectable history:** important media and model operations retain
-  secret-free receipts that identify their inputs and implementation.
+There is no Atet account, hosted project database, or browser generation service.
+Ordinary editing and rendering remain local. Gateway generation and selected
+cloud analysis use credentials from the local process and request explicit
+acknowledgement before uploading named media. This website never accepts a
+Gateway credential. Native Python requires separate authorization. Custom Bun
+workflow modules execute when loaded, including during check and plan; review
+their source first. Both have the current user's access, including potential
+network access, outside the normal media-operation boundary.
 
-Read [the architecture guide](docs/architecture.md) for project revisions,
-rendering, caching, workflow execution, and network boundaries. See
-[SECURITY.md](SECURITY.md) for reporting and supported-version policy and
-[NOTICE.md](NOTICE.md) for tldraw Offline, VTracer, rendering, and model
-integration terms.
+Original media remains unchanged by normal edit operations. Projects retain
+explicit revisions, and important operations record their inputs and outputs.
+Native tools, providers, codecs, and GPU drivers can affect results, so retained
+source identity alone does not promise identical pixels on another machine.
+
+See [Architecture](docs/architecture.md), [`SECURITY.md`](SECURITY.md),
+[`DISCLOSURE`](DISCLOSURE), and [`NOTICE`](NOTICE) for the detailed boundaries.
+
+## Documentation
+
+- **Learn:** [Your first diagram](docs/tutorials/first-diagram.md) · [Your first native film](docs/tutorials/first-native-film.md).
+- **Make a result:** [Edit video](docs/how-to/edit-video.md) · [Generate media](docs/how-to/generate-media.md) · [Run workflows](docs/how-to/run-workflows.md) · [Educational video](docs/how-to/educational-video.md).
+- **Look up support:** [Capabilities and release availability](docs/reference/capabilities.md) · [SDK entrypoints](docs/reference/sdk.md) · [Creative tools](docs/html-overlay-creative-toolkit.md).
+- **Understand the system:** [Architecture](docs/architecture.md) · [Native studio](docs/studio.md) · [Directed scenes](docs/spatial-scenes.md).
+
+The [documentation index](docs/README.md) connects these paths.
 
 ## For software integrations
 
-Add the package to a Bun project:
+Add the published package to a Bun project:
 
 ```sh
 bun add https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz
 ```
 
-SDK imports do not start the CLI or inspect local project state:
+SDK imports do not start the CLI or inspect local project state. For example,
+convert an existing local image into an SVG:
 
 ```ts
 import { vectorizeImage } from "@hraness/atet"
 
-const result = await vectorizeImage("logo.png", {
-  outputPath: "logo.svg",
-})
-
+const result = await vectorizeImage("logo.png", { outputPath: "logo.svg" })
 console.log(result.receipt.sourceSha256, result.receipt.svgSha256)
 ```
 
 Use `@hraness/atet/code` for declarative workflow graphs,
-`@hraness/atet/workflow` for trusted Bun workflows imported by the caller, and
-`@hraness/atet/local/*` for the local media engine. Atet exposes a fixed set of
-typed operations. It does not let a remote caller register and execute
-arbitrary code through the operation registry.
+`@hraness/atet/workflow` for trusted Bun workflows, and `@hraness/atet/local/*`
+for the local media engine. See the [SDK reference](docs/reference/sdk.md) for
+entrypoint scope and execution effects.
 
 ## Why the name Atet
 
@@ -461,17 +301,6 @@ in the watery mass of Nun. A pyramid mound called Benben emerged. When the
 lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the
 underworld on the solar barque Atet.
 
-## Repository map
-
-- `src/`: portable SDK, CLI adapters, operations, MCP, and workflows.
-- `apps/desktop/`: local media engine, CLI host, desktop app, and native
-  capture helpers.
-- `schema/` and `examples/`: diagram schema and runnable examples.
-- `skills/atet/`: the packaged Agent Skill and its focused references.
-- `docs/architecture.md`: the maintained technical overview.
-- `docs/html-overlay-creative-toolkit.md`: the dated creative-coding ecosystem,
-  supported-profile taxonomy, and runtime admission gates.
-
 ## Verification
 
 ```sh
@@ -479,24 +308,18 @@ bun install --frozen-lockfile --ignore-scripts
 bun run check
 ```
 
-The full check verifies the standalone public boundary, SDK, local runtime,
-schema, Agent Skill, generated entrypoints, static site, deterministic tests,
-property tests, and a clean packed consumer.
-
-The package check imports every public surface with Bun and the compiled public
-subset with Node in controlled clean consumers. It blocks common Bun and Node
-filesystem-write, network, worker, and subprocess entry points, runs Node with
-filesystem writes, child processes, and workers denied by its permission
-model, and compares the controlled consumer tree before and after import. This
-proves the checked import-time boundary through those hooks. It is not an
-operating-system sandbox, and calling an exported operation can perform the
-documented local or Gateway work.
+The required check covers public SDK boundaries, the local runtime, schemas,
+Agent Skill, generated entrypoints, static site, deterministic and property
+tests, and packed consumers. Native and provider-dependent profiles require
+their corresponding external qualification; a local unit-test pass does not
+establish them. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the complete gates.
 
 ## Contributing
 
-To report an issue or send a focused pull request, follow
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the nearest `AGENTS.md` before
+changing a package or runtime boundary. Report vulnerabilities through
+[`SECURITY.md`](SECURITY.md).
 
 ## License
 
-MIT.
+[MIT](LICENSE), with third-party notices in [`NOTICE`](NOTICE).

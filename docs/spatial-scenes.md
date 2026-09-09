@@ -6,7 +6,7 @@ The Three.js renderer supports bounded offline rendering, explicit hardware acce
 
 ## Render an editable scene
 
-Use a CLI built from this checkout until the scene commands appear in a published release. Check `atet scene --help` and `atet doctor` first. Source inspection and edits need Bun; rendering also needs the admitted local Chrome runtime, and video decoding or encoding needs FFmpeg and FFprobe.
+The v3.2.3 release includes the core scene, hardware-rendering and saved-world commands. Camera-track and native studio bridges require current source; see [capability support](reference/capabilities.md). Check `atet scene --help` and `atet doctor` first. Source inspection and edits need Bun; rendering also needs the admitted local Chrome runtime, and video decoding or encoding needs FFmpeg and FFprobe.
 
 ```sh
 atet scene init product.scene.json --json
@@ -62,7 +62,7 @@ The video profile uses lossless qtrle with straight alpha. Final project deliver
 atet scene render product.scene.json --request frame.json --profile three-webgl2-hardware-v1 --json
 ```
 
-The initial hardware profile requires macOS, WebGL2 through ANGLE Metal, and matching observations from the active graphics context and browser. It rejects software or unknown fallback. The receipt records the actual device, operating system, browser and graphics capabilities. This uses hardware for scene rasterization; it does not select a hardware video encoder or promise identical regenerated pixels across graphics drivers. Three WebGPU/TSL, the vgpu bridge and shared GPU resources, and stateful GPU effects remain deferred.
+The initial hardware profile requires macOS, WebGL2 through ANGLE Metal, and matching observations from the active graphics context and browser. It rejects software or unknown fallback. The receipt records the actual device, operating system, browser and graphics capabilities. This uses hardware for scene rasterization; it does not select a hardware video encoder or promise identical regenerated pixels across graphics drivers. Three WebGPU/TSL, shared live GPU resources between Three and vgpu, and stateful GPU effects remain deferred. Explicit rendered-image/video derivatives can already cross those authoring boundaries; see [native and spatial asset interchange](studio.md#share-assets-across-renderers).
 
 The same profile works on `scene plan` and `scene project prepare-render`. Alternatively put `executionProfile` in the render request, or inside a project preparation request's `profile`. A CLI selection must agree with an existing request field. When the field and option are both absent, the historical software contract is preserved.
 

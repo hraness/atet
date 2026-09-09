@@ -25,6 +25,7 @@
     "scripts/site-contract.ts",
     "scripts/site-contract.test.ts",
     "scripts/site-template.test.ts",
+    "scripts/site-copy-content.test.ts",
     "scripts/site-install.test.ts",
     "src/copy-command.ts",
     "src/copy-command.test.ts",

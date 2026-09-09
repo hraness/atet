@@ -58,8 +58,8 @@ function renderSitemapUrl(
 
 export function renderSitemapXml(): string {
   const entries = [
-    renderSitemapUrl("/", "2026-09-01", "1.0"),
-    renderSitemapUrl("/index.md", "2026-09-01", "0.8"),
+    renderSitemapUrl("/", "2026-09-09", "1.0"),
+    renderSitemapUrl("/index.md", "2026-09-09", "0.8"),
   ]
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

@@ -2,6 +2,8 @@
 
 Research snapshot: 2026-09-01
 
+This page explains profile selection and records the executable browser locks. Use [workflows](how-to/run-workflows.md) to render a composition and [capability support](reference/capabilities.md) to check the installed host. The separate [native vgpu example](../examples/studio/vgpu/README.md) uses Node/Dawn and its own vgpu 0.4.1 environment; it is not an upgrade to the browser profile or a registered native studio engine.
+
 Atet supports seven HTML-overlay profiles. Each profile owns one primary
 authoring job, while the render host keeps one absolute clock, one declared
 asset boundary, and one offline browser execution model. This division gives

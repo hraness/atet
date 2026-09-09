@@ -17,8 +17,7 @@ Before editing, identify:
 - the final aspect ratios and clean or captioned versions.
 
 Ask only when a missing choice would materially change the edit. Do not invent
-brand assets, remove content merely to make the video shorter, or select a
-creative alternative on the user's behalf.
+brand assets, remove content merely to make the video shorter, or select a creative alternative outside the user’s supplied criteria.
 
 ## Inspect the host and project
 
@@ -35,6 +34,8 @@ Use `atet inspect <recording> --json` for a recording bundle and
 `atet project inspect <project> --json` for a project. Read IDs, streams,
 placements, synchronization, analyses, and current edit state from those
 results. Never guess them.
+
+Check the bootstrap before promising a file-only edit. There is no public empty-project or arbitrary-media project creator: `projects create` requires a real stopped ATET recording, and `project add` / SDK `media.ingest` require an existing project. Current-source `studio assemble` creates one from a real successful native sequence; `direct assemble` uses accepted generated takes. Neither is a generic file import. Do not fabricate recording manifests or receipts, run paid generation to obtain an empty project, or hand-edit private state. If the request permits, use a standalone spatial scene for visuals and disclose any separate local audio/editor step; otherwise report the missing project bootstrap precisely.
 
 If the work begins with a new Atet recording, create the project from that
 recording, then add any independent footage or audio:
@@ -78,16 +79,20 @@ Run `atet help project` for the current grammar. The project editor supports:
 - camera push, reframe, arbitrary camera paths, and local face-follow framing;
 - screen zooms tied to a rectangle, point, cursor, window, or focused input;
 - cursor, click, keystroke, and typed-text presentation;
-- image, SVG, GIF, video, emoji, HTML, Canvas 2D, GPU 2D, WGSL/WebGPU, and Three.js overlays;
-- local audio denoise, compression, volume, delay, and reverb;
-- clean, warm, cool, cinematic, vivid, flat, mono, or manual color treatment;
-  and
+- direct image, SVG, GIF, video and emoji overlays;
+- captions and interaction metadata; and
 - captions, clean outputs, and captioned outputs.
 
 Preserve the original recording and imported media. Apply changes to the
 project or its editable scene source, then inspect the resulting project hash.
 When an edit depends on evidence, use the evidence identifier returned by its
 analysis rather than recomputing or approximating it.
+
+Direct `project edit` does not accept HTML or arbitrary audio/color filters. Render HTML/Canvas/Three/WGSL through the local workflow `media.htmlOverlay` operation, then use its returned video as a project layer. `media audio` and `media color` produce separate controlled derivatives.
+
+Overlay `--position x,y` is an offset from its selected anchor. Use `--anchor center --position 0,0` to center a layer, or `--anchor top-left --position 42,70` for an actual top-left pixel position. A full-frame overlay uses top-left at `0,0`. Do not add half the canvas dimensions to center offsets.
+
+For independently authored media, explicit `project add --at` timing may be appropriate. Rendering with `--allow-unverified-sync` acknowledges provisional synchronization; it does not turn authored times into measured alignment. Finish ordinary edits before V2 spatial migration, because ordinary editing rejects the migrated head.
 
 ## Choose one HTML authoring surface
 
@@ -145,6 +150,8 @@ Inspect the exact input schema with
 - `creative-selection` records an explicit human or task selection, promotes
   it when requested, and materializes named deliveries.
 
+Read [workflows and SDK](workflows-sdk.md) for custom Bun authoring, exact plan approval and durable recovery. The seventh built-in, `directed-scene`, consumes prepared V2 scene render inputs.
+
 Plan a workflow before running it. Do not choose or promote a creative
 candidate unless the user has selected it or the request supplies a
 deterministic selection rule.
@@ -159,7 +166,9 @@ For substantial edits:
 4. inspect picture, sound, captions, transitions, framing, and the first and
    last frames;
 5. revise the project, not the preview file; and
-6. render final outputs from the approved project state.
+6. render final outputs from the selected project state.
+
+Ordinary project render `--output` paths are relative to that project’s directory. Under the default workspace, `--output renders/final.mp4` means `artifacts/atet/projects/<project-id>/renders/final.mp4`. Resolve returned relative receipt paths against that project, not the shell directory.
 
 Preview and final use the same timeline and composition. A preview is evidence
 about the final edit, but still check the final file's duration, dimensions,

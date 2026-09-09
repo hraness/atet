@@ -1,11 +1,13 @@
 # Atet web
 
 `atet.sh` is the static public site and documentation for Atet. It
-presents the SDK, Bun CLI, local runtime, and desktop capture shell without
+presents the agent-directed visual studio, SDK, Bun CLI, local runtime, and desktop capture shell without
 adding a server, account surface, API route, remote font, or browser credential path.
 Agents can read `/llms.txt` and request `Accept: text/markdown` on the homepage.
 Generation runs from the local Atet SDK or CLI with the operator's Vercel AI
-Gateway access.
+Gateway access. `/docs` and legacy documentation paths redirect to the repository's
+canonical documentation index. The landing page distinguishes the published release
+from source-build studio and directing commands.
 
 ```sh
 bun run check

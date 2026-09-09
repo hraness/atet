@@ -1,5 +1,7 @@
 # Direct short generated clips
 
+The `direct` commands require [current source](how-to/use-current-source.md); they are absent from the v3.2.3 archive. For one generated artifact, use [Gateway media generation](how-to/generate-media.md).
+
 Use `atet direct` to turn a shot recipe into reviewed video takes and an editable media project. Each shot names its prompt, model, duration, and output settings. A later shot can use the accepted predecessor's final decoded frame as its opening image. Atet retains the requests, media, review decisions, dependency identities, and estimated spending across revisions.
 
 The workflow combines authored scene frames with ordinary Vercel AI Gateway video generation. Its continuity comes from images and explicit prompts. A single endpoint image doesn't preserve a model's neural checkpoint, motion history, hidden surfaces, or complete world state. Inspect joins for changes in motion, geometry, lighting, and identity before accepting a continuation.

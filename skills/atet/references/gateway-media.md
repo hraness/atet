@@ -14,9 +14,7 @@ Clarify what the generated media needs to do in the final project:
 - the delivery aspect ratio and duration when relevant; and
 - the details that must remain recognizable or unchanged.
 
-Do not turn a short brief into an embellished art direction. Preserve the
-user's subject, constraints, wording, and omissions. If the user asks for
-alternatives, vary only the dimensions they leave open.
+Preserve the user’s subject, supplied copy, identity constraints and requested omissions. A literal generation request keeps its literal prompt; a creative brief can require authored scene details. Vary only the dimensions the request leaves open.
 
 ## Discover a current model
 
@@ -88,9 +86,7 @@ provider options when the selected model reports those capabilities.
 ## Treat local upload as a separate decision
 
 Atet never uploads local reference media or transcription audio implicitly.
-Use `--allow-cloud-upload` only after confirming that every local image or
-video named by the command may be sent to Gateway and the model provider. Use
-`--allow-cloud-audio-upload` only after the same check for transcription.
+Use `--allow-cloud-upload` only when the task authorizes sending each named local reference to Gateway and the model provider. Use `--allow-cloud-audio-upload` for authorized transcription audio. Reuse explicit authorization already given; ask only when the selected upload or spending scope is missing.
 
 A public HTTPS reference may still be sensitive because its URL is visible in
 shell and process history. Do not use signed, private, local-network, or
@@ -111,7 +107,7 @@ speech normally enters as dialogue.
 
 Never automatically retry an interrupted or failed paid generation. Atet uses
 zero client retries because an ambiguous request may still have been charged.
-Report the failure receipt and ask before issuing a new command.
+Report the failure receipt and reconcile the exact attempt. A deliberate new paid command needs authority within the user’s budget; do not infer that an ambiguous failure was free.
 
 ## Finish the task
 
@@ -122,6 +118,12 @@ Report:
 - each useful generated output and receipt path;
 - the project import command or imported placement when applicable; and
 - what you inspected before accepting the result.
+
+## Directing and the portable image command
+
+Use [directing video](directing-video.md) for budgeted takes, accepted predecessor frames and local recovery. URL-only models can use its explicit private Blob path; do not paste short-lived signed URLs into CLI arguments or project files. Blob charges and authority are separate from Gateway.
+
+The small portable `atet image generate '<prompt>' --output image.webp` command defaults to `recraft/recraft-v4.1-utility` and admits PNG/JPEG/WebP output. It is distinct from the local `ai` catalog workflow. Preserve literal prompts when requested, keep its output inside the intended workspace and never automatically retry a failed paid call.
 
 ## Style recipes
 

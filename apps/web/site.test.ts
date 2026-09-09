@@ -41,7 +41,7 @@ import { replaceSiteSlot } from "./src/site-template"
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
 const brandDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
-const searchDescription = "Atet gives coding agents tools to generate images, video, and voice, edit real footage, add motion graphics and captions, and export finished videos."
+const searchDescription = "Atet is a local visual studio for coding agents. Author scenes, combine generated and recorded media, and export images, diagrams, animation, and video from retained sources."
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
 // Each build compiles the independent ordinary-site and preview graphs. These
@@ -173,6 +173,40 @@ test("authored shell budget rejects content growth and unapproved slot discounts
   }
 })
 
+test("ships agent instructions for video editing and Gateway media generation", async () => {
+  const [skill, video, gateway] = await Promise.all([
+    readFile(join(repositoryDirectory, "skills/atet/SKILL.md"), "utf8"),
+    readFile(join(repositoryDirectory, "skills/atet/references/video-projects.md"), "utf8"),
+    readFile(join(repositoryDirectory, "skills/atet/references/gateway-media.md"), "utf8"),
+  ])
+
+  expect(skill).toContain("# Create visual media with Atet")
+  expect(skill).toContain("[Video projects](references/video-projects.md)")
+  expect(skill).toContain("[Gateway media](references/gateway-media.md)")
+  expect(skill).toContain("Record, clean up, caption, frame or deliver video")
+
+  for (const capability of [
+    "talking-head-cleanup",
+    "polished-screen-demo",
+    "social-variants",
+    "creative-iteration",
+    "Preview and final use the same timeline and composition",
+  ]) {
+    expect(video).toContain(capability)
+  }
+
+  for (const command of [
+    "atet ai models list --type image",
+    "atet ai video generate",
+    "atet ai speech generate",
+    "atet ai transcribe",
+    "--allow-cloud-upload",
+    "--allow-cloud-audio-upload",
+  ]) {
+    expect(gateway).toContain(command)
+  }
+})
+
 describe("compilation fixture ownership (controlled promises, no compiler)", () => {
   test("collection before dispatch prevents any work from starting", async () => {
     let dispatched = false
@@ -283,7 +317,7 @@ describe("static Atet site", () => {
     expect(html).toContain(`"softwareVersion": "${publishedRelease.version}"`)
     expect(html).toContain(`"version": "${publishedRelease.version}"`)
     expect(html).toContain(`Free and open source under the MIT license · v${publishedRelease.version}`)
-    expect(html).toContain(`<small>Atet v${publishedRelease.version}</small>`)
+    expect(html).toContain(`<strong>Release availability:</strong> v${publishedRelease.version}`)
     expect(html).toContain(`bun add --global ${publishedArchiveUrl}`)
     expect(homeMarkdown).toContain(`Version ${publishedRelease.version}.`)
     expect(homeMarkdown).toContain(`bun add --global ${publishedArchiveUrl}`)
@@ -370,11 +404,11 @@ describe("static Atet site", () => {
     for (const heading of [
       "## Why Atet",
       "## Install Atet",
-      "## Start with a finished job",
+      "## Make your first diagram",
       "### Instructions for coding agents",
       "## What Atet does",
-      "## Important limitations",
       "## How Atet works",
+      "## Important limitations",
       "## Design and trust",
       "## Verification",
       "## Contributing",
@@ -385,10 +419,10 @@ describe("static Atet site", () => {
     const readerPath = [
       "## Why Atet",
       "## Install Atet",
-      "## Start with a finished job",
+      "## Make your first diagram",
       "## What Atet does",
-      "## Important limitations",
       "## How Atet works",
+      "## Important limitations",
       "## Design and trust",
       "## Verification",
       "## Contributing",
@@ -403,8 +437,8 @@ describe("static Atet site", () => {
       "Agent Skill",
       "MCP server",
       "Vercel AI Gateway",
-      "AI media generation and video editing for coding agents",
-      "screen recordings and imported footage",
+      "local visual studio for coding agents",
+      "record a screen, camera, microphone, and system audio",
       "image, video, speech, and transcription models",
       "clean and captioned versions",
     ]) {
@@ -418,51 +452,17 @@ describe("static Atet site", () => {
     expect(readme).toContain(`bun add ${publishedArchiveUrl}`)
     expect(readme).toContain("atet skill install --target claude")
     expect(readme).toContain("atet operations list --json")
-    expect(readme).toContain("atet ai video generate")
+    expect(readme).toContain("docs/how-to/generate-media.md")
     expect(readme).toContain("atet workflows show social-variants --json")
     expect(readme).toContain("[`CONTRIBUTING.md`](CONTRIBUTING.md)")
     expect(readme).not.toMatch(/checked step|checked path|bounded capability|delivery variant/i)
     expect(readme).not.toContain("https://atet.sh/docs")
   })
 
-  test("ships agent instructions for video editing and Gateway media generation", async () => {
-    const [skill, video, gateway] = await Promise.all([
-      readFile(join(repositoryDirectory, "skills/atet/SKILL.md"), "utf8"),
-      readFile(join(repositoryDirectory, "skills/atet/references/video-projects.md"), "utf8"),
-      readFile(join(repositoryDirectory, "skills/atet/references/gateway-media.md"), "utf8"),
-    ])
-
-    expect(skill).toContain("# Make and edit visual media with Atet")
-    expect(skill).toContain("[video-projects.md](references/video-projects.md)")
-    expect(skill).toContain("[gateway-media.md](references/gateway-media.md)")
-    expect(skill).toContain("social video variants")
-
-    for (const capability of [
-      "talking-head-cleanup",
-      "polished-screen-demo",
-      "social-variants",
-      "creative-iteration",
-      "Preview and final use the same timeline and composition",
-    ]) {
-      expect(video).toContain(capability)
-    }
-
-    for (const command of [
-      "atet ai models list --type image",
-      "atet ai video generate",
-      "atet ai speech generate",
-      "atet ai transcribe",
-      "--allow-cloud-upload",
-      "--allow-cloud-audio-upload",
-    ]) {
-      expect(gateway).toContain(command)
-    }
-  })
-
   test("publishes one canonical Atet identity across discovery metadata", async () => {
     const html = await readSource("index.html")
 
-    expect(html).toContain("<title>Atet: AI media generation and video editing for coding agents</title>")
+    expect(html).toContain("<title>Atet: a visual studio for coding agents</title>")
     expect(html).toContain(`<meta name="description" content="${searchDescription}">`)
     expect(html).toContain(`<meta property="og:description" content="${searchDescription}">`)
     expect(html).toContain(`<meta name="twitter:description" content="${searchDescription}">`)
@@ -477,7 +477,7 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta property="og:image:height" content="630">')
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image">')
     expect(html).toContain('<meta name="twitter:image" content="https://atet.sh/og.png">')
-    expect(html).toContain('<meta name="twitter:image:alt" content="Atet, AI media generation and video editing for coding agents, beside an abstract solar disk and barque path">')
+    expect(html).toContain('<meta name="twitter:image:alt" content="Atet, a visual studio for coding agents, beside an abstract solar disk and barque path">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
     expect(html).toContain('<a class="{{INSTALL_PANEL_LINK_CLASS}}" href="{{PUBLISHED_RELEASE_URL}}">immutable Atet release</a>')
@@ -756,11 +756,11 @@ describe("static Atet site", () => {
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
     expect(installStart).toBeGreaterThan(0)
     expect(installEnd).toBeGreaterThan(installStart)
-    expect(html).toContain("Make and edit visual media with your coding agent.")
+    expect(html).toContain("Direct scenes and films with your coding agent")
     expect(searchableHtml).toContain("generate images, video, and voice")
-    expect(searchableHtml).toContain("edit screen recordings and imported footage")
+    expect(searchableHtml.toLowerCase()).toContain("edit screen recordings and imported footage")
     expect(searchableHtml).toContain("add captions, graphics, and motion")
-    expect(searchableHtml).toContain("export finished videos")
+    expect(searchableHtml).toContain("Export finished videos")
     expect(searchableHtml).toContain("Source media stays unchanged")
     expect(searchableHtml).toContain("Preview and final renders use the same timeline and composition")
     expect(html).toContain("Install the Atet Agent Skill")
@@ -824,7 +824,7 @@ describe("static Atet site", () => {
     expect([...navigation.matchAll(/href="([^"]+)"/gu)].map(match => match[1])).toEqual([
       "#examples",
       "#workflow",
-      "#interfaces",
+      "/docs",
       "https://github.com/hraness/atet",
       "#install",
     ])
@@ -846,7 +846,7 @@ describe("static Atet site", () => {
     expect(html).not.toContain("Diátaxis")
   })
 
-  test("shows exact equivalent interfaces without inventing a hosted surface", async () => {
+  test("states the MCP subset alongside the broader local interfaces", async () => {
     const html = await readBuilt("index.html")
 
     for (const example of [
@@ -857,7 +857,9 @@ describe("static Atet site", () => {
     ]) {
       expect(html).toContain(example)
     }
-    expect(html).toContain("The same local system meets four kinds of caller.")
+    expect(html).toContain("Choose how your agent works.")
+    expect(html).toContain("It does not expose every CLI command.")
+    expect(html).not.toContain("Each one reaches the same project and the same operations.")
     expect(html).not.toMatch(/hosted (?:project|generation|media) (?:service|surface)/iu)
   })
 
@@ -865,8 +867,8 @@ describe("static Atet site", () => {
     const html = await readSource("index.html")
 
     for (const claim of [
-      "record my screen, camera, microphone, and system audio",
-      "three opening-shot ideas from <code>product.png</code>",
+      "create a product reveal with a moving camera",
+      "build a shaded street with an original presenter",
       "generate a calm voiceover from <code>script.txt</code>",
       "clean and captioned versions in 16:9, 9:16, 1:1, and 4:5",
       "services in this repository into an editable diagram",
@@ -883,11 +885,11 @@ describe("static Atet site", () => {
   test("presents one complete creative workflow in order", async () => {
     const html = await readSource("index.html")
     const stages = [
-      ">Bring in what you have<",
-      ">Generate what is missing<",
-      ">Shape the edit<",
+      ">Prepare the sources<",
+      ">Direct the result<",
+      ">Compose the film<",
       ">Review before final<",
-      ">Deliver every version<",
+      ">Deliver and revise<",
     ]
     const positions = stages.map(stage => html.indexOf(stage))
 
@@ -902,11 +904,11 @@ describe("static Atet site", () => {
     for (const claim of ["Source", "Project", "Operations", "Outputs"]) {
       expect(html).toContain(claim)
     }
-    expect(html).toContain("A local project your agent can understand.")
+    expect(html).toContain("Retain the sources behind the result.")
     expect(searchableHtml).toContain("your Vercel AI Gateway credential")
     expect(searchableHtml).toContain("There is no Atet account or hosted project database")
     expect(searchableHtml).toContain("uploads local media only after explicit acknowledgement")
-    expect(searchableHtml.toLowerCase()).not.toContain("operating-system sandbox")
+    expect(searchableHtml).toContain("without an operating-system sandbox")
     expect(html).not.toMatch(/<form|type="password"|\/api\//)
   })
 
@@ -997,7 +999,7 @@ describe("static Atet site", () => {
     expect(css).toContain(".transcript")
     expect(css).toContain(".origin-note")
     expect(css).not.toMatch(/@font-face|url\([^)]*\.woff/)
-    expect(html).toContain('<h1 class="hraness-marketing-hero__heading" id="page-title">Make and edit video with your coding agent</h1>')
+    expect(html).toContain('<h1 class="hraness-marketing-hero__heading" id="page-title">Direct scenes and films with your coding agent</h1>')
     expect(html).toContain('data-hraness-marketing="proof-frame"')
     expect(html).toContain("Built by Ben Guo")
     expect(html).not.toContain('class="hraness-marketing-hero__eyebrow"')
@@ -1037,14 +1039,14 @@ describe("static Atet site", () => {
 
     expect(generatedSocial).toEqual(social)
     expect(new Bun.CryptoHasher("sha256").update(social).digest("hex")).toBe(
-      "d040e1483849836e42ef4209a12cff0e84a9933af947f18bd143381a496d8da5",
+      "cef166a0abb2fb7e92b0416d614c5d20db9a71917e2baec63228bef10aefe8ab",
     )
     expect(Array.from(social.slice(1, 4))).toEqual([80, 78, 71])
     expect(socialView.getUint32(16)).toBe(1200)
     expect(socialView.getUint32(20)).toBe(630)
-    expect(socialSource).toContain("Make and edit")
-    expect(socialSource).toContain("visual media")
-    expect(socialSource).toContain("with your agent.")
+    expect(socialSource).toContain("Direct scenes and films")
+    expect(socialSource).toContain("Scenes · films · motion graphics · diagrams")
+    expect(socialSource).toContain("with your coding agent.")
     expect(socialSource).toContain('href="og-serif-hero.png"')
     expect(socialSource.match(/font-family="Nebula Sans"/gu)).toHaveLength(4)
     expect(socialSource).not.toMatch(/system-ui|-apple-system|sans-serif/u)
@@ -1422,7 +1424,7 @@ describe("static Atet site", () => {
     expect(sitemap).not.toContain("xmlns:image")
     expect(sitemap).toBe(renderSitemapXml())
     expect(llmsTxt).toMatch(/^# Atet\n/u)
-    expect(llmsTxt).toContain("> Atet gives coding agents tools")
+    expect(llmsTxt).toContain("> Atet is a local visual studio for coding agents.")
     expect(llmsTxt).toContain("## When to use Atet")
     expect(llmsTxt).toContain("https://atet.sh/index.md")
     expect(sitemapMarkdown).toMatch(/^# Sitemap\n/u)
@@ -1435,7 +1437,7 @@ describe("static Atet site", () => {
     expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
   })
 
-  test("redirects the retired docs route and each reviewed predecessor host", async () => {
+  test("routes documentation to its canonical index and preserves reviewed predecessor hosts", async () => {
     const vercel = JSON.parse(
       await readFile(join(appDirectory, "vercel.json"), "utf8"),
     ) as {
@@ -1464,8 +1466,8 @@ describe("static Atet site", () => {
       }))
 
     expect(routeRedirects).toEqual([
-      { source: "/docs", destination: "/", permanent: true },
-      { source: "/docs/:path*", destination: "/", permanent: true },
+      { source: "/docs", destination: "https://github.com/hraness/atet/blob/main/docs/README.md", permanent: true },
+      { source: "/docs/:path*", destination: "https://github.com/hraness/atet/blob/main/docs/README.md", permanent: true },
     ])
     expect(hostRedirects).toEqual([
       { source: "/", host: { type: "host", value: "transmute.rocks" }, destination: "https://atet.sh/", permanent: true },

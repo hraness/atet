@@ -4,6 +4,8 @@ ATET lets an agent retain a production scene, direct a native renderer, inspect 
 
 Native authoring preserves the engine's control. A Blender source can use armatures, skinning, IK, shape keys, geometry nodes, materials, lights, cameras and simulation caches. A CadQuery program preserves dimensions and solid operations. A Manim scene preserves mathematical objects and timing. Portable meshes and finished videos are derivatives; retain the native source when later edits require it.
 
+The `studio` commands described here require [current source](how-to/use-current-source.md); they are absent from the v3.2.3 archive. Start with the [one-second native film tutorial](tutorials/first-native-film.md) for a bounded CPU shot, or use [educational animation with narration](how-to/educational-video.md) for Manim.
+
 ## Make the first shot
 
 Install a supported engine yourself, or use an existing installation. ATET does not silently install or upgrade native tools. The initial qualified versions are Blender 5.2.1 LTS, CadQuery 2.8.0 and Manim Community 0.21.0. Select the exact Blender executable or Python virtual environment for each invocation.
