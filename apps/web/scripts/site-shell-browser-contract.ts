@@ -251,6 +251,7 @@ const properties = ["display", "position", "box-sizing", "width", "height", "min
   "overflow-x", "overflow-y", "white-space", "overflow-wrap", "outline-style", "outline-width", "outline-color", "outline-offset",
   "backdrop-filter", "appearance", "cursor", "touch-action", "direction", "z-index", ...["top", "right", "bottom", "left"].flatMap(side =>
     [`margin-${side}`, `padding-${side}`, `border-${side}-width`, `border-${side}-style`, `border-${side}-color`])]
+export const shellPaintProperties: readonly string[] = Object.freeze([...properties])
 
 export async function measure(page: Page, selectors: readonly string[], extraProperties: readonly string[] = []): Promise<ShellElement[]> {
   return page.evaluate(({ selectors, properties }) => selectors.flatMap(selector => {

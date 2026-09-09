@@ -24,7 +24,7 @@ const install = stylex.create({
     gridTemplateColumns: { default: "minmax(0, 1fr) auto", [phone]: "minmax(0, 1fr)" },
   },
   code: {
-    backgroundColor: "transparent", backgroundImage: "none", backgroundPosition: "initial",
+    backgroundColor: "transparent", backgroundImage: "none", backgroundPosition: "0px 0px",
     backgroundSize: "auto auto", backgroundRepeat: "repeat", backgroundAttachment: "scroll",
     backgroundOrigin: "padding-box", backgroundClip: "border-box",
   },
@@ -52,13 +52,16 @@ const install = stylex.create({
     borderImageSource: "none", borderImageSlice: "100%", borderImageWidth: 1,
     borderImageOutset: 0, borderImageRepeat: "stretch",
     backgroundColor: { default: "transparent", ":hover": "color-mix(in srgb, var(--gold-bright) 14%, transparent)" },
-    backgroundImage: "none", backgroundPosition: "initial", backgroundSize: "auto auto", backgroundRepeat: "repeat",
+    // The original transparent shorthand is emitted as `background:0 0`;
+    // hover/copied color shorthands retain their initial percentage position.
+    backgroundImage: "none", backgroundPosition: { default: "0px 0px", ":hover": "initial" }, backgroundSize: "auto auto", backgroundRepeat: "repeat",
     backgroundAttachment: "scroll", backgroundOrigin: "padding-box", backgroundClip: "border-box",
     color: { default: "var(--night-muted)", ":hover": "var(--night-ink)" },
     cursor: "pointer", fontSize: "0.8rem", fontWeight: 500,
   },
   copied: {
     backgroundColor: { default: "color-mix(in srgb, var(--gold-bright) 14%, transparent)", ":hover": "color-mix(in srgb, var(--gold-bright) 14%, transparent)" },
+    backgroundPosition: { default: "initial", ":hover": "initial" },
     color: { default: "var(--night-ink)", ":hover": "var(--night-ink)" },
   },
   // Failed follows hover with equal specificity in the original cascade.

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test"
 import type { Page } from "playwright-core"
 import { assertCopyPorts, compareCopyEvidence, copyCaseFailure, copyElementKeys, copyNegativeControls, copyProperties, copySteps, measureCopy, parseCopyCaseFailure,
-  parseCopyPhase, siteCopyCases, siteCopyDeadlineMs, type CopyEvidence } from "./site-copy-browser-contract"
-import { parseShellPhase, parseShellRequest, siteInstallBaselineProfile, siteShellCases, siteShellDeadlineMs, type ShellRequest } from "./site-shell-browser-contract"
+  parseCopyPhase, settleCopyPaint, stableCopyPaint, siteCopyCases, siteCopyDeadlineMs, type CopyEvidence } from "./site-copy-browser-contract"
+import { compareShellElements, parseShellPhase, parseShellRequest, shellPaintProperties, siteInstallBaselineProfile, siteShellCases, siteShellDeadlineMs, type ShellRequest } from "./site-shell-browser-contract"
 import { normalizeInstallTransport } from "./site-install-dom"
 import { decodeWorkerJson, encodeWorkerJson } from "./preview-browser-protocol"
 
@@ -56,6 +56,163 @@ test("actual copy sampler passes every authored clipping, list and border-image 
   expect(properties.slice(-copyProperties.length)).toEqual(copyProperties)
   expect(properties).toContain("opacity"); expect(properties).toContain("outline-style")
   expect(properties).toContain("border-left-color"); expect(new Set(properties).size).toBe(properties.length)
+})
+
+function copyPaintFixture() {
+  const selectors = [...new Set(copyElementKeys.map(key => key.replace(/\[\d+\]$/u, "")))]
+  const counts = selectors.map(selector => copyElementKeys.filter(key => key.startsWith(`${selector}[`)).length)
+  const properties = [...shellPaintProperties, ...copyProperties]
+  let now = 0, sequence = 0, readCost = 0
+  const frames = new Map<number, () => void>(), timers = new Map<number, { at: number; callback: () => void }>()
+  const selected = new Map<string, NativeElement[]>(), reads: string[] = []
+  const view = {
+    scrollY: 0, performance: { now: () => now },
+    getComputedStyle: (owner: NativeElement) => {
+      reads.push(`${owner.key}:style`)
+      return { getPropertyValue: (property: string) => owner.styles[property] ?? "" }
+    },
+    requestAnimationFrame: (callback: () => void) => { frames.set(++sequence, callback); return sequence },
+    cancelAnimationFrame: (id: number) => { frames.delete(id) },
+    setTimeout: (callback: () => void, delay: number) => { timers.set(++sequence, { at: now + delay, callback }); return sequence },
+    clearTimeout: (id: number) => { timers.delete(id) },
+    get Element() { return NativeElement },
+  }
+  const document = { defaultView: view, documentElement: undefined as unknown as NativeElement,
+    activeElement: undefined as unknown as NativeElement,
+    querySelectorAll: (selector: string) => selected.get(selector) ?? [],
+    querySelector: (selector: string) => selected.get(selector)?.[0] ?? null }
+  class NativeElement {
+    ownerDocument = document
+    isConnected = true
+    parentElement: NativeElement | null = null
+    styles: Record<string, string> = Object.fromEntries(properties.map(property => [property, "unchanged"]))
+    attributes: Record<string, string> = {}
+    rect = [0, 0, 40, 20]
+    textContent = "exact text"
+    hover = false
+    animations: { playState: string; pending: boolean; playbackRate: number; effect: {
+      target: NativeElement; getComputedTiming(): { endTime: number; duration: number; iterations: number }
+    } }[] = []
+    constructor(readonly key: string) {}
+    getAttribute(key: string) { return this.attributes[key] ?? null }
+    matches(selector: string) { expect(selector).toBe(":hover"); return this.hover }
+    contains(owner: NativeElement): boolean { return owner === this || (owner.parentElement !== null && this.contains(owner.parentElement)) }
+    getBoundingClientRect() {
+      reads.push(`${this.key}:rect`); now += readCost
+      return { x: this.rect[0], y: this.rect[1], width: this.rect[2], height: this.rect[3] }
+    }
+    getAnimations(options?: { subtree: boolean }) {
+      reads.push(`${this.key}:animations`)
+      return options?.subtree ? owners.flatMap(owner => this.contains(owner) ? owner.animations : []) : this.animations
+    }
+  }
+  const owners = copyElementKeys.map(key => new NativeElement(key))
+  const root = owners[0]
+  if (!root) throw new Error("Missing fixture root")
+  const html = new NativeElement("html"), body = new NativeElement("body")
+  root.parentElement = body; body.parentElement = html
+  for (const owner of owners.slice(1)) owner.parentElement = root
+  for (const selector of selectors) selected.set(selector, owners.filter(owner => owner.key.startsWith(`${selector}[`)))
+  document.documentElement = html; document.activeElement = owners.find(owner => owner.key === "[data-copy-command-button][0]") ?? root
+  const options = { selectors, counts, properties, label: "copy paint fixture" }
+  return { owners, root, document, view, selected, reads, options,
+    start() { const result = settleCopyPaint(root as unknown as Element, options); void result.catch(() => {}); return result },
+    animation(index: number, pending = true) {
+      const owner = owners[index]
+      if (!owner) throw new Error("Missing fixture owner")
+      const animation = { playState: "running", pending, playbackRate: 1,
+        effect: { target: owner, getComputedTiming: () => ({ endTime: 0.01, duration: 0.01, iterations: 1 }) } }
+      owner.animations = [animation]; return animation
+    },
+    frame(at = now + 16) { now = at; const callbacks = [...frames.values()]; frames.clear(); for (const callback of callbacks) callback() },
+    advance(at: number) { now = at; for (const [id, timer] of [...timers]) if (timer.at <= at) { timers.delete(id); timer.callback() } },
+    setReadCost(value: number) { readCost = value },
+    get pending() { return [frames.size, timers.size] },
+  }
+}
+
+test("copy stability serializes the complete unchanged measurement inventory into the real native observer", async () => {
+  let captured: unknown, callback: unknown
+  const page = { evaluate: async () => {}, locator: (selector: string) => {
+    expect(selector).toBe("#install")
+    return { evaluate: async (fn: unknown, input: unknown) => { callback = fn; captured = input; return [] } }
+  } } as unknown as Page
+  await stableCopyPaint(page, "complete paint")
+  const fixture = copyPaintFixture()
+  expect(callback).toBe(settleCopyPaint)
+  expect(captured).toEqual({ ...fixture.options, label: "complete paint" })
+  const result = fixture.start(); fixture.frame(); expect(fixture.pending).toEqual([1, 1]); fixture.frame()
+  const elements = await result
+  expect(elements.map(element => element.key)).toEqual(copyElementKeys)
+  for (const element of elements) expect(Object.keys(element.styles)).toEqual([...shellPaintProperties, ...copyProperties])
+  expect(fixture.pending).toEqual([0, 0])
+  expect(fixture.reads.indexOf("#install[0]:animations")).toBeGreaterThan(fixture.reads.indexOf("[data-copy-command-status][0]:style"))
+})
+
+test("copy paint waits through parent-to-child transition chains and does not accept a fixed frame count", async () => {
+  for (const chainLength of [1, 2, 3, 12, 20]) {
+    const fixture = copyPaintFixture(), result = fixture.start()
+    for (let index = 0; index < chainLength; index++) {
+      fixture.owners.forEach(owner => { owner.animations = [] })
+      const animation = fixture.animation(index % fixture.owners.length)
+      fixture.frame(); expect(fixture.pending).toEqual([1, 1])
+      animation.pending = false
+      fixture.frame(); expect(fixture.pending).toEqual([1, 1])
+    }
+    fixture.owners.forEach(owner => { owner.animations = [] })
+    fixture.frame(); expect(fixture.pending).toEqual([1, 1]); fixture.frame()
+    expect(await result).toHaveLength(22); expect(fixture.pending).toEqual([0, 0])
+  }
+})
+
+test("stable wrong copy paint settles but still fails the original exact comparison", async () => {
+  const baseline = copyPaintFixture(), oldResult = baseline.start(); baseline.frame(); baseline.frame()
+  const old = await oldResult
+  for (const index of [0, 14, 20, 21]) {
+    const fixture = copyPaintFixture(), owner = fixture.owners[index]
+    if (!owner) throw new Error("Missing fixture owner")
+    owner.styles["font-size"] = "stable wrong"
+    const result = fixture.start(); fixture.frame(); fixture.frame()
+    const actual = await result
+    expect(() => compareShellElements(actual, old, "wrong copy paint")).toThrow()
+    expect(fixture.pending).toEqual([0, 0])
+  }
+})
+
+test("copy paint clears prior stability after any full-sample change", async () => {
+  const fixture = copyPaintFixture(), result = fixture.start(); fixture.frame()
+  const owner = fixture.owners[20]
+  if (!owner) throw new Error("Missing fixture child")
+  owner.styles["font-size"] = "child inherited change"
+  fixture.frame(); expect(fixture.pending).toEqual([1, 1]); fixture.frame()
+  expect((await result)[20]?.styles["font-size"]).toBe("child inherited change")
+})
+
+test("copy stability rejects identity, semantic, animation and invalid native-clock loss without leaking observers", async () => {
+  const mutations: ((fixture: ReturnType<typeof copyPaintFixture>) => void)[] = [
+    fixture => { fixture.selected.set(".copy-command__note > code", []) },
+    fixture => { fixture.root.isConnected = false },
+    fixture => { fixture.document.activeElement = fixture.root },
+    fixture => { fixture.document.documentElement.attributes["data-theme"] = "foreign" },
+    fixture => { fixture.root.textContent = "changed semantics" },
+    fixture => { fixture.root.hover = true },
+    fixture => { fixture.root.rect[0] = Infinity },
+    fixture => { fixture.animation(20).playState = "paused" },
+    fixture => { fixture.animation(20).playbackRate = 0 },
+    fixture => { fixture.animation(20).effect.getComputedTiming = () => ({ endTime: Infinity, duration: 1, iterations: 1 }) },
+  ]
+  for (const mutate of mutations) {
+    const fixture = copyPaintFixture(), result = fixture.start(); fixture.frame(); mutate(fixture); fixture.frame()
+    await expect(result).rejects.toThrow(); expect(fixture.pending).toEqual([0, 0])
+  }
+  for (const at of [1000, 1001, -1, Infinity, NaN]) {
+    const fixture = copyPaintFixture(), result = fixture.start(); fixture.frame(); fixture.frame(at)
+    await expect(result).rejects.toThrow(/1000ms/u); expect(fixture.pending).toEqual([0, 0])
+  }
+  const blocked = copyPaintFixture(), pending = blocked.start(); blocked.advance(1000)
+  await expect(pending).rejects.toThrow(/1000ms/u); expect(blocked.pending).toEqual([0, 0])
+  const costly = copyPaintFixture(), slow = costly.start(); costly.setReadCost(100); costly.frame()
+  await expect(slow).rejects.toThrow(/1000ms/u); expect(costly.pending).toEqual([0, 0])
 })
 const ports = { write: "success" as const, fallback: "throw" as const, writes: Array.from({ length: 5 }, () => command),
   fallbacks: Array.from({ length: 3 }, () => ({ value: command, readonly: true, start: 0, end: command.length, focused: true, offscreen: true })),

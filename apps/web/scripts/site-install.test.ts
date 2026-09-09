@@ -63,6 +63,9 @@ function assertCopyContract(compiled: StylexTransformResult): void {
     expect(rules.filter(rule => /\{background-color:/u.test(rule)).sort()).toEqual([
       compact(`.slot{background-color:${background}}`), compact(`.slot:hover{background-color:${hover}}`),
     ].sort())
+    expect(rules.filter(rule => /\{background-position:/u.test(rule)).sort()).toEqual([
+      `.slot{background-position:${slot === "copied" ? "initial" : "0 0"}}`, ".slot:hover{background-position:initial}",
+    ].map(compact).sort())
     for (const declaration of ["min-width:4.4rem", "min-height:2.75rem", "font-size:.8rem", "font-weight:500", "cursor:pointer", "border-image-source:none", "background-image:none"]) {
       required(compiled, slot, `.slot{${declaration}}`)
     }
@@ -96,6 +99,7 @@ function assertCopyContract(compiled: StylexTransformResult): void {
   required(compiled, "panelLink", ".slot{color:var(--gold)}")
   required(compiled, "panelNote", ".slot{margin-top:1rem}")
   required(compiled, "number", ".slot{font:.75rem/1.7 var(--font-mono)}")
+  for (const slot of ["value", "noteCode", "installCode"]) required(compiled, slot, ".slot{background-position:0 0}")
 }
 
 describe("install/copy compiled ownership (pure, process-free)", () => {
@@ -116,6 +120,9 @@ describe("install/copy compiled ownership (pure, process-free)", () => {
       source.replace('font: "0.75rem/1.7 var(--font-mono)"', 'font: "inherit"'),
       source.replace('  button: {', '  button: { outline: "none",'),
       source.replace('  button: {', '  button: { forcedColorAdjust: "none",'),
+      source.replace('backgroundPosition: "0px 0px"', 'backgroundPosition: "initial"'),
+      source.replace('backgroundPosition: { default: "0px 0px", ":hover": "initial" }', 'backgroundPosition: "initial"'),
+      source.replace('backgroundPosition: { default: "initial", ":hover": "initial" }', 'backgroundPosition: { default: "0px 0px", ":hover": "initial" }'),
     ]
     for (const mutation of mutations) {
       expect(mutation).not.toBe(source)
