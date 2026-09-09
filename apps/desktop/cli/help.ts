@@ -48,12 +48,24 @@ const HELP: Readonly<Record<string, string>> = {
   atet scene inspect <scene.json> [--json]
   atet scene patch <scene.json> --patch <patch.json> --output <new-scene.json> [--json]
   atet scene evaluate <scene.json> --camera <camera-id> --time-us <integer> [--json]
-  atet scene plan|render <scene.json> --request <request.json> [--assets <bindings.json>] [--json]
+  atet scene plan|render <scene.json> --request <request.json> [--assets <bindings.json>] [--profile <profile>] [--json]
   atet scene project snapshot <project-id> [--json]
-  atet scene project prepare-render <project-id> --input <request.json> --output <prepared-render.json> [--json]
+  atet scene project prepare-render <project-id> --input <request.json> --output <prepared-render.json> [--profile <profile>] [--json]
   atet scene project migrate|patch|restore|add-shot|add-candidate|select-candidate|reconcile
         <project-id> --input <request.json> [--json]
+  atet scene world plan --input <request.json> [--json]
+  atet scene world generate --input <request.json> --allow-paid-generation
+        --budget-id <id> --maximum-credits <integer> [--json]
+  atet scene world inspect|resume <attempt-id> [--json]
+  atet scene world recover <attempt-id> --operation-id <provider-operation-id> [--json]
+  atet scene world import --input <import.json> --source-root <directory>
+        --output-root <directory-below-artifacts/atet/generated> [--json]
 
+Hardware profiles: three-webgl2-hardware-v1 and three-spark-webgl2-hardware-v1.
+An explicit profile must agree with the request; omitting it preserves the request.
+World generation uses WORLDLABS_API_KEY and reserves 1,580 credits per text world.
+Use one named budget across attempts. Resume polls an existing operation once;
+it never resubmits generation. Inspect and saved-world import work offline.
 Scene sources retain stable entities, cameras, asset manifests and animation channels.
 Inspect reports editable controls and known bounds without decoding assets. Patch requires
 the exact expected scene digest in its patch document and writes a new source without

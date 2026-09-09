@@ -17,7 +17,9 @@ import { reduceSpatialFrameRate, spatialFrameCount, spatialFrameSample, spatialO
 import { canonicalJson, canonicalJsonSha256 } from "../core/canonical-json";
 import { createNodeSpatialDurability, type SpatialDurabilityPort } from "../core/spatial-durability";
 import { SpatialShotRenderClockSchema, spatialShotSceneTime } from "../core/spatial-shot-clock";
-import { createSpatialOverlayBatch, SpatialRenderModeSchema } from "../html-overlay/spatial";
+import { createSpatialOverlayBatch, SpatialRenderModeSchema, SPATIAL_OVERLAY_LIMITS, type SpatialOverlayBatchInput, type PreparedSpatialAsset } from "../html-overlay/spatial";
+import { HTML_OVERLAY_MAX_HTML_BYTES } from "../html-overlay/contracts";
+import { assertHtmlOverlayGpuEvidenceProfile, HtmlOverlayExecutionProfileSchema, HtmlOverlayGpuEvidenceSchema, type HtmlOverlayExecutionProfile, type HtmlOverlayGpuEvidence } from "../html-overlay/execution-profile";
 import { exactCapabilityByName } from "./capability-binding";
 import { ApplicationError } from "./errors";
 import { bindHtmlOverlayBrowserRuntime, HtmlOverlayBrowserRuntimeBindingSchema, type HtmlOverlayBrowserRuntimeBinding } from "./html-overlay-browser-runtime";
@@ -38,7 +40,38 @@ export const SPATIAL_RENDER_LIMITS = Object.freeze({
   nativeTimeoutMs: 120_000,
 });
 
+export function spatialBatchSerializationLimit(error: unknown): boolean {
+  if (error instanceof z.ZodError) return error.issues.length > 0 && error.issues.every(issue => issue.path.length === 1 && issue.path[0] === "html"
+    && (issue.code === "too_big" && issue.maximum === HTML_OVERLAY_MAX_HTML_BYTES
+      || issue.code === "custom" && issue.message === `HTML overlay documents may not exceed ${HTML_OVERLAY_MAX_HTML_BYTES} UTF-8 bytes.`));
+  return error instanceof Error && ["Spatial overlay request", "Spatial overlay metadata"].some(name => error.message === `${name} contains more than ${SPATIAL_OVERLAY_LIMITS.requestBytes} bytes.`);
+}
+
+/** Prepare once; partition only pure serialization admission, never renderer failures. */
+export function partitionSpatialRenderWindow(input: SpatialOverlayBatchInput) {
+  type Partition = { readonly offset: number; readonly length: number; readonly preparedAssets: readonly PreparedSpatialAsset[]; readonly batch: ReturnType<typeof createSpatialOverlayBatch> };
+  const partitions: Partition[] = [];
+  const visit = (offset: number, length: number): void => {
+    const snapshots = input.snapshots.slice(offset, offset + length);
+    const times = new Set(snapshots.map(snapshot => snapshot.timeUs));
+    const preparedAssets = input.executionProfile === undefined ? input.preparedAssets ?? []
+      : (input.preparedAssets ?? []).filter(asset => asset.kind === "splat" || asset.timeUs === null || times.has(asset.timeUs));
+    try {
+      const batch = createSpatialOverlayBatch({ ...input, snapshots, preparedAssets });
+      partitions.push({ offset, length, preparedAssets, batch });
+    } catch (error) {
+      if (input.executionProfile === undefined || length <= 1 || !spatialBatchSerializationLimit(error)) throw error;
+      const left = Math.floor(length / 2);
+      visit(offset, left);
+      visit(offset + left, length - left);
+    }
+  };
+  visit(0, input.snapshots.length);
+  return partitions;
+}
+
 export const SpatialRenderRequestSchema = z.strictObject({
+  executionProfile: HtmlOverlayExecutionProfileSchema.optional(),
   cameraId: SpatialCameraIdSchema,
   overrides: z.array(SpatialOverrideSchema).max(4_096).optional(),
   cameraPoseOverride: SpatialPoseSchema.optional(),
@@ -63,10 +96,11 @@ export const SpatialRenderRequestSchema = z.strictObject({
 export type SpatialRenderRequest = z.infer<typeof SpatialRenderRequestSchema>;
 
 /** One canonical request identity shared by V2 projection production and receipt verification. */
-export function spatialShotRenderRequest(shotInput: unknown, frameRateInput: unknown): SpatialRenderRequest {
+export function spatialShotRenderRequest(shotInput: unknown, frameRateInput: unknown, executionProfile?: HtmlOverlayExecutionProfile): SpatialRenderRequest {
   const shot = parseSpatialValue(SpatialShotV1Schema, shotInput, "spatial shot");
   const frameRate = reduceSpatialFrameRate(frameRateInput);
   return deepFreezeJson(SpatialRenderRequestSchema.parse({ cameraId: shot.cameraId, overrides: shot.overrides,
+    ...(executionProfile === undefined ? {} : { executionProfile }),
     ...(shot.cameraPoseOverride === undefined ? {} : { cameraPoseOverride: shot.cameraPoseOverride }),
     mode: { kind: "beauty" }, selection: { kind: "video", frameRate,
       range: { startUs: 0, endUs: shot.range.endUs - shot.range.startUs },
@@ -107,6 +141,8 @@ const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes)
 export function planSpatialRender(sceneInput: unknown, requestInput: unknown): SpatialRenderPlan {
   const scene = parseSpatialScene(sceneInput);
   const request = parseSpatialValue(SpatialRenderRequestSchema, requestInput, "spatial render request");
+  checked(!scene.entities.some(entity => entity.kind === "splat") || request.executionProfile === "three-spark-webgl2-hardware-v1", "Splat rendering requires the explicit Three/Spark hardware profile.");
+  checked(request.executionProfile !== "three-spark-webgl2-hardware-v1" || request.mode.kind === "beauty", "The Three/Spark hardware profile supports beauty rendering only; splat selection and depth semantics are not qualified.");
   const camera = scene.cameras.find(item => item.cameraId === request.cameraId);
   checked(camera !== undefined, "Spatial render camera is absent from the scene.");
   const { width, height } = camera.projection;
@@ -239,9 +275,10 @@ export const SpatialRenderReceiptSchema = z.strictObject({
   samples: z.array(z.strictObject({ sample: z.strictObject({ index: z.number().int().min(0).max(SPATIAL_RENDER_LIMITS.frames - 1), timeUs: SpatialTimeUsSchema, exactTimeUs: rationalSchema }),
     stateSha256: SpatialDigestSchema, viewSha256: SpatialDigestSchema, pngSha256: SpatialDigestSchema, pngBytes: byteCountSchema })).min(1).max(SPATIAL_RENDER_LIMITS.frames),
   render: renderSummarySchema, output: MediaArtifactReferenceSchema,
-  batches: z.array(MediaArtifactReferenceSchema).min(1).max(Math.ceil(SPATIAL_RENDER_LIMITS.frames / SPATIAL_RENDER_LIMITS.batchFrames)),
+  batches: z.array(MediaArtifactReferenceSchema).min(1).max(SPATIAL_RENDER_LIMITS.frames),
   frameArtifacts: z.array(MediaArtifactReferenceSchema).max(SPATIAL_RENDER_LIMITS.contactSheetFrames),
   runtime: z.strictObject({ artifact: MediaArtifactReferenceSchema, rootSha256: SpatialDigestSchema, capabilities: MediaCapabilityBindingsSchema,
+    gpuEvidence: HtmlOverlayGpuEvidenceSchema.optional(),
     renderer: z.literal("three-webgl2-snapshot-v1"), threeVersion: z.literal("0.185.1") }),
   color: z.strictObject({ output: z.enum(["srgb", "rgba8-data"]), alpha: z.enum(["straight", "binary-validity"]), toneMapping: z.literal("none") }),
   timing: z.strictObject({ sourceClock: z.literal("absolute-rational-microseconds"), quantization: z.literal("independent-nearest-microsecond-ties-positive"),
@@ -252,6 +289,12 @@ export const SpatialRenderReceiptSchema = z.strictObject({
   workflow: z.strictObject({ nodeKey: z.string().min(1).max(255), nodePlanSha256: SpatialDigestSchema, runId: z.string().min(1).max(128) }).optional(),
   costs: z.strictObject({ sourceBytes: byteCountSchema, renderPixels: z.number().int().min(1).max(SPATIAL_RENDER_LIMITS.totalPixels), pngBytesBound: byteCountSchema,
     outputBytesBound: byteCountSchema, stagingBytesBound: byteCountSchema, actualPngBytes: byteCountSchema, actualBatchMetadataBytes: byteCountSchema }),
+}).superRefine((receipt, context) => {
+  if (receipt.batches.length > (receipt.request.executionProfile === undefined ? Math.ceil(SPATIAL_RENDER_LIMITS.frames / SPATIAL_RENDER_LIMITS.batchFrames) : receipt.samples.length)) {
+    context.addIssue({ code: "custom", path: ["batches"], message: "Spatial batch count exceeds its selected profile's bounded sample partitions." });
+  }
+  try { assertHtmlOverlayGpuEvidenceProfile(receipt.request.executionProfile, receipt.runtime.gpuEvidence); }
+  catch { context.addIssue({ code: "custom", path: ["runtime", "gpuEvidence"], message: "Spatial receipt must bind hardware evidence exactly when its execution profile requires it." }); }
 });
 export type SpatialRenderReceipt = z.infer<typeof SpatialRenderReceiptSchema>;
 export interface SpatialRenderInput {
@@ -440,6 +483,7 @@ export async function renderSpatialScene(context: OperationExecutionContext, inp
     const retainedSources: { assetId: string; manifestSha256: string; originalPath: string; stagedPath: string; bytes: number }[] = [];
     const batchFiles: string[] = [], sampleEvidence: { sample: SpatialRenderSample; stateSha256: string; viewSha256: string; pngSha256: string; pngBytes: number }[] = [];
     let pngBytes = 0, metadataBytes = 0;
+    let gpuEvidence: HtmlOverlayGpuEvidence | undefined;
     for (let offset = 0; offset < plan.samples.length; offset += SPATIAL_RENDER_LIMITS.batchFrames) {
       await assertCustody();
       const samples = plan.samples.slice(offset, offset + SPATIAL_RENDER_LIMITS.batchFrames);
@@ -447,8 +491,6 @@ export async function renderSpatialScene(context: OperationExecutionContext, inp
         ...(plan.request.overrides === undefined ? {} : { overrides: plan.request.overrides }),
         ...(plan.request.cameraPoseOverride === undefined ? {} : { cameraPoseOverride: plan.request.cameraPoseOverride }),
       }));
-      const batchDirectory = join(directory, `batch-${offset}`);
-      await mkdir(batchDirectory, { mode: 0o700 });
       stage = "preparation";
       await withPreparedSpatialAssets({ snapshots, exactSceneTimesUs: samples.map(sample => sample.exactTimeUs), assetRoot, workspaceParent: directory }, ports, context.abortSignal, async prepared => {
         checked(canonicalJson(prepared.receipt.sourceManifests) === canonicalJson(sourceManifests), "Asset preparation did not bind the complete source closure.");
@@ -463,35 +505,56 @@ export async function renderSpatialScene(context: OperationExecutionContext, inp
           }
           checked(retainedSources.length === plan.scene.assets.length && new Set(retainedSources.map(source => source.assetId)).size === retainedSources.length, "Retained source closure is incomplete or duplicated.");
         }
-        const batch = createSpatialOverlayBatch({ snapshots, mode: plan.request.mode,
+        const partitions = partitionSpatialRenderWindow({ snapshots, mode: plan.request.mode,
+          ...(plan.request.executionProfile === undefined ? {} : { executionProfile: plan.request.executionProfile }),
           frameRate: plan.request.selection.kind === "video" ? plan.request.selection.frameRate : { numerator: 1, denominator: 1 }, preparedAssets: prepared.preparedAssets });
-        const bundle = createHtmlOverlayExecutionBundle(batch.authoring, runtime);
-        checked(bundle.libraryLocks.length === 1 && bundle.libraryLocks[0]!.specifier === "three" && bundle.libraryLocks[0]!.version === "0.185.1", "Spatial renderer library profile is not the qualified Three.js 0.185.1 lock.");
-        stage = "render";
-        const rendered = await renderer.renderFrames({ authoring: batch.authoring, browserRuntime: runtime, outputDirectory: batchDirectory, resources: prepared.resources }, context.abortSignal);
-        await assertCustody();
-        const integrity = parseSpatialValue(HtmlOverlayExecutionIntegritySchema, rendered.executionIntegrity, "Renderer execution integrity");
-        checked(canonicalJson(integrity) === canonicalJson(bundle.integrity) && canonicalJson(rendered.libraryLocks) === canonicalJson(bundle.libraryLocks), "Renderer returned execution or library integrity different from the bound input.");
-        const expectedPattern = join(batchDirectory, "frames", "frame-%08d.png");
-        checked(rendered.frameCount === samples.length && rendered.framePattern === expectedPattern, "Renderer frame count or output location differs from the planned batch.");
-        const entries = await readdir(join(batchDirectory, "frames"));
-        checked(entries.length === samples.length, "Renderer produced an unexpected frame directory entry.");
-        for (const [index, sample] of samples.entries()) {
-          const bytes = await readPhysical(join(batchDirectory, "frames", frameName(index)), plan.costs.pngBytesBound, context.abortSignal);
-          pngBytes += bytes.length;
-          checked(pngBytes <= plan.costs.pngBytesBound, "Rendered PNG bytes exceeded the admitted staging estimate.");
-          await verifyPng(bytes, plan.width, plan.height);
-          await stageBytes(join(frameDirectory, frameName(sample.index)), bytes);
-          sampleEvidence.push({ sample, stateSha256: snapshots[index]!.stateSha256, viewSha256: snapshots[index]!.viewSha256, pngSha256: sha256(bytes), pngBytes: bytes.length });
+        for (const partition of partitions) {
+          const batchOffset = offset + partition.offset;
+          const batchSamples = samples.slice(partition.offset, partition.offset + partition.length);
+          const batchSnapshots = snapshots.slice(partition.offset, partition.offset + partition.length);
+          const batch = partition.batch;
+          const resourceNames = new Set(batch.authoring.resources.map(resource => resource.name));
+          const batchResources = plan.request.executionProfile === undefined ? prepared.resources : prepared.resources.filter(resource => resourceNames.has(resource.name));
+          const batchPreparation = plan.request.executionProfile === undefined ? prepared.receipt : { ...prepared.receipt,
+            preparedSha256: canonicalJsonSha256(partition.preparedAssets), outputBytes: batchResources.reduce((sum, resource) => sum + resource.bytes, 0) };
+          const batchDirectory = join(directory!, `batch-${batchOffset}`);
+          await mkdir(batchDirectory, { mode: 0o700 });
+          const bundle = createHtmlOverlayExecutionBundle(batch.authoring, runtime, plan.request.executionProfile);
+          const expectedLibraries = plan.request.executionProfile === "three-spark-webgl2-hardware-v1" ? ["@sparkjsdev/spark", "three", "three/addons/postprocessing/Pass.js"] : ["three"];
+          checked(canonicalJson(bundle.libraryLocks.map(lock => lock.specifier).sort()) === canonicalJson(expectedLibraries)
+            && bundle.libraryLocks.find(lock => lock.specifier === "three")?.version === "0.185.1", "Spatial renderer libraries differ from its exact qualified profile.");
+          stage = "render";
+          const rendered = await renderer.renderFrames({ authoring: batch.authoring, browserRuntime: runtime, outputDirectory: batchDirectory, resources: batchResources,
+            ...(plan.request.executionProfile === undefined ? {} : { executionProfile: plan.request.executionProfile }) }, context.abortSignal);
+          await assertCustody();
+          const integrity = parseSpatialValue(HtmlOverlayExecutionIntegritySchema, rendered.executionIntegrity, "Renderer execution integrity");
+          checked(canonicalJson(integrity) === canonicalJson(bundle.integrity) && canonicalJson(rendered.libraryLocks) === canonicalJson(bundle.libraryLocks), "Renderer returned execution or library integrity different from the bound input.");
+          const observedGpu = assertHtmlOverlayGpuEvidenceProfile(plan.request.executionProfile, rendered.gpuEvidence);
+          if (batchOffset !== 0) checked(observedGpu === undefined || gpuEvidence === undefined
+            ? observedGpu === gpuEvidence : canonicalJson(observedGpu) === canonicalJson(gpuEvidence), "Spatial render changed its observed hardware between batches.");
+          gpuEvidence = observedGpu;
+          const expectedPattern = join(batchDirectory, "frames", "frame-%08d.png");
+          checked(rendered.frameCount === batchSamples.length && rendered.framePattern === expectedPattern, "Renderer frame count or output location differs from the planned batch.");
+          const entries = await readdir(join(batchDirectory, "frames"));
+          checked(entries.length === batchSamples.length, "Renderer produced an unexpected frame directory entry.");
+          for (const [index, sample] of batchSamples.entries()) {
+            const bytes = await readPhysical(join(batchDirectory, "frames", frameName(index)), plan.costs.pngBytesBound, context.abortSignal);
+            pngBytes += bytes.length;
+            checked(pngBytes <= plan.costs.pngBytesBound, "Rendered PNG bytes exceeded the admitted staging estimate.");
+            await verifyPng(bytes, plan.width, plan.height);
+            await stageBytes(join(frameDirectory, frameName(sample.index)), bytes);
+            sampleEvidence.push({ sample, stateSha256: batchSnapshots[index]!.stateSha256, viewSha256: batchSnapshots[index]!.viewSha256, pngSha256: sha256(bytes), pngBytes: bytes.length });
+          }
+          const metadataPath = join(directory!, `batch-${batchOffset}.json`);
+          const bytes = await stageJson(metadataPath, { preparedAssets: partition.preparedAssets, metadata: batch.metadata, metadataSha256: batch.metadataSha256, executionIntegrity: integrity,
+            ...(observedGpu === undefined ? {} : { gpuEvidence: observedGpu }),
+            libraryLocks: bundle.libraryLocks, preparation: batchPreparation, samples: sampleEvidence.slice(batchOffset) }, SPATIAL_RENDER_LIMITS.metadataBytes);
+          metadataBytes += bytes.length;
+          checked(metadataBytes <= SPATIAL_RENDER_LIMITS.metadataBytes, "Spatial batch evidence exceeded its total byte budget.");
+          batchFiles.push(metadataPath);
+          await rm(batchDirectory, { recursive: true });
         }
-        const metadataPath = join(directory!, `batch-${offset}.json`);
-        const bytes = await stageJson(metadataPath, { preparedAssets: prepared.preparedAssets, metadata: batch.metadata, metadataSha256: batch.metadataSha256, executionIntegrity: integrity,
-          libraryLocks: bundle.libraryLocks, preparation: prepared.receipt, samples: sampleEvidence.slice(offset) }, SPATIAL_RENDER_LIMITS.metadataBytes);
-        metadataBytes += bytes.length;
-        checked(metadataBytes <= SPATIAL_RENDER_LIMITS.metadataBytes, "Spatial batch evidence exceeded its total byte budget.");
-        batchFiles.push(metadataPath);
       });
-      await rm(batchDirectory, { recursive: true });
     }
     stage = "encode";
     const outputPath = join(directory, plan.request.selection.kind === "video" ? "output.mov" : "output.png");
@@ -570,7 +633,8 @@ export async function renderSpatialScene(context: OperationExecutionContext, inp
       kind: "atet.spatial-render-receipt", schemaVersion: 1, attemptId, sceneSha256: plan.sceneSha256,
       source: { canonicalScene: sceneSource, canonicalization: "parsed-spatial-scene-v1", ...(originalSceneArtifact === undefined ? {} : { originalSceneArtifact }), retainedAssets, sourceManifests },
       request: plan.request, requestSha256: plan.requestSha256, samples: sampleEvidence, render, output: artifact, batches, frameArtifacts,
-      runtime: { artifact: runtimeArtifact, rootSha256: runtime.manifest.rootSha256, capabilities, renderer: "three-webgl2-snapshot-v1", threeVersion: "0.185.1" },
+      runtime: { artifact: runtimeArtifact, rootSha256: runtime.manifest.rootSha256, capabilities, renderer: "three-webgl2-snapshot-v1", threeVersion: "0.185.1",
+        ...(gpuEvidence === undefined ? {} : { gpuEvidence }) },
       color: { output: plan.request.mode.kind === "beauty" ? "srgb" : "rgba8-data", alpha: plan.request.mode.kind === "beauty" ? "straight" : "binary-validity", toneMapping: "none" },
       timing: { sourceClock: "absolute-rational-microseconds", quantization: "independent-nearest-microsecond-ties-positive", encodedClock: "zero-based-uniform-frame-intervals",
         ...(plan.outputDurationUs === undefined ? {} : { outputDurationUs: plan.outputDurationUs }) },

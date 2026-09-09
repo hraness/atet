@@ -13,7 +13,7 @@ import { SPATIAL_PROJECT_LIMITS } from "../contracts/spatial-project";
 import type { SpatialProjectCommand } from "./args";
 import { CliError } from "./errors";
 import { ensurePhysicalPrivateDirectoryWithin } from "./paths";
-import { publishSpatialSource, readSpatialJson } from "./spatial-scene-service";
+import { bindSpatialCliExecutionProfile, publishSpatialSource, readSpatialJson } from "./spatial-scene-service";
 
 const preparationDeliverySchema = z.strictObject({
   output: ProjectRenderOutputRequestSchema,
@@ -30,7 +30,8 @@ export async function executeSpatialProjectCommand(application: ApplicationConte
   if (command.action === "prepare-render") {
     const { delivery: unparsedDelivery, ...preparation } = request as Record<string, unknown>;
     const delivery = preparationDeliverySchema.parse(unparsedDelivery);
-    const input = SpatialProjectRenderPreparationInputSchema.parse({ ...preparation, project: command.project });
+    const input = SpatialProjectRenderPreparationInputSchema.parse({ ...preparation, project: command.project,
+      profile: bindSpatialCliExecutionProfile(preparation.profile, command.executionProfile) });
     const target = ProjectRenderTargetSchema.parse({
       canvas: { kind: "custom", pixelWidth: input.profile.pixelWidth, pixelHeight: input.profile.pixelHeight, frameRate: input.profile.frameRate.numerator / input.profile.frameRate.denominator },
       tier: delivery.tier,

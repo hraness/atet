@@ -133,7 +133,7 @@ export async function prepareSpatialProjectRender(context: OperationExecutionCon
     const scene = snapshot.contents.scenes.find(source => source.sceneSha256 === shot.sceneSha256);
     const source = snapshot.revision.scenes.find(source => source.sceneSha256 === shot.sceneSha256);
     checked(scene !== undefined && source !== undefined && source.artifact.bytes <= limits.sourceDocumentBytes, "Shot source is absent or exceeds native source-document admission.");
-    const plan = planSpatialRender(scene.document, spatialShotRenderRequest(shot, profile.frameRate));
+    const plan = planSpatialRender(scene.document, spatialShotRenderRequest(shot, profile.frameRate, profile.executionProfile));
     checked(plan.width === profile.pixelWidth && plan.height === profile.pixelHeight, "Shot calibrated dimensions must match the requested profile; preparation does not resize cameras.");
     return { shot, plan, original: { ...source.artifact, path: repositoryPath(source.artifact.path) } };
   });

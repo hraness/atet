@@ -9,6 +9,8 @@ export const HTML_OVERLAY_LIBRARY_SPECIFIERS = Object.freeze([
   "p5",
   "two.js",
   "three",
+  "@sparkjsdev/spark",
+  "three/addons/postprocessing/Pass.js",
   "vgpu",
 ] as const);
 
@@ -69,6 +71,19 @@ const VgpuLockSchema = z.strictObject({
   version: z.literal("0.3.1"),
 });
 
+const SparkLockSchema = z.strictObject({
+  bytes: z.literal(5_063_871), license: z.literal("MIT"),
+  sha256: z.literal("70050257ce2326c2ce1d2688e6f58987147adf764f8ff7ba4aa17ab7ae5870c0"),
+  specifier: z.literal("@sparkjsdev/spark"), version: z.literal("2.1.0"),
+  url: z.literal("https://esm.sh/@sparkjsdev/spark@2.1.0/X-ZXRocmVl/es2022/spark.bundle.mjs"),
+});
+const ThreePassLockSchema = z.strictObject({
+  bytes: z.literal(840), license: z.literal("MIT"),
+  sha256: z.literal("fc15bae8534b3b21911df509b88b585f1ca375d0bc5047e6bfe07add3403da4b"),
+  specifier: z.literal("three/addons/postprocessing/Pass.js"), version: z.literal("0.185.1"),
+  url: z.literal("https://esm.sh/three@0.185.1/X-ZXRocmVl/es2022/addons/postprocessing/Pass.bundle.mjs"),
+});
+
 export const HtmlOverlayActiveLibraryLockSchema = z.discriminatedUnion("specifier", [
   PaperShadersLockSchema,
   MotionLockSchema,
@@ -76,6 +91,8 @@ export const HtmlOverlayActiveLibraryLockSchema = z.discriminatedUnion("specifie
   TwoLockSchema,
   ThreeLockSchema,
   VgpuLockSchema,
+  SparkLockSchema,
+  ThreePassLockSchema,
 ]);
 export type HtmlOverlayActiveLibraryLock = Readonly<
   z.infer<typeof HtmlOverlayActiveLibraryLockSchema>
@@ -92,10 +109,14 @@ export const HtmlOverlayLibraryLockSchema = z.union([
   TwoLockSchema,
   ThreeLockSchema,
   VgpuLockSchema,
+  SparkLockSchema,
+  ThreePassLockSchema,
 ]);
 export type HtmlOverlayLibraryLock = Readonly<z.infer<typeof HtmlOverlayLibraryLockSchema>>;
 
 export const ACTIVE_HTML_OVERLAY_LIBRARY_LOCKS = Object.freeze([
+  Object.freeze({ bytes: 5_063_871, license: "MIT", sha256: "70050257ce2326c2ce1d2688e6f58987147adf764f8ff7ba4aa17ab7ae5870c0", specifier: "@sparkjsdev/spark", version: "2.1.0", url: "https://esm.sh/@sparkjsdev/spark@2.1.0/X-ZXRocmVl/es2022/spark.bundle.mjs" }),
+  Object.freeze({ bytes: 840, license: "MIT", sha256: "fc15bae8534b3b21911df509b88b585f1ca375d0bc5047e6bfe07add3403da4b", specifier: "three/addons/postprocessing/Pass.js", version: "0.185.1", url: "https://esm.sh/three@0.185.1/X-ZXRocmVl/es2022/addons/postprocessing/Pass.bundle.mjs" }),
   Object.freeze({
     bytes: 196_909,
     license: "Apache-2.0",

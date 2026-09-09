@@ -10,12 +10,26 @@ import { canonicalJson } from "../core/canonical-json";
 import { parseCliArgs } from "./args";
 import { commitProjectStateTransaction, recoverProjectStateTransaction } from "./project-state-transaction";
 import { executeSpatialProjectCommand } from "./spatial-project-service";
-import { executeSpatialSceneCommand, readSpatialJson } from "./spatial-scene-service";
+import { bindSpatialCliExecutionProfile, executeSpatialSceneCommand, readSpatialJson } from "./spatial-scene-service";
 
 async function fixture<T>(run: (root: string) => Promise<T>): Promise<T> {
   const root = await mkdtemp(join(tmpdir(), "atet-scene-cli-"));
   try { return await run(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
+
+test("CLI hardware selection is closed and cannot replace retained request policy", () => {
+  const profile = "three-webgl2-hardware-v1";
+  const legacy = { cameraId: "camera_hero", mode: { kind: "beauty" } };
+  expect(bindSpatialCliExecutionProfile(legacy, undefined)).toBe(legacy);
+  expect(bindSpatialCliExecutionProfile(legacy, profile)).toEqual({ ...legacy, executionProfile: profile });
+  expect(() => bindSpatialCliExecutionProfile({ ...legacy, executionProfile: "three-spark-webgl2-hardware-v1" }, profile)).toThrow("differs");
+  for (const invalid of [null, [], 42]) expect(() => bindSpatialCliExecutionProfile(invalid, profile)).toThrow("JSON object");
+  for (const action of ["plan", "render"]) {
+    expect(parseCliArgs(["scene", action, "scene.json", "--request", "render.json", "--profile", profile])).toMatchObject({ executionProfile: profile });
+    expect(() => parseCliArgs(["scene", action, "scene.json", "--request", "render.json", "--profile", "auto"])).toThrow("--profile requires");
+  }
+  expect(parseCliArgs(["scene", "project", "prepare-render", "project_fixture", "--input", "prepare.json", "--output", "render.json", "--profile", profile])).toMatchObject({ executionProfile: profile });
+});
 
 test("CLI prepared composition requires explicit delivery files", () => {
   expect(parseCliArgs(["scene", "project", "prepare-render", "project_fixture", "--input", "prepare.json", "--output", "prepared.json", "--json"])).toEqual({ kind: "spatial-project", action: "prepare-render", project: "project_fixture", input: "prepare.json", output: "prepared.json", json: true });

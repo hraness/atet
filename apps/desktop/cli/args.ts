@@ -36,21 +36,30 @@ interface JsonOption {
   readonly json: boolean;
 }
 
+export type SpatialCliExecutionProfile = "three-webgl2-hardware-v1" | "three-spark-webgl2-hardware-v1";
+export type SpatialWorldCommand = JsonOption & { readonly kind: "spatial-world" } & (
+  | { readonly action: "plan"; readonly input: string }
+  | { readonly action: "generate"; readonly input: string; readonly budgetId: string; readonly maximumCredits: number; readonly allowPaidGeneration: true }
+  | { readonly action: "inspect" | "resume"; readonly attemptId: string }
+  | { readonly action: "recover"; readonly attemptId: string; readonly operationId: string }
+  | { readonly action: "import"; readonly input: string; readonly sourceRoot: string; readonly outputRoot: string }
+);
 export type SpatialSceneCommand = JsonOption & { readonly kind: "spatial-scene"; readonly path: string } & (
   | { readonly action: "init" | "inspect" }
   | { readonly action: "patch"; readonly patch: string; readonly output: string }
   | { readonly action: "evaluate"; readonly camera: string; readonly timeUs: number }
-  | { readonly action: "plan" | "render"; readonly request: string; readonly assets?: string }
+  | { readonly action: "plan" | "render"; readonly request: string; readonly assets?: string; readonly executionProfile?: SpatialCliExecutionProfile }
 );
 export type SpatialProjectCommand = JsonOption & {
   readonly kind: "spatial-project"; readonly project: string;
 } & (
   | { readonly action: "snapshot" }
-  | { readonly action: "prepare-render"; readonly input: string; readonly output: string }
+  | { readonly action: "prepare-render"; readonly input: string; readonly output: string; readonly executionProfile?: SpatialCliExecutionProfile }
   | { readonly action: "migrate" | "patch" | "restore" | "add-shot" | "add-candidate" | "select-candidate" | "reconcile"; readonly input: string }
 );
 
 export type CliCommand =
+  | SpatialWorldCommand
   | SpatialSceneCommand
   | SpatialProjectCommand
   | { readonly kind: "help"; readonly topic: readonly string[] }
@@ -2913,8 +2922,46 @@ function helpTopic(argv: readonly string[], index: number): readonly string[] {
   return argv.slice(0, index).filter((argument) => !argument.startsWith("-"));
 }
 
-function parseSpatialSceneArgs(argv: readonly string[]): SpatialSceneCommand | SpatialProjectCommand {
+function spatialCliExecutionProfile(value: string | undefined): SpatialCliExecutionProfile | undefined {
+  if (value === undefined || value === "three-webgl2-hardware-v1" || value === "three-spark-webgl2-hardware-v1") return value;
+  return fail("--profile requires three-webgl2-hardware-v1 or three-spark-webgl2-hardware-v1.");
+}
+
+function parseSpatialWorldArgs(argv: readonly string[]): SpatialWorldCommand {
   const action = argv[0];
+  if (action === "plan" || action === "generate") {
+    const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--input": "value", ...(action === "generate" ? { "--budget-id": "value", "--maximum-credits": "value", "--allow-paid-generation": "flag" } as const : {}) });
+    exactPositionals(parsed, 0, `atet scene world ${action} --input <request.json>`);
+    const input = optionString(parsed, "--input");
+    if (input === undefined) fail(`scene world ${action} requires --input.`);
+    const common = { kind: "spatial-world" as const, input, json: optionFlag(parsed, "--json") };
+    if (action === "plan") return { ...common, action };
+    const budgetId = optionString(parsed, "--budget-id"), maximumCredits = optionString(parsed, "--maximum-credits");
+    if (budgetId === undefined || maximumCredits === undefined || !/^\d+$/u.test(maximumCredits) || !Number.isSafeInteger(Number(maximumCredits)) || Number(maximumCredits) < 1 || !optionFlag(parsed, "--allow-paid-generation")) fail("World generation requires --allow-paid-generation, --budget-id, and a positive integer --maximum-credits.");
+    return { ...common, action, budgetId, maximumCredits: Number(maximumCredits), allowPaidGeneration: true };
+  }
+  if (action === "inspect" || action === "resume" || action === "recover") {
+    const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, ...(action === "recover" ? { "--operation-id": "value" } as const : {}) });
+    const [attemptId] = exactPositionals(parsed, 1, `atet scene world ${action} <attempt-id>`);
+    const common = { kind: "spatial-world" as const, attemptId: attemptId!, json: optionFlag(parsed, "--json") };
+    if (action !== "recover") return { ...common, action };
+    const operationId = optionString(parsed, "--operation-id");
+    if (operationId === undefined) fail("World recovery requires the provider's known --operation-id; it never resubmits a generation.");
+    return { ...common, action, operationId };
+  }
+  if (action === "import") {
+    const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--input": "value", "--source-root": "value", "--output-root": "value" });
+    exactPositionals(parsed, 0, "atet scene world import --input <request.json> --source-root <directory> --output-root <artifact-directory>");
+    const input = optionString(parsed, "--input"), sourceRoot = optionString(parsed, "--source-root"), outputRoot = optionString(parsed, "--output-root");
+    if (input === undefined || sourceRoot === undefined || outputRoot === undefined) fail("World import requires --input, --source-root, and --output-root.");
+    return { kind: "spatial-world", action, input, sourceRoot, outputRoot, json: optionFlag(parsed, "--json") };
+  }
+  return fail("Usage: atet scene world <plan|generate|inspect|resume|recover|import> ...");
+}
+
+function parseSpatialSceneArgs(argv: readonly string[]): SpatialSceneCommand | SpatialProjectCommand | SpatialWorldCommand {
+  const action = argv[0];
+  if (action === "world") return parseSpatialWorldArgs(argv.slice(1));
   if (action === "project") {
     const projectAction = argv[1];
     if (projectAction === "snapshot") {
@@ -2923,11 +2970,12 @@ function parseSpatialSceneArgs(argv: readonly string[]): SpatialSceneCommand | S
       return { kind: "spatial-project", action: projectAction, project: project!, json: optionFlag(parsed, "--json") };
     }
     if (projectAction === "prepare-render") {
-      const parsed = parseOptions(argv.slice(2), { ...JSON_SPEC, "--input": "value", "--output": "value" });
+      const parsed = parseOptions(argv.slice(2), { ...JSON_SPEC, "--input": "value", "--output": "value", "--profile": "value" });
       const [project] = exactPositionals(parsed, 1, "atet scene project prepare-render <project-id> --input <request.json> --output <prepared-render.json> [--json]");
       const input = optionString(parsed, "--input"), output = optionString(parsed, "--output");
       if (input === undefined || output === undefined) fail("scene project prepare-render requires --input and --output.");
-      return { kind: "spatial-project", action: projectAction, project: project!, input, output, json: optionFlag(parsed, "--json") };
+      const executionProfile = spatialCliExecutionProfile(optionString(parsed, "--profile"));
+      return { kind: "spatial-project", action: projectAction, project: project!, input, output, ...(executionProfile === undefined ? {} : { executionProfile }), json: optionFlag(parsed, "--json") };
     }
     if (projectAction === "migrate" || projectAction === "patch" || projectAction === "restore" || projectAction === "add-shot" || projectAction === "add-candidate" || projectAction === "select-candidate" || projectAction === "reconcile") {
       const parsed = parseOptions(argv.slice(2), { ...JSON_SPEC, "--input": "value" });
@@ -2958,11 +3006,12 @@ function parseSpatialSceneArgs(argv: readonly string[]): SpatialSceneCommand | S
     return { kind: "spatial-scene", action, path: path!, camera, timeUs: Number(time), json: optionFlag(parsed, "--json") };
   }
   if (action === "plan" || action === "render") {
-    const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--request": "value", "--assets": "value" });
+    const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--request": "value", "--assets": "value", "--profile": "value" });
     const [path] = exactPositionals(parsed, 1, `atet scene ${action} <scene.json> --request <request.json> [--assets <bindings.json>]`);
     const request = optionString(parsed, "--request"), assets = optionString(parsed, "--assets");
     if (request === undefined) fail(`scene ${action} requires --request.`);
-    return { kind: "spatial-scene", action, path: path!, request, ...(assets === undefined ? {} : { assets }), json: optionFlag(parsed, "--json") };
+    const executionProfile = spatialCliExecutionProfile(optionString(parsed, "--profile"));
+    return { kind: "spatial-scene", action, path: path!, request, ...(assets === undefined ? {} : { assets }), ...(executionProfile === undefined ? {} : { executionProfile }), json: optionFlag(parsed, "--json") };
   }
   fail("Usage: atet scene <init|check|inspect|patch|evaluate|plan|render> ...");
 }
