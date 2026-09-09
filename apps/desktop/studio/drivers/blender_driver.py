@@ -8,6 +8,7 @@ render jobs. Declared .blend snapshots preserve the authored scene and caches.
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import runpy
@@ -66,6 +67,93 @@ def context_for(request):
     return json.loads(json.dumps({"parameters": job["parameters"], "stage": job["stage"],
             "render": job.get("render"), "sourceRoot": request["sourceRoot"],
             "outputRoot": request["outputRoot"], "workingRoot": request["workingRoot"]}))
+
+
+def spatial_camera_settings(camera, render=None):
+    """Map canonical top-origin calibrated pixels to Blender's horizontal fit.
+
+    Camera-local negative Z and local positive Y are shared. Only world space
+    rotates: canonical (x,y,z) becomes native (x,-z,y). No lens/look inference.
+    """
+    if not isinstance(camera, dict) or set(camera) != {"cameraId", "name", "pose", "projection"}:
+        raise ValueError("Expected an explicit canonical SpatialCamera")
+    pose, projection = camera["pose"], camera["projection"]
+    if not isinstance(pose, dict) or set(pose) != {"position", "rotation"} or not isinstance(projection, dict):
+        raise ValueError("Invalid camera pose or projection")
+
+    def number(value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError("Camera values must be finite numbers")
+        return value
+
+    for field, length in (("position", 3), ("rotation", 4)):
+        values = pose[field]
+        if not isinstance(values, list) or len(values) != length or any(abs(number(v)) > (1000000 if field == "position" else 1) for v in values):
+            raise ValueError("Invalid camera pose vector")
+    if abs(sum(v * v for v in pose["rotation"]) - 1) > 1e-6:
+        raise ValueError("Camera requires a unit XYZW quaternion")
+    kind = projection.get("kind")
+    expected = {"kind", "width", "height", "near", "far"} | ({"fx", "fy", "cx", "cy"} if kind == "perspective" else {"left", "right", "top", "bottom"})
+    if kind not in ("perspective", "orthographic") or set(projection) != expected:
+        raise ValueError("Unsupported calibrated camera projection")
+    for key, value in projection.items():
+        if key != "kind":
+            number(value)
+    w, h = projection["width"], projection["height"]
+    if any(type(v) is not int or not 1 <= v <= 16384 for v in (w, h)) or w * h > 33554432:
+        raise ValueError("Camera image exceeds its bounds")
+    if render and (w != render["width"] or h != render["height"]):
+        raise ValueError("Calibrated camera image dimensions differ from the admitted render job")
+    if not 0.000001 <= projection["near"] < projection["far"] <= 1000000:
+        raise ValueError("Invalid camera clipping interval")
+    settings = {"type": "PERSP" if kind == "perspective" else "ORTHO", "sensor_fit": "HORIZONTAL",
+                "clip_start": projection["near"], "clip_end": projection["far"]}
+    if kind == "perspective":
+        if not 0.000001 <= projection["fx"] <= 1000000 or not 0.000001 <= projection["fy"] <= 1000000:
+            raise ValueError("Invalid camera focal lengths")
+        aspect = projection["fx"] / projection["fy"]
+        settings.update(sensor_width=36.0, lens=projection["fx"] * 36.0 / w,
+                        shift_x=(w / 2 - projection["cx"]) / w,
+                        shift_y=(projection["cy"] - h / 2) * aspect / w)
+    else:
+        span_x, span_y = projection["right"] - projection["left"], projection["top"] - projection["bottom"]
+        if span_x <= 0 or span_y <= 0:
+            raise ValueError("Orthographic camera extents must be positive")
+        aspect = span_y * w / (span_x * h)
+        settings.update(ortho_scale=span_x,
+                        shift_x=(projection["right"] + projection["left"]) / (2 * span_x),
+                        shift_y=(projection["top"] + projection["bottom"]) / (2 * span_x))
+    if not 1 / 200 <= aspect <= 200:
+        raise ValueError("Calibrated pixel aspect exceeds Blender's supported range")
+    return {"camera": settings, "render": {"resolution_x": w, "resolution_y": h, "resolution_percentage": 100,
+            "pixel_aspect_x": max(1.0, 1.0 / aspect), "pixel_aspect_y": max(1.0, aspect)}}
+
+
+def apply_spatial_camera(bpy, camera, camera_object=None, render=None):
+    """Apply one sampled camera, rejecting native clamps instead of changing framing."""
+    from mathutils import Matrix, Quaternion, Vector
+    settings = spatial_camera_settings(camera, render)
+    scene = bpy.context.scene
+    if camera_object is None:
+        data = bpy.data.cameras.new(camera["cameraId"])
+        camera_object = bpy.data.objects.new(camera["cameraId"], data)
+        scene.collection.objects.link(camera_object)
+    if camera_object.type != "CAMERA" or camera_object.parent is not None or len(camera_object.constraints) or camera_object.animation_data or camera_object.data.animation_data:
+        raise ValueError("Camera exchange requires an unconstrained, unparented camera without animation owners")
+    for target, values in ((camera_object.data, settings["camera"]), (scene.render, settings["render"])):
+        for key, value in values.items():
+            setattr(target, key, value)
+            actual = getattr(target, key)
+            if isinstance(value, (int, float)):
+                if not math.isclose(actual, value, rel_tol=2e-6, abs_tol=1e-7):
+                    raise ValueError("Blender cannot represent calibrated camera field " + key)
+            elif actual != value:
+                raise ValueError("Blender changed calibrated camera field " + key)
+    x, y, z, w = camera["pose"]["rotation"]
+    native_from_canonical = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
+    camera_object.matrix_world = native_from_canonical @ Matrix.LocRotScale(Vector(camera["pose"]["position"]), Quaternion((w, x, y, z)), Vector((1, 1, 1)))
+    scene.camera = camera_object
+    return camera_object
 
 
 def check_output_budget(request):
@@ -292,6 +380,8 @@ def run(bpy, request):
     entrypoint = request["bundle"]["entrypoint"]
     source = child_path(request["sourceRoot"], entrypoint["path"])
     namespace = {}
+    def apply_declared_camera(camera, camera_object=None):
+        return apply_spatial_camera(bpy, camera, camera_object, job.get("render"))
     if entrypoint["kind"] == "blend":
         if job["stage"] != "render":
             raise ValueError("Native .blend entrypoints support render only")
@@ -300,7 +390,8 @@ def run(bpy, request):
     else:
         configure_scene(bpy, job)
         sys.path.insert(0, request["sourceRoot"])
-        namespace = runpy.run_path(str(source), init_globals={"ATET_CONTEXT": context}, run_name="__atet_studio__")
+        namespace = runpy.run_path(str(source), init_globals={"ATET_CONTEXT": context,
+            "ATET_APPLY_SPATIAL_CAMERA": apply_declared_camera}, run_name="__atet_studio__")
         if callable(namespace.get("build")):
             namespace["build"](context)
     scene = configure_scene(bpy, job)

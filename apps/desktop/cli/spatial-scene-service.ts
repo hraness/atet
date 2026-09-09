@@ -5,6 +5,7 @@ import { canonicalJson } from "../../../src/code/canonical-json";
 import { createSpatialSceneStarter } from "../../../src/spatial-scene/authoring";
 import { SPATIAL_SCENE_LIMITS } from "../../../src/spatial-scene/contracts";
 import { parseSpatialScene, spatialSceneSha256 } from "../../../src/spatial-scene/index";
+import { sampleSpatialCameraTrack } from "../../../src/spatial-scene/camera-track";
 import type { ApplicationContext } from "../application/context";
 import { createApplicationOperationRegistry } from "../application/default-registry";
 import { planSpatialRender } from "../application/spatial-render";
@@ -49,7 +50,12 @@ export function bindSpatialCliExecutionProfile(request: unknown, executionProfil
   return { ...request, executionProfile };
 }
 
-export async function executeSpatialSceneCommand(application: ApplicationContext, command: SpatialSceneCommand): Promise<unknown> {
+function assertCameraTrackActive(signal: AbortSignal | undefined): void {
+  if (signal?.aborted === true) throw new CliError("cancelled", "Camera track export was cancelled.");
+}
+
+export async function executeSpatialSceneCommand(application: ApplicationContext, command: SpatialSceneCommand, signal?: AbortSignal): Promise<unknown> {
+  if (command.action === "camera-track") assertCameraTrackActive(signal);
   const sourcePath = resolve(application.paths.repositoryRoot, command.path);
   if (command.action === "init") {
     const scene = createSpatialSceneStarter();
@@ -57,6 +63,21 @@ export async function executeSpatialSceneCommand(application: ApplicationContext
     return { path: sourcePath, sceneSha256: spatialSceneSha256(scene) };
   }
   const scene = parseSpatialScene(await readSpatialJson(sourcePath));
+  if (command.action === "camera-track") {
+    const fence = async () => {
+      assertCameraTrackActive(signal);
+      await application.hostResourceLease?.assertOwned();
+      assertCameraTrackActive(signal);
+    };
+    assertCameraTrackActive(signal);
+    const request = await readSpatialJson(resolve(application.paths.repositoryRoot, command.request));
+    assertCameraTrackActive(signal);
+    const track = sampleSpatialCameraTrack(scene, request);
+    const output = resolve(application.paths.repositoryRoot, command.output);
+    await publishSpatialSource(output, track, fence);
+    await fence();
+    return { path: output, sceneSha256: track.sceneSha256, cameraId: track.cameraId, clock: track.clock, executed: false };
+  }
   if (command.action === "plan" || command.action === "render") {
     const request = bindSpatialCliExecutionProfile(await readSpatialJson(resolve(application.paths.repositoryRoot, command.request)), command.executionProfile);
     if (command.action === "plan") return planSpatialRender(scene, request);

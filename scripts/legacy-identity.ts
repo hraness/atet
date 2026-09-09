@@ -75,7 +75,7 @@ export function isNativeFilmStudioPath(path: string): boolean {
       "docs/studio.md",
       "skills/atet/references/native-studio.md",
     ].includes(path)
-    || /^apps\/desktop\/cli\/studio-(?:args|assemble|command|custody|encode|exr|files|output-validation|process|runtime|scaffold|service|template-names|workflow)(?:\.test)?\.ts$/u.test(path)
+    || /^apps\/desktop\/cli\/studio-(?:args|assemble|bridge-args|command|custody|encode|exr|files|output-validation|process|runtime|scaffold|service|spatial-asset|template-names|workflow)(?:\.test)?\.ts$/u.test(path)
 }
 
 function sha256(value: string): string {

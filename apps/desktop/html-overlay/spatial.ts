@@ -116,6 +116,8 @@ export const PreparedSpatialAssetSchema = z.discriminatedUnion("kind", [
     nodeIndex: z.number().int().min(0).max(65_535).optional(),
     timeUs: SpatialTimeUsSchema.nullable(),
     primitives: z.array(primitiveSchema).min(1).max(SPATIAL_OVERLAY_LIMITS.primitivesPerAsset),
+    /** Optional exact canonical primitives JSON, served through the private resource boundary. */
+    resource: HtmlOverlayDeclaredResourceSchema.optional(),
   }),
 ]);
 
@@ -338,7 +340,19 @@ export function createSpatialOverlayBatch(input: unknown) {
     const key = preparedKey(asset);
     if (prepared.has(key)) throw new RangeError(`Duplicate prepared asset binding: ${key}`);
     prepared.set(key, asset);
-    if (asset.kind === "geometry") geometries.set(key, asset);
+    if (asset.kind === "geometry") {
+      geometries.set(key, asset);
+      if (asset.resource !== undefined) {
+        const bytes = new TextEncoder().encode(canonicalJson(asset.primitives));
+        if (asset.resource.transport !== "fetch" || asset.resource.mediaType !== "application/json" || asset.resource.bytes !== bytes.byteLength
+          || asset.resource.sha256 !== canonicalJsonSha256(asset.primitives)) {
+          throw new RangeError("Prepared geometry resource must bind the exact canonical validated primitives.");
+        }
+        const previous = resources.get(asset.resource.name);
+        if (previous !== undefined && canonicalJson(previous) !== canonicalJson(asset.resource)) throw new RangeError("Geometry resource names must identify exact immutable bytes.");
+        resources.set(asset.resource.name, asset.resource);
+      }
+    }
     if (asset.kind === "splat") {
       const expected = spatialSpzAllocationBounds(asset.facts.splats, asset.resource.bytes, asset.facts.decompressedBytes);
       if (asset.resource.mediaType !== "application/octet-stream" || asset.resource.bytes < 18 || expected.gpuBytesBound !== asset.facts.gpuBytesBound || expected.hostBytesBound !== asset.facts.hostBytesBound) throw new RangeError("Prepared SPZ allocation or binary resource evidence is invalid.");
@@ -496,7 +510,8 @@ export function createSpatialOverlayBatch(input: unknown) {
   const payload = {
     mode: request.mode,
     frames,
-    geometry: Object.fromEntries([...geometries].map(([key, asset]) => [key, asset.primitives])),
+    geometry: Object.fromEntries([...geometries].filter(([, asset]) => asset.resource === undefined).map(([key, asset]) => [key, asset.primitives])),
+    geometryResources: [...geometries].filter(([, asset]) => asset.resource !== undefined).map(([key, asset]) => ({ key, resource: asset.resource!, url: htmlOverlayAssetLocalUrl(asset.resource!) })),
     textures: declaredResources.filter(resource => textures.has(resource.name)).map(resource => ({ ...textures.get(resource.name)!, name: resource.name, url: htmlOverlayAssetLocalUrl(resource) })),
     ...(request.executionProfile === "three-spark-webgl2-hardware-v1" ? { splatKernel, splats: [...splats].map(([key, asset]) => ({ key, ...asset, url: htmlOverlayAssetLocalUrl(asset.resource) })) } : {}),
   };
@@ -581,6 +596,22 @@ const textures=new Map();let disposed=false;let contextFailure=null;
 const loseContext=event=>{event.preventDefault();contextFailure=new Error("Spatial WebGL context was lost.");};
 canvas.addEventListener("webglcontextlost",loseContext);
 const initialization=(async()=>{
+  const loadedGeometry=new Map();
+  for(const item of input.geometryResources){
+    let primitives=loadedGeometry.get(item.resource.sha256);
+    if(primitives===undefined){
+      const response=await fetch(item.url);if(!response.ok)throw new Error("Prepared geometry resource is unavailable.");
+      const bytes=await response.arrayBuffer();
+      if(bytes.byteLength!==item.resource.bytes)throw new Error("Prepared geometry resource length changed.");
+      const hash=new Uint8Array(await crypto.subtle.digest("SHA-256",bytes));
+      const sha256=Array.from(hash,value=>value.toString(16).padStart(2,"0")).join("");
+      if(sha256!==item.resource.sha256)throw new Error("Prepared geometry resource digest changed.");
+      primitives=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(bytes));
+      loadedGeometry.set(sha256,primitives);
+    }
+    if(disposed)throw new Error("Spatial renderer was disposed during geometry preparation.");
+    input.geometry[item.key]=primitives;
+  }
   for(const item of input.textures){
     const texture=await new THREE.TextureLoader().loadAsync(item.url);
     if(disposed){texture.dispose();throw new Error("Spatial renderer was disposed during texture preparation.");}

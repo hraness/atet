@@ -185,7 +185,19 @@ describe("qualified GLB host integration", () => {
         if (a?.kind !== "geometry" || b?.kind !== "geometry") throw new Error("Expected geometry");
         expect(a.entityId).not.toBe(b.entityId); expect(a.primitives[0]?.linearColor).toEqual([0.123456, 0.2, 0.3]);
         expect(a.primitives[0]?.material?.opacity).toBe(1); expect(b.primitives[0]?.material).toBeUndefined();
-        createSpatialOverlayBatch({ snapshots: [frame, { ...frame, timeUs: 500_000 }], preparedAssets: prepared.preparedAssets, frameRate: { numerator: 24, denominator: 1 }, mode: { kind: "beauty" } });
+        expect(prepared.resources).toHaveLength(2);
+        for (const geometry of [a, b]) {
+          if (geometry.resource === undefined) throw new Error("Expected geometry resource");
+          const resource = prepared.resources.find(item => item.name === geometry.resource!.name)!;
+          const bytes = await readFile(resource.absolutePath);
+          expect(resource.mediaType).toBe("application/json");
+          expect(bytes.byteLength).toBe(geometry.resource.bytes);
+          expect(sha(bytes)).toBe(geometry.resource.sha256);
+          expect(JSON.parse(bytes.toString())).toEqual(geometry.primitives);
+        }
+        expect(prepared.receipt.outputBytes).toBe(prepared.resources.reduce((sum, item) => sum + item.bytes, 0));
+        const batch = createSpatialOverlayBatch({ snapshots: [frame, { ...frame, timeUs: 500_000 }], preparedAssets: prepared.preparedAssets, frameRate: { numerator: 24, denominator: 1 }, mode: { kind: "beauty" } });
+        expect(batch.authoring.resources).toEqual(prepared.resources.map(({ absolutePath: _path, ...resource }) => resource).sort((left, right) => left.name.localeCompare(right.name)));
       });
     });
   });
@@ -194,12 +206,13 @@ describe("qualified GLB host integration", () => {
 describe("absolute video frame preparation", () => {
   const video = (playback: "once" | "loop" | "freeze" = "once"): Extract<SpatialEntity, { kind: "video" }> => ({ ...surface, kind: "video", assetId: "asset_image", width: 2, height: 1, fit: "stretch", opacity: 1, sourceOffsetUs: 0, playback });
   const bytes = Uint8Array.from([0, 0, 0, 16, 102, 116, 121, 112, 105, 115, 111, 109, 0, 0, 0, 0]);
-  function videoRunner(selected: number[]): ApplicationProcessRunner {
+  function videoRunner(selected: number[], pixelFormat = "rgba"): ApplicationProcessRunner {
     return { run: async argv => {
-      if (argv[0] === "ffprobe-fixture") return { exitCode: 0, stderr: "", stdout: JSON.stringify({ streams: [{ width: 2, height: 1, pix_fmt: "rgba", avg_frame_rate: "3/1", time_base: "1/3", color_transfer: "iec61966-2-1", color_primaries: "bt709", color_space: "gbr" }], frames: [
+      if (argv[0] === "ffprobe-fixture") return { exitCode: 0, stderr: "", stdout: JSON.stringify({ streams: [{ width: 2, height: 1, pix_fmt: pixelFormat, avg_frame_rate: "3/1", time_base: "1/3", color_transfer: "iec61966-2-1", color_primaries: "bt709", color_space: "gbr" }], frames: [
         { best_effort_timestamp: 0, best_effort_timestamp_time: "0.000000", duration: 1 }, { best_effort_timestamp: 1, best_effort_timestamp_time: "0.333333", duration: 1 }, { best_effort_timestamp: 2, best_effort_timestamp_time: "0.666667", duration: 1 },
       ] }) };
       const filter = argv[argv.indexOf("-vf") + 1]!;
+      if (pixelFormat === "gbrp") expect(filter).toMatch(/,format=rgba$/u);
       const index = Number(/select=eq\(n\\,(\d+)\)/u.exec(filter)?.[1]);
       selected.push(index); expect(argv).toContain("-enable_drefs"); expect(argv).toContain("-use_absolute_path");
       await writeFile(argv.at(-1)!, await png());
@@ -211,6 +224,26 @@ describe("absolute video frame preparation", () => {
     expect(spatialVideoTimeUs(video("loop"), 1_500_000, 1_000_000)).toBe(500_000);
     expect(spatialVideoTimeUs(video("freeze"), 1_500_000, 1_000_000)).toBe(999_999);
     expect(() => spatialVideoTimeUs(video(), 1_000_000, 1_000_000)).toThrow("half-open");
+  });
+
+  test("Studio lossless RGB gbrp video prepares exact world-surface frames without a YUV transfer conversion", async () => {
+    await workspace(async (assetRoot, workspaceParent) => {
+      await writeFile(join(assetRoot, "asset.bin"), bytes);
+      const source = manifest(bytes, "video");
+      if (source.interpretation.kind !== "video") throw new Error("Expected video");
+      const opaque = { ...source, interpretation: { ...source.interpretation, alpha: "opaque" as const } }, selected: number[] = [];
+      const entity = { ...video(), sourceOffsetUs: 100_000 };
+      const frames = [snapshot([opaque], entity, 566_667), snapshot([opaque], entity, 0), snapshot([opaque], entity, 566_667)];
+      await withPreparedSpatialAssets({ assetRoot, workspaceParent, snapshots: frames, exactSceneTimesUs: [
+        { numerator: "1700000", denominator: "3" }, { numerator: "0", denominator: "1" }, { numerator: "1700000", denominator: "3" },
+      ] }, { runner: videoRunner(selected, "gbrp"), ffmpegCommand: "ffmpeg-fixture", ffprobeCommand: "ffprobe-fixture" }, new AbortController().signal, async prepared => {
+        expect(selected).toEqual([2,0]);
+        expect(prepared.preparedAssets).toHaveLength(2);
+        expect(prepared.preparedAssets[0]).toMatchObject({ kind: "raster", alpha: "opaque", sourceFrameIndex: 2, sourcePts: 2,
+          sourceTimeBase: { numerator: "1", denominator: "3" }, sourceExactTimeUs: { numerator: "2000000", denominator: "3" } });
+        createSpatialOverlayBatch({ snapshots: frames, preparedAssets: prepared.preparedAssets, frameRate: { numerator: 3, denominator: 1 }, mode: { kind: "beauty" } });
+      });
+    });
   });
 
   test("reverse, repeated, and last fractional samples decode exact frame indices once", async () => {

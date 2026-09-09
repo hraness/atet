@@ -92,7 +92,7 @@ test.skipIf(!RUN_COMPILED_SMOKE)(
     const executable = join(root, "atet");
     await copyFile(resolve(import.meta.dir, "..", "dist", "atet"), executable);
     await chmod(executable, 0o755);
-    for (const template of ["blender-product", "blender-character", "blender-cloth", "blender-fluid", "cadquery-bracket", "manim-lesson"]) {
+    for (const template of ["blender-product", "blender-character", "blender-shaded-street", "blender-cloth", "blender-fluid", "cadquery-bracket", "manim-lesson"]) {
       const initialized = JSON.parse(await run(executable, ["studio", "init", template, "--template", template, "--json"], root));
       const bundled = JSON.parse(await run(executable, ["studio", "bundle", initialized.source, "--json"], root));
       const planned = JSON.parse(await run(executable, ["studio", "plan", initialized.job, "--json"], root));

@@ -61,6 +61,7 @@ import {
   htmlOverlayFrameCount,
   htmlOverlayLibraryLocalUrl,
   type HtmlOverlayActiveLibraryLock,
+  type HtmlOverlayDeclaredResource,
   type HtmlOverlayLibrarySpecifier,
   type HtmlOverlayRuntimeFrame,
 } from "../html-overlay";
@@ -1810,15 +1811,16 @@ async function exactResourceBytes(
   return bytes;
 }
 
-function contentSecurityPolicy(executionProfile?: HtmlOverlayExecutionProfile): string {
-  return htmlOverlayRendererContract(executionProfile).contentSecurityPolicy.join("; ");
+function contentSecurityPolicy(executionProfile: HtmlOverlayExecutionProfile | undefined, resources: readonly HtmlOverlayDeclaredResource[]): string {
+  return htmlOverlayRendererContract(executionProfile, resources).contentSecurityPolicy.join("; ");
 }
 
 async function fulfillPreparedRoute(
   route: Route,
   routes: ReadonlyMap<string, PreparedRoute>,
   onBlocked: () => void,
-  executionProfile?: HtmlOverlayExecutionProfile,
+  executionProfile: HtmlOverlayExecutionProfile | undefined,
+  resources: readonly HtmlOverlayDeclaredResource[],
 ): Promise<void> {
   const requestedUrl = new URL(route.request().url());
   const prepared = requestedUrl.origin === SYNTHETIC_ORIGIN
@@ -1834,7 +1836,7 @@ async function fulfillPreparedRoute(
     contentType: prepared.contentType,
     headers: {
       "Cache-Control": "no-store",
-      "Content-Security-Policy": contentSecurityPolicy(executionProfile),
+      "Content-Security-Policy": contentSecurityPolicy(executionProfile, resources),
       "Cross-Origin-Resource-Policy": "same-origin",
     },
     status: 200,
@@ -2173,6 +2175,7 @@ export class PlaywrightHtmlOverlayRenderer implements HtmlOverlayRenderer {
                   blockedRequestCount += 1;
                 },
                 request.executionProfile,
+                request.authoring.resources,
               );
             }),
             signal,
