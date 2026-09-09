@@ -99,7 +99,7 @@ export function projectPreviewArtifacts(value: unknown, expected: Readonly<{
     digest(graph.receiptSha256)
     return graph.id
   }).sort(), ["preview-foundation", "preview-renderer"])
-  assert.deepEqual(complete.packages, [{ manifestSha256: digest(expected.manifestSha256), name: "@hraness/ui", version: "0.5.6" }])
+  assert.deepEqual(complete.packages, [{ manifestSha256: digest(expected.manifestSha256), name: "@hraness/ui", version: "0.5.7" }])
   assert.ok(Array.isArray(complete.artifacts) && complete.artifacts.length >= 17 && complete.artifacts.length <= 63)
   const artifacts = complete.artifacts.map(artifact)
   assert.equal(new Set(artifacts.map(item => item.path)).size, artifacts.length)

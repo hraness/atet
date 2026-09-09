@@ -1,0 +1,7 @@
+/* Temporary parity for the unchanged footer. The previous unlayered global
+   anchor rule made social links inherit the footer foreground in every state.
+   The static renderer has no descendant recipe override, so retain exactly
+   this product boundary outside the union until that shared seam is migrated. */
+.hraness-site-footer__social-link {
+  color: inherit;
+}
