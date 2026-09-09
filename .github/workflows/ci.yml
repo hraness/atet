@@ -109,6 +109,8 @@ jobs:
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run check:standalone
       - run: bun run check:sdk
+      - name: Check generated SDK standalone boundary
+        run: bun run check:standalone
       - name: Verify committed SDK output
         run: |
           generated_status="$(git status --porcelain --untracked-files=all -- dist bun.lock)"
@@ -136,6 +138,8 @@ jobs:
         run: bash scripts/install-ci-ffmpeg.sh
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run check:desktop
+      - name: Check generated desktop standalone boundary
+        run: bun run check:standalone
       - name: Verify committed CLI output
         run: |
           generated_status="$(git status --porcelain --untracked-files=all -- apps/desktop/dist/cli bun.lock)"
@@ -174,6 +178,8 @@ jobs:
           test -x "$ATET_CHROME_PATH"
           export ATET_CHROME_PATH
           bun run check:web
+      - name: Check generated site standalone boundary
+        run: bun run check:standalone
 
   package:
     name: Atet packed consumer

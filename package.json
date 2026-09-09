@@ -1,6 +1,6 @@
 {
   "name": "@hraness/atet",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "description": "Local-first AI media generation and video editing toolkit for coding agents, with a Bun CLI, TypeScript SDK, MCP server, and Agent Skill.",
   "license": "MIT",
   "contentPolicy": {
@@ -226,7 +226,7 @@
     "benchmark:code-concurrency": "bun run ./apps/desktop/code/concurrency-benchmark.ts",
     "check:desktop:direct-boundary": "bun run ./apps/desktop/direct/check-production-boundary.ts",
     "verify:direct": "bun run ./apps/desktop/direct/verify-browser.ts",
-    "check:release-workflows": "bun test ./scripts/release-workflow.test.ts",
+    "check:release-workflows": "bun test ./scripts/release-workflow.test.ts ./scripts/github-release.test.ts",
     "check:schema": "bun run ./scripts/validate-schema.ts",
     "check:skill": "bun run ./scripts/validate-skill.ts",
     "check:standalone": "bun run ./scripts/check-standalone.ts",

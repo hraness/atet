@@ -12,10 +12,10 @@ import { homeMarkdown } from "../apps/web/src/agent-pages"
 import { verifyNpmPublishAuthority } from "./npm-publish-authority"
 import { verifyNpmPublishConfig, verifyNpmPublishManifest } from "./npm-publish-policy"
 import {
-  admitPublishedNpmVersion,
+  admitPublishedGitHubRelease,
   admitRemoteReleaseTags,
   parseReleaseVersion,
-} from "./push-npm-release-tag"
+} from "./push-release-tag"
 
 async function readWorkflow(
   sourceName: string,
@@ -138,6 +138,64 @@ test("public CI routes independent Atet SDK, local-runtime, site, and native pro
   expect(workflow).not.toContain(["projects", "atet"].join("/"))
 })
 
+function requireCompleteSourceCoverage(workflow: string): void {
+  let priorWorkflow = workflow
+  for (const [job, phase, label] of [
+    ["sdk", "check:sdk", "SDK"],
+    ["desktop", "check:desktop", "desktop"],
+    ["site", "check:web", "site"],
+  ]) {
+    const jobSource = workflow.match(new RegExp(`\\n  ${job}:\\n[\\s\\S]*?(?=\\n  [a-z]+:\\n|$)`))?.[0]
+    const scan = `      - name: Check generated ${label} standalone boundary\n        run: bun run check:standalone\n`
+    if (jobSource === undefined || jobSource.split(scan).length !== 2
+      || jobSource.indexOf(scan) < jobSource.indexOf(`bun run ${phase}`)) {
+      throw new Error(`CI must scan ${job} generated output after its complete phase`)
+    }
+    priorWorkflow = priorWorkflow.replace(scan, "")
+  }
+  // This additive comparison preserves every prior job, condition, command,
+  // deadline and failure boundary. A future update needs a coverage review.
+  const priorDigest = createHash("sha256").update(priorWorkflow).digest("hex")
+  if (priorDigest !== "4b010ecc6370d783e20545f92e8a1efff7ef6f8d6569f3581daa69e708fbfce5") {
+    throw new Error("CI differs from the independently reviewed prior coverage")
+  }
+}
+
+test("complete source CI preserves every aggregate phase and adds post-build scans without weakening prior coverage", async () => {
+  const workflow = await readWorkflow("public-ci.yml", "ci.yml")
+  const root = JSON.parse(await readFile(join(import.meta.dir, "../package.json"), "utf8"))
+  const site = JSON.parse(await readFile(join(import.meta.dir, "../apps/web/package.json"), "utf8"))
+  expect(root.scripts.check.split(" && ")).toEqual([
+    "bun run check:standalone", "bun run check:sdk", "bun run check:desktop",
+    "bun run check:web", "bun run check:standalone", "bun run test:package",
+  ])
+  expect(root.scripts["check:sdk"].split(" && ")).toEqual([
+    "bun run typecheck:sdk", "bun run lint:sdk", "bun run build:sdk",
+    "bun run test:sdk", "bun run check:release-workflows", "bun run check:schema", "bun run check:skill",
+  ])
+  expect(root.scripts["check:desktop"].split(" && ")).toEqual([
+    "bun run check:effect", "bun run typecheck:desktop", "bun run lint:desktop",
+    "bun run test:desktop", "bun run build:desktop",
+  ])
+  expect(root.scripts["check:web"]).toBe("bun run --cwd apps/web check")
+  expect(site.scripts.check.split(" && ")).toEqual([
+    "bun run typecheck:preview", "bun run test", "bun run build", "bun run verify:preview",
+  ])
+  expect(() => requireCompleteSourceCoverage(workflow)).not.toThrow()
+
+  const sdkScan = "      - name: Check generated SDK standalone boundary\n        run: bun run check:standalone\n"
+  expect(() => requireCompleteSourceCoverage(workflow.replace(sdkScan, ""))).toThrow("after its complete phase")
+  expect(() => requireCompleteSourceCoverage(workflow.replace(
+    `      - run: bun run check:sdk\n${sdkScan}`, `${sdkScan}      - run: bun run check:sdk\n`,
+  ))).toThrow("after its complete phase")
+  expect(() => requireCompleteSourceCoverage(workflow.replace(
+    "if: needs.plan.outputs.sdk == 'true'", "if: false",
+  ))).toThrow("prior coverage")
+  expect(() => requireCompleteSourceCoverage(workflow.replace(
+    "      - run: bun run check:desktop\n", "      - run: bun run check:desktop\n        continue-on-error: true\n",
+  ))).toThrow("prior coverage")
+})
+
 test("site CI installs app-pinned Chromium in runner temp before the unchanged native gate", async () => {
   const workflow = await readWorkflow("public-ci.yml", "ci.yml")
   const site = workflow.slice(workflow.indexOf("\n  site:\n"), workflow.indexOf("\n  package:\n"))
@@ -186,578 +244,6 @@ test("hostile actor or sender drift cannot reach the protected release workflow"
   expect(() => requireOwnerReleaseAuthorization(senderDrift)).toThrow(
     "exact event sender guard",
   )
-})
-
-test("the write job reauthorizes the exact run attempt and rejects collaborator reruns", async () => {
-  const workflow = await readWorkflow("public-release.yml", "release.yml")
-  const publishJob = workflow.slice(workflow.indexOf("\n  publish:\n"))
-  const authorizationIndex = publishJob.indexOf("Reauthorize current release attempt")
-  const immediateLatestIndex = publishJob.indexOf(
-    "npm latest changed immediately before GitHub Release publication",
-  )
-  const mutationIndex = publishJob.indexOf('gh release create "$GITHUB_REF_NAME"')
-  expect(publishJob).toContain("permissions:\n      actions: read\n      contents: write")
-  expect(authorizationIndex).toBeGreaterThan(-1)
-  expect(authorizationIndex).toBeLessThan(mutationIndex)
-  expect(immediateLatestIndex).toBeGreaterThan(authorizationIndex)
-  expect(immediateLatestIndex).toBeLessThan(mutationIndex)
-  expect(publishJob).toContain(
-    '"/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT"',
-  )
-  expect(publishJob).toContain('EXPECTED_WORKFLOW_ID: "320001524"')
-  expect(publishJob).toContain('EXPECTED_DEFAULT_BRANCH: "main"')
-  expect(publishJob).toContain('attempt.triggering_actor?.id !== actorId')
-  expect(publishJob).toContain('attempt.triggering_actor?.type !== "User"')
-  expect(publishJob).toContain('EXPECTED_RELEASE_AUTHOR_ID: "41898282"')
-  expect(publishJob).toContain("atet-release-provenance:v1")
-  expect(publishJob).toContain("Existing GitHub Release is not the exact GitHub Actions provenance-bound release")
-
-  const script = workflowStepScript(workflow, "Reauthorize current release attempt")
-  const directory = await mkdtemp(join(tmpdir(), "atet-release-attempt-"))
-  const binaryDirectory = join(directory, "bin")
-  const attemptPath = join(directory, "attempt.json")
-  const workflowPath = join(directory, "workflow.json")
-  const stageAttemptPath = join(directory, "stage-attempt.json")
-  const stageJobsPath = join(directory, "stage-jobs.json")
-  const stageWorkflowPath = join(directory, "stage-workflow.json")
-  const repositoryPath = join(directory, "repository.json")
-  const commandLog = join(directory, "gh.log")
-  const sourceSha = "a".repeat(40)
-  const attempt = {
-    id: 12345,
-    run_attempt: 2,
-    workflow_id: 320001524,
-    name: "Release",
-    path: ".github/workflows/release.yml",
-    event: "push",
-    head_branch: "v3.2.0",
-    head_sha: sourceSha,
-    status: "in_progress",
-    conclusion: null,
-    actor: { id: 894119, type: "User" },
-    triggering_actor: { id: 894119, type: "User" },
-    repository: {
-      id: 1310516748,
-      full_name: "hraness/atet",
-      private: false,
-    },
-  }
-  const stageAttempt = {
-    id: 67890,
-    run_attempt: 3,
-    workflow_id: 344208600,
-    name: "Stage npm package",
-    path: ".github/workflows/npm-stage.yml",
-    event: "workflow_dispatch",
-    head_branch: "main",
-    head_sha: sourceSha,
-    status: "completed",
-    conclusion: "success",
-    actor: { id: 894119, type: "User" },
-    triggering_actor: { id: 894119, type: "User" },
-    repository: {
-      id: 1310516748,
-      full_name: "hraness/atet",
-      private: false,
-    },
-  }
-  const stageJobs = {
-    total_count: 1,
-    jobs: [{
-      name: "Stage exact package v3.2.0",
-      head_sha: sourceSha,
-      conclusion: "success",
-      steps: [
-        { name: "Record exclusive stable-stage intent", conclusion: "success" },
-        { name: "Revalidate current main and stage exact package", conclusion: "success" },
-      ],
-    }],
-  }
-
-  try {
-    await mkdir(binaryDirectory, { recursive: true })
-    await writeFile(
-      join(binaryDirectory, "gh"),
-      [
-        "#!/bin/bash",
-        "set -euo pipefail",
-        'printf \'%s\\n\' "$*" >> "$GH_COMMAND_LOG"',
-        'endpoint=""',
-        'for argument in "$@"; do endpoint="$argument"; done',
-        'case "$endpoint" in',
-        '  */actions/runs/67890/attempts/3/jobs?per_page=100) cat "$MOCK_STAGE_JOBS_JSON" ;;',
-        '  */actions/runs/67890/attempts/3) cat "$MOCK_STAGE_ATTEMPT_JSON" ;;',
-        '  */actions/runs/*) cat "$MOCK_ATTEMPT_JSON" ;;',
-        '  */actions/workflows/344208600) cat "$MOCK_STAGE_WORKFLOW_JSON" ;;',
-        '  */actions/workflows/*) cat "$MOCK_WORKFLOW_JSON" ;;',
-        '  */commits/v3.2.0) printf \'%s\\n\' "$MOCK_SOURCE_SHA" ;;',
-        '  */commits/main) printf \'%s\\n\' "$MOCK_SOURCE_SHA" ;;',
-        '  */compare/*) printf \'identical\\n\' ;;',
-        '  /repos/hraness/atet) cat "$MOCK_REPOSITORY_JSON" ;;',
-        '  *) echo "unexpected gh endpoint: $endpoint" >&2; exit 2 ;;',
-        "esac",
-      ].join("\n"),
-    )
-    await chmod(join(binaryDirectory, "gh"), 0o755)
-    await Promise.all([
-      writeFile(attemptPath, JSON.stringify(attempt)),
-      writeFile(workflowPath, JSON.stringify({
-        id: 320001524,
-        name: "Release",
-        path: ".github/workflows/release.yml",
-        state: "active",
-      })),
-      writeFile(stageAttemptPath, JSON.stringify(stageAttempt)),
-      writeFile(stageJobsPath, JSON.stringify(stageJobs)),
-      writeFile(stageWorkflowPath, JSON.stringify({
-        id: 344208600,
-        name: "Stage npm package",
-        path: ".github/workflows/npm-stage.yml",
-        state: "active",
-      })),
-      writeFile(repositoryPath, JSON.stringify({
-        id: 1310516748,
-        full_name: "hraness/atet",
-        visibility: "public",
-        private: false,
-        default_branch: "main",
-      })),
-    ])
-    const environment = {
-      PATH: `${binaryDirectory}:${process.env.PATH ?? ""}`,
-      GH_COMMAND_LOG: commandLog,
-      MOCK_ATTEMPT_JSON: attemptPath,
-      MOCK_WORKFLOW_JSON: workflowPath,
-      MOCK_STAGE_ATTEMPT_JSON: stageAttemptPath,
-      MOCK_STAGE_JOBS_JSON: stageJobsPath,
-      MOCK_STAGE_WORKFLOW_JSON: stageWorkflowPath,
-      MOCK_REPOSITORY_JSON: repositoryPath,
-      MOCK_SOURCE_SHA: sourceSha,
-      RUNNER_TEMP: directory,
-      EXPECTED_ACTOR_ID: "894119",
-      EXPECTED_REPOSITORY: "hraness/atet",
-      EXPECTED_REPOSITORY_ID: "1310516748",
-      EXPECTED_DEFAULT_BRANCH: "main",
-      EXPECTED_WORKFLOW_ID: "320001524",
-      EXPECTED_WORKFLOW_NAME: "Release",
-      EXPECTED_WORKFLOW_PATH: ".github/workflows/release.yml",
-      EXPECTED_STAGE_RUN_ID: "67890",
-      EXPECTED_STAGE_RUN_ATTEMPT: "3",
-      EXPECTED_STAGE_WORKFLOW_ID: "344208600",
-      EXPECTED_STAGE_WORKFLOW_NAME: "Stage npm package",
-      EXPECTED_STAGE_WORKFLOW_PATH: ".github/workflows/npm-stage.yml",
-      GITHUB_RUN_ID: "12345",
-      GITHUB_RUN_ATTEMPT: "2",
-      GITHUB_EVENT_NAME: "push",
-      GITHUB_REPOSITORY: "hraness/atet",
-      GITHUB_REPOSITORY_ID: "1310516748",
-      GITHUB_REF: "refs/tags/v3.2.0",
-      GITHUB_SHA: sourceSha,
-      VERIFIED_TAG: "v3.2.0",
-      VERIFIED_STAGE_RUN_ID: "67890",
-      VERIFIED_STAGE_RUN_ATTEMPT: "3",
-    }
-    const admitted = await runWorkflowScript(script, environment)
-    expect(admitted.exitCode).toBe(0)
-    expect(await readFile(commandLog, "utf8")).toContain(
-      "actions/runs/12345/attempts/2",
-    )
-
-    for (const conclusion of ["failure", "cancelled", "timed_out"] as const) {
-      await Promise.all([
-        writeFile(stageAttemptPath, JSON.stringify({ ...stageAttempt, conclusion })),
-        writeFile(stageJobsPath, JSON.stringify({
-          ...stageJobs,
-          jobs: [{
-            ...stageJobs.jobs[0],
-            conclusion,
-            steps: [
-              { name: "Record exclusive stable-stage intent", conclusion: "success" },
-              { name: "Revalidate current main and stage exact package", conclusion },
-            ],
-          }],
-        })),
-      ])
-      const ambiguousAcceptedStage = await runWorkflowScript(script, environment)
-      expect(ambiguousAcceptedStage.exitCode).toBe(0)
-    }
-
-    await Promise.all([
-      writeFile(stageAttemptPath, JSON.stringify(stageAttempt)),
-      writeFile(stageJobsPath, JSON.stringify({
-        ...stageJobs,
-        jobs: [{
-          ...stageJobs.jobs[0],
-          steps: [
-            { name: "Revalidate current main and stage exact package", conclusion: "success" },
-            { name: "Record exclusive stable-stage intent", conclusion: "success" },
-          ],
-        }],
-      })),
-    ])
-    const misorderedIntent = await runWorkflowScript(script, environment)
-    expect(misorderedIntent.exitCode).not.toBe(0)
-    expect(misorderedIntent.stderr).toContain("lacks the exact pre-mutation intent")
-
-    await writeFile(stageJobsPath, JSON.stringify(stageJobs))
-
-    await writeFile(attemptPath, JSON.stringify({
-      ...attempt,
-      triggering_actor: { id: 123456, type: "User" },
-    }))
-    const hostileRerun = await runWorkflowScript(script, environment)
-    expect(hostileRerun.exitCode).not.toBe(0)
-    expect(hostileRerun.stderr).toContain(
-      "Current release attempt is not owner-authorized",
-    )
-
-    await writeFile(attemptPath, JSON.stringify(attempt))
-    await writeFile(stageAttemptPath, JSON.stringify({
-      ...stageAttempt,
-      triggering_actor: { id: 123456, type: "User" },
-    }))
-    const hostileStageRerun = await runWorkflowScript(script, environment)
-    expect(hostileStageRerun.exitCode).not.toBe(0)
-    expect(hostileStageRerun.stderr).toContain(
-      "Signed npm provenance does not resolve to the owner-authorized staging attempt",
-    )
-
-    await writeFile(stageAttemptPath, JSON.stringify(stageAttempt))
-    await writeFile(repositoryPath, JSON.stringify({
-      id: 1310516748,
-      full_name: "hraness/atet",
-      visibility: "private",
-      private: true,
-      default_branch: "main",
-    }))
-    const privateRepository = await runWorkflowScript(script, environment)
-    expect(privateRepository.exitCode).not.toBe(0)
-    expect(privateRepository.stderr).toContain(
-      "Current release attempt is not owner-authorized",
-    )
-
-    await writeFile(repositoryPath, JSON.stringify({
-      id: 1310516748,
-      full_name: "hraness/atet",
-      visibility: "public",
-      private: false,
-      default_branch: "main",
-    }))
-    const movedTag = await runWorkflowScript(script, {
-      ...environment,
-      MOCK_SOURCE_SHA: "c".repeat(40),
-    })
-    expect(movedTag.exitCode).not.toBe(0)
-    expect(movedTag.stdout).toContain("Tag v3.2.0 moved")
-  } finally {
-    await rm(directory, { recursive: true, force: true })
-  }
-})
-
-test("the final write job re-reads exact npm latest and signed authority metadata", async () => {
-  const workflow = await readWorkflow("public-release.yml", "release.yml")
-  const script = workflowStepScript(workflow, "Revalidate live public npm authority")
-  const directory = await mkdtemp(join(tmpdir(), "atet-live-npm-authority-"))
-  const binaryDirectory = join(directory, "bin")
-  const versionPath = join(directory, "version.json")
-  const tagsPath = join(directory, "tags.json")
-  const integrity = `sha512-${Buffer.alloc(64).toString("base64")}`
-  const attestationUrl =
-    "https://registry.npmjs.org/-/npm/v1/attestations/@hraness%2fatet@3.2.0"
-  const versionReceipt = {
-    name: "@hraness/atet",
-    version: "3.2.0",
-    dist: {
-      integrity,
-      signatures: [{
-        keyid: "SHA256:fixture",
-        sig: Buffer.from("registry signature").toString("base64"),
-      }],
-      attestations: {
-        url: attestationUrl,
-        provenance: { predicateType: "https://slsa.dev/provenance/v1" },
-      },
-    },
-  }
-  try {
-    await mkdir(binaryDirectory, { recursive: true })
-    await writeFile(join(binaryDirectory, "curl"), `#!/bin/bash
-set -euo pipefail
-case "$*" in
-  *dist-tags) cat "$MOCK_DIST_TAGS" ;;
-  *) cat "$MOCK_VERSION_VIEW" ;;
-esac
-`, "utf8")
-    await chmod(join(binaryDirectory, "curl"), 0o755)
-    await Promise.all([
-      writeFile(versionPath, JSON.stringify(versionReceipt)),
-      writeFile(tagsPath, JSON.stringify({ latest: "3.2.0" })),
-    ])
-    const environment = {
-      MOCK_DIST_TAGS: tagsPath,
-      MOCK_VERSION_VIEW: versionPath,
-      PATH: `${binaryDirectory}:${process.env.PATH ?? ""}`,
-      RUNNER_TEMP: directory,
-      VERIFIED_NPM_ATTESTATION_URL: attestationUrl,
-      VERIFIED_NPM_INTEGRITY: integrity,
-      VERIFIED_TAG: "v3.2.0",
-    }
-    expect((await runWorkflowScript(script, environment)).exitCode).toBe(0)
-
-    await writeFile(tagsPath, JSON.stringify({ latest: "3.3.0" }))
-    const movedLatest = await runWorkflowScript(script, environment)
-    expect(movedLatest.exitCode).not.toBe(0)
-    expect(movedLatest.stderr).toContain(
-      "Live npm latest, archive, signatures, or attestations changed",
-    )
-
-    await Promise.all([
-      writeFile(tagsPath, JSON.stringify({ latest: "3.2.0" })),
-      writeFile(versionPath, JSON.stringify({
-        ...versionReceipt,
-        dist: { ...versionReceipt.dist, signatures: [] },
-      })),
-    ])
-    const missingSignature = await runWorkflowScript(script, environment)
-    expect(missingSignature.exitCode).not.toBe(0)
-    expect(missingSignature.stderr).toContain(
-      "Live npm latest, archive, signatures, or attestations changed",
-    )
-  } finally {
-    await rm(directory, { force: true, recursive: true })
-  }
-})
-
-test("the GitHub Release write rejects moved latest and provenance front-running", async () => {
-  const workflow = await readWorkflow("public-release.yml", "release.yml")
-  const script = workflowStepScript(workflow, "Publish verified GitHub Release")
-  const directory = await mkdtemp(join(tmpdir(), "atet-release-publication-"))
-  const binaryDirectory = join(directory, "bin")
-  const commandLog = join(directory, "gh.log")
-  const mutationMarker = join(directory, "release-created")
-  const releasePath = join(directory, "release.json")
-  const tagsPath = join(directory, "tags.json")
-  const sourceSha = "a".repeat(40)
-  const integrity = `sha512-${Buffer.alloc(64).toString("base64")}`
-  const attestationUrl =
-    "https://registry.npmjs.org/-/npm/v1/attestations/@hraness%2fatet@3.2.0"
-  const provenance = `<!-- atet-release-provenance:v1
-workflow=.github/workflows/release.yml
-repository=hraness/atet
-tag=v3.2.0
-source-sha=${sourceSha}
-stage-run-id=67890
-stage-run-attempt=3
-npm-integrity=${integrity}
-npm-attestation=${attestationUrl}
--->
-`
-  const exactRelease = {
-    author: { id: 41898282, login: "github-actions[bot]" },
-    body: `${provenance}\nGenerated notes`,
-    draft: false,
-    name: "Atet v3.2.0",
-    prerelease: false,
-    tag_name: "v3.2.0",
-  }
-
-  try {
-    await mkdir(binaryDirectory, { recursive: true })
-    await Promise.all([
-      writeFile(join(binaryDirectory, "curl"), `#!/bin/bash
-set -euo pipefail
-cat "$MOCK_DIST_TAGS"
-`),
-      writeFile(join(binaryDirectory, "gh"), `#!/bin/bash
-set -euo pipefail
-printf '%s\n' "$*" >> "$GH_COMMAND_LOG"
-if [[ "\${1-}" == release && "\${2-}" == view ]]; then
-  if [[ "$*" == *'--json'* ]]; then
-    printf 'v3.2.0\tAtet v3.2.0\tfalse\tfalse\ttrue\t0\n'
-  fi
-elif [[ "\${1-}" == release && "\${2-}" == create ]]; then
-  printf 'created\n' > "$MUTATION_MARKER"
-elif [[ "\${1-}" == api && "$*" == *'/releases/tags/v3.2.0'* ]]; then
-  cat "$MOCK_RELEASE_JSON"
-elif [[ "\${1-}" == api && "$*" == *'/releases/latest'* ]]; then
-  printf 'v3.2.0\n'
-else
-  echo "unexpected gh invocation: $*" >&2
-  exit 64
-fi
-`),
-      writeFile(releasePath, JSON.stringify(exactRelease)),
-      writeFile(tagsPath, JSON.stringify({ latest: "3.2.0" })),
-    ])
-    await Promise.all([
-      chmod(join(binaryDirectory, "curl"), 0o755),
-      chmod(join(binaryDirectory, "gh"), 0o755),
-    ])
-    const environment = {
-      EXPECTED_RELEASE_AUTHOR_ID: "41898282",
-      EXPECTED_RELEASE_AUTHOR_LOGIN: "github-actions[bot]",
-      GH_COMMAND_LOG: commandLog,
-      GITHUB_REF_NAME: "v3.2.0",
-      GITHUB_REPOSITORY: "hraness/atet",
-      GITHUB_SHA: sourceSha,
-      MOCK_DIST_TAGS: tagsPath,
-      MOCK_RELEASE_JSON: releasePath,
-      MUTATION_MARKER: mutationMarker,
-      PATH: `${binaryDirectory}:${process.env.PATH ?? ""}`,
-      RUNNER_TEMP: directory,
-      VERIFIED_NPM_ATTESTATION_URL: attestationUrl,
-      VERIFIED_NPM_INTEGRITY: integrity,
-      VERIFIED_STAGE_RUN_ATTEMPT: "3",
-      VERIFIED_STAGE_RUN_ID: "67890",
-      VERIFIED_TAG: "v3.2.0",
-    }
-    expect((await runWorkflowScript(script, environment)).exitCode).toBe(0)
-    expect(await Bun.file(mutationMarker).exists()).toBe(false)
-
-    for (const frontRun of [
-      { ...exactRelease, author: { id: 894119, login: "0thernet" } },
-      { ...exactRelease, body: "Generated notes without bound provenance" },
-    ]) {
-      await writeFile(releasePath, JSON.stringify(frontRun))
-      const rejected = await runWorkflowScript(script, environment)
-      expect(rejected.exitCode).not.toBe(0)
-      expect(rejected.stderr).toContain(
-        "Existing GitHub Release is not the exact GitHub Actions provenance-bound release",
-      )
-      expect(await Bun.file(mutationMarker).exists()).toBe(false)
-    }
-
-    await Promise.all([
-      writeFile(releasePath, JSON.stringify(exactRelease)),
-      writeFile(tagsPath, JSON.stringify({ latest: "3.3.0" })),
-      rm(commandLog, { force: true }),
-    ])
-    const movedLatest = await runWorkflowScript(script, environment)
-    expect(movedLatest.exitCode).not.toBe(0)
-    expect(movedLatest.stderr).toContain(
-      "npm latest changed immediately before GitHub Release publication",
-    )
-    expect(await Bun.file(commandLog).exists()).toBe(false)
-    expect(await Bun.file(mutationMarker).exists()).toBe(false)
-  } finally {
-    await rm(directory, { force: true, recursive: true })
-  }
-})
-
-test("owner-created stable tags pass the complete immutable release gate", async () => {
-  const workflow = await readWorkflow("public-release.yml", "release.yml")
-
-  expect(workflow).toContain('tags:\n      - "v*"\n      - "!v*-beta.*"')
-  expect(workflow).toContain("Authorize owner release tag")
-  expect(workflow).toContain('EXPECTED_ACTOR_ID: "894119"')
-  expect(workflow).toContain('EXPECTED_REPOSITORY_ID: "1310516748"')
-  expect(workflow).toContain('event.repository?.visibility !== "public"')
-  expect(workflow).toContain('event.repository?.private !== false')
-  expect(workflow).toContain("github.ref_protected")
-  expect(workflow).toContain("needs: authorize")
-  expect(workflow).toContain("permissions:\n  contents: read")
-  expect(workflow).toContain("verify:\n    name: Verify")
-  expect(workflow).toContain("publish:\n    name: Publish")
-  expect(workflow).toContain("needs: verify")
-  expect(workflow).toContain(`GH_REPO: \${{ github.repository }}`)
-  expect(workflow).toContain("contents: write")
-  expect(workflow).toContain("cancel-in-progress: false")
-  expect(workflow).toContain("group: stable-release")
-  expect(workflow).toContain("fetch-depth: 0")
-  expect(workflow).toContain("persist-credentials: false")
-  expect(workflow).toContain("is not a stable semantic version")
-  expect(workflow).toContain(
-    'Tag $GITHUB_REF_NAME does not match package version $expected_tag',
-  )
-  expect(workflow).toContain(
-    'git merge-base --is-ancestor "$GITHUB_SHA" "origin/$DEFAULT_BRANCH"',
-  )
-  expect(workflow).toContain('newest_stable_tag="$(git tag --list')
-  expect(workflow).toContain("bun install --frozen-lockfile --ignore-scripts")
-  expect(workflow).toContain("bun run check")
-  expect(workflow).toContain("npm install --global --ignore-scripts npm@11.19.0")
-  expect(workflow).toContain("Verify exact public npm artifact")
-  expect(workflow).toContain('npm pack "$package_name@$package_version"')
-  expect(workflow).toContain("--registry=https://registry.npmjs.org")
-  expect(workflow).toContain(
-    'npm view "$package_name@$package_version" name version dist dist-tags --json',
-  )
-  expect(workflow).toContain("bun run ./scripts/npm-package-identity.ts")
-  expect(workflow).toContain('"$source_metadata" "$source_archive"')
-  expect(workflow).toContain('"$registry_metadata" "$registry_archive"')
-  expect(workflow).toContain('"$registry_view"')
-  expect(workflow).not.toContain('cmp --silent "$source_archive" "$registry_archive"')
-  expect(workflow).not.toContain('source[field] !== registry[field]')
-  expect(workflow).toContain("bun run ./scripts/package-smoke.ts")
-  expect(workflow).toContain('--archive "$registry_archive"')
-  expect(workflow).toContain('--pack-json "$registry_metadata"')
-  expect(workflow).toContain("npm install npm@11.19.0")
-  expect(workflow).toContain('--prefix "$npm_tool_directory"')
-  expect(workflow).toContain("--ignore-scripts")
-  expect(workflow).toContain("audit signatures")
-  expect(workflow).toContain("--include-attestations")
-  expect(workflow).toContain("bun run ./scripts/npm-publish-authority.ts")
-  expect(workflow).toContain("stage_run_id: ${{ steps.npm_authority.outputs.stage_run_id }}")
-  expect(workflow).toContain("stage_run_attempt: ${{ steps.npm_authority.outputs.stage_run_attempt }}")
-  expect(workflow).toContain("npm_integrity: ${{ steps.npm_authority.outputs.npm_integrity }}")
-  expect(workflow).toContain("npm_attestation_url: ${{ steps.npm_authority.outputs.npm_attestation_url }}")
-  expect(workflow).toContain("bash scripts/install-ci-ffmpeg.sh")
-  expect(workflow).toContain("native_macos:\n    name: Atet macOS shell")
-  expect(workflow).toContain("bun run test:desktop:macos")
-  expect(workflow).toContain("bun run package:desktop:macos")
-  expect(workflow).toContain(
-    "mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29",
-  )
-  expect(workflow).toContain('version: "0.16.0"')
-  expect(workflow).toContain("needs: [verify, official_vtracer, native_macos]")
-  expect(workflow).toContain("Verify clean source tree")
-  expect(workflow).toContain("git status --porcelain --untracked-files=all")
-  expect(workflow).toContain("is not newer than")
-  expect(workflow).toContain('current_tag_sha="$(gh api --method GET --jq')
-  expect(workflow).toContain(
-    '"/repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...$current_default_sha"',
-  )
-  expect(workflow).toContain('EXPECTED_STAGE_WORKFLOW_ID: "344208600"')
-  expect(workflow).toContain("stageAttempt.triggering_actor?.id !== actorId")
-  expect(workflow).toContain('stageAttempt.status !== "completed"')
-  expect(workflow).toContain('terminalConclusions.has(stageAttempt.conclusion)')
-  expect(workflow).toContain(
-    'actions/runs/$VERIFIED_STAGE_RUN_ID/attempts/$VERIFIED_STAGE_RUN_ATTEMPT/jobs?per_page=100',
-  )
-  expect(workflow).toContain('job?.name === `Stage exact package v${expectedVersion}`')
-  expect(workflow).toContain('step?.name === "Record exclusive stable-stage intent"')
-  expect(workflow).toContain(
-    'step?.name === "Revalidate current main and stage exact package"',
-  )
-  expect(workflow).toContain("mutationIndexes[0] !== intentIndexes[0] + 1")
-  expect(workflow).not.toContain('stageAttempt.conclusion !== "success"')
-  expect(workflow).toContain("name: Revalidate live public npm authority")
-  expect(workflow).toContain("https://registry.npmjs.org/-/package/@hraness%2Fatet/dist-tags")
-  expect(workflow).toContain("Live npm latest, archive, signatures, or attestations changed")
-  const finalAttemptIndex = workflow.indexOf("name: Reauthorize current release attempt")
-  const finalNpmIndex = workflow.indexOf("name: Revalidate live public npm authority")
-  const releaseMutationIndex = workflow.indexOf('gh release create "$GITHUB_REF_NAME"')
-  expect(finalAttemptIndex).toBeLessThan(finalNpmIndex)
-  expect(finalNpmIndex).toBeLessThan(releaseMutationIndex)
-  expect(workflow).toContain('gh release create "$GITHUB_REF_NAME"')
-  expect(workflow).toContain("--verify-tag")
-  expect(workflow).toContain("--generate-notes")
-  expect(workflow).toContain("--latest")
-  expect(workflow).toContain('--title "Atet $GITHUB_REF_NAME"')
-  expect(workflow).toContain(
-    "--json assets,isDraft,isImmutable,isPrerelease,name,tagName",
-  )
-  expect(workflow).toContain('--notes-file "$release_notes"')
-  expect(workflow).toContain('release?.author?.id !== authorId')
-  expect(workflow).toContain('release?.author?.login !== process.env.EXPECTED_RELEASE_AUTHOR_LOGIN')
-  expect(workflow).toContain('!release.body.startsWith(provenance)')
-  expect(workflow).toContain("(.assets | length)")
-  expect(workflow).toContain('"/repos/$GITHUB_REPOSITORY/releases/latest"')
-  expect(workflow).not.toContain("pull_request:")
-  expect(workflow).not.toContain("workflow_dispatch:")
-  expect(workflow).not.toContain("--clobber")
-  expect(workflow).not.toContain("/immutable-releases")
-  expect(workflow).not.toContain("administration:")
 })
 
 interface PackageFixtureEntry {
@@ -1308,13 +794,12 @@ test("the safe stable-tag creator fails closed before its one exact tag push", a
   expect(parseReleaseVersion("3.2.0").tag).toBe("v3.2.0")
   expect(() => parseReleaseVersion("3.2.0-beta.1")).toThrow("canonical stable SemVer")
   expect(() => parseReleaseVersion("9007199254740992.0.0")).toThrow(
-    "exceeds npm 11's safe SemVer component bound",
+    "exceeds the safe SemVer component bound",
   )
-  expect(() => admitPublishedNpmVersion({
-    name: "@hraness/atet",
-    version: "3.2.0",
-    "dist-tags": { latest: "3.1.1" },
-  }, "3.2.0")).toThrow("Public npm latest must identify")
+  expect(() => admitPublishedGitHubRelease({
+    tag_name: "v3.2.0", draft: false, prerelease: false, immutable: false,
+    author: { id: 41898282, login: "github-actions[bot]" },
+  }, "3.2.3")).toThrow("immutable Actions-authored authority")
   const sourceSha = "a".repeat(40)
   const olderTags = [
     `${"b".repeat(40)}\trefs/tags/v3.1.1`,
@@ -1327,15 +812,15 @@ test("the safe stable-tag creator fails closed before its one exact tag push", a
     sourceSha,
   )).toThrow("conflicts with the requested annotated tag")
 
-  const script = await readFile(join(import.meta.dir, "push-npm-release-tag.ts"), "utf8")
+  const script = await readFile(join(import.meta.dir, "push-release-tag.ts"), "utf8")
   expect(script).toContain("Release tag creation")
   expect(script).toContain("Immutable version tags")
-  expect(script).toContain("Verify public npm latest")
+  expect(script).toContain("Verify latest immutable GitHub release")
   expect(script).toContain('["git", "push", "origin", `refs/tags/${release.tag}:refs/tags/${release.tag}`]')
   expect(script).not.toMatch(/npm publish(?:\s|$)/u)
 })
 
-test("a stable version builds automatically and only an owner dispatch stages the exact npm artifact", async () => {
+test("only an owner dispatch mirrors the exact canonical GitHub artifact through npm staging", async () => {
   const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
 
   const verifyStart = workflow.indexOf("  verify:\n")
@@ -1345,7 +830,7 @@ test("a stable version builds automatically and only an owner dispatch stages th
   const verifyJob = workflow.slice(verifyStart, stageStart)
   const stageJob = workflow.slice(stageStart)
 
-  expect(workflow).toContain("push:\n    branches:\n      - main\n    paths:\n      - package.json")
+  expect(workflow.slice(0, workflow.indexOf("permissions:"))).not.toContain("  push:")
   expect(workflow).toContain("workflow_dispatch:")
   expect(workflow).toContain(
     "publish_to_npm:\n        description: Stage the verified package through npm trusted publishing\n        required: false\n        default: false\n        type: boolean",
@@ -1355,34 +840,29 @@ test("a stable version builds automatically and only an owner dispatch stages th
   )
   expect(workflow).toContain("stage_required: ${{ steps.identity.outputs.stage_required }}")
   expect(verifyJob).toContain("name: Verify exact package")
-  expect(verifyJob).toContain("permissions:\n      contents: read")
+  expect(verifyJob).toContain("permissions:\n      actions: read\n      contents: read")
   expect(verifyJob).not.toContain("id-token: write")
   expect(verifyJob).not.toContain("environment:")
   expect(verifyJob).toContain("actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0")
-  expect(verifyJob).toContain('node-version: "24"')
+  expect(verifyJob).toContain('node-version: "24.18.1"')
   expect(verifyJob).toContain('bun-version: "1.3.14"')
   expect(verifyJob).toContain("npm install --global --ignore-scripts npm@11.19.0")
   expect(verifyJob).toContain('[[ "$(npm --version)" == "11.19.0" ]]')
   expect(verifyJob).toContain('if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]')
   expect(verifyJob).toContain('"$GITHUB_SHA" != "$default_sha" || "$checked_out_sha" != "$default_sha"')
-  expect(verifyJob).toContain('case "$GITHUB_EVENT_NAME" in')
-  expect(verifyJob).toContain('git cat-file -e "$PUSH_BEFORE^{commit}"')
-  expect(verifyJob).toContain('git merge-base --is-ancestor "$PUSH_BEFORE" "$GITHUB_SHA"')
-  expect(verifyJob).toContain('git show "$PUSH_BEFORE:package.json"')
-  expect(verifyJob).toContain("package.json changed without changing version")
-  expect(verifyJob).toContain("stage_required=false")
+  expect(verifyJob).toContain("Optional npm mirroring requires an explicit workflow dispatch")
   expect(verifyJob).toContain("stage_required=true")
-  expect(verifyJob).toContain("must be newer than")
   expect(verifyJob).toContain('npm view "$package_name" name --json')
   expect(verifyJob).toContain('npm view "$package_name@$package_version" version --json')
   expect(verifyJob).toContain("bun install --frozen-lockfile --ignore-scripts")
   expect(verifyJob).toContain("bun run check")
+  expect(verifyJob).toContain("Verify with pinned Node and Chromium")
   expect(verifyJob).toContain("Verify clean source tree")
-  expect(verifyJob).toContain("git status --porcelain --untracked-files=all")
-  expect(verifyJob).toContain("npm pack --ignore-scripts --json")
-  expect(verifyJob).toContain('> "$metadata"')
+  expect(verifyJob).toContain("node scripts/github-release.ts mirror-verify")
+  expect(verifyJob).toContain("node scripts/github-release.ts mirror")
+  expect(verifyJob).toContain('cp "$canonical_directory/npm-pack.json" "$metadata"')
   expect(verifyJob).toContain('cat "$metadata"')
-  expect(verifyJob).toContain("bun run ./scripts/package-smoke.ts")
+  expect(verifyJob).toContain('bun run "$GITHUB_WORKSPACE/scripts/package-smoke.ts"')
   expect(verifyJob).toContain('--archive "$archive"')
   expect(verifyJob).toContain('--pack-json "$metadata"')
   expect(verifyJob).toContain("npm-package.sha256")
@@ -1453,13 +933,7 @@ test("a stable version builds automatically and only an owner dispatch stages th
   expect(stageJob).toContain('"https://github.com/$GITHUB_REPOSITORY.git"')
   expect(stageJob).toContain("Default branch advanced to $current_default_sha after verification")
   expect(stageJob).toContain("EXPECTED_VERSION: ${{ needs.verify.outputs.package_version }}")
-  expect(stageJob).toContain('tag_ref="refs/tags/v$EXPECTED_VERSION"')
-  expect(stageJob).toContain("git ls-remote --exit-code --refs")
-  expect(stageJob).toContain('case "$tag_lookup_status" in')
-  expect(stageJob).toContain('if [[ -n "$tag_lookup_output" ]]')
-  expect(stageJob).toContain("Remote tag lookup returned an ambiguous absence result")
-  expect(stageJob).toContain("npm delivery must precede the Git tag")
-  expect(stageJob).toContain("Could not prove that tag v$EXPECTED_VERSION is absent")
+  expect(stageJob).toContain("Canonical immutable GitHub mirror authority changed immediately before npm staging")
   expect(stageJob).toContain("name: Record exclusive stable-stage intent")
   expect(stageJob).toContain("name: Record cleared stable-stage intent v${{ inputs.resolved_stage_version }}")
   expect(stageJob).not.toContain("npm stage list @hraness/atet --json")
@@ -1470,7 +944,7 @@ test("a stable version builds automatically and only an owner dispatch stages th
   const downloadIndex = stageJob.indexOf("Download reviewed package")
   const rebindIndex = stageJob.indexOf("Rebind downloaded package")
   const fetchIndex = stageJob.lastIndexOf('git --git-dir="$current_main" fetch')
-  const tagIndex = stageJob.lastIndexOf("git ls-remote --exit-code --refs")
+  const tagIndex = stageJob.lastIndexOf("Canonical immutable GitHub mirror authority changed immediately before npm staging")
   const intentIndex = stageJob.lastIndexOf("Record exclusive stable-stage intent")
   const rehashIndex = stageJob.lastIndexOf('current_archive_sha256="$(sha256sum "$TARBALL"')
   const stageIndex = stageJob.indexOf('npm stage publish "$TARBALL"')
@@ -1496,7 +970,7 @@ test("a stable version builds automatically and only an owner dispatch stages th
   expect(workflow.match(/--registry=https:\/\/registry\.npmjs\.org/gu)?.length).toBeGreaterThanOrEqual(5)
   expect(workflow).not.toContain("NPM_TOKEN")
   expect(workflow).not.toMatch(/npm publish(?:\s|$)/u)
-  expect(workflow).not.toContain("tags:")
+  expect(workflow.slice(0, workflow.indexOf("permissions:"))).not.toContain("tags:")
 })
 
 test("the earliest OIDC job step rejects collaborator dispatches and reruns", async () => {
@@ -1612,7 +1086,7 @@ test("the earliest OIDC job step rejects collaborator dispatches and reruns", as
   }
 })
 
-test("automatic npm staging distinguishes version changes from package metadata edits", async () => {
+test("optional npm mirror rejects automatic events and admits explicit current-main dispatch", async () => {
   const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
   const script = workflowStepScript(
     workflow,
@@ -1641,7 +1115,7 @@ case "\${1-}" in
   rev-parse)
     case "$*" in
       "rev-parse origin/main"|"rev-parse HEAD") printf '%s\\n' "$GITHUB_SHA"; exit 0 ;;
-      "rev-parse --verify --quiet refs/tags/v3.2.2") exit 1 ;;
+      "rev-parse --verify --quiet refs/tags/v3.2.3") exit 1 ;;
     esac
     ;;
 esac
@@ -1656,7 +1130,7 @@ case "$*" in
     printf '"@hraness/atet"\\n'
     exit 0
     ;;
-  "view @hraness/atet@3.2.2 version --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
+  "view @hraness/atet@3.2.3 version --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
     echo 'npm error code E404' >&2
     exit 1
     ;;
@@ -1703,37 +1177,15 @@ exit 64
       })
     }
 
-    const unchanged = await runIdentity("push", "3.2.2")
-    expect(unchanged.exitCode).toBe(0)
-    expect(unchanged.outputs).toBe("stage_required=false\n")
-    expect(unchanged.npmCommands).toBe("")
-    expect(`${unchanged.stdout}${unchanged.stderr}`).toContain(
-      "package.json changed without changing version 3.2.2",
-    )
+    const automatic = await runIdentity("push", "3.2.3")
+    expect(automatic.exitCode).not.toBe(0)
+    expect(automatic.npmCommands).toBe("")
+    expect(`${automatic.stdout}${automatic.stderr}`).toContain("explicit workflow dispatch")
+    const dispatched = await runIdentity("workflow_dispatch", "3.2.3")
+    expect(dispatched.exitCode).toBe(0)
+    expect(dispatched.outputs).toBe(`stage_required=true\nsource_sha=${sourceSha}\npackage_version=3.2.3\n`)
+    expect(dispatched.npmCommands).toContain("npm view @hraness/atet@3.2.3 version --json")
 
-    const increased = await runIdentity("push", "3.1.0")
-    expect(increased.exitCode).toBe(0)
-    expect(increased.outputs).toBe(
-      `stage_required=true\nsource_sha=${sourceSha}\n`,
-    )
-    expect(increased.npmCommands).toContain("npm view @hraness/atet name --json")
-    expect(increased.npmCommands).toContain(
-      "npm view @hraness/atet@3.2.2 version --json",
-    )
-
-    const decreased = await runIdentity("push", "3.3.0")
-    expect(decreased.exitCode).not.toBe(0)
-    expect(`${decreased.stdout}${decreased.stderr}`).toContain(
-      "Package version 3.2.2 must be newer than 3.3.0",
-    )
-    expect(decreased.npmCommands).toBe("")
-
-    const recovered = await runIdentity("workflow_dispatch", "3.2.2")
-    expect(recovered.exitCode).toBe(0)
-    expect(recovered.outputs).toBe(
-      `stage_required=true\nsource_sha=${sourceSha}\n`,
-    )
-    expect(recovered.npmCommands).toContain("npm view @hraness/atet name --json")
   } finally {
     await rm(directory, { force: true, recursive: true })
   }
@@ -2051,132 +1503,7 @@ esac
   }
 })
 
-test("the terminal npm stage rejects present, ambiguous, and failed remote tag lookups", async () => {
-  const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
-  const script = workflowStepScript(
-    workflow,
-    "Revalidate current main and stage exact package",
-  )
-  const directory = await mkdtemp(join(tmpdir(), "atet-stage-tag-"))
-  const binaryDirectory = join(directory, "bin")
-  const commandLog = join(directory, "commands.log")
-  const publishMarker = join(directory, "published.txt")
-  const tarball = join(directory, "hraness-atet-3.2.0.tgz")
-  const metadata = join(directory, "npm-pack.json")
-  const sourceSha = "b".repeat(40)
-  const archiveSha256 = "c".repeat(64)
-  const metadataSha256 = "d".repeat(64)
-
-  try {
-    await mkdir(binaryDirectory, { recursive: true })
-    await Promise.all([
-      writeFile(tarball, "reviewed archive fixture\n", "utf8"),
-      writeFile(metadata, "reviewed metadata fixture\n", "utf8"),
-      writeFile(join(binaryDirectory, "git"), `#!/bin/bash
-set -euo pipefail
-printf 'git %s\\n' "$*" >> "$COMMAND_LOG"
-if [[ "\${1-}" == "ls-remote" ]]; then
-  case "$GIT_TAG_STATUS" in
-    absent) exit 2 ;;
-    ambiguous) printf 'ambiguous lookup output\\n'; exit 2 ;;
-    present) printf '%s\\trefs/tags/v3.2.0\\n' "$GITHUB_SHA"; exit 0 ;;
-    failure) echo 'simulated remote lookup failure' >&2; exit 128 ;;
-  esac
-fi
-if [[ "$*" == *"rev-parse FETCH_HEAD"* ]]; then
-  printf '%s\\n' "$GITHUB_SHA"
-fi
-`, "utf8"),
-      writeFile(join(binaryDirectory, "sha256sum"), `#!/bin/bash
-set -euo pipefail
-printf 'sha256sum %s\\n' "$*" >> "$COMMAND_LOG"
-if [[ "$1" == "$TARBALL" ]]; then
-  printf '%s  %s\\n' "$EXPECTED_ARCHIVE_SHA256" "$1"
-elif [[ "$1" == "$METADATA" ]]; then
-  printf '%s  %s\\n' "$EXPECTED_METADATA_SHA256" "$1"
-else
-  exit 1
-fi
-`, "utf8"),
-      writeFile(join(binaryDirectory, "npm"), `#!/bin/bash
-set -euo pipefail
-printf 'npm %s\\n' "$*" >> "$COMMAND_LOG"
-if [[ "\${1-}" == "config" && "\${2-}" == "get" && "\${3-}" == "tag" ]]; then
-  printf 'latest\\n'
-elif [[ "\${1-}" == "view" ]]; then
-  printf '"3.1.1"\\n'
-elif [[ "\${1-}" == "stage" && "\${2-}" == "publish" ]]; then
-  printf 'staged\\n' > "$PUBLISH_MARKER"
-  printf '{"@hraness/atet":{"name":"@hraness/atet","version":"3.2.0","stageId":"11111111-1111-4111-8111-111111111111"}}\\n'
-else
-  exit 64
-fi
-`, "utf8"),
-    ])
-    await Promise.all([
-      chmod(join(binaryDirectory, "git"), 0o755),
-      chmod(join(binaryDirectory, "npm"), 0o755),
-      chmod(join(binaryDirectory, "sha256sum"), 0o755),
-    ])
-
-    const baseEnvironment = Object.freeze({
-      COMMAND_LOG: commandLog,
-      DEFAULT_BRANCH: "main",
-      EXPECTED_ARCHIVE_SHA256: archiveSha256,
-      EXPECTED_METADATA_SHA256: metadataSha256,
-      EXPECTED_SOURCE_SHA: sourceSha,
-      EXPECTED_VERSION: "3.2.0",
-      GITHUB_REF: "refs/heads/main",
-      GITHUB_REPOSITORY: "hraness/atet",
-      GITHUB_SHA: sourceSha,
-      GITHUB_OUTPUT: join(directory, "github-output.txt"),
-      METADATA: metadata,
-      PATH: `${binaryDirectory}:${process.env.PATH ?? ""}`,
-      PUBLISH_MARKER: publishMarker,
-      RUNNER_TEMP: directory,
-      TARBALL: tarball,
-    })
-
-    const accepted = await runWorkflowScript(script, {
-      ...baseEnvironment,
-      GIT_TAG_STATUS: "absent",
-    })
-    expect(accepted.exitCode).toBe(0)
-    expect(await readFile(publishMarker, "utf8")).toBe("staged\n")
-    const commands = await readFile(commandLog, "utf8")
-    const fetchIndex = commands.indexOf("fetch --quiet --no-tags --depth=1")
-    const tagIndex = commands.indexOf("git ls-remote --exit-code --refs")
-    const hashIndex = commands.indexOf("sha256sum")
-    const publishIndex = commands.indexOf("npm stage publish")
-    expect(fetchIndex).toBeGreaterThan(-1)
-    expect(hashIndex).toBeGreaterThan(fetchIndex)
-    expect(tagIndex).toBeGreaterThan(hashIndex)
-    expect(publishIndex).toBeGreaterThan(tagIndex)
-    expect(commands).not.toContain("--tag latest")
-
-    for (const [status, message] of [
-      ["present", "npm delivery must precede the Git tag"],
-      ["ambiguous", "ambiguous absence result"],
-      ["failure", "Could not prove that tag v3.2.0 is absent"],
-    ] as const) {
-      await Promise.all([
-        rm(commandLog, { force: true }),
-        rm(publishMarker, { force: true }),
-      ])
-      const rejected = await runWorkflowScript(script, {
-        ...baseEnvironment,
-        GIT_TAG_STATUS: status,
-      })
-      expect(rejected.exitCode).not.toBe(0)
-      expect(`${rejected.stdout}${rejected.stderr}`).toContain(message)
-      expect(await Bun.file(publishMarker).exists()).toBe(false)
-    }
-  } finally {
-    await rm(directory, { force: true, recursive: true })
-  }
-})
-
-test("source 3.2.2 and verified-public installs preserve one Atet identity", async () => {
+test("source 3.2.3 and verified-public installs preserve one Atet identity", async () => {
   const packageRoot = join(import.meta.dir, "..")
   const manifest = JSON.parse(
     await readFile(join(packageRoot, "package.json"), "utf8"),
@@ -2193,7 +1520,7 @@ test("source 3.2.2 and verified-public installs preserve one Atet identity", asy
       readFile(join(packageRoot, "apps", "web", "src", "index.html"), "utf8"),
     ])
 
-  expect(manifest.version).toBe("3.2.2")
+  expect(manifest.version).toBe("3.2.3")
   expect(manifest.bin).toEqual({
     atet: "./apps/desktop/dist/cli/main.js",
   })
@@ -2228,76 +1555,12 @@ test("source 3.2.2 and verified-public installs preserve one Atet identity", asy
   }
   expect(readme).toContain("[`DISCLOSURE`](DISCLOSURE)")
   expect(security).toContain("[`DISCLOSURE`](DISCLOSURE)")
-  const normalizedPublishing = publishing.replace(/\s+/gu, " ")
+  expect(publishing).toContain("GitHub Releases are canonical")
   expect(publishing).toContain("npm stage publish <reviewed-tarball>")
-  expect(publishing).toContain("--ignore-scripts")
-  expect(publishing).toContain("--provenance")
-  expect(publishing).not.toContain("--tag latest")
-  expect(normalizedPublishing).toContain(
-    "proves that npm 11.19.0's untouched default tag is `latest`, and deliberately omits `--tag`",
-  )
-  expect(publishing).toContain("allowed action: `npm stage publish` only")
-  expect(publishing).toContain("environment: `npm-stage`")
-  expect(normalizedPublishing).toContain(
-    "Its sole protection rule must be `branch_policy`, and its sole deployment policy must be the selected branch `main` with type `branch`",
-  )
-  expect(normalizedPublishing).toContain("Disable administrator bypass")
-  expect(normalizedPublishing).toContain("Configure no required deployment reviewers")
-  expect(publishing).not.toContain("repository maintainer `0thernet`")
-  expect(publishing).not.toContain("prevent_self_review")
-  expect(normalizedPublishing).toContain("must match `npm-stage` exactly")
-  expect(publishing).toContain("Require two-factor authentication and")
-  expect(publishing).toContain("disallow tokens")
-  expect(publishing).toContain("This section records the one-time `3.1.1` bootstrap")
-  expect(publishing).toContain("Do not reuse the")
-  expect(normalizedPublishing).toContain("interactive path for a later release")
-  expect(publishing).toContain("starts **Stage npm package** automatically")
-  expect(publishing).toContain("leaves the stable version unchanged exits")
-  expect(publishing).toContain(
-    "gh workflow run npm-stage.yml --ref main -f publish_to_npm=true",
-  )
-  expect(normalizedPublishing).toContain(
-    "Only the minimal staging job may reference this environment",
-  )
-  expect(normalizedPublishing).toContain(
-    "Pushes and default manual dispatches stop after the read-only verification job uploads the exact candidate artifact",
-  )
-  expect(publishing).toContain("publish_to_npm=true")
   expect(publishing).toContain("resolved_stage_version")
-  expect(normalizedPublishing).toContain("version-bound successful intent immediately before mutation")
-  expect(normalizedPublishing).toContain(
-    "recognizes every attempted terminal npm mutation before it considers the stage-job display name",
-  )
-  expect(normalizedPublishing).toContain(
-    "exactly one successful durable intent at the immediately preceding safe positive Actions step number",
-  )
-  expect(normalizedPublishing).toContain(
-    "exact eight-byte USTAR signature (`ustar\\0` plus `00`) and npm/node-tar's byte-475 prefix discriminator",
-  )
-  expect(normalizedPublishing).toContain(
-    "The attempt or job may have failed, been cancelled, or timed out after npm accepted the stage",
-  )
-  expect(normalizedPublishing).toContain(
-    "cryptographically verified public artifact is the durable acceptance proof",
-  )
-  expect(normalizedPublishing).toContain("trusted short-lived tokens cannot run other `npm stage` subcommands")
-  expect(normalizedPublishing).toContain("checks out no source and runs no repository code")
-  expect(normalizedPublishing).toContain(
-    "This mandatory npm approval is the only human approval in the stable train",
-  )
-  expect(normalizedPublishing).toContain(
-    "**Immutable version tags** restricts update and deletion with an empty bypass list",
-  )
-  expect(normalizedPublishing).toContain(
-    "**Release tag creation** restricts creation only and gives immutable owner `User` ID `894119` the sole always-bypass entry",
-  )
-  expect(publishing).toContain("npm-package.sha256")
-  expect(normalizedPublishing).toContain(
-    "rehashes the package, proves the matching Git tag is absent, records a successful version-bound Actions intent, and only then runs the stage-only command",
-  )
   expect(publishing).toContain("npm-package-identity.ts")
   expect(publishing).toContain("different gzip or tar bytes")
-  expect(publishing).not.toContain("archives are byte-identical")
+  expect(publishing).toContain("GitHub publication does not wait for npm")
 
   for (const source of [readme, skillInstall, siteBuild, siteMarkdown, siteTemplate]) {
     expect(source).not.toContain("v3.1.0")
