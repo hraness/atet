@@ -129,7 +129,7 @@ async function readBuilt(path: string): Promise<string> {
 }
 
 function assertAuthoredShellBudget(template: string): number {
-  let authored = replaceSiteSlot(template, "{{PUBLISHED_VERSION}}", publishedRelease.version, 7)
+  let authored = replaceSiteSlot(template, "{{PUBLISHED_VERSION}}", publishedRelease.version, 6)
   authored = replaceSiteSlot(authored, "{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1)
   authored = replaceSiteSlot(authored, "{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl, 1)
   // Discount only the finite compiler-slot spelling, never authored classes or HTML.
@@ -261,7 +261,7 @@ describe("static Atet site", () => {
     expect(Object.isFrozen(publishedRelease)).toBe(true)
     const template = await readSource("index.html")
     const html = await readBuilt("index.html")
-    expect(template.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(7)
+    expect(template.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(6)
     expect(template).not.toContain(publishedRelease.version)
     expect(html).not.toContain("{{PUBLISHED_VERSION}}")
     expect(html).not.toContain("{{PUBLISHED_ARCHIVE_URL}}")
@@ -269,7 +269,8 @@ describe("static Atet site", () => {
     expect(publishedArchiveUrl).toBe("https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz")
     expect(html).toContain(`"softwareVersion": "${publishedRelease.version}"`)
     expect(html).toContain(`"version": "${publishedRelease.version}"`)
-    expect(html).toContain(`Local release · v${publishedRelease.version}`)
+    expect(html).toContain(`Free and open source under the MIT license · v${publishedRelease.version}`)
+    expect(html).toContain(`<small>Atet v${publishedRelease.version}</small>`)
     expect(html).toContain(`bun add --global ${publishedArchiveUrl}`)
     expect(homeMarkdown).toContain(`Version ${publishedRelease.version}.`)
     expect(homeMarkdown).toContain(`bun add --global ${publishedArchiveUrl}`)
@@ -983,6 +984,10 @@ describe("static Atet site", () => {
     expect(html).toContain('<h1 class="hraness-marketing-hero__heading" id="page-title">Make and edit video with your coding agent</h1>')
     expect(html).toContain('data-hraness-marketing="proof-frame"')
     expect(html).toContain("Built by Ben Guo")
+    expect(html).not.toContain('class="hraness-marketing-hero__eyebrow"')
+    expect(html).toContain('class="hraness-marketing-hero atet-product-hero" data-align="start"')
+    expect(css).toContain("grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr)")
+    expect(css).toContain("overflow-wrap: anywhere")
     expect(html).not.toMatch(/<h1[^>]*>[^<]*(?:bounded|exact|authority|custody|immutable|inspectable|canonical|projection|receipt)/iu)
     const builtCss = await readBuilt(builtAssets.siteFoundationPath.slice(1))
     expect(builtCss).toMatch(/font-family:\s*"?Nebula Sans"?/u)
