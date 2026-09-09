@@ -808,13 +808,25 @@ export interface ShellFocusFragment {
   readonly rect: readonly [number, number, number, number]
   readonly owned: boolean
 }
-/** Serialized synchronous observer: an inline union can include an empty gap
- * between lines. Require hit ownership at every real fragment's center, never
- * search for one convenient successful point or change paint to satisfy it. */
-export function shellFocusFragments(element: Element): ShellFocusFragment[] {
+interface ShellFocusObservation {
+  readonly fragments: ShellFocusFragment[]
+  readonly sample: { readonly viewport: readonly [number, number, number, number]; readonly measured: ShellElement } | null
+}
+/** One synchronous native observation after the existing paint settlement.
+ * Bind focus, geometry, every painted fragment and the unchanged measurement
+ * fields to the exact indexed target; do not read unused siblings over CDP.
+ * An inline union can include empty interline space, so hit-test every actual
+ * fragment center instead of searching for a convenient successful point. */
+export function observeShellFocus(element: Element, options: {
+  readonly selector: string; readonly index: number; readonly properties: readonly string[]
+} | null = null): ShellFocusObservation {
   const document = element.ownerDocument
   if (!element.isConnected || document.activeElement !== element || !element.matches(":focus-visible")) {
     throw new Error("Native focused target lost focus or ownership")
+  }
+  if (options !== null && (!Number.isSafeInteger(options.index) || options.index < 0
+    || document.querySelectorAll(options.selector)[options.index] !== element)) {
+    throw new Error("Native focused target changed its indexed identity")
   }
   const rectangles = [...element.getClientRects()]
   if (rectangles.length === 0 || rectangles.length > 128) throw new Error("Invalid focused fragment count")
@@ -827,7 +839,24 @@ export function shellFocusFragments(element: Element): ShellFocusFragment[] {
     fragments.push({ rect: values, owned: hit !== null && (element === hit || element.contains(hit)) })
   }
   if (fragments.length === 0) throw new Error("Native focused target has no painted fragments")
-  return fragments
+  if (options === null) return { fragments, sample: null }
+  const view = document.defaultView
+  if (view === null) throw new Error("Native focused target has no document window")
+  const rect = element.getBoundingClientRect(), style = view.getComputedStyle(element)
+  const viewport = [rect.x, rect.y, rect.width, rect.height] as const
+  if (!viewport.every(Number.isFinite) || rect.width <= 0 || rect.height <= 0 || !Number.isFinite(view.scrollY)) {
+    throw new Error("Invalid focused target viewport geometry")
+  }
+  return { fragments, sample: { viewport, measured: {
+    key: `${options.selector}[${options.index}]`, rect: [rect.x, rect.y + view.scrollY, rect.width, rect.height],
+    styles: Object.fromEntries(options.properties.map(property => [property, style.getPropertyValue(property)])),
+    text: element.textContent?.replace(/\s+/gu, " ").trim() ?? "",
+    semantics: Object.fromEntries(["href", "role", "aria-label", "aria-labelledby", "tabindex", "target", "rel",
+      "aria-controls", "aria-expanded", "aria-haspopup", "aria-checked", "hidden", "data-theme-value", "data-selected"].map(key => [key, element.getAttribute(key)])),
+  } } }
+}
+export function shellFocusFragments(element: Element): ShellFocusFragment[] {
+  return observeShellFocus(element).fragments
 }
 export function assertShellFocusFragments(fragments: readonly ShellFocusFragment[], key: string): void {
   assert.ok(fragments.length > 0 && fragments.length <= 128, `Native focused target has no bounded fragments: ${key}`)
@@ -1090,11 +1119,11 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       seen.add(key)
       const [selector, index] = key.split("|")
       const target = page.locator(selector!).nth(Number(index))
-      assert.equal(await target.evaluate(element => element.matches(":focus-visible")), true, "Keyboard focus-visible missing")
-      const box = await target.boundingBox()
-      assert.ok(box !== null && box.y >= -0.5 && box.y + box.height <= scenario.height + 0.5, `Focused target not reachable: ${key}`)
-      assertShellFocusFragments(await target.evaluate(shellFocusFragments), key)
-      const measured = (await measure(page, [selector!]))[Number(index)]!
+      const observation = await target.evaluate(observeShellFocus, { selector: selector!, index: Number(index), properties })
+      assert.ok(observation.sample !== null, "Focused target measurement missing")
+      const { viewport, measured } = observation.sample
+      assert.ok(viewport[1] >= -0.5 && viewport[1] + viewport[3] <= scenario.height + 0.5, `Focused target not reachable: ${key}`)
+      assertShellFocusFragments(observation.fragments, key)
       assert.ok(measured.styles["outline-style"] !== "none" && Number.parseFloat(measured.styles["outline-width"]!) > 0,
         `Visible focus outline missing: ${key}`)
       focus.push(measured)

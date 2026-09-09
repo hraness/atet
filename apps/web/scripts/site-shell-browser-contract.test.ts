@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
-import { assertShellFocusFragments, assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, parseShellCaseFailure, parseShellPhase, parseShellRequest,
+import { assertShellFocusFragments, assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, observeShellFocus, parseShellCaseFailure, parseShellPhase, parseShellRequest,
   resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, shellAppearanceSteps, shellCaseFailure, shellContextLifecycle, shellFocusFragments, shellOperationTracker, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders, withShellCaseCleanup, withShellSettledNavigation,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
 
@@ -210,6 +210,79 @@ test("native fragment observation retains focus ownership and bounded finite geo
   }
   expect(() => assertShellFocusFragments([], "missing")).toThrow()
   expect(() => assertShellFocusFragments([{ rect: [0, 0, 0, 1], owned: true }], "empty")).toThrow()
+})
+
+function focusObservationFixture(scrollY = 700, covered = -1) {
+  const fixture = fragmentFixture(undefined, covered), sibling = {} as Element
+  const properties = Array.from({ length: 80 }, (_, index) => `paint-property-${index}`)
+  const attributes: Record<string, string> = { href: "/", role: "link", "aria-label": "Recover", tabindex: "0",
+    "aria-controls": "main", "data-theme-value": "system", "data-selected": "", "data-unobserved": "excluded" }
+  const reads: string[] = []
+  const viewport = { x: 20, y: 523.734375, width: 227.75, height: 48.890625 }
+  const view = { scrollY, getComputedStyle(element: Element) {
+    expect(element).toBe(fixture.element)
+    reads.push("computed-style")
+    return { getPropertyValue(property: string) { reads.push(property); return `native ${property}` } }
+  } }
+  const document = Object.assign(fixture.document, { defaultView: view,
+    querySelectorAll(selector: string) {
+      expect(selector).toBe(".recovery a"); reads.push("indexed-identity"); return [sibling, fixture.element]
+    } })
+  Object.assign(fixture.element, { getBoundingClientRect: () => { reads.push("viewport"); return viewport },
+    textContent: "  Read\n the \t docs  ", getAttribute: (key: string) => attributes[key] ?? null })
+  return { ...fixture, document, view, viewport, properties, reads, attributes,
+    options: { selector: ".recovery a", index: 1, properties } }
+}
+
+test("coalesced focused observation preserves the complete legacy target measurement for every scroll offset", () => {
+  for (const scrollY of [-400.25, 0, 700, 15_000.5]) {
+    const fixture = focusObservationFixture(scrollY)
+    const observation = observeShellFocus(fixture.element, fixture.options)
+    // The prior full-selector observer retained only this indexed target.
+    // Preserve all fields and every requested computed property, not a subset.
+    expect(observation.sample).toEqual({ viewport: [20, 523.734375, 227.75, 48.890625], measured: {
+      key: ".recovery a[1]", rect: [20, 523.734375 + scrollY, 227.75, 48.890625],
+      styles: Object.fromEntries(fixture.properties.map(property => [property, `native ${property}`])),
+      text: "Read the docs", semantics: { href: "/", role: "link", "aria-label": "Recover", "aria-labelledby": null,
+        tabindex: "0", target: null, rel: null, "aria-controls": "main", "aria-expanded": null,
+        "aria-haspopup": null, "aria-checked": null, hidden: null, "data-theme-value": "system", "data-selected": "" },
+    } })
+    expect(fixture.reads).toEqual(["indexed-identity", "viewport", "computed-style", ...fixture.properties])
+    expect(observation.fragments).toEqual([
+      { rect: [53.75, 523.734375, 194, 21], owned: true },
+      { rect: [20, 551.625, 49.078125, 21], owned: true },
+    ])
+  }
+})
+
+test("coalesced observation rejects target or focus drift before taking paint evidence", () => {
+  for (const index of [-1, 0, 2, 1.5, NaN, Infinity]) {
+    const fixture = focusObservationFixture()
+    expect(() => observeShellFocus(fixture.element, { ...fixture.options, index })).toThrow("indexed identity")
+    expect(fixture.reads).not.toContain("computed-style")
+  }
+  for (const kind of ["detached", "blurred", "invisible"] as const) {
+    const fixture = focusObservationFixture(); fixture.set(kind)
+    expect(() => observeShellFocus(fixture.element, fixture.options)).toThrow("lost focus or ownership")
+    expect(fixture.reads).toEqual([])
+  }
+})
+
+test("coalesced focus keeps every covered-fragment negative and finite viewport boundary", () => {
+  for (const covered of [0, 1]) {
+    const fixture = focusObservationFixture(700, covered)
+    const observation = observeShellFocus(fixture.element, fixture.options)
+    expect(observation.fragments.filter(fragment => fragment.owned)).toHaveLength(1)
+    expect(() => assertShellFocusFragments(observation.fragments, "coalesced")).toThrow(`fragment ${covered}`)
+  }
+  for (const invalid of [{ x: NaN }, { y: Infinity }, { width: 0 }, { height: -1 }]) {
+    const fixture = focusObservationFixture(); Object.assign(fixture.viewport, invalid)
+    expect(() => observeShellFocus(fixture.element, fixture.options)).toThrow("viewport geometry")
+  }
+  const fixture = focusObservationFixture(Infinity)
+  expect(() => observeShellFocus(fixture.element, fixture.options)).toThrow("viewport geometry")
+  Object.assign(fixture.document, { defaultView: null })
+  expect(() => observeShellFocus(fixture.element, fixture.options)).toThrow("document window")
 })
 
 test("partial shell failure records only the fully compared prefix and never accepts a pair", () => {
