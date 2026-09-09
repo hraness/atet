@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { isAbsolute } from "node:path"
 import type { Browser, Page, Request, WebSocketRoute } from "playwright-core"
 import { bounded } from "./preview-browser-contract"
+import { normalizeInstallTransport } from "./site-install-dom"
 
 export const siteShellDeadlineMs = 720_000
 export const siteShellBaselineRevision = "f417770111f55f3f3eb13fbae7b6a030c33a445d"
@@ -61,6 +62,7 @@ export interface ShellRequest {
   readonly endpoint: string
   readonly current: ShellPayload
   readonly baseline: ShellPayload
+  readonly scope?: "install-copy"
 }
 export interface ShellCaseFailure {
   readonly schemaVersion: 1
@@ -125,7 +127,9 @@ function payload(value: unknown, current: boolean): void {
 }
 export function parseShellRequest(value: unknown): ShellRequest {
   const request = shellRecord(value)
-  keys(request, ["schemaVersion", "token", "appDirectory", "chromeExecutable", "endpoint", "current", "baseline"])
+  keys(request, ["schemaVersion", "token", "appDirectory", "chromeExecutable", "endpoint", "current", "baseline",
+    ...(Object.hasOwn(request, "scope") ? ["scope"] : [])])
+  if (Object.hasOwn(request, "scope")) assert.equal(request.scope, "install-copy")
   assert.equal(request.schemaVersion, 1)
   assert.ok(typeof request.token === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(request.token))
   assert.ok(typeof request.appDirectory === "string" && request.appDirectory.length <= 4096 && isAbsolute(request.appDirectory))
@@ -142,6 +146,7 @@ export function assertShellNode(versions: Readonly<Record<string, string | undef
   return versions.node!
 }
 export function parseShellPhase(value: unknown, sequence: 0 | 1 | 2, request: ShellRequest): Record<string, unknown> {
+  assert.equal(request.scope, undefined, "Copy-only requests cannot certify shell scope")
   const phase = shellRecord(value)
   const common = ["schemaVersion", "token", "sequence", "kind"]
   keys(phase, sequence === 1 ? common : sequence === 0 ? [...common, "node", "playwright"]
@@ -227,7 +232,7 @@ const properties = ["display", "position", "box-sizing", "width", "height", "min
   "backdrop-filter", "appearance", "cursor", "touch-action", "direction", "z-index", ...["top", "right", "bottom", "left"].flatMap(side =>
     [`margin-${side}`, `padding-${side}`, `border-${side}-width`, `border-${side}-style`, `border-${side}-color`])]
 
-async function measure(page: Page, selectors: readonly string[]): Promise<ShellElement[]> {
+export async function measure(page: Page, selectors: readonly string[], extraProperties: readonly string[] = []): Promise<ShellElement[]> {
   return page.evaluate(({ selectors, properties }) => selectors.flatMap(selector => {
     const found = [...document.querySelectorAll<HTMLElement>(selector)]
     if (found.length === 0) throw new Error(`Missing shell landmark: ${selector}`)
@@ -239,7 +244,7 @@ async function measure(page: Page, selectors: readonly string[]): Promise<ShellE
         semantics: Object.fromEntries(["href", "role", "aria-label", "aria-labelledby", "tabindex", "target", "rel",
           "aria-controls", "aria-expanded", "aria-haspopup", "aria-checked", "hidden", "data-theme-value", "data-selected"].map(key => [key, element.getAttribute(key)])) }
     })
-  }), { selectors: [...selectors], properties })
+  }), { selectors: [...selectors], properties: [...properties, ...extraProperties] })
 }
 function comparablePaintStyles(styles: ShellElement["styles"]): ShellElement["styles"] {
   const shadow = styles["box-shadow"]
@@ -308,7 +313,7 @@ export function compareShellEvidence(actual: ShellEvidence, baseline: ShellEvide
     compareShellElements(item.elements, baseline.appearance[index]!.elements, `${label} open appearance ${item.step}`)
   }
 }
-async function settle(page: Page, direction?: "rtl"): Promise<void> {
+export async function settle(page: Page, direction?: "rtl"): Promise<void> {
   await page.evaluate(async direction => {
     // RTL is an explicit paired browser fixture, applied to each new document
     // after navigation. The authoritative served HTML and CSS remain intact.
@@ -461,7 +466,7 @@ export function assertShellSystemPaintChanged(alternate: ShellSystemPaint, resto
   assert.notEqual(restored.bodyColor, alternate.bodyColor,
     `${label.slice(0, 192)}: System appearance did not follow the native media setting; alternate/restored native paint ${JSON.stringify({ alternate, restored }).slice(0, 8_192)}`)
 }
-async function chooseAppearance(page: Page, value: ShellCase["theme"], system: ShellCase["system"]): Promise<void> {
+export async function chooseAppearance(page: Page, value: ShellCase["theme"], system: ShellCase["system"]): Promise<void> {
   const trigger = page.locator("[data-hraness-appearance-menu] button")
   await trigger.click()
   await page.keyboard.press("Home")
@@ -1081,7 +1086,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     const direction = media.direction
     assert.ok(direction === "ltr" || direction === "rtl")
     const selectors = [...commonSelectors, ...(scenario.route === "/" ? homeSelectors : recoverySelectors)]
-    const dom = await page.evaluate(() => {
+    const dom = normalizeInstallTransport(await page.evaluate(() => {
       const root = document.body.cloneNode(true) as HTMLElement
       for (const element of root.querySelectorAll("script")) element.remove()
       const migrated = ".skip-link, .topbar, .wordmark, .topbar-actions, .topbar nav[aria-label=\"Primary\"], .topbar nav[aria-label=\"Primary\"] a, .route-state, .route-state > h1, .route-state > p, .route-state a"
@@ -1091,7 +1096,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
         // retained marketing, Ask AI, appearance and footer DOM stays exact.
       }
       return root.outerHTML
-    })
+    }), source === "current")
     const elements = await measure(page, selectors)
     assertShellFocusUnchanged(transferred, elements, `${source} ${scenario.name} reload transfer`)
     const nav = elements.filter(item => item.key.startsWith('.topbar nav[aria-label="Primary"] a['))
