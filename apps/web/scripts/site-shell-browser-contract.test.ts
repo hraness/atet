@@ -112,6 +112,24 @@ function element(): ShellElement {
     semantics: { href: "https://substack.com/@hraness", "aria-label": "Hraness on Substack" },
     styles: { color: "rgb(23, 22, 18)", display: "flex", cursor: "pointer", "touch-action": "manipulation", "outline-width": "2px" } }
 }
+test("ancestor failure retains later descendant differences without weakening parity", () => {
+  const first = { ...element(), key: "body[0]", styles: { height: "100px" } }
+  const second = { ...element(), key: ".child[0]", styles: { height: "32px", "border-top-width": "0px" } }
+  const actual = [
+    { ...first, styles: { height: "104px" } },
+    { ...second, styles: { height: "36px", "border-top-width": "2px" } },
+  ]
+  let failure: unknown
+  try { compareShellElements(actual, [first, second], "paired") } catch (error) { failure = error }
+  expect(failure).toBeInstanceOf(AggregateError)
+  const diagnostic = failure as AggregateError
+  expect(diagnostic.message).toContain('"key":"body[0]"')
+  expect(diagnostic.message).toContain('"key":".child[0]"')
+  expect(diagnostic.message).toContain('"property":"border-top-width","baseline":"0px","actual":"2px"')
+  expect(diagnostic.errors).toHaveLength(1)
+  expect(String(diagnostic.errors[0])).toContain("body[0]: computed styles")
+  expect(() => compareShellElements([first, second], [first, second], "paired")).not.toThrow()
+})
 function evidence(): ShellEvidence {
   const old = element()
   const menuElements = [

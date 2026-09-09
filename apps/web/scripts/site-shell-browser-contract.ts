@@ -212,6 +212,17 @@ async function measure(page: Page, selectors: readonly string[]): Promise<ShellE
 }
 export function compareShellElements(actual: readonly ShellElement[], baseline: readonly ShellElement[], label: string): void {
   assert.equal(actual.length, baseline.length, `${label}: element inventory`)
+  const differences = actual.flatMap((item, index) => {
+    const old = baseline[index]!
+    const styles = [...new Set([...Object.keys(item.styles), ...Object.keys(old.styles)])]
+      .filter(property => item.styles[property] !== old.styles[property])
+      .map(property => ({ property, baseline: old.styles[property], actual: item.styles[property] }))
+    const geometry = item.rect.flatMap((axis, offset) =>
+      Number.isFinite(axis) && Number.isFinite(old.rect[offset]) && Math.abs(axis - old.rect[offset]!) <= 0.5
+        ? [] : [{ axis: offset, baseline: old.rect[offset], actual: axis }])
+    return styles.length === 0 && geometry.length === 0 ? [] : [{ key: item.key, baselineKey: old.key, styles, geometry }]
+  })
+  try {
   for (const [index, item] of actual.entries()) {
     const old = baseline[index]!
     assert.equal(item.key, old.key); assert.equal(item.text, old.text, `${label} ${item.key}: text`)
@@ -220,6 +231,11 @@ export function compareShellElements(actual: readonly ShellElement[], baseline: 
     assert.equal(item.rect.length, 4)
     item.rect.forEach((axis, offset) => assert.ok(Number.isFinite(axis) && Number.isFinite(old.rect[offset])
       && Math.abs(axis - old.rect[offset]!) <= 0.5, `${label} ${item.key}: geometry ${offset}: ${old.rect[offset]} -> ${axis}`))
+  }
+  } catch (error) {
+    // Diagnose descendants even when the first failure is an ancestor's height.
+    // Keep the original strict assertion; this is not a tolerance or retry.
+    throw new AggregateError([error], `${label}: paired element differences ${JSON.stringify(differences)}`)
   }
 }
 export function compareShellEvidence(actual: ShellEvidence, baseline: ShellEvidence, label: string): void {
