@@ -1,6 +1,6 @@
 import { lstat, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
-import { publishedRelease } from "../apps/web/src/published-release";
+import { publishedArchiveUrl, publishedRelease } from "../apps/web/src/published-release";
 import {
   compareLegacyIdentityInventory,
   duplicateIdentityAlternatives,
@@ -428,12 +428,12 @@ const publicVersion = publishedRelease.version;
 const publicVersionContracts = [
   ["apps/web/src/index.html", '"softwareVersion": "{{PUBLISHED_VERSION}}"'],
   ["apps/web/src/index.html", '"version": "{{PUBLISHED_VERSION}}"'],
-  ["README.md", `bun add --global @hraness/atet@${publicVersion}`],
-  ["README.md", `bun add @hraness/atet@${publicVersion}`],
+  ["README.md", `bun add --global ${publishedArchiveUrl}`],
+  ["README.md", `bun add ${publishedArchiveUrl}`],
   ["README.md", `github:hraness/atet#v${publicVersion}`],
   ["README.md", `npx skills add https://github.com/hraness/atet/tree/v${publicVersion} --skill atet`],
   ["README.md", `bunx skills add https://github.com/hraness/atet/tree/v${publicVersion} --skill atet`],
-  ["skills/atet/references/install.md", `bun add --global @hraness/atet@${publicVersion}`],
+  ["skills/atet/references/install.md", `bun add --global ${publishedArchiveUrl}`],
 ] as const;
 for (const [path, expected] of publicVersionContracts) {
   if (!(await readFile(join(ROOT, path), "utf8")).includes(expected)) {
