@@ -4,10 +4,13 @@ import { createArchitectureProgram, inspectEffectArchitecture } from "./check-ef
 
 const root = resolve(import.meta.dirname, "..");
 const modules = [
+  "apps/desktop/application/index.ts",
   "apps/desktop/application/operation.ts",
   "apps/desktop/application/operation-effects.ts",
   "apps/desktop/application/registry.ts",
   "apps/desktop/application/output-publication-lease.ts",
+  "apps/desktop/application/operations/index.ts",
+  "apps/desktop/application/operations/media/index.ts",
   "apps/desktop/application/operations/media/ingest.ts",
   "apps/desktop/application/operations/media/audio-effects.ts",
   "apps/desktop/application/operations/media/color-grade.ts",
