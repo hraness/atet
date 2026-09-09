@@ -23,6 +23,14 @@ const SOURCE_MARKERS = Object.freeze([
   "Direct ready:",
 ]);
 
+// The shared scanner owns traversal and literal marker detection. Relative
+// module markers additionally require a path boundary: ./directing-plan is
+// unrelated, while ./direct, ./direct/index and ./direct.ts remain forbidden.
+const RELATIVE_DIRECT_MARKERS: ReadonlyMap<string, RegExp> = new Map([
+  ["../direct", /\.\.\/direct(?=$|[\\/.?#"'`\s])/u],
+  ["./direct", /\.\/direct(?=$|[\\/.?#"'`\s])/u],
+]);
+
 const EMITTED_MARKERS = Object.freeze([
   "jungle.direct",
   "direct.browser-bridge/v",
@@ -69,9 +77,27 @@ async function scanExisting(
   markers: readonly string[],
   patterns: readonly string[],
 ): Promise<BundleBoundaryResult> {
-  return existsSync(directory)
-    ? await checkBundleBoundary({ directory, markers, patterns })
-    : emptyResult();
+  if (!existsSync(directory)) return emptyResult();
+  const result = await checkBundleBoundary({ directory, markers, patterns });
+  const violations: BundleBoundaryResult["violations"][number][] = [];
+  for (const violation of result.violations) {
+    if (!violation.markers.some(marker => RELATIVE_DIRECT_MARKERS.has(marker))) {
+      violations.push(violation);
+      continue;
+    }
+    const contents = await Bun.file(violation.file).text();
+    const refinedMarkers = violation.markers.filter(marker => (
+      RELATIVE_DIRECT_MARKERS.get(marker)?.test(contents) ?? true
+    ));
+    if (refinedMarkers.length > 0) violations.push({
+      file: violation.file,
+      markers: Object.freeze(refinedMarkers),
+    });
+  }
+  return {
+    scanned: result.scanned,
+    violations: Object.freeze(violations),
+  };
 }
 
 async function assertManifestBoundary(packageManifestPath: string): Promise<void> {
