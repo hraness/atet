@@ -43,7 +43,10 @@ import type {
   GatewayMediaInput,
   GatewayMediaService,
 } from "./gateway-media-service";
-import { GATEWAY_MEDIA_UPLOAD_POLICY } from "./gateway-media-service";
+import {
+  GATEWAY_MEDIA_UPLOAD_POLICY,
+  validateGatewayMediaSourceUrl,
+} from "./gateway-media-service";
 import { gatewayMediaBytesMatchType } from "./gateway-media-signature";
 import {
   gatewayProviderOptionsSummary,
@@ -79,6 +82,7 @@ const GatewayJournalSchema = z.strictObject({
   requestSha256: Sha256Schema,
   result: GatewayOperationResultSchema.optional(),
   schemaVersion: z.literal(1),
+  sourceBindings: z.array(GatewayMediaSourceReferenceSchema).max(65).optional(),
   state: z.enum(["prepared", "dispatched", "completed"]),
   updatedAt: z.string().datetime({ offset: true }),
 }).superRefine((journal, context) => {
@@ -195,7 +199,11 @@ function journalMatches(
   return journal.requestId === requestId
     && journal.requestSha256 === digest
     && journal.operation === request.operation
-    && journal.model === request.request.model;
+    && journal.model === request.request.model
+    && (
+      journal.sourceBindings === undefined
+      || canonicalJson(journal.sourceBindings) === canonicalJson(gatewaySources(request))
+    );
 }
 
 async function gatewayRequestDirectory(
@@ -261,6 +269,9 @@ function journalIdentity(
     requestId: journal.requestId,
     requestSha256: journal.requestSha256,
     schemaVersion: journal.schemaVersion,
+    ...(journal.sourceBindings === undefined
+      ? {}
+      : { sourceBindings: journal.sourceBindings }),
   };
 }
 
@@ -475,10 +486,11 @@ async function resolveProviderOptions(
 
 function serviceInput(
   item: LoadedGatewaySource,
+  url?: string,
 ): GatewayMediaInput {
   const facts = item.source.facts;
   return {
-    data: item.data,
+    ...(url === undefined ? { data: item.data } : { url }),
     ...(facts === undefined
       ? {}
       : {
@@ -523,6 +535,7 @@ async function executeService(
   providerOptions: GatewayProviderOptions | undefined,
   signal: AbortSignal,
   now: Date,
+  resolveSourceUrl?: GatewayPortDispatch["resolveSourceUrl"],
 ): Promise<Readonly<{
   bundle: GatewayMediaArtifactBundle;
   transcript?: Readonly<{
@@ -532,17 +545,33 @@ async function executeService(
     readonly text: string;
   }>;
 }>> {
+  const inputs: GatewayMediaInput[] = [];
+  for (const loaded of prepared.loaded) {
+    throwIfAborted(signal);
+    const url = prepared.request.operation === "video" && resolveSourceUrl !== undefined
+      ? await resolveSourceUrl(
+        GatewayMediaSourceReferenceSchema.parse(loaded.source),
+        loaded.data.slice(),
+        signal,
+      )
+      : undefined;
+    throwIfAborted(signal);
+    inputs.push(serviceInput(
+      loaded,
+      url === undefined ? undefined : validateGatewayMediaSourceUrl(url),
+    ));
+  }
   let index = 0;
   const next = (): GatewayMediaInput => {
-    const loaded = prepared.loaded[index];
+    const input = inputs[index];
     index += 1;
-    if (loaded === undefined) {
+    if (input === undefined) {
       throw new ApplicationError(
         "internal",
         "Gateway dispatch lost one prepared media source.",
       );
     }
-    return serviceInput(loaded);
+    return input;
   };
   const execution = {
     signal,
@@ -843,7 +872,7 @@ export function createGatewayApplicationPort(
         command: `gateway workflow dispatch ${requestId}`,
         label: `Gateway workflow request ${requestId}`,
         now,
-      }, async () => {
+      }, async lease => {
         let journal = await readJournal(directory);
         if (
           journal !== null
@@ -909,6 +938,9 @@ export function createGatewayApplicationPort(
           requestId,
           requestSha256: digest,
           schemaVersion: 1,
+          ...(input.resolveSourceUrl === undefined || request.operation !== "video"
+            ? {}
+            : { sourceBindings: prepared.loaded.map(item => item.source) }),
           state: "prepared",
           updatedAt: now().toISOString(),
         });
@@ -941,6 +973,10 @@ export function createGatewayApplicationPort(
                   { requestId },
                 );
               }
+              await lease.assertOwned();
+              await input.beforeDispatch?.();
+              throwIfAborted(input.signal);
+              await lease.assertOwned();
               await persistDispatched();
             },
           }, input.hostResourceLease);
@@ -950,6 +986,16 @@ export function createGatewayApplicationPort(
             providerOptions,
             input.signal,
             now(),
+            input.resolveSourceUrl === undefined
+              ? undefined
+              : async (source, data, signal) => {
+                throwIfAborted(signal);
+                await lease.assertOwned();
+                const url = await input.resolveSourceUrl!(source, data, signal);
+                throwIfAborted(signal);
+                await lease.assertOwned();
+                return url;
+              },
           );
           if (journal.state !== "dispatched") {
             await persistDispatched(
@@ -987,6 +1033,7 @@ export function createGatewayApplicationPort(
               },
             );
           }
+          await lease.assertOwned();
           journal = await writeJournal(directory, {
             ...journalIdentity(journal),
             chargeMayHaveOccurred: false,

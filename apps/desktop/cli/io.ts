@@ -40,6 +40,7 @@ const FORBIDDEN_CHILD_ENVIRONMENT_NAMES = new Set([
   "AI_GATEWAY_API_KEY",
   "VERCEL_OIDC_TOKEN",
   "WORLDLABS_API_KEY",
+  "BLOB_READ_WRITE_TOKEN",
 ]);
 
 /** Credentials remain in the trusted process and never reach media/tool children. */

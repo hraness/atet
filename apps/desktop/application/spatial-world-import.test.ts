@@ -51,6 +51,23 @@ describe("saved world import and exact source closure", () => {
     expect(result.authoring.html).toContain("camera.near=data.near;camera.far=data.far");
     expect(result.metadata.frames[0]?.objects).toHaveLength(1);
   });
+  test("legacy dispatch and recovery receipts retain their exact bytes through offline import", async () => {
+    for (const operationBinding of ["dispatch", "operator-recovery"] as const) {
+      const fixture = await setup(true, true), receipt = fixture.input.provenance.receipt!;
+      const value = JSON.parse(await readFile(join(fixture.sourceRoot, receipt.path), "utf8"));
+      value.operationBinding = operationBinding;
+      value.settledCredits = operationBinding === "dispatch" ? 1580 : null;
+      if (operationBinding === "operator-recovery") value.worldResponseSha256 = "d".repeat(64);
+      const bytes = Buffer.from(JSON.stringify(value));
+      await writeFile(join(fixture.sourceRoot, receipt.path), bytes);
+      fixture.input.provenance.receipt = { ...receipt, bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") };
+      const output = await importSavedSpatialWorld(fixture);
+      const metadata = output.assets.find(asset => asset.interpretation.kind === "metadata" && asset.interpretation.schema === "atet.world-labs-provenance")!;
+      expect(await readFile(join(fixture.destinationRoot, metadata.payload.path))).toEqual(bytes);
+      expect(metadata.payload.sha256).toBe(fixture.input.provenance.receipt.sha256);
+      expect(output.manifest.provenance.kind).toBe("worldlabs-marble");
+    }
+  });
   test("idempotent import reuses exact immutable outputs", async () => {
     const fixture = await setup(); expect(await importSavedSpatialWorld(fixture)).toEqual(await importSavedSpatialWorld(fixture));
   });

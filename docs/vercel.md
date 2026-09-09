@@ -36,6 +36,24 @@ is not `production`. The bundled client also checks for the exact
 Preview deployments, predecessor hosts, and `404.html` remain inert. Keep
 PostHog's cookieless server hash mode enabled.
 
+## Private reference hosting
+
+The CLI can use a private Vercel Blob store for image references required by
+URL-only Gateway video models. This optional store serves the directing CLI;
+the static site has no upload or credential surface. The production connection
+is `atet-directing-references`, ID `store_tOZJ7VAuRPpX7FNe`, in `iad1`.
+Keep its access private and its environment connection Production-only.
+
+Prefer `BLOB_STORE_ID` with short-lived `VERCEL_OIDC_TOKEN`. The existing
+connection supplies `BLOB_READ_WRITE_TOKEN`, which the CLI also supports.
+Neither credential is public configuration. Use `vercel env run -e production
+-- <command>` to inject credentials into a local invocation; never copy them
+into a recipe, project, log, or command argument. Follow the
+[directing guide](directing-video.md) for per-request upload and hosting consent.
+Temporary signed GET access expires after 15 minutes. Atet deletes exact
+reference objects after confirmed completion or a proven undispatched failure;
+ambiguous requests retain their objects and cleanup receipt for recovery.
+
 ## Provider audit
 
 Audit before changing the project, domains, Git connection, or environment
@@ -57,7 +75,7 @@ variables. These reads must not print variable values.
    ```
 
 3. Inspect environment-variable metadata without reading values. Production
-   may own the public PostHog key. No record may target a custom environment,
+   may own the public PostHog key and the private Blob connection. No record may target a custom environment,
    and built-in Preview must not receive production-only configuration.
 
 4. Resolve each Production alias to a Ready deployment from `main`, then read

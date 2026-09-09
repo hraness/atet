@@ -19,6 +19,7 @@ import { describe, expect, spyOn, test } from "bun:test";
 
 import { ApplicationError } from "../application/errors";
 import {
+  dispatchGatewayOperation,
   GatewayOperationResultSchema,
   GatewayPortRequestSchema,
   GatewayPortReconciliationSchema,
@@ -50,6 +51,7 @@ import {
   parseGatewayProviderOptions,
   type GatewayProviderOptions,
 } from "./gateway-provider-options";
+import { MUTATION_LOCK_FILE } from "./mutation-lock";
 
 const NOW = new Date("2026-07-23T16:00:00.000Z");
 const SPEECH_MODEL = "openai/tts-1";
@@ -68,7 +70,9 @@ interface GatewayHarness {
     inspectionLeases: ApplicationContext["hostResourceLease"][];
     mode: ServiceMode;
     providerOptions: GatewayProviderOptions | undefined;
+    providerCalls: number;
     publications: number;
+    requests: unknown[];
     serviceCalls: number;
     serviceCreations: number;
     serviceLeases: ApplicationContext["hostResourceLease"][];
@@ -159,15 +163,20 @@ async function bundle(
     String(sequence),
   );
   await mkdir(directory, { mode: 0o700, recursive: true });
-  const outputPath = join(directory, "speech.mp3");
+  const video = operation === "video.generate";
+  const outputBytes = video
+    ? new Uint8Array([0, 0, 0, 16, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0])
+    : OUTPUT_BYTES;
+  const file = video ? "video.mp4" : "speech.mp3";
+  const outputPath = join(directory, file);
   const receiptPath = join(directory, "receipt.json");
-  await writeFile(outputPath, OUTPUT_BYTES, { mode: 0o600 });
+  await writeFile(outputPath, outputBytes, { mode: 0o600 });
   const output = {
-    bytes: OUTPUT_BYTES.byteLength,
-    file: "speech.mp3",
-    mediaType: "audio/mpeg",
+    bytes: outputBytes.byteLength,
+    file,
+    mediaType: video ? "video/mp4" : "audio/mpeg",
     path: outputPath,
-    sha256: sha256(OUTPUT_BYTES),
+    sha256: sha256(outputBytes),
   } as const;
   const receipt: GatewayMediaReceipt = {
     catalog: { snapshotId: "catalog_test", status: "fresh" },
@@ -223,7 +232,9 @@ function gatewayHarness(
     inspectionLeases: [],
     mode: options.mode ?? "complete",
     providerOptions: options.providerOptions,
+    providerCalls: 0,
     publications: 0,
+    requests: [],
     serviceCalls: 0,
     serviceCreations: 0,
     serviceLeases: [],
@@ -239,6 +250,7 @@ function gatewayHarness(
       request: unknown,
     ): Promise<GatewayMediaArtifactBundle> => {
       state.serviceCalls += 1;
+      state.requests.push(request);
       if (state.mode === "fail-before-dispatch") {
         throw new Error("local setup failed");
       }
@@ -248,6 +260,7 @@ function gatewayHarness(
         operation,
         startedAt: NOW.toISOString(),
       });
+      state.providerCalls += 1;
       if (state.mode === "fail-after-dispatch") {
         throw new Error("provider response was lost");
       }
@@ -356,6 +369,216 @@ function reconcile(
 }
 
 describe("Gateway application port", () => {
+  test("substitutes ephemeral video URLs after exact preparation and preserves byte provenance on replay", async () => {
+    const fixture = await repositoryFixture();
+    try {
+      await mkdir(join(fixture.root, "fixtures"));
+      await writeFile(join(fixture.root, "fixtures/source.png"), PNG_BYTES);
+      const source = {
+        bytes: PNG_BYTES.byteLength,
+        facts: { height: 720, width: 1_280 },
+        mediaType: "image/png",
+        path: "fixtures/source.png",
+        sha256: sha256(PNG_BYTES),
+      } as const;
+      const request = GatewayPortRequestSchema.parse({
+        operation: "video",
+        request: {
+          frames: [{ frameType: "last_frame", source }],
+          model: "minimax/minimax-h3-max",
+          prompt: "Continue the retained frame",
+          promptImage: source,
+        },
+      });
+      const harness = gatewayHarness(fixture.application, { facts: source.facts });
+      const application = { ...fixture.application, gatewayPort: harness.createPort() };
+      const id = requestId("b");
+      const journalPath = join(application.paths.privateRoot, "gateway-workflow-requests", id, "request.json");
+      const url = "https://sample.private.blob.vercel-storage.com/source.png?vercel-blob-signature=ephemeral-secret";
+      const signal = new AbortController().signal;
+      let resolutions = 0;
+      const result = await dispatchGatewayOperation(application, {
+        beforePublication: () => Promise.resolve(), request, requestId: id, signal,
+        resolveSourceUrl: async (actualSource, data, actualSignal) => {
+          expect(actualSource).toEqual(source);
+          expect(data).toEqual(PNG_BYTES);
+          expect(actualSignal).toBe(signal);
+          expect(JSON.parse(await readFile(journalPath, "utf8"))).toMatchObject({
+            chargeMayHaveOccurred: false, sourceBindings: [source, source], state: "prepared",
+          });
+          resolutions++;
+          data.fill(0);
+          return resolutions === 1 ? url : undefined;
+        },
+      });
+      expect(harness.state.requests[0]).toMatchObject({
+        frameImages: [{ frameType: "last_frame", image: { data: PNG_BYTES, facts: source.facts, mediaType: source.mediaType } }],
+        promptImage: { facts: source.facts, mediaType: source.mediaType, url },
+      });
+      expect(await dispatchGatewayOperation(application, {
+        beforePublication: () => Promise.resolve(), request, requestId: id, signal,
+        resolveSourceUrl: () => Promise.reject(new Error("Replay must not upload again")),
+      })).toEqual(result);
+      expect(resolutions).toBe(2);
+      expect(harness.state.providerCalls).toBe(1);
+      const journal = await readFile(journalPath, "utf8");
+      expect(journal).not.toContain(url);
+      expect(journal).not.toContain("ephemeral-secret");
+      expect(journal).not.toContain("resolveSourceUrl");
+      expect(JSON.parse(journal)).toMatchObject({ sourceBindings: [source, source], state: "completed" });
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  test("does not resolve source URLs for changed local bytes or facts", async () => {
+    const fixture = await repositoryFixture();
+    try {
+      await mkdir(join(fixture.root, "fixtures"));
+      const path = join(fixture.root, "fixtures/source.png");
+      await writeFile(path, PNG_BYTES);
+      const request = GatewayPortRequestSchema.parse({
+        operation: "video",
+        request: {
+          model: "minimax/minimax-h3-max", prompt: "Use exact input",
+          promptImage: { bytes: PNG_BYTES.byteLength, facts: {}, mediaType: "image/png", path: "fixtures/source.png", sha256: sha256(PNG_BYTES) },
+        },
+      });
+      const harness = gatewayHarness(fixture.application);
+      const application = { ...fixture.application, gatewayPort: harness.createPort() };
+      let resolutions = 0;
+      const input = {
+        beforePublication: () => Promise.resolve(), request, requestId: requestId("c"), signal: new AbortController().signal,
+        resolveSourceUrl: () => { resolutions++; return Promise.resolve(undefined); },
+      };
+      await writeFile(path, new Uint8Array([...PNG_BYTES, 1]));
+      expect((await rejectedApplicationError(dispatchGatewayOperation(application, input))).code).toBe("conflict");
+      await writeFile(path, PNG_BYTES);
+      harness.state.facts = { width: 100 };
+      expect((await rejectedApplicationError(dispatchGatewayOperation(application, input))).code).toBe("conflict");
+      expect(resolutions).toBe(0);
+      expect(harness.state.providerCalls).toBe(0);
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  test("keeps URL resolver failures, unsafe URLs, and cancellation before paid dispatch", async () => {
+    for (const mode of ["reject", "unsafe", "cancel"] as const) {
+      const fixture = await repositoryFixture();
+      try {
+        await mkdir(join(fixture.root, "fixtures"));
+        await writeFile(join(fixture.root, "fixtures/source.png"), PNG_BYTES);
+        const request = GatewayPortRequestSchema.parse({
+          operation: "video",
+          request: {
+            model: "minimax/minimax-h3-max", prompt: "Use exact input",
+            references: [{ bytes: PNG_BYTES.byteLength, facts: {}, mediaType: "image/png", path: "fixtures/source.png", sha256: sha256(PNG_BYTES) }],
+          },
+        });
+        const harness = gatewayHarness(fixture.application), port = harness.createPort();
+        const controller = new AbortController(), id = requestId("d");
+        const error = await rejectedApplicationError(dispatchGatewayOperation({ ...fixture.application, gatewayPort: port }, {
+          beforePublication: () => Promise.resolve(), request, requestId: id, signal: controller.signal,
+          resolveSourceUrl: () => {
+            if (mode === "reject") return Promise.reject(new ApplicationError("authorization-required", "Upload was not authorized"));
+            if (mode === "cancel") controller.abort();
+            return Promise.resolve("https://127.0.0.1/source.png");
+          },
+        }));
+        expect(error.code).toBe(mode === "reject" ? "authorization-required" : mode === "cancel" ? "cancelled" : "unavailable");
+        expect(harness.state.serviceCalls).toBe(0);
+        expect(harness.state.providerCalls).toBe(0);
+        expect(await reconcile(port, request, id)).toMatchObject({ status: "not-dispatched" });
+        expect(await readFile(join(fixture.application.paths.privateRoot, "gateway-workflow-requests", id, "request.json"), "utf8")).not.toContain("https://");
+      } finally {
+        await rm(fixture.root, { force: true, recursive: true });
+      }
+    }
+  });
+
+  test("runs the ephemeral custody fence before paid intent and never repeats it for completed reuse", async () => {
+    const fixture = await repositoryFixture();
+    try {
+      const harness = gatewayHarness(fixture.application), port = harness.createPort();
+      const application = { ...fixture.application, gatewayPort: port };
+      const request = speechRequest(), id = requestId("7");
+      const journalPath = join(application.paths.privateRoot, "gateway-workflow-requests", id, "request.json");
+      let fenceCalls = 0;
+      const result = await dispatchGatewayOperation(application, {
+        request, requestId: id, signal: new AbortController().signal,
+        beforeDispatch: async () => {
+          fenceCalls++;
+          expect(JSON.parse(await readFile(journalPath, "utf8"))).toMatchObject({ state: "prepared", chargeMayHaveOccurred: false });
+          expect(harness.state.providerCalls).toBe(0);
+        },
+        beforePublication: async () => {
+          expect(JSON.parse(await readFile(journalPath, "utf8"))).toMatchObject({ state: "dispatched", chargeMayHaveOccurred: true });
+          expect(fenceCalls).toBe(1);
+        },
+      });
+      expect(harness.state.providerCalls).toBe(1);
+      expect(await dispatchGatewayOperation(application, {
+        request, requestId: id, signal: new AbortController().signal,
+        beforeDispatch: () => Promise.reject(new Error("A completed request needs no new paid authority")),
+        beforePublication: () => Promise.resolve(),
+      })).toEqual(result);
+      expect(harness.state.providerCalls).toBe(1);
+      expect(fenceCalls).toBe(1);
+      expect(await readFile(journalPath, "utf8")).not.toContain("beforeDispatch");
+    } finally { await rm(fixture.root, { force: true, recursive: true }); }
+  });
+
+  test("custody fence rejection retains an undispatched journal and permits an explicit authorized retry", async () => {
+    const fixture = await repositoryFixture();
+    try {
+      const harness = gatewayHarness(fixture.application), port = harness.createPort();
+      const application = { ...fixture.application, gatewayPort: port };
+      const request = speechRequest(), id = requestId("8");
+      const denied = await rejectedApplicationError(dispatchGatewayOperation(application, {
+        request, requestId: id, signal: new AbortController().signal,
+        beforeDispatch: () => Promise.reject(new ApplicationError("authorization-required", "The reserved quote changed")),
+        beforePublication: () => Promise.resolve(),
+      }));
+      expect(denied.code).toBe("authorization-required");
+      expect(harness.state.providerCalls).toBe(0);
+      expect(harness.state.publications).toBe(0);
+      expect(await reconcile(port, request, id)).toMatchObject({ status: "not-dispatched" });
+      const journalPath = join(application.paths.privateRoot, "gateway-workflow-requests", id, "request.json");
+      expect(JSON.parse(await readFile(journalPath, "utf8"))).toMatchObject({ state: "prepared", chargeMayHaveOccurred: false });
+      await dispatchGatewayOperation(application, {
+        request, requestId: id, signal: new AbortController().signal,
+        beforeDispatch: () => Promise.resolve(), beforePublication: () => Promise.resolve(),
+      });
+      expect(harness.state.providerCalls).toBe(1);
+      expect(await reconcile(port, request, id)).toMatchObject({ status: "completed" });
+    } finally { await rm(fixture.root, { force: true, recursive: true }); }
+  });
+
+  test("rechecks cancellation and journal custody after an asynchronous dispatch fence", async () => {
+    for (const failure of ["cancel", "lost-lease"] as const) {
+      const fixture = await repositoryFixture();
+      try {
+        const harness = gatewayHarness(fixture.application), port = harness.createPort();
+        const request = speechRequest(), id = requestId("9");
+        const controller = new AbortController();
+        const directory = join(fixture.application.paths.privateRoot, "gateway-workflow-requests", id);
+        await expect(dispatchGatewayOperation({ ...fixture.application, gatewayPort: port }, {
+          request, requestId: id, signal: controller.signal,
+          beforeDispatch: async () => {
+            if (failure === "cancel") controller.abort();
+            else await rename(join(directory, MUTATION_LOCK_FILE), join(directory, "retained-original-lock"));
+          },
+          beforePublication: () => Promise.resolve(),
+        })).rejects.toThrow();
+        expect(harness.state.providerCalls).toBe(0);
+        expect(harness.state.publications).toBe(0);
+        expect(JSON.parse(await readFile(join(directory, "request.json"), "utf8"))).toMatchObject({ state: "prepared", chargeMayHaveOccurred: false });
+        expect(await reconcile(port, request, id)).toMatchObject({ status: "not-dispatched" });
+      } finally { await rm(fixture.root, { force: true, recursive: true }); }
+    }
+  });
+
   test("dispatches at most once across restarts and verifies completed reconciliation", async () => {
     const fixture = await repositoryFixture();
     try {

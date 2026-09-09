@@ -36,8 +36,8 @@ an Atet service.
 - **Local work has an explicit cloud boundary.** Editing, diagrams,
   vectorization, previews, and outputs stay local. Model-backed work uses the
   caller's Vercel AI Gateway credential and uploads selected media only after
-  the matching acknowledgement. AI-world generation uses a separate World Labs
-  credential and an explicit credit budget.
+  the matching acknowledgement. Directed video takes retain one explicit
+  budget across attempts and revisions.
 
 ## Install Atet
 
@@ -155,10 +155,38 @@ receipts connect each output to its exact scene and media inputs.
 
 The initial Three.js scene profile includes calibrated cameras, explicit
 animation, a bounded GLB subset, explicit hardware GPU rendering, and saved
-AI-world environments through Spark. World Labs generation retains splats,
-approximate colliders, and provenance for local camera direction. Project
-delivery uses the existing audio and video compositor. See [directed scenes](docs/spatial-scenes.md) for
-the source-checkout commands, supported assets, and current limits.
+AI-world environments through Spark. Imported splats retain provenance for
+local camera direction. The directing workflow turns authored image references
+and shot prompts into reviewable Gateway clips, then assembles accepted takes
+with the existing audio and video compositor. See
+[directed scenes](docs/spatial-scenes.md) for the source-checkout commands,
+supported assets, and current limits.
+
+### Direct generated video
+
+Create a shot recipe, inspect its live model capabilities and price, and retain
+one budget for the film. Each generation uses an explicit take ID. Review the
+video before accepting it; later shots can use its actual final decoded frame
+as their opening reference. Changes invalidate affected downstream selections
+while preserving earlier takes and paid-call receipts.
+
+Use a CLI built from this checkout with Gateway credentials and local FFmpeg
+and FFprobe. Edit the starter prompt after `init` before generating. The
+generation command spends provider credits against a retained catalog estimate;
+the budget is not a provider billing cap.
+
+```sh
+atet direct init film.json
+# Edit film.json with the intended shot before continuing.
+atet direct plan film.json --json
+atet direct start film.json --budget-usd 5 --json
+atet direct generate direct_film --shot opening --attempt take_opening_1 --allow-paid-generation --json
+atet direct review direct_film --attempt take_opening_1 --decision accepted --note "Reviewed motion and subject identity" --json
+atet direct assemble direct_film --json
+```
+
+See [directing video](docs/directing-video.md)
+for scene anchors, continuity, revisions, budget estimates, and recovery.
 
 ### Edit real video
 
@@ -234,8 +262,8 @@ and macOS desktop app.
   the macOS host and requires the corresponding operating-system permissions.
 - Model-backed generation requires caller-owned Vercel AI Gateway access.
   Local media is uploaded only when the command identifies it and receives the
-  matching acknowledgement. The AI-world provider requires separate World Labs
-  API access; importing saved worlds works offline.
+  matching acknowledgement. Importing saved worlds works offline. Directed
+  video continuity uses retained images; it does not retain a model checkpoint.
 - The local MCP server confines paths to one caller-selected root, but it is
   not an operating-system sandbox against another process running as the same
   user.
