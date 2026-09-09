@@ -163,6 +163,21 @@ with the existing audio and video compositor. See
 [directed scenes](docs/spatial-scenes.md) for the source-checkout commands,
 supported assets, and current limits.
 
+### Film a native virtual world
+
+Use Blender for detailed sets, materials, lighting, cameras, skinned characters,
+cloth and liquid caches; CadQuery for parametric solids and STEP; and Manim
+Community for mathematical animation with an original cartoon presenter.
+Retain the source and exact job settings, render through an explicitly selected
+native engine, then bring the verified clip into an ordinary video project.
+
+The source-checkout `studio` commands include six editable starters, free
+Poly Haven HDRI/PBR/glTF acquisition, GPU rendering and verified frame-sequence
+encoding. Native source runs as the current user with explicit authorization;
+Blender and Python environments are installed separately. See the
+[native studio guide](docs/studio.md) for a complete first shot, supported
+profiles, color rules and recovery behavior.
+
 ### Direct generated video
 
 Create a shot recipe, inspect its live model capabilities and price, and retain

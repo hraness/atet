@@ -84,7 +84,7 @@ export async function main(
     daemonCommand: daemonCommand(),
     helperExecutable,
   });
-  if (earlyCommand.kind === "spatial-world" || earlyCommand.kind === "directing") {
+  if (earlyCommand.kind === "spatial-world" || earlyCommand.kind === "directing" || earlyCommand.kind === "studio") {
     const controller = new AbortController();
     const cancel = () => controller.abort(new CliError("cancelled", "Command interrupted."));
     process.on("SIGINT", cancel);

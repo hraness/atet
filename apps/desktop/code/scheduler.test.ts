@@ -1,3 +1,5 @@
+import { studioOperationFixture } from "../application/operations/studio-test-support";
+import { StudioRunInputSchema, type StudioRunInput } from "../application/studio-port";
 import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readdir, realpath, rm } from "node:fs/promises";
@@ -26,6 +28,8 @@ import {
 import { OperationRegistry } from "../application/registry";
 import { canonicalJson } from "../core/canonical-json";
 import {
+  JsonValueSchema,
+  type JsonValue,
   CODE_WORKER_ABI,
   GRAPH_ABI,
   GRAPH_COMPILER_ABI,
@@ -264,6 +268,8 @@ async function createRun(
   runId: string,
   options: {
     readonly projectFinalOutputs?: boolean;
+    readonly operationKind?: "derive.edit-batch" | "atet.studio.run";
+    readonly studioInput?: JsonValue;
     readonly storeFactory?: (root: string) => RunStore;
   } = {},
 ): Promise<{
@@ -291,7 +297,7 @@ async function createRun(
       );
     }
     refs.set(node.id, builder.operationByKind<FixtureOutput>(node.id, {
-      input: {
+      input: options.studioInput ?? {
         ...(dependencies.length === 0 ? {} : { dependencies }),
         ...(node.fail === undefined ? {} : { fail: node.fail }),
         id: node.id,
@@ -299,7 +305,7 @@ async function createRun(
         ...(selected === undefined ? {} : { selected }),
         value: node.value ?? 1,
       },
-      kind: "derive.edit-batch",
+      kind: options.operationKind ?? "derive.edit-batch",
       version: 1,
     }));
   }
@@ -355,7 +361,7 @@ async function createRun(
     runId,
     runtime: {
       computes: [],
-      operations: [{ kind: "derive.edit-batch", version: 1 }],
+      operations: [{ kind: options.operationKind ?? "derive.edit-batch", version: 1 }],
       runtime: runtimeIdentity,
       version: RUN_STORE_VERSION,
     },
@@ -2665,4 +2671,69 @@ describe("durable workflow scheduler", () => {
       expect(executions).toBe(1);
     }
   });
+});
+
+
+test("studio fixed-runtime planning waits for physical admission and inherits the live lease", async () => {
+  const waiting = deferred<void>(), admission = deferred<void>();
+  let active = 0, probes = 0, executions = 0;
+  const coordinator: HostResourceCoordinator = {
+    ...schedulerTestHostResources,
+    withLease: async (claims, callback) => {
+      waiting.resolve();
+      await admission.promise;
+      active++;
+      try { return await callback({ claims, profile: schedulerTestHostResources.profile, ticket: "studio-probe-ticket", inheritedFileDescriptor: 42,
+        assertOwned: async () => { expect(active).toBeGreaterThan(0); },
+      }); } finally { active--; }
+    },
+  };
+  const registry = new OperationRegistry();
+  registry.register({ kind: "atet.studio.run", version: 1, inputSchema: StudioRunInputSchema, inputSchemaId: "test.studio-probe.input/v1", outputSchema: OutputSchema, outputSchemaId: "test.studio-probe.output/v1",
+    policy: policy({ resources: [{ resource: "cpu", amount: 1 }, { resource: "local-io", amount: 1 }] }),
+    lifecycle: { kind: "local-artifact", execute: async (_context, input: StudioRunInput) => { expect(active).toBe(1); executions++; return { id: input.job.jobId, value: 1 }; } },
+    summarize: (output: FixtureOutput) => ({ kind: "atet.studio.run", fields: { id: output.id } }),
+  });
+  const runId = "run_studio_probe_admission01";
+  const run = await createRun(registry, [{ id: "native" }], runId, { operationKind: "atet.studio.run", studioInput: JsonValueSchema.parse(studioOperationFixture().input) });
+  const running = scheduler(run.store, registry, { application: { ...application, studioAuthorization: { authorize: async () => true } }, hostResourceCoordinator: coordinator, nodePlanner: { ...passThroughPlanner,
+    plan: async request => {
+      expect(active).toBe(1);
+      expect(request.application?.hostResourceLease?.inheritedFileDescriptors).toEqual([42]);
+      expect(request.abortSignal).toBeInstanceOf(AbortSignal);
+      expect(request.beforePublication).toBeFunction();
+      await request.beforePublication!();
+      probes++;
+      return await passThroughPlanner.plan(request);
+    },
+  } }).run(runId);
+  await waiting.promise;
+  expect(probes).toBe(0);
+  expect(executions).toBe(0);
+  admission.resolve();
+  const result = await running;
+  expect(result.summary.status).toBe("completed");
+  expect(probes).toBe(1);
+  expect(executions).toBe(1);
+  expect(active).toBe(0);
+});
+
+
+test("studio missing native authorization pauses before execution and resumes only with an explicit envelope", async () => {
+  let executions = 0;
+  const registry = new OperationRegistry();
+  registry.register({ kind: "atet.studio.run", version: 1, inputSchema: StudioRunInputSchema, inputSchemaId: "test.studio-authorization.input/v1", outputSchema: OutputSchema, outputSchemaId: "test.studio-authorization.output/v1",
+    policy: policy(), lifecycle: { kind: "local-artifact", execute: async (_context, input: StudioRunInput) => { executions++; return { id: input.job.jobId, value: 1 }; } },
+    summarize: (output: FixtureOutput) => ({ kind: "atet.studio.run", fields: { id: output.id } }),
+  });
+  const input = studioOperationFixture().input, runId = "run_studio_authorization01";
+  const run = await createRun(registry, [{ id: "native" }], runId, { operationKind: "atet.studio.run", studioInput: JsonValueSchema.parse(input) });
+  expect((await scheduler(run.store, registry).run(runId)).summary.status).toBe("approval-required");
+  expect(executions).toBe(0);
+  expect((await scheduler(run.store, registry).run(runId)).summary.status).toBe("approval-required");
+  const explicit: ApplicationContext = { ...application, studioAuthorization: { authorize: async request => {
+    expect(request).toEqual({ planSha256: input.plan.planSha256, bundleSha256: input.plan.bundleSha256, jobId: input.job.jobId }); return true;
+  } } };
+  expect((await scheduler(run.store, registry, { application: explicit }).run(runId)).summary.status).toBe("completed");
+  expect(executions).toBe(1);
 });

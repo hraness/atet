@@ -14,6 +14,8 @@ Commands:
                                  Author and inspect editable directed 3D scene sources
   direct init|plan|start|generate|review|assemble
                                  Direct short Gateway clips with retained takes and budgets
+  studio init|bundle|plan|probe|run|encode|assemble|inspect|reconcile
+                                 Author and render retained Blender, CAD and Manim productions
   image vectorize|generate      Create a local SVG or generated image file
   html catalog|scaffold          Inspect or create a transparent HTML overlay starter
   workflows list|show|plan|run   Plan or run a reviewed reusable workflow
@@ -44,6 +46,34 @@ Commands:
 Run atet help <command> for command-specific help.`;
 
 const HELP: Readonly<Record<string, string>> = {
+  studio: `Usage:
+  atet studio init <new-directory> [--template blender-product|blender-character|blender-cloth|blender-fluid|cadquery-bracket|manim-lesson] [--json]
+  atet studio bundle <source.json> [--source-root <directory>] [--json]
+  atet studio plan <job.json> [--json]
+  atet studio probe <job.json> [--blender-bin <executable>|--python <venv-python>] [--json]
+  atet studio run <job.json> --allow-trusted-code [--blender-bin <executable>|--python <venv-python>] [--json]
+  atet studio inspect|reconcile <studio-id> [--json]
+  atet studio encode <studio-id> --output-id <sequence-id> [--json]
+  atet studio assemble <studio-id> --output-id <sequence-id> [--name <title>] [--json]
+  atet studio assets search <query.json> [--json]
+  atet studio assets describe <poly-haven-asset-id> [--json]
+  atet studio assets plan <selection.json> [--json]
+  atet studio assets import <asset-plan.json> [--json]
+
+Init writes a new editable source bundle and job. Bundle retains only explicitly listed
+files without executing them. After source edits, bind the returned bundleSha256 into
+a new job ID. Plan is inert; probe loads the selected installed engine and fixed driver.
+Run executes trusted current-user native source without an OS sandbox. Runtime plugins
+and ambient dependencies are not fully hermetic. Provider credentials are not inherited.
+Blender/Cycles GPU requests fail if unavailable; no CPU fallback is implicit. Native
+scenes, simulation caches and exact frames remain retained beside verified receipts.
+Reconcile can restore a missing receipt only after a closed successful completion and
+an unchanged validation checkpoint. Ambiguous work is never automatically resubmitted.
+
+For local SDK workflows, code run, workflows run and runs resume accept
+--studio-python <venv-python>, --studio-blender-bin <executable> and
+--allow-trusted-code. Runtime selection alone grants no authored-code permission.
+The fixed local operation is atet.studio.run; its SDK surface is studio.run().`,
   direct: `Usage:
   atet direct init <recipe.json> [--json]
   atet direct anchor --input <image> [--json]
@@ -150,6 +180,7 @@ Schemas.`,
   atet workflows plan <id> --input <json-file> [--json]
   atet workflows run <id> --input <json-file> [--provider-options <json-file>]
         [--jobs <n>] [--json|--jsonl]
+        [--studio-python <venv-python>] [--studio-blender-bin <executable>] [--allow-trusted-code]
 
 Built-ins are explicit versioned TypeScript graph recipes over the same operation registry as
 custom code. Planning resolves structural project identity and policy bounds without executing
@@ -166,6 +197,7 @@ before a matching paid Gateway request can dispatch.`,
   atet code plan <path> --input <json-file> [--json]
   atet code run <path> --input <json-file> [--plan <sha256>]
         [--provider-options <json-file>] [--jobs <n>] [--json|--jsonl]
+        [--studio-python <venv-python>] [--studio-blender-bin <executable>] [--allow-trusted-code]
 
 Code mode bundles one repository-local TypeScript module and its physical local imports, builds a
 strict typed operation graph in a separate process, and keeps stdout/stderr separate from framed
@@ -180,6 +212,7 @@ credentials or privileged handles into the worker.`,
   atet runs show <run-id> [--nodes failed|all] [--json]
   atet runs resume <run-id> [--replay-ambiguous-code <node-key> ...]
         [--provider-options <json-file>] [--jobs <n>] [--json|--jsonl]
+        [--studio-python <venv-python>] [--studio-blender-bin <executable>] [--allow-trusted-code]
   atet runs approve <run-id> <node-key> --preparation-plan <sha256> [--json]
   atet runs approve <run-id> <node-key> --node-plan <sha256> [--json]
   atet runs cancel <run-id> [--json]
@@ -437,11 +470,12 @@ export function commandHelp(topic: readonly string[]): string {
 
 export function completions(words: readonly string[]): readonly string[] {
   const topLevel = [
-    "operations", "diagram", "direct", "image", "workflows", "code", "runs", "doctor", "ai", "media", "record", "recordings", "projects", "project", "inspect", "events", "edit", "analyze", "align", "faces", "fillers", "render", "assets",
+    "operations", "diagram", "direct", "studio", "image", "workflows", "code", "runs", "doctor", "ai", "media", "record", "recordings", "projects", "project", "inspect", "events", "edit", "analyze", "align", "faces", "fillers", "render", "assets",
   ];
   if (words.length <= 1) return topLevel;
   const command = words[0];
   if (command === "direct") return ["init", "anchor", "plan", "start", "inspect", "revise", "generate", "resume", "review", "assemble", "cleanup"];
+  if (command === "studio") return words[2] === "assets" || words[1] === "assets" ? ["search", "describe", "plan", "import"] : ["init", "bundle", "plan", "probe", "run", "encode", "assemble", "inspect", "reconcile", "assets"];
   if (command === "operations") return ["list", "show"];
   if (command === "diagram") return ["check", "render"];
   if (command === "image") return ["vectorize"];

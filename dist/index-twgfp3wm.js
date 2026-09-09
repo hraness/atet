@@ -5,6 +5,14 @@ import {
   pathExists
 } from "./index-pc34q4wz.js";
 import {
+  AtetCodeError,
+  boundedCanonicalJsonSha256,
+  canonicalJson,
+  compareUtf16Strings,
+  createBoundedJsonValueSnapshot,
+  deepFreezeJson
+} from "./index-dttxgnv5.js";
+import {
   AtetWorkflowError,
   defineAtetWorkflow,
   runAtetWorkflow
@@ -1527,6 +1535,431 @@ async function runMcpServer(options = {}) {
     }
   }
 }
+// src/studio/contracts.ts
+import { z as z2 } from "zod";
+
+// src/studio/shared.ts
+import { z } from "zod";
+var STUDIO_LIMITS = Object.freeze({
+  documentBytes: 32 * 1024 * 1024,
+  documentDepth: 32,
+  documentValues: 500000,
+  sourceFiles: 512,
+  sourceBytes: 4 * 1024 ** 3,
+  outputSpecifications: 32,
+  outputFiles: 25000,
+  outputBytes: 64 * 1024 ** 3,
+  timeoutSeconds: 6 * 60 * 60,
+  frames: 25000,
+  frameIndexExclusive: 1e6,
+  dimension: 8192,
+  pixels: 33554432,
+  parameterBytes: 256 * 1024,
+  parameterDepth: 16,
+  parameterValues: 20000
+});
+function studioDocument(schema, name) {
+  return z.preprocess((value) => value === undefined ? undefined : createBoundedJsonValueSnapshot(value, STUDIO_LIMITS.documentBytes, name, { maximumDepth: STUDIO_LIMITS.documentDepth, maximumValues: STUDIO_LIMITS.documentValues }).value, schema);
+}
+function parseStudioValue(schema, input) {
+  try {
+    return deepFreezeJson(schema.parse(input));
+  } catch (error) {
+    if (error instanceof AtetCodeError)
+      throw error;
+    throw new AtetCodeError("invalid-data", error instanceof z.ZodError ? error.issues[0]?.message ?? "Invalid studio document." : "Invalid studio document.");
+  }
+}
+function studioHash(domain, value) {
+  return boundedCanonicalJsonSha256({ domain, value }, { maximumBytes: STUDIO_LIMITS.documentBytes, maximumDepth: STUDIO_LIMITS.documentDepth + 2, maximumValues: STUDIO_LIMITS.documentValues + 4 });
+}
+var studioCompare = compareUtf16Strings;
+function studioRequire(condition, message) {
+  if (!condition)
+    throw new AtetCodeError("invalid-data", message);
+}
+function pathKey(path) {
+  return path.toLowerCase();
+}
+function assertDistinctPaths(paths) {
+  const names = new Set(paths.map(pathKey));
+  studioRequire(names.size === paths.length, "Studio paths collide.");
+  for (const name of names) {
+    for (let offset = name.indexOf("/");offset !== -1; offset = name.indexOf("/", offset + 1)) {
+      studioRequire(!names.has(name.slice(0, offset)), "Studio paths use a file as an ancestor.");
+    }
+  }
+}
+
+// src/studio/contracts.ts
+var StudioDigestSchema = z2.string().regex(/^[a-f0-9]{64}$/u);
+var StudioEngineSchema = z2.enum(["blender", "manim", "cadquery"]);
+var StudioPathSchema = z2.string().min(1).max(1024).refine((path) => path.normalize("NFC") === path && !path.startsWith("/") && !/[\\:\u0000-\u001f\u007f]/u.test(path) && path.split("/").every((part) => part !== "" && part !== "." && part !== ".." && !/[. ]$/u.test(part)), "Studio paths must be normalized, contained POSIX-relative names.");
+var identifier = z2.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/u);
+var stableId = z2.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/u);
+var sourceFile = z2.strictObject({ path: StudioPathSchema, sha256: StudioDigestSchema, bytes: z2.number().int().safe().nonnegative().max(STUDIO_LIMITS.sourceBytes) });
+var sourceBundleShape = z2.strictObject({
+  kind: z2.literal("atet.studio-source-bundle"),
+  schemaVersion: z2.literal(1),
+  engine: StudioEngineSchema,
+  entrypoint: z2.discriminatedUnion("kind", [z2.strictObject({ kind: z2.literal("python"), path: StudioPathSchema.refine((path) => path.endsWith(".py")) }), z2.strictObject({ kind: z2.literal("blend"), path: StudioPathSchema.refine((path) => path.endsWith(".blend")) })]),
+  files: z2.array(sourceFile).min(1).max(STUDIO_LIMITS.sourceFiles)
+}).superRefine((value, context) => {
+  const issue = (message) => context.addIssue({ code: "custom", message });
+  try {
+    assertDistinctPaths(value.files.map((file) => file.path));
+  } catch {
+    issue("Source paths must be distinct and cannot have file ancestors.");
+  }
+  if (value.files.reduce((total, file) => total + file.bytes, 0) > STUDIO_LIMITS.sourceBytes)
+    issue("Source bundle exceeds four GiB.");
+  if (!value.files.some((file) => file.path === value.entrypoint.path && file.bytes > 0))
+    issue("Entrypoint must name a declared nonempty source file.");
+  if (value.entrypoint.kind === "blend" && value.engine !== "blender")
+    issue("Blend entrypoints require Blender.");
+});
+var sourceBundle = sourceBundleShape.transform((value) => ({ ...value, files: [...value.files].sort((a, b) => studioCompare(a.path, b.path)) })).pipe(sourceBundleShape);
+var StudioSourceBundleSchema = studioDocument(sourceBundle, "studio source bundle");
+var parseStudioSourceBundle = (input) => parseStudioValue(StudioSourceBundleSchema, input);
+var StudioSourceSpaceSchema = z2.strictObject({ units: z2.enum(["meters", "millimeters", "centimeters"]), upAxis: z2.enum(["x", "y", "z"]), handedness: z2.enum(["right", "left"]) });
+var StudioOutputRoleSchema = z2.enum(["native-source", "model", "beauty", "auxiliary", "simulation-cache", "audio"]);
+var StudioOutputFormatSchema = z2.enum(["py", "blend", "usd", "usda", "usdc", "glb", "step", "png", "exr", "mp4", "mov", "webm", "wav", "flac", "mp3", "cache"]);
+var raster = z2.strictObject({
+  kind: z2.literal("raster"),
+  colorSpace: z2.enum(["srgb", "linear-rec709", "data", "unspecified"]),
+  alpha: z2.enum(["opaque", "straight", "premultiplied", "none"]),
+  dataType: z2.enum(["uint8", "uint16", "float16", "float32"]),
+  channels: z2.array(z2.string().regex(/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u)).min(1).max(32),
+  semantic: z2.enum(["color", "depth", "normal", "object-id", "mask", "custom"]),
+  unit: z2.enum(["unitless", "meters", "millimeters", "centimeters"])
+}).superRefine((value, context) => {
+  if (new Set(value.channels).size !== value.channels.length)
+    context.addIssue({ code: "custom", message: "Raster channels must be unique." });
+  if (value.semantic !== "color" && value.colorSpace !== "data")
+    context.addIssue({ code: "custom", message: "Non-color raster passes must declare data color space." });
+  if (value.semantic === "color" && value.colorSpace === "data")
+    context.addIssue({ code: "custom", message: "Color output cannot declare data color space." });
+  if (value.semantic !== "depth" && value.unit !== "unitless")
+    context.addIssue({ code: "custom", message: "Only depth passes declare distance units." });
+});
+var StudioOutputInterpretationSchema = z2.discriminatedUnion("kind", [
+  raster,
+  z2.strictObject({ kind: z2.literal("model"), sourceSpace: StudioSourceSpaceSchema }),
+  z2.strictObject({ kind: z2.literal("native-source") }),
+  z2.strictObject({ kind: z2.literal("cache"), semantics: z2.literal("opaque-native") }),
+  z2.strictObject({ kind: z2.literal("audio"), sampleRate: z2.number().int().min(8000).max(384000), channels: z2.number().int().min(1).max(32) })
+]);
+var outputCommon = { id: stableId, role: StudioOutputRoleSchema, format: StudioOutputFormatSchema, interpretation: StudioOutputInterpretationSchema };
+var pattern = z2.string().max(1024).refine((value) => value.split("%06d").length === 2 && !value.replace("%06d", "").includes("%") && StudioPathSchema.safeParse(value.replace("%06d", "000000")).success, "Sequence paths require exactly one %06d placeholder in a safe relative path.");
+function compatibleOutput(value) {
+  if (value.role === "native-source")
+    return ["py", "blend"].includes(value.format) && value.interpretation.kind === "native-source";
+  if (value.role === "model")
+    return ["blend", "usd", "usda", "usdc", "glb", "step"].includes(value.format) && value.interpretation.kind === "model";
+  if (value.role === "simulation-cache")
+    return value.format === "cache" && value.interpretation.kind === "cache";
+  if (value.role === "audio")
+    return ["wav", "flac", "mp3"].includes(value.format) && value.interpretation.kind === "audio";
+  return ["png", "exr", "mp4", "mov", "webm"].includes(value.format) && value.interpretation.kind === "raster" && (value.role !== "beauty" || value.interpretation.semantic === "color");
+}
+var StudioOutputSpecSchema = z2.discriminatedUnion("kind", [
+  z2.strictObject({ ...outputCommon, kind: z2.literal("file"), path: StudioPathSchema }),
+  z2.strictObject({ ...outputCommon, kind: z2.literal("sequence"), pathPattern: pattern }),
+  z2.strictObject({ ...outputCommon, kind: z2.literal("directory"), path: StudioPathSchema })
+]).superRefine((value, context) => {
+  const issue = (message) => context.addIssue({ code: "custom", message });
+  if (!compatibleOutput(value))
+    issue("Output role, format, and interpretation disagree.");
+  if (value.kind === "directory" !== (value.format === "cache"))
+    issue("Only native cache outputs use directory declarations.");
+  if (value.kind === "sequence" && !["png", "exr"].includes(value.format))
+    issue("Numbered sequences support PNG or EXR only.");
+  if (value.kind !== "directory") {
+    const path = value.kind === "sequence" ? value.pathPattern : value.path;
+    if (!path.endsWith(`.${value.format}`) && !(value.format === "step" && path.endsWith(".stp")))
+      issue("Output extension must agree with its declared format.");
+  }
+  if (value.interpretation.kind === "raster") {
+    if (value.format === "png" && !["uint8", "uint16"].includes(value.interpretation.dataType))
+      issue("PNG declares integer sample data.");
+    if (value.format === "exr" && !["float16", "float32"].includes(value.interpretation.dataType))
+      issue("The admitted EXR profile declares floating point sample data.");
+  }
+});
+var frameRateShape = z2.strictObject({ numerator: z2.number().int().min(1).max(1e6), denominator: z2.number().int().min(1).max(1e6) }).refine((value) => value.numerator / value.denominator <= 240, "Studio cadence exceeds 240 fps.");
+var frameRate = frameRateShape.transform((value) => {
+  let { numerator: a, denominator: b } = value;
+  while (b !== 0) {
+    const remainder = a % b;
+    a = b;
+    b = remainder;
+  }
+  return { numerator: value.numerator / a, denominator: value.denominator / a };
+}).pipe(frameRateShape);
+var StudioRenderSchema = z2.strictObject({
+  width: z2.number().int().min(1).max(STUDIO_LIMITS.dimension),
+  height: z2.number().int().min(1).max(STUDIO_LIMITS.dimension),
+  frameRate,
+  startFrame: z2.number().int().nonnegative().max(STUDIO_LIMITS.frameIndexExclusive - 1),
+  endFrameExclusive: z2.number().int().positive().max(STUDIO_LIMITS.frameIndexExclusive)
+}).refine((value) => value.endFrameExclusive > value.startFrame && value.endFrameExclusive - value.startFrame <= STUDIO_LIMITS.frames && value.width * value.height <= STUDIO_LIMITS.pixels, "Render requires a bounded, nonempty half-open frame interval and pixel area.");
+var StudioEngineOptionsSchema = z2.discriminatedUnion("engine", [
+  z2.strictObject({ engine: z2.literal("blender"), renderer: z2.enum(["cycles", "eevee"]), device: z2.enum(["cpu", "gpu"]), samples: z2.number().int().min(1).max(4096), transparent: z2.boolean(), viewTransform: z2.enum(["AgX", "Standard"]), denoise: z2.boolean(), seed: z2.number().int().min(0).max(4294967295) }),
+  z2.strictObject({ engine: z2.literal("manim"), scene: identifier, renderer: z2.literal("cairo"), transparent: z2.boolean() }),
+  z2.strictObject({ engine: z2.literal("cadquery"), exportVariable: identifier, tolerance: z2.number().finite().positive().max(1), angularTolerance: z2.number().finite().positive().max(Math.PI) })
+]);
+var parameters = z2.preprocess((value) => value === undefined ? undefined : createBoundedJsonValueSnapshot(value, STUDIO_LIMITS.parameterBytes, "studio parameters", { maximumDepth: STUDIO_LIMITS.parameterDepth, maximumValues: STUDIO_LIMITS.parameterValues }).value, z2.record(z2.string(), z2.unknown()));
+var StudioExecutionProfileSchema = z2.strictObject({ trust: z2.literal("trusted-current-user"), isolation: z2.literal("none"), hermetic: z2.literal(false) });
+var jobShape = z2.strictObject({
+  kind: z2.literal("atet.studio-job"),
+  schemaVersion: z2.literal(1),
+  jobId: z2.string().regex(/^studio_[a-zA-Z0-9][a-zA-Z0-9_-]{0,120}$/u),
+  bundleSha256: StudioDigestSchema,
+  stage: z2.enum(["build", "bake", "render"]),
+  parameters,
+  engine: StudioEngineOptionsSchema,
+  render: StudioRenderSchema.optional(),
+  outputs: z2.array(StudioOutputSpecSchema).min(1).max(STUDIO_LIMITS.outputSpecifications),
+  limits: z2.strictObject({ timeoutSeconds: z2.number().int().min(1).max(STUDIO_LIMITS.timeoutSeconds), maximumOutputBytes: z2.number().int().safe().min(1).max(STUDIO_LIMITS.outputBytes), maximumOutputFiles: z2.number().int().min(1).max(STUDIO_LIMITS.outputFiles) }),
+  execution: StudioExecutionProfileSchema
+}).superRefine((value, context) => {
+  if (value.render === undefined && (value.stage === "render" && value.engine.engine !== "cadquery" || value.outputs.some((output) => output.kind === "sequence" || output.interpretation.kind === "raster")))
+    context.addIssue({ code: "custom", message: "Raster outputs, render stage, and numbered sequences require explicit dimensions and a frame interval." });
+  if (new Set(value.outputs.map((output) => output.id)).size !== value.outputs.length)
+    context.addIssue({ code: "custom", message: "Output IDs must be unique." });
+  const count = value.outputs.reduce((sum, output) => sum + (output.kind === "sequence" && value.render !== undefined ? value.render.endFrameExclusive - value.render.startFrame : 1), 0);
+  if (count > value.limits.maximumOutputFiles)
+    context.addIssue({ code: "custom", message: "Declared outputs exceed the job's output-file limit." });
+});
+var job = jobShape.transform((value) => ({ ...value, outputs: [...value.outputs].sort((a, b) => studioCompare(a.id, b.id)) })).pipe(jobShape);
+var StudioJobSchema = studioDocument(job, "studio job");
+var parseStudioJob = (input) => parseStudioValue(StudioJobSchema, input);
+var StudioCapabilityNameSchema = z2.enum(["python-authoring", "blend-authoring", "build", "bake", "render", "gpu-render", "image-sequence", "beauty-video", "model-export", "auxiliary-passes", "native-cache", "audio-output"]);
+var capability = z2.strictObject({ name: StudioCapabilityNameSchema, support: z2.enum(["available", "unavailable", "unverified"]), evidence: z2.enum(["probe", "qualification"]), receiptSha256: StudioDigestSchema.optional() }).refine((value) => value.evidence !== "qualification" || value.receiptSha256 !== undefined, "Qualification evidence requires a retained receipt digest.");
+var runtimeShape = z2.strictObject({
+  kind: z2.literal("atet.studio-runtime"),
+  schemaVersion: z2.literal(1),
+  engine: StudioEngineSchema,
+  tool: z2.strictObject({ name: z2.string().min(1).max(128), version: z2.string().min(1).max(512), executableSha256: StudioDigestSchema }),
+  driverSha256: StudioDigestSchema,
+  environment: z2.strictObject({ fingerprintSha256: StudioDigestSchema, evidence: z2.literal("observed-package-environment"), hermetic: z2.literal(false) }),
+  capabilities: z2.array(capability).max(12)
+}).refine((value) => new Set(value.capabilities.map((item) => item.name)).size === value.capabilities.length, "Runtime capability names must be unique.");
+var runtime = runtimeShape.transform((value) => ({ ...value, capabilities: [...value.capabilities].sort((a, b) => studioCompare(a.name, b.name)) })).pipe(runtimeShape);
+var StudioRuntimeIdentitySchema = studioDocument(runtime, "studio runtime identity");
+var parseStudioRuntimeIdentity = (input) => parseStudioValue(StudioRuntimeIdentitySchema, input);
+var StudioOutputArtifactSchema = z2.strictObject({
+  outputId: stableId,
+  path: StudioPathSchema,
+  sha256: StudioDigestSchema,
+  bytes: z2.number().int().safe().positive().max(STUDIO_LIMITS.outputBytes),
+  role: StudioOutputRoleSchema,
+  format: StudioOutputFormatSchema,
+  frame: z2.number().int().nonnegative().max(STUDIO_LIMITS.frameIndexExclusive - 1).optional()
+});
+
+// src/studio/plan.ts
+import { z as z3 } from "zod";
+var studioSourceBundleSha256 = (input) => studioHash("atet.studio-source-bundle/v1", parseStudioSourceBundle(input));
+var studioJobSha256 = (input) => studioHash("atet.studio-job/v1", parseStudioJob(input));
+var studioRuntimeSha256 = (input) => studioHash("atet.studio-runtime/v1", parseStudioRuntimeIdentity(input));
+function studioOutputPath(output, frame) {
+  if (output.kind === "sequence") {
+    studioRequire(Number.isInteger(frame) && frame >= 0 && frame < STUDIO_LIMITS.frameIndexExclusive, "Sequence output requires an admitted frame index.");
+    return output.pathPattern.replace("%06d", String(frame).padStart(6, "0"));
+  }
+  studioRequire(frame === undefined, "Only sequence outputs have a frame index.");
+  return output.path;
+}
+function declaration(job2) {
+  const files = [];
+  const directories = [];
+  for (const output of job2.outputs) {
+    if (output.kind === "directory")
+      directories.push({ id: output.id, path: output.path });
+    else if (output.kind === "file")
+      files.push({ id: output.id, path: output.path });
+    else {
+      studioRequire(job2.render !== undefined, "Sequence requires a render interval.");
+      for (let frame = job2.render.startFrame;frame < job2.render.endFrameExclusive; frame++)
+        files.push({ id: output.id, path: studioOutputPath(output, frame), frame });
+    }
+  }
+  studioRequire(files.length + directories.length <= job2.limits.maximumOutputFiles, "Declared outputs exceed the output-file budget.");
+  assertDistinctPaths([...files, ...directories].map((item) => item.path));
+  return { files, directories };
+}
+function requiredCapabilities(bundle, job2) {
+  const values = new Set([bundle.entrypoint.kind === "blend" ? "blend-authoring" : "python-authoring", job2.stage]);
+  if (job2.engine.engine === "blender" && job2.engine.device === "gpu" && job2.stage === "render")
+    values.add("gpu-render");
+  for (const output of job2.outputs) {
+    if (output.kind === "sequence")
+      values.add("image-sequence");
+    if (output.role === "beauty" && ["mov", "mp4", "webm"].includes(output.format))
+      values.add("beauty-video");
+    if (output.role === "model")
+      values.add("model-export");
+    if (output.role === "auxiliary")
+      values.add("auxiliary-passes");
+    if (output.role === "simulation-cache")
+      values.add("native-cache");
+    if (output.role === "audio")
+      values.add("audio-output");
+  }
+  return [...values].sort(studioCompare);
+}
+function derivePlan(input) {
+  const { bundle, job: job2, runtime: runtime2 } = input;
+  const bundleSha256 = studioSourceBundleSha256(bundle), jobSha256 = studioJobSha256(job2);
+  studioRequire(bundleSha256 === job2.bundleSha256, "Job does not bind the exact source bundle.");
+  studioRequire(bundle.engine === job2.engine.engine && (runtime2 === undefined || runtime2.engine === bundle.engine), "Bundle, job, and runtime must use one engine.");
+  studioRequire(bundle.entrypoint.kind !== "blend" || job2.stage === "render", "Blend entrypoints support render stage only; explicit Python authoring owns builds and bakes.");
+  const declared = declaration(job2), required = requiredCapabilities(bundle, job2);
+  const capabilityChecks = required.map((name) => ({ name, support: runtime2 === undefined ? "unbound" : runtime2.capabilities.find((item) => item.name === name)?.support ?? "unverified" }));
+  const readiness = runtime2 === undefined ? "runtime-unbound" : capabilityChecks.some((item) => item.support === "unavailable") ? "capability-unavailable" : capabilityChecks.some((item) => item.support === "unverified") ? "capability-unverified" : "authorization-required";
+  const body = {
+    kind: "atet.studio-plan",
+    schemaVersion: 1,
+    bundle,
+    job: job2,
+    ...runtime2 === undefined ? {} : { runtime: runtime2, runtimeSha256: studioRuntimeSha256(runtime2) },
+    bundleSha256,
+    jobSha256,
+    sourceBytes: bundle.files.reduce((total, file) => total + file.bytes, 0),
+    frameCount: job2.render === undefined ? 0 : job2.render.endFrameExclusive - job2.render.startFrame,
+    outputCount: { minimum: declared.files.length + declared.directories.length, maximum: declared.directories.length === 0 ? declared.files.length : job2.limits.maximumOutputFiles },
+    requiredCapabilities: required,
+    capabilityChecks,
+    readiness
+  };
+  return { ...body, planSha256: studioHash("atet.studio-plan/v1", body) };
+}
+var plan = z3.strictObject({
+  kind: z3.literal("atet.studio-plan"),
+  schemaVersion: z3.literal(1),
+  bundle: StudioSourceBundleSchema,
+  job: StudioJobSchema,
+  runtime: StudioRuntimeIdentitySchema.optional(),
+  runtimeSha256: StudioDigestSchema.optional(),
+  bundleSha256: StudioDigestSchema,
+  jobSha256: StudioDigestSchema,
+  planSha256: StudioDigestSchema,
+  sourceBytes: z3.number().int().safe().nonnegative().max(STUDIO_LIMITS.sourceBytes),
+  frameCount: z3.number().int().nonnegative().max(STUDIO_LIMITS.frames),
+  outputCount: z3.strictObject({ minimum: z3.number().int().positive().max(STUDIO_LIMITS.outputFiles), maximum: z3.number().int().positive().max(STUDIO_LIMITS.outputFiles) }),
+  requiredCapabilities: z3.array(StudioCapabilityNameSchema).min(1).max(12),
+  capabilityChecks: z3.array(z3.strictObject({ name: StudioCapabilityNameSchema, support: z3.enum(["available", "unavailable", "unverified", "unbound"]) })).min(1).max(12),
+  readiness: z3.enum(["runtime-unbound", "capability-unavailable", "capability-unverified", "authorization-required"])
+}).superRefine((value, context) => {
+  try {
+    const derived = derivePlan({ bundle: value.bundle, job: value.job, ...value.runtime === undefined ? {} : { runtime: value.runtime } });
+    if (canonicalJson(derived) !== canonicalJson(value))
+      context.addIssue({ code: "custom", message: "Studio plan differs from its canonical source, job, runtime, or admission derivation." });
+  } catch (error) {
+    context.addIssue({ code: "custom", message: error instanceof Error ? error.message : "Invalid studio plan." });
+  }
+});
+var StudioPlanSchema = studioDocument(plan, "studio plan");
+var parseStudioPlan = (input) => parseStudioValue(StudioPlanSchema, input);
+function planStudioJob(input) {
+  const captured = parseStudioValue(studioDocument(z3.strictObject({ bundle: StudioSourceBundleSchema, job: StudioJobSchema, runtime: StudioRuntimeIdentitySchema.optional() }), "studio planning input"), input);
+  return parseStudioPlan(derivePlan(captured));
+}
+var failure2 = z3.strictObject({ code: z3.enum(["subprocess", "cancelled", "deadline", "validation", "custody", "publication", "unavailable"]), message: z3.string().min(1).max(2048) });
+var receiptCommon = {
+  kind: z3.literal("atet.studio-receipt"),
+  schemaVersion: z3.literal(1),
+  jobId: z3.string().regex(/^studio_[a-zA-Z0-9][a-zA-Z0-9_-]{0,120}$/u),
+  attemptId: z3.string().regex(/^attempt_[a-zA-Z0-9][a-zA-Z0-9_-]{0,120}$/u),
+  planSha256: StudioDigestSchema,
+  bundleSha256: StudioDigestSchema,
+  jobSha256: StudioDigestSchema,
+  runtime: StudioRuntimeIdentitySchema,
+  runtimeSha256: StudioDigestSchema,
+  startedAt: z3.iso.datetime({ offset: true }),
+  finishedAt: z3.iso.datetime({ offset: true }),
+  outputs: z3.array(StudioOutputArtifactSchema).max(STUDIO_LIMITS.outputFiles)
+};
+var receiptShape = z3.discriminatedUnion("state", [
+  z3.strictObject({ ...receiptCommon, state: z3.literal("succeeded"), custody: z3.literal("closed"), exitCode: z3.literal(0) }),
+  z3.strictObject({ ...receiptCommon, state: z3.literal("failed"), custody: z3.literal("closed"), exitCode: z3.number().int().min(-255).max(255).nullable(), failure: failure2 }),
+  z3.strictObject({ ...receiptCommon, state: z3.literal("unknown-custody"), custody: z3.literal("unknown"), exitCode: z3.number().int().min(-255).max(255).nullable(), failure: failure2 })
+]).superRefine((value, context) => {
+  if (studioRuntimeSha256(value.runtime) !== value.runtimeSha256)
+    context.addIssue({ code: "custom", message: "Receipt runtime digest differs from its evidence." });
+  if (Date.parse(value.finishedAt) < Date.parse(value.startedAt))
+    context.addIssue({ code: "custom", message: "Receipt finishes before it starts." });
+  try {
+    assertDistinctPaths(value.outputs.map((item) => item.path));
+  } catch {
+    context.addIssue({ code: "custom", message: "Receipt output paths collide." });
+  }
+  if (value.outputs.reduce((sum, item) => sum + item.bytes, 0) > STUDIO_LIMITS.outputBytes)
+    context.addIssue({ code: "custom", message: "Receipt exceeds the global output byte bound." });
+});
+var receipt = receiptShape.transform((value) => ({ ...value, outputs: [...value.outputs].sort((a, b) => studioCompare(a.path, b.path)) })).pipe(receiptShape);
+var StudioReceiptSchema = studioDocument(receipt, "studio receipt");
+var parseStudioReceipt = (input) => parseStudioValue(StudioReceiptSchema, input);
+function validateStudioReceipt(input) {
+  const captured = parseStudioValue(studioDocument(z3.strictObject({ plan: StudioPlanSchema, receipt: StudioReceiptSchema }), "studio receipt validation input"), input);
+  const { plan: plan2, receipt: receipt2 } = captured;
+  studioRequire(receipt2.jobId === plan2.job.jobId && receipt2.planSha256 === plan2.planSha256 && receipt2.jobSha256 === plan2.jobSha256 && receipt2.bundleSha256 === plan2.bundleSha256, "Receipt identity differs from the exact planned job.");
+  studioRequire(plan2.runtime !== undefined && receipt2.runtimeSha256 === plan2.runtimeSha256 && canonicalJson(receipt2.runtime) === canonicalJson(plan2.runtime), "Execution receipt requires the exact planned runtime binding.");
+  if (receipt2.state === "succeeded")
+    studioRequire(plan2.readiness === "authorization-required", "A successful receipt requires available observed runtime capabilities; consent remains host-owned.");
+  studioRequire(receipt2.outputs.length <= plan2.job.limits.maximumOutputFiles && receipt2.outputs.reduce((total, output) => total + output.bytes, 0) <= plan2.job.limits.maximumOutputBytes, "Receipt exceeds the planned output budget.");
+  const declared = declaration(plan2.job), expected = new Map(declared.files.map((file) => [file.path, file]));
+  const counts = new Map;
+  for (const artifact of receipt2.outputs) {
+    const specification = plan2.job.outputs.find((output) => output.id === artifact.outputId);
+    studioRequire(specification !== undefined, "Receipt contains an undeclared output ID.");
+    studioRequire(artifact.role === specification.role && artifact.format === specification.format, "Receipt output role or format differs from its declaration.");
+    if (specification.kind === "directory") {
+      studioRequire(artifact.path.startsWith(`${specification.path}/`) && artifact.frame === undefined, "Cache artifact must be a file inside its declared directory.");
+    } else {
+      const wanted = expected.get(artifact.path);
+      studioRequire(wanted !== undefined && wanted.id === artifact.outputId && artifact.frame === wanted.frame, "Receipt contains an undeclared file or incorrect frame index.");
+      expected.delete(artifact.path);
+    }
+    counts.set(artifact.outputId, (counts.get(artifact.outputId) ?? 0) + 1);
+  }
+  if (receipt2.state === "succeeded") {
+    studioRequire(expected.size === 0 && declared.directories.every((directory) => (counts.get(directory.id) ?? 0) > 0), "Successful receipt must cover every declared file, frame, and cache directory.");
+  }
+  return deepFreezeJson(receipt2);
+}
+function inspectStudioBundle(input) {
+  const bundle = parseStudioSourceBundle(input);
+  return deepFreezeJson({
+    engine: bundle.engine,
+    entrypoint: bundle.entrypoint,
+    bundleSha256: studioSourceBundleSha256(bundle),
+    files: bundle.files.length,
+    sourceBytes: bundle.files.reduce((total, file) => total + file.bytes, 0),
+    executed: false,
+    dependencyDiscovery: "explicit-files-only"
+  });
+}
+function inspectStudioPlan(input) {
+  const plan2 = parseStudioPlan(input);
+  return deepFreezeJson({
+    jobId: plan2.job.jobId,
+    stage: plan2.job.stage,
+    engine: plan2.job.engine.engine,
+    planSha256: plan2.planSha256,
+    sourceBytes: plan2.sourceBytes,
+    frameCount: plan2.frameCount,
+    outputCount: plan2.outputCount,
+    readiness: plan2.readiness,
+    capabilityChecks: plan2.capabilityChecks,
+    execution: plan2.job.execution,
+    limits: plan2.job.limits,
+    executed: false,
+    outputs: plan2.job.outputs.map((output) => ({ id: output.id, role: output.role, format: output.format, kind: output.kind, path: output.kind === "sequence" ? output.pathPattern : output.path }))
+  });
+}
+
 // src/index.ts
 var atetApi = Object.freeze({
   artifactSummary,
@@ -1577,4 +2010,4 @@ var atetApi = Object.freeze({
   executeAtetOperation
 });
 var diagramApi = atetApi;
-export { readDiagramFile, checkDiagramFile, renderDiagramFile, artifactSummary, desktopDownloadPage, selectDesktopAsset, getLatestDesktopRelease, installDesktop, findDesktopApplication, desktopStatus, openInDesktop, mcpSourceByteLimit, WorkspaceBoundaryError, WorkspaceBoundary, mcpMaximumScale, mcpMaximumRenderedPixels, atetMcpTools, AtetMcpToolRuntime, ATET_VERSION, atetMcpProtocolVersion, atetMcpServerName, runMcpServer, atetApi, diagramApi };
+export { readDiagramFile, checkDiagramFile, renderDiagramFile, artifactSummary, desktopDownloadPage, selectDesktopAsset, getLatestDesktopRelease, installDesktop, findDesktopApplication, desktopStatus, openInDesktop, mcpSourceByteLimit, WorkspaceBoundaryError, WorkspaceBoundary, mcpMaximumScale, mcpMaximumRenderedPixels, atetMcpTools, AtetMcpToolRuntime, ATET_VERSION, atetMcpProtocolVersion, atetMcpServerName, runMcpServer, STUDIO_LIMITS, StudioDigestSchema, StudioEngineSchema, StudioPathSchema, StudioSourceBundleSchema, parseStudioSourceBundle, StudioSourceSpaceSchema, StudioOutputRoleSchema, StudioOutputFormatSchema, StudioOutputInterpretationSchema, StudioOutputSpecSchema, StudioRenderSchema, StudioEngineOptionsSchema, StudioExecutionProfileSchema, StudioJobSchema, parseStudioJob, StudioCapabilityNameSchema, StudioRuntimeIdentitySchema, parseStudioRuntimeIdentity, StudioOutputArtifactSchema, studioSourceBundleSha256, studioJobSha256, studioRuntimeSha256, studioOutputPath, StudioPlanSchema, parseStudioPlan, planStudioJob, StudioReceiptSchema, parseStudioReceipt, validateStudioReceipt, inspectStudioBundle, inspectStudioPlan, atetApi, diagramApi };

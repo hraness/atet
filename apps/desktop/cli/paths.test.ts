@@ -43,6 +43,28 @@ test("uses an ordinary caller directory as the project root while loading tools 
   expect(paths.artifactRoot).toBe(join(physicalProject, "artifacts", "atet", "recordings"));
 });
 
+test("a copied executable uses physical caller state without requiring a source checkout", async () => {
+  const install = await mkdtemp(join(tmpdir(), "atet-copied-runtime-"));
+  const project = await mkdtemp(join(tmpdir(), "atet-copied-project-"));
+  temporaryRoots.push(install, project);
+  const executable = join(install, "atet");
+  await writeFile(executable, "copied executable fixture");
+  const physicalProject = await realpath(project);
+  for (const [cwd, environment] of [[project, {}], [install, { ATET_REPOSITORY_ROOT: project }]] as const) {
+    const paths = await resolveRepositoryPaths(cwd, environment, "/$bunfs/root", executable);
+    expect(paths.desktopRoot).toBe(await realpath(install));
+    expect(paths.repositoryRoot).toBe(physicalProject);
+    expect(paths.privateRoot).toBe(join(physicalProject, "artifacts", "atet", "private"));
+    expect(paths.projectRoot).toBe(join(physicalProject, "artifacts", "atet", "projects"));
+  }
+  await expect(resolveRepositoryPaths("/$bunfs/root", {}, "/$bunfs/root", executable))
+    .rejects.toThrow("physical caller workspace");
+  await expect(resolveRepositoryPaths(project, { ATET_REPOSITORY_ROOT: "/$bunfs/root" }, "/$bunfs/root", executable))
+    .rejects.toThrow("physical caller workspace");
+  await expect(resolveRepositoryPaths(project, {}, install, executable))
+    .rejects.toThrow("Could not find an Atet checkout");
+});
+
 test("preserves the caller project directory mode while creating only owned state", async () => {
   const install = await repositoryFixture();
   const project = await mkdtemp(join(tmpdir(), "atet-mode-"));

@@ -91,7 +91,7 @@ describe("operation registry", () => {
       operation.inputSchemaId.startsWith("atet.operation.")
       && operation.outputSchemaId.startsWith("atet.operation.")
     ))).toBe(true);
-    expect(descriptions).toHaveLength(62);
+    expect(descriptions).toHaveLength(63);
     expect(registry.list().filter(operation => (
       operation.kind.startsWith("scene.") || operation.kind.startsWith("spatial.project.")
     )).map(operation => `${operation.kind}@${operation.version}`)).toEqual([

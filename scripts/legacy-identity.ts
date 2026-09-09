@@ -8,6 +8,7 @@ export const LEGACY_IDENTITY_CATEGORIES = [
   "env-reader",
   "generated",
   "legacy-redirect",
+  "native-film-studio",
   "serialized-reader",
   "shared-admission-key",
   "source-import-reader",
@@ -53,6 +54,29 @@ const LEGACY_IDENTITY_PATTERN = /studio|hraness\.graphics/giu
 const IDENTITY_LITERAL_PATTERN = /^(?:atet|studio)(?:[./-][a-z0-9][a-z0-9./-]*)?$/iu
 const SYNTAX_EXTENSIONS = /\.(?:[cm]?[jt]sx?)$/u
 const TYPESCRIPT_EXTENSIONS = /\.(?:[cm]?tsx?)$/u
+
+/** Canonical film-authoring feature paths, distinct from the predecessor brand.
+ * Their text still requires exact reviewed identity inventory rows. */
+export function isNativeFilmStudioPath(path: string): boolean {
+  if (path.split("/").some(part => part === ".." || part === ".") || path.includes("\\")) return false
+  return ["src/studio/", "apps/desktop/studio/", "examples/studio/"].some(prefix => {
+    if (!path.startsWith(prefix)) return false
+    const suffix = path.slice(prefix.length)
+    return !/studio|hraness\.graphics/iu.test(suffix)
+      || path === "examples/studio/blender/studio_scene.py"
+      || path === "src/studio/studio.test.ts"
+  })
+    || [
+      "apps/desktop/application/studio-port.ts",
+      "apps/desktop/application/operations/studio.ts",
+      "apps/desktop/application/operations/studio.test.ts",
+      "apps/desktop/application/operations/studio-test-support.ts",
+      "apps/desktop/code/semantic-builder-studio.test.ts",
+      "docs/studio.md",
+      "skills/atet/references/native-studio.md",
+    ].includes(path)
+    || /^apps\/desktop\/cli\/studio-(?:args|assemble|command|custody|encode|exr|files|output-validation|process|runtime|scaffold|service|template-names|workflow)(?:\.test)?\.ts$/u.test(path)
+}
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex")

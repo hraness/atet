@@ -41,11 +41,11 @@ const importSpecifiers = [
   `${packageName}/local/html-overlay`,
 ] as const;
 const nodeImportSpecifiers = importSpecifiers.slice(0, 8);
-// Rebuilt scene foundation: 368 files, 3,739,672 packed and 9,752,721 unpacked bytes.
+// Native studio archive: 429 files, 4,001,095 packed and 10,680,817 unpacked bytes.
 // Keep bounded headroom aligned with the independent release artifact readers.
-const maximumPackedFiles = 400;
-const maximumPackedBytes = 4_000_000;
-const maximumUnpackedBytes = 10_500_000;
+const maximumPackedFiles = 450;
+const maximumPackedBytes = 4_300_000;
+const maximumUnpackedBytes = 11_300_000;
 const requiredPackedPaths = [
   "DISCLOSURE",
   "LICENSE",
@@ -68,6 +68,15 @@ const requiredPackedPaths = [
   "dist/NebulaSans-Book-8cenzchw.otf",
   "package.json",
   "schema/diagram.schema.json",
+  "src/studio/index.ts",
+  "apps/desktop/studio/drivers/blender_driver.py",
+  "apps/desktop/studio/drivers/cadquery_driver.py",
+  "apps/desktop/studio/education/driver.py",
+  "examples/studio/blender/product.py",
+  "examples/studio/education/scene.py",
+  "examples/studio/native-workflow.ts",
+  "skills/atet/references/native-studio.md",
+  "docs/studio.md",
   "skills/atet/SKILL.md",
   "skills/atet/references/rubber-stamp-examples/poster-example-1.jpg",
   "skills/atet/references/rubber-stamp-examples/stamp-style-1.png",
@@ -92,7 +101,9 @@ const forbiddenPackedPaths = [
   { label: "native runtime build tree", pattern: /^apps\/desktop\/runtime\//u },
   { label: "native shell source", pattern: /^apps\/desktop\/src\//u },
   { label: "property-test support", pattern: /^apps\/desktop\/testing\//u },
-  { label: "development example", pattern: /^examples\//u },
+  { label: "development example", pattern: /^examples\/(?!studio\/)/u },
+  { label: "native qualification source", pattern: /(?:^|\/)(?:test_|qualify_)[^/]*\.py$/u },
+  { label: "native live qualification", pattern: /(?:^|\/)qualify-[^/]*\.ts$/u },
   { label: "native application manifest", pattern: /^apps\/desktop\/app\.zon$/u },
   { label: "native build graph", pattern: /^apps\/desktop\/build\.zig(?:\.zon)?$/u },
 ] as const;
@@ -125,6 +136,7 @@ const packageTextExtensions = new Set([
   ".mm",
   ".mjs",
   ".plist",
+  ".py",
   ".sh",
   ".swift",
   ".svg",
@@ -975,6 +987,20 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
   if (typeof initializedScene.sceneSha256 !== "string" || initializedScene.sceneSha256 !== inspectedScene.sceneSha256
     || !Array.isArray(inspectedScene.entities) || inspectedScene.entities.length !== 4) {
     throw new Error("Packed CLI did not retain and inspect the authored scene starter.");
+  }
+  for (const template of ["blender-product", "blender-character", "blender-cloth", "blender-fluid", "cadquery-bracket", "manim-lesson"]) {
+    const initialized = record(JSON.parse(await runOutput([
+      join(consumer, "node_modules", ".bin", "atet"), "studio", "init", `installed-${template}`, "--template", template, "--json",
+    ], consumer)) as unknown, "packed studio scaffold");
+    const bundled = record(JSON.parse(await runOutput([
+      join(consumer, "node_modules", ".bin", "atet"), "studio", "bundle", String(initialized.source), "--json",
+    ], consumer)) as unknown, "packed studio bundle");
+    const planned = record(JSON.parse(await runOutput([
+      join(consumer, "node_modules", ".bin", "atet"), "studio", "plan", String(initialized.job), "--json",
+    ], consumer)) as unknown, "packed studio inert plan");
+    if (initialized.bundleSha256 !== bundled.bundleSha256 || planned.readiness !== "runtime-unbound") {
+      throw new Error("Packed native studio source or inert planning changed.");
+    }
   }
   const operationsText = await runOutput([
     join(consumer, "node_modules", ".bin", "atet"),

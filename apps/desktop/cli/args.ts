@@ -1,5 +1,6 @@
 import { CliError } from "./errors";
 import { MAX_EVENT_QUERY_LIMIT } from "./query-limits";
+import { STUDIO_TEMPLATES, type StudioTemplate } from "./studio-template-names";
 
 export type OverlayKind = "image" | "svg" | "gif" | "video" | "emoji";
 export type ZoomTargetKind = "rect" | "point" | "cursor" | "window" | "focused-input";
@@ -35,6 +36,21 @@ export interface GatewayFrameInput {
 interface JsonOption {
   readonly json: boolean;
 }
+export interface StudioWorkflowOptions {
+  readonly studio?: { readonly blender?: string; readonly python?: string; readonly allowTrustedCode: boolean };
+}
+
+export type StudioCommand = JsonOption & { readonly kind: "studio" } & (
+  | { readonly action: "assets"; readonly operation: "search" | "describe" | "plan" | "import"; readonly path: string }
+  | { readonly action: "init"; readonly path: string; readonly template: StudioTemplate }
+  | { readonly action: "bundle"; readonly path: string; readonly sourceRoot?: string }
+  | { readonly action: "plan"; readonly path: string }
+  | { readonly action: "assemble"; readonly id: string; readonly outputId: string; readonly title?: string }
+  | { readonly action: "encode"; readonly id: string; readonly outputId: string }
+  | { readonly action: "inspect"; readonly id: string }
+  | { readonly action: "reconcile"; readonly id: string }
+  | { readonly action: "probe" | "run"; readonly path: string; readonly blender?: string; readonly python?: string; readonly allowTrustedCode: boolean }
+);
 
 export type SpatialCliExecutionProfile = "three-webgl2-hardware-v1" | "three-spark-webgl2-hardware-v1";
 export type SpatialWorldCommand = JsonOption & {
@@ -67,6 +83,7 @@ export type SpatialProjectCommand = JsonOption & {
 );
 
 export type CliCommand =
+  | StudioCommand
   | DirectingCommand
   | SpatialWorldCommand
   | SpatialSceneCommand
@@ -98,7 +115,7 @@ export type CliCommand =
       readonly kind: "workflows-run";
       readonly providerOptions: string | undefined;
       readonly workflow: string;
-    } & JsonOption)
+    } & JsonOption & StudioWorkflowOptions)
   | { readonly kind: "code-init"; readonly path: string }
   | ({ readonly kind: "code-check"; readonly path: string } & JsonOption)
   | ({
@@ -114,7 +131,7 @@ export type CliCommand =
       readonly path: string;
       readonly plan: string | undefined;
       readonly providerOptions: string | undefined;
-    } & JsonOption)
+    } & JsonOption & StudioWorkflowOptions)
   | ({ readonly kind: "runs-list"; readonly limit: number } & JsonOption)
   | ({
       readonly kind: "runs-show";
@@ -128,7 +145,7 @@ export type CliCommand =
       readonly providerOptions: string | undefined;
       readonly replayAmbiguousCode: readonly string[];
       readonly runId: string;
-    } & JsonOption)
+    } & JsonOption & StudioWorkflowOptions)
   | ({
       readonly kind: "runs-approve";
       readonly nodeKey: string;
@@ -2610,6 +2627,12 @@ function parseAssets(argv: readonly string[]): CliCommand {
   };
 }
 
+const NATIVE_STUDIO_SPEC = { "--studio-python": "value", "--studio-blender-bin": "value", "--allow-trusted-code": "flag" } as const;
+function studioWorkflowOptions(parsed: ParsedOptions): StudioWorkflowOptions {
+  const python = optionString(parsed, "--studio-python"), blender = optionString(parsed, "--studio-blender-bin"), allowTrustedCode = optionFlag(parsed, "--allow-trusted-code");
+  return python === undefined && blender === undefined && !allowTrustedCode ? {} : { studio: { allowTrustedCode, ...(python === undefined ? {} : { python }), ...(blender === undefined ? {} : { blender }) } };
+}
+
 const RUN_OUTPUT_SPEC = {
   ...JSON_SPEC,
   "--jobs": "value",
@@ -2781,6 +2804,7 @@ function parseWorkflows(argv: readonly string[]): CliCommand {
   if (action === "run") {
     const parsed = parseOptions(argv.slice(1), {
       ...RUN_OUTPUT_SPEC,
+      ...NATIVE_STUDIO_SPEC,
       "--input": "value",
       "--provider-options": "value",
     });
@@ -2794,6 +2818,7 @@ function parseWorkflows(argv: readonly string[]): CliCommand {
     return {
       input,
       kind: "workflows-run",
+      ...studioWorkflowOptions(parsed),
       providerOptions: optionString(parsed, "--provider-options"),
       workflow: workflow!,
       ...runOutput(parsed),
@@ -2828,6 +2853,7 @@ function parseCode(argv: readonly string[]): CliCommand {
   if (action === "run") {
     const parsed = parseOptions(argv.slice(1), {
       ...RUN_OUTPUT_SPEC,
+      ...NATIVE_STUDIO_SPEC,
       "--input": "value",
       "--plan": "value",
       "--provider-options": "value",
@@ -2842,6 +2868,7 @@ function parseCode(argv: readonly string[]): CliCommand {
     return {
       input,
       kind: "code-run",
+      ...studioWorkflowOptions(parsed),
       path: path!,
       plan: checkedSha256(optionString(parsed, "--plan"), "--plan"),
       providerOptions: optionString(parsed, "--provider-options"),
@@ -2877,6 +2904,7 @@ function parseRuns(argv: readonly string[]): CliCommand {
   if (action === "resume") {
     const parsed = parseOptions(argv.slice(1), {
       ...RUN_OUTPUT_SPEC,
+      ...NATIVE_STUDIO_SPEC,
       "--provider-options": "value",
       "--replay-ambiguous-code": "repeat",
     });
@@ -2887,6 +2915,7 @@ function parseRuns(argv: readonly string[]): CliCommand {
     );
     return {
       kind: "runs-resume",
+      ...studioWorkflowOptions(parsed),
       providerOptions: optionString(parsed, "--provider-options"),
       replayAmbiguousCode: optionStrings(parsed, "--replay-ambiguous-code")
         .map(checkedNodeKey),
@@ -2934,6 +2963,46 @@ function helpTopic(argv: readonly string[], index: number): readonly string[] {
 function spatialCliExecutionProfile(value: string | undefined): SpatialCliExecutionProfile | undefined {
   if (value === undefined || value === "three-webgl2-hardware-v1" || value === "three-spark-webgl2-hardware-v1") return value;
   return fail("--profile requires three-webgl2-hardware-v1 or three-spark-webgl2-hardware-v1.");
+}
+
+function parseStudioArgs(argv: readonly string[]): StudioCommand {
+  const action = argv[0];
+  if (action === "assets") {
+    const operation = argv[1];
+    if (operation !== "search" && operation !== "describe" && operation !== "plan" && operation !== "import") return fail("Usage: atet studio assets <search|describe|plan|import> <json-file-or-asset-id> [--json]");
+    const parsed = parseOptions(argv.slice(2), JSON_SPEC);
+    const [path] = exactPositionals(parsed, 1, `atet studio assets ${operation} <${operation === "describe" ? "asset-id" : "json-file"}>`);
+    return { kind: "studio", action, operation, path: path!, json: optionFlag(parsed, "--json") };
+  }
+  const specs: Record<string, Readonly<Record<string, "value" | "flag">>> = {
+    init: { ...JSON_SPEC, "--template": "value" }, bundle: { ...JSON_SPEC, "--source-root": "value" }, plan: JSON_SPEC, inspect: JSON_SPEC, reconcile: JSON_SPEC, encode: { ...JSON_SPEC, "--output-id": "value" }, assemble: { ...JSON_SPEC, "--output-id": "value", "--name": "value" },
+    probe: { ...JSON_SPEC, "--blender-bin": "value", "--python": "value" },
+    run: { ...JSON_SPEC, "--blender-bin": "value", "--python": "value", "--allow-trusted-code": "flag" },
+  };
+  if (action === undefined || specs[action] === undefined) return fail("Usage: atet studio <init|bundle|plan|probe|run|encode|assemble|inspect|reconcile> ...");
+  const parsed = parseOptions(argv.slice(1), specs[action]!);
+  const [path] = exactPositionals(parsed, 1, `atet studio ${action} <${action === "inspect" ? "studio-id" : action === "init" ? "directory" : "json-file"}>`);
+  const common = { kind: "studio" as const, json: optionFlag(parsed, "--json") };
+  if (action === "init") {
+    const template = optionString(parsed, "--template") ?? "blender-product";
+    if (!STUDIO_TEMPLATES.some(value => value === template)) return fail(`Studio template must be one of: ${STUDIO_TEMPLATES.join(", ")}.`);
+    return { ...common, action, path: path!, template: template as StudioTemplate };
+  }
+  if (action === "bundle") {
+    const sourceRoot = optionString(parsed, "--source-root");
+    return { ...common, action, path: path!, ...(sourceRoot === undefined ? {} : { sourceRoot }) };
+  }
+  if (action === "encode" || action === "assemble") {
+    const outputId = optionString(parsed, "--output-id") ?? fail(`studio ${action} requires --output-id naming a declared PNG sequence.`);
+    const title = action === "assemble" ? optionString(parsed, "--name") : undefined;
+    return { ...common, action, id: path!, outputId, ...(title === undefined ? {} : { title }) };
+  }
+  if (action === "plan") return { ...common, action, path: path! };
+  if (action === "inspect" || action === "reconcile") return { ...common, action, id: path! };
+  const blender = optionString(parsed, "--blender-bin"), python = optionString(parsed, "--python");
+  if (action !== "probe" && action !== "run") return fail("Unsupported studio action.");
+  if (action === "run" && !optionFlag(parsed, "--allow-trusted-code")) return fail("studio run requires --allow-trusted-code: authored Python runs as the current user without an OS sandbox.");
+  return { ...common, action, path: path!, ...(blender === undefined ? {} : { blender }), ...(python === undefined ? {} : { python }), allowTrustedCode: action === "run" };
 }
 
 function parseDirectingArgs(argv: readonly string[]): DirectingCommand {
@@ -3064,6 +3133,7 @@ export function parseCliArgs(argv: readonly string[]): CliCommand {
   }
   const command = argv[0]!;
   switch (command) {
+    case "studio": return parseStudioArgs(argv.slice(1));
     case "direct": return parseDirectingArgs(argv.slice(1));
     case "scene": return parseSpatialSceneArgs(argv.slice(1));
     case "operations": return parseOperations(argv.slice(1));

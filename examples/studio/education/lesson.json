@@ -1,0 +1,99 @@
+{
+  "kind": "atet.education-lesson",
+  "schemaVersion": 1,
+  "title": "Why the long side is five",
+  "subtitle": "A 3–4–5 right triangle, one square at a time",
+  "durationUs": 10000000,
+  "topic": { "kind": "pythagorean-tiles", "legs": [3, 4] },
+  "beats": { "squaresUs": 3200000, "rearrangeUs": 5300000, "resultUs": 7600000 },
+  "presenter": { "name": "Luma" },
+  "captionTiming": "authored",
+  "mouthTiming": "authored",
+  "showCaptions": true,
+  "captions": [
+    { "words": [
+      { "text": "A", "startUs": 150000, "endUs": 290000 },
+      { "text": "right", "startUs": 290000, "endUs": 650000 },
+      { "text": "triangle.", "startUs": 650000, "endUs": 1150000 }
+    ] },
+    { "words": [
+      { "text": "Three", "startUs": 1250000, "endUs": 1680000 },
+      { "text": "up,", "startUs": 1680000, "endUs": 1940000 },
+      { "text": "four", "startUs": 2110000, "endUs": 2490000 },
+      { "text": "across.", "startUs": 2490000, "endUs": 3050000 }
+    ] },
+    { "words": [
+      { "text": "Square", "startUs": 3200000, "endUs": 3630000 },
+      { "text": "both", "startUs": 3630000, "endUs": 3940000 },
+      { "text": "legs:", "startUs": 3940000, "endUs": 4350000 }
+    ] },
+    { "words": [
+      { "text": "nine", "startUs": 4460000, "endUs": 4860000 },
+      { "text": "plus", "startUs": 4860000, "endUs": 5150000 },
+      { "text": "sixteen.", "startUs": 5150000, "endUs": 5820000 }
+    ] },
+    { "words": [
+      { "text": "That’s", "startUs": 6090000, "endUs": 6480000 },
+      { "text": "twenty-five.", "startUs": 6480000, "endUs": 7390000 }
+    ] },
+    { "words": [
+      { "text": "So", "startUs": 7690000, "endUs": 7910000 },
+      { "text": "the", "startUs": 7910000, "endUs": 8130000 },
+      { "text": "long", "startUs": 8130000, "endUs": 8530000 },
+      { "text": "side", "startUs": 8530000, "endUs": 8890000 },
+      { "text": "is", "startUs": 8890000, "endUs": 9090000 },
+      { "text": "five.", "startUs": 9090000, "endUs": 9740000 }
+    ] }
+  ],
+  "mouthCues": [
+    { "startUs": 150000, "endUs": 290000, "value": "C" },
+    { "startUs": 290000, "endUs": 650000, "value": "E" },
+    { "startUs": 650000, "endUs": 870000, "value": "D" },
+    { "startUs": 870000, "endUs": 1150000, "value": "H" },
+    { "startUs": 1250000, "endUs": 1490000, "value": "B" },
+    { "startUs": 1490000, "endUs": 1680000, "value": "C" },
+    { "startUs": 1680000, "endUs": 1940000, "value": "A" },
+    { "startUs": 2110000, "endUs": 2280000, "value": "G" },
+    { "startUs": 2280000, "endUs": 2490000, "value": "E" },
+    { "startUs": 2490000, "endUs": 2760000, "value": "D" },
+    { "startUs": 2760000, "endUs": 3050000, "value": "B" },
+    { "startUs": 3200000, "endUs": 3430000, "value": "F" },
+    { "startUs": 3430000, "endUs": 3630000, "value": "C" },
+    { "startUs": 3630000, "endUs": 3790000, "value": "A" },
+    { "startUs": 3790000, "endUs": 3940000, "value": "E" },
+    { "startUs": 3940000, "endUs": 4160000, "value": "H" },
+    { "startUs": 4160000, "endUs": 4350000, "value": "B" },
+    { "startUs": 4460000, "endUs": 4680000, "value": "D" },
+    { "startUs": 4680000, "endUs": 4860000, "value": "B" },
+    { "startUs": 4860000, "endUs": 5000000, "value": "A" },
+    { "startUs": 5000000, "endUs": 5150000, "value": "C" },
+    { "startUs": 5150000, "endUs": 5450000, "value": "B" },
+    { "startUs": 5450000, "endUs": 5660000, "value": "C" },
+    { "startUs": 5660000, "endUs": 5820000, "value": "B" },
+    { "startUs": 6090000, "endUs": 6310000, "value": "D" },
+    { "startUs": 6310000, "endUs": 6480000, "value": "B" },
+    { "startUs": 6480000, "endUs": 6700000, "value": "F" },
+    { "startUs": 6700000, "endUs": 6990000, "value": "C" },
+    { "startUs": 6990000, "endUs": 7170000, "value": "G" },
+    { "startUs": 7170000, "endUs": 7390000, "value": "D" },
+    { "startUs": 7690000, "endUs": 7910000, "value": "F" },
+    { "startUs": 7910000, "endUs": 8130000, "value": "B" },
+    { "startUs": 8130000, "endUs": 8330000, "value": "H" },
+    { "startUs": 8330000, "endUs": 8530000, "value": "E" },
+    { "startUs": 8530000, "endUs": 8740000, "value": "D" },
+    { "startUs": 8740000, "endUs": 8890000, "value": "B" },
+    { "startUs": 8890000, "endUs": 9090000, "value": "C" },
+    { "startUs": 9090000, "endUs": 9290000, "value": "G" },
+    { "startUs": 9290000, "endUs": 9510000, "value": "D" },
+    { "startUs": 9510000, "endUs": 9740000, "value": "G" }
+  ],
+  "gestures": [
+    { "startUs": 150000, "endUs": 1150000, "kind": "open" },
+    { "startUs": 1250000, "endUs": 3050000, "kind": "point" },
+    { "startUs": 3200000, "endUs": 4350000, "kind": "open" },
+    { "startUs": 4460000, "endUs": 5820000, "kind": "point" },
+    { "startUs": 6090000, "endUs": 7390000, "kind": "nod" },
+    { "startUs": 7690000, "endUs": 9740000, "kind": "point" }
+  ],
+  "sfx": []
+}

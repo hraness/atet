@@ -296,6 +296,15 @@ async function probeVideo(application: ApplicationContext, source: GatewayMediaS
   return { media, stream, frames, numerator: Number(base[1]), denominator: Number(base[2]), colorFilter, color: colorSchema.parse({ policy, observed, assumptions }) };
 }
 
+/** Reads exact retained bytes without publishing; container coverage can exceed the native video span. */
+export async function inspectDirectingClipDuration(application: ApplicationContext, input: GatewayMediaSourceReference, signal: AbortSignal): Promise<number> {
+  const source = GatewayMediaSourceReferenceSchema.parse(input);
+  if (source.mediaType !== "video/mp4" && source.mediaType !== "video/quicktime") fail("Clip inspection requires self-contained MP4 or QuickTime video.");
+  await active(application, signal);
+  const ffprobe = await capability(application, "ffprobe");
+  return (await probeVideo(application, source, ffprobe.command, signal)).media.durationUs;
+}
+
 function assertNormalizedClock(original: ProbedVideo, normalized: ProbedVideo): void {
   if (normalized.stream.codec_name !== "h264" || normalized.stream.pix_fmt !== "gbrp" || normalized.stream.color_transfer !== "iec61966-2-1" || normalized.stream.color_primaries !== "bt709" || normalized.stream.color_space !== "gbr" || normalized.stream.color_range !== "pc") fail("Lossless RGB derivative does not declare the required sRGB interpretation.");
   if (normalized.frames.length !== original.frames.length || normalized.stream.width !== original.stream.width || normalized.stream.height !== original.stream.height || Math.abs(normalized.media.durationUs - original.media.durationUs) > 1) fail("Lossless RGB derivative changed media geometry, duration, or frame count.");

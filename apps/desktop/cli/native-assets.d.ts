@@ -6,3 +6,7 @@ declare module "@img/sharp-libvips-darwin-arm64/binary" {
   const path: string;
   export default path;
 }
+declare module "*.py" {
+  const source: string;
+  export default source;
+}

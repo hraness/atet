@@ -7,6 +7,7 @@
 - `packages/scene/` – the shared local scene-analysis contract.
 - `src/code/` – portable declarative graph authoring, the closed public capability projection, compilation, planning, and execution contracts.
 - `src/spatial-scene/` – portable editable scene contracts, stable identity, semantic patches, calibrated evaluation, and bounded GLB parsing.
+- `src/studio/` – portable retained native production jobs, runtime evidence, output semantics, admission plans and receipts.
 - `schema/` – version-one diagram JSON Schema.
 - `skills/atet/` – the canonical Atet Agent Skill.
 - `.agents/skills/` – portable repository orchestration and knowledge-base workflows.
@@ -44,6 +45,7 @@
 - Treat diagram source as authoritative and generated media as replaceable. Defaults may resolve mechanics but must not invent claims, labels, legends, relationships, or decorative meaning.
 - Model invalid states out, parse foreign values from `unknown`, and keep output deterministic. Preserve readable regression examples; add property tests for laws, parsers, reducers, ordering, and round trips, and promote shrunk failures into named deterministic examples.
 - Keep semantic registries fixed and typed. Never accept source text, evaluation, dynamic imports, executable workspace configuration, shell commands, or caller-selected remote URLs.
+- The fixed `atet.studio.run` operation is an explicit native-authoring exception: it may execute a previously retained, hash-bound Python or native-scene bundle through a closed Blender/Manim/CadQuery host adapter. It requires a separate invocation-scoped trusted-current-user envelope; source import, pure planning and inspection stay inert. Runtime paths and argv remain host-owned, and the profile declares no OS sandbox or hermetic dependency closure.
 - Preserve the root module and `./workflow` v0.8 imperative APIs. Add declarative graphs through `./code` and lower-level compiler contracts through `./code/advanced`; do not add `./code/testing` or `./code/workflows` exports.
 - Treat explicitly imported workflow modules as trusted current-user Bun code. Compile graphs only against the host's closed capability projection, reject an unsupported capability before executor or resource admission, and do not add an open operation-registration hook.
 - Treat the portable SDK and core as the canonical graph contract. The complete local host consumes that contract through its own closed projection and owns durable media execution. The Desktop shell adds only native capture, permissions, and UI.

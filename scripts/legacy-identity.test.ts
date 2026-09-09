@@ -3,12 +3,24 @@ import { describe, expect, test } from "bun:test";
 import {
   compareLegacyIdentityInventory,
   duplicateIdentityAlternatives,
+  isNativeFilmStudioPath,
   legacyIdentitySnapshot,
   planLegacyIdentityInventoryUpdate,
   validateInventoryEntries,
 } from "./legacy-identity";
 
 describe("Atet predecessor identity inventory", () => {
+  test("canonical film feature paths still require exact reviewed source inventories", () => {
+    for (const path of ["src/studio/contracts.ts", "apps/desktop/studio/drivers/blender_driver.py", "examples/studio/blender/product.py", "apps/desktop/cli/studio-service.ts", "docs/studio.md"]) expect(isNativeFilmStudioPath(path)).toBe(true);
+    for (const path of ["apps/studio/main.ts", "src/studio-old.ts", "apps/desktop/cli/studio-legacy.ts", "src/studio/../legacy.ts", "src\\studio\\old.ts", "src/studio/hraness.graphics.ts", "src/studio/old-studio.ts"]) expect(isNativeFilmStudioPath(path)).toBe(false);
+    const snapshot = legacyIdentitySnapshot("src/studio/contracts.ts", "export const kind = 'atet.studio-job';")!;
+    expect(compareLegacyIdentityInventory([], [snapshot], new Set())).toEqual(["legacy identity inventory is missing src/studio/contracts.ts"]);
+    const entry = { ...snapshot, categories: ["native-film-studio"] as const };
+    expect(validateInventoryEntries([entry])).toEqual([]);
+    expect(compareLegacyIdentityInventory([entry], [snapshot], new Set())).toEqual([]);
+    const changed = legacyIdentitySnapshot(snapshot.path, "export const kind = 'studio.old-brand';")!;
+    expect(compareLegacyIdentityInventory([entry], [changed], new Set())).not.toEqual([]);
+  });
   test("fingerprints exact predecessor-bearing lines and counts every occurrence", () => {
     expect(legacyIdentitySnapshot("fixture.ts", [
       "const canonical = 'atet.video-project';",

@@ -1,3 +1,4 @@
+import { studioAuthorizationRequest } from "../application/operations/studio";
 import { Deferred, Effect, Either, Exit, Fiber, Queue } from "effect";
 import { WorkflowEffectRuntime, workflowBoundary, workflowFailure, workflowValidation, workflowResource, workflowScoped, type WorkflowFailure } from "./workflow-effects";
 import { operationExitValue } from "../application/operation-effects";
@@ -139,6 +140,10 @@ export interface NodePreparationRequest extends SchedulerNodeContext {
 }
 
 export interface NodeExecutionPlanningRequest extends NodePreparationRequest {
+  /** Ephemeral admission for fixed native runtime probing, never graph authority. */
+  readonly application?: ApplicationContext;
+  readonly abortSignal?: AbortSignal;
+  readonly beforePublication?: () => Promise<void>;
   readonly preparationPlan: NodePreparationPlan;
 }
 
@@ -2161,10 +2166,27 @@ export class DurableWorkflowScheduler {
           : await this.#runControlledPort(
               fence,
               control,
-              async () => await this.#nodePlanner.plan({
-                ...context,
-                preparationPlan,
-              }),
+              async () => {
+                if (context.operation.kind !== "atet.studio.run") return await this.#nodePlanner.plan({ ...context, preparationPlan });
+                return await this.#hostResourceCoordinator.withLease(
+                  physicalHostResourceClaims(context.operation.policy.resources, this.#hostResourceCoordinator),
+                  async lease => {
+                    const beforePublication = async () => {
+                      await lease.assertOwned();
+                      await this.#store.assertFence(fence);
+                      await this.#assertWorkflowActive(fence, control);
+                      await this.#store.assertFence(fence);
+                      await lease.assertOwned();
+                    };
+                    await beforePublication();
+                    return await this.#nodePlanner.plan({ ...context, preparationPlan,
+                      application: applicationWithHostResourceLease(this.#application, lease),
+                      abortSignal: control.signal, beforePublication,
+                    });
+                  },
+                  { signal: control.signal },
+                );
+              },
             );
         executionPlan = createExecutionPlan(
           graphPlan,
@@ -2299,6 +2321,12 @@ export class DurableWorkflowScheduler {
     executionPlan: NodeExecutionPlan,
     control: WorkflowRunControl,
   ): Promise<boolean> {
+    // Native trust is ephemeral and exact-plan-bound; persisted generic grants never supply it.
+    if (executor.kind === "operation" && executor.operation.discovery.kind === "atet.studio.run") {
+      const authorization = this.#application.studioAuthorization;
+      if (authorization === undefined || !await this.#runControlledPort(fence, control, async () =>
+        await authorization.authorize(studioAuthorizationRequest(executionPlan.exactInput)))) return false;
+    }
     const grants = await this.#store.grants(fence.runId);
     if (exactEffectGrant(
       grants,

@@ -1,6 +1,6 @@
 ---
 name: atet
-description: Use Atet to create, generate, record, edit, and render visual media with a local CLI and coding agent. Trigger for AI image or video generation, screen, camera, microphone, or system-audio recording, non-destructive video editing, silence and filler-word removal, captions or subtitles, speaker framing, screen zooms, overlays, motion graphics, social video variants, voice or speech, transcription, editable diagrams and flowcharts, raster-to-SVG vectorization, WGSL or WebGPU effects, Three.js or 3D scenes, transparent animated loops, semantic media operations, and typed Bun workflows.
+description: Use Atet to create, generate, record, edit, and render visual media with a local CLI and coding agent. Trigger for AI image or video generation, screen, camera, microphone, or system-audio recording, non-destructive video editing, silence and filler-word removal, captions or subtitles, speaker framing, screen zooms, overlays, motion graphics, social video variants, voice or speech, transcription, editable diagrams and flowcharts, raster-to-SVG vectorization, WGSL or WebGPU effects, Three.js or 3D scenes, Blender rigs and simulation, CAD and STEP models, Manim educational animation, native scene rendering, transparent animated loops, semantic media operations, and typed Bun workflows.
 ---
 
 # Make and edit visual media with Atet
@@ -35,6 +35,9 @@ the skill was installed.
   image continuity, a spending budget, or private reference hosting and cleanup,
   use the
   [short video directing workflow](references/directed-scenes.md#direct-short-generated-clips).
+- For detailed Blender worlds, native rigs, cloth or liquid bakes, parametric CAD,
+  free HDRI/PBR/glTF acquisition, or a Manim presenter lesson, read
+  [native-studio.md](references/native-studio.md).
 - For a reference-led Three.js scene, transparent 3D loop, or metallic logo
   treatment, read [reference-led-3d.md](references/reference-led-3d.md).
 - For travel photos turned into rubber-stamp field-note posters (photo left,

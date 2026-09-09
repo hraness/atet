@@ -13,6 +13,7 @@
     "workflows/**/*.ts",
     "html-overlay/**/*.ts",
     "cli/**/*.ts",
+    "studio/**/*.ts",
     "qualification/**/*.ts",
     "capture/**/*.ts",
     "runtime/**/*.ts",
