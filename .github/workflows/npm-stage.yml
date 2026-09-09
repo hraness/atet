@@ -686,10 +686,10 @@ jobs:
           const { posix } = require("node:path");
           const { gunzipSync } = require("node:zlib");
 
-          const maximumFiles = 350;
+          const maximumFiles = 400;
           const maximumMetadataBytes = 1_000_000;
-          const maximumPackedBytes = 3_750_000;
-          const maximumUnpackedBytes = 8_900_000;
+          const maximumPackedBytes = 4_000_000;
+          const maximumUnpackedBytes = 10_500_000;
           const expectedName = "@hraness/atet";
           const expectedVersion = process.env.EXPECTED_VERSION;
           const expectedFilename = process.env.EXPECTED_TARBALL_NAME;

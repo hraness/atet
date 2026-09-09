@@ -24,6 +24,8 @@ export interface AtomicRenderRequest {
   readonly runner: ProcessRunner;
   readonly stagingDirectory?: string;
   readonly timeoutMs?: number;
+  /** Trusted adapter fence, after staging and immediately before native publication. */
+  readonly beforeNativePublish?: (stagedOutputPath: string) => Promise<void>;
 }
 
 export interface AtomicRenderStaging {
@@ -53,7 +55,7 @@ export class AtomicRenderPlatform extends Context.Tag("@atet/local/AtomicRenderP
 >() { }
 
 export interface AtomicRenderPublication<Prepared, R> {
-  prepare(output: AtomicRenderOutput): Effect.Effect<Prepared, OperationEffectFailure, R>;
+  prepare(output: AtomicRenderOutput, stagedOutputPath: string): Effect.Effect<Prepared, OperationEffectFailure, R>;
   readonly companion?: {
     readonly finalPath: string;
     publish(prepared: Prepared, output: AtomicRenderOutput): Effect.Effect<void, OperationEffectFailure, R>;
@@ -190,7 +192,7 @@ export function executeAtomicRenderEffect<Prepared, R>(
         // The final workflow fence is inside prepare. Mask before entering it,
         // including the boundary between its successful return and precommit.
         return yield* Effect.uninterruptible(Effect.gen(function*() {
-          const prepared = yield* publication.prepare(output);
+          const prepared = yield* publication.prepare(output, staging.path);
           const companion = publication.companion;
           if (companion !== undefined) yield* platform.invalidateCompanion(companion.finalPath);
           yield* platform.publish(staging, request);

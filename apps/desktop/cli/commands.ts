@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
+import { executeSpatialSceneCommand } from "./spatial-scene-service";
+import { executeSpatialProjectCommand } from "./spatial-project-service";
 import { constants } from "node:fs";
 import { link, lstat, open, realpath, rm } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
@@ -5740,6 +5742,16 @@ async function handleMediaColor(
 
 async function dispatch(context: CommandContext, command: CliCommand): Promise<void> {
   switch (command.kind) {
+    case "spatial-scene": {
+      const output = await executeSpatialSceneCommand(applicationContext(context), command);
+      writeValue(context.io, command.json, output, () => JSON.stringify(output, null, 2));
+      return;
+    }
+    case "spatial-project": {
+      const output = await executeSpatialProjectCommand(applicationContext(context), command);
+      writeValue(context.io, command.json, output, () => JSON.stringify(output, null, 2));
+      return;
+    }
     case "help": writeLine(context.io, commandHelp(command.topic)); return;
     case "version": writeLine(context.io, context.version); return;
     case "operations-list": {
@@ -6524,6 +6536,8 @@ type MutationReference =
 
 function commandMutationReference(command: CliCommand): MutationReference | undefined {
   switch (command.kind) {
+    case "spatial-scene": return command.action === "init" || command.action === "patch" ? { kind: "workspace-private" } : undefined;
+    case "spatial-project": return undefined; // Its explicit application adapter owns one version-aware lease.
     case "project-camera-edit": return command.action === "show"
       ? undefined
       : { kind: "project", reference: command.project };

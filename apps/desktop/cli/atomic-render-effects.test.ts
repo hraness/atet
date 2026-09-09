@@ -59,6 +59,25 @@ function render(input: AtomicRenderRequest, platform: AtomicRenderPlatformServic
     .pipe(Effect.provideService(AtomicRenderPlatform, platform));
 }
 
+test("final native publication rejects revoked custody and mutations made during the final fence", async () => {
+  for (const attack of ["revoke", "rewrite", "symlink"] as const) {
+    const directory = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "atet-final-render-fence-")));
+    try {
+      const input = request(directory);
+      const external = join(directory, "external.mp4");
+      await fs.writeFile(external, "other output");
+      const result = await Effect.runPromiseExit(render({ ...input, requireFreshOutput: true, beforeNativePublish: async staged => {
+        if (attack === "revoke") throw new Error("custody revoked");
+        if (attack === "rewrite") await fs.writeFile(staged, "changed output");
+        else { await fs.rm(staged); await fs.symlink(external, staged); }
+      } }, nativeAtomicRenderPlatform));
+      expect(Exit.isFailure(result)).toBe(true);
+      await expect(fs.lstat(input.finalOutputPath)).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await fs.readFile(external, "utf8")).toBe("other output");
+    } finally { await fs.rm(directory, { recursive: true, force: true }); }
+  }
+});
+
 async function flushInterruption(): Promise<void> {
   // An event-loop fence, not a timer racing the native operation under test.
   await new Promise<void>(resolve => { setImmediate(resolve); });

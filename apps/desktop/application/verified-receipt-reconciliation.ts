@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { recoverSpatialRenderAttempt, recoverSpatialRenderOutput } from "./operations/spatial-render";
 import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -104,6 +105,7 @@ import {
 } from "../cli/media-effects-service";
 
 export const LOCAL_VERIFIED_RECEIPT_OPERATION_KINDS = Object.freeze([
+  "scene.render",
   "analysis.faces",
   "analysis.music",
   "analysis.project-inactivity",
@@ -139,7 +141,7 @@ export type VerifiedReceiptReconciliation =
     >>;
   }
   | { readonly kind: "retry" }
-  | { readonly kind: "incompatible"; readonly message: string };
+  | { readonly kind: "ambiguous" | "incompatible"; readonly message: string };
 
 type ProjectAnalysisReference = VideoProjectV1["analyses"][number];
 
@@ -1533,9 +1535,15 @@ export async function reconcileLocalVerifiedReceiptOperation(
       return recovered;
     }
     if (checkpoint === null) {
+      if (kind === "scene.render") return await recoverSpatialRenderAttempt(application, request.exactInput, request.identity, request.workspaceDirectory, request.abortSignal);
       // These operations publish only immutable content-addressed bytes before
       // the private completion point. Orphans are safe to leave and retry.
       return { kind: "retry" };
+    }
+    if (kind === "scene.render") {
+      const output = await recoverSpatialRenderOutput(application, request.exactInput, checkpoint.output, request.identity, request.abortSignal);
+      return { kind: "completed", output, receiptReference: output.receipt.path,
+        summary: { artifactSha256: output.artifact.sha256, frameCount: output.render.frameCount } };
     }
     if (isLocalAtetVisualKind(kind)) {
       return await recoverCheckpointAtetVisual(

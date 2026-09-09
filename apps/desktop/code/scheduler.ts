@@ -14,6 +14,8 @@ import {
 import { ApplicationError, asApplicationError } from "../application/errors";
 import type { ApplicationContext } from "../application/context";
 import { withProjectPublicationLease } from "../application/project-publication-lease";
+import { withSpatialProjectLease } from "../application/spatial-project-lease";
+import { SpatialProjectMutationOutputSchema } from "../application/operations/spatial-project";
 import {
   RESOURCE_KINDS,
   type OperationResourceKind,
@@ -883,6 +885,7 @@ function boundedMessage(message: string): string {
 
 function schedulerFailure(error: unknown, retryable = false) {
   const applicationError = asApplicationError(error);
+  const spatialPublication = SpatialProjectMutationOutputSchema.safeParse(applicationError.details?.spatialPublication);
   const code = (() => {
     switch (applicationError.code) {
       case "authorization-required":
@@ -906,6 +909,7 @@ function schedulerFailure(error: unknown, retryable = false) {
     code,
     message: boundedMessage(applicationError.message),
     retryable,
+    ...(spatialPublication.success ? { spatialPublication: spatialPublication.data } : {}),
   } as const;
 }
 
@@ -2487,7 +2491,8 @@ export class DurableWorkflowScheduler {
               ), "operation"));
             }
           }
-          const executeOperation = async (lease: HostResourceLease) => {
+          const baseApplication = this.#application;
+          const executeOperation = async (lease: HostResourceLease, application: ApplicationContext = baseApplication) => {
             if (item.executor.kind !== "operation") {
               throw new ApplicationError(
                 "internal",
@@ -2513,7 +2518,7 @@ export class DurableWorkflowScheduler {
             );
             await lease.assertOwned();
             const leasedApplication = applicationWithHostResourceLease(
-              this.#application,
+              application,
               lease,
             );
             const operation = item.executor.operation;
@@ -2552,9 +2557,18 @@ export class DurableWorkflowScheduler {
                 workspaceDirectory,
               },
             };
-            return operation.executeEffect === undefined
+            const result = operation.executeEffect === undefined
               ? await operation.execute(context, item.executionPlan.exactInput)
               : operationExitValue(await owner.run(Effect.exit(operation.executeEffect(context, item.executionPlan.exactInput))));
+            if (operation.discovery.kind.startsWith("spatial.project.") && operation.discovery.kind !== "spatial.project.snapshot") {
+              const disposition = result.output as { readonly kind?: string; readonly message?: string };
+              if (disposition.kind !== "completed") throw new ApplicationError(
+                disposition.kind === "ambiguous" ? "ambiguous" : "conflict",
+                disposition.message ?? "Spatial publication did not complete.",
+                { spatialPublication: result.output },
+              );
+            }
+            return result;
           };
           const hostClaims = physicalHostResourceClaims(
             item.executor.policy.resources,
@@ -2627,7 +2641,26 @@ export class DurableWorkflowScheduler {
             );
             const execution = owner.custody(workflowBoundary("admission", () => this.#hostResourceCoordinator.withLease(
               hostClaims,
-              async lease => projectPublication
+              async lease => operation.discovery.kind.startsWith("spatial.project.")
+                ? await withSpatialProjectLease(
+                  applicationWithHostResourceLease(this.#application, lease),
+                  String((item.executionPlan.exactInput as Readonly<Record<string, unknown>>).project),
+                  async application => await executeOperation(lease, application),
+                  async () => {
+                    assertPublicationAllowed();
+                    await lease.assertOwned();
+                    if (abortController.signal.aborted) throw new ApplicationError("cancelled", "Spatial project custody was cancelled before publication.");
+                    await beforeDeadline(async () => await this.#store.assertFence(fence));
+                    if (await beforeDeadline(async () => await this.#cancellation(fence.runId)) !== undefined) {
+                      throw new ApplicationError("cancelled", "Workflow cancellation requested before spatial publication.");
+                    }
+                    assertPublicationAllowed();
+                    if (abortController.signal.aborted) throw new ApplicationError("cancelled", "Spatial project custody was cancelled before publication.");
+                    await lease.assertOwned();
+                  },
+                  operation.discovery.kind === "spatial.project.migrate" ? "mutation" : "read",
+                )
+                : projectPublication
                 ? await withProjectPublicationLease(
                   this.#application,
                   operation.discovery.kind,
@@ -2684,6 +2717,16 @@ export class DurableWorkflowScheduler {
               kind: "ambiguous-code" as const,
             };
           }
+          const spatialDisposition = normalized.details?.spatialPublication;
+          if (item.executor.operation.discovery.kind.startsWith("spatial.project.") && spatialDisposition !== undefined) {
+            const parsed = SpatialProjectMutationOutputSchema.safeParse(spatialDisposition);
+            if (parsed.success && parsed.data.kind !== "completed") {
+              return {
+                failure: schedulerFailure(normalized),
+                kind: parsed.data.kind === "ambiguous" ? "ambiguous" as const : "failed" as const,
+              };
+            }
+          }
           if (
             publicationMayBeAuthoritative
             && (
@@ -2699,6 +2742,7 @@ export class DurableWorkflowScheduler {
                     ? "Recoverable publication exceeded the workflow wall-clock bound."
                     : "Recoverable publication exceeded its duration bound."
                   : `Recoverable publication requires reconciliation: ${normalized.message}`,
+                normalized.details,
               )),
               kind: "interrupted" as const,
             };
@@ -2725,6 +2769,7 @@ export class DurableWorkflowScheduler {
                     ? "Operation exceeded the workflow wall-clock bound after dispatch."
                     : "Operation exceeded its duration bound after dispatch."
                   : normalized.message,
+                normalized.details,
               )),
               kind: "ambiguous" as const,
             };

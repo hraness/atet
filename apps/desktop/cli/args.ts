@@ -36,7 +36,23 @@ interface JsonOption {
   readonly json: boolean;
 }
 
+export type SpatialSceneCommand = JsonOption & { readonly kind: "spatial-scene"; readonly path: string } & (
+  | { readonly action: "init" | "inspect" }
+  | { readonly action: "patch"; readonly patch: string; readonly output: string }
+  | { readonly action: "evaluate"; readonly camera: string; readonly timeUs: number }
+  | { readonly action: "plan" | "render"; readonly request: string; readonly assets?: string }
+);
+export type SpatialProjectCommand = JsonOption & {
+  readonly kind: "spatial-project"; readonly project: string;
+} & (
+  | { readonly action: "snapshot" }
+  | { readonly action: "prepare-render"; readonly input: string; readonly output: string }
+  | { readonly action: "migrate" | "patch" | "restore" | "add-shot" | "add-candidate" | "select-candidate" | "reconcile"; readonly input: string }
+);
+
 export type CliCommand =
+  | SpatialSceneCommand
+  | SpatialProjectCommand
   | { readonly kind: "help"; readonly topic: readonly string[] }
   | { readonly kind: "version" }
   | ({ readonly kind: "operations-list" } & JsonOption)
@@ -2897,6 +2913,60 @@ function helpTopic(argv: readonly string[], index: number): readonly string[] {
   return argv.slice(0, index).filter((argument) => !argument.startsWith("-"));
 }
 
+function parseSpatialSceneArgs(argv: readonly string[]): SpatialSceneCommand | SpatialProjectCommand {
+  const action = argv[0];
+  if (action === "project") {
+    const projectAction = argv[1];
+    if (projectAction === "snapshot") {
+      const parsed = parseOptions(argv.slice(2), JSON_SPEC);
+      const [project] = exactPositionals(parsed, 1, "atet scene project snapshot <project-id> [--json]");
+      return { kind: "spatial-project", action: projectAction, project: project!, json: optionFlag(parsed, "--json") };
+    }
+    if (projectAction === "prepare-render") {
+      const parsed = parseOptions(argv.slice(2), { ...JSON_SPEC, "--input": "value", "--output": "value" });
+      const [project] = exactPositionals(parsed, 1, "atet scene project prepare-render <project-id> --input <request.json> --output <prepared-render.json> [--json]");
+      const input = optionString(parsed, "--input"), output = optionString(parsed, "--output");
+      if (input === undefined || output === undefined) fail("scene project prepare-render requires --input and --output.");
+      return { kind: "spatial-project", action: projectAction, project: project!, input, output, json: optionFlag(parsed, "--json") };
+    }
+    if (projectAction === "migrate" || projectAction === "patch" || projectAction === "restore" || projectAction === "add-shot" || projectAction === "add-candidate" || projectAction === "select-candidate" || projectAction === "reconcile") {
+      const parsed = parseOptions(argv.slice(2), { ...JSON_SPEC, "--input": "value" });
+      const [project] = exactPositionals(parsed, 1, `atet scene project ${projectAction} <project-id> --input <request.json> [--json]`);
+      const input = optionString(parsed, "--input");
+      if (input === undefined) fail(`scene project ${projectAction} requires --input.`);
+      return { kind: "spatial-project", action: projectAction, project: project!, input, json: optionFlag(parsed, "--json") };
+    }
+    fail("Usage: atet scene project <snapshot|migrate|patch|restore|add-shot|add-candidate|select-candidate|reconcile|prepare-render> ...");
+  }
+  if (action === "init" || action === "inspect" || action === "check") {
+    const parsed = parseOptions(argv.slice(1), JSON_SPEC);
+    const [path] = exactPositionals(parsed, 1, `atet scene ${action} <scene.json> [--json]`);
+    return { kind: "spatial-scene", action: action === "check" ? "inspect" : action, path: path!, json: optionFlag(parsed, "--json") };
+  }
+  if (action === "patch") {
+    const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--patch": "value", "--output": "value" });
+    const [path] = exactPositionals(parsed, 1, "atet scene patch <scene.json> --patch <patch.json> --output <new-scene.json>");
+    const patch = optionString(parsed, "--patch"), output = optionString(parsed, "--output");
+    if (patch === undefined || output === undefined) fail("scene patch requires --patch and --output.");
+    return { kind: "spatial-scene", action, path: path!, patch, output, json: optionFlag(parsed, "--json") };
+  }
+  if (action === "evaluate") {
+    const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--camera": "value", "--time-us": "value" });
+    const [path] = exactPositionals(parsed, 1, "atet scene evaluate <scene.json> --camera <camera-id> --time-us <integer>");
+    const camera = optionString(parsed, "--camera"), time = optionString(parsed, "--time-us");
+    if (camera === undefined || time === undefined || !/^\d+$/u.test(time) || !Number.isSafeInteger(Number(time))) fail("scene evaluate requires --camera and integer --time-us.");
+    return { kind: "spatial-scene", action, path: path!, camera, timeUs: Number(time), json: optionFlag(parsed, "--json") };
+  }
+  if (action === "plan" || action === "render") {
+    const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--request": "value", "--assets": "value" });
+    const [path] = exactPositionals(parsed, 1, `atet scene ${action} <scene.json> --request <request.json> [--assets <bindings.json>]`);
+    const request = optionString(parsed, "--request"), assets = optionString(parsed, "--assets");
+    if (request === undefined) fail(`scene ${action} requires --request.`);
+    return { kind: "spatial-scene", action, path: path!, request, ...(assets === undefined ? {} : { assets }), json: optionFlag(parsed, "--json") };
+  }
+  fail("Usage: atet scene <init|check|inspect|patch|evaluate|plan|render> ...");
+}
+
 export function parseCliArgs(argv: readonly string[]): CliCommand {
   if (argv.length === 0) return { kind: "help", topic: [] };
   const helpIndex = argv.findIndex((argument) => argument === "--help" || argument === "-h");
@@ -2911,6 +2981,7 @@ export function parseCliArgs(argv: readonly string[]): CliCommand {
   }
   const command = argv[0]!;
   switch (command) {
+    case "scene": return parseSpatialSceneArgs(argv.slice(1));
     case "operations": return parseOperations(argv.slice(1));
     case "diagram": return parseDiagram(argv.slice(1));
     case "image": return parseImage(argv.slice(1));

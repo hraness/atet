@@ -1,8 +1,7 @@
-import { createHash } from "node:crypto";
-import { constants } from "node:fs";
-import { lstat, open, realpath } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { lstat, realpath } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
+import { createNodeBundleFileSystem } from "../core/storage";
 import { CliError } from "./errors";
 
 export interface ExpectedProjectMediaIntegrity {
@@ -43,36 +42,15 @@ export async function fingerprintPhysicalProjectMedia(
   if (lexical.isSymbolicLink() || !lexical.isFile() || lexical.size <= 0 || lexical.size > maximumBytes) {
     throw new CliError("unsafe-path", `Project media must be a bounded physical regular file: ${path}`);
   }
-  const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
-    const before = await handle.stat();
-    if (!before.isFile() || before.size !== lexical.size) {
-      throw new CliError("conflict", `Project media changed before validation: ${path}`);
-    }
-    const hash = createHash("sha256");
-    let bytes = 0;
-    for await (const chunk of handle.createReadStream({ autoClose: false })) {
-      const data = chunk as Buffer;
-      bytes += data.byteLength;
-      if (bytes > maximumBytes) {
-        throw new CliError("invalid-data", `Project media exceeds its byte bound: ${path}`);
-      }
-      hash.update(data);
-    }
-    const after = await handle.stat();
-    if (
-      bytes !== before.size
-      || after.size !== before.size
-      || after.dev !== before.dev
-      || after.ino !== before.ino
-      || after.mtimeMs !== before.mtimeMs
-      || after.ctimeMs !== before.ctimeMs
-    ) {
-      throw new CliError("conflict", `Project media changed during validation: ${path}`);
-    }
-    return { bytes, path, sha256: hash.digest("hex") };
-  } finally {
-    await handle.close();
+    // The shared inspector pins one physical descriptor, bounds each read, and
+    // accepts a metadata-only invalidation only after a stable second pass
+    // reproduces the exact first digest. This never repeats an ingest or render.
+    const integrity = await createNodeBundleFileSystem(dirname(path)).inspectFile!(basename(path), maximumBytes);
+    if (integrity.bytes !== lexical.size) throw new Error("Project media byte length changed after admission.");
+    return { ...integrity, path };
+  } catch (cause) {
+    throw new CliError("conflict", `Project media changed during validation: ${path}`, { cause });
   }
 }
 

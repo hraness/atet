@@ -46,6 +46,8 @@ export const OPERATION_FAMILIES = [
   "recording",
   "render",
   "atet",
+  "scene",
+  "spatial",
 ] as const;
 
 export type OperationFamily = typeof OPERATION_FAMILIES[number];
@@ -87,6 +89,13 @@ export const WorkflowRuntimeIdentitySchema = z.strictObject({
 export type WorkflowRuntimeIdentity = z.infer<typeof WorkflowRuntimeIdentitySchema>;
 
 export const InitialSubjectBindingSchema = z.discriminatedUnion("kind", [
+  z.strictObject({
+    descriptorSha256: Sha256Schema,
+    id: z.string().min(1).max(256),
+    kind: z.literal("spatial-project"),
+    schemaVersion: z.literal(2),
+    basis: z.strictObject({ version: z.union([z.literal(1), z.literal(2)]), sha256: Sha256Schema }),
+  }),
   z.strictObject({
     descriptorSha256: Sha256Schema,
     id: z.string().min(1).max(256),

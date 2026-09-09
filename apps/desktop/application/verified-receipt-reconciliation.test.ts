@@ -60,6 +60,7 @@ function reconciliationControl() {
 describe("verified-receipt reconciliation", () => {
   test("registers every local receipt-backed recovery boundary", () => {
     expect(LOCAL_VERIFIED_RECEIPT_OPERATION_KINDS).toEqual([
+      "scene.render",
       "analysis.faces",
       "analysis.music",
       "analysis.project-inactivity",

@@ -4,6 +4,7 @@
 - `contracts/`, `core/`, `application/`, `code/`, `workflows/`, `html-overlay/`, and `cli/` – recording/project contracts, local edit and renderer planning, the full host operation projection and durable workflow runtime, deterministic browser-overlay authoring, and agent command surface.
 - `capture/`, `analysis/`, `runtime/`, `src/`, and `frontend/` – bounded macOS capture/Vision helpers, Bun gateway, Zig Native SDK host, and recorder UI.
 - `direct/`, `assets/`, `app.zon`, and `build.zig` – deterministic scenarios, generated identity, bridge policy, and native commands.
+- `qualification/` – opt-in native scene, composition, and timing fixtures with retained measurements.
 
 # Guidelines
 

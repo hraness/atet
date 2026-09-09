@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
+import { constants, fstatSync, linkSync, lstatSync, readSync, renameSync, type BigIntStats, type Stats } from "node:fs";
 import {
   link,
   lstat,
@@ -50,9 +50,11 @@ export interface BundleFileSystem {
    * Implementations may omit binary support when they are used only for
    * structured in-memory tests.
    */
-  inspectFile?(path: string): Promise<BundleFileIntegrity>;
-  readText(path: string): Promise<string>;
+  inspectFile?(path: string, maximumBytes?: number): Promise<BundleFileIntegrity>;
+  readText(path: string, maximumBytes?: number): Promise<string>;
   writeTextAtomic(path: string, contents: string): Promise<void>;
+  /** Revalidate caller custody after staging and immediately before rename dispatch. */
+  writeTextAtomicGuarded?(path: string, contents: string, beforeReplace: () => Promise<void>): Promise<void>;
   /**
    * Install a new physical file without replacing an existing path.
    *
@@ -63,6 +65,7 @@ export interface BundleFileSystem {
   writeTextNoReplace?(
     path: string,
     contents: string,
+    beforePublication?: () => Promise<void>,
   ): Promise<"created" | "exists">;
   /**
    * Copy one exact bundle file using atomic no-replace publication. The final
@@ -74,6 +77,7 @@ export interface BundleFileSystem {
     sourcePath: string,
     destinationPath: string,
     expected: BundleFileIntegrity,
+    beforePublication?: () => Promise<void>,
   ): Promise<"created" | "exists">;
 }
 
@@ -379,17 +383,18 @@ export function createNodeBundleFileSystem(
     return join(physicalParent, basename(candidate));
   }
 
-  async function readPhysicalText(path: string): Promise<string> {
+  async function readPhysicalText(path: string, maximumBytes = MAXIMUM_STRUCTURED_FILE_BYTES): Promise<string> {
+    if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 0 || maximumBytes > MAXIMUM_STRUCTURED_FILE_BYTES) throw new RangeError("Invalid structured file byte limit.");
     const target = await safePath(path, false);
     const lexical = await lstat(target);
     if (
       lexical.isSymbolicLink()
       || !lexical.isFile()
-      || lexical.size > MAXIMUM_STRUCTURED_FILE_BYTES
+      || lexical.size > maximumBytes
     ) {
       throw new Error(`Bundle file must be a bounded physical regular file: ${path}`);
     }
-    const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     try {
       const before = await handle.stat();
       if (
@@ -400,7 +405,16 @@ export function createNodeBundleFileSystem(
       ) {
         throw new Error(`Bundle file changed before it was read: ${path}`);
       }
-      const bytes = await handle.readFile();
+      // Read at most the admitted size plus one byte. A concurrent append must
+      // not turn readFile into an unbounded allocation before the final stat.
+      const buffer = Buffer.alloc(before.size + 1);
+      let count = 0;
+      while (count < buffer.byteLength) {
+        const result = await handle.read(buffer, count, Math.min(256 * 1024, buffer.byteLength - count), count);
+        if (result.bytesRead === 0) break;
+        count += result.bytesRead;
+      }
+      const bytes = buffer.subarray(0, count);
       const after = await handle.stat();
       if (
         bytes.byteLength !== before.size
@@ -418,14 +432,23 @@ export function createNodeBundleFileSystem(
     }
   }
 
-  async function inspectPhysicalFile(path: string): Promise<BundleFileIntegrity> {
+  async function inspectPhysicalFile(path: string, maximumBytes = Number.MAX_SAFE_INTEGER): Promise<BundleFileIntegrity> {
+    if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 0) throw new RangeError("Invalid physical file byte limit.");
     const target = await safePath(path, false);
     const lexical = await lstat(target);
-    if (lexical.isSymbolicLink() || !lexical.isFile()) {
+    if (lexical.isSymbolicLink() || !lexical.isFile() || lexical.size > maximumBytes) {
       throw new Error(`Bundle file must be a physical regular file: ${path}`);
     }
+    const sameNonLinkSnapshot = (before: Stats, after: Stats): boolean => (
+      after.isFile()
+      && after.dev === before.dev && after.ino === before.ino
+      && after.mode === before.mode && after.uid === before.uid && after.gid === before.gid
+      && after.rdev === before.rdev && after.size === before.size
+      && after.blksize === before.blksize && after.blocks === before.blocks
+      && after.mtimeMs === before.mtimeMs && after.birthtimeMs === before.birthtimeMs
+    );
     async function assertTargetStillNamesOpenedFile(
-      expected: Readonly<{ readonly dev: number; readonly ino: number }>,
+      expected: Stats,
     ): Promise<void> {
       const current = await lstat(target).catch((error: unknown) => {
         if (error instanceof Error && "code" in error && error.code === "ENOENT") {
@@ -437,15 +460,18 @@ export function createNodeBundleFileSystem(
         current === null
         || current.isSymbolicLink()
         || !current.isFile()
-        || current.dev !== expected.dev
-        || current.ino !== expected.ino
+        || !sameNonLinkSnapshot(expected, current)
+        || current.nlink !== expected.nlink
+        || current.ctimeMs !== expected.ctimeMs
       ) {
         throw new Error(`Bundle file changed while it was inspected: ${path}`);
       }
     }
-    const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     try {
       const buffer = Buffer.allocUnsafe(256 * 1024);
+      let retrySnapshot: Stats | undefined;
+      let retryDigest: string | undefined;
       for (const attempt of [1, 2] as const) {
         const before = await handle.stat();
         if (
@@ -453,6 +479,11 @@ export function createNodeBundleFileSystem(
           || before.dev !== lexical.dev
           || before.ino !== lexical.ino
           || before.size !== lexical.size
+          || (retrySnapshot !== undefined && (
+            !sameNonLinkSnapshot(retrySnapshot, before)
+            || before.nlink !== retrySnapshot.nlink
+            || before.ctimeMs !== retrySnapshot.ctimeMs
+          ))
         ) {
           throw new Error(`Bundle file changed before it was inspected: ${path}`);
         }
@@ -464,35 +495,25 @@ export function createNodeBundleFileSystem(
           const result = await handle.read(
             buffer,
             0,
-            buffer.byteLength,
+            Math.min(buffer.byteLength, maximumBytes - bytes + 1),
             bytes,
           );
           if (result.bytesRead === 0) break;
           digest.update(buffer.subarray(0, result.bytesRead));
           bytes += result.bytesRead;
-          if (!Number.isSafeInteger(bytes)) {
+          if (!Number.isSafeInteger(bytes) || bytes > maximumBytes) {
             throw new Error(`Bundle file exceeds safe byte accounting: ${path}`);
           }
         }
         await options.duringFileInspectionForTesting?.({ attempt, path });
         const after = await handle.stat();
-        // Reading may update atime. Every other content, identity, ownership,
-        // allocation, and creation field must remain fixed.
-        const nonLinkSnapshotStayedStable = (
-          bytes === before.size
-          && after.isFile()
-          && after.dev === before.dev
-          && after.ino === before.ino
-          && after.mode === before.mode
-          && after.uid === before.uid
-          && after.gid === before.gid
-          && after.rdev === before.rdev
-          && after.size === before.size
-          && after.blksize === before.blksize
-          && after.blocks === before.blocks
-          && after.mtimeMs === before.mtimeMs
-          && after.birthtimeMs === before.birthtimeMs
-        );
+        // Reading may update atime. A ctime transition invalidates this read;
+        // one fresh, stable pass must independently reproduce its exact bytes.
+        const nonLinkSnapshotStayedStable = bytes === before.size && sameNonLinkSnapshot(before, after);
+        const sha256 = digest.digest("hex");
+        if (retryDigest !== undefined && retryDigest !== sha256) {
+          throw new Error(`Bundle file changed while it was inspected: ${path}`);
+        }
         if (
           nonLinkSnapshotStayedStable
           && after.nlink === before.nlink
@@ -501,20 +522,21 @@ export function createNodeBundleFileSystem(
           await assertTargetStillNamesOpenedFile(after);
           return {
             bytes,
-            sha256: Sha256Schema.parse(digest.digest("hex")),
+            sha256: Sha256Schema.parse(sha256),
           };
         }
-        const stagingLinkWasCleaned = (
+        const metadataRequiresFreshRead = (
           attempt === 1
           && nonLinkSnapshotStayedStable
           && after.ctimeMs !== before.ctimeMs
-          && before.nlink >= 2
-          && after.nlink === before.nlink - 1
+          && (after.nlink === before.nlink || (before.nlink >= 2 && after.nlink === before.nlink - 1))
         );
-        if (!stagingLinkWasCleaned) {
+        if (!metadataRequiresFreshRead) {
           throw new Error(`Bundle file changed while it was inspected: ${path}`);
         }
         await assertTargetStillNamesOpenedFile(after);
+        retrySnapshot = after;
+        retryDigest = sha256;
       }
       throw new Error(`Bundle file changed while it was inspected: ${path}`);
     } finally {
@@ -522,9 +544,116 @@ export function createNodeBundleFileSystem(
     }
   }
 
+  async function immutableLink(temporary: string, target: string): Promise<"created" | "exists"> {
+    try { await link(temporary, target); return "created"; }
+    catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "EEXIST") return "exists";
+      throw error;
+    }
+  }
+
+  async function guardedImmutableLink(temporary: string, target: string, expected: BundleFileIntegrity, beforePublication: () => Promise<void>): Promise<"created" | "exists"> {
+    const handle = await open(temporary, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    let staged: BigIntStats;
+    try {
+      staged = fstatSync(handle.fd, { bigint: true });
+      if (!staged.isFile() || staged.size !== BigInt(expected.bytes) || staged.nlink !== 1n || (staged.mode & 0o777n) !== 0o600n) throw new Error("Immutable stage is not a private exact-sized regular file.");
+      const digest = createHash("sha256"), buffer = Buffer.allocUnsafe(256 * 1024);
+      let bytes = 0;
+      while (bytes < expected.bytes) {
+        const count = readSync(handle.fd, buffer, 0, Math.min(buffer.length, expected.bytes - bytes), bytes);
+        if (count === 0) throw new Error("Immutable stage ended during verification.");
+        digest.update(buffer.subarray(0, count)); bytes += count;
+      }
+      const after = fstatSync(handle.fd, { bigint: true });
+      if (digest.digest("hex") !== expected.sha256 || after.size !== staged.size || after.mtimeNs !== staged.mtimeNs || after.ctimeNs !== staged.ctimeNs) throw new Error("Immutable stage changed during verification.");
+    } finally { await handle.close(); }
+    const parents = [];
+    for (let directory = dirname(target);; directory = dirname(directory)) {
+      const snapshot = lstatSync(directory, { bigint: true });
+      if (!snapshot.isDirectory() || snapshot.isSymbolicLink()) throw new Error("Immutable publication parent is unsafe.");
+      parents.push({ directory, snapshot });
+      if (dirname(directory) === directory) break;
+    }
+    await beforePublication();
+    for (const item of parents) {
+      const current = lstatSync(item.directory, { bigint: true });
+      if (!current.isDirectory() || current.isSymbolicLink() || current.dev !== item.snapshot.dev || current.ino !== item.snapshot.ino) throw new Error("Immutable publication parent changed during custody check.");
+    }
+    const current = lstatSync(temporary, { bigint: true });
+    if (!current.isFile() || current.isSymbolicLink() || current.dev !== staged.dev || current.ino !== staged.ino || current.size !== staged.size
+      || current.mtimeNs !== staged.mtimeNs || current.ctimeNs !== staged.ctimeNs || current.nlink !== 1n || current.mode !== staged.mode) throw new Error("Immutable stage changed during custody check.");
+    // Complete physical revalidation and no-replace dispatch share one synchronous turn.
+    try { linkSync(temporary, target); return "created"; }
+    catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "EEXIST") return "exists";
+      throw error;
+    }
+  }
+
   return {
     inspectFile: inspectPhysicalFile,
     readText: readPhysicalText,
+    async writeTextAtomicGuarded(path, contents, beforeReplace) {
+      const target = await safePath(path, true);
+      const parent = await lstat(dirname(target));
+      const temporary = `${target}.tmp-${randomUUID()}`;
+      const handle = await open(temporary, constants.O_CREAT | constants.O_EXCL | constants.O_RDWR | constants.O_NOFOLLOW, 0o600);
+      let identity: Stats | undefined;
+      let stagedSnapshot: BigIntStats;
+      try {
+        try {
+          identity = await handle.stat();
+          await handle.writeFile(contents, "utf8"); await handle.sync();
+          const expectedBytes = Buffer.from(contents, "utf8");
+          const actualBytes = Buffer.allocUnsafe(Math.min(expectedBytes.length, 256 * 1024));
+          let offset = 0;
+          while (offset < expectedBytes.length) {
+            const count = readSync(handle.fd, actualBytes, 0, Math.min(actualBytes.length, expectedBytes.length - offset), offset);
+            if (count === 0 || !actualBytes.subarray(0, count).equals(expectedBytes.subarray(offset, offset + count))) throw new Error("Guarded atomic publication stage differs from the requested bytes.");
+            offset += count;
+          }
+          stagedSnapshot = fstatSync(handle.fd, { bigint: true });
+          if (!stagedSnapshot.isFile() || stagedSnapshot.size !== BigInt(expectedBytes.length) || stagedSnapshot.nlink !== 1n) throw new Error("Guarded atomic publication stage metadata is invalid.");
+        }
+        finally { await handle.close(); }
+        const checked = await safePath(path, false);
+        const currentParent = await lstat(dirname(checked));
+        const staged = await lstat(temporary);
+        if (checked !== target || parent.dev !== currentParent.dev || parent.ino !== currentParent.ino
+          || !staged.isFile() || staged.isSymbolicLink() || staged.dev !== identity.dev || staged.ino !== identity.ino) {
+          throw new Error("Guarded atomic publication path changed during staging.");
+        }
+        const parents = [];
+        for (let directory = dirname(target);; directory = dirname(directory)) {
+          const snapshot = lstatSync(directory, { bigint: true });
+          if (!snapshot.isDirectory() || snapshot.isSymbolicLink()) throw new Error("Guarded atomic publication parent is unsafe.");
+          parents.push({ directory, snapshot });
+          if (dirname(directory) === directory) break;
+        }
+        await beforeReplace();
+        // The asynchronous custody check may yield to other filesystem users.
+        // Revalidate the complete physical path and staged content metadata,
+        // then dispatch synchronously without another JavaScript await gap.
+        for (const item of parents) {
+          const current = lstatSync(item.directory, { bigint: true });
+          if (!current.isDirectory() || current.isSymbolicLink() || current.dev !== item.snapshot.dev || current.ino !== item.snapshot.ino) throw new Error("Guarded atomic publication parent changed during custody check.");
+        }
+        const finalStage = lstatSync(temporary, { bigint: true });
+        if (!finalStage.isFile() || finalStage.isSymbolicLink() || finalStage.dev !== stagedSnapshot.dev || finalStage.ino !== stagedSnapshot.ino
+          || finalStage.size !== stagedSnapshot.size || finalStage.mtimeNs !== stagedSnapshot.mtimeNs || finalStage.ctimeNs !== stagedSnapshot.ctimeNs
+          || finalStage.nlink !== 1n || finalStage.mode !== stagedSnapshot.mode) throw new Error("Guarded atomic publication stage changed during custody check.");
+        renameSync(temporary, target);
+        const directoryHandle = await open(dirname(target), constants.O_RDONLY | constants.O_NOFOLLOW);
+        try { await directoryHandle.sync(); } finally { await directoryHandle.close(); }
+      } finally {
+        const staged = await lstat(temporary).catch((error: unknown) => {
+          if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined;
+          throw error;
+        });
+        if (staged !== undefined && identity !== undefined && staged.dev === identity.dev && staged.ino === identity.ino && !staged.isSymbolicLink()) await unlink(temporary);
+      }
+    },
     async writeTextAtomic(path, contents) {
       const target = await safePath(path, true);
       const temporary = `${target}.tmp-${randomUUID()}`;
@@ -543,7 +672,7 @@ export function createNodeBundleFileSystem(
         await directoryHandle.close();
       }
     },
-    async writeTextNoReplace(path, contents) {
+    async writeTextNoReplace(path, contents, beforePublication) {
       const target = await safePath(path, true);
       const temporary = `${target}.tmp-${randomUUID()}`;
       const handle = await open(temporary, "wx", 0o600);
@@ -556,14 +685,10 @@ export function createNodeBundleFileSystem(
         } finally {
           await handle.close();
         }
-        try {
-          await link(temporary, target);
-          disposition = "created";
-        } catch (error) {
-          if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) {
-            throw error;
-          }
-          disposition = "exists";
+        if (beforePublication === undefined) disposition = await immutableLink(temporary, target);
+        else {
+          if (await safePath(path, false) !== target) throw new Error("Immutable publication path changed during staging.");
+          disposition = await guardedImmutableLink(temporary, target, { bytes: Buffer.byteLength(contents), sha256: sha256Hex(contents) }, beforePublication);
         }
       } finally {
         try {
@@ -590,7 +715,7 @@ export function createNodeBundleFileSystem(
       }
       return disposition;
     },
-    async copyFileNoReplace(sourcePath, destinationPath, expectedInput) {
+    async copyFileNoReplace(sourcePath, destinationPath, expectedInput, beforePublication) {
       const expected = {
         bytes: zSafeBytes(expectedInput.bytes),
         sha256: Sha256Schema.parse(expectedInput.sha256),
@@ -606,7 +731,7 @@ export function createNodeBundleFileSystem(
       }
       const sourceHandle = await open(
         source,
-        constants.O_RDONLY | constants.O_NOFOLLOW,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
       );
       const temporary = join(
         dirname(destination),
@@ -624,24 +749,26 @@ export function createNodeBundleFileSystem(
           || sourceBefore.dev !== lexicalSource.dev
           || sourceBefore.ino !== lexicalSource.ino
           || sourceBefore.size !== lexicalSource.size
+          || sourceBefore.size !== expected.bytes
         ) {
           throw new Error(`Immutable bundle copy source changed before opening: ${sourcePath}`);
         }
-        try {
-          const destinationIntegrity = await inspectPhysicalFile(destinationPath);
+        let existingIntegrity: BundleFileIntegrity | undefined;
+        try { existingIntegrity = await inspectPhysicalFile(destinationPath, expected.bytes); }
+        catch (error) {
+          if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+        }
+        if (existingIntegrity !== undefined) {
           if (
-            destinationIntegrity.bytes !== expected.bytes
-            || destinationIntegrity.sha256 !== expected.sha256
+            existingIntegrity.bytes !== expected.bytes
+            || existingIntegrity.sha256 !== expected.sha256
           ) {
             throw new Error(
               `Immutable bundle copy destination contains different bytes: ${destinationPath}`,
             );
           }
+          await beforePublication?.();
           return "exists";
-        } catch (error) {
-          if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
-            throw error;
-          }
         }
 
         // A killed copier may leave this private stage behind, but can never
@@ -663,10 +790,11 @@ export function createNodeBundleFileSystem(
           const result = await sourceHandle.read(
             buffer,
             0,
-            buffer.byteLength,
+            Math.min(buffer.byteLength, expected.bytes - bytes + 1),
             null,
           );
           if (result.bytesRead === 0) break;
+          if (bytes + result.bytesRead > expected.bytes) throw new Error(`Immutable bundle copy source grew beyond its exact byte limit: ${sourcePath}`);
           digest.update(buffer.subarray(0, result.bytesRead));
           let written = 0;
           while (written < result.bytesRead) {
@@ -720,20 +848,18 @@ export function createNodeBundleFileSystem(
         }
 
         let disposition: "created" | "exists";
-        try {
-          await link(temporary, destination);
+        if (beforePublication === undefined) disposition = await immutableLink(temporary, destination);
+        else {
+          if (await safePath(destinationPath, false) !== destination) throw new Error("Immutable copy destination changed during staging.");
+          disposition = await guardedImmutableLink(temporary, destination, expected, beforePublication);
+        }
+        if (disposition === "created") {
           createdIdentity = {
             dev: temporaryAfter.dev,
             ino: temporaryAfter.ino,
           };
-          disposition = "created";
-        } catch (error) {
-          if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) {
-            throw error;
-          }
-          disposition = "exists";
         }
-        const destinationIntegrity = await inspectPhysicalFile(destinationPath);
+        const destinationIntegrity = await inspectPhysicalFile(destinationPath, expected.bytes);
         if (
           destinationIntegrity.bytes !== expected.bytes
           || destinationIntegrity.sha256 !== expected.sha256

@@ -1,5 +1,8 @@
 import type {
+  SpatialRenderInput,
   CandidateProjectRenderInput,
+  SpatialInspectInput, SpatialInspectOutput, SpatialPatchInput, SpatialPatchOutput,
+  SpatialEvaluateInput, SpatialEvaluateOutput,
   BindCandidateRevisionOutput,
   CommitProjectEditsOutput,
   CreateCandidateRevisionOutput,
@@ -38,6 +41,8 @@ import type {
   ProjectAutoZoomOutput,
   ProjectRenderInput,
   ProjectRenderInputV2,
+  ProjectRenderInputV4,
+  ProjectRenderOutputV4,
   ProjectRenderOutput,
   ProjectRenderPlanInput,
   ProjectRenderPlanInputV2,
@@ -54,6 +59,14 @@ import type {
   SelectVariantInput,
   SelectVariantOutput,
 } from "../application/operations";
+import type { SpatialRenderResult } from "../application/spatial-render";
+import type {
+  SpatialProjectSnapshotInput, SpatialProjectSnapshotOutput, SpatialProjectMigrateInput,
+  SpatialProjectPatchInput, SpatialProjectRestoreInput, SpatialProjectAddShotInput, SpatialProjectAddCandidateInput,
+  SpatialProjectSelectCandidateInput, SpatialProjectReconcileInput, SpatialProjectMutationOutput,
+} from "../application/operations/spatial-project";
+/** Only completed publications are made available to graph dependents. */
+export type CompletedSpatialProjectMutation = Extract<SpatialProjectMutationOutput, { kind: "completed" }>;
 import type {
   CandidateProjectEditBatchV3,
 } from "../application/creative-iteration";
@@ -1015,6 +1028,36 @@ export class WorkflowBuilder {
     ),
   });
 
+  readonly scene = Object.freeze({
+    render: (key: string, input: OperationInputValue<SpatialRenderInput>, options?: OperationNodeOptions): Ref<SpatialRenderResult> =>
+      this.#graph.operationByKind(key, { input, kind: "scene.render", version: 1 }, options),
+    inspect: (key: string, input: OperationInputValue<SpatialInspectInput>, options?: OperationNodeOptions): Ref<SpatialInspectOutput> =>
+      this.#graph.operationByKind(key, { input, kind: "scene.inspect", version: 1 }, options),
+    patch: (key: string, input: OperationInputValue<SpatialPatchInput>, options?: OperationNodeOptions): Ref<SpatialPatchOutput> =>
+      this.#graph.operationByKind(key, { input, kind: "scene.patch", version: 1 }, options),
+    evaluate: (key: string, input: OperationInputValue<SpatialEvaluateInput>, options?: OperationNodeOptions): Ref<SpatialEvaluateOutput> =>
+      this.#graph.operationByKind(key, { input, kind: "scene.evaluate", version: 1 }, options),
+  });
+
+  readonly spatialProject = Object.freeze({
+    snapshot: (key: string, input: OperationInputValue<SpatialProjectSnapshotInput>, options?: OperationNodeOptions): Ref<SpatialProjectSnapshotOutput> =>
+      this.#graph.operationByKind(key, { input, kind: "spatial.project.snapshot", version: 1 }, options),
+    migrate: (key: string, input: OperationInputValue<SpatialProjectMigrateInput>, options?: OperationNodeOptions): Ref<CompletedSpatialProjectMutation> =>
+      this.#graph.operationByKind(key, { input, kind: "spatial.project.migrate", version: 1 }, options),
+    patch: (key: string, input: OperationInputValue<SpatialProjectPatchInput>, options?: OperationNodeOptions): Ref<CompletedSpatialProjectMutation> =>
+      this.#graph.operationByKind(key, { input, kind: "spatial.project.patch", version: 1 }, options),
+    restore: (key: string, input: OperationInputValue<SpatialProjectRestoreInput>, options?: OperationNodeOptions): Ref<CompletedSpatialProjectMutation> =>
+      this.#graph.operationByKind(key, { input, kind: "spatial.project.restore", version: 1 }, options),
+    addShot: (key: string, input: OperationInputValue<SpatialProjectAddShotInput>, options?: OperationNodeOptions): Ref<CompletedSpatialProjectMutation> =>
+      this.#graph.operationByKind(key, { input, kind: "spatial.project.add-shot", version: 1 }, options),
+    addCandidate: (key: string, input: OperationInputValue<SpatialProjectAddCandidateInput>, options?: OperationNodeOptions): Ref<CompletedSpatialProjectMutation> =>
+      this.#graph.operationByKind(key, { input, kind: "spatial.project.add-candidate", version: 1 }, options),
+    selectCandidate: (key: string, input: OperationInputValue<SpatialProjectSelectCandidateInput>, options?: OperationNodeOptions): Ref<CompletedSpatialProjectMutation> =>
+      this.#graph.operationByKind(key, { input, kind: "spatial.project.select-candidate", version: 1 }, options),
+    reconcile: (key: string, input: OperationInputValue<SpatialProjectReconcileInput>, options?: OperationNodeOptions): Ref<CompletedSpatialProjectMutation> =>
+      this.#graph.operationByKind(key, { input, kind: "spatial.project.reconcile", version: 1 }, options),
+  });
+
   readonly media = Object.freeze({
     audioEffects: (
       key: string,
@@ -1220,6 +1263,8 @@ export class WorkflowBuilder {
   });
 
   readonly render = Object.freeze({
+    spatialProject: (key: string, input: OperationInputValue<ProjectRenderInputV4> | ProjectRenderInputV4, options?: OperationNodeOptions): Ref<ProjectRenderOutputV4> =>
+      this.#graph.operationByKind(key, { input, kind: "render.project", version: 4 }, options),
     bindCandidateOutput: (
       key: string,
       input: BindCreativeCandidateRenderOptions,

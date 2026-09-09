@@ -92,7 +92,7 @@ const CACHED_IDENTITY_FIXED_BYTES = 256;
 const CACHED_IDENTITY_SNAPSHOT_MAP_BYTES = 256;
 const CACHED_IDENTITY_SNAPSHOT_BYTES = 256;
 const CACHED_JOURNAL_FIXED_BYTES = 256;
-const CACHED_FILE_SNAPSHOT_BYTES = 128;
+const CACHED_FILE_SNAPSHOT_BYTES = 256;
 const RETAINED_JSON_VALUE_BYTES = 64;
 const RETAINED_GRANT_ID_BYTES = 128;
 
@@ -110,8 +110,14 @@ interface ClaimSnapshot {
 }
 
 interface FileSnapshot extends ClaimSnapshot {
+  readonly birthtimeMs: number;
+  readonly blksize: number;
+  readonly blocks: number;
   readonly ctimeMs: number;
+  readonly gid: number;
   readonly mtimeMs: number;
+  readonly nlink: number;
+  readonly rdev: number;
 }
 
 interface ExistingClaim {
@@ -132,6 +138,7 @@ type ValidatedRunMetadata = Omit<ValidatedRunIdentity, "bundleBytes">;
 interface CachedRunIdentity {
   readonly identity: ValidatedRunMetadata;
   readonly retainedBytes: number;
+  readonly sha256ByPath: ReadonlyMap<string, string>;
   readonly snapshots: ReadonlyMap<string, FileSnapshot>;
 }
 
@@ -283,8 +290,14 @@ function snapshot(details: Stats): ClaimSnapshot {
 function fileSnapshot(details: Stats): FileSnapshot {
   return {
     ...snapshot(details),
+    birthtimeMs: details.birthtimeMs,
+    blksize: details.blksize,
+    blocks: details.blocks,
     ctimeMs: details.ctimeMs,
+    gid: details.gid,
     mtimeMs: details.mtimeMs,
+    nlink: details.nlink,
+    rdev: details.rdev,
   };
 }
 
@@ -297,9 +310,18 @@ function sameSnapshot(left: ClaimSnapshot, right: ClaimSnapshot): boolean {
 }
 
 function sameFileSnapshot(left: FileSnapshot, right: FileSnapshot): boolean {
+  return sameFileSnapshotExceptCtime(left, right) && left.ctimeMs === right.ctimeMs;
+}
+
+function sameFileSnapshotExceptCtime(left: FileSnapshot, right: FileSnapshot): boolean {
   return sameSnapshot(left, right)
-    && left.ctimeMs === right.ctimeMs
-    && left.mtimeMs === right.mtimeMs;
+    && left.birthtimeMs === right.birthtimeMs
+    && left.blksize === right.blksize
+    && left.blocks === right.blocks
+    && left.gid === right.gid
+    && left.mtimeMs === right.mtimeMs
+    && left.nlink === right.nlink
+    && left.rdev === right.rdev;
 }
 
 function samePhysicalFile(left: ClaimSnapshot, right: ClaimSnapshot): boolean {
@@ -367,13 +389,17 @@ function cachedIdentityRetainedBytes(
   let retainedBytes = addRetainedBytes(
     CACHED_IDENTITY_FIXED_BYTES,
     CACHED_IDENTITY_SNAPSHOT_MAP_BYTES,
+    CACHED_IDENTITY_SNAPSHOT_MAP_BYTES,
     retainedUtf8Bytes(identity.directory),
   );
   for (const path of snapshots.keys()) {
     retainedBytes = addRetainedBytes(
       retainedBytes,
       CACHED_IDENTITY_SNAPSHOT_BYTES,
+      CACHED_IDENTITY_SNAPSHOT_BYTES,
       retainedUtf8Bytes(path),
+      retainedUtf8Bytes(path),
+      128, // The second map retains one 64-character physical SHA-256 per file.
     );
   }
   for (const [filename, value] of [
@@ -559,6 +585,9 @@ async function readBoundedPhysicalBytes(
   path: string,
   maximumBytes = MAX_STRUCTURED_FILE_BYTES,
 ): Promise<Uint8Array> {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 0 || maximumBytes > MAX_STRUCTURED_FILE_BYTES) {
+    throw new ApplicationError("invalid-data", "Run artifact byte bound is invalid.");
+  }
   let pathDetails: Stats;
   try {
     pathDetails = await lstat(path);
@@ -568,29 +597,62 @@ async function readBoundedPhysicalBytes(
     }
     throw error;
   }
-  if (!privateFile(pathDetails) || pathDetails.size > maximumBytes) {
+  if (
+    !privateFile(pathDetails)
+    || !Number.isSafeInteger(pathDetails.size)
+    || pathDetails.size < 0
+    || pathDetails.size > maximumBytes
+  ) {
     throw new ApplicationError(
       "unsafe-path",
       `Run artifact must be a bounded private physical file: ${path}`,
     );
   }
-  const handle = await open(path, constants.O_NOFOLLOW | constants.O_RDONLY);
+  const handle = await open(path, constants.O_NOFOLLOW | constants.O_RDONLY | constants.O_NONBLOCK);
   try {
-    const before = await handle.stat();
-    if (!sameSnapshot(snapshot(pathDetails), snapshot(before))) {
-      throw new ApplicationError("conflict", `Run artifact changed before read: ${path}`);
+    const lexical = fileSnapshot(pathDetails);
+    let priorSnapshot: FileSnapshot | undefined;
+    let priorDigest: string | undefined;
+    // Consume at most one extra byte so concurrent growth cannot turn a
+    // bounded read into an unbounded one. Both passes reuse this one buffer.
+    const buffer = Buffer.alloc(pathDetails.size + 1);
+    for (const attempt of [1, 2] as const) {
+      const before = fileSnapshot(await handle.stat());
+      if (!sameFileSnapshotExceptCtime(lexical, before)
+        || (priorSnapshot !== undefined && !sameFileSnapshot(priorSnapshot, before))) {
+        throw new ApplicationError("conflict", `Run artifact changed before read: ${path}`);
+      }
+      let byteLength = 0;
+      while (byteLength < buffer.byteLength) {
+        const { bytesRead } = await handle.read(
+          buffer, byteLength, buffer.byteLength - byteLength, byteLength,
+        );
+        if (bytesRead === 0) break;
+        byteLength += bytesRead;
+      }
+      const after = fileSnapshot(await handle.stat());
+      const finalPath = fileSnapshot(await lstat(path));
+      const digest = createHash("sha256").update(buffer.subarray(0, byteLength)).digest("hex");
+      if (!sameFileSnapshotExceptCtime(before, after)
+        || !sameFileSnapshotExceptCtime(after, finalPath)
+        || byteLength !== before.size
+        || (priorDigest !== undefined && priorDigest !== digest)) {
+        throw new ApplicationError("conflict", `Run artifact changed during read: ${path}`);
+      }
+      const stable = sameFileSnapshot(before, after) && sameFileSnapshot(after, finalPath);
+      if (stable && (attempt === 2 || sameFileSnapshot(lexical, before))) {
+        return buffer.subarray(0, byteLength);
+      }
+      if (attempt === 2) {
+        throw new ApplicationError("conflict", `Run artifact changed during read: ${path}`);
+      }
+      // A ctime transition alone does not establish coherent bytes. One second
+      // pinned read must reproduce this digest with an unchanged snapshot,
+      // including the bridge from this final path observation to its FD stat.
+      priorSnapshot = finalPath;
+      priorDigest = digest;
     }
-    const bytes = new Uint8Array(await handle.readFile());
-    const after = await handle.stat();
-    if (
-      !sameSnapshot(snapshot(before), snapshot(after))
-      || bytes.byteLength !== before.size
-      || before.mtimeMs !== after.mtimeMs
-      || before.ctimeMs !== after.ctimeMs
-    ) {
-      throw new ApplicationError("conflict", `Run artifact changed during read: ${path}`);
-    }
-    return bytes;
+    throw new ApplicationError("conflict", `Run artifact changed during read: ${path}`);
   } finally {
     await handle.close();
   }
@@ -604,13 +666,15 @@ function decodeUtf8(bytes: Uint8Array, path: string): string {
   }
 }
 
-async function readBoundedPhysical(path: string): Promise<string> {
-  return decodeUtf8(await readBoundedPhysicalBytes(path), path);
+async function readBoundedPhysical(path: string, digests?: Map<string, string>): Promise<string> {
+  const bytes = await readBoundedPhysicalBytes(path);
+  digests?.set(path, createHash("sha256").update(bytes).digest("hex"));
+  return decodeUtf8(bytes, path);
 }
 
-async function readJsonUnknown(path: string): Promise<unknown> {
+async function readJsonUnknown(path: string, digests?: Map<string, string>): Promise<unknown> {
   try {
-    return JSON.parse(await readBoundedPhysical(path)) as unknown;
+    return JSON.parse(await readBoundedPhysical(path, digests)) as unknown;
   } catch (error) {
     if (error instanceof ApplicationError) throw error;
     throw new ApplicationError("invalid-data", `Run artifact is not JSON: ${path}`);
@@ -620,9 +684,10 @@ async function readJsonUnknown(path: string): Promise<unknown> {
 async function readJson<Schema extends z.ZodType>(
   path: string,
   validator: Schema,
+  digests?: Map<string, string>,
 ): Promise<z.infer<Schema>> {
   try {
-    return validator.parse(await readJsonUnknown(path));
+    return validator.parse(await readJsonUnknown(path, digests));
   } catch (error) {
     if (error instanceof ApplicationError) throw error;
     throw new ApplicationError("invalid-data", `Run artifact failed validation (${path}): ${String(error)}`);
@@ -1111,16 +1176,16 @@ export class RunStore {
     }
   }
 
-  async #readIdentity(directory: string, runId: string): Promise<ValidatedRunIdentity> {
+  async #readIdentity(directory: string, runId: string, digests?: Map<string, string>): Promise<ValidatedRunIdentity> {
     await this.#privateChildDirectory(directory, "staging");
     let graphPlan: GraphPlanV1;
     try {
-      graphPlan = parseGraphPlan(await readJsonUnknown(join(directory, "graph-plan.json")));
+      graphPlan = parseGraphPlan(await readJsonUnknown(join(directory, "graph-plan.json"), digests));
     } catch (error) {
       if (error instanceof ApplicationError) throw error;
       throw new ApplicationError("invalid-data", `Persisted graph plan is invalid: ${String(error)}`);
     }
-    const initialized = await readJson(join(directory, INITIALIZED_FILE), InitializedRecordSchema);
+    const initialized = await readJson(join(directory, INITIALIZED_FILE), InitializedRecordSchema, digests);
     if (
       initialized.runId !== runId
       || initialized.graphPlanSha256 !== graphPlan.graphPlanSha256
@@ -1130,6 +1195,7 @@ export class RunStore {
     const storedGraph = await readJson(
       join(directory, "graph.json"),
       AuthoredWorkflowGraphV1Schema,
+      digests,
     );
     if (!equalCanonical(storedGraph, graphPlan.graph)) {
       throw new ApplicationError("invalid-data", "Persisted authored graph differs from its graph plan.");
@@ -1137,6 +1203,7 @@ export class RunStore {
     const workflow = await readJson(
       join(directory, "workflow.json"),
       RunWorkflowRecordSchema,
+      digests,
     );
     if (
       !equalCanonical(workflow.bundle, graphPlan.bundle)
@@ -1144,7 +1211,7 @@ export class RunStore {
     ) {
       throw new ApplicationError("invalid-data", "Persisted workflow identity differs from its graph plan.");
     }
-    const runtime = await readJson(join(directory, "runtime.json"), RunRuntimeRecordSchema);
+    const runtime = await readJson(join(directory, "runtime.json"), RunRuntimeRecordSchema, digests);
     if (
       !equalCanonical(runtime.runtime, graphPlan.runtime)
       || !equalCanonical(runtime.computes, sortedComputeIdentities(graphPlan))
@@ -1157,6 +1224,7 @@ export class RunStore {
       MAX_BUNDLE_BYTES,
     );
     const bundleSha256 = createHash("sha256").update(bundleBytes).digest("hex");
+    digests?.set(join(directory, "workflow.bundle.js"), bundleSha256);
     if (
       bundleBytes.byteLength !== graphPlan.bundle.bytes
       || bundleSha256 !== graphPlan.bundle.bundleSha256
@@ -1203,18 +1271,43 @@ export class RunStore {
     return true;
   }
 
+  async #identityDigests(
+    snapshots: ReadonlyMap<string, FileSnapshot>,
+  ): Promise<ReadonlyMap<string, string>> {
+    const digests = new Map<string, string>();
+    for (const [path, expected] of snapshots) {
+      // Identity snapshots have already been admitted by the schema reader.
+      // The exact original size further bounds every revalidation read.
+      const bytes = await readBoundedPhysicalBytes(path, expected.size);
+      digests.set(path, createHash("sha256").update(bytes).digest("hex"));
+    }
+    return digests;
+  }
+
   async #readStableIdentity(
     directory: string,
     runId: string,
   ): Promise<CachedRunIdentity> {
     const before = await this.#identitySnapshots(directory);
-    const validated = await this.#readIdentity(directory, runId);
-    const after = await this.#identitySnapshots(directory);
+    const sha256ByPath = new Map<string, string>();
+    // Bind the exact bytes that were parsed, instead of hashing a later
+    // independently read version of the same logical document.
+    const validated = await this.#readIdentity(directory, runId, sha256ByPath);
+    let after = await this.#identitySnapshots(directory);
     if (!this.#sameIdentitySnapshots(before, after)) {
-      throw new ApplicationError(
-        "conflict",
-        `Run identity changed while it was validated: ${runId}`,
-      );
+      for (const [path, previous] of before) {
+        const current = after.get(path);
+        if (current === undefined || !sameFileSnapshotExceptCtime(previous, current)) {
+          throw new ApplicationError("conflict", `Run identity changed while it was validated: ${runId}`);
+        }
+      }
+      const repeatedDigests = await this.#identityDigests(after);
+      const repeatedSnapshots = await this.#identitySnapshots(directory);
+      if (!this.#sameIdentitySnapshots(after, repeatedSnapshots)
+        || [...sha256ByPath].some(([path, expected]) => repeatedDigests.get(path) !== expected)) {
+        throw new ApplicationError("conflict", `Run identity changed while it was validated: ${runId}`);
+      }
+      after = repeatedSnapshots;
     }
     // The snapshots still cover the bundle file on every fenced operation. Keep
     // only parsed metadata here so one cache entry cannot retain 16 MiB of bytes.
@@ -1227,6 +1320,7 @@ export class RunStore {
     return {
       identity,
       retainedBytes: cachedIdentityRetainedBytes(identity, after),
+      sha256ByPath,
       snapshots: after,
     };
   }
@@ -1308,15 +1402,37 @@ export class RunStore {
   ): Promise<ValidatedRunMetadata> {
     const cached = this.#claimSession(fence)?.identity;
     if (cached !== undefined) {
-      const current = await this.#identitySnapshots(directory);
-      if (!this.#sameIdentitySnapshots(cached.snapshots, current)) {
+      try {
+        const current = await this.#identitySnapshots(directory);
+        if (this.#sameIdentitySnapshots(cached.snapshots, current)) return cached.identity;
+        for (const [path, previous] of cached.snapshots) {
+          const actual = current.get(path);
+          if (actual === undefined || !sameFileSnapshotExceptCtime(previous, actual)) {
+            throw new ApplicationError("conflict", `Run identity metadata changed: ${path}`);
+          }
+        }
+        // A ctime-only observation does not establish either mutation or safety.
+        // Reverify every immutable file against its originally bound physical
+        // bytes exactly once, inside a stable whole-identity snapshot window.
+        const sha256ByPath = await this.#identityDigests(current);
+        const after = await this.#identitySnapshots(directory);
+        if (!this.#sameIdentitySnapshots(current, after)) {
+          throw new ApplicationError("conflict", "Run identity changed during revalidation.");
+        }
+        for (const [path, expected] of cached.sha256ByPath) {
+          if (sha256ByPath.get(path) !== expected) {
+            throw new ApplicationError("conflict", `Run identity bytes changed: ${path}`);
+          }
+        }
+        this.#cacheClaimSession(fence, { identity: { ...cached, snapshots: after } });
+        return cached.identity;
+      } catch (error) {
         this.#clearClaimSessionForFence(fence);
         throw new ApplicationError(
           "conflict",
-          `Run identity changed while its claim was active: ${fence.runId}`,
+          `Run identity changed while its claim was active: ${fence.runId} (${String(error)})`,
         );
       }
-      return cached.identity;
     }
     const stable = await this.#readStableIdentity(directory, fence.runId);
     this.#cacheClaimSession(fence, { identity: stable });
