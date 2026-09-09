@@ -522,6 +522,10 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     const seen = new Set<string>()
     for (let tab = 0; tab <= total + 2; tab++) {
       await page.keyboard.press("Tab")
+      // Match the appearance-menu path: observe native focus after style/paint
+      // settlement, never the pre-paint outline of the previously focused node.
+      // Both current and baseline pages retain the same strict comparisons.
+      await settleCase()
       const key = await page.evaluate(() => {
         const active = document.activeElement
         if (!(active instanceof HTMLElement)) return null
