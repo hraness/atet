@@ -16,7 +16,9 @@ import { assertWorkerInputsUnchanged, assertWorkerProtocolSnapshot, decodeWorker
 import { capturePreviewOutputTimeout, createPreviewEndpointWaiter, previewFailureSummary,
   type EndpointEvidence, type PreviewOutputTimeoutEvidence } from "./verify-preview-layout"
 import { parseShellCaseFailure, parseShellPhase, parseShellRequest, shellContentType, shellRecord, shellResource, siteShellBaselineRevision,
-  siteShellBaselineTree, siteShellCases, siteShellDeadlineMs, siteShellHeaders, type ShellPayload, type ShellRequest } from "./site-shell-browser-contract"
+  siteShellBaselineTree, siteInstallBaselineProfile, siteInstallBaselineRevision, siteInstallBaselineTree,
+  siteShellCases, siteShellDeadlineMs, siteShellHeaders, type ShellPayload, type ShellRequest } from "./site-shell-browser-contract"
+import { parseCopyCaseFailure, parseCopyPhase, siteCopyCases, siteCopyDeadlineMs } from "./site-copy-browser-contract"
 
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
 const digest = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex")
@@ -127,13 +129,20 @@ export async function readShellSnapshot(directory: string, current: boolean): Pr
   assert.ok([...files.keys()].filter(path => path.endsWith(".woff2")).length >= 13)
   return { inputs: input.artifacts, artifacts, files, stylesheets: stylesheets[0]! }
 }
-export function assertShellBaselineManifest(value: unknown, snapshot: ShellSnapshot): void {
+export function assertShellBaselineManifest(value: unknown, snapshot: ShellSnapshot, profile?: typeof siteInstallBaselineProfile): void {
+  assert.ok(profile === undefined || profile === siteInstallBaselineProfile, "Unknown baseline profile")
   const manifest = shellRecord(value)
-  assert.deepEqual(Object.keys(manifest).sort(), ["artifacts", "checkoutRevision", "inputs", "schemaVersion", "sourceRevision", "sourceTree"])
-  assert.equal(manifest.schemaVersion, 1)
-  assert.equal(manifest.sourceRevision, siteShellBaselineRevision)
-  assert.equal(manifest.sourceTree, siteShellBaselineTree)
-  assert.ok(typeof manifest.checkoutRevision === "string" && /^[a-f0-9]{40}$/u.test(manifest.checkoutRevision))
+  assert.deepEqual(Object.keys(manifest).sort(), ["artifacts", "checkoutRevision", "inputs", "schemaVersion", "sourceRevision", "sourceTree",
+    ...(profile === undefined ? [] : ["baselineProfile"])].sort())
+  assert.equal(manifest.schemaVersion, profile === undefined ? 1 : 2)
+  assert.equal(manifest.sourceRevision, profile === undefined ? siteShellBaselineRevision : siteInstallBaselineRevision)
+  assert.equal(manifest.sourceTree, profile === undefined ? siteShellBaselineTree : siteInstallBaselineTree)
+  if (profile === undefined) assert.ok(typeof manifest.checkoutRevision === "string" && /^[a-f0-9]{40}$/u.test(manifest.checkoutRevision))
+  else {
+    assert.equal(manifest.baselineProfile, siteInstallBaselineProfile)
+    assert.equal(manifest.checkoutRevision, siteInstallBaselineRevision, "Install baseline must be the exact pre-migration checkout")
+  }
+  assert.equal(snapshot.stylesheets.length, profile === undefined ? 1 : 2)
   assert.deepEqual(manifest.inputs, snapshot.inputs, "Baseline source/config bytes differ from the reviewed manifest")
   assert.deepEqual(manifest.artifacts, snapshot.artifacts, "Baseline built bytes differ from the reviewed manifest")
 }
@@ -184,22 +193,23 @@ async function buildDriver(profile: string): Promise<{ path: string; bytes: Uint
 }
 interface ShellObservation { readonly result: Record<string, unknown>; readonly phases: readonly Uint8Array[] }
 async function observe(directory: string, request: ShellRequest, signal: AbortSignal, exited: Promise<unknown>, absoluteDeadline: number): Promise<ShellObservation> {
+  const limit = request.scope === "install-copy" ? siteCopyDeadlineMs : siteShellDeadlineMs
   const phases: Uint8Array[] = []
   let processExited = false
   void exited.then(() => { processExited = true }, () => { processExited = true })
   let result: Record<string, unknown> | undefined
   for (const sequence of [0, 1, 2] as const) {
-    const deadline = Math.min(absoluteDeadline, performance.now() + (sequence === 2 ? siteShellDeadlineMs : 10_000))
+    const deadline = Math.min(absoluteDeadline, performance.now() + (sequence === 2 ? limit : 10_000))
     let reads = 0
     while (true) {
       signal.throwIfAborted()
-      assert.ok(performance.now() < deadline && ++reads <= Math.ceil(siteShellDeadlineMs / 50) + 1, `Worker ${workerPhaseFiles[sequence]} absolute deadline`)
+      assert.ok(performance.now() < deadline && ++reads <= Math.ceil(limit / 50) + 1, `Worker ${workerPhaseFiles[sequence]} absolute deadline`)
       try {
         const bytes = await bounded(readPreviewFile(join(directory, workerPhaseFiles[sequence]), workerProtocolLimit),
           "Worker phase read deadline", Math.max(1, deadline - performance.now()))
         signal.throwIfAborted()
         assert.ok(performance.now() < deadline, "Worker phase arrived after its deadline")
-        result = parseShellPhase(decodeWorkerJson(bytes), sequence, request)
+        result = (request.scope === "install-copy" ? parseCopyPhase : parseShellPhase)(decodeWorkerJson(bytes), sequence, request)
         phases.push(Uint8Array.from(bytes))
         break
       } catch (error) {
@@ -231,19 +241,23 @@ async function collectProtocol(directory: string, observation: ShellObservation)
 }
 async function readCaseFailure(profile: string, request: ShellRequest) {
   try {
-    return parseShellCaseFailure(decodeWorkerJson(await readPreviewFile(join(profile, "site-shell-case-failure.json"), workerProtocolLimit)), request)
+    return (request.scope === "install-copy" ? parseCopyCaseFailure : parseShellCaseFailure)(
+      decodeWorkerJson(await readPreviewFile(join(profile, "site-shell-case-failure.json"), workerProtocolLimit)), request)
   } catch (error) {
     if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return undefined
     throw error
   }
 }
 
-export async function verifySiteShell(args: readonly string[]): Promise<void> {
-  const options = parseShellArguments(args), deadline = performance.now() + siteShellDeadlineMs
+export async function verifySiteShell(args: readonly string[], scope: "shell" | "install-copy" | "install-shell" = "shell"): Promise<void> {
+  assert.ok(scope === "shell" || scope === "install-copy" || scope === "install-shell")
+  const baselineProfile = scope === "shell" ? undefined : siteInstallBaselineProfile
+  const limit = scope === "install-copy" ? siteCopyDeadlineMs : siteShellDeadlineMs
+  const options = parseShellArguments(args), deadline = performance.now() + limit
   const actualApp = await realpath(appDirectory)
   assert.notEqual(options.baseline, actualApp, "Baseline must be separate from the changed app")
   const deadlineController = new AbortController()
-  const deadlineTimer = setTimeout(() => deadlineController.abort(new Error("Site shell absolute deadline exceeded")), siteShellDeadlineMs)
+  const deadlineTimer = setTimeout(() => deadlineController.abort(new Error("Site native absolute deadline exceeded")), limit)
   const servers: ReturnType<typeof serve>[] = []
   let profile: string | undefined, protocolDirectory: string | undefined
   let chrome: ManagedVerificationServer | undefined, worker: ManagedVerificationServer | undefined
@@ -269,9 +283,9 @@ export async function verifySiteShell(args: readonly string[]): Promise<void> {
         return result
       }
       current = await step(() => readShellSnapshot(actualApp, true))
-      baseline = await step(() => readShellSnapshot(options.baseline, false))
+      baseline = await step(() => readShellSnapshot(options.baseline, baselineProfile !== undefined))
       manifestBefore = Uint8Array.from(await step(() => readPreviewFile(options.manifest, 128 * 1024)))
-      assertShellBaselineManifest(JSON.parse(Buffer.from(manifestBefore).toString()), baseline)
+      assertShellBaselineManifest(JSON.parse(Buffer.from(manifestBefore).toString()), baseline, baselineProfile)
       const node = await step(() => executable("NODE_EXECUTABLE_PATH")), browserPath = await step(() => executable("ATET_CHROME_PATH"))
       assert.ok(process.env.PLAYWRIGHT_BROWSERS_PATH !== undefined && isAbsolute(process.env.PLAYWRIGHT_BROWSERS_PATH),
         "PLAYWRIGHT_BROWSERS_PATH must select the explicit task-owned pinned Chrome for Testing installation")
@@ -297,7 +311,7 @@ export async function verifySiteShell(args: readonly string[]): Promise<void> {
       const endpoint = await waitEndpoint(profile, chrome.exited, signal, endpointEvidence)
       protocolDirectory = join(profile, "worker-protocol")
       await mkdir(protocolDirectory, { mode: 0o700 })
-      const request = parseShellRequest({ schemaVersion: 1, token: randomUUID(), appDirectory: actualApp, chromeExecutable: browserPath,
+      const request = parseShellRequest({ schemaVersion: 1, token: randomUUID(), ...(scope === "shell" ? {} : { scope, baselineProfile }), appDirectory: actualApp, chromeExecutable: browserPath,
         endpoint, current: browserPayload(current, currentServer.server.url.origin), baseline: browserPayload(baseline, baselineServer.server.url.origin) })
       workerRequest = request
       const requestPath = join(profile, "site-shell-browser-request.json"), bytes = encodeWorkerJson(request)
@@ -314,12 +328,12 @@ export async function verifySiteShell(args: readonly string[]): Promise<void> {
       signal.throwIfAborted()
       worker = spawnVerificationServer({ cwd: actualApp, detachedProcessGroup: true, logLimit: 12_000,
         omitEnvironment: ["NODE_OPTIONS", "NODE_PATH"], command: [node, driver.path, actualApp, requestPath] })
-      console.error(`atet-site-shell: verifying ${siteShellCases.length} mandatory current/baseline cases`)
+      console.error(`atet-site-shell: verifying ${(scope === "install-copy" ? siteCopyCases : siteShellCases).length} mandatory ${scope} current/baseline cases`)
       observation = await observe(protocolDirectory, request, signal, worker.exited, deadline)
       await step(() => bounded(worker!.exited, "Shell worker successful exit", 5_000))
       assert.equal(worker.exitCode(), 0)
       completed = true
-      return { ...observation.result, nativeBrowserZoom: false, reflowEquivalent: "1440x900 at 200% => 720x450 CSS viewport",
+      return { ...observation.result, nativeBrowserZoom: false, reflowEquivalent: scope !== "install-copy" ? "1440x900 at 200% => 720x450 CSS viewport" : false,
         productionHeaders: siteShellHeaders, internetRequestsAllowed: false, analytics: "unaltered scripts on neutral loopback origin",
         baselineManifestSha256: digest(manifestBefore), currentArtifacts: current.artifacts }
     }, async () => {
@@ -357,7 +371,7 @@ export async function verifySiteShell(args: readonly string[]): Promise<void> {
         }
         assert.ok(manifestBefore !== undefined && Buffer.from(await readPreviewFile(options.manifest, 128 * 1024)).equals(Buffer.from(manifestBefore)), "Baseline input manifest changed")
         assertShellSnapshotUnchanged(current!, await readShellSnapshot(actualApp, true))
-        assertShellSnapshotUnchanged(baseline!, await readShellSnapshot(options.baseline, false))
+        assertShellSnapshotUnchanged(baseline!, await readShellSnapshot(options.baseline, baselineProfile !== undefined))
         for (const server of servers) assert.deepEqual(server.rejected, [], "Unadmitted or late server request")
         signal!.throwIfAborted()
         assert.ok(performance.now() < deadline, "Collection completed after the absolute deadline")

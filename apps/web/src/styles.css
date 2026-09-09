@@ -235,8 +235,6 @@ h3 {
 }
 
 .quiet-note,
-.install-note,
-.panel-note,
 .trust-links {
   max-width: 62ch;
   color: var(--muted);
@@ -249,131 +247,11 @@ h3 {
   border-top: 1px solid var(--line);
 }
 
-:where(.panel-note, .trust-links, .origin-note, .hraness-marketing-question__answer, .hraness-marketing-maker__links) a {
+:where(.trust-links, .origin-note, .hraness-marketing-question__answer, .hraness-marketing-maker__links) a {
   color: var(--gold);
 }
 
 /* Install panel */
-
-.panel-label {
-  color: var(--muted);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.copy-command {
-  position: relative;
-  display: grid;
-  min-width: 0;
-  margin-top: 0.6rem;
-  overflow: hidden;
-  border: 1px solid var(--night-line);
-  border-radius: 0.625rem;
-  background: var(--night);
-  color: var(--night-ink);
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.copy-command__value {
-  min-width: 0;
-  padding: 0.9rem 1rem;
-  overflow-x: auto;
-  font-size: 0.82rem;
-  line-height: 1.5;
-  white-space: nowrap;
-}
-
-.copy-command__button {
-  min-width: 4.4rem;
-  min-height: 2.75rem;
-  padding: 0.6rem 0.9rem;
-  border: 0;
-  border-left: 1px solid var(--night-line);
-  background: transparent;
-  color: var(--night-muted);
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.copy-command__button:hover,
-.copy-command__button[data-copy-state="copied"] {
-  background: color-mix(in srgb, var(--gold-bright) 14%, transparent);
-  color: var(--night-ink);
-}
-
-.copy-command__button[data-copy-state="failed"] {
-  color: var(--gold-bright);
-}
-
-.copy-command__note {
-  padding: 0.65rem 1rem;
-  border-top: 1px solid var(--night-line);
-  color: var(--night-muted);
-  font-size: 0.8rem;
-  grid-column: 1 / -1;
-}
-
-.copy-command__note code {
-  color: var(--night-ink);
-}
-
-.copy-command code,
-.install-commands code {
-  background: transparent;
-}
-
-.copy-command__status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.cli-install {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--line);
-}
-
-.install-commands {
-  margin-top: 0.6rem;
-  padding: 0;
-  border: 1px solid var(--night-line);
-  border-radius: 0.625rem;
-  background: var(--night);
-  color: var(--night-ink);
-  list-style: none;
-}
-
-.install-commands li {
-  display: grid;
-  min-width: 0;
-  padding: 0.75rem 1rem;
-  gap: 0.85rem;
-  grid-template-columns: 1.5rem minmax(0, 1fr);
-}
-
-.install-commands li + li {
-  border-top: 1px solid var(--night-line);
-}
-
-.install-commands span {
-  color: var(--gold-bright);
-  font: 0.75rem/1.7 var(--font-mono);
-}
-
-.install-commands code {
-  overflow-wrap: anywhere;
-  font-size: 0.82rem;
-  line-height: 1.7;
-}
-
-.panel-note {
-  margin-top: 1rem;
-}
 
 /* Maker */
 
@@ -426,14 +304,6 @@ h3 {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .copy-command {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .copy-command__button {
-    border-top: 1px solid var(--night-line);
-    border-left: 0;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -443,13 +313,8 @@ h3 {
 }
 
 @media (forced-colors: active) {
-  .copy-command,
-  .install-commands,
   .transcript {
     border: 1px solid CanvasText;
   }
 
-  .copy-command__button {
-    border-color: CanvasText;
-  }
 }

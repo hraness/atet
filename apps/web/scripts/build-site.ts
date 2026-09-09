@@ -28,7 +28,7 @@ const fontFiles = [
 ] as const
 const documents = ["404.html", "index.html"] as const
 const sourceFiles = [
-  "package.json", "bun.lock", "src/index.html", "src/404.html", "src/site-shell.stylex.ts",
+  "package.json", "bun.lock", "src/index.html", "src/404.html", "src/site-shell.stylex.ts", "src/site-install.stylex.ts",
   "src/site-renderer.ts", "src/site-template.ts", "src/site-content.ts", "src/published-release.ts",
   "src/site-foundation.ts", "src/site-foundation.css", "src/site-ua-compatibility.css", "src/site-ask-ai-compatibility.css", "src/site-footer-compatibility.css", "src/styles.css",
   "scripts/build.ts", "scripts/build-site.ts", "scripts/site-contract.ts", "scripts/preview-css.ts", "scripts/preview-file.ts",

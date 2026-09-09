@@ -58,13 +58,17 @@ function renderCopyCommand(options: CopyCommandOptions): string {
   const alternateCommand = escapeHtml(options.alternateCommand)
   const command = escapeHtml(options.command)
   const id = escapeHtml(options.id)
-  return `<div class="copy-command" data-copy-command>
-    <code class="copy-command__value" data-copy-command-value>${command}</code>
-    <button aria-describedby="${id}" aria-label="Copy install command" class="copy-command__button"
+  return `<div class="copy-command {{INSTALL_COPY_CLASS}}" data-copy-command>
+    <code class="copy-command__value {{INSTALL_VALUE_CLASS}}" data-copy-command-value>${command}</code>
+    <button aria-describedby="${id}" aria-label="Copy install command" class="copy-command__button {{INSTALL_IDLE_CLASS}}"
+      data-copy-idle-class="copy-command__button {{INSTALL_IDLE_CLASS}}"
+      data-copy-copied-class="copy-command__button {{INSTALL_COPIED_CLASS}}"
+      data-copy-failed-class="copy-command__button {{INSTALL_FAILED_CLASS}}"
       data-copy-command-button hidden type="button">Copy</button>
-    <p class="copy-command__note">Using Bun? <code>${alternateCommand}</code></p>
-    <p aria-atomic="true" aria-live="polite" class="copy-command__status"
+    <p class="copy-command__note {{INSTALL_COPY_NOTE_CLASS}}">Using Bun? <code class="{{INSTALL_NOTE_CODE_CLASS}}">${alternateCommand}</code></p>
+    <p aria-atomic="true" aria-live="polite" class="copy-command__status {{INSTALL_STATUS_CLASS}}"
       data-copy-command-status id="${id}"></p>
+    <template data-copy-command-fallback><textarea class="{{INSTALL_FALLBACK_CLASS}}" readonly></textarea></template>
   </div>`
 }
 

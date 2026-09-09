@@ -138,8 +138,13 @@ function assertAuthoredShellBudget(template: string): number {
     ["{{SITE_WORDMARK_CLASS}}", 1], ["{{SITE_ACTIONS_CLASS}}", 1],
     ["{{SITE_NAVIGATION_CLASS}}", 1], ["{{SITE_HOME_NAVIGATION_LINK_CLASS}}", 4],
     ["{{SITE_NAVIGATION_ACTION_CLASS}}", 1],
+    ["{{INSTALL_NOTE_CLASS}}", 1], ["{{INSTALL_CLI_CLASS}}", 1],
+    ["{{INSTALL_LABEL_CLASS}}", 2], ["{{INSTALL_COMMANDS_CLASS}}", 1],
+    ["{{INSTALL_ITEM_CLASS}}", 1], ["{{INSTALL_SUBSEQUENT_ITEM_CLASS}}", 1],
+    ["{{INSTALL_NUMBER_CLASS}}", 2], ["{{INSTALL_CODE_CLASS}}", 2],
+    ["{{INSTALL_PANEL_NOTE_CLASS}}", 2], ["{{INSTALL_PANEL_LINK_CLASS}}", 2],
   ] as const) authored = replaceSiteSlot(authored, slot, "", count)
-  if (/\{\{SITE_[^{}]*_CLASS\}\}/u.test(authored)) throw new Error("Unexpected site class slot")
+  if (/\{\{(?:SITE|INSTALL)_[^{}]*_CLASS\}\}/u.test(authored)) throw new Error("Unexpected site class slot")
   const bytes = new TextEncoder().encode(authored).byteLength
   if (bytes >= 32_000) throw new Error(`Authored site shell exceeds its 32,000-byte budget: ${bytes}`)
   return bytes
@@ -152,6 +157,14 @@ test("authored shell budget rejects content growth and unapproved slot discounts
     .toThrow("Authored site shell exceeds its 32,000-byte budget")
   expect(() => assertAuthoredShellBudget(`${template}{{SITE_UNKNOWN_CLASS}}`))
     .toThrow("Unexpected site class slot")
+  expect(() => assertAuthoredShellBudget(`${template}{{INSTALL_UNKNOWN_CLASS}}`))
+    .toThrow("Unexpected site class slot")
+  for (const [slot, count] of [["INSTALL_NOTE_CLASS", 1], ["INSTALL_NUMBER_CLASS", 2]] as const) {
+    expect(() => assertAuthoredShellBudget(`${template}{{${slot}}}`))
+      .toThrow(`Site document must contain ${count} instance(s) of {{${slot}}}`)
+    expect(() => assertAuthoredShellBudget(template.replace(`{{${slot}}}`, "")))
+      .toThrow(`Site document must contain ${count} instance(s) of {{${slot}}}`)
+  }
   expect(() => assertAuthoredShellBudget(`${template}{{SITE_SKIP_CLASS}}`))
     .toThrow("Site document must contain 1 instance(s) of {{SITE_SKIP_CLASS}}")
   for (const slot of ["PUBLISHED_ARCHIVE_URL", "PUBLISHED_RELEASE_URL"]) {
@@ -467,8 +480,8 @@ describe("static Atet site", () => {
     expect(html).toContain('<meta name="twitter:image:alt" content="Atet, AI media generation and video editing for coding agents, beside an abstract solar disk and barque path">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
-    expect(html).toContain('<a href="{{PUBLISHED_RELEASE_URL}}">immutable Atet release</a>')
-    expect(html).toContain('<a href="https://skills.sh/hraness/atet">Atet Agent Skill</a>')
+    expect(html).toContain('<a class="{{INSTALL_PANEL_LINK_CLASS}}" href="{{PUBLISHED_RELEASE_URL}}">immutable Atet release</a>')
+    expect(html).toContain('<a class="{{INSTALL_PANEL_LINK_CLASS}}" href="https://skills.sh/hraness/atet">Atet Agent Skill</a>')
   })
 
   test("builds an inert noindex Atet preview with the homepage as canonical", async () => {
@@ -752,7 +765,8 @@ describe("static Atet site", () => {
     expect(searchableHtml).toContain("Preview and final renders use the same timeline and composition")
     expect(html).toContain("Install the Atet Agent Skill")
     expect(html).toContain("Install the local media tools · Requires Bun 1.3.14+")
-    expect(html).toContain(`Using Bun? <code>bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet</code>`)
+    expect(html.match(/Using Bun\? <code class="[A-Za-z_][A-Za-z0-9_ -]*">([^<]+)<\/code>/u)?.[1])
+      .toBe(`bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`)
     expect(html).toContain("inside the project you want to work")
     expect(html).toContain("start a new agent session")
     expect(installHtml).not.toContain("atet skill install")
@@ -776,8 +790,10 @@ describe("static Atet site", () => {
 
     expect(build).toContain("function renderCopyCommand(options: CopyCommandOptions)")
     expect(html.match(/data-copy-command(?:>|\s)/gu)).toHaveLength(1)
-    expect(html).toContain(`<code class="copy-command__value" data-copy-command-value>npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet</code>`)
-    expect(html).toContain(`<code>bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet</code>`)
+    expect(html.match(/<code class="copy-command__value [A-Za-z_][A-Za-z0-9_ -]*" data-copy-command-value>([^<]+)<\/code>/u)?.[1])
+      .toBe(`npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`)
+    expect(html.match(/Using Bun\? <code class="[A-Za-z_][A-Za-z0-9_ -]*">([^<]+)<\/code>/u)?.[1])
+      .toBe(`bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`)
     expect(html).toContain('aria-label="Copy install command"')
     expect(html).toContain("data-copy-command-button hidden type=\"button\">Copy</button>")
     expect(html).toContain('aria-live="polite"')

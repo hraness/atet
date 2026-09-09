@@ -5,10 +5,11 @@ import { dirname, isAbsolute, join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { bounded, withPreviewCancellation } from "./preview-browser-contract"
 import { assertShellNode, checkShellCase, compareShellEvidence, parseShellPhase, parseShellRequest,
-  ShellPairFailure, settleShellPair, shellCaseFailure, siteShellCases, siteShellDeadlineMs } from "./site-shell-browser-contract"
+  ShellPairFailure, settleShellPair, shellCaseFailure, shellScopeFields, siteShellCases, siteShellDeadlineMs } from "./site-shell-browser-contract"
 import { decodeWorkerJson, encodeWorkerJson, publishWorkerPhase, workerAttachmentMs, workerProtocolLimit } from "./preview-browser-protocol"
 import { readPreviewFile } from "./preview-file"
 import { assertOwnedPreviewEndpoint, closeOwnedPreviewBrowser } from "./preview-browser-shutdown"
+import { checkCopyCase, compareCopyEvidence, copyCaseFailure, parseCopyPhase, siteCopyCases, siteCopyDeadlineMs, summarizeCopyCase } from "./site-copy-browser-contract"
 
 // This entry is bundled by the Bun parent, then executed by genuine pinned
 // Node. The temporary bundle resolves dependencies only from the explicit app.
@@ -20,6 +21,10 @@ async function main() {
   assert.ok(isAbsolute(appDirectory) && isAbsolute(requestPath))
   assert.equal(await realpath(appDirectory), appDirectory)
   const request = parseShellRequest(decodeWorkerJson(await readPreviewFile(requestPath, workerProtocolLimit)))
+  const copy = request.scope === "install-copy"
+  const selectedCases = copy ? siteCopyCases : siteShellCases
+  const selectedDeadline = copy ? siteCopyDeadlineMs : siteShellDeadlineMs
+  const parsePhase = copy ? parseCopyPhase : parseShellPhase
   assert.equal(request.appDirectory, appDirectory)
   const directory = join(dirname(requestPath), "worker-protocol")
   assert.equal(await realpath(directory), directory)
@@ -33,7 +38,7 @@ async function main() {
   const browserManifest = JSON.parse(Buffer.from(await readPreviewFile(join(dirname(packagePath), "browsers.json"), 64 * 1024)).toString())
   const pinnedBrowser = browserManifest.browsers.filter(value => value.name === "chromium")
   assert.equal(pinnedBrowser.length, 1)
-  const common = { schemaVersion: 1, token: request.token }, runtime = { node, playwright: "1.62.0" }
+  const common = { schemaVersion: 1, token: request.token, ...shellScopeFields(request) }, runtime = { node, playwright: "1.62.0" }
   let browser, connection, activePair, signal, matrixCompleted = false
   const result = await withPreviewCancellation(process, async cancellation => {
     signal = cancellation.signal
@@ -44,26 +49,33 @@ async function main() {
     })
     await publishWorkerPhase(directory, 1, { ...common, sequence: 1, kind: "connected" })
     assert.equal(browser.version(), pinnedBrowser[0].browserVersion, "Connected browser version differs from pinned Chrome for Testing")
-    const cases = [], negativeControls = []
-    for (const scenario of siteShellCases) {
+    const cases = [], negativeControls = [], observations = []
+    for (const scenario of selectedCases) {
       let stage = "pair"
       try {
-        const remaining = siteShellDeadlineMs - (performance.now() - started)
+        const remaining = selectedDeadline - (performance.now() - started)
         assert.ok(remaining > 0, "Shell matrix exceeded its absolute deadline")
-        const negative = scenario.width === 1440 && scenario.theme === "system" && scenario.system === "light"
+        const negative = copy ? scenario === siteCopyCases[0]
+          : scenario.width === 1440 && scenario.theme === "system" && scenario.system === "light"
         const [evidence, old] = await cancellation.wait(() => {
           // Both callbacks create independent contexts and retain their complete
           // page/input/route/media/error state. The same 60-second side ceiling
           // starts at this common boundary; neither side borrows extra time.
-          activePair = settleShellPair(
+          activePair = copy ? settleShellPair(
+            () => checkCopyCase(browser, request.current, scenario, negative),
+            () => checkCopyCase(browser, request.baseline, scenario, false)) : settleShellPair(
             () => checkShellCase(browser, request.current, scenario, "current", negative),
             () => checkShellCase(browser, request.baseline, scenario, "baseline", false))
           return bounded(activePair, `Current/baseline ${scenario.name}`, Math.min(60_000, remaining))
         })
         stage = "comparison"
-        compareShellEvidence(evidence, old, scenario.name)
+        if (copy) {
+          compareCopyEvidence(evidence, old, scenario.name, negative)
+          observations.push(summarizeCopyCase(evidence, old, scenario.name))
+        }
+        else compareShellEvidence(evidence, old, scenario.name)
         cases.push(scenario.name)
-        if (negative) negativeControls.push(scenario.route)
+        if (negative) negativeControls.push(...(copy ? evidence.negativeControls : [scenario.route]))
       } catch (error) {
         if (error instanceof ShellPairFailure) stage = error.stage
         // Preserve the exact failed scenario without manufacturing result.json.
@@ -71,7 +83,7 @@ async function main() {
         // still requires the original complete three-phase protocol.
         try {
           await bounded(writeFile(join(dirname(requestPath), "site-shell-case-failure.json"),
-            encodeWorkerJson(shellCaseFailure(request, scenario.name, stage, cases, error)), { flag: "wx", mode: 0o600 }),
+            encodeWorkerJson((copy ? copyCaseFailure : shellCaseFailure)(request, scenario.name, stage, cases, error)), { flag: "wx", mode: 0o600 }),
           "Partial shell failure evidence", 5_000)
         } catch (receiptError) { throw new AggregateError([error, receiptError], "Shell case failure and receipt publication failed") }
         throw error
@@ -79,7 +91,7 @@ async function main() {
     }
     matrixCompleted = true
     return { ...common, ...runtime, sequence: 2, kind: "result", browser: browser.version(),
-      cases, baselineCompared: true, negativeControls, closed: true }
+      cases, baselineCompared: true, negativeControls, closed: true, ...(copy ? { observations } : {}) }
   }, async () => {
     const failures = []
     const collect = async operation => { try { await operation() } catch (error) { failures.push(error) } }
@@ -94,7 +106,7 @@ async function main() {
     if (activePair !== undefined) await collect(() => bounded(Promise.allSettled([activePair]), "Both underlying case settlements", 5_000))
     if (failures.length > 0) throw new AggregateError(failures, "Shell browser protocol collection failed")
   })
-  parseShellPhase(result, 2, request)
+  parsePhase(result, 2, request)
   await publishWorkerPhase(directory, 2, result)
 }
 

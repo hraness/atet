@@ -6,7 +6,7 @@ const coarsePointer = "@media (pointer: coarse)"
 const forcedColors = "@media (forced-colors: active)"
 
 // These recipes own only the ordinary document shell. Homepage marketing,
-// copy controls and the framework-neutral appearance menu remain separate.
+// install/copy recipes and the framework-neutral appearance menu are separate.
 const shell = stylex.create({
   skip: {
     position: "fixed",
