@@ -22,6 +22,31 @@ CAD = load("cadquery_driver")
 
 
 class DriverBoundaryTests(unittest.TestCase):
+    def test_calibrated_camera_preserves_asymmetric_intrinsics(self):
+        camera = {"cameraId": "camera_main", "name": "Main", "pose": {"position": [1, 2, 3], "rotation": [0, 0, 0, 1]},
+                  "projection": {"kind": "perspective", "width": 720, "height": 1280, "fx": 1100, "fy": 900, "cx": 311, "cy": 607, "near": 0.1, "far": 100}}
+        settings = BLENDER.spatial_camera_settings(camera)
+        self.assertEqual(settings["camera"]["sensor_fit"], "HORIZONTAL")
+        self.assertAlmostEqual(settings["camera"]["lens"], 55)
+        self.assertAlmostEqual(settings["render"]["pixel_aspect_y"], 11 / 9)
+        self.assertAlmostEqual(settings["camera"]["shift_x"], 49 / 720)
+        self.assertAlmostEqual(settings["camera"]["shift_y"], -33 * 11 / (9 * 720))
+        with self.assertRaisesRegex(ValueError, "admitted render"):
+            BLENDER.spatial_camera_settings(camera, {"width": 360, "height": 640})
+        for invalid in (float("nan"), True, -1):
+            camera["projection"]["fx"] = invalid
+            with self.assertRaises(ValueError):
+                BLENDER.spatial_camera_settings(camera)
+
+    def test_orthographic_camera_preserves_asymmetric_extents(self):
+        camera = {"cameraId": "camera_main", "name": "Main", "pose": {"position": [0, 0, 10], "rotation": [0, 0, 0, 1]},
+                  "projection": {"kind": "orthographic", "width": 720, "height": 1280, "left": -2, "right": 3, "bottom": -5, "top": 4, "near": 0.1, "far": 100}}
+        settings = BLENDER.spatial_camera_settings(camera)
+        self.assertAlmostEqual(settings["camera"]["ortho_scale"], 5)
+        self.assertAlmostEqual(settings["camera"]["shift_x"], 0.1)
+        self.assertAlmostEqual(settings["camera"]["shift_y"], -0.1)
+        self.assertAlmostEqual(settings["render"]["pixel_aspect_y"], 9 * 720 / (5 * 1280))
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name).resolve()

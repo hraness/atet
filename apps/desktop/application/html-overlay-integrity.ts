@@ -8,11 +8,14 @@ import { createSparkHtmlOverlayRuntimeSource } from "../html-overlay/spark-runti
 import { canonicalJson } from "../core/canonical-json";
 import {
   HtmlOverlayAuthoringInputSchema,
+  HtmlOverlayDeclaredResourcesSchema,
   createHtmlOverlayBrowserRuntimeSource,
   createHtmlOverlayImportMap,
   getApprovedHtmlOverlayLibraryLock,
+  htmlOverlayAssetLocalUrl,
   type HtmlOverlayActiveLibraryLock,
   type HtmlOverlayAuthoringInput,
+  type HtmlOverlayDeclaredResource,
   type HtmlOverlayImportMap,
 } from "../html-overlay";
 import {
@@ -156,7 +159,7 @@ const HARDWARE_LAUNCH_CONTRACT = Object.freeze({
     "--disable-software-rasterizer",
   ]),
 });
-export function htmlOverlayRendererContract(profileInput?: HtmlOverlayExecutionProfile) {
+function legacyHtmlOverlayRendererContract(profileInput?: HtmlOverlayExecutionProfile) {
   if (profileInput === undefined) return HTML_OVERLAY_RENDERER_CONTRACT;
   const executionProfile = HtmlOverlayExecutionProfileSchema.parse(profileInput);
   return Object.freeze({
@@ -178,6 +181,26 @@ export function htmlOverlayRendererContract(profileInput?: HtmlOverlayExecutionP
       receipt: "bounded-context-device-driver-os-evidence-per-batch",
     }),
     schemaVersion: 2,
+  });
+}
+
+/** Fetch opt-in grants only the exact declared private paths and changes execution identity. */
+export function htmlOverlayRendererContract(
+  profileInput?: HtmlOverlayExecutionProfile,
+  resourcesInput: readonly HtmlOverlayDeclaredResource[] = [],
+) {
+  const contract = legacyHtmlOverlayRendererContract(profileInput);
+  const resources = HtmlOverlayDeclaredResourcesSchema.parse(resourcesInput);
+  const urls = resources.filter(resource => resource.transport === "fetch")
+    .map(resource => `${HTML_OVERLAY_RENDERER_CONTRACT.routing.allowedOrigin}${htmlOverlayAssetLocalUrl(resource)}`);
+  // Spark already has its separately qualified private-origin/data fetch policy.
+  // Keep it, and every contract with no opt-in, byte-identical to prior receipts.
+  if (urls.length === 0 || !contract.contentSecurityPolicy.includes("connect-src 'none'")) return contract;
+  return Object.freeze({
+    ...contract,
+    contentSecurityPolicy: Object.freeze(contract.contentSecurityPolicy.map(directive =>
+      directive === "connect-src 'none'" ? `connect-src ${urls.join(" ")}` : directive)),
+    schemaVersion: 3,
   });
 }
 
@@ -267,7 +290,7 @@ export function createHtmlOverlayExecutionBundle(
       },
     },
     { key: "browser-runtime", value: browserRuntime },
-    { key: "renderer-contract", value: htmlOverlayRendererContract(executionProfile) },
+    { key: "renderer-contract", value: htmlOverlayRendererContract(executionProfile, authoring.resources) },
     {
       key: "document",
       value: {

@@ -31,3 +31,11 @@ test("studio assets and encoding select closed operations without authored execu
   expect(() => parseCliArgs(["studio", "encode", "studio_sample"])).toThrow("--output-id");
   expect(() => parseCliArgs(["studio", "encode", "studio_sample", "--output-id", "beauty", "--argv", "arbitrary"])).toThrow();
 });
+
+test("portrait city starter retains its character dependency and matching camera clock", () => {
+  const starter = studioStarter("blender-shaded-street");
+  expect(starter.source.files).toEqual(["character.py", "scene.py", "studio_scene.py"]);
+  expect(starter.job.render).toMatchObject({ width: 360, height: 640, startFrame: 1, endFrameExclusive: 73 });
+  expect(starter.job.engine).toMatchObject({ renderer: "cycles", device: "gpu", viewTransform: "Standard" });
+  expect(starter.job.parameters).toEqual({ shot: "establish", motion: "approach" });
+});

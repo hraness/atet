@@ -241,6 +241,8 @@ export const HtmlOverlayDeclaredResourceSchema = z.strictObject({
   mediaType: MediaTypeSchema,
   name: ResourceNameSchema,
   sha256: Sha256Schema,
+  /** Explicit read-only browser fetch; absence preserves the historical CSP. */
+  transport: z.literal("fetch").optional(),
   urlPath: ResourceUrlPathSchema,
 });
 export type HtmlOverlayDeclaredResource = Readonly<z.infer<typeof HtmlOverlayDeclaredResourceSchema>>;

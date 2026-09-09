@@ -467,6 +467,41 @@ describe("media.html-overlay application operation", () => {
     }
   });
 
+  test("retains explicit fetch transport through media binding and browser authoring reconstruction", async () => {
+    const root = await mkdtemp(join(tmpdir(), "atet-html-fetch-transport-"));
+    roots.push(root);
+    const fixture = await createOperationProjectFixture(root);
+    const snapshot = await openProjectSnapshot(fixture.projectRoot, fixture.project.projectId);
+    const capabilities = await fixtureCapabilities(root), dataPath = join(root, "geometry.json");
+    await writeFile(dataPath, "[1,2,3]\n");
+    const base = operationApplicationContext(root, { capabilities: async () => capabilities });
+    const registry = new OperationRegistry();
+    registry.register(createHtmlOverlayOperationDefinition({ bindBrowserRuntime: bindFixtureBrowserRuntime }));
+    let reached = false;
+    const result = await registry.execute({
+      abortSignal: new AbortController().signal,
+      application: { ...base, htmlOverlayRenderer: { renderFrames: async request => {
+        reached = true;
+        expect(request.resources[0]?.transport).toBe("fetch");
+        expect(request.authoring.resources[0]?.transport).toBe("fetch");
+        expect(request.authoring.resources[0]?.sha256).toBe(sha256(Buffer.from("[1,2,3]\n")));
+        throw new Error("fetch transport inspected without browser execution");
+      } } },
+      expectedProjectGeneration: snapshot.generation.generationSha256,
+    }, {
+      kind: "media.html-overlay", version: 1,
+      input: {
+        canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
+        document: { html: "<!doctype html><p>Private fetch</p>" },
+        project: fixture.project.projectId, range: { startUs: 0, endUs: 2_000_000 },
+        timing: { durationUs: 2_000_000, fps: 1 },
+        resources: [{ artifact: { path: "geometry.json" }, mediaType: "application/json", name: "geometry", urlPath: "geometry.json", transport: "fetch" }],
+      },
+    }).catch((error: unknown) => error);
+    expect(reached).toBe(true);
+    expect(String(result)).toContain("fetch transport inspected without browser execution");
+  });
+
   test("publishes exact locks and fail-closed checkpoint recovery evidence", async () => {
     const root = await mkdtemp(join(tmpdir(), "atet-html-operation-recovery-"));
     roots.push(root);

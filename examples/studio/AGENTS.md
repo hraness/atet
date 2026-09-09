@@ -1,9 +1,11 @@
 # Contents
 
 - `native-workflow.ts` – closed local SDK workflow consuming a retained source manifest and typed job.
+- `hybrid-scene.ts` – calibrated shared-city and world-space media scene authoring.
 - `blender/` – authored product, character, imported-model, cloth and fluid source examples.
 - `cadquery/` – precise solid construction and STEP-import source examples.
 - `education/` – a retained lesson and original cartoon-presenter mathematical scene.
+- `vgpu/` – optional pinned GPU pass producing retained illustrative raster media.
 
 # Guidelines
 

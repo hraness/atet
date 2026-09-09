@@ -171,6 +171,32 @@ describe("closed GLB triangle profile", () => {
     expect(geometry.bounds.max[1]).not.toBeCloseTo(5 * Math.SQRT1_2, 10)
   })
 
+  test("native clockwise wheel quaternion admits negative components and preserves its rotation", () => {
+    const fixture = triangleFixture()
+    const geometry = fixtureGeometry({ ...fixture.document, nodes: [{ mesh: 0, rotation: [0, 0, -0.70710683, 0.70710683] }] })
+    expect(geometry.bounds.min[0]).toBeCloseTo(0, 6)
+    expect(geometry.bounds.min[1]).toBeCloseTo(-2, 6)
+    expect(geometry.bounds.max[0]).toBeCloseTo(3, 6)
+    expect(geometry.bounds.max[1]).toBeCloseTo(0, 6)
+    for (const rotation of [[0, 0, -1.001, 0], [0, 0, 1.001, 0], [0, 0, 0, 0]]) {
+      expect(() => fixtureGeometry({ ...fixture.document, nodes: [{ mesh: 0, rotation }] })).toThrow()
+    }
+  })
+
+  test("all signed unit quaternions and their negations admit the same rigid rotation", () => {
+    fc.assert(fc.property(fc.tuple(...Array.from({ length: 4 }, () => fc.integer({ min: -1000, max: 1000 }))).filter(values => values.some(value => value !== 0)), values => {
+      const norm = Math.hypot(...values), rotation = values.map(value => value / norm), fixture = triangleFixture()
+      const geometry = (value: number[]) => fixtureGeometry({ ...fixture.document, nodes: [{ mesh: 0, rotation: value }] })
+      const original = geometry(rotation), negated = geometry(rotation.map(value => -value))
+      expect(negated.bounds).toEqual(original.bounds)
+      const matrix = original.primitives[0]!.matrix
+      for (let column = 0; column < 3; column++) {
+        expect(Math.hypot(matrix[column * 4]!, matrix[column * 4 + 1]!, matrix[column * 4 + 2]!)).toBeCloseTo(1, 10)
+      }
+      expect(matrix[0]! * matrix[4]! + matrix[1]! * matrix[5]! + matrix[2]! * matrix[6]!).toBeCloseTo(0, 10)
+    }), { seed: 709707, numRuns: 100 })
+  })
+
   test("source matrix TRS and reflections remain supported; shear and singular transforms reject", () => {
     const fixture = triangleFixture()
     const matrix = [-2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 10, 20, 30, 1]

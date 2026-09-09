@@ -47,6 +47,7 @@ export type StudioCommand = JsonOption & { readonly kind: "studio" } & (
   | { readonly action: "plan"; readonly path: string }
   | { readonly action: "assemble"; readonly id: string; readonly outputId: string; readonly title?: string }
   | { readonly action: "encode"; readonly id: string; readonly outputId: string }
+  | { readonly action: "asset"; readonly id: string; readonly outputId: string; readonly assetId: string; readonly representation: "native" | "encoded-video"; readonly frame?: number }
   | { readonly action: "inspect"; readonly id: string }
   | { readonly action: "reconcile"; readonly id: string }
   | { readonly action: "probe" | "run"; readonly path: string; readonly blender?: string; readonly python?: string; readonly allowTrustedCode: boolean }
@@ -72,6 +73,7 @@ export type SpatialSceneCommand = JsonOption & { readonly kind: "spatial-scene";
   | { readonly action: "init" | "inspect" }
   | { readonly action: "patch"; readonly patch: string; readonly output: string }
   | { readonly action: "evaluate"; readonly camera: string; readonly timeUs: number }
+  | { readonly action: "camera-track"; readonly request: string; readonly output: string }
   | { readonly action: "plan" | "render"; readonly request: string; readonly assets?: string; readonly executionProfile?: SpatialCliExecutionProfile }
 );
 export type SpatialProjectCommand = JsonOption & {
@@ -2975,14 +2977,22 @@ function parseStudioArgs(argv: readonly string[]): StudioCommand {
     return { kind: "studio", action, operation, path: path!, json: optionFlag(parsed, "--json") };
   }
   const specs: Record<string, Readonly<Record<string, "value" | "flag">>> = {
+    asset: { ...JSON_SPEC, "--output-id": "value", "--asset-id": "value", "--representation": "value", "--frame": "value" },
     init: { ...JSON_SPEC, "--template": "value" }, bundle: { ...JSON_SPEC, "--source-root": "value" }, plan: JSON_SPEC, inspect: JSON_SPEC, reconcile: JSON_SPEC, encode: { ...JSON_SPEC, "--output-id": "value" }, assemble: { ...JSON_SPEC, "--output-id": "value", "--name": "value" },
     probe: { ...JSON_SPEC, "--blender-bin": "value", "--python": "value" },
     run: { ...JSON_SPEC, "--blender-bin": "value", "--python": "value", "--allow-trusted-code": "flag" },
   };
-  if (action === undefined || specs[action] === undefined) return fail("Usage: atet studio <init|bundle|plan|probe|run|encode|assemble|inspect|reconcile> ...");
+  if (action === undefined || specs[action] === undefined) return fail("Usage: atet studio <init|bundle|plan|probe|run|encode|asset|assemble|inspect|reconcile> ...");
   const parsed = parseOptions(argv.slice(1), specs[action]!);
   const [path] = exactPositionals(parsed, 1, `atet studio ${action} <${action === "inspect" ? "studio-id" : action === "init" ? "directory" : "json-file"}>`);
   const common = { kind: "studio" as const, json: optionFlag(parsed, "--json") };
+  if (action === "asset") {
+    const outputId = optionString(parsed, "--output-id"), assetId = optionString(parsed, "--asset-id");
+    const representation = optionString(parsed, "--representation"), frame = optionString(parsed, "--frame");
+    if (!outputId || !assetId || (representation !== "native" && representation !== "encoded-video")) return fail("studio asset requires --output-id, --asset-id and --representation native|encoded-video.");
+    if (frame !== undefined && (!/^(0|[1-9][0-9]*)$/u.test(frame) || !Number.isSafeInteger(Number(frame)) || representation !== "native")) return fail("--frame requires a nonnegative integer and native representation.");
+    return { ...common, action, id: path!, outputId, assetId, representation, ...(frame === undefined ? {} : { frame: Number(frame) }) };
+  }
   if (action === "init") {
     const template = optionString(parsed, "--template") ?? "blender-product";
     if (!STUDIO_TEMPLATES.some(value => value === template)) return fail(`Studio template must be one of: ${STUDIO_TEMPLATES.join(", ")}.`);
@@ -3101,6 +3111,13 @@ function parseSpatialSceneArgs(argv: readonly string[]): SpatialSceneCommand | S
     if (patch === undefined || output === undefined) fail("scene patch requires --patch and --output.");
     return { kind: "spatial-scene", action, path: path!, patch, output, json: optionFlag(parsed, "--json") };
   }
+  if (action === "camera-track") {
+    const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--request": "value", "--output": "value" });
+    const [path] = exactPositionals(parsed, 1, "atet scene camera-track <scene.json> --request <sampling.json> --output <new-track.json>");
+    const request = optionString(parsed, "--request"), output = optionString(parsed, "--output");
+    if (request === undefined || output === undefined) return fail("scene camera-track requires --request and --output.");
+    return { kind: "spatial-scene", action, path: path!, request, output, json: optionFlag(parsed, "--json") };
+  }
   if (action === "evaluate") {
     const parsed = parseOptions(argv.slice(1), { ...JSON_SPEC, "--camera": "value", "--time-us": "value" });
     const [path] = exactPositionals(parsed, 1, "atet scene evaluate <scene.json> --camera <camera-id> --time-us <integer>");
@@ -3116,7 +3133,7 @@ function parseSpatialSceneArgs(argv: readonly string[]): SpatialSceneCommand | S
     const executionProfile = spatialCliExecutionProfile(optionString(parsed, "--profile"));
     return { kind: "spatial-scene", action, path: path!, request, ...(assets === undefined ? {} : { assets }), ...(executionProfile === undefined ? {} : { executionProfile }), json: optionFlag(parsed, "--json") };
   }
-  fail("Usage: atet scene <init|check|inspect|patch|evaluate|plan|render> ...");
+  fail("Usage: atet scene <init|check|inspect|patch|evaluate|camera-track|plan|render> ...");
 }
 
 export function parseCliArgs(argv: readonly string[]): CliCommand {

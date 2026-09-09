@@ -24,6 +24,7 @@ Other starters:
 
 ```sh
 atet studio init character --template blender-character
+atet studio init city --template blender-shaded-street
 atet studio init cloth --template blender-cloth
 atet studio init liquid --template blender-fluid
 atet studio init bracket --template cadquery-bracket
@@ -31,6 +32,10 @@ atet studio init lesson --template manim-lesson
 ```
 
 Run CAD or Manim with `--python /absolute/path/to/venv/bin/python`. Preserve that virtual-environment path: resolving its interpreter symlink to a system Python can select the wrong package environment.
+
+The shaded-street starter provides an original city, a detailed native character and a calibrated three-second camera approach in 360×640 portrait. Set the render dimensions to 720×1280 for a larger output, select `shot: "speaker"` with no `motion` for a fixed presenter view, or use `motion: "return"` for the world-panel reveal. Native source and all helpers are included in the scaffold. The [hybrid scene example](../examples/studio/hybrid-scene.ts) uses the same panel dimensions and camera contract with Three.
+
+Set `panelTexture: "panel.png"` and include that opaque 9:16 PNG in `source.json` to reuse a finished Three frame or diagram on the native board. The starter packs its sRGB pixels into an unlit native surface at the shared world position; other geometry still occludes it. This is a baked image derivative. It preserves the depicted frame, while the original Three scene remains the source for editing its content.
 
 ## Source and output contract
 
@@ -86,6 +91,52 @@ Cloth and fluid starters use separate bake and render stages. Retain the resulti
 
 Physics settings are not proof of a bake. Review evaluated geometry, contact and cache evidence, then load the result in a fresh process. Cloth pins, collider thickness, object scale, time steps and warmup affect the image. Liquid surface and volume caches need explicit storage budgets. Keep native cache identity tied to the source and settings that produced it.
 
+## Share assets across renderers
+
+Keep each native source alongside its portable representations. Use `.blend` for the detailed character rig, cloth caches and procedural materials; use a validated static GLB for city geometry; use sRGB images and videos for finished diagrams, generated footage and graphics. A video displayed in a world-space plane can be occluded and filmed by another camera. Its pixels do not supply hidden geometry or new views of the depicted world.
+
+| Representation | Useful transfer | Boundary |
+| --- | --- | --- |
+| Native `.blend`, STEP and caches | Edit or rerender in the originating tool | Native rig controls, solids, solvers and procedural materials remain engine-specific |
+| Portable GLB | Share measured geometry, supported base-color materials and node TRS clips with Three | Admission rejects skins, morph targets and unsupported texture/material features; export an explicit compatible derivative |
+| sRGB PNG or retained RGB(A) video | Mount a diagram, avatar, generated shot or GPU graphic in either scene | Preserve pixel size, alpha, color interpretation and the exact source clock |
+| Splats | Film a captured appearance through the qualified Three/Spark profile | Appearance capture does not establish collision geometry, relighting or native mesh editability |
+
+Admit an existing native output with an explicit asset identity:
+
+```sh
+atet studio asset studio_city --output-id city --asset-id asset_city --representation native --json
+atet studio asset studio_shot --output-id beauty --asset-id asset_reference --representation native --frame 1 --json
+atet studio encode studio_shot --output-id beauty --json
+atet studio asset studio_shot --output-id beauty --asset-id asset_movie --representation encoded-video --json
+```
+
+The result contains an `asset`, a `binding`, and a retained admission `receipt`. Add the asset to the spatial scene and supply an array of bindings through `scene render --assets bindings.json`. The asset payload path is a logical locator; the binding selects the exact retained physical bytes. Admission verifies the native job, source lineage and supported representation without executing source or encoding again. A sequence needs an exact frame for image admission. Encoded-video admission requires one unambiguous completed `studio encode` derivative. Conflicting derivatives require explicit resolution; there is no implicit latest selection.
+
+Prepared GLB geometry travels as a hash-bound local JSON resource, with source interpretation and validated primitives retained in the render evidence. Vertex arrays do not inflate the HTML document. An explicit resource fetch flag admits only its exact private path; the host and browser both verify its bytes. Existing geometry, texture, frame and resource limits still apply. Detailed native meshes may need an explicit preview LOD; preserve its export settings and measured bounds alongside the native source.
+
+Blender owns full native scene production. Three owns ATET's calibrated portable scene and world-space media composition. vgpu supplies programmable WebGPU passes. The [optional vgpu example](../examples/studio/vgpu/README.md) renders an exact-time graphic into retained raster frames for use on a world-space screen. It uses a separately provisioned runtime. It does not enable a second scene renderer or shared GPU textures inside ATET's WebGL2/Spark profile. The upstream [Three integration](https://github.com/vercel-labs/vgpu/blob/main/docs/topics/threejs.docs.md) can expose WGSL functions as TSL nodes, but using that path requires a qualified Three WebGPU profile.
+
+## Exchange calibrated cameras
+
+Export one camera's evaluated poses and projection at a rational frame rate:
+
+```json
+{"cameraId":"camera_hero","startUs":0,"frameRate":{"numerator":24,"denominator":1},"frameCount":480}
+```
+
+Save that sampling request as `sampling.json`, then run:
+
+```sh
+atet scene camera-track scene.json --request sampling.json --output camera-track.json --json
+```
+
+The inert `atet.spatial-camera-track` document pins the scene revision and contains ordered `samples`, each with `frameIndex`, integer `timeUs`, exact rational `exactTimeUs`, and the existing `SpatialCamera` value. It preserves off-center principal points, unequal focal lengths, orthographic extents and the canonical Y-up meter basis. Export at most 2,048 frames per chunk within the 2 MiB JSON limit. Sampling uses the scene's half-open duration and independently rounds each exact sample once to microseconds.
+
+Retain this JSON in a native source bundle. The fixed Blender driver exposes `ATET_APPLY_SPATIAL_CAMERA(camera, camera_object=None)` to authored Python. It converts canonical `(x,y,z)` to Blender `(x,-z,y)` and preserves the camera's local negative-Z direction. Apply each sample explicitly at its associated native frame; do not interpolate a second time using an unrelated easing curve. A supplied camera must have no parent, constraints or animation owners. Unsupported native parameter ranges fail rather than silently changing framing. The helper does not exchange depth of field, distortion, shutter, lighting or color transforms.
+
+For a native animated camera, first calculate all requested poses on an unconstrained camera, then insert the saved poses as native keys. Calling the helper after adding an animation owner is rejected. A matching projection does not imply identical materials or lighting between renderers; use a shared raster surface when a cut must preserve finished pixels.
+
 ## Lighting, camera and color
 
 The product source demonstrates beveled geometry, textured materials, glass, area lighting, a moving camera and depth of field. Native source can expose camera lens, focus, aperture, shutter and lighting parameters directly. Cycles and EEVEE have different rendering behavior; choosing EEVEE creates a different job and runtime profile.
@@ -112,6 +163,8 @@ atet ai speech generate --model <speech-model> --text-file narration.txt --json
 These generation commands can incur provider charges. Use the live catalog and existing explicit upload controls. Studio execution itself makes no paid model call. It neither receives provider credentials in its child environment nor automatically regenerates narration or images when a scene renders.
 
 Use `atet diagram init|check|render` for structured diagrams, `atet image vectorize` for local vectorization, existing transcription for measured captions, and ordinary audio/media operations for narration, music and SFX. Rhubarb mouth cues can be retained as measured performance input using the toolkit's conversion helper; mouth shapes are not word timestamps. A supplied or generated voice needs an actual listening/alignment review before authored cues can be described as synchronized speech.
+
+Ordinary project overlays interpret `--position x,y` as a pixel offset from the selected anchor. Use `--anchor center --position 0,0` to center an overlay, or `--anchor top-left --position 42,70 --width 636 --height 180` to place a caption inside a 720×1280 portrait frame with 42-pixel side margins. A full-frame closing image uses `--anchor top-left --position 0,0` with the output dimensions. Inspect the rendered caption bounds and closing frame before delivery.
 
 The Manim driver owns silent visuals and exact frames. It rejects source-side audio so the existing ATET composition remains the audio owner. That separation lets an agent revise narration or sound independently while preserving the mathematical rendering and provider receipts.
 
