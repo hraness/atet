@@ -4,7 +4,7 @@ import type { z } from "zod";
 
 import type { ApplicationContext } from "./context";
 
-export const SLOPCAMERA_APPLICATION_TOOL_VERSION = "slopcamera-3.2.4" as const;
+export const SLOPCAMERA_APPLICATION_TOOL_VERSION = "slopcamera-3.2.5" as const;
 
 export const OPERATION_KINDS = [
   "scene.inspect",
