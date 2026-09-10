@@ -12,11 +12,11 @@ or production-only variable.
 - Vercel project: `slopcamera`, ID `prj_RvNXCVvEYKYhW71OA1442SAILmAS`.
 - Root directory: `apps/web`.
 - Production branch: `main`.
-- Canonical Production domain: `slop.camera`.
-- Secondary domain: `slopcamera.com` permanently redirects to `slop.camera`.
+- Canonical Production domain: `slopcamera.com`.
+- Secondary domain: `slop.camera` permanently redirects to `slopcamera.com`.
 - Reviewed predecessor redirects: `atet.sh`, `hraness.graphics`,
   `hraness.studio`, `transmute.rocks`, and `www.transmute.rocks` permanently
-  redirect the same path and query to `slop.camera`.
+  redirect the same path and query to `slopcamera.com`.
 - Production Vercel alias: `slopcamera-hraness.vercel.app`.
 
 Do not create a custom Vercel environment, a provider-authoritative Preview
@@ -33,7 +33,7 @@ key. `NEXT_PUBLIC_POSTHOG_HOST` may be omitted; when present it must equal
 
 The build emits no analytics asset when the token is missing or `VERCEL_ENV`
 is not `production`. The bundled client also checks for the exact
-`https://slop.camera/` page before it initializes or sends an event. Built-in
+`https://slopcamera.com/` page before it initializes or sends an event. Built-in
 Preview deployments, predecessor hosts, and `404.html` remain inert. Keep
 PostHog's cookieless server hash mode enabled.
 

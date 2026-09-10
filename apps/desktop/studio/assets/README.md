@@ -2,7 +2,7 @@
 
 This adapter finds free Poly Haven assets and imports an explicitly selected file set into a local studio source directory. Search and import results identify Poly Haven, retain the artists' credits, and distinguish the CC0 asset license from the API service terms.
 
-Poly Haven's current API terms permit personal and commercial use without a key or payment. API clients must identify their application and make the source of surfaced content clear. SLOPCAMERA sends `SLOPCAMERA/StudioAssets (+https://slop.camera)` and returns `Powered by Poly Haven`. The assets themselves remain CC0 without an attribution requirement. These terms were checked on September 9, 2026 against the [current API terms](https://raw.githubusercontent.com/Poly-Haven/Public-API/master/ToS.md), the [July 18 API announcement](https://polyhaven.com/our-api), and the [asset license](https://polyhaven.com/license).
+Poly Haven's current API terms permit personal and commercial use without a key or payment. API clients must identify their application and make the source of surfaced content clear. SLOPCAMERA sends `SLOPCAMERA/StudioAssets (+https://slopcamera.com)` and returns `Powered by Poly Haven`. The assets themselves remain CC0 without an attribution requirement. These terms were checked on September 9, 2026 against the [current API terms](https://raw.githubusercontent.com/Poly-Haven/Public-API/master/ToS.md), the [July 18 API announcement](https://polyhaven.com/our-api), and the [asset license](https://polyhaven.com/license).
 
 ## Service interface
 

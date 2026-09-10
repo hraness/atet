@@ -3,7 +3,7 @@ import { canonicalJson, boundedCanonicalJsonSha256 } from "../../../../src/code/
 import { createBoundedJsonValueSnapshot, deepFreezeJson } from "../../../../src/code/json-snapshot";
 import { StudioPathSchema } from "../../../../src/studio";
 
-export const POLY_HAVEN = Object.freeze({ provider: "poly-haven" as const, api: "https://api.polyhaven.com", download: "https://dl.polyhaven.org", credit: "Powered by Poly Haven", homepage: "https://polyhaven.com", license: "CC0-1.0", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/", termsUrl: "https://github.com/Poly-Haven/Public-API/blob/master/ToS.md", userAgent: "SLOPCAMERA/StudioAssets (+https://slop.camera)" });
+export const POLY_HAVEN = Object.freeze({ provider: "poly-haven" as const, api: "https://api.polyhaven.com", download: "https://dl.polyhaven.org", credit: "Powered by Poly Haven", homepage: "https://polyhaven.com", license: "CC0-1.0", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/", termsUrl: "https://github.com/Poly-Haven/Public-API/blob/master/ToS.md", userAgent: "SLOPCAMERA/StudioAssets (+https://slopcamera.com)" });
 export const ASSET_LIMITS = Object.freeze({ jsonBytes: 4 * 1024 * 1024, fileBytes: 128 * 1024 * 1024, totalBytes: 512 * 1024 * 1024, files: 64, requestMs: 120_000 });
 export const AssetIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,127}$/u);
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);

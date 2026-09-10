@@ -1,6 +1,6 @@
 # Slopcamera
 
-[![Slopcamera: a visual studio for coding agents](https://slop.camera/og.png)](https://slop.camera)
+[![Slopcamera: a visual studio for coding agents](https://slopcamera.com/og.png)](https://slopcamera.com)
 
 **Slopcamera is a local visual studio for coding agents. Author scenes, combine
 generated and recorded media, and export images, diagrams, animation, and video
@@ -12,7 +12,7 @@ direct cameras, edit a composition, and render the result. A separate MCP server
 exposes a fixed diagram and image toolset. There is no Slopcamera account or hosted
 project database.
 
-[Install](#install-slopcamera) · [Make a first diagram](#make-your-first-diagram) · [Capabilities](#what-slopcamera-does) · [Documentation](docs/README.md) · [slop.camera](https://slop.camera)
+[Install](#install-slopcamera) · [Make a first diagram](#make-your-first-diagram) · [Capabilities](#what-slopcamera-does) · [Documentation](docs/README.md) · [slopcamera.com](https://slopcamera.com)
 
 ## Why Slopcamera
 

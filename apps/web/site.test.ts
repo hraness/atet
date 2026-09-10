@@ -348,7 +348,7 @@ describe("static Slopcamera site", () => {
   })
 
   test("keeps product Ask AI links off utility pages", async () => {
-    const subjectUrl = "https://slop.camera/"
+    const subjectUrl = "https://slopcamera.com/"
     const prompt = `Tell me about ${subjectUrl}`
     const row = renderAskAiAboutThis(subjectUrl)
     const providers = [
@@ -452,7 +452,7 @@ describe("static Slopcamera site", () => {
     expect(readme).toContain("slopcamera workflows show social-variants --json")
     expect(readme).toContain("[`CONTRIBUTING.md`](CONTRIBUTING.md)")
     expect(readme).not.toMatch(/checked step|checked path|bounded capability|delivery variant/i)
-    expect(readme).not.toContain("https://slop.camera/docs")
+    expect(readme).not.toContain("https://slopcamera.com/docs")
   })
 
   test("publishes one canonical Slopcamera identity across discovery metadata", async () => {
@@ -464,15 +464,15 @@ describe("static Slopcamera site", () => {
     expect(html).toContain(`<meta name="twitter:description" content="${searchDescription}">`)
     expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
     expect(html).not.toContain('<meta name="keywords"')
-    expect(html).toContain('<link rel="canonical" href="https://slop.camera/">')
+    expect(html).toContain('<link rel="canonical" href="https://slopcamera.com/">')
     expect(html).toContain('<link rel="alternate" type="text/markdown" href="/index.md">')
     expect(html).toContain('<link rel="describedby" href="/llms.txt">')
-    expect(html).toContain('<meta property="og:url" content="https://slop.camera/">')
-    expect(html).toContain('<meta property="og:image" content="https://slop.camera/og.png">')
+    expect(html).toContain('<meta property="og:url" content="https://slopcamera.com/">')
+    expect(html).toContain('<meta property="og:image" content="https://slopcamera.com/og.png">')
     expect(html).toContain('<meta property="og:image:width" content="1200">')
     expect(html).toContain('<meta property="og:image:height" content="630">')
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image">')
-    expect(html).toContain('<meta name="twitter:image" content="https://slop.camera/og.png">')
+    expect(html).toContain('<meta name="twitter:image" content="https://slopcamera.com/og.png">')
     expect(html).toContain('<meta name="twitter:image:alt" content="Slopcamera, a visual studio for coding agents, beside a camera-frame and lens motif">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
@@ -499,7 +499,7 @@ describe("static Slopcamera site", () => {
       expect(html).toMatch(/<main aria-labelledby="preview-title" class="preview-shell [^"]+">/u)
       expect(html).toContain("Make and edit visual media with your coding agent.")
       expect(html).toContain('<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">')
-      expect(html).toContain('<link rel="canonical" href="https://slop.camera/">')
+      expect(html).toContain('<link rel="canonical" href="https://slopcamera.com/">')
       expect(html).not.toMatch(/<script\b|<style\b|\sstyle\s*=|<a\b|<button\b|<form\b|<input\b|<select\b|<textarea\b|contenteditable/iu)
       expect(html).not.toMatch(/analytics|posthog|account|authentication|authorization|sign[ -]?in|user data/iu)
       expect(html).not.toContain('rel="alternate"')
@@ -605,8 +605,8 @@ describe("static Slopcamera site", () => {
     const foundation = await readBuilt(builtAssets.previewFoundationPath.slice(1))
     expect(foundation.match(/@font-face\b/gu)).toHaveLength(13)
     expect([...foundation.matchAll(/url\(["']?([^"')]+)["']?\)/gu)].map(match => {
-      const url = new URL(match[1]!, `https://slop.camera${builtAssets.previewFoundationPath}`)
-      expect(url.origin).toBe("https://slop.camera")
+      const url = new URL(match[1]!, `https://slopcamera.com${builtAssets.previewFoundationPath}`)
+      expect(url.origin).toBe("https://slopcamera.com")
       return url.pathname.slice(1)
     }).sort()).toEqual([...fonts].sort())
     expect(foundation).not.toMatch(/sourceMappingURL|@import\b/u)
@@ -637,8 +637,8 @@ describe("static Slopcamera site", () => {
     const union = await readBuilt(builtAssets.stylesPath.slice(1))
     expect(foundation.match(/@font-face\b/gu)).toHaveLength(13)
     expect([...foundation.matchAll(/url\(["']?([^"')]+)["']?\)/gu)].map(match => {
-      const url = new URL(match[1]!, "https://slop.camera" + builtAssets.siteFoundationPath)
-      expect(url.origin).toBe("https://slop.camera")
+      const url = new URL(match[1]!, "https://slopcamera.com" + builtAssets.siteFoundationPath)
+      expect(url.origin).toBe("https://slopcamera.com")
       return url.pathname.slice(1)
     }).sort()).toEqual([...fonts].sort())
     expect(foundation).not.toMatch(/sourceMappingURL|@import\b/u)
@@ -682,38 +682,38 @@ describe("static Slopcamera site", () => {
         sameAs: ["https://github.com/hraness"],
       }),
       expect.objectContaining({
-        "@id": "https://slop.camera/#website",
+        "@id": "https://slopcamera.com/#website",
         "@type": "WebSite",
         description: searchDescription,
         inLanguage: "en",
         publisher: { "@id": "https://hraness.com/#organization" },
       }),
       expect.objectContaining({
-        "@id": "https://slop.camera/#webpage",
+        "@id": "https://slopcamera.com/#webpage",
         "@type": "WebPage",
-        isPartOf: { "@id": "https://slop.camera/#website" },
-        mainEntity: { "@id": "https://slop.camera/#software" },
+        isPartOf: { "@id": "https://slopcamera.com/#website" },
+        mainEntity: { "@id": "https://slopcamera.com/#software" },
         publisher: { "@id": "https://hraness.com/#organization" },
       }),
       expect.objectContaining({
-        "@id": "https://slop.camera/#software",
+        "@id": "https://slopcamera.com/#software",
         "@type": "SoftwareApplication",
         description: searchDescription,
         author: { "@id": "https://hraness.com/#organization" },
-        installUrl: "https://slop.camera/#install",
+        installUrl: "https://slopcamera.com/#install",
         publisher: { "@id": "https://hraness.com/#organization" },
         sameAs: ["https://github.com/hraness/slopcamera"],
         softwareRequirements: "Git and Bun 1.3.14; install from source",
       }),
       expect.objectContaining({
-        "@id": "https://slop.camera/#source",
+        "@id": "https://slopcamera.com/#source",
         "@type": "SoftwareSourceCode",
         author: { "@id": "https://hraness.com/#organization" },
         codeRepository: "https://github.com/hraness/slopcamera",
-        targetProduct: { "@id": "https://slop.camera/#software" },
+        targetProduct: { "@id": "https://slopcamera.com/#software" },
       }),
       expect.objectContaining({
-        "@id": "https://slop.camera/#questions",
+        "@id": "https://slopcamera.com/#questions",
         "@type": "FAQPage",
         mainEntity: expect.arrayContaining([
           expect.objectContaining({
@@ -999,7 +999,7 @@ describe("static Slopcamera site", () => {
 
     expect(generatedSocial).toEqual(social)
     expect(new Bun.CryptoHasher("sha256").update(social).digest("hex")).toBe(
-      "8238c2765dfb3ad2ef1a67d55f471453ef3aefbd33d92cbe8542cea7892c33ab",
+      "562c4e9b1d0a41c513cf228bf987f4ad04f03b23ab6b83c43c616c0c50690239",
     )
     expect(Array.from(social.slice(1, 4))).toEqual([80, 78, 71])
     expect(socialView.getUint32(16)).toBe(1200)
@@ -1129,31 +1129,31 @@ describe("static Slopcamera site", () => {
   })
 
   test("allows only a canonical cookieless Slopcamera pageview", () => {
-    expect(isCanonicalAnalyticsPage({ origin: "https://slop.camera", pathname: "/" })).toBe(true)
-    expect(isCanonicalAnalyticsPage({ origin: "https://preview.slop.camera", pathname: "/" })).toBe(false)
-    expect(isCanonicalAnalyticsPage({ origin: "https://slop.camera", pathname: "/404" })).toBe(false)
+    expect(isCanonicalAnalyticsPage({ origin: "https://slopcamera.com", pathname: "/" })).toBe(true)
+    expect(isCanonicalAnalyticsPage({ origin: "https://preview.slopcamera.com", pathname: "/" })).toBe(false)
+    expect(isCanonicalAnalyticsPage({ origin: "https://slopcamera.com", pathname: "/404" })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://slop.camera",
+      origin: "https://slopcamera.com",
       pathname: "/reading/draw-faces-with-javascript",
     })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://slop.camera",
+      origin: "https://slopcamera.com",
       pathname: "/reading/feynobg",
     })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://slop.camera",
+      origin: "https://slopcamera.com",
       pathname: "/reading/painting-with-gaussians",
     })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://slop.camera",
+      origin: "https://slopcamera.com",
       pathname: "/reading/gemini-omni",
     })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://slop.camera",
+      origin: "https://slopcamera.com",
       pathname: "/reading/paint-with-code",
     })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://slop.camera",
+      origin: "https://slopcamera.com",
       pathname: "/reading/how-i-design-with-ai",
     })).toBe(false)
 
@@ -1162,7 +1162,7 @@ describe("static Slopcamera site", () => {
       event: "$pageview",
       properties: {
         $cookieless_mode: true,
-        $current_url: "https://slop.camera/?private=value#fragment",
+        $current_url: "https://slopcamera.com/?private=value#fragment",
         $device_id: "device",
         $pathname: "/",
         $raw_user_agent: "Slopcamera test browser",
@@ -1353,8 +1353,8 @@ describe("static Slopcamera site", () => {
     ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1])
     expect(locations).toEqual([
-      "https://slop.camera/",
-      "https://slop.camera/index.md",
+      "https://slopcamera.com/",
+      "https://slopcamera.com/index.md",
     ])
     expect(await readBuilt("index.md")).toBe(homeMarkdown)
     expect(await readBuilt("llms.txt")).toBe(llmsTxt)
@@ -1380,21 +1380,21 @@ describe("static Slopcamera site", () => {
     }
     expect(robotsTxt).toContain("User-agent: *\nAllow: /")
     expect(robotsTxt).not.toMatch(/^\s*Disallow:/mu)
-    expect(robotsTxt).toContain("Sitemap: https://slop.camera/sitemap.xml")
+    expect(robotsTxt).toContain("Sitemap: https://slopcamera.com/sitemap.xml")
     expect(sitemap).not.toContain("xmlns:image")
     expect(sitemap).toBe(renderSitemapXml())
     expect(llmsTxt).toMatch(/^# Slopcamera\n/u)
     expect(llmsTxt).toContain("> Slopcamera is a local visual studio for coding agents.")
     expect(llmsTxt).toContain("## When to use Slopcamera")
-    expect(llmsTxt).toContain("https://slop.camera/index.md")
+    expect(llmsTxt).toContain("https://slopcamera.com/index.md")
     expect(sitemapMarkdown).toMatch(/^# Sitemap\n/u)
-    expect(sitemapMarkdown).toContain("https://slop.camera/index.md")
-    expect(sitemapMarkdown).toContain("https://slop.camera/llms.txt")
+    expect(sitemapMarkdown).toContain("https://slopcamera.com/index.md")
+    expect(sitemapMarkdown).toContain("https://slopcamera.com/llms.txt")
     expect(homeMarkdown).toContain("## Sitemap")
-    expect(homeMarkdown).toContain("https://slop.camera/sitemap.md")
+    expect(homeMarkdown).toContain("https://slopcamera.com/sitemap.md")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
-    expect(notFoundMarkdown).toContain("https://slop.camera/llms.txt")
-    expect(notFoundMarkdown).toContain("https://slop.camera/sitemap.xml")
+    expect(notFoundMarkdown).toContain("https://slopcamera.com/llms.txt")
+    expect(notFoundMarkdown).toContain("https://slopcamera.com/sitemap.xml")
   })
 
   test("routes documentation to its canonical index and preserves reviewed predecessor hosts", async () => {
@@ -1430,29 +1430,29 @@ describe("static Slopcamera site", () => {
       { source: "/docs/:path*", destination: "https://github.com/hraness/slopcamera/blob/main/docs/README.md", permanent: true },
     ])
     expect(hostRedirects).toEqual([
-      { source: "/", host: { type: "host", value: "slopcamera.com" }, destination: "https://slop.camera/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "slopcamera.com" }, destination: "https://slop.camera/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "atet.sh" }, destination: "https://slop.camera/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "atet.sh" }, destination: "https://slop.camera/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "transmute.rocks" }, destination: "https://slop.camera/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "transmute.rocks" }, destination: "https://slop.camera/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://slop.camera/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://slop.camera/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "hraness.graphics" }, destination: "https://slop.camera/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "hraness.graphics" }, destination: "https://slop.camera/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "hraness.studio" }, destination: "https://slop.camera/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "hraness.studio" }, destination: "https://slop.camera/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "slop.camera" }, destination: "https://slopcamera.com/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "slop.camera" }, destination: "https://slopcamera.com/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "atet.sh" }, destination: "https://slopcamera.com/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "atet.sh" }, destination: "https://slopcamera.com/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "transmute.rocks" }, destination: "https://slopcamera.com/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "transmute.rocks" }, destination: "https://slopcamera.com/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://slopcamera.com/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://slopcamera.com/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "hraness.graphics" }, destination: "https://slopcamera.com/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "hraness.graphics" }, destination: "https://slopcamera.com/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "hraness.studio" }, destination: "https://slopcamera.com/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "hraness.studio" }, destination: "https://slopcamera.com/:path*", permanent: true },
     ])
 
     for (const redirect of hostRedirects) {
       const sourceHost = redirect.host?.value
-      expect(sourceHost).not.toBe("slop.camera")
+      expect(sourceHost).not.toBe("slopcamera.com")
       expect(new URL(redirect.destination?.replace(":path*", "") ?? "https://invalid").host)
         .not.toBe(sourceHost)
     }
 
     expect(new Set(hostRedirects.map(redirect => redirect.host?.value))).toEqual(new Set([
-      "slopcamera.com",
+      "slop.camera",
       "atet.sh",
       "transmute.rocks",
       "www.transmute.rocks",
@@ -1503,7 +1503,7 @@ describe("static Slopcamera site", () => {
     expect(previewByKey.get("X-Robots-Tag")).toBe(
       "noindex, nofollow, noarchive, nosnippet",
     )
-    expect(previewByKey.get("Link")).toBe('<https://slop.camera/>; rel="canonical"')
+    expect(previewByKey.get("Link")).toBe('<https://slopcamera.com/>; rel="canonical"')
     for (const key of [
       "Permissions-Policy",
       "Referrer-Policy",
@@ -1654,7 +1654,7 @@ describe("static Slopcamera site", () => {
     expect(isNegotiableDocumentPath("/index.md")).toBe(false)
     expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
 
-    const markdownHome = negotiateSiteRequest(new Request("https://slop.camera/", {
+    const markdownHome = negotiateSiteRequest(new Request("https://slopcamera.com/", {
       headers: { Accept: "text/markdown" },
     }))
     expect(markdownHome?.status).toBe(200)
@@ -1663,14 +1663,14 @@ describe("static Slopcamera site", () => {
     expect(markdownHome?.headers.get("link")).toContain('rel="canonical"')
     expect(await markdownHome?.text()).toBe(homeMarkdown)
 
-    expect(negotiateSiteRequest(new Request("https://slop.camera/", {
+    expect(negotiateSiteRequest(new Request("https://slopcamera.com/", {
       headers: { Accept: "text/html" },
     }))).toBeUndefined()
-    expect(negotiateSiteRequest(new Request("https://slop.camera/docs", {
+    expect(negotiateSiteRequest(new Request("https://slopcamera.com/docs", {
       headers: { Accept: "text/markdown" },
     }))).toBeUndefined()
 
-    const markdownNotFound = negotiateSiteRequest(new Request("https://slop.camera/this-path-does-not-exist", {
+    const markdownNotFound = negotiateSiteRequest(new Request("https://slopcamera.com/this-path-does-not-exist", {
       headers: { Accept: "text/markdown" },
     }))
     expect(markdownNotFound?.status).toBe(404)
@@ -1680,7 +1680,7 @@ describe("static Slopcamera site", () => {
     expect(markdownNotFound?.headers.get("x-robots-tag")).toBe("noindex")
     expect(await markdownNotFound?.text()).toBe(notFoundMarkdown)
 
-    const notAcceptable = negotiateSiteRequest(new Request("https://slop.camera/", {
+    const notAcceptable = negotiateSiteRequest(new Request("https://slopcamera.com/", {
       headers: { Accept: "application/xml" },
     }))
     expect(notAcceptable?.status).toBe(406)
@@ -1688,12 +1688,12 @@ describe("static Slopcamera site", () => {
     expect(notAcceptable?.headers.get("vary")).toBe("Accept")
     expect(await notAcceptable?.text()).toBe(notAcceptableBody)
 
-    expect(negotiateSiteRequest(new Request("https://slop.camera/llms.txt", {
+    expect(negotiateSiteRequest(new Request("https://slopcamera.com/llms.txt", {
       headers: { Accept: "application/xml" },
     }))).toBeUndefined()
 
     for (const accept of ["text/markdown", "application/xml", "text/html;q=0, */*;q=1"]) {
-      const preview = new Request("https://slop.camera/preview", {
+      const preview = new Request("https://slopcamera.com/preview", {
         headers: { Accept: accept },
       })
       const negotiated = negotiateSiteRequest(preview)
@@ -1708,14 +1708,14 @@ describe("static Slopcamera site", () => {
     }
 
     for (const accept of ["text/html", "*/*"]) {
-      const preview = new Request("https://slop.camera/preview", {
+      const preview = new Request("https://slopcamera.com/preview", {
         headers: { Accept: accept },
       })
       expect(negotiateSiteRequest(preview)).toBeUndefined()
       expect(middleware(preview)).toBeUndefined()
     }
 
-    const headMarkdown = negotiateSiteRequest(new Request("https://slop.camera/", {
+    const headMarkdown = negotiateSiteRequest(new Request("https://slopcamera.com/", {
       headers: { Accept: "text/markdown" },
       method: "HEAD",
     }))
@@ -1723,7 +1723,7 @@ describe("static Slopcamera site", () => {
     expect(headMarkdown?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
     expect(await headMarkdown?.text()).toBe("")
 
-    const headNotFound = negotiateSiteRequest(new Request("https://slop.camera/missing-route", {
+    const headNotFound = negotiateSiteRequest(new Request("https://slopcamera.com/missing-route", {
       headers: { Accept: "text/markdown" },
       method: "HEAD",
     }))
@@ -1731,7 +1731,7 @@ describe("static Slopcamera site", () => {
     expect(await headNotFound?.text()).toBe("")
 
     for (const path of ["/", "/preview"]) {
-      const headNotAcceptable = negotiateSiteRequest(new Request(`https://slop.camera${path}`, {
+      const headNotAcceptable = negotiateSiteRequest(new Request(`https://slopcamera.com${path}`, {
         headers: { Accept: "application/xml" },
         method: "HEAD",
       }))
@@ -1739,7 +1739,7 @@ describe("static Slopcamera site", () => {
       expect(headNotAcceptable?.headers.get("vary")).toBe("Accept")
       expect(await headNotAcceptable?.text()).toBe("")
 
-      const headHtml = new Request(`https://slop.camera${path}`, {
+      const headHtml = new Request(`https://slopcamera.com${path}`, {
         headers: { Accept: "text/html" },
         method: "HEAD",
       })
@@ -1750,7 +1750,7 @@ describe("static Slopcamera site", () => {
     for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
       for (const path of ["/", "/missing-route", "/preview"]) {
         for (const accept of ["text/markdown", "application/xml", "text/html"]) {
-          const url = `https://slop.camera${path}`
+          const url = `https://slopcamera.com${path}`
           expect(negotiateSiteRequest(new Request(url, {
             headers: { Accept: accept },
             method,
@@ -1764,7 +1764,7 @@ describe("static Slopcamera site", () => {
     }
 
     expect(middlewareConfig.matcher).toContain("/")
-    const middlewareMarkdown = middleware(new Request("https://slop.camera/", {
+    const middlewareMarkdown = middleware(new Request("https://slopcamera.com/", {
       headers: { Accept: "text/markdown" },
     }))
     expect(middlewareMarkdown?.status).toBe(200)
@@ -1779,7 +1779,7 @@ describe("static Slopcamera site", () => {
       "paint-with-code",
       "how-i-design-with-ai",
     ]) {
-      const removed = negotiateSiteRequest(new Request(`https://slop.camera/reading${slug === "" ? "" : `/${slug}`}`, {
+      const removed = negotiateSiteRequest(new Request(`https://slopcamera.com/reading${slug === "" ? "" : `/${slug}`}`, {
         headers: { Accept: "text/markdown" },
       }))
       expect(removed?.status).toBe(404)
@@ -1789,7 +1789,7 @@ describe("static Slopcamera site", () => {
       expect(removed?.headers.get("x-robots-tag")).toBe("noindex")
       expect(await removed?.text()).toBe(notFoundMarkdown)
 
-      expect(negotiateSiteRequest(new Request(`https://slop.camera/reading${slug === "" ? "" : `/${slug}`}`, {
+      expect(negotiateSiteRequest(new Request(`https://slopcamera.com/reading${slug === "" ? "" : `/${slug}`}`, {
         headers: { Accept: "text/html" },
       }))).toBeUndefined()
     }

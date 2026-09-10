@@ -10,7 +10,7 @@ const sha256 = (value: Uint8Array | string) => createHash("sha256").update(value
 
 export async function renderSlopcameraIcons(): Promise<Readonly<{ apple: Uint8Array; desktop: Uint8Array; sourceSha256: string }>> {
   const [source, webSource, manifest] = await Promise.all([
-    readFile(join(desktop, "brand-emoji/slop.camera.svg"), "utf8"),
+    readFile(join(desktop, "brand-emoji/slopcamera.com.svg"), "utf8"),
     readFile(join(app, "src/icon.svg"), "utf8"),
     readFile(fileURLToPath(import.meta.resolve("@resvg/resvg-js/package.json")), "utf8"),
   ])
@@ -35,7 +35,7 @@ if (import.meta.main) {
   await writeFile(join(desktop, "brand-provenance.json"), `${JSON.stringify({
     kind: "slopcamera.original-vector-brand", schemaVersion: 1,
     authorship: "Original repository-authored SVG camera artwork; no model generation or external image source.",
-    source: { path: "brand-emoji/slop.camera.svg", sha256: result.sourceSha256 },
+    source: { path: "brand-emoji/slopcamera.com.svg", sha256: result.sourceSha256 },
     renderer: { name: "@resvg/resvg-js", version: "2.6.2", systemFonts: false },
     outputs: [
       { path: "icon.png", width: 1024, height: 1024, bytes: result.desktop.byteLength, sha256: sha256(result.desktop) },

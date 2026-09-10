@@ -1,6 +1,6 @@
 # Contents
 
-- `brand-emoji/slop.camera.svg` is the original Slopcamera camera mark; `manifest.json` binds its bytes, camera emoji identity, and actual `color` variant.
+- `brand-emoji/slopcamera.com.svg` is the original Slopcamera camera mark; `manifest.json` binds its bytes, camera emoji identity, and actual `color` variant.
 - `icon.png` is its 1024-pixel desktop derivative. `brand-provenance.json` records the vector source and deterministic icon derivatives.
 
 # Guidelines

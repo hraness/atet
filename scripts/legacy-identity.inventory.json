@@ -1268,7 +1268,7 @@
   },
   {
     "identityLineCount": 83,
-    "identityLinesSha256": "d6a26efa5e108895676474e2e71f2129387abfd1408c53406abbd0c3649ef553",
+    "identityLinesSha256": "c9c2d98c438fd4b016e76569c28ae8398f7a471b1619616e9849850594a8bc19",
     "occurrenceCount": 443,
     "path": "apps/desktop/dist/cli/main.js",
     "categories": [
@@ -1323,7 +1323,7 @@
   },
   {
     "identityLineCount": 7,
-    "identityLinesSha256": "fd8740c2eb08d4c1c8fe8c6d873ed0c2161e3d5060c9b35ca3b0af203376475a",
+    "identityLinesSha256": "18ce3b3fb4c4c827b517ea11e9ee3c99f252da849003d31ac3e1f71911d7a7e1",
     "occurrenceCount": 8,
     "path": "apps/desktop/studio/assets/contracts.ts",
     "categories": [
@@ -1350,7 +1350,7 @@
   },
   {
     "identityLineCount": 6,
-    "identityLinesSha256": "345eb4e0d0856194cb103820496dee85230f0c11531baa9ed789ba778de14bc2",
+    "identityLinesSha256": "80cf3284cb68aee7182d958b5b03b586c40b13f5e5508a4053f59e940bb50862",
     "occurrenceCount": 6,
     "path": "apps/desktop/studio/assets/README.md",
     "categories": [
@@ -1467,7 +1467,7 @@
   },
   {
     "identityLineCount": 12,
-    "identityLinesSha256": "a307bd8e758fd38283d4a6f1247ba7a520c6372498e223704af68f7098304344",
+    "identityLinesSha256": "3a450286421afe435b7827db9cc43d9c98e52fd0828b02030a4b3edaba6985fd",
     "occurrenceCount": 12,
     "path": "apps/web/site.test.ts",
     "categories": [
@@ -1476,7 +1476,7 @@
   },
   {
     "identityLineCount": 9,
-    "identityLinesSha256": "c37d7a3884863b6563b685038d213ffe9202b8789758a8c7413e4e90bca411dd",
+    "identityLinesSha256": "63c8e2f9fc935fbe5c8e762a64000929f85c3f2c1db33dbb2a3de07609945509",
     "occurrenceCount": 10,
     "path": "apps/web/src/agent-pages.ts",
     "categories": [
@@ -1485,7 +1485,7 @@
   },
   {
     "identityLineCount": 14,
-    "identityLinesSha256": "2ea2183651eccaf40fe8a547ac3bb413eae0c9668ada636168fff37baa1426ae",
+    "identityLinesSha256": "bcd4c2a31cdc143aaee67690c05b2557fbc7065beecc7e1434d238fab0872983",
     "occurrenceCount": 17,
     "path": "apps/web/src/index.html",
     "categories": [
@@ -1801,7 +1801,7 @@
   },
   {
     "identityLineCount": 5,
-    "identityLinesSha256": "151126d3b3c0ab9969d2289813a4f5483a78c163e7bf5bdb2c1b8d1f7c21a7b9",
+    "identityLinesSha256": "b76841a85f70d75b00b04bf94e293fc9b8a05caa2eb39facacce2beeda7a8b6e",
     "occurrenceCount": 7,
     "path": "README.md",
     "categories": [

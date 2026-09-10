@@ -42,7 +42,7 @@ describe("visual studio public copy (pure, process-free)", () => {
     ])
     expect(icon.desktop).toEqual(new Uint8Array(desktop))
     expect(icon.apple).toEqual(new Uint8Array(apple))
-    expect(JSON.parse(manifest).assets[0]).toMatchObject({ domain: "slop.camera", emoji: "📷", codePointID: "1f4f7", sha256: icon.sourceSha256 })
+    expect(JSON.parse(manifest).assets[0]).toMatchObject({ domain: "slopcamera.com", emoji: "📷", codePointID: "1f4f7", sha256: icon.sourceSha256 })
     expect(JSON.parse(provenance).source.sha256).toBe(icon.sourceSha256)
     for (const output of JSON.parse(provenance).outputs as { path: string; bytes: number; sha256: string }[]) {
       const bytes = output.path === "icon.png" ? desktop : apple
