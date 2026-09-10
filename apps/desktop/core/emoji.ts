@@ -187,7 +187,7 @@ export function createEmojiAssetProvider(
           path,
           provenance: {
             command: ["bun", "run", "emoji-pack:generate"],
-            generator: "atet-emoji-pack",
+            generator: "slopcamera-emoji-pack",
             generatorVersion: manifest.provenance.vtracerVersion,
             kind: "generated",
             sourceSha256: item.sourcePngSha256,

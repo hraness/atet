@@ -148,13 +148,13 @@ function serve(payload: Payload) {
 }
 
 async function findChrome(): Promise<string> {
-  for (const candidate of [process.env.ATET_CHROME_PATH, process.env.CHROME_PATH, "/usr/bin/google-chrome",
+  for (const candidate of [process.env.SLOPCAMERA_CHROME_PATH, process.env.CHROME_PATH, "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]) {
     if (candidate === undefined || candidate === "") continue
     try { await access(candidate, constants.X_OK); return candidate } catch { /* Try the next explicit executable. */ }
   }
-  throw new Error("Chrome is required; set ATET_CHROME_PATH")
+  throw new Error("Chrome is required; set SLOPCAMERA_CHROME_PATH")
 }
 
 export function parsePreviewEndpoint(text: string): { port: number; browserPath: string } {
@@ -251,7 +251,7 @@ export function previewFailureSummary(error: unknown): string {
     } catch { /* A foreign aggregate cannot escape the bounded public summary. */ }
   }
   visit(error, 0)
-  return `atet-preview: verification failed: ${JSON.stringify(summaries).slice(0, 4096)}`
+  return `slopcamera-preview: verification failed: ${JSON.stringify(summaries).slice(0, 4096)}`
 }
 
 export interface EndpointEvidence {
@@ -384,7 +384,7 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
     const current = await cancellation.wait(async () => readPayload(await realpath(appDirectory)))
     const baseline = options.baseline === undefined ? undefined : await cancellation.wait(() => readPayload(options.baseline!, options.manifest))
     // Capture every resource acquisition before cancellation can enter cleanup.
-    profile = await mkdtemp(join(await realpath(tmpdir()), "atet-preview-layout-"))
+    profile = await mkdtemp(join(await realpath(tmpdir()), "slopcamera-preview-layout-"))
     cancellation.signal.throwIfAborted()
     const driver = await buildPreviewBrowserDriver(await realpath(appDirectory), profile)
     cancellation.signal.throwIfAborted()
@@ -401,7 +401,7 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
       "--metrics-recording-only", "--mute-audio", "--no-first-run", "--remote-debugging-address=127.0.0.1",
       "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank",
     ] })
-    console.error("atet-preview: browser-started")
+    console.error("slopcamera-preview: browser-started")
     const endpoint = await waitBrowserEndpoint(profile, managed.exited, cancellation.signal, endpointEvidence)
     protocolDirectory = join(profile, "worker-protocol")
     await mkdir(protocolDirectory, { mode: 0o700 })
@@ -427,9 +427,9 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
     worker = spawnVerificationServer({ cwd: appDirectory, detachedProcessGroup: true, logLimit: 12_000,
       omitEnvironment: ["NODE_OPTIONS", "NODE_PATH"],
       command: [node, driver.path, request.appDirectory, requestPath] })
-    console.error("atet-preview: worker-started")
+    console.error("slopcamera-preview: worker-started")
     observation = await observeWorker(protocolDirectory, request, cancellation.signal, worker.exited, () => {
-      console.error("atet-preview: browser-connected")
+      console.error("slopcamera-preview: browser-connected")
     })
     // A result is provisional until genuine zero exit and both Direct custody
     // settlements succeed. A late result can never override cancellation.
@@ -463,12 +463,12 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
     if (worker !== undefined) await collect(async () => {
       await stopVerificationServer(worker!, 5_000)
       workerProcessGroupAbsent = true
-      console.error("atet-preview: worker-collected")
+      console.error("slopcamera-preview: worker-collected")
     }, "worker")
     if (managed !== undefined) await collect(async () => {
       await stopVerificationServer(managed!, 5_000)
       processGroupAbsent = true
-      console.error("atet-preview: browser-collected")
+      console.error("slopcamera-preview: browser-collected")
     }, "chrome")
     if (worker !== undefined) await collect(async () => {
       workerOutput = await bounded(worker!.output, "Bounded worker diagnostic output", 5_000)
@@ -506,14 +506,14 @@ export async function verifyPreview(args: readonly string[] = []): Promise<void>
           const text = Buffer.from(await readPreviewFile(join(profile!, "DevToolsActivePort"), 1024)).toString()
           endpointAtCollection = { text, parsed: parsePreviewEndpoint(text) }
         } catch (error) { endpointAtCollection = errorEvidence(error) }
-        const path = join(profile!, "atet-preview-failure.json")
+        const path = join(profile!, "slopcamera-preview-failure.json")
         const receipt = `${JSON.stringify({ accepted: false, verificationCompleted, cancelled: signal?.aborted === true,
           processGroupAbsent, workerProcessGroupAbsent, endpointEvidence, endpointBeforeCollection, endpointAtCollection,
           profileEntries: entries.sort(), chromeOutput, workerOutput, outputTimeouts,
           cleanupFailures: failures.map(errorEvidence) }, null, 2)}\n`
         assert.ok(outputTimeouts.length <= 2 && Buffer.byteLength(receipt) <= 1024 * 1024, "Excessive private preview failure evidence")
         await writeFile(path, receipt, { flag: "wx", mode: 0o600 })
-        console.error(`atet-preview: failure evidence preserved at ${path}`)
+        console.error(`slopcamera-preview: failure evidence preserved at ${path}`)
       })
     }
     if (failures.length > 0) throw new AggregateError(failures, "Preview resource collection failed")

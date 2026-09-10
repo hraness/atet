@@ -1,12 +1,12 @@
 # Capabilities, versions, and platforms
 
-This reference distinguishes the canonical published CLI from newer repository functionality. A package's version number alone does not identify an unreleased source checkout; inspect its commit and actual command help.
+This reference describes the current Slopcamera CLI and its runtime requirements. A package's version number alone does not identify a source checkout; inspect its commit and actual command help.
 
-## Published release and current source
+## Current Slopcamera and historical Atet
 
-The documented canonical archive is **v3.2.3**, whose source tag resolves to `27e0ce4923002953d0b384e29fbc8ced35e5e789`. The [versioned help source](https://github.com/hraness/atet/blob/v3.2.3/apps/desktop/cli/help.ts) records that release's local host contract. An unreleased checkout may retain that package version while containing newer commands.
+Slopcamera currently installs from [source](../how-to/use-current-source.md); no renamed release archive is available. The historical **Atet v3.2.3** archive contains `@hraness/atet` and the `atet` command. Its tag resolves to `27e0ce4923002953d0b384e29fbc8ced35e5e789`; the [immutable help source](https://github.com/hraness/atet/blob/27e0ce4923002953d0b384e29fbc8ced35e5e789/apps/desktop/cli/help.ts) records its contract. Renaming the repository does not change those archived bytes.
 
-| Surface | v3.2.3 | Current repository |
+| Surface | Historical Atet v3.2.3 | Current Slopcamera source |
 | --- | --- | --- |
 | Diagrams, vectorization, Gateway media, recording, ordinary project edits, local workflows | Available with the relevant local tools and credentials | Available |
 | Editable spatial scenes, calibrated scene cameras, V2 shots, Three hardware and Spark profiles, saved-world import | Available | Available |
@@ -17,20 +17,20 @@ The documented canonical archive is **v3.2.3**, whose source tag resolves to `27
 | Calibrated camera samples: `scene camera-track` | Absent | Available |
 | External vgpu 0.4.1 native example | Absent | Explicit example runtime; not a new registered studio engine |
 
-Use the [canonical install](../../README.md#install-atet) for released behavior. For current-main commands, use a reviewed source checkout and its [source installation](../how-to/use-current-source.md). Do not infer a new public release from examples on `main`, silently switch versions, or use historical paid-world commands as a substitute for the current saved-world workflow.
+Use the Slopcamera source installation for the commands below. Do not substitute the renamed package or executable into an old Atet archive URL, silently switch versions, or use historical paid-world commands as a substitute for the current saved-world workflow.
 
 ## Discover the installed contract
 
 | Need | Discovery command |
 | --- | --- |
-| CLI version and top-level commands | `atet --version`, `atet --help` |
-| Grammar for a command family | `atet help project`, `atet help studio`, `atet help scene` |
-| Local tools and readiness | `atet doctor --json` |
-| Closed local operation catalog and exact schemas | `atet operations list --json`, `atet operations show <kind>[@<version>] --json` |
-| Built-in workflow input schema | `atet workflows list --json`, `atet workflows show <id> --json` |
-| Live Gateway model capabilities | `atet ai models list --type <type> --json`, `atet ai models show <id> --json` |
-| HTML profile locks | `atet html catalog --json` |
-| Version-matched packaged agent instructions | `atet skill path` |
+| CLI version and top-level commands | `slopcamera --version`, `slopcamera --help` |
+| Grammar for a command family | `slopcamera help project`, `slopcamera help studio`, `slopcamera help scene` |
+| Local tools and readiness | `slopcamera doctor --json` |
+| Closed local operation catalog and exact schemas | `slopcamera operations list --json`, `slopcamera operations show <kind>[@<version>] --json` |
+| Built-in workflow input schema | `slopcamera workflows list --json`, `slopcamera workflows show <id> --json` |
+| Live Gateway model capabilities | `slopcamera ai models list --type <type> --json`, `slopcamera ai models show <id> --json` |
+| HTML profile locks | `slopcamera html catalog --json` |
+| Version-matched packaged agent instructions | `slopcamera skill path` |
 
 The portable `code search/execute` and MCP surface has four operations: diagram check, diagram render, image generation, and vectorization. The complete local host has a larger closed registry. Neither surface allows a caller to register arbitrary operations. See [SDK surfaces](sdk.md).
 

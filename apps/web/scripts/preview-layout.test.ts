@@ -147,7 +147,7 @@ const scenario: PreviewCase = { name: "fixture", width: 320, height: 180, dpr: 2
 function evidence(): PreviewEvidence {
   return {
     width: 320, height: 180, dpr: 2, theme: "system", dark: false, forcedColors: false,
-    columns: 2, actions: 0, loadedFonts: 2, text: "Atet", maxScrollY: 240, reachedScrollY: 240,
+    columns: 2, actions: 0, loadedFonts: 2, text: "Slopcamera", maxScrollY: 240, reachedScrollY: 240,
     failures: [], elements: Array.from({ length: 18 }, (_, index) => ({
       key: `element-${index}`, rect: [0, index * 10, 100, 10], styles: { color: "rgb(0, 0, 0)" },
     })),

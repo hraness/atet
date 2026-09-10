@@ -36,7 +36,7 @@ async function render(name:string,sourcePath:string,request:SpatialRenderRequest
   console.log(JSON.stringify({event:"render-start",name,root}));const started=performance.now();
   const input=await bindSpatialRenderInput(application,{source:{path:relative(repositoryRoot,sourcePath)},request});
   const workspaceDirectory=join(application.paths.privateRoot,name);await mkdir(workspaceDirectory,{recursive:true,mode:0o700});
-  const identity={nodeKey:name,nodePlanSha256:hash(name),runId:"creative-qualification",kind:"scene.render" as const,version:1,inputSchemaId:"atet.operation.scene.render.input/v1",outputSchemaId:"atet.operation.scene.render.output/v1"};
+  const identity={nodeKey:name,nodePlanSha256:hash(name),runId:"creative-qualification",kind:"scene.render" as const,version:1,inputSchemaId:"slopcamera.operation.scene.render.input/v1",outputSchemaId:"slopcamera.operation.scene.render.output/v1"};
   const output=await executeSpatialRender({application,abortSignal:new AbortController().signal,workflow:{...identity,workspaceDirectory,beforePublication:async()=>undefined}},input);
   await recoverSpatialRenderOutput(application,input,output,identity,new AbortController().signal);
   const receipt=SpatialRenderReceiptSchema.parse(JSON.parse(await readFile(join(repositoryRoot,output.receipt.path),"utf8")));
@@ -47,7 +47,7 @@ async function render(name:string,sourcePath:string,request:SpatialRenderRequest
 }
 await copyFile(join(repositoryRoot,"src/assets/fonts/nebula-sans/NebulaSans-Book.otf"),join(sourceRoot,"font.otf"));
 await sharp(Buffer.from(cameraContactShadowSvg)).png().toFile(join(sourceRoot,"shadow.png"));
-async function asset(assetId:string,path:string,interpretation:SpatialAssetManifest["interpretation"]):Promise<SpatialAssetManifest>{const bytes=await readFile(join(sourceRoot,path));return{assetId,payload:{path,bytes:bytes.length,sha256:hash(bytes)},interpretation,dependencies:[],provenance:{source:"authored",description:"ATET authored creative sample"}};}
+async function asset(assetId:string,path:string,interpretation:SpatialAssetManifest["interpretation"]):Promise<SpatialAssetManifest>{const bytes=await readFile(join(sourceRoot,path));return{assetId,payload:{path,bytes:bytes.length,sha256:hash(bytes)},interpretation,dependencies:[],provenance:{source:"authored",description:"SLOPCAMERA authored creative sample"}};}
 const font=await asset("asset_font","font.otf",{kind:"font",format:"otf",family:"Nebula Sans"});
 const shadow=await asset("asset_shadow","shadow.png",{kind:"image",width:512,height:512,colorSpace:"srgb",alpha:"straight",mimeType:"image/png"});
 await writeFile(join(sourceRoot,"rounded-body.glb"),cameraBodyGlb());
@@ -68,7 +68,7 @@ const comparison={meanAbsoluteChannelError:absoluteError/actualPixels.length,cha
   timingScope:{repetitions:1,order:["hardware contact","hardware frame","software frame"],libraryCache:"Shared initially empty directory; frame runs reuse the contact's downloaded modules",browserState:"Fresh isolated process per render; browser/runtime caches may be warm",claim:"Observed end-to-end ratio only; not a GPU throughput benchmark"}};
 // Cross-device raster edges may differ; this is a declared visual tolerance, not byte equality.
 assert.ok(comparison.meanAbsoluteChannelError<1.5&&comparison.channelsBeyondTwoLevels<.015,"hardware raster differs beyond declared preview fidelity tolerance");
-const variant=applySpatialScenePatch(source,{kind:"atet.spatial-scene-patch",schemaVersion:1,expectedSceneSha256:spatialSceneSha256(source),operations:[{kind:"set-color",entityId:"entity_body",color:"#ca7453"},{kind:"set-color",entityId:"entity_top_plate",color:"#dfa684"}]}).scene;
+const variant=applySpatialScenePatch(source,{kind:"slopcamera.spatial-scene-patch",schemaVersion:1,expectedSceneSha256:spatialSceneSha256(source),operations:[{kind:"set-color",entityId:"entity_body",color:"#ca7453"},{kind:"set-color",entityId:"entity_top_plate",color:"#dfa684"}]}).scene;
 const variantPath=join(sourceRoot,"camera-terracotta.scene.json");await writeFile(variantPath,JSON.stringify(variant,null,2)+"\n");
 const variation=await render("product-variant",variantPath,{...request,selection:{kind:"frame",timeUs:2_000_000}});
 assert.notEqual(variation.output.artifact.sha256,first.output.artifact.sha256);
@@ -120,6 +120,6 @@ if(process.argv.includes("--video")||process.argv.includes("--storyboard")){
   assert.equal(storyboardProbe.streams.find(x=>x.codec_type==="video")?.nb_read_frames,"144");
  }
 }
-const report={kind:"atet.creative-sample-qualification",schemaVersion:1,host:{arch:arch(),os:release(),cpu:cpus()[0]?.model},capabilities,results,native,comparison,semanticVariant,mediaPresence,creativeReview:"pending-personal-visual-inspection",notes:["Authored camera concept, not a replica of a commercial camera.","Contact shadow is an authored raster element, not a physically computed shadow.","Whole operation timing includes runtime verification, launch, publication and recovery; it is not GPU-only timing."]};
+const report={kind:"slopcamera.creative-sample-qualification",schemaVersion:1,host:{arch:arch(),os:release(),cpu:cpus()[0]?.model},capabilities,results,native,comparison,semanticVariant,mediaPresence,creativeReview:"pending-personal-visual-inspection",notes:["Authored camera concept, not a replica of a commercial camera.","Contact shadow is an authored raster element, not a physically computed shadow.","Whole operation timing includes runtime verification, launch, publication and recovery; it is not GPU-only timing."]};
 await writeFile(join(root,"report.json"),JSON.stringify(report,null,2)+"\n");
 console.log(JSON.stringify({passed:true,report:join(root,"report.json"),contact:contact.output.artifact.path}));

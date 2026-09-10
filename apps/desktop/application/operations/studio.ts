@@ -14,8 +14,8 @@ import {
 import { throwIfAborted } from "./shared";
 
 const definitionIdentity = {
-  kind: "atet.studio.run", version: 1,
-  inputSchemaId: "atet.operation.studio.run.input/v1", outputSchemaId: "atet.operation.studio.run.output/v1",
+  kind: "slopcamera.studio.run", version: 1,
+  inputSchemaId: "slopcamera.operation.studio.run.input/v1", outputSchemaId: "slopcamera.operation.studio.run.output/v1",
 } as const;
 
 function requirePort(application: ApplicationContext) {
@@ -139,5 +139,5 @@ export const studioRunOperationDefinition = {
     ], resume: "verified-receipt",
   },
   receiptReference: output => output.receipt.path,
-  summarize: output => ({ kind: "atet.studio.run", fields: { jobId: output.document.jobId, planSha256: output.document.planSha256, state: output.document.state, outputs: output.outputs.length } }),
-} satisfies OperationDefinition<"atet.studio.run", StudioRunInput, StudioRunOutput>;
+  summarize: output => ({ kind: "slopcamera.studio.run", fields: { jobId: output.document.jobId, planSha256: output.document.planSha256, state: output.document.state, outputs: output.outputs.length } }),
+} satisfies OperationDefinition<"slopcamera.studio.run", StudioRunInput, StudioRunOutput>;

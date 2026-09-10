@@ -40,7 +40,7 @@ function sha256(bytes: Uint8Array): string {
 }
 
 async function fixtureRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "atet-overlay-operation-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-overlay-operation-"));
   roots.push(root);
   return root;
 }
@@ -89,7 +89,7 @@ describe("media.overlay application operation", () => {
     const root = await fixtureRoot();
     const fixture = await createOperationProjectFixture(root);
     const sourceBytes = Buffer.from("gateway image bytes");
-    const sourcePath = join(root, "artifacts", "atet", "generated", "image.png");
+    const sourcePath = join(root, "artifacts", "slopcamera", "generated", "image.png");
     await mkdir(join(sourcePath, ".."), { recursive: true });
     await writeFile(sourcePath, sourceBytes, { mode: 0o600 });
     const context = await operationContext(root, "overlay_first");
@@ -170,7 +170,7 @@ describe("media.overlay application operation", () => {
     const first = MediaOverlayOutputSchema.parse(firstResult.output);
     expect(JSON.parse(
       await readFile(join(root, first.receipt.path), "utf8"),
-    )).toMatchObject({ kind: "atet.local-overlay-preparation-receipt" });
+    )).toMatchObject({ kind: "slopcamera.local-overlay-preparation-receipt" });
     expect(first.operation).toMatchObject({
       intrinsicSize: { height: 720, width: 1_280 },
       range: { endUs: 4_000_000, startUs: 1_000_000 },
@@ -191,11 +191,11 @@ describe("media.overlay application operation", () => {
       exactInput,
       expectedProjectGeneration: snapshot.generation.generationSha256,
       identity: {
-        inputSchemaId: "atet.operation.media.overlay.input/v1",
+        inputSchemaId: "slopcamera.operation.media.overlay.input/v1",
         kind: "media.overlay" as const,
         nodeKey: context.workflow.nodeKey,
         nodePlanSha256: context.workflow.nodePlanSha256,
-        outputSchemaId: "atet.operation.media.overlay.output/v1",
+        outputSchemaId: "slopcamera.operation.media.overlay.output/v1",
         runId: context.workflow.runId,
         version: 1,
       },
@@ -224,7 +224,7 @@ describe("media.overlay application operation", () => {
     const copiedSourcePath = join(
       root,
       "artifacts",
-      "atet",
+      "slopcamera",
       "generated",
       "copied-image.png",
     );
@@ -568,6 +568,29 @@ describe("media.overlay application operation", () => {
     ))).toEqual([true, true]);
   });
 
+  test("binds the catalog-declared color variant without forcing a brand default", async () => {
+    const root = await fixtureRoot();
+    const fixture = await createOperationProjectFixture(root);
+    const emojiBytes = Buffer.from('<svg width="10" height="10"></svg>');
+    const emojiPath = join(root, "brand.svg");
+    await writeFile(emojiPath, emojiBytes);
+    const bound = await bindMediaOverlayInput(operationApplicationContext(root), {
+      project: fixture.project.projectId,
+      range: { endUs: 2_000_000, startUs: 0 },
+      source: { kind: "emoji", provider: "brand-catalog", query: "slopcamera" },
+    }, new AbortController().signal, {
+      resolveEmoji: (_root, query, variant, provider) => {
+        expect({ query, variant, provider }).toEqual({ query: "slopcamera", variant: undefined, provider: "brand-catalog" });
+        return Promise.resolve({
+          available: { color: true, duotone: false }, emoji: "📷", group: "brand",
+          id: "1f4f7", name: "slop.camera", path: emojiPath, provider: "brand-catalog",
+          sha256: sha256(emojiBytes), subgroup: "brand", variant: "color",
+        });
+      },
+    });
+    expect(bound).toMatchObject({ source: { resolved: { variant: "color", artifact: { sha256: sha256(emojiBytes) } } } });
+  });
+
   test("re-resolves and rejects an authored emoji binding", async () => {
     const root = await fixtureRoot();
     const fixture = await createOperationProjectFixture(root);
@@ -582,7 +605,7 @@ describe("media.overlay application operation", () => {
       source: {
         kind: "emoji",
         provider: "brand-catalog",
-        query: "atet",
+        query: "slopcamera",
         resolved: {
           artifact: {
             bytes: emojiBytes.byteLength,
@@ -591,7 +614,7 @@ describe("media.overlay application operation", () => {
           },
           id: "wrong",
           provider: "brand-catalog",
-          selector: { kind: "name", value: "atet" },
+          selector: { kind: "name", value: "slopcamera" },
           variant: "duotone",
         },
       },
@@ -600,8 +623,8 @@ describe("media.overlay application operation", () => {
         available: { color: true, duotone: true },
         emoji: "🌴",
         group: "brand",
-        id: "atet",
-        name: "Atet",
+        id: "slopcamera",
+        name: "Slopcamera",
         path: emojiPath,
         provider: "brand-catalog",
         sha256: sha256(emojiBytes),

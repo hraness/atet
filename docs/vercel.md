@@ -1,6 +1,6 @@
 # Vercel provider runbook
 
-Atet's public site deploys from `apps/web` in one existing Hraness Vercel
+Slopcamera's public site deploys from `apps/web` in one existing Hraness Vercel
 project. Production is its only durable remote environment. Vercel's built-in
 Preview target may build pull requests at disposable generated URLs, but it
 does not own a persistent branch, custom environment, domain, alias, database,
@@ -8,15 +8,16 @@ or production-only variable.
 
 ## Provider identity
 
-- GitHub source: `hraness/atet`.
-- Vercel project: `atet`, ID `prj_RvNXCVvEYKYhW71OA1442SAILmAS`.
+- GitHub source: `hraness/slopcamera`.
+- Vercel project: `slopcamera`, ID `prj_RvNXCVvEYKYhW71OA1442SAILmAS`.
 - Root directory: `apps/web`.
 - Production branch: `main`.
-- Canonical Production domain: `atet.sh`.
-- Reviewed predecessor redirects: `hraness.graphics`, `hraness.studio`,
-  `transmute.rocks`, and `www.transmute.rocks` permanently redirect the same
-  path to `atet.sh`.
-- Production Vercel alias: `atet-hraness.vercel.app`.
+- Canonical Production domain: `slop.camera`.
+- Secondary domain: `slopcamera.com` permanently redirects to `slop.camera`.
+- Reviewed predecessor redirects: `atet.sh`, `hraness.graphics`,
+  `hraness.studio`, `transmute.rocks`, and `www.transmute.rocks` permanently
+  redirect the same path and query to `slop.camera`.
+- Production Vercel alias: `slopcamera-hraness.vercel.app`.
 
 Do not create a custom Vercel environment, a provider-authoritative Preview
 branch, or a persistent Preview domain. A branch Preview is disposable
@@ -32,7 +33,7 @@ key. `NEXT_PUBLIC_POSTHOG_HOST` may be omitted; when present it must equal
 
 The build emits no analytics asset when the token is missing or `VERCEL_ENV`
 is not `production`. The bundled client also checks for the exact
-`https://atet.sh/` page before it initializes or sends an event. Built-in
+`https://slop.camera/` page before it initializes or sends an event. Built-in
 Preview deployments, predecessor hosts, and `404.html` remain inert. Keep
 PostHog's cookieless server hash mode enabled.
 
@@ -41,16 +42,14 @@ PostHog's cookieless server hash mode enabled.
 The CLI can use a private Vercel Blob store for image references required by
 URL-only Gateway video models. This optional store serves the directing CLI;
 the static site has no upload or credential surface. The production connection
-is `atet-directing-references`, ID `store_tOZJ7VAuRPpX7FNe`, in `iad1`.
+is `slopcamera-directing-references`, ID `store_tOZJ7VAuRPpX7FNe`, in `iad1`.
 Keep its access private and its environment connection Production-only.
 
 Prefer `BLOB_STORE_ID` with short-lived `VERCEL_OIDC_TOKEN`. The existing
 connection supplies `BLOB_READ_WRITE_TOKEN`, which the CLI also supports.
-Neither credential is public configuration. Use `vercel env run -e production
--- <command>` to inject credentials into a local invocation; never copy them
-into a recipe, project, log, or command argument. Follow the
+Neither credential is public configuration. With the [source installation](how-to/use-current-source.md), use `vercel env run -e production -- bun "$SLOPCAMERA_SOURCE_ROOT/apps/desktop/dist/cli/main.js" <arguments>` to inject credentials into a local invocation. Vercel cannot launch the shell function, and its injected credentials last only for this child. Never copy credentials into a recipe, project, log, or command argument. Follow the
 [directing guide](directing-video.md) for per-request upload and hosting consent.
-Temporary signed GET access expires after 15 minutes. Atet deletes exact
+Temporary signed GET access expires after 15 minutes. Slopcamera deletes exact
 reference objects after confirmed completion or a proven undispatched failure;
 ambiguous requests retain their objects and cleanup receipt for recovery.
 
@@ -63,7 +62,7 @@ variables. These reads must not print variable values.
    production branch, and an empty `customEnvironments` list.
 
    ```sh
-   vercel project inspect atet --scope hraness
+   vercel project inspect slopcamera --scope hraness
    vercel api /v9/projects/prj_RvNXCVvEYKYhW71OA1442SAILmAS --scope hraness --raw
    ```
 

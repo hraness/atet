@@ -87,12 +87,12 @@ import {
   MAXIMUM_DIAGRAM_ARTIFACT_BYTES,
   MAXIMUM_DIAGRAM_SOURCE_BYTES,
   MAXIMUM_VECTOR_ARTIFACT_BYTES,
-  BoundAtetDiagramRenderInputSchema,
-  BoundAtetImageVectorizeInputSchema,
-  AtetDiagramRenderOutputSchema,
-  AtetDiagramRenderReceiptSchema,
-  AtetImageVectorizeOutputSchema,
-  AtetImageVectorizeReceiptSchema,
+  BoundSlopcameraDiagramRenderInputSchema,
+  BoundSlopcameraImageVectorizeInputSchema,
+  SlopcameraDiagramRenderOutputSchema,
+  SlopcameraDiagramRenderReceiptSchema,
+  SlopcameraImageVectorizeOutputSchema,
+  SlopcameraImageVectorizeReceiptSchema,
 } from "./operations";
 import {
   MAXIMUM_MEDIA_EFFECT_INPUT_BYTES,
@@ -107,7 +107,7 @@ import {
 
 export const LOCAL_VERIFIED_RECEIPT_OPERATION_KINDS = Object.freeze([
   "scene.render",
-  "atet.studio.run",
+  "slopcamera.studio.run",
   "analysis.faces",
   "analysis.music",
   "analysis.project-inactivity",
@@ -116,8 +116,8 @@ export const LOCAL_VERIFIED_RECEIPT_OPERATION_KINDS = Object.freeze([
   "media.html-overlay",
   "media.ingest",
   "media.overlay",
-  "atet.diagram.render",
-  "atet.image.vectorize",
+  "slopcamera.diagram.render",
+  "slopcamera.image.vectorize",
 ] as const satisfies readonly OperationKind[]);
 
 type LocalVerifiedReceiptOperationKind =
@@ -1231,15 +1231,15 @@ async function recoverMediaColorGrade(
   };
 }
 
-async function recoverAtetDiagramRender(
+async function recoverSlopcameraDiagramRender(
   application: ApplicationContext,
   exactInput: unknown,
   outputValue: unknown,
   signal: AbortSignal,
 ): Promise<VerifiedReceiptReconciliation> {
   throwIfReconciliationAborted(signal);
-  const input = BoundAtetDiagramRenderInputSchema.parse(exactInput);
-  const output = AtetDiagramRenderOutputSchema.parse(outputValue);
+  const input = BoundSlopcameraDiagramRenderInputSchema.parse(exactInput);
+  const output = SlopcameraDiagramRenderOutputSchema.parse(outputValue);
   const source = await bindRepositoryMedia(
     application,
     input.path,
@@ -1261,7 +1261,7 @@ async function recoverAtetDiagramRender(
   const receipt = await readCanonicalReceipt(
     application,
     output.receipt,
-    AtetDiagramRenderReceiptSchema,
+    SlopcameraDiagramRenderReceiptSchema,
     signal,
   );
   if (
@@ -1302,15 +1302,15 @@ async function recoverAtetDiagramRender(
   };
 }
 
-async function recoverAtetImageVectorize(
+async function recoverSlopcameraImageVectorize(
   application: ApplicationContext,
   exactInput: unknown,
   outputValue: unknown,
   signal: AbortSignal,
 ): Promise<VerifiedReceiptReconciliation> {
   throwIfReconciliationAborted(signal);
-  const input = BoundAtetImageVectorizeInputSchema.parse(exactInput);
-  const output = AtetImageVectorizeOutputSchema.parse(outputValue);
+  const input = BoundSlopcameraImageVectorizeInputSchema.parse(exactInput);
+  const output = SlopcameraImageVectorizeOutputSchema.parse(outputValue);
   const source = await bindRepositoryMedia(
     application,
     input.inputPath,
@@ -1345,7 +1345,7 @@ async function recoverAtetImageVectorize(
   const receipt = await readCanonicalReceipt(
     application,
     output.receipt,
-    AtetImageVectorizeReceiptSchema,
+    SlopcameraImageVectorizeReceiptSchema,
     signal,
   );
   if (receipt.exactInputSha256 !== canonicalJsonSha256(input)) {
@@ -1451,22 +1451,22 @@ async function recoverCheckpointMedia(
   }
 }
 
-async function recoverCheckpointAtetVisual(
+async function recoverCheckpointSlopcameraVisual(
   application: ApplicationContext,
   request: VerifiedReceiptReconciliationRequest,
-  kind: Extract<LocalVerifiedReceiptOperationKind, "atet.diagram.render" | "atet.image.vectorize">,
+  kind: Extract<LocalVerifiedReceiptOperationKind, "slopcamera.diagram.render" | "slopcamera.image.vectorize">,
   output: unknown,
 ): Promise<VerifiedReceiptReconciliation> {
   switch (kind) {
-    case "atet.diagram.render":
-      return await recoverAtetDiagramRender(
+    case "slopcamera.diagram.render":
+      return await recoverSlopcameraDiagramRender(
         application,
         request.exactInput,
         output,
         request.abortSignal,
       );
-    case "atet.image.vectorize":
-      return await recoverAtetImageVectorize(
+    case "slopcamera.image.vectorize":
+      return await recoverSlopcameraImageVectorize(
         application,
         request.exactInput,
         output,
@@ -1490,11 +1490,11 @@ function isLocalAnalysisKind(
     || kind === "analysis.project-inactivity";
 }
 
-function isLocalAtetVisualKind(
+function isLocalSlopcameraVisualKind(
   kind: LocalVerifiedReceiptOperationKind,
-): kind is Extract<LocalVerifiedReceiptOperationKind, "atet.diagram.render" | "atet.image.vectorize"> {
-  return kind === "atet.diagram.render"
-    || kind === "atet.image.vectorize";
+): kind is Extract<LocalVerifiedReceiptOperationKind, "slopcamera.diagram.render" | "slopcamera.image.vectorize"> {
+  return kind === "slopcamera.diagram.render"
+    || kind === "slopcamera.image.vectorize";
 }
 
 export async function reconcileLocalVerifiedReceiptOperation(
@@ -1515,7 +1515,7 @@ export async function reconcileLocalVerifiedReceiptOperation(
       privateRoot: application.paths.privateRoot,
       workspaceDirectory: request.workspaceDirectory,
     });
-    if (kind === "atet.studio.run") {
+    if (kind === "slopcamera.studio.run") {
       const recovered = await reconcileStudioRun({ application, abortSignal: request.abortSignal, workflow: {
         ...request.identity, workspaceDirectory: request.workspaceDirectory, beforePublication: request.beforePublication,
       } }, request.exactInput, checkpoint?.output);
@@ -1554,8 +1554,8 @@ export async function reconcileLocalVerifiedReceiptOperation(
       return { kind: "completed", output, receiptReference: output.receipt.path,
         summary: { artifactSha256: output.artifact.sha256, frameCount: output.render.frameCount } };
     }
-    if (isLocalAtetVisualKind(kind)) {
-      return await recoverCheckpointAtetVisual(
+    if (isLocalSlopcameraVisualKind(kind)) {
+      return await recoverCheckpointSlopcameraVisual(
         application,
         request,
         kind,

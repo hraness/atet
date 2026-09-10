@@ -166,7 +166,7 @@ async function validateTemporaryRoot(path: string): Promise<string> {
       !metadata.isDirectory() ||
       metadata.isSymbolicLink() ||
       dirname(realRoot) !== realTemporaryDirectory ||
-      !/^atet-vectorize-[A-Za-z0-9_-]{6,}$/u.test(basename(realRoot))
+      !/^slopcamera-vectorize-[A-Za-z0-9_-]{6,}$/u.test(basename(realRoot))
     ) {
       throw new VectorizeError(
         "invalid_input",

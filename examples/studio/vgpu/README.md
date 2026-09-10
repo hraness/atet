@@ -2,7 +2,7 @@
 
 This example renders an animated diagram on a Metal GPU, then saves an opaque sRGB PNG sequence for an existing scene renderer to use as a screen surface. The energy split is authored illustrative data. The pulses and colored glazing explain the graphic; they are not a thermal simulation or measured performance.
 
-The example runs as an explicit trusted Node command. Importing its module does not load vgpu, execute a shader or acquire a GPU. It does not add a new ATET scene engine, a provider client or an editor. ATET's existing Three.js renderer can retain scene and camera ownership when consuming the resulting media.
+The example runs as an explicit trusted Node command. Importing its module does not load vgpu, execute a shader or acquire a GPU. It does not add a new SLOPCAMERA scene engine, a provider client or an editor. SLOPCAMERA's existing Three.js renderer can retain scene and camera ownership when consuming the resulting media.
 
 ## Provision a separate runtime
 
@@ -10,7 +10,7 @@ Use Node 24 on macOS for the qualified profile. Upstream vgpu documents Node 22+
 
 ```json
 {
-  "name": "atet-vgpu-example-runtime",
+  "name": "slopcamera-vgpu-example-runtime",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -34,7 +34,7 @@ The pinned vgpu adapter uses `webgpu@0.4.0`, which includes native Dawn binaries
 Create the parent of the output directory first. The output directory itself must be new. Paths must be absolute and physical; the command preserves prior runs.
 
 ```sh
-node /absolute/atet/examples/studio/vgpu/heat-field.mjs \
+node /absolute/slopcamera/examples/studio/vgpu/heat-field.mjs \
   --runtime /absolute/vgpu-runtime \
   --output /absolute/retained-media/new-energy-panel
 ```
@@ -47,7 +47,7 @@ Each frame contains GPU-rendered pixels and original bitmap labels added after r
 
 `manifest.json` records absolute times, runtime and native-binary hashes, shader/source/lock hashes, actual adapter identity, interpretation and frame digests. It appears after all frames verify and the GPU wrapper disposes. An incomplete directory has no completion manifest and remains available for diagnosis. This optional trusted runtime is not an OS sandbox or a hermetic dependency closure.
 
-The PNG files are ordinary media. Import them through a supported ATET media path with their manifest's frame cadence and sRGB interpretation; no vgpu object needs to cross into Three.js. Encoding them or admitting them to a native Studio job is a separate explicit action. The current native Studio adapters do not execute WGSL.
+The PNG files are ordinary media. Import them through a supported SLOPCAMERA media path with their manifest's frame cadence and sRGB interpretation; no vgpu object needs to cross into Three.js. Encoding them or admitting them to a native Studio job is a separate explicit action. The current native Studio adapters do not execute WGSL.
 
 ## Check without a GPU
 
@@ -61,4 +61,4 @@ These tests cover bounds, nonzero frame clocks, energy conservation, override re
 
 The September 9, 2026 qualification rendered 96 distinct frames on an Apple M4 Max with Metal 3 and Node 24.18.1. All PNG pixel comparisons and color/orientation calibration passed. Absolute frame 24 was identical when rendered in a fresh process alone, in a three-frame interval starting at 23, and in the full sequence starting at zero. That observation applies to this pinned runtime and device; it is not a cross-device bitwise guarantee.
 
-For future Three WebGPU work, vgpu provides a [WGSL-to-TSL bridge](https://github.com/vercel-labs/vgpu/blob/ca6cf99fbeb109a3294d043a10de16819e1b9dad/docs/topics/threejs.docs.md). That bridge leaves Three in charge of scenes and resources. It does not establish compatibility with ATET's current WebGL2/Spark profile. [Node runtime requirements](https://github.com/vercel-labs/vgpu/blob/ca6cf99fbeb109a3294d043a10de16819e1b9dad/packages/adapter-node/README.md).
+For future Three WebGPU work, vgpu provides a [WGSL-to-TSL bridge](https://github.com/vercel-labs/vgpu/blob/ca6cf99fbeb109a3294d043a10de16819e1b9dad/docs/topics/threejs.docs.md). That bridge leaves Three in charge of scenes and resources. It does not establish compatibility with SLOPCAMERA's current WebGL2/Spark profile. [Node runtime requirements](https://github.com/vercel-labs/vgpu/blob/ca6cf99fbeb109a3294d043a10de16819e1b9dad/packages/adapter-node/README.md).

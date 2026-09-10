@@ -19,14 +19,14 @@ const runCli = createCliTestRunner(import.meta.url);
 
 test("provider-options inspect emits only the reusable secret-free summary", async () => {
   const root = await realpath(
-    await mkdtemp(join(tmpdir(), "atet-provider-options-inspect-")),
+    await mkdtemp(join(tmpdir(), "slopcamera-provider-options-inspect-")),
   );
   try {
     const paths: RepositoryPaths = {
-      artifactRoot: join(root, "artifacts", "atet", "recordings"),
+      artifactRoot: join(root, "artifacts", "slopcamera", "recordings"),
       desktopRoot: join(root, "desktop"),
-      privateRoot: join(root, "artifacts", "atet", "private"),
-      projectRoot: join(root, "artifacts", "atet", "projects"),
+      privateRoot: join(root, "artifacts", "slopcamera", "private"),
+      projectRoot: join(root, "artifacts", "slopcamera", "projects"),
       repositoryRoot: root,
     };
     await mkdir(paths.desktopRoot, { recursive: true });

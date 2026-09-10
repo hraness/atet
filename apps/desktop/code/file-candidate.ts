@@ -6,7 +6,7 @@ import {
 } from "../contracts";
 
 export const WORKFLOW_FILE_CANDIDATE_VERSION =
-  "atet-workflow-file-candidate-v1" as const;
+  "slopcamera-workflow-file-candidate-v1" as const;
 
 const CandidatePathSchema = RepositoryRelativePathSchema.and(
   z.string().max(256),

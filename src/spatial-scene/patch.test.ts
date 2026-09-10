@@ -5,7 +5,7 @@ import { spatialAssetClosureDigests, spatialGeneratorOutputSha256, spatialSceneS
 import { fixtureAsset, fixtureEntity, fixtureGenerated, fixtureScene } from "./test-fixture.js"
 
 function patch(scene: unknown, operations: unknown[]) {
-  return { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: spatialSceneSha256(scene), operations }
+  return { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: spatialSceneSha256(scene), operations }
 }
 
 describe("typed atomic authored scene patches", () => {

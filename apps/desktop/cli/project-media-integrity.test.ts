@@ -12,7 +12,7 @@ const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 
 async function fixture() {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-project-media-integrity-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-project-media-integrity-")));
   roots.push(root);
   const path = join(root, "exact audio.wav"), contents = "exact retained audio bytes";
   await writeFile(path, contents, { mode: 0o600 });

@@ -1,5 +1,5 @@
 import { expect,test } from "bun:test";
-import { evaluateSpatialScene, cameraMathView, projectPoint } from "@hraness/atet/code";
+import { evaluateSpatialScene, cameraMathView, projectPoint } from "@hraness/slopcamera/code";
 import { createHybridWorldScene, HYBRID_PANEL, HYBRID_PANEL_CAMERA } from "./hybrid-scene";
 const bound=(assetId:string,interpretation:unknown)=>({asset:{assetId,payload:{path:`${assetId}.bin`,sha256:"a".repeat(64),bytes:100},interpretation,dependencies:[],provenance:{source:"authored",description:"Pure fixture"}},binding:{assetId,artifact:{path:`retained/${assetId}.bin`,sha256:"a".repeat(64),bytes:100}}});
 const fixture=()=>({panel:bound("asset_video",{kind:"video",width:768,height:432,durationUs:4_000_000,frameRate:{numerator:24,denominator:1},colorSpace:"srgb",alpha:"opaque"}),font:bound("asset_font",{kind:"font",format:"otf",family:"Nebula Sans"})});

@@ -45,7 +45,7 @@ test("copy partial evidence certifies only the exact preceding paired prefix", (
     }
   }
 })
-const command = "npx skills add https://github.com/hraness/atet/tree/v1.2.3 --skill atet"
+const command = "npx skills add https://github.com/hraness/slopcamera/tree/v1.2.3 --skill slopcamera"
 test("actual copy sampler passes every authored clipping, list and border-image reset to the native observer", async () => {
   let properties: readonly string[] = []
   const page = { evaluate: async (_callback: unknown, input: { properties: readonly string[] }) => { properties = input.properties; return [] } } as unknown as Page

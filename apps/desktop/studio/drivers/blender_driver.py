@@ -1,4 +1,4 @@
-"""Fixed ATET Blender adapter. Authored Python is explicitly trusted current-user code.
+"""Fixed SLOPCAMERA Blender adapter. Authored Python is explicitly trusted current-user code.
 
 Python bundles may execute at module scope or define build(context), followed by
 bake(context) for bake jobs. The adapter never infers or silently runs a bake for
@@ -287,7 +287,7 @@ def render_outputs(bpy, request):
         return []
     for output in raster_outputs:
         if output["format"] not in ("png", "exr") or output["kind"] not in ("file", "sequence"):
-            raise ValueError("Blender beauty output supports PNG/EXR files or sequences; encode video through ATET")
+            raise ValueError("Blender beauty output supports PNG/EXR files or sequences; encode video through SLOPCAMERA")
         if output["kind"] == "file" and render["endFrameExclusive"] - render["startFrame"] != 1:
             raise ValueError("A beauty file requires a single-frame interval; use a sequence for animation")
         if output["interpretation"]["kind"] != "raster" or output["interpretation"]["semantic"] != "color":
@@ -390,8 +390,8 @@ def run(bpy, request):
     else:
         configure_scene(bpy, job)
         sys.path.insert(0, request["sourceRoot"])
-        namespace = runpy.run_path(str(source), init_globals={"ATET_CONTEXT": context,
-            "ATET_APPLY_SPATIAL_CAMERA": apply_declared_camera}, run_name="__atet_studio__")
+        namespace = runpy.run_path(str(source), init_globals={"SLOPCAMERA_CONTEXT": context,
+            "SLOPCAMERA_APPLY_SPATIAL_CAMERA": apply_declared_camera}, run_name="__slopcamera_studio__")
         if callable(namespace.get("build")):
             namespace["build"](context)
     scene = configure_scene(bpy, job)
@@ -416,7 +416,7 @@ def run(bpy, request):
     export_models(bpy, request)
     captured = render_outputs(bpy, request) if job["stage"] == "render" else []
     verify_bundle(request)
-    result = {"kind": "atet.studio-blender-result", "schemaVersion": 1,
+    result = {"kind": "slopcamera.studio-blender-result", "schemaVersion": 1,
               "version": bpy.app.version_string, "buildHash": bpy.app.build_hash.decode("ascii"),
               "stage": job["stage"], "renderer": scene.render.engine, "device": device,
               "render": job.get("render"), "renderedFrames": captured,
@@ -456,7 +456,7 @@ def main():
             packages["cycles-devices"] = ", ".join(device["name"] for device in selected["devices"])
         except RuntimeError:
             packages["cycles-backend"] = "unavailable"
-        print("ATET_STUDIO_PROBE=" + json.dumps({"name": "Blender", "version": bpy.app.version_string,
+        print("SLOPCAMERA_STUDIO_PROBE=" + json.dumps({"name": "Blender", "version": bpy.app.version_string,
                           "packages": packages, "capabilities": capabilities}))
         return
     run(bpy, read_request(args.request))

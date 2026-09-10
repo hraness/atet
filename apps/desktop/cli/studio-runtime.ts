@@ -60,15 +60,15 @@ export async function probeStudioRuntime(input: {
     ...(input.inheritedFileDescriptors === undefined ? {} : { inheritedFileDescriptors: input.inheritedFileDescriptors }),
   });
   if (result.custody !== "closed" || result.failure !== undefined || result.exitCode !== 0) throw new Error("Fixed native runtime probe did not finish with closed process custody.");
-  const lines = result.stdout.split(/\r?\n/u).filter(line => line.startsWith("ATET_STUDIO_PROBE="));
+  const lines = result.stdout.split(/\r?\n/u).filter(line => line.startsWith("SLOPCAMERA_STUDIO_PROBE="));
   if (lines.length !== 1) throw new Error("Native runtime probe must emit one bounded identity document.");
-  const probe = probeSchema.parse(JSON.parse(lines[0]!.slice("ATET_STUDIO_PROBE=".length)) as unknown);
+  const probe = probeSchema.parse(JSON.parse(lines[0]!.slice("SLOPCAMERA_STUDIO_PROBE=".length)) as unknown);
   if (new Set(probe.capabilities).size !== probe.capabilities.length) throw new Error("Native runtime probe repeats a capability.");
   await input.fence();
   const after = await executableIdentity(selected);
   if (executable.sha256 !== after.sha256) throw new Error("Studio executable changed during probing.");
   const identity = parseStudioRuntimeIdentity({
-    kind: "atet.studio-runtime", schemaVersion: 1, engine: input.engine,
+    kind: "slopcamera.studio-runtime", schemaVersion: 1, engine: input.engine,
     tool: { name: probe.name, version: probe.version, executableSha256: executable.sha256 }, driverSha256,
     environment: { fingerprintSha256: studioBytesSha256(studioJson({ platform: process.platform, architecture: process.arch, packages: probe.packages, threads: input.selection.threads })), evidence: "observed-package-environment", hermetic: false },
     capabilities: probe.capabilities.map(name => ({ name, support: "available", evidence: "probe" })),

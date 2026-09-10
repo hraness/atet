@@ -11,7 +11,7 @@ const command = { kind: "spatial-scene", action: "camera-track", path: "scene.js
 const sampling = { cameraId: "camera_hero", startUs: 17, frameRate: { numerator: 24000, denominator: 1001 }, frameCount: 3 };
 
 async function fixture(run: (application: ApplicationContext, root: string) => Promise<void>): Promise<void> {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-camera-track-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-camera-track-")));
   try {
     await writeFile(join(root, command.path), JSON.stringify(createSpatialSceneStarter()));
     await writeFile(join(root, command.request), JSON.stringify(sampling));
@@ -21,7 +21,7 @@ async function fixture(run: (application: ApplicationContext, root: string) => P
 
 function lease(assertOwned: () => Promise<void>): NonNullable<ApplicationContext["hostResourceLease"]> {
   return { assertOwned, claims: [], inheritedFileDescriptor: 0, inheritedFileDescriptors: [],
-    profile: { id: "atet-camera-track-test", capacities: [] }, ticket: "camera-track-test" };
+    profile: { id: "slopcamera-camera-track-test", capacities: [] }, ticket: "camera-track-test" };
 }
 
 test("camera-track cancellation is checked before reading any source", async () => await fixture(async (application, root) => {

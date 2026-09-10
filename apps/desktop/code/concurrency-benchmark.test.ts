@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { defaultAtetHostResourceProfile } from "@hraness/atet/host-resources";
+import { defaultSlopcameraHostResourceProfile } from "@hraness/slopcamera/host-resources";
 
 import {
   CONCURRENCY_BENCHMARK_FIXTURE,
@@ -13,9 +13,9 @@ describe("code-mode concurrency benchmark", () => {
   test("isolates timer admission from production low-core headroom", () => {
     expect(CONCURRENCY_BENCHMARK_HOST_RESOURCE_PROFILE).toEqual({
       capacities: [{ limit: 4, resource: "cpu" }],
-      id: "atet.concurrency-benchmark/v1",
+      id: "slopcamera.concurrency-benchmark/v1",
     });
-    expect(defaultAtetHostResourceProfile(2).capacities).toContainEqual({
+    expect(defaultSlopcameraHostResourceProfile(2).capacities).toContainEqual({
       limit: 1,
       resource: "cpu",
     });
@@ -61,7 +61,7 @@ describe("code-mode concurrency benchmark", () => {
         scheduler: "DurableWorkflowScheduler",
         sequentialJobs: 1,
       },
-      version: "atet-code-concurrency-benchmark-report/v1",
+      version: "slopcamera-code-concurrency-benchmark-report/v1",
       verdict: {
         materialParallelism: true,
         thresholds: {
@@ -72,7 +72,7 @@ describe("code-mode concurrency benchmark", () => {
       },
     });
     process.stdout.write(
-      `[atet concurrency] ${JSON.stringify(report.measurements)}\n`,
+      `[slopcamera concurrency] ${JSON.stringify(report.measurements)}\n`,
     );
   }, 30_000);
 });

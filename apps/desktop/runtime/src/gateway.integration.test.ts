@@ -7,7 +7,7 @@ import { PassThrough } from "node:stream";
 import {
   DesktopEventSchema,
   DesktopResponseSchema,
-  ATET_DESKTOP_PROTOCOL_VERSION,
+  SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
   type CaptureDomainCommand,
 } from "../../contracts";
 import {
@@ -31,9 +31,9 @@ afterEach(async () => {
 });
 
 async function fixture(): Promise<{ helper: string; repository: string }> {
-  const repository = await mkdtemp(join(tmpdir(), "atet-gateway-integration-"));
+  const repository = await mkdtemp(join(tmpdir(), "slopcamera-gateway-integration-"));
   temporaryDirectories.push(repository);
-  const desktop = join(repository, "projects", "atet", "apps", "desktop");
+  const desktop = join(repository, "projects", "slopcamera", "apps", "desktop");
   await mkdir(desktop, { recursive: true });
   await writeFile(join(desktop, "package.json"), "{}\n");
   const probe = {
@@ -91,7 +91,7 @@ async function fixture(): Promise<{ helper: string; repository: string }> {
   return { helper, repository };
 }
 
-function hostRequest(id: string, payload: unknown, command: "atet.runtime.dispatch" | "atet.runtime.snapshot"): string {
+function hostRequest(id: string, payload: unknown, command: "slopcamera.runtime.dispatch" | "slopcamera.runtime.snapshot"): string {
   return `${JSON.stringify({ command, id, payload })}\n`;
 }
 
@@ -207,7 +207,7 @@ function dispatchRequest(
   return {
     payload: { command, kind: "dispatch" },
     protocol: "studio.desktop",
-    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
     requestId,
   };
 }
@@ -236,8 +236,8 @@ test("gateway round-trips responses and emits raw DesktopEvent frames", async ()
   const gateway = Bun.spawn([process.execPath, join(import.meta.dir, "main.ts")], {
     env: {
       ...process.env,
-      ATET_CAPTURE_HELPER: helper,
-      ATET_REPOSITORY_ROOT: repository,
+      SLOPCAMERA_CAPTURE_HELPER: helper,
+      SLOPCAMERA_REPOSITORY_ROOT: repository,
     },
     stdin: "pipe",
     stdout: "pipe",
@@ -263,10 +263,10 @@ test("gateway round-trips responses and emits raw DesktopEvent frames", async ()
   const snapshotRequest = {
     payload: { kind: "snapshot" },
     protocol: "studio.desktop",
-    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
     requestId: "request_gateway001",
   };
-  await gateway.stdin.write(hostRequest("bridge-snapshot", snapshotRequest, "atet.runtime.snapshot"));
+  await gateway.stdin.write(hostRequest("bridge-snapshot", snapshotRequest, "slopcamera.runtime.snapshot"));
   await gateway.stdin.flush();
   const snapshotFrame = HostResponseSchema.parse(JSON.parse(await readLine()) as unknown);
   expect(snapshotFrame.ok).toBe(true);
@@ -287,17 +287,17 @@ test("gateway round-trips responses and emits raw DesktopEvent frames", async ()
       kind: "dispatch",
     },
     protocol: "studio.desktop",
-    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
     requestId: "request_gateway002",
   };
-  await gateway.stdin.write(hostRequest("bridge-dispatch", dispatchRequest, "atet.runtime.dispatch"));
+  await gateway.stdin.write(hostRequest("bridge-dispatch", dispatchRequest, "slopcamera.runtime.dispatch"));
   await gateway.stdin.flush();
   await gateway.stdin.end();
 
   expect(DesktopEventSchema.parse(JSON.parse(await readLine()) as unknown)).toEqual({
     commandId: "command_gateway01",
     kind: "command-settled",
-    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
     status: "failed",
   });
   const dispatchFrame = HostResponseSchema.parse(JSON.parse(await readLine()) as unknown);
@@ -360,13 +360,13 @@ test("gateway streams an autonomous interrupted pause before serialized resume a
         camera: { kind: "default" },
         displays: { kind: "all" },
         microphone: { kind: "default" },
-        recordingDirectory: "artifacts/atet/recordings",
+        recordingDirectory: "artifacts/slopcamera/recordings",
         systemAudio: true,
         typedText: "disabled",
         windowMetadata: "titles-and-bounds",
       },
     }),
-    "atet.runtime.dispatch",
+    "slopcamera.runtime.dispatch",
   ));
   const startFrame = HostResponseSchema.parse(await waitForFrame(
     frames,
@@ -411,7 +411,7 @@ test("gateway streams an autonomous interrupted pause before serialized resume a
   ));
   expect(interruptedFrame).toMatchObject({
     kind: "snapshot-changed",
-    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
     snapshot: {
       availableSources: { cameras: [] },
       sources: { cameras: [{ id: "camera", label: "Camera" }] },
@@ -425,7 +425,7 @@ test("gateway streams an autonomous interrupted pause before serialized resume a
       commandId: "command_gatewayresume",
       kind: "resume",
     }),
-    "atet.runtime.dispatch",
+    "slopcamera.runtime.dispatch",
   ));
   const resumeFrame = HostResponseSchema.parse(await waitForFrame(
     frames,
@@ -448,7 +448,7 @@ test("gateway streams an autonomous interrupted pause before serialized resume a
       commandId: "command_gatewaystop",
       kind: "stop",
     }),
-    "atet.runtime.dispatch",
+    "slopcamera.runtime.dispatch",
   ));
   const stopFrame = HostResponseSchema.parse(await waitForFrame(
     frames,

@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "Preserve",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
@@ -17,7 +21,9 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["bun"]
+    "types": [
+      "bun"
+    ]
   },
   "include": [
     "site.test.ts",
@@ -60,6 +66,7 @@
     "scripts/build-preview-browser-driver.ts",
     "src/preview-renderer.ts",
     "src/preview-foundation.ts",
-    "src/preview.stylex.ts"
+    "src/preview.stylex.ts",
+    "scripts/generate-icons.ts"
   ]
 }

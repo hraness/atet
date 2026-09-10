@@ -34,14 +34,14 @@ import { operationApplicationContext } from "./test-support";
 
 const transaction = (number: number): string => `transaction_${number.toString(16).padStart(32, "0")}`;
 const document = parseSpatialScene({
-  kind: "atet.spatial-scene", schemaVersion: 1, sceneId: "scene_operation", coordinates: "right-handed-y-up-meters", durationUs: 10_000_000,
+  kind: "slopcamera.spatial-scene", schemaVersion: 1, sceneId: "scene_operation", coordinates: "right-handed-y-up-meters", durationUs: 10_000_000,
   entities: [], assets: [], animations: [], overrides: [], generators: [],
   cameras: [{ cameraId: "camera_main", name: "Main", pose: { position: [0, 0, 5], rotation: [0, 0, 0, 1] }, projection: { kind: "perspective", width: 640, height: 480, near: 0.1, far: 100, fx: 500, fy: 500, cx: 320, cy: 240 } }],
 });
 const sceneSha256 = spatialSceneSha256(document);
 const shot = SpatialShotV1Schema.parse({ shotId: "shot_main", sceneSha256, cameraId: "camera_main", range: { startUs: 0, endUs: 5_000_000 }, sceneStartUs: 0, playback: "once", overrides: [] });
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "atet-spatial-operation-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-spatial-operation-"));
   const project = syncedProject();
   const plan = editedPlan(project);
   const application = operationApplicationContext(root);
@@ -121,7 +121,7 @@ test("snapshot enforces optional exact basis without crossing the workflow publi
 test("patch reports semantic diff only after completion and stale whole-project basis remains conflict", async () => withFixture(async f => {
   expect((await spatialProjectMigrateOperationDefinition.lifecycle.execute(f.context, f.migrate)).kind).toBe("completed");
   const current = await snapshot(f);
-  const input = SpatialProjectPatchInputSchema.parse({ project: f.project.projectId, expected: current.basis, transactionId: transaction(2), patch: { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "set-camera", camera: { ...document.cameras[0], name: "Directed camera" } }] }, retarget: { kind: "all" } });
+  const input = SpatialProjectPatchInputSchema.parse({ project: f.project.projectId, expected: current.basis, transactionId: transaction(2), patch: { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "set-camera", camera: { ...document.cameras[0], name: "Directed camera" } }] }, retarget: { kind: "all" } });
   const result = await spatialProjectPatchOperationDefinition.lifecycle.execute(f.context, input);
   expect(result.kind).toBe("completed");
   if (result.kind === "completed") expect(result.diff?.affectedShotIds).toEqual(["shot_main"]);
@@ -187,7 +187,7 @@ test("one-shot then all-shot restore preserves current media and retained histor
   await spatialProjectAddCandidateOperationDefinition.lifecycle.execute(f.context, { project: f.project.projectId, expected: original.basis, transactionId: transaction(2), candidate });
   await spatialProjectSelectCandidateOperationDefinition.lifecycle.execute(f.context, { project: f.project.projectId, expected: (await snapshot(f)).basis, transactionId: transaction(3), candidateId: candidate.candidateId });
   await spatialProjectPatchOperationDefinition.lifecycle.execute(f.context, { project: f.project.projectId, expected: (await snapshot(f)).basis, transactionId: transaction(4),
-    patch: { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "set-camera", camera: SpatialCameraSchema.parse({ ...document.cameras[0]!, name: "Changed camera" }) }] }, retarget: { kind: "all" } });
+    patch: { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "set-camera", camera: SpatialCameraSchema.parse({ ...document.cameras[0]!, name: "Changed camera" }) }] }, retarget: { kind: "all" } });
   const changed = await snapshot(f), changedDigest = changed.shots[0]!.sceneSha256;
   expect(changed.selections[0]!.status).toBe("stale");
   const restored = await spatialProjectRestoreOperationDefinition.lifecycle.execute(f.context, { project: f.project.projectId, expected: changed.basis, transactionId: transaction(5), expectedSceneSha256: changedDigest, restoreSceneSha256: sceneSha256, retarget: { kind: "shots", shotIds: [shot.shotId] } });
@@ -214,7 +214,7 @@ test("restore conflicts with a concurrent audio revision and invalid sources nev
   await spatialProjectMigrateOperationDefinition.lifecycle.execute(f.context, f.migrate);
   const original = await snapshot(f);
   await spatialProjectPatchOperationDefinition.lifecycle.execute(f.context, { project: f.project.projectId, expected: original.basis, transactionId: transaction(2),
-    patch: { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "set-camera", camera: SpatialCameraSchema.parse({ ...document.cameras[0]!, name: "Changed camera" }) }] }, retarget: { kind: "all" } });
+    patch: { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "set-camera", camera: SpatialCameraSchema.parse({ ...document.cameras[0]!, name: "Changed camera" }) }] }, retarget: { kind: "all" } });
   const before = await snapshot(f), ports = await spatialProjectStorePorts(f.context.application, f.project.projectId);
   const audio = await commitSpatialProjectRevision({ ports, expected: before.basis, transactionId: transaction(3), change: current => {
     const project = { ...current.contents.legacy.project, placements: current.contents.legacy.project.placements.map(placement => ({ ...placement,

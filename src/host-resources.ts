@@ -53,7 +53,7 @@ const maximumAdmissionBackoffMultiplier = 8
 /** Largest supported explicit admission wait for any host-resource lease. */
 export const HOST_RESOURCE_MAX_WAIT_MILLISECONDS = 24 * 60 * 60_000
 
-export const atetHostResourceNames = Object.freeze([
+export const slopcameraHostResourceNames = Object.freeze([
   "cpu",
   "local-io",
   "ffmpeg",
@@ -66,8 +66,8 @@ export const atetHostResourceNames = Object.freeze([
   "capture-device",
 ] as const)
 
-export type AtetHostResourceName =
-  (typeof atetHostResourceNames)[number]
+export type SlopcameraHostResourceName =
+  (typeof slopcameraHostResourceNames)[number]
 
 export interface HostResourceCapacity {
   readonly resource: string
@@ -283,7 +283,7 @@ export function normalizeHostResourceClaims(
   return deepFreeze(claims)
 }
 
-export function defaultAtetHostResourceProfile(
+export function defaultSlopcameraHostResourceProfile(
   hostParallelism = availableParallelism(),
 ): HostResourceProfile {
   if (!boundedPositiveInteger(hostParallelism, maximumResourceAmount)) {
@@ -294,7 +294,7 @@ export function defaultAtetHostResourceProfile(
   }
   const reserve = hostParallelism >= 6 ? 2 : hostParallelism >= 2 ? 1 : 0
   return normalizeHostResourceProfile({
-    id: "atet.host-resources/v1",
+    id: "slopcamera.host-resources/v1",
     capacities: [
       { resource: "cpu", limit: Math.max(1, hostParallelism - reserve) },
       { resource: "local-io", limit: 2 },
@@ -310,7 +310,7 @@ export function defaultAtetHostResourceProfile(
   })
 }
 
-export function defaultAtetHostResourceStateRoot(
+export function defaultSlopcameraHostResourceStateRoot(
   platform: NodeJS.Platform = process.platform,
   environment: Readonly<NodeJS.ProcessEnv> = process.env,
   userHome = homedir(),
@@ -318,7 +318,7 @@ export function defaultAtetHostResourceStateRoot(
   if (!isHostResourcePlatformSupported(platform)) {
     throw new HostResourceError(
       "UNSUPPORTED_PLATFORM",
-      "Atet host-resource coordination requires Darwin or Linux.",
+      "Slopcamera host-resource coordination requires Darwin or Linux.",
     )
   }
   if (platform === "darwin") {
@@ -326,7 +326,7 @@ export function defaultAtetHostResourceStateRoot(
       userHome,
       "Library",
       "Application Support",
-      "Atet",
+      "Slopcamera",
       "cli",
       "host-resources-v1",
     )
@@ -336,7 +336,7 @@ export function defaultAtetHostResourceStateRoot(
     && isAbsolute(configuredStateHome)
     ? configuredStateHome
     : join(userHome, ".local", "state")
-  return join(stateHome, "atet", "host-resources-v1")
+  return join(stateHome, "slopcamera", "host-resources-v1")
 }
 
 
@@ -659,7 +659,7 @@ function assertMatchingProfile(
   if (canonicalProfile(state.profile) === canonicalProfile(profile)) return
   throw new HostResourceError(
     "PROFILE_MISMATCH",
-    "The machine-global Atet host-resource profile does not match this process.",
+    "The machine-global Slopcamera host-resource profile does not match this process.",
   )
 }
 
@@ -1324,14 +1324,14 @@ function resolveCoordinatorOptions(
   if (!isHostResourcePlatformSupported(process.platform)) {
     throw new HostResourceError(
       "UNSUPPORTED_PLATFORM",
-      "Atet host-resource coordination requires Darwin or Linux.",
+      "Slopcamera host-resource coordination requires Darwin or Linux.",
     )
   }
   const profile = normalizeHostResourceProfile(
-    options.profile ?? defaultAtetHostResourceProfile(),
+    options.profile ?? defaultSlopcameraHostResourceProfile(),
   )
   const stateRoot = options.stateRoot
-    ?? defaultAtetHostResourceStateRoot()
+    ?? defaultSlopcameraHostResourceStateRoot()
   if (
     typeof stateRoot !== "string"
     || !isAbsolute(stateRoot)
@@ -1502,7 +1502,7 @@ export function createProcessLocalHostResourceCoordinator(
   coordinatorOptions: Omit<HostResourceCoordinatorOptions, "stateRoot"> = {},
 ): HostResourceCoordinator {
   const profile = normalizeHostResourceProfile(
-    coordinatorOptions.profile ?? defaultAtetHostResourceProfile(),
+    coordinatorOptions.profile ?? defaultSlopcameraHostResourceProfile(),
   )
   const defaultWait = duration(
     coordinatorOptions.waitTimeoutMilliseconds,

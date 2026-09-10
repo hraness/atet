@@ -64,7 +64,7 @@ export function createCameraProductSample(assets: { font: SpatialAssetManifest; 
   const camera={cameraId:"camera_product",name:"Product dolly",pose:pose([3.7,1.85,6],[0,.04,.3]),projection:{kind:"perspective",width,height,fx:width*.88,fy:width*.88,cx:width/2,cy:height/2,near:.05,far:200}};
   const times=[0,1_000_000,2_000_000,3_000_000,4_000_000];
   const poses=times.map(t=>{const u=t/4_000_000,s=u*u*(3-2*u),a=.53-.34*s;return pose([Math.sin(a)*7,1.6-.25*s,Math.cos(a)*7],[0,.03,.3]);});
-  return parseSpatialScene({kind:"atet.spatial-scene",schemaVersion:1,sceneId:"scene_camera_product",coordinates:"right-handed-y-up-meters",durationUs:4_000_000,entities,cameras:[camera],assets:Object.values(assets),generators:[],overrides:[],animations:[
+  return parseSpatialScene({kind:"slopcamera.spatial-scene",schemaVersion:1,sceneId:"scene_camera_product",coordinates:"right-handed-y-up-meters",durationUs:4_000_000,entities,cameras:[camera],assets:Object.values(assets),generators:[],overrides:[],animations:[
     {channelId:"channel_camera_position",targetId:camera.cameraId,property:"position",interpolation:"linear",keys:times.map((timeUs,i)=>({timeUs,value:poses[i]!.position}))},
     {channelId:"channel_camera_rotation",targetId:camera.cameraId,property:"rotation",interpolation:"slerp",keys:times.map((timeUs,i)=>({timeUs,value:poses[i]!.rotation}))},
   ]});
@@ -87,7 +87,7 @@ export function createSpatialStoryboardSample(assets: { video: SpatialAssetManif
     const value=Array.isArray(before)&&Array.isArray(after)?before.map((v:number,i:number)=>v+(after[i]-v)*s):Number(before)+(Number(after)-Number(before))*s;
     return{timeUs,value};
   });
-  return parseSpatialScene({kind:"atet.spatial-scene",schemaVersion:1,sceneId:"scene_spatial_storyboard",coordinates:"right-handed-y-up-meters",durationUs:6_000_000,
+  return parseSpatialScene({kind:"slopcamera.spatial-scene",schemaVersion:1,sceneId:"scene_spatial_storyboard",coordinates:"right-handed-y-up-meters",durationUs:6_000_000,
     assets:Object.values(assets),generators:[],overrides:[],
     cameras:[{cameraId,name:"Presentation camera",pose:pose([0,.2,9],[0,0,0]),projection:{kind:"perspective",width,height,fx:850,fy:850,cx:480,cy:270,near:.05,far:100}}],
     entities:[

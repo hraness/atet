@@ -14,19 +14,19 @@ import {
 } from "../html-overlay";
 import { CliError } from "./errors";
 
-const HEADLESS_ATET_CLI_MODULE = "@hraness/atet/cli";
+const HEADLESS_SLOPCAMERA_CLI_MODULE = "@hraness/slopcamera/cli";
 
-async function runHeadlessAtetCli(argv: readonly string[]): Promise<void> {
+async function runHeadlessSlopcameraCli(argv: readonly string[]): Promise<void> {
   // Keep this as a runtime package import so the headless CLI retains its own
   // package-relative skill and asset resolution inside an installed bundle.
-  const module: unknown = await import(HEADLESS_ATET_CLI_MODULE);
+  const module: unknown = await import(HEADLESS_SLOPCAMERA_CLI_MODULE);
   if (
     typeof module !== "object"
     || module === null
     || !("main" in module)
     || typeof module.main !== "function"
   ) {
-    throw new CliError("unavailable", "The portable Atet CLI is unavailable.");
+    throw new CliError("unavailable", "The portable Slopcamera CLI is unavailable.");
   }
   await module.main(argv);
 }
@@ -54,7 +54,7 @@ function optionValue(argv: readonly string[], name: string): string | undefined 
 /**
  * `image generate --prompt ...` is the project/media spelling and stays on the
  * desktop Gateway lane. The portable file command has an explicit --output
- * and delegates to @hraness/atet without duplicating its parser.
+ * and delegates to @hraness/slopcamera without duplicating its parser.
  */
 export function canonicalizeUnifiedCliArgs(
   argv: readonly string[],
@@ -162,12 +162,12 @@ async function runHtmlScaffold(
   dependencies: PortableSurfaceDependencies,
 ): Promise<number> {
   if (argv[1] !== "scaffold") {
-    throw new CliError("usage", "Use atet html scaffold <kind> --output <file.html>.");
+    throw new CliError("usage", "Use slopcamera html scaffold <kind> --output <file.html>.");
   }
   const kind = scaffoldKind(argv[2]);
   const output = optionValue(argv, "--output");
   if (output === undefined) {
-    throw new CliError("usage", "atet html scaffold requires --output <file.html>.");
+    throw new CliError("usage", "slopcamera html scaffold requires --output <file.html>.");
   }
   if (!output.toLowerCase().endsWith(".html")) {
     throw new CliError("usage", "HTML scaffold output must end in .html.");
@@ -178,7 +178,7 @@ async function runHtmlScaffold(
   ) {
     throw new CliError(
       "usage",
-      "Use atet html scaffold <kind> --output <file.html>.",
+      "Use slopcamera html scaffold <kind> --output <file.html>.",
     );
   }
   const outputPath = resolve((dependencies.cwd ?? process.cwd)(), output);
@@ -199,7 +199,7 @@ function runHtmlCatalog(
     options.length > 1
     || (options.length === 1 && options[0] !== "--json")
   ) {
-    throw new CliError("usage", "Use atet html catalog [--json].");
+    throw new CliError("usage", "Use slopcamera html catalog [--json].");
   }
   const output = options[0] === "--json"
     ? htmlOverlayCatalogJson()
@@ -234,7 +234,7 @@ export async function runPortableSurface(
   const previousExitCode = process.exitCode;
   process.exitCode = undefined;
   try {
-    await (dependencies.runHeadless ?? runHeadlessAtetCli)(argv);
+    await (dependencies.runHeadless ?? runHeadlessSlopcameraCli)(argv);
     return process.exitCode ?? 0;
   } finally {
     process.exitCode = previousExitCode;

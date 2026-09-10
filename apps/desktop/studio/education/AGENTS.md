@@ -11,7 +11,7 @@
 - Execute author Python only at the explicit trusted-current-user render boundary. Probe must not load the author bundle. Preserve the observed runtime environment and nonhermetic execution declarations.
 - Keep the fixed driver standalone. Every author helper and lesson file must be explicitly included in the source bundle; do not resolve undeclared repository siblings.
 - Preserve exact half-open native frame indices, rational movie PTS, static-frame repetition, explicit pixel/alpha interpretation, and bounded output publication. The owned sink must not start Manim's separate partial encoders.
-- Detach author-visible context from admitted job data. Keep narration and sound-effect resolution in the ordinary ATET project audio layer.
+- Detach author-visible context from admitted job data. Keep narration and sound-effect resolution in the ordinary SLOPCAMERA project audio layer.
 - Distinguish authored timing from measured caption or Rhubarb timing. Do not infer word alignment from mouth cues or claim lip-sync quality without reviewing actual retained narration.
 - Keep mathematical values, tile counts, and destinations derived from validated data. The integer-triangle example is not a proof for arbitrary triangles.
 - Coordinate native qualification through the integration owner's HRA lane. Retain failed attempts and exact source/driver identities; a backend observation does not replace a host studio receipt.

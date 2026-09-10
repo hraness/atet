@@ -6,7 +6,7 @@ import { join } from "node:path"
 import { createPreviewFileReader, readPreviewFile } from "./preview-file"
 
 async function fixture(run: (path: string, directory: string) => Promise<void>) {
-  const directory = await realpath(await mkdtemp(join(tmpdir(), "atet-preview-file-")))
+  const directory = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-preview-file-")))
   const path = join(directory, "fixture.bin")
   try {
     await writeFile(path, new Uint8Array([0, 127, 128, 255]))

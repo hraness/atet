@@ -20,7 +20,7 @@ import { commitSpatialProjectRevision, loadSpatialProject, migrateSpatialProject
 
 const transaction = (value: number) => `transaction_${value.toString(16).padStart(32, "0")}`;
 const document = parseSpatialScene({
-  kind: "atet.spatial-scene", schemaVersion: 1, sceneId: "scene_example", coordinates: "right-handed-y-up-meters", durationUs: 10_000_000,
+  kind: "slopcamera.spatial-scene", schemaVersion: 1, sceneId: "scene_example", coordinates: "right-handed-y-up-meters", durationUs: 10_000_000,
   entities: [{ entityId: "entity_cube", kind: "mesh", name: "Cube", parentId: null, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }, placement: { kind: "world" }, origin: { kind: "authored" }, visible: true, geometry: { kind: "box", size: [1, 1, 1] }, material: { kind: "unlit", color: "#ffffff", opacity: 1 } }],
   cameras: [{ cameraId: "camera_main", name: "Main", pose: { position: [0, 0, 5], rotation: [0, 0, 0, 1] }, projection: { kind: "perspective", width: 640, height: 480, near: 0.1, far: 100, fx: 500, fy: 500, cx: 320, cy: 240 } }],
   assets: [], animations: [], generators: [], overrides: [],
@@ -30,7 +30,7 @@ const source: SpatialProjectSceneSource = { sceneSha256, document: structuredClo
 const shots = ["shot_a", "shot_b"].map(shotId => SpatialShotV1Schema.parse({ shotId, sceneSha256, cameraId: "camera_main", range: { startUs: 0, endUs: 5_000_000 }, sceneStartUs: 0, playback: "once", overrides: [] }));
 type Fixture = Awaited<ReturnType<typeof fixture>>;
 async function fixture() {
-  const directory = await mkdtemp(join(tmpdir(), "atet-spatial-authority-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-spatial-authority-"));
   const fs = createNodeBundleFileSystem(directory);
   const project = syncedProject();
   const plan = editedPlan(project);
@@ -62,7 +62,7 @@ function countHeadWrites(fs: BundleFileSystem) {
 }
 async function edit(f: Fixture, id: number, name: string, all = true) {
   const current = await loadSpatialProject(f.fs);
-  return await commitSpatialProjectRevision({ ports: f.ports, expected: current.basis, transactionId: transaction(id), change: value => applySpatialProjectScenePatch(value.contents, { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: value.contents.shots[0]!.sceneSha256, operations: [{ kind: "rename-entity", entityId: "entity_cube", name }] }, all ? { kind: "all" } : { kind: "shots", shotIds: ["shot_a"] }).contents });
+  return await commitSpatialProjectRevision({ ports: f.ports, expected: current.basis, transactionId: transaction(id), change: value => applySpatialProjectScenePatch(value.contents, { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: value.contents.shots[0]!.sceneSha256, operations: [{ kind: "rename-entity", entityId: "entity_cube", name }] }, all ? { kind: "all" } : { kind: "shots", shotIds: ["shot_a"] }).contents });
 }
 
 test("V1 migration freezes exact media composition, independent audio, cuts, speed and identity", async () => withFixture(async f => {
@@ -104,11 +104,11 @@ test("one-shot and all-shot retarget are explicit and retain prior immutable doc
   expect(one.contents.shots[0]!.sceneSha256).not.toBe(sceneSha256);
   expect(one.contents.shots[1]!.sceneSha256).toBe(sceneSha256);
   expect(JSON.parse(await f.fs.readText(before.head.revision.path))).toEqual(before.revision);
-  const changed = applySpatialProjectScenePatch(one.contents, { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "rename-entity", entityId: "entity_cube", name: "Remaining uses" }] }, { kind: "all" });
+  const changed = applySpatialProjectScenePatch(one.contents, { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "rename-entity", entityId: "entity_cube", name: "Remaining uses" }] }, { kind: "all" });
   expect(changed.diff.affectedShotIds).toEqual(["shot_b"]);
   expect(changed.diff.untouchedShotIds).toEqual(["shot_a"]);
   expect(changed.contents.scenes).toHaveLength(3);
-  expect(() => applySpatialProjectScenePatch(one.contents, { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "rename-entity", entityId: "entity_cube", name: "Invalid scope" }] }, { kind: "shots", shotIds: ["shot_a"] })).toThrow("exact source");
+  expect(() => applySpatialProjectScenePatch(one.contents, { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "rename-entity", entityId: "entity_cube", name: "Invalid scope" }] }, { kind: "shots", shotIds: ["shot_a"] })).toThrow("exact source");
 }));
 
 test("scene patch cannot overwrite a concurrent media/audio project revision", async () => withFixture(async f => {
@@ -205,7 +205,7 @@ test("registered selected candidate becomes explicitly stale after source/camera
   const candidate = { candidateId: "candidate_a", derivation: { shotId: "shot_a", shotSha256: spatialShotSha256(current.contents.shots[0]), sceneSha256, recipeSha256: "f".repeat(64) }, outputs: [{ path, sha256: digest, bytes: bytes.length }] };
   completed(await commitSpatialProjectRevision({ ports: f.ports, expected: current.basis, transactionId: transaction(2), change: value => selectSpatialCandidate(addSpatialCandidate(value.contents, candidate), "candidate_a") }));
   const selected = await loadSpatialProject(f.fs);
-  const patched = applySpatialProjectScenePatch(selected.contents, { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "set-camera", camera: { ...document.cameras[0], pose: { position: [1, 0, 5], rotation: [0, 0, 0, 1] } } }] }, { kind: "shots", shotIds: ["shot_a"] });
+  const patched = applySpatialProjectScenePatch(selected.contents, { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "set-camera", camera: { ...document.cameras[0], pose: { position: [1, 0, 5], rotation: [0, 0, 0, 1] } } }] }, { kind: "shots", shotIds: ["shot_a"] });
   expect(patched.diff.selectedCandidates).toEqual([{ candidateId: "candidate_a", shotId: "shot_a", status: "stale" }]);
   expect(() => selectSpatialCandidate(patched.contents, "candidate_a")).toThrow("current");
   expect(patched.contents.selections).toEqual(selected.contents.selections);
@@ -338,7 +338,7 @@ test("source bytes, receipt bytes, attempt fields and hostile immutable paths fa
       await f.fs.writeTextAtomic(current.revision.scenes[0]!.artifact.path, "tampered source");
       await expect(loadSpatialProject(f.fs)).rejects.toThrow("integrity");
     } else if (mode === "receipt") {
-      const text = spatialProjectDocumentText(SpatialProjectSettlementV1Schema.parse({ kind: "atet.spatial-project-settlement", schemaVersion: 1, attempt: result.attempt, headSha256: sha256Hex(current.headText) }));
+      const text = spatialProjectDocumentText(SpatialProjectSettlementV1Schema.parse({ kind: "slopcamera.spatial-project-settlement", schemaVersion: 1, attempt: result.attempt, headSha256: sha256Hex(current.headText) }));
       await f.fs.writeTextAtomic(spatialProjectArtifact("receipts", text).path, "corrupt receipt");
     } else if (mode === "attempt") await f.fs.writeTextAtomic(result.attempt.path, "corrupt attempt");
     else {
@@ -391,7 +391,7 @@ test("retarget laws preserve frozen media and unselected shots for arbitrary dir
   const current = await loadSpatialProject(f.fs);
   fc.assert(fc.property(fc.string({ minLength: 1, maxLength: 128 }), name => {
     const before = canonicalJson(current.contents);
-    const result = applySpatialProjectScenePatch(current.contents, { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "rename-entity", entityId: "entity_cube", name }] }, { kind: "shots", shotIds: ["shot_a"] });
+    const result = applySpatialProjectScenePatch(current.contents, { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "rename-entity", entityId: "entity_cube", name }] }, { kind: "shots", shotIds: ["shot_a"] });
     expect(canonicalJson(current.contents)).toBe(before);
     expect(result.contents.legacy).toEqual(current.contents.legacy);
     expect(result.contents.shots[1]).toEqual(current.contents.shots[1]);

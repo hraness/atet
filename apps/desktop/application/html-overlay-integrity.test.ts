@@ -47,7 +47,7 @@ const browserRuntime: HtmlOverlayBrowserRuntimeBinding = {
 const authoring = HtmlOverlayAuthoringInputSchema.parse({
   canvas: { deviceScaleFactor: 1, height: 180, width: 320 },
   html: createHtmlOverlayScaffold("plain"),
-  kind: "atet.html-overlay",
+  kind: "slopcamera.html-overlay",
   libraries: [],
   parameters: { title: "Integrity" },
   resources: [{
@@ -80,7 +80,7 @@ describe("HTML-overlay browser execution integrity", () => {
     const first = { ...authoring.resources[0]!, name: "alpha", urlPath: "geometry/first.json", transport: "fetch" as const };
     const second = { ...first, name: "zebra", urlPath: "geometry/second.json", sha256: "d".repeat(64) };
     const resources = [second, authoring.resources[0]!, first];
-    const expected = `connect-src https://atet-overlay.invalid/.atet-overlay/assets/${first.sha256}/geometry/first.json https://atet-overlay.invalid/.atet-overlay/assets/${second.sha256}/geometry/second.json`;
+    const expected = `connect-src https://slopcamera-overlay.invalid/.slopcamera-overlay/assets/${first.sha256}/geometry/first.json https://slopcamera-overlay.invalid/.slopcamera-overlay/assets/${second.sha256}/geometry/second.json`;
     for (const profile of [undefined, "three-webgl2-hardware-v1"] as const) {
       const legacy = htmlOverlayRendererContract(profile), current = htmlOverlayRendererContract(profile, resources);
       expect(current.contentSecurityPolicy.find(directive => directive.startsWith("connect-src "))).toBe(expected);
@@ -127,7 +127,7 @@ describe("HTML-overlay browser execution integrity", () => {
       const profile = hardware ? "three-webgl2-hardware-v1" : undefined;
       const first = htmlOverlayRendererContract(profile, items), permuted = htmlOverlayRendererContract(profile, permutation);
       expect(canonicalJsonSha256(permuted)).toBe(canonicalJsonSha256(first));
-      const url = (resource: typeof items[number]) => `https://atet-overlay.invalid/.atet-overlay/assets/${resource.sha256}/${resource.urlPath}`;
+      const url = (resource: typeof items[number]) => `https://slopcamera-overlay.invalid/.slopcamera-overlay/assets/${resource.sha256}/${resource.urlPath}`;
       const sources = (contract: typeof first) => contract.contentSecurityPolicy.find(directive => directive.startsWith("connect-src "))!.slice("connect-src ".length).split(" ");
       expect(sources(first)).toEqual([...items].sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0).map(url));
       const selected = items[changedIndex]!;
@@ -152,7 +152,7 @@ describe("HTML-overlay browser execution integrity", () => {
     expect(htmlOverlayRendererContract("three-webgl2-hardware-v1").contentSecurityPolicy).toEqual(HTML_OVERLAY_RENDERER_CONTRACT.contentSecurityPolicy);
     const spark = htmlOverlayRendererContract("three-spark-webgl2-hardware-v1");
     expect(spark.contentSecurityPolicy).toContain("worker-src blob:");
-    expect(spark.contentSecurityPolicy).toContain("connect-src https://atet-overlay.invalid data:");
+    expect(spark.contentSecurityPolicy).toContain("connect-src https://slopcamera-overlay.invalid data:");
     expect(spark.contentSecurityPolicy.some(value => value.includes("'wasm-unsafe-eval'"))).toBe(true);
     expect(() => createHtmlOverlayExecutionBundle(authoring, browserRuntime, "three-webgl2-hardware-v1")).toThrow("exact approved scene library");
   });

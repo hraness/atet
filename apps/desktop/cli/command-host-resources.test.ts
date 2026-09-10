@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import {
   createProcessLocalHostResourceCoordinator,
-  defaultAtetHostResourceProfile,
-} from "@hraness/atet/host-resources";
+  defaultSlopcameraHostResourceProfile,
+} from "@hraness/slopcamera/host-resources";
 
 import type { CliCommand } from "./args";
 import {
@@ -21,7 +21,7 @@ function command(value: Readonly<Record<string, unknown>>): CliCommand {
 }
 
 const coordinator = createProcessLocalHostResourceCoordinator({
-  profile: defaultAtetHostResourceProfile(8),
+  profile: defaultSlopcameraHostResourceProfile(8),
 });
 
 describe("CLI command host-resource policy", () => {
@@ -118,7 +118,7 @@ describe("CLI command host-resource policy", () => {
     const singleCpu = createProcessLocalHostResourceCoordinator({
       profile: {
         capacities: [{ limit: 1, resource: "cpu" }],
-        id: "atet.cli-test/single-cpu/v1",
+        id: "slopcamera.cli-test/single-cpu/v1",
       },
     });
     expect(computeWorkerPoolSize(8, 4, singleCpu)).toBe(1);
@@ -133,7 +133,7 @@ describe("CLI command host-resource policy", () => {
     const replayCoordinator = createProcessLocalHostResourceCoordinator({
       profile: {
         capacities: [{ limit: 2, resource: "cpu" }],
-        id: "atet.cli-test/replay-two-cpu/v1",
+        id: "slopcamera.cli-test/replay-two-cpu/v1",
       },
     });
     expect(replayComputeWorkerPoolSize(

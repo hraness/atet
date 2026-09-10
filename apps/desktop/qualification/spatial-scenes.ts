@@ -150,12 +150,12 @@ const transform = {position:[0,0,0],rotation:[0,0,0,1],scale:[1,1,1]};
 const common = {parentId:null,placement:{kind:"world"},origin:{kind:"authored"},visible:true,transform};
 const generated = { ...common, entityId:generatedSpatialEntityId("generator_tiles","accent"),name:"Accent",kind:"mesh",origin:{kind:"generated",generatorId:"generator_tiles",key:"accent"},transform:{...transform,position:[1.4,-.7,0]},geometry:{kind:"box",size:[.35,.35,.35]},material:{kind:"unlit",color:"#e35544",opacity:1} };
 const camera = {cameraId:"camera_main",name:"Main",pose:{position:[0,0,5],rotation:[0,0,0,1]},projection:{kind:"perspective",width:320,height:180,fx:190,fy:195,cx:160,cy:90,near:.1,far:20}};
-const scene = parseSpatialScene({kind:"atet.spatial-scene",schemaVersion:1,sceneId:"scene_qualification",coordinates:"right-handed-y-up-meters",durationUs:1_000_000,assets,entities:[
+const scene = parseSpatialScene({kind:"slopcamera.spatial-scene",schemaVersion:1,sceneId:"scene_qualification",coordinates:"right-handed-y-up-meters",durationUs:1_000_000,assets,entities:[
   {...common,entityId:"entity_video",name:"Video",kind:"video",assetId:"asset_video",width:1.5,height:.75,fit:"stretch",opacity:1,sourceOffsetUs:0,playback:"loop",transform:{...transform,position:[-1.5,.7,0]}},
   {...common,entityId:"entity_image",name:"Image",kind:"image",assetId:"asset_image",width:1.5,height:.75,fit:"contain",opacity:1,transform:{...transform,position:[1.5,.7,0]}},
   {...common,entityId:"entity_diagram",name:"Diagram",kind:"diagram",assetId:"asset_diagram",width:1.5,height:.85,fit:"contain",opacity:1,transform:{...transform,position:[-1.5,-.65,0]}},
   {...common,entityId:"entity_model",name:"Imported animated model",kind:"mesh",geometry:{kind:"asset",assetId:"asset_model",materialMode:"entity",clip:{index:0,offsetUs:0,playback:"loop"}},material:{kind:"unlit",color:"#55aaff",opacity:1}}, generated,
-  {...common,entityId:"entity_title",name:"Title",kind:"text",fontAssetId:"asset_font",text:"ATET / DIRECTED SCENE",fontSize:12,width:284,color:"#ffffff",align:"left",placement:{kind:"view",cameraId:"camera_main",units:"pixels",order:10},transform:{...transform,position:[160,155,0]}},
+  {...common,entityId:"entity_title",name:"Title",kind:"text",fontAssetId:"asset_font",text:"SLOPCAMERA / DIRECTED SCENE",fontSize:12,width:284,color:"#ffffff",align:"left",placement:{kind:"view",cameraId:"camera_main",units:"pixels",order:10},transform:{...transform,position:[160,155,0]}},
 ],cameras:[camera,{...camera,cameraId:"camera_second",name:"Second",pose:{...camera.pose,position:[.3,.2,5]}}],animations:[],generators:[{generatorId:"generator_tiles",sourceSha256:hash("qualification retained generator"),closureSha256:hash("no dependencies"),parametersSha256:hash("one accent"),seed:1,outputSha256:spatialGeneratorOutputSha256([generated]),execution:{kind:"attempt",attemptId:"original-qualification",runtimeSha256:hash(Bun.version)},editableKeys:[{key:"accent",properties:["color","transform"]}]}],overrides:[]});
 const scenePath = join(assetsRoot,"scene.json");await writeFile(scenePath,JSON.stringify(scene,null,2)+"\n");
 const checks: {name:string;passed:true}[] = [];const checked=(name:string,condition:boolean)=>{assert.ok(condition,name);checks.push({name,passed:true});};
@@ -168,7 +168,7 @@ async function render(name:string,source:string,request:SpatialRenderRequest,ext
   starts[name] = start;
   const input=await bindSpatialRenderInput(application,{source:{path:relative(repositoryRoot,source)},request,...(extraAssets===undefined?{}:{assets:extraAssets})});
   const workspaceDirectory=join(application.paths.privateRoot,name);await mkdir(workspaceDirectory,{recursive:true,mode:0o700});
-  const identity={nodeKey:name,nodePlanSha256:hash(name),runId:"qualification",kind:"scene.render" as const,version:1,inputSchemaId:"atet.operation.scene.render.input/v1",outputSchemaId:"atet.operation.scene.render.output/v1"};
+  const identity={nodeKey:name,nodePlanSha256:hash(name),runId:"qualification",kind:"scene.render" as const,version:1,inputSchemaId:"slopcamera.operation.scene.render.input/v1",outputSchemaId:"slopcamera.operation.scene.render.output/v1"};
   const output=await executeSpatialRender({application,abortSignal:signal,workflow:{...identity,workspaceDirectory,beforePublication:async()=>undefined}},input);
   await recoverSpatialRenderOutput(application,input,output,identity,new AbortController().signal);
   results[name]=output;timings[name]=performance.now()-start;
@@ -189,7 +189,7 @@ if (referenceProfile) {
   const actualPixel=[...alphaFrame.subarray((63*320+217)*4,(63*320+217)*4+4)];
   checked("Linear working target retains straight source image color and alpha",actualPixel.every((value,index)=>Math.abs(value-sourcePixel[index]!)<=1));
   checked("Transparent scene background remains canonical no-hit RGBA zero",[...alphaFrame.subarray((10*320+10)*4,(10*320+10)*4+4)].every(value=>value===0));
-  const report={kind:"atet.spatial-shot-qualification",schemaVersion:1,checks,results,timings,capabilities,commands,alphaControl:{sourcePixel,actualPixel,framePath:alphaFramePath}};
+  const report={kind:"slopcamera.spatial-shot-qualification",schemaVersion:1,checks,results,timings,capabilities,commands,alphaControl:{sourcePixel,actualPixel,framePath:alphaFramePath}};
   await writeFile(join(root,"shot-report.json"),JSON.stringify(report,null,2)+"\n");
   console.log(JSON.stringify({passed:true,checks:checks.length,report:join(root,"shot-report.json")},null,2));
   await qualifyMixed();
@@ -203,7 +203,7 @@ const original=await render("original",scenePath,contact);
 const receipt=SpatialRenderReceiptSchema.parse(JSON.parse(await readFile(join(repositoryRoot,original.receipt.path),"utf8")));
 checked("Repeated absolute sample has identical actual pixels",receipt.samples[0]!.pngSha256===receipt.samples[2]!.pngSha256);
 checked("Imported clip and video change the actual rendered image",receipt.samples[0]!.pngSha256!==receipt.samples[1]!.pngSha256);
-const edited=applySpatialScenePatch(scene,{kind:"atet.spatial-scene-patch",schemaVersion:1,expectedSceneSha256:spatialSceneSha256(scene),operations:[{kind:"set-override",override:{entityId:generated.entityId,property:"color",value:"#44ee77"}},{kind:"set-camera",camera:{...scene.cameras[0]!,pose:{position:[.2,0,5],rotation:[0,0,0,1]}}}]}).scene;
+const edited=applySpatialScenePatch(scene,{kind:"slopcamera.spatial-scene-patch",schemaVersion:1,expectedSceneSha256:spatialSceneSha256(scene),operations:[{kind:"set-override",override:{entityId:generated.entityId,property:"color",value:"#44ee77"}},{kind:"set-camera",camera:{...scene.cameras[0]!,pose:{position:[.2,0,5],rotation:[0,0,0,1]}}}]}).scene;
 const editedPath=join(assetsRoot,"edited.json");await writeFile(editedPath,JSON.stringify(edited));
 const changed=await render("edited",editedPath,contact);
 checked("Named-part and camera edit visibly changes output",changed.artifact.sha256!==original.artifact.sha256);
@@ -236,7 +236,7 @@ if(hardwareProfile!==undefined){
 await rename(assetsRoot,`${assetsRoot}.removed`);
 const replay=await render("replay",join(repositoryRoot,original.sceneSource.path),contact,original.retainedAssets.map(({assetId,artifact})=>({assetId,artifact})));
 checked("Retained closure replays after original directory is unavailable",replay.artifact.sha256===original.artifact.sha256);
-const report={kind:"atet.spatial-scene-qualification",schemaVersion:1,checks,results,timings,capabilities,commands,limits:["320x180 original bounded mixed fixture; no general performance claim.","Video-only scene output; existing-project audio/cuts/speed qualification is recorded separately."]};
+const report={kind:"slopcamera.spatial-scene-qualification",schemaVersion:1,checks,results,timings,capabilities,commands,limits:["320x180 original bounded mixed fixture; no general performance claim.","Video-only scene output; existing-project audio/cuts/speed qualification is recorded separately."]};
 await writeFile(join(root,"report.json"),JSON.stringify(report,null,2)+"\n");
 console.log(JSON.stringify({passed:true,checks:checks.length,report:join(root,"report.json")},null,2));
 }
@@ -275,7 +275,7 @@ async function qualifyReference() {
   await render("warm-preview",previewPath,{cameraId:"camera_main",mode:{kind:"beauty"},selection:{kind:"frame",timeUs:5_333_333}});
   await render("warm-contact",previewPath,{cameraId:"camera_main",mode:{kind:"beauty"},selection:{kind:"contact-sheet",timesUs:Array.from({length:12},(_,index)=>index*1_250_000),columns:4,cellWidth:480,cellHeight:270,fit:"contain"}});
   const view = (order:number) => ({kind:"view" as const,cameraId:"camera_main",units:"pixels" as const,order});
-  const control = parseSpatialScene({kind:"atet.spatial-scene",schemaVersion:1,sceneId:"scene_graphic_control",coordinates:"right-handed-y-up-meters",durationUs:1_500_000,
+  const control = parseSpatialScene({kind:"slopcamera.spatial-scene",schemaVersion:1,sceneId:"scene_graphic_control",coordinates:"right-handed-y-up-meters",durationUs:1_500_000,
     cameras:[preview.cameras[0]!],assets:assets.filter(item=>["asset_transition_a","asset_transition_b","asset_graphic_control","asset_font"].includes(item.assetId)),generators:[],overrides:[],
     entities:[
       {...common,entityId:"entity_background",name:"Graphic background",kind:"mesh",geometry:{kind:"plane",width:960,height:540},material:{kind:"unlit",color:"#182030",opacity:1},placement:view(0),transform:{...transform,position:[480,270,0]}},
@@ -315,7 +315,7 @@ async function qualifyReference() {
   const fullFrames=measures.frames.filter(item=>item.render==="reference-1080p"),warm=fullFrames.filter(item=>item.frame>0);
   const encoder=measures.native.filter(item=>item.render==="reference-1080p"&&item.argv.includes("-start_number"));
   async function directoryBytes(path:string):Promise<number>{let size=0;for(const entry of await readdir(path,{withFileTypes:true})){if(entry.isSymbolicLink())continue;const child=join(path,entry.name);size+=entry.isDirectory()?await directoryBytes(child):(await stat(child)).size;}return size;}
-  const report={kind:"atet.spatial-reference-qualification",schemaVersion:1,checks,results,timings,capabilities,commands,
+  const report={kind:"slopcamera.spatial-reference-qualification",schemaVersion:1,checks,results,timings,capabilities,commands,
     fixture:{durationUs:15_000_000,width:1920,height:1080,frameRate:{numerator:30,denominator:1},frames:450,sceneSha256:spatialSceneSha256(reference),entities:reference.entities.length,assets:reference.assets.map(item=>({assetId:item.assetId,payload:item.payload,interpretation:item.interpretation})),cameras:reference.cameras.length},
     machine:{model:cpus()[0]?.model,logicalCores:cpus().length,totalMemoryBytes:totalmem(),architecture:arch(),kernelRelease:release(),bun:Bun.version,sharp:sharp.versions},
     measurements:{coldPreparationToFirstEvaluationMs:fullFrames[0]!.evaluationStart-starts["reference-1080p"]!,firstFrameEvaluationMs:fullFrames[0]!.evaluationMs,

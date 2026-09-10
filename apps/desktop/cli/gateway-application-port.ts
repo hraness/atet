@@ -73,7 +73,7 @@ const GatewayJournalSchema = z.strictObject({
   createdAt: z.string().datetime({ offset: true }),
   failureSha256: Sha256Schema.optional(),
   kind: z.union([
-    z.literal("atet.gateway-workflow-request"),
+    z.literal("slopcamera.gateway-workflow-request"),
     z.literal("studio.gateway-workflow-request"),
   ]),
   model: z.string().min(3).max(256),
@@ -932,7 +932,7 @@ export function createGatewayApplicationPort(
         journal = await writeJournal(directory, {
           chargeMayHaveOccurred: false,
           createdAt,
-          kind: "atet.gateway-workflow-request",
+          kind: "slopcamera.gateway-workflow-request",
           model: request.request.model,
           operation: request.operation,
           requestId,

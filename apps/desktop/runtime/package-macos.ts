@@ -7,27 +7,27 @@ import { join, resolve, sep } from "node:path";
 import { verifyFaceAnalyzerIdentity } from "../analysis/build";
 import {
   DesktopResponseSchema,
-  ATET_DESKTOP_PROTOCOL,
-  ATET_DESKTOP_PROTOCOL_VERSION,
+  SLOPCAMERA_DESKTOP_PROTOCOL,
+  SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
 } from "../contracts";
 import { HostResponseSchema } from "./src/host-protocol";
 
 const desktopRoot = resolve(import.meta.dir, "..");
 const packageRoot = join(desktopRoot, "zig-out", "package");
-export const macOSAppPath = join(packageRoot, "atet-3.2.3-macos-ReleaseFast.app");
+export const macOSAppPath = join(packageRoot, "slopcamera-3.2.3-macos-ReleaseFast.app");
 
 type RuntimeManifest = Readonly<{
-  capture: Readonly<{ name: "atet-capture"; sha256: string }>;
-  faceAnalyzer: Readonly<{ name: "atet-face-analyzer"; sha256: string }>;
-  gateway: Readonly<{ bunVersion: string; name: "atet-gateway"; sha256: string }>;
+  capture: Readonly<{ name: "slopcamera-capture"; sha256: string }>;
+  faceAnalyzer: Readonly<{ name: "slopcamera-face-analyzer"; sha256: string }>;
+  gateway: Readonly<{ bunVersion: string; name: "slopcamera-gateway"; sha256: string }>;
   schemaVersion: 2;
 }>;
 
 export const requiredUsageDescriptions = Object.freeze({
-  NSAudioCaptureUsageDescription: "Atet records system audio as a separate editing source.",
-  NSCameraUsageDescription: "Atet records the selected camera as a separate editing source.",
-  NSMicrophoneUsageDescription: "Atet records the selected microphone as a separate editing source.",
-  NSScreenCaptureUsageDescription: "Atet records each display as a separate editing source.",
+  NSAudioCaptureUsageDescription: "Slopcamera records system audio as a separate editing source.",
+  NSCameraUsageDescription: "Slopcamera records the selected camera as a separate editing source.",
+  NSMicrophoneUsageDescription: "Slopcamera records the selected microphone as a separate editing source.",
+  NSScreenCaptureUsageDescription: "Slopcamera records each display as a separate editing source.",
 });
 
 async function assertExecutable(path: string, label: string): Promise<string> {
@@ -41,7 +41,7 @@ async function assertInsidePackage(path: string): Promise<string> {
   const canonicalPackageRoot = await realpath(packageRoot);
   const canonicalAppRoot = await realpath(path);
   if (!canonicalAppRoot.startsWith(`${canonicalPackageRoot}${sep}`) || !canonicalAppRoot.endsWith(".app")) {
-    throw new Error("Refusing to stage Atet resources outside the expected package root.");
+    throw new Error("Refusing to stage Slopcamera resources outside the expected package root.");
   }
   return canonicalAppRoot;
 }
@@ -77,9 +77,9 @@ function parseRuntimeManifest(value: unknown): RuntimeManifest {
     }
     return raw;
   };
-  const capture = component("capture", "atet-capture", ["name", "sha256"]);
-  const faceAnalyzer = component("faceAnalyzer", "atet-face-analyzer", ["name", "sha256"]);
-  const gateway = component("gateway", "atet-gateway", ["bunVersion", "name", "sha256"]);
+  const capture = component("capture", "slopcamera-capture", ["name", "sha256"]);
+  const faceAnalyzer = component("faceAnalyzer", "slopcamera-face-analyzer", ["name", "sha256"]);
+  const gateway = component("gateway", "slopcamera-gateway", ["bunVersion", "name", "sha256"]);
   if (
     value.schemaVersion !== 2
     || Object.keys(value).sort().join(",") !== "capture,faceAnalyzer,gateway,schemaVersion"
@@ -92,21 +92,21 @@ function parseRuntimeManifest(value: unknown): RuntimeManifest {
     throw new Error("Packaged runtime manifest has an invalid envelope.");
   }
   return {
-    capture: { name: "atet-capture", sha256: capture.sha256 },
-    faceAnalyzer: { name: "atet-face-analyzer", sha256: faceAnalyzer.sha256 },
-    gateway: { bunVersion: gateway.bunVersion, name: "atet-gateway", sha256: gateway.sha256 },
+    capture: { name: "slopcamera-capture", sha256: capture.sha256 },
+    faceAnalyzer: { name: "slopcamera-face-analyzer", sha256: faceAnalyzer.sha256 },
+    gateway: { bunVersion: gateway.bunVersion, name: "slopcamera-gateway", sha256: gateway.sha256 },
     schemaVersion: 2,
   };
 }
 
 export async function writeFinalRuntimeManifest(runtimeRoot: string, bunVersion = Bun.version): Promise<RuntimeManifest> {
   const manifest: RuntimeManifest = {
-    capture: { name: "atet-capture", sha256: await sha256(join(runtimeRoot, "bin", "atet-capture")) },
+    capture: { name: "slopcamera-capture", sha256: await sha256(join(runtimeRoot, "bin", "slopcamera-capture")) },
     faceAnalyzer: {
-      name: "atet-face-analyzer",
-      sha256: await sha256(join(runtimeRoot, "bin", "atet-face-analyzer")),
+      name: "slopcamera-face-analyzer",
+      sha256: await sha256(join(runtimeRoot, "bin", "slopcamera-face-analyzer")),
     },
-    gateway: { bunVersion, name: "atet-gateway", sha256: await sha256(join(runtimeRoot, "bin", "atet-gateway")) },
+    gateway: { bunVersion, name: "slopcamera-gateway", sha256: await sha256(join(runtimeRoot, "bin", "slopcamera-gateway")) },
     schemaVersion: 2,
   };
   const destination = join(runtimeRoot, "manifest.json");
@@ -181,22 +181,22 @@ async function verifyMinimumMacOS(executable: string): Promise<void> {
 
 async function verifyStagedGateway(gateway: string, captureHelper: string): Promise<void> {
   const request = {
-    command: "atet.runtime.snapshot",
+    command: "slopcamera.runtime.snapshot",
     id: "package-probe",
     payload: {
       payload: { kind: "snapshot" },
-      protocol: ATET_DESKTOP_PROTOCOL,
-      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+      protocol: SLOPCAMERA_DESKTOP_PROTOCOL,
+      protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
       requestId: "request_packageprobe1",
     },
   };
   const environment: Record<string, string> = {
-    ATET_CAPTURE_HELPER: captureHelper,
+    SLOPCAMERA_CAPTURE_HELPER: captureHelper,
     LANG: process.env.LANG ?? "en_US.UTF-8",
     PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
     TMPDIR: process.env.TMPDIR ?? "/tmp",
   };
-  const temporaryHome = await mkdtemp(join(tmpdir(), "atet-package-home-"));
+  const temporaryHome = await mkdtemp(join(tmpdir(), "slopcamera-package-home-"));
   environment.HOME = temporaryHome;
   const child = Bun.spawn([gateway], { env: environment, stdin: "pipe", stdout: "pipe", stderr: "pipe" });
   await child.stdin.write(`${JSON.stringify(request)}\n`);
@@ -247,8 +247,8 @@ async function assertTreeOmitsCheckoutPath(root: string, checkoutRoot: string): 
 async function verifyRelocatedPackage(appRoot: string): Promise<void> {
   const checkoutRoot = await realpath(resolve(desktopRoot, "../.."));
   await assertTreeOmitsCheckoutPath(appRoot, checkoutRoot);
-  const relocationRoot = await mkdtemp(join(tmpdir(), "atet-relocation-proof-"));
-  const relocatedApp = join(relocationRoot, "Renamed Atet.app");
+  const relocationRoot = await mkdtemp(join(tmpdir(), "slopcamera-relocation-proof-"));
+  const relocatedApp = join(relocationRoot, "Renamed Slopcamera.app");
   try {
     await cp(appRoot, relocatedApp, { recursive: true });
     await run(["/usr/bin/codesign", "--verify", "--deep", "--strict", relocatedApp]);
@@ -256,8 +256,8 @@ async function verifyRelocatedPackage(appRoot: string): Promise<void> {
     await verifyFinalRuntimeManifest(relocatedRuntime);
     await assertTreeOmitsCheckoutPath(relocatedApp, checkoutRoot);
     await verifyStagedGateway(
-      join(relocatedRuntime, "bin", "atet-gateway"),
-      join(relocatedRuntime, "bin", "atet-capture"),
+      join(relocatedRuntime, "bin", "slopcamera-gateway"),
+      join(relocatedRuntime, "bin", "slopcamera-capture"),
     );
   } finally {
     await rm(relocationRoot, { force: true, recursive: true });
@@ -265,7 +265,7 @@ async function verifyRelocatedPackage(appRoot: string): Promise<void> {
 }
 
 export async function stageMacOSPackage(): Promise<void> {
-  if (process.platform !== "darwin") throw new Error("Atet macOS packaging requires macOS.");
+  if (process.platform !== "darwin") throw new Error("Slopcamera macOS packaging requires macOS.");
 
   const appRoot = await assertInsidePackage(macOSAppPath);
   const resourcesRoot = join(appRoot, "Contents", "Resources");
@@ -273,20 +273,20 @@ export async function stageMacOSPackage(): Promise<void> {
   const runtimeBin = join(runtimeRoot, "bin");
   const frontendDestination = join(resourcesRoot, "frontend", "dist");
   const gatewaySource = await assertExecutable(
-    join(desktopRoot, "runtime", "dist", "atet-gateway"),
-    "Compiled Atet gateway",
+    join(desktopRoot, "runtime", "dist", "slopcamera-gateway"),
+    "Compiled Slopcamera gateway",
   );
   const captureSource = await assertExecutable(
-    join(desktopRoot, "capture", "dist", "atet-capture"),
-    "Atet capture helper",
+    join(desktopRoot, "capture", "dist", "slopcamera-capture"),
+    "Slopcamera capture helper",
   );
   const faceAnalyzerSource = await assertExecutable(
-    join(desktopRoot, "analysis", "dist", "atet-face-analyzer"),
-    "Atet face analyzer",
+    join(desktopRoot, "analysis", "dist", "slopcamera-face-analyzer"),
+    "Slopcamera face analyzer",
   );
   await verifyFaceAnalyzerIdentity(faceAnalyzerSource);
   const frontendSource = await realpath(join(desktopRoot, "frontend", "dist"));
-  if (!(await stat(frontendSource)).isDirectory()) throw new Error("Built Atet frontend is missing.");
+  if (!(await stat(frontendSource)).isDirectory()) throw new Error("Built Slopcamera frontend is missing.");
 
   await Promise.all([
     rm(runtimeRoot, { force: true, recursive: true }),
@@ -297,9 +297,9 @@ export async function stageMacOSPackage(): Promise<void> {
     mkdir(join(resourcesRoot, "frontend"), { recursive: true }),
   ]);
 
-  const gatewayDestination = join(runtimeBin, "atet-gateway");
-  const captureDestination = join(runtimeBin, "atet-capture");
-  const faceAnalyzerDestination = join(runtimeBin, "atet-face-analyzer");
+  const gatewayDestination = join(runtimeBin, "slopcamera-gateway");
+  const captureDestination = join(runtimeBin, "slopcamera-capture");
+  const faceAnalyzerDestination = join(runtimeBin, "slopcamera-face-analyzer");
   await Promise.all([
     copyFile(gatewaySource, gatewayDestination),
     copyFile(captureSource, captureDestination),
@@ -327,16 +327,16 @@ export async function stageMacOSPackage(): Promise<void> {
     verifyFaceAnalyzerIdentity(faceAnalyzerDestination),
   ]);
   await run([
-    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.atet.gateway",
+    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.slopcamera.gateway",
     "--entitlements", join(desktopRoot, "runtime", "gateway.entitlements.plist"),
     "--sign", "-", "--timestamp=none", gatewayDestination,
   ]);
   await run([
-    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.atet.capture",
+    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.slopcamera.capture",
     "--sign", "-", "--timestamp=none", captureDestination,
   ]);
   await run([
-    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.atet.face-analyzer",
+    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.slopcamera.face-analyzer",
     "--sign", "-", "--timestamp=none", faceAnalyzerDestination,
   ]);
   await Promise.all([
@@ -348,14 +348,14 @@ export async function stageMacOSPackage(): Promise<void> {
   await writeFinalRuntimeManifest(runtimeRoot);
   await verifyFinalRuntimeManifest(runtimeRoot);
   await run([
-    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.atet",
+    "/usr/bin/codesign", "--force", "--identifier", "com.hraness.slopcamera",
     "--sign", "-", "--timestamp=none", appRoot,
   ]);
   await run(["/usr/bin/codesign", "--verify", "--deep", "--strict", appRoot]);
   await verifyFinalRuntimeManifest(runtimeRoot);
-  await verifyMinimumMacOS(join(appRoot, "Contents", "MacOS", "atet"));
+  await verifyMinimumMacOS(join(appRoot, "Contents", "MacOS", "slopcamera"));
 
-  await verifyPlistString(infoPlist, "CFBundleIdentifier", "com.hraness.atet");
+  await verifyPlistString(infoPlist, "CFBundleIdentifier", "com.hraness.slopcamera");
   await verifyPlistString(infoPlist, "LSMinimumSystemVersion", "15.0");
   for (const [key, value] of Object.entries(requiredUsageDescriptions)) {
     await verifyPlistString(infoPlist, key, value);
@@ -368,7 +368,7 @@ export async function stageMacOSPackage(): Promise<void> {
   ]);
   await verifyRelocatedPackage(appRoot);
 
-  process.stdout.write(`Staged and verified Atet.app resources at ${resourcesRoot}\n`);
+  process.stdout.write(`Staged and verified Slopcamera.app resources at ${resourcesRoot}\n`);
 }
 
 if (import.meta.main) await stageMacOSPackage();

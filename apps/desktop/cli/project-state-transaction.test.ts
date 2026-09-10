@@ -79,7 +79,7 @@ function fixtureProject(durationUs = 10_000_000): VideoProjectV1 {
     }],
     createdAt: NOW,
     currentEditPlanPath: "edits/current.json",
-    kind: "atet.video-project",
+    kind: "slopcamera.video-project",
     name: "Fixture",
     placements: [{
       assetId: "asset_fixture01",
@@ -133,7 +133,7 @@ function generationReference(
 }
 
 test("commits a structural project and edit-plan generation together", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-project-transaction-"));
   try {
     const fileSystem = createNodeBundleFileSystem(root);
     const beforeProject = fixtureProject();
@@ -167,7 +167,7 @@ test("commits a structural project and edit-plan generation together", async () 
       await fileSystem.readText(PROJECT_STATE_TRANSACTION_PATH),
     ) as unknown)).toMatchObject({
       active: "after",
-      kind: "atet.project-state-transaction",
+      kind: "slopcamera.project-state-transaction",
       phase: "settled",
     });
     expect(ProjectStateTransactionV1Schema.parse({
@@ -180,8 +180,8 @@ test("commits a structural project and edit-plan generation together", async () 
   }
 });
 
-test("first mutation of predecessor project state receipts the saved Atet generation", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-legacy-"));
+test("first mutation of predecessor project state receipts the saved Slopcamera generation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-project-transaction-legacy-"));
   try {
     const fileSystem = createNodeBundleFileSystem(root);
     const beforeProject = VideoProjectV1Schema.parse({
@@ -196,7 +196,7 @@ test("first mutation of predecessor project state receipts the saved Atet genera
     await fileSystem.writeTextAtomic("edits/current.json", `${canonicalJson(beforePlan)}\n`);
     const afterProject = VideoProjectV1Schema.parse({
       ...beforeProject,
-      name: "First Atet mutation",
+      name: "First Slopcamera mutation",
       updatedAt: "2026-07-22T12:02:00.000Z",
     });
     const afterPlan = ProjectEditPlanV1Schema.parse({
@@ -217,8 +217,8 @@ test("first mutation of predecessor project state receipts the saved Atet genera
     const transaction = ProjectStateTransactionV1Schema.parse(JSON.parse(
       await fileSystem.readText(PROJECT_STATE_TRANSACTION_PATH),
     ) as unknown);
-    expect(savedPlan.kind).toBe("atet.project-edit-plan");
-    expect(savedProject.kind).toBe("atet.video-project");
+    expect(savedPlan.kind).toBe("slopcamera.project-edit-plan");
+    expect(savedProject.kind).toBe("slopcamera.video-project");
     expect(installed).toEqual({ plan: savedPlan, project: savedProject });
     expect(transaction.after.plan.sha256).toBe(canonicalJsonSha256(savedPlan));
     expect(transaction.after.project.sha256).toBe(canonicalJsonSha256(savedProject));
@@ -228,7 +228,7 @@ test("first mutation of predecessor project state receipts the saved Atet genera
 });
 
 test("restores the prior generation when publication fails before commit-ready", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-failure-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-project-transaction-failure-"));
   try {
     const physical = createNodeBundleFileSystem(root);
     const beforeProject = fixtureProject();
@@ -283,7 +283,7 @@ test("restores the prior generation when publication fails before commit-ready",
 });
 
 test("marks a failed commit-ready settlement as ambiguous and preserves roll-forward evidence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-ambiguous-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-project-transaction-ambiguous-"));
   try {
     const physical = createNodeBundleFileSystem(root);
     const beforeProject = fixtureProject();
@@ -336,7 +336,7 @@ test("marks a failed commit-ready settlement as ambiguous and preserves roll-for
 });
 
 test("authenticates a predecessor prepare generation before canonical rollback", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-recover-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-project-transaction-recover-"));
   try {
     const fileSystem = createNodeBundleFileSystem(root);
     const transactionId = "transaction_22222222222222222222222222222222";
@@ -390,22 +390,22 @@ test("authenticates a predecessor prepare generation before canonical rollback",
     expect(await recoverProjectStateTransaction(fileSystem)).toBe("rolled-back");
     expect(await loadVideoProject(fileSystem)).toEqual({
       ...beforeProject,
-      kind: "atet.video-project",
+      kind: "slopcamera.video-project",
     });
     expect(await loadProjectEditPlan(fileSystem)).toEqual({
       ...beforePlan,
-      kind: "atet.project-edit-plan",
+      kind: "slopcamera.project-edit-plan",
     });
     expect(ProjectStateTransactionV1Schema.parse(JSON.parse(
       await fileSystem.readText(PROJECT_STATE_TRANSACTION_PATH),
-    ) as unknown).kind).toBe("atet.project-state-transaction");
+    ) as unknown).kind).toBe("slopcamera.project-state-transaction");
   } finally {
     await rm(root, { force: true, recursive: true });
   }
 });
 
 test("rolls a commit-ready generation forward and rejects tampered recovery evidence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-forward-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-project-transaction-forward-"));
   try {
     const fileSystem = createNodeBundleFileSystem(root);
     const transactionId = "transaction_33333333333333333333333333333333";
@@ -428,7 +428,7 @@ test("rolls a commit-ready generation forward and rejects tampered recovery evid
     await fileSystem.writeTextAtomic(PROJECT_STATE_TRANSACTION_PATH, `${canonicalJson(ProjectStateTransactionV1Schema.parse({
       after,
       before,
-      kind: "atet.project-state-transaction",
+      kind: "slopcamera.project-state-transaction",
       phase: "commit-ready",
       projectId: beforeProject.projectId,
       schemaVersion: 1,
@@ -444,7 +444,7 @@ test("rolls a commit-ready generation forward and rejects tampered recovery evid
     await fileSystem.writeTextAtomic(PROJECT_STATE_TRANSACTION_PATH, `${canonicalJson(ProjectStateTransactionV1Schema.parse({
       after,
       before,
-      kind: "atet.project-state-transaction",
+      kind: "slopcamera.project-state-transaction",
       phase: "commit-ready",
       projectId: beforeProject.projectId,
       schemaVersion: 1,
@@ -459,13 +459,13 @@ test("rolls a commit-ready generation forward and rejects tampered recovery evid
 });
 
 test("a locked project mutation recovers an interrupted generation before dispatch", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-project-transaction-cli-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-project-transaction-cli-"));
   try {
     const paths: RepositoryPaths = {
-      artifactRoot: join(root, "artifacts", "atet", "recordings"),
-      desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
-      privateRoot: join(root, "artifacts", "atet", "private"),
-      projectRoot: join(root, "artifacts", "atet", "projects"),
+      artifactRoot: join(root, "artifacts", "slopcamera", "recordings"),
+      desktopRoot: join(root, "projects", "slopcamera", "apps", "desktop"),
+      privateRoot: join(root, "artifacts", "slopcamera", "private"),
+      projectRoot: join(root, "artifacts", "slopcamera", "projects"),
       repositoryRoot: root,
     };
     const directory = join(paths.projectRoot, "project_fixture01");
@@ -491,7 +491,7 @@ test("a locked project mutation recovers an interrupted generation before dispat
     await fileSystem.writeTextAtomic(PROJECT_STATE_TRANSACTION_PATH, `${canonicalJson(ProjectStateTransactionV1Schema.parse({
       after,
       before,
-      kind: "atet.project-state-transaction",
+      kind: "slopcamera.project-state-transaction",
       phase: "prepare",
       projectId: beforeProject.projectId,
       schemaVersion: 1,

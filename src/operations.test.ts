@@ -2,20 +2,20 @@ import { describe, expect, test } from "bun:test"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { atetImageModels } from "./generate.ts"
+import { slopcameraImageModels } from "./generate.ts"
 import type {
   HostResourceClaim,
   HostResourceCoordinator,
   HostResourceLease,
 } from "./host-resources.ts"
 import {
-  executeAtetOperation,
-  executeAtetOperationWithLease,
-  atetOperationCodes,
-  atetOperationRegistry,
-  parseAtetOperationInput,
-  searchAtetOperations,
-  withAtetOperationHostAdmission,
+  executeSlopcameraOperation,
+  executeSlopcameraOperationWithLease,
+  slopcameraOperationCodes,
+  slopcameraOperationRegistry,
+  parseSlopcameraOperationInput,
+  searchSlopcameraOperations,
+  withSlopcameraOperationHostAdmission,
 } from "./operations.ts"
 
 function recordingCoordinator(record: {
@@ -23,7 +23,7 @@ function recordingCoordinator(record: {
   claims: HostResourceClaim[][]
 }, inheritedFileDescriptor = 73): HostResourceCoordinator {
   const profile = {
-    id: "atet.test-host/v1",
+    id: "slopcamera.test-host/v1",
     capacities: [],
   } as const
   return {
@@ -45,14 +45,14 @@ function recordingCoordinator(record: {
   }
 }
 
-describe("canonical Atet operations", () => {
+describe("canonical Slopcamera operations", () => {
   test("publishes four exact semantic codes in stable order", () => {
-    expect(atetOperationRegistry.map(({ code }) => code)).toEqual(
-      [...atetOperationCodes],
+    expect(slopcameraOperationRegistry.map(({ code }) => code)).toEqual(
+      [...slopcameraOperationCodes],
     )
     expect(
-      atetOperationRegistry.find(
-        ({ code }) => code === "atet.image.generate",
+      slopcameraOperationRegistry.find(
+        ({ code }) => code === "slopcamera.image.generate",
       ),
     ).toMatchObject({
       execution: "gateway",
@@ -67,39 +67,39 @@ describe("canonical Atet operations", () => {
       },
     })
     expect(
-      atetOperationRegistry.find(
-        ({ code }) => code === "atet.image.vectorize",
+      slopcameraOperationRegistry.find(
+        ({ code }) => code === "slopcamera.image.vectorize",
       ),
     ).toMatchObject({
       execution: "local",
       authentication: "none",
     })
     expect(
-      atetOperationRegistry.map(({ code, resources }) => ({ code, resources })),
+      slopcameraOperationRegistry.map(({ code, resources }) => ({ code, resources })),
     ).toEqual([
       {
-        code: "atet.diagram.check",
+        code: "slopcamera.diagram.check",
         resources: [
           { resource: "cpu", amount: 1 },
           { resource: "local-io", amount: 1 },
         ],
       },
       {
-        code: "atet.diagram.render",
+        code: "slopcamera.diagram.render",
         resources: [
           { resource: "cpu", amount: 1 },
           { resource: "local-io", amount: 1 },
         ],
       },
       {
-        code: "atet.image.vectorize",
+        code: "slopcamera.image.vectorize",
         resources: [
           { resource: "cpu", amount: 1 },
           { resource: "local-io", amount: 1 },
         ],
       },
       {
-        code: "atet.image.generate",
+        code: "slopcamera.image.generate",
         resources: [
           { resource: "local-io", amount: 1 },
           { resource: "network", amount: 1 },
@@ -107,40 +107,40 @@ describe("canonical Atet operations", () => {
         ],
       },
     ])
-    expect(Object.isFrozen(atetOperationRegistry[0]?.resources)).toBe(true)
+    expect(Object.isFrozen(slopcameraOperationRegistry[0]?.resources)).toBe(true)
   })
 
   test("searches bounded semantic metadata without fuzzy execution", () => {
-    expect(searchAtetOperations("diagram").map(({ code }) => code)).toEqual([
-      "atet.diagram.check",
-      "atet.diagram.render",
+    expect(searchSlopcameraOperations("diagram").map(({ code }) => code)).toEqual([
+      "slopcamera.diagram.check",
+      "slopcamera.diagram.render",
     ])
-    expect(searchAtetOperations("gateway image", 1).map(({ code }) => code))
-      .toEqual(["atet.image.generate"])
-    expect(() => searchAtetOperations("\0")).toThrow("[INVALID_SEARCH]")
+    expect(searchSlopcameraOperations("gateway image", 1).map(({ code }) => code))
+      .toEqual(["slopcamera.image.generate"])
+    expect(() => searchSlopcameraOperations("\0")).toThrow("[INVALID_SEARCH]")
   })
 
   test("rejects unknown fields and source text instead of evaluating it", () => {
     expect(() =>
-      parseAtetOperationInput("atet.diagram.check", {
+      parseSlopcameraOperationInput("slopcamera.diagram.check", {
         path: "flow.diagram.json",
         source: "await Bun.write('/tmp/executed', 'yes')",
       }),
     ).toThrow("[INVALID_OPERATION_INPUT]")
     expect(() =>
-      parseAtetOperationInput("atet.image.generate", {
+      parseSlopcameraOperationInput("slopcamera.image.generate", {
         model: "other/provider-model",
         prompt: "anything",
       }),
     ).toThrow("[INVALID_OPERATION_INPUT]")
     expect(() =>
-      parseAtetOperationInput("atet.image.generate", {
-        model: atetImageModels[0],
+      parseSlopcameraOperationInput("slopcamera.image.generate", {
+        model: slopcameraImageModels[0],
         prompt: "anything",
       }),
     ).toThrow("outputPath")
     expect(() =>
-      parseAtetOperationInput("atet.image.vectorize", {
+      parseSlopcameraOperationInput("slopcamera.image.vectorize", {
         inputPath: "input.png",
         outputPath: "output.png",
       }),
@@ -148,7 +148,7 @@ describe("canonical Atet operations", () => {
   })
 
   test("executes a fixed local diagram adapter by exact code", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-operation-check-"))
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-operation-check-"))
     try {
       const path = join(root, "flow.diagram.json")
       const marker = join(root, "config-executed")
@@ -171,12 +171,12 @@ describe("canonical Atet operations", () => {
         }),
       )
       await writeFile(
-        join(root, "atet.config.ts"),
+        join(root, "slopcamera.config.ts"),
         `await Bun.write(${JSON.stringify(marker)}, "executed"); export default {}\n`,
       )
       const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-      const result = await executeAtetOperation(
-        "atet.diagram.check",
+      const result = await executeSlopcameraOperation(
+        "slopcamera.diagram.check",
         { path },
         { hostResourceCoordinator: recordingCoordinator(admission) },
       )
@@ -199,8 +199,8 @@ describe("canonical Atet operations", () => {
     const networkInputs: string[] = []
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
     await expect(
-      executeAtetOperation(
-        "atet.image.vectorize",
+      executeSlopcameraOperation(
+        "slopcamera.image.vectorize",
         {
           inputPath: "/private/caller-owned.png",
           outputPath: "/private/caller-owned.svg",
@@ -223,8 +223,8 @@ describe("canonical Atet operations", () => {
 
   test("exposes callback-scoped inherited authority for custom direct surfaces", async () => {
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-    const descriptor = await withAtetOperationHostAdmission(
-      "atet.image.vectorize",
+    const descriptor = await withSlopcameraOperationHostAdmission(
+      "slopcamera.image.vectorize",
       lease => lease.inheritedFileDescriptor,
       { hostResourceCoordinator: recordingCoordinator(admission, 91) },
     )
@@ -237,7 +237,7 @@ describe("canonical Atet operations", () => {
   })
 
   test("requires inherited authority to cover every operation-owned claim", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-operation-lease-"))
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-operation-lease-"))
     let assertions = 0
     const profile = {
       capacities: [
@@ -245,7 +245,7 @@ describe("canonical Atet operations", () => {
         { limit: 4, resource: "local-io" },
         { limit: 4, resource: "network" },
       ],
-      id: "atet.operation-lease-test/v1",
+      id: "slopcamera.operation-lease-test/v1",
     } as const
     const lease = (claims: readonly HostResourceClaim[]): HostResourceLease => ({
       assertOwned: () => {
@@ -266,18 +266,18 @@ describe("canonical Atet operations", () => {
         shapes: [],
         version: 1,
       }))
-      await expect(executeAtetOperationWithLease(
-        "atet.diagram.check",
+      await expect(executeSlopcameraOperationWithLease(
+        "slopcamera.diagram.check",
         { path },
         lease([{ amount: 1, resource: "network" }]),
       )).rejects.toThrow("does not cover cpu:1, local-io:1")
-      await expect(executeAtetOperationWithLease(
-        "atet.diagram.check",
+      await expect(executeSlopcameraOperationWithLease(
+        "slopcamera.diagram.check",
         { path },
         lease([{ amount: 1, resource: "cpu" }]),
       )).rejects.toThrow("does not cover local-io:1")
-      await expect(executeAtetOperationWithLease(
-        "atet.diagram.check",
+      await expect(executeSlopcameraOperationWithLease(
+        "slopcamera.diagram.check",
         { path },
         lease([
           { amount: 2, resource: "cpu" },
@@ -286,8 +286,8 @@ describe("canonical Atet operations", () => {
         ]),
       )).rejects.toThrow("contains invalid claims")
 
-      const checked = await executeAtetOperationWithLease(
-        "atet.diagram.check",
+      const checked = await executeSlopcameraOperationWithLease(
+        "slopcamera.diagram.check",
         { path },
         lease([
           { amount: 2, resource: "cpu" },

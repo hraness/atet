@@ -66,7 +66,7 @@ export interface MediaTransformPlatformService {
   dispose(workspace: MediaOperationWorkspace): Effect.Effect<void, OperationEffectFailure>;
 }
 
-export class MediaTransformPlatform extends Context.Tag("@atet/local/MediaTransformPlatform")<
+export class MediaTransformPlatform extends Context.Tag("@slopcamera/local/MediaTransformPlatform")<
   MediaTransformPlatform, MediaTransformPlatformService
 >() { }
 

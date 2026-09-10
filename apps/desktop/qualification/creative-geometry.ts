@@ -20,7 +20,7 @@ export function cameraBodyGlb(): Buffer {
   const count=positions.length/3,indexOffset=(positions.length+normals.length)*4,binary=Buffer.alloc(indexOffset+indices.length*2);
   [...positions,...normals].forEach((n,i)=>binary.writeFloatLE(n,i*4));
   indices.forEach((n,i)=>binary.writeUInt16LE(n,indexOffset+i*2));
-  const json=JSON.stringify({asset:{version:"2.0",generator:"ATET authored rounded camera body"},buffers:[{byteLength:binary.length}],
+  const json=JSON.stringify({asset:{version:"2.0",generator:"SLOPCAMERA authored rounded camera body"},buffers:[{byteLength:binary.length}],
     bufferViews:[{buffer:0,byteOffset:0,byteLength:positions.length*4},{buffer:0,byteOffset:positions.length*4,byteLength:normals.length*4},{buffer:0,byteOffset:indexOffset,byteLength:indices.length*2}],
     accessors:[{bufferView:0,componentType:5126,count,type:"VEC3",min:[-.5,-.5,-.5],max:[.5,.5,.5]},{bufferView:1,componentType:5126,count,type:"VEC3"},{bufferView:2,componentType:5123,count:indices.length,type:"SCALAR"}],
     meshes:[{primitives:[{attributes:{POSITION:0,NORMAL:1},indices:2,mode:4}]}],nodes:[{mesh:0}],scenes:[{nodes:[0]}],scene:0});

@@ -31,7 +31,7 @@ function session() {
 
 /** Real file ownership with a controlled encoder result; no FFmpeg or capture. */
 async function fixture() {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-direct-media-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-direct-media-")));
   const inputPath = join(root, "input.wav");
   const bytes = Buffer.from("immutable source fixture");
   await writeFile(inputPath, bytes, { mode: 0o600 });
@@ -44,7 +44,7 @@ async function fixture() {
     },
     transform: {
       audioStreamIndex: 0, effects: [{ kind: "volume", gainDb: -3 }],
-      kind: "atet.audio-effects-transform", output: { kind: "audio-only", profile: "wav-pcm-s16le" }, schemaVersion: 1,
+      kind: "slopcamera.audio-effects-transform", output: { kind: "audio-only", profile: "wav-pcm-s16le" }, schemaVersion: 1,
     },
   };
 }

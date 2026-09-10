@@ -44,7 +44,7 @@ export const DirectingShotSchema = z.strictObject({
 });
 
 export const DirectingRecipeSchema = z.preprocess(input => capture(input, "directing recipe", 8 * 1024 * 1024), z.strictObject({
-  kind: z.literal("atet.directing-recipe"),
+  kind: z.literal("slopcamera.directing-recipe"),
   schemaVersion: z.literal(1),
   id: RecipeIdSchema,
   title: TextSchema.max(512),
@@ -134,7 +134,7 @@ export function sameDirectingSource(left: GatewayMediaSourceReference, right: Ga
 }
 
 export function directingBoundShotSha256(shot: DirectingShot, dependencies: readonly (DirectingDependency & { readonly shotSha256: string })[]): string {
-  return canonicalJsonSha256({ domain: "atet.directing-shot/v1", shot, dependencies });
+  return canonicalJsonSha256({ domain: "slopcamera.directing-shot/v1", shot, dependencies });
 }
 
 /** Bind local reconciliation to the exact prepared request and retained take. */
@@ -146,7 +146,7 @@ export function directingRequestId(input: {
   readonly request: GatewayPortRequest;
 }): string {
   const { id, attemptId, recipeSha256, shotSha256, request } = input;
-  return `gateway_${canonicalJsonSha256({ domain: "atet.directing-request/v1", id, attemptId, recipeSha256, shotSha256, request })}`;
+  return `gateway_${canonicalJsonSha256({ domain: "slopcamera.directing-request/v1", id, attemptId, recipeSha256, shotSha256, request })}`;
 }
 
 /** Verify the submitted request against the authored recipe and retained frames. */
@@ -161,7 +161,7 @@ export function directingRequestMatchesShot(attempt: DirectingAttempt, shot: Dir
 }
 
 export const DirectingStateSchema = z.preprocess(input => capture(input, "directing state", DIRECTING_LIMITS.stateBytes), z.strictObject({
-  kind: z.literal("atet.directing-state"),
+  kind: z.literal("slopcamera.directing-state"),
   schemaVersion: z.literal(1),
   id: RecipeIdSchema,
   budgetMicroUsd: MoneySchema,

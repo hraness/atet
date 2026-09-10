@@ -74,7 +74,7 @@ export function operationFileClaims(
   input: GraphInputValue | JsonValue,
 ): readonly FileClaim[] {
   if (!record(input)) return [];
-  if (operation === "atet.studio.run") return optionalClaim(field(input, "bundle"));
+  if (operation === "slopcamera.studio.run") return optionalClaim(field(input, "bundle"));
   if (operation === "scene.render") {
     return [
       ...optionalClaim(field(input, "source")),
@@ -107,12 +107,12 @@ export function operationFileClaims(
     return optionalClaim(Reflect.get(input, "input"));
   }
   if (
-    operation === "atet.diagram.check"
-    || operation === "atet.diagram.render"
+    operation === "slopcamera.diagram.check"
+    || operation === "slopcamera.diagram.render"
   ) {
     return optionalPathClaim(Reflect.get(input, "path"));
   }
-  if (operation === "atet.image.vectorize") {
+  if (operation === "slopcamera.image.vectorize") {
     return optionalPathClaim(Reflect.get(input, "inputPath"));
   }
   if (operation === "gateway.image") {
@@ -260,7 +260,7 @@ export function collectDeclaredFileCandidates(
   if (!record(value)) return [];
   if (
     Reflect.get(value, "kind") === "file"
-    && Reflect.get(value, "version") === "atet-workflow-file-candidate-v1"
+    && Reflect.get(value, "version") === "slopcamera-workflow-file-candidate-v1"
   ) {
     return [declaredCandidate(WorkflowFileCandidateSchema.parse(value))];
   }

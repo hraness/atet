@@ -10,7 +10,7 @@ const directory = resolve(directoryArgument);
 const manifest: unknown = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 verifyNpmPublishManifest(manifest);
 if (manifest === null || typeof manifest !== "object" || !("version" in manifest) || typeof manifest.version !== "string") throw new Error("Missing package version.");
-const archiveName = `hraness-atet-${manifest.version}.tgz`;
+const archiveName = `hraness-slopcamera-${manifest.version}.tgz`;
 await verifyArchive(join(directory, archiveName), join(directory, "npm-pack.json"), "Canonical GitHub release", packageName, manifest.version, archiveName);
 const archive = await readFile(join(directory, archiveName));
 const releaseManifest = parseManifest({ schema: "hraness-github-release-v1", repository, repositoryId, package: packageName,

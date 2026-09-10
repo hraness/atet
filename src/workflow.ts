@@ -1,12 +1,12 @@
 import {
-  executeAtetOperationWithLease,
-  isAtetOperationCode,
-  parseAtetOperationInput,
-  atetOperationHostResourceClaims,
-  type AtetOperationCode,
-  type AtetOperationDependencies,
-  type AtetOperationInputMap,
-  type AtetOperationResultMap,
+  executeSlopcameraOperationWithLease,
+  isSlopcameraOperationCode,
+  parseSlopcameraOperationInput,
+  slopcameraOperationHostResourceClaims,
+  type SlopcameraOperationCode,
+  type SlopcameraOperationDependencies,
+  type SlopcameraOperationInputMap,
+  type SlopcameraOperationResultMap,
 } from "./operations.js"
 import {
   createDefaultHostResourceCoordinator,
@@ -19,7 +19,7 @@ const workflowStepIdPattern = /^[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)*$/u
 const defaultMaximumSteps = 64
 const hardMaximumSteps = 256
 
-export type AtetWorkflowErrorCode =
+export type SlopcameraWorkflowErrorCode =
   | "INVALID_WORKFLOW"
   | "INVALID_WORKFLOW_INPUT"
   | "INVALID_WORKFLOW_STEP"
@@ -27,34 +27,34 @@ export type AtetWorkflowErrorCode =
   | "WORKFLOW_FAILED"
   | "WORKFLOW_STEP_FAILED"
 
-export interface AtetWorkflowStepReceipt {
+export interface SlopcameraWorkflowStepReceipt {
   readonly index: number
   readonly id: string
-  readonly operation: AtetOperationCode
+  readonly operation: SlopcameraOperationCode
 }
 
-export class AtetWorkflowError extends Error {
-  readonly code: AtetWorkflowErrorCode
-  readonly completedSteps: readonly AtetWorkflowStepReceipt[]
+export class SlopcameraWorkflowError extends Error {
+  readonly code: SlopcameraWorkflowErrorCode
+  readonly completedSteps: readonly SlopcameraWorkflowStepReceipt[]
   readonly failedStep?: Readonly<{
     id: string
-    operation: AtetOperationCode
+    operation: SlopcameraOperationCode
   }>
 
   constructor(
-    code: AtetWorkflowErrorCode,
+    code: SlopcameraWorkflowErrorCode,
     message: string,
     options: {
       readonly cause?: unknown
-      readonly completedSteps?: readonly AtetWorkflowStepReceipt[]
+      readonly completedSteps?: readonly SlopcameraWorkflowStepReceipt[]
       readonly failedStep?: Readonly<{
         id: string
-        operation: AtetOperationCode
+        operation: SlopcameraOperationCode
       }>
     } = {},
   ) {
     super(`[${code}] ${message}`, { cause: options.cause })
-    this.name = "AtetWorkflowError"
+    this.name = "SlopcameraWorkflowError"
     this.code = code
     this.completedSteps = Object.freeze(
       [...(options.completedSteps ?? [])].sort(
@@ -67,67 +67,67 @@ export class AtetWorkflowError extends Error {
   }
 }
 
-export interface AtetWorkflowExecutorContext {
+export interface SlopcameraWorkflowExecutorContext {
   readonly hostResourceLease: HostResourceLease
   readonly signal: AbortSignal
   readonly stepId: string
 }
 
-export type AtetWorkflowExecutor = <C extends AtetOperationCode>(
+export type SlopcameraWorkflowExecutor = <C extends SlopcameraOperationCode>(
   code: C,
-  input: AtetOperationInputMap[C],
-  context: AtetWorkflowExecutorContext,
-) => Promise<AtetOperationResultMap[C]>
+  input: SlopcameraOperationInputMap[C],
+  context: SlopcameraWorkflowExecutorContext,
+) => Promise<SlopcameraOperationResultMap[C]>
 
-export interface AtetWorkflowContext {
+export interface SlopcameraWorkflowContext {
   readonly signal: AbortSignal
-  operation<C extends AtetOperationCode>(
+  operation<C extends SlopcameraOperationCode>(
     id: string,
     code: C,
-    input: AtetOperationInputMap[C],
-  ): Promise<AtetOperationResultMap[C]>
+    input: SlopcameraOperationInputMap[C],
+  ): Promise<SlopcameraOperationResultMap[C]>
 }
 
-export interface AtetWorkflowDefinition<Input, Output> {
+export interface SlopcameraWorkflowDefinition<Input, Output> {
   readonly id: string
   readonly version: number
   readonly parseInput: (value: unknown) => Input
   readonly run: (
-    context: AtetWorkflowContext,
+    context: SlopcameraWorkflowContext,
     input: Input,
   ) => Output | Promise<Output>
 }
 
-export interface DefineAtetWorkflowOptions<Input, Output>
-  extends AtetWorkflowDefinition<Input, Output> {}
+export interface DefineSlopcameraWorkflowOptions<Input, Output>
+  extends SlopcameraWorkflowDefinition<Input, Output> {}
 
-export interface RunAtetWorkflowOptions {
+export interface RunSlopcameraWorkflowOptions {
   /**
    * Operation dependencies may also carry admission controls. Explicit
    * workflow-level controls take precedence when both are present.
    */
-  readonly dependencies?: AtetOperationDependencies
-  readonly executor?: AtetWorkflowExecutor
+  readonly dependencies?: SlopcameraOperationDependencies
+  readonly executor?: SlopcameraWorkflowExecutor
   readonly hostResourceCoordinator?: HostResourceCoordinator
   readonly maximumSteps?: number
   readonly signal?: AbortSignal
   readonly waitTimeoutMilliseconds?: number
 }
 
-export interface AtetWorkflowRun<Output> {
+export interface SlopcameraWorkflowRun<Output> {
   readonly workflow: Readonly<{
     id: string
     version: number
   }>
   readonly output: Output
-  readonly steps: readonly AtetWorkflowStepReceipt[]
+  readonly steps: readonly SlopcameraWorkflowStepReceipt[]
 }
 
 function workflowError(
-  code: AtetWorkflowErrorCode,
+  code: SlopcameraWorkflowErrorCode,
   message: string,
 ): never {
-  throw new AtetWorkflowError(code, message)
+  throw new SlopcameraWorkflowError(code, message)
 }
 
 function validateWorkflowId(id: unknown): asserts id is string {
@@ -146,7 +146,7 @@ function validateWorkflowId(id: unknown): asserts id is string {
 
 function validateStepId(
   id: unknown,
-  completedSteps: readonly AtetWorkflowStepReceipt[] = [],
+  completedSteps: readonly SlopcameraWorkflowStepReceipt[] = [],
 ): asserts id is string {
   if (
     typeof id !== "string" ||
@@ -154,7 +154,7 @@ function validateStepId(
     id.length > 80 ||
     !workflowStepIdPattern.test(id)
   ) {
-    throw new AtetWorkflowError(
+    throw new SlopcameraWorkflowError(
       "INVALID_WORKFLOW_STEP",
       "Step id must be 1 through 80 letters, numbers, dots, underscores, colons, or hyphens.",
       { completedSteps },
@@ -162,9 +162,9 @@ function validateStepId(
   }
 }
 
-export function defineAtetWorkflow<Input, Output>(
-  options: DefineAtetWorkflowOptions<Input, Output>,
-): AtetWorkflowDefinition<Input, Output> {
+export function defineSlopcameraWorkflow<Input, Output>(
+  options: DefineSlopcameraWorkflowOptions<Input, Output>,
+): SlopcameraWorkflowDefinition<Input, Output> {
   if (typeof options !== "object" || options === null) {
     workflowError("INVALID_WORKFLOW", "Workflow definition must be an object.")
   }
@@ -205,28 +205,28 @@ function maximumSteps(value: number | undefined): number {
 }
 
 function aborted(
-  completedSteps: readonly AtetWorkflowStepReceipt[],
+  completedSteps: readonly SlopcameraWorkflowStepReceipt[],
   cause?: unknown,
-): AtetWorkflowError {
-  return new AtetWorkflowError(
+): SlopcameraWorkflowError {
+  return new SlopcameraWorkflowError(
     "WORKFLOW_ABORTED",
     "Workflow execution was aborted.",
     { cause, completedSteps },
   )
 }
 
-export async function runAtetWorkflow<Input, Output>(
-  definition: AtetWorkflowDefinition<Input, Output>,
+export async function runSlopcameraWorkflow<Input, Output>(
+  definition: SlopcameraWorkflowDefinition<Input, Output>,
   value: unknown,
-  options: RunAtetWorkflowOptions = {},
-): Promise<AtetWorkflowRun<Awaited<Output>>> {
-  const normalized = defineAtetWorkflow(definition)
+  options: RunSlopcameraWorkflowOptions = {},
+): Promise<SlopcameraWorkflowRun<Awaited<Output>>> {
+  const normalized = defineSlopcameraWorkflow(definition)
   const limit = maximumSteps(options.maximumSteps)
   const signal = options.signal
     ?? options.dependencies?.signal
     ?? new AbortController().signal
   const invoked = new Set<string>()
-  const completed: AtetWorkflowStepReceipt[] = []
+  const completed: SlopcameraWorkflowStepReceipt[] = []
   const dispatched: Promise<unknown>[] = []
   let acceptingOperations = true
   let nextIndex = 0
@@ -237,19 +237,19 @@ export async function runAtetWorkflow<Input, Output>(
   try {
     input = normalized.parseInput(value)
   } catch (cause) {
-    throw new AtetWorkflowError(
+    throw new SlopcameraWorkflowError(
       "INVALID_WORKFLOW_INPUT",
       "Workflow input did not satisfy its parser.",
       { cause },
     )
   }
 
-  const executor: AtetWorkflowExecutor = options.executor
-    ?? (<C extends AtetOperationCode>(
+  const executor: SlopcameraWorkflowExecutor = options.executor
+    ?? (<C extends SlopcameraOperationCode>(
       code: C,
-      operationInput: AtetOperationInputMap[C],
-      context: AtetWorkflowExecutorContext,
-    ) => executeAtetOperationWithLease(
+      operationInput: SlopcameraOperationInputMap[C],
+      context: SlopcameraWorkflowExecutorContext,
+    ) => executeSlopcameraOperationWithLease(
       code,
       operationInput,
       context.hostResourceLease,
@@ -261,29 +261,29 @@ export async function runAtetWorkflow<Input, Output>(
   const waitTimeoutMilliseconds = options.waitTimeoutMilliseconds
     ?? options.dependencies?.waitTimeoutMilliseconds
 
-  async function dispatchOperation<C extends AtetOperationCode>(
+  async function dispatchOperation<C extends SlopcameraOperationCode>(
     id: string,
     code: C,
-    operationInput: AtetOperationInputMap[C],
-  ): Promise<AtetOperationResultMap[C]> {
+    operationInput: SlopcameraOperationInputMap[C],
+  ): Promise<SlopcameraOperationResultMap[C]> {
     if (signal.aborted) throw aborted(completed)
     validateStepId(id, completed)
-    if (!isAtetOperationCode(code)) {
-      throw new AtetWorkflowError(
+    if (!isSlopcameraOperationCode(code)) {
+      throw new SlopcameraWorkflowError(
         "INVALID_WORKFLOW_STEP",
-        `Workflow step ${id} names an unknown Atet operation.`,
+        `Workflow step ${id} names an unknown Slopcamera operation.`,
         { completedSteps: completed },
       )
     }
     if (invoked.has(id)) {
-      throw new AtetWorkflowError(
+      throw new SlopcameraWorkflowError(
         "INVALID_WORKFLOW_STEP",
         `Duplicate workflow step id: ${id}.`,
         { completedSteps: completed },
       )
     }
     if (nextIndex >= limit) {
-      throw new AtetWorkflowError(
+      throw new SlopcameraWorkflowError(
         "INVALID_WORKFLOW_STEP",
         `Workflow exceeds its ${String(limit)}-step limit.`,
         { completedSteps: completed },
@@ -292,11 +292,11 @@ export async function runAtetWorkflow<Input, Output>(
     const index = nextIndex
     nextIndex += 1
     invoked.add(id)
-    let normalizedInput: AtetOperationInputMap[C]
+    let normalizedInput: SlopcameraOperationInputMap[C]
     try {
-      normalizedInput = parseAtetOperationInput(code, operationInput)
+      normalizedInput = parseSlopcameraOperationInput(code, operationInput)
     } catch (cause) {
-      throw new AtetWorkflowError(
+      throw new SlopcameraWorkflowError(
         "INVALID_WORKFLOW_STEP",
         `Workflow step ${id} has invalid input for ${code}.`,
         { cause, completedSteps: completed },
@@ -304,7 +304,7 @@ export async function runAtetWorkflow<Input, Output>(
     }
     try {
       const result = await hostResourceCoordinator.withLease(
-        atetOperationHostResourceClaims(code),
+        slopcameraOperationHostResourceClaims(code),
         async (hostResourceLease) => await executor(code, normalizedInput, {
           hostResourceLease,
           signal,
@@ -322,13 +322,13 @@ export async function runAtetWorkflow<Input, Output>(
       return result
     } catch (cause) {
       if (
-        cause instanceof AtetWorkflowError &&
+        cause instanceof SlopcameraWorkflowError &&
         cause.code === "WORKFLOW_ABORTED"
       ) {
         throw cause
       }
       if (signal.aborted) throw aborted(completed, cause)
-      throw new AtetWorkflowError(
+      throw new SlopcameraWorkflowError(
         "WORKFLOW_STEP_FAILED",
         `Workflow step ${id} (${code}) failed.`,
         {
@@ -340,16 +340,16 @@ export async function runAtetWorkflow<Input, Output>(
     }
   }
 
-  const context: AtetWorkflowContext = Object.freeze({
+  const context: SlopcameraWorkflowContext = Object.freeze({
     signal,
-    operation<C extends AtetOperationCode>(
+    operation<C extends SlopcameraOperationCode>(
       id: string,
       code: C,
-      operationInput: AtetOperationInputMap[C],
-    ): Promise<AtetOperationResultMap[C]> {
+      operationInput: SlopcameraOperationInputMap[C],
+    ): Promise<SlopcameraOperationResultMap[C]> {
       if (!acceptingOperations) {
-        const closed = Promise.reject<AtetOperationResultMap[C]>(
-          new AtetWorkflowError(
+        const closed = Promise.reject<SlopcameraOperationResultMap[C]>(
+          new SlopcameraWorkflowError(
             "INVALID_WORKFLOW_STEP",
             "Workflow operations cannot start after authored workflow code has settled.",
             { completedSteps: completed },
@@ -382,8 +382,8 @@ export async function runAtetWorkflow<Input, Output>(
   const operationResults = await Promise.allSettled(dispatched)
   if (signal.aborted) throw aborted(completed, runFailed ? runFailure : undefined)
   if (runFailed) {
-    if (runFailure instanceof AtetWorkflowError) throw runFailure
-    throw new AtetWorkflowError(
+    if (runFailure instanceof SlopcameraWorkflowError) throw runFailure
+    throw new SlopcameraWorkflowError(
       "WORKFLOW_FAILED",
       `Workflow ${normalized.id} failed in authored code.`,
       { cause: runFailure, completedSteps: completed },
@@ -394,8 +394,8 @@ export async function runAtetWorkflow<Input, Output>(
   )
   if (operationFailure !== undefined) {
     const cause: unknown = operationFailure.reason
-    if (cause instanceof AtetWorkflowError) throw cause
-    throw new AtetWorkflowError(
+    if (cause instanceof SlopcameraWorkflowError) throw cause
+    throw new SlopcameraWorkflowError(
       "WORKFLOW_STEP_FAILED",
       "A dispatched workflow operation failed.",
       { cause, completedSteps: completed },

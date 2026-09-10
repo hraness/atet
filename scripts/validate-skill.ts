@@ -1,16 +1,16 @@
 import { access, readFile, readdir } from "node:fs/promises"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { publishedArchiveUrl } from "../apps/web/src/published-release"
+import { sourceInstall } from "../apps/web/src/published-release"
 
-const root = join(process.cwd(), "skills", "atet")
+const root = join(process.cwd(), "skills", "slopcamera")
 const skillPath = join(root, "SKILL.md")
 const text = await readFile(skillPath, "utf8")
 
 const publicSkills = (await readdir(join(process.cwd(), "skills"), { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
-if (publicSkills.length !== 1 || publicSkills[0] !== "atet") {
-  throw new Error(`Package must expose only skills/atet; found ${publicSkills.join(", ")}`)
+if (publicSkills.length !== 1 || publicSkills[0] !== "slopcamera") {
+  throw new Error(`Package must expose only skills/slopcamera; found ${publicSkills.join(", ")}`)
 }
 
 async function collectMarkdownFiles(directory: string): Promise<readonly string[]> {
@@ -59,7 +59,7 @@ const keys = Object.keys(frontmatter).sort()
 if (keys.join(",") !== "description,name") {
   throw new Error(`SKILL.md frontmatter must contain only name and description, received ${keys}`)
 }
-if (frontmatter.name !== "atet") throw new Error("Skill name must be atet")
+if (frontmatter.name !== "slopcamera") throw new Error("Skill name must be slopcamera")
 if ((frontmatter.description?.length ?? 0) < 40) {
   throw new Error("Skill description must explain capability and triggers")
 }
@@ -116,15 +116,15 @@ for (const requiredPath of [
     throw new Error(`Rubber-stamp workflow must route to ${requiredPath}`)
   }
 }
-if (rubberStampReference.includes("skills/atet/")) {
-  throw new Error("Rubber-stamp workflow must not assume an Atet source checkout")
+if (rubberStampReference.includes("skills/slopcamera/")) {
+  throw new Error("Rubber-stamp workflow must not assume a Slopcamera source checkout")
 }
-if ([...rubberStampReference.matchAll(/skill_root="\$\(atet skill path\)"/gu)].length !== 2) {
+if ([...rubberStampReference.matchAll(/skill_root="\$\(slopcamera skill path\)"/gu)].length !== 2) {
   throw new Error("Each rubber-stamp executable step must resolve its packaged skill root")
 }
 for (const executableBlock of [
-  /```sh\nskill_root="\$\(atet skill path\)"\nvercel env run -- atet ai image generate[\s\S]*?--image "\$skill_root\/references\/rubber-stamp-examples\/stamp-style-1\.png"[\s\S]*?```/u,
-  /```sh\nskill_root="\$\(atet skill path\)"\nbun "\$skill_root\/scripts\/compose-rubber-stamp-field-note\.ts"[\s\S]*?```/u,
+  /```sh\nskill_root="\$\(slopcamera skill path\)"\nvercel env run -- bun "\$SLOPCAMERA_SOURCE_ROOT\/apps\/desktop\/dist\/cli\/main\.js" ai image generate[\s\S]*?--image "\$skill_root\/references\/rubber-stamp-examples\/stamp-style-1\.png"[\s\S]*?```/u,
+  /```sh\nskill_root="\$\(slopcamera skill path\)"\nbun "\$skill_root\/scripts\/compose-rubber-stamp-field-note\.ts"[\s\S]*?```/u,
 ]) {
   if (!executableBlock.test(rubberStampReference)) {
     throw new Error("Rubber-stamp executable blocks must be self-contained")
@@ -139,14 +139,17 @@ const openai = await readFile(join(root, "agents", "openai.yaml"), "utf8")
 for (const required of ["display_name:", "short_description:", "default_prompt:"]) {
   if (!openai.includes(required)) throw new Error(`agents/openai.yaml is missing ${required}`)
 }
-if (!openai.includes("$atet")) throw new Error("agents/openai.yaml default prompt must invoke $atet")
+if (!openai.includes("$slopcamera")) throw new Error("agents/openai.yaml default prompt must invoke $slopcamera")
 const install = await readFile(join(root, "references", "install.md"), "utf8")
 const manifest = JSON.parse(await readFile(join(process.cwd(), "package.json"), "utf8")) as {
   readonly version?: unknown
 }
 if (typeof manifest.version !== "string") throw new Error("package version is missing")
-if (!install.includes(`bun add --global ${publishedArchiveUrl}`)) {
-  throw new Error("Skill canonical archive install pin must match the verified public release")
+for (const required of [sourceInstall.checkoutCommand, "bun install --frozen-lockfile --ignore-scripts", "bun run build:sdk", "bun run build:desktop:cli"]) {
+  if (!install.includes(required)) throw new Error(`Skill source installation must include ${required}`)
+}
+if (/hraness-slopcamera-3\.2\.3\.tgz/u.test(install)) {
+  throw new Error("The historical Atet archive cannot be relabeled as a Slopcamera release")
 }
 await validateLocalMarkdownLinks()
-console.log("atet skill is valid")
+console.log("slopcamera skill is valid")

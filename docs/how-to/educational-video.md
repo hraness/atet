@@ -1,13 +1,13 @@
 # Make an educational video
 
-Use Manim for mathematical visuals and keep narration, music and sound effects in an ordinary ATET project. Use a native Blender scene when the explanation depends on detailed 3D, or a spatial scene when named geometry and world-space media need editable camera direction.
+Use Manim for mathematical visuals and keep narration, music and sound effects in an ordinary Slopcamera project. Use a native Blender scene when the explanation depends on detailed 3D, or a spatial scene when named geometry and world-space media need editable camera direction.
 
 This Manim path requires the [current-source studio commands](../reference/capabilities.md), a selected Python environment with Manim Community and the starter's Typst dependency, and FFmpeg/FFprobe.
 
 ## Author the lesson
 
 ```sh
-atet studio init lesson --template manim-lesson --json
+slopcamera studio init lesson --template manim-lesson --json
 ```
 
 Inspect `lesson/lesson.json`, `scene.py`, `lesson.py` and `toolkit.py`. The starter is a ten-second portrait lesson with an original presenter and a 3–4–5 triangle. Its 9 and 16 tiles rearrange into a 25-tile square; that example does not establish a general proof of Pythagoras.
@@ -17,7 +17,7 @@ Edit the script, supported mathematical parameters and cues. Declare every helpe
 ## Render silent visuals
 
 ```sh
-atet studio bundle lesson/source.json --json > lesson-bundle.json
+slopcamera studio bundle lesson/source.json --json > lesson-bundle.json
 ```
 
 Before planning, copy the returned bundle digest into a fresh job. Save and run this as `prepare-lesson.ts` with Bun:
@@ -32,15 +32,15 @@ await Bun.write("lesson/current.job.json", JSON.stringify(job, null, 2));
 
 ```sh
 bun prepare-lesson.ts
-atet studio plan lesson/current.job.json --json
-atet studio probe lesson/current.job.json --python /absolute/venv/bin/python --json
-atet studio run lesson/current.job.json --python /absolute/venv/bin/python --allow-trusted-code --json
+slopcamera studio plan lesson/current.job.json --json
+slopcamera studio probe lesson/current.job.json --python /absolute/venv/bin/python --json
+slopcamera studio run lesson/current.job.json --python /absolute/venv/bin/python --allow-trusted-code --json
 ```
 
 Preserve the selected virtual-environment path. Inspect the actual frames and receipt before assembling:
 
 ```sh
-atet studio assemble <studio-id> --output-id beauty --name "Geometry lesson" --json
+slopcamera studio assemble <studio-id> --output-id beauty --name "Geometry lesson" --json
 ```
 
 The Manim driver rejects source-side audio. Lesson audio IDs and cue metadata are authoring references; they do not automatically fetch, synthesize, import or place audio. Add selected retained audio through the ordinary project explicitly.
@@ -50,8 +50,8 @@ The Manim driver rejects source-side audio. Lesson audio IDs and cue metadata ar
 Use supplied audio or [generate narration](generate-media.md) with an authorized Gateway call. Preserve the exact waveform and returned receipt. Then place it in the returned project:
 
 ```sh
-atet project add <project-id> narration.wav --role dialogue --at 0us --json
-atet project add <project-id> tile-click.wav --role other --at 7600000us --json
+slopcamera project add <project-id> narration.wav --role dialogue --at 0us --json
+slopcamera project add <project-id> tile-click.wav --role other --at 7600000us --json
 ```
 
 Those placements express authored timing. They are not proof of word alignment or lip sync. The lesson's authored mouth/word cues must remain labeled as such. Rhubarb mouth-shape output can be converted using `rhubarb_mouth_cues`; retain its original result and recognizer identity. Mouth shapes do not supply word timestamps, and measured words require their own evidence.

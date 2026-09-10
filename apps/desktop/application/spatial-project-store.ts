@@ -183,7 +183,7 @@ export async function commitSpatialProjectRevision(options: SpatialProjectCommit
     const contents = validateSpatialProjectContents(options.change(current));
     const scenes = contents.scenes.map(source => ({ sceneSha256: source.sceneSha256, artifact: spatialProjectArtifact("scenes", spatialProjectDocumentText(source.document)) }));
     const revision = SpatialProjectRevisionV2Schema.parse({
-      kind: "atet.spatial-project-revision", schemaVersion: 2, projectId: current.contents.legacy.project.projectId,
+      kind: "slopcamera.spatial-project-revision", schemaVersion: 2, projectId: current.contents.legacy.project.projectId,
       parent: expected, transactionId, legacy: contents.legacy, scenes, shots: contents.shots, candidates: contents.candidates, selections: contents.selections,
     });
     // All source dependencies are validated and made durable before publishing a head.
@@ -196,11 +196,11 @@ export async function commitSpatialProjectRevision(options: SpatialProjectCommit
     const reference = spatialProjectArtifact("revisions", revisionText);
     await publish(ports, reference, revisionText);
     const after = SpatialProjectHeadV2Schema.parse({
-      kind: "atet.spatial-project-head", schemaVersion: 2, projectId: revision.projectId,
+      kind: "slopcamera.spatial-project-head", schemaVersion: 2, projectId: revision.projectId,
       projectRevisionSha256: spatialProjectRevisionSha256(revision), revision: reference, transactionId,
     });
     const attemptText = spatialProjectDocumentText(SpatialProjectAttemptV1Schema.parse({
-      kind: "atet.spatial-project-attempt", schemaVersion: 1, beforeHeadSha256: sha256Hex(current.headText), expected, after,
+      kind: "slopcamera.spatial-project-attempt", schemaVersion: 1, beforeHeadSha256: sha256Hex(current.headText), expected, after,
     }));
     attempt = spatialProjectArtifact("attempts", attemptText);
     await publish(ports, attempt, attemptText);
@@ -245,7 +245,7 @@ export async function migrateSpatialProject(options: Omit<SpatialProjectCommitOp
 }
 function settlementText(attempt: SpatialProjectArtifact, headText: string): string {
   return spatialProjectDocumentText(SpatialProjectSettlementV1Schema.parse({
-    kind: "atet.spatial-project-settlement", schemaVersion: 1, attempt, headSha256: sha256Hex(headText),
+    kind: "slopcamera.spatial-project-settlement", schemaVersion: 1, attempt, headSha256: sha256Hex(headText),
   }));
 }
 /** Reconciliation proves an exact commit; it never restores, overwrites, or replays a head. */

@@ -68,8 +68,8 @@ import { spatialFrameCount } from "../../../src/spatial-scene/time";
 
 const MAXIMUM_SVG_CACHE_MANIFEST_BYTES = 64 * 1_024;
 const MAXIMUM_SVG_DERIVATIVE_BYTES = 512 * 1_024 * 1_024;
-const SVG_RASTER_RECIPE_VERSION = "atet-rsvg-convert-v1";
-const CAPTION_SVG_RASTER_RECIPE_VERSION = "atet-caption-resvg-v1";
+const SVG_RASTER_RECIPE_VERSION = "slopcamera-rsvg-convert-v1";
+const CAPTION_SVG_RASTER_RECIPE_VERSION = "slopcamera-caption-resvg-v1";
 const CAPTION_RESVG_RENDERER_VERSION = "2.6.2";
 const CAPTION_FONT = Object.freeze({
   bytes: 145_348,
@@ -122,7 +122,7 @@ const SvgCacheManifestSchema = z.strictObject({
     sha256: z.string().regex(/^[a-f0-9]{64}$/u),
   }),
   kind: z.union([
-    z.literal("atet.svg-raster-cache"),
+    z.literal("slopcamera.svg-raster-cache"),
     z.literal("studio.svg-raster-cache"),
   ]),
   recipe: SvgRasterRecipeSchema,
@@ -252,10 +252,10 @@ function isOwnedCaptionSprite(overlay: OverlayOperation): boolean {
   return overlay.source.kind === "svg"
     && asset.path === `renders/caption-assets/${asset.sha256}.svg`
     && provenance.kind === "generated"
-    && provenance.generator === "atet-social-caption-sprite"
+    && provenance.generator === "slopcamera-social-caption-sprite"
     && provenance.generatorVersion === "1"
     && provenance.command.length === 3
-    && provenance.command[0] === "atet"
+    && provenance.command[0] === "slopcamera"
     && provenance.command[1] === "caption"
     && provenance.command[2] === "social-block-v1";
 }
@@ -400,7 +400,7 @@ async function createSvgDerivative(
     }
     const manifest = SvgCacheManifestSchema.parse({
       derivative: { bytes: generated.bytes, path: derivativeName, sha256: generated.sha256 },
-      kind: "atet.svg-raster-cache",
+      kind: "slopcamera.svg-raster-cache",
       recipe,
       recipeSha256,
       schemaVersion: 2,

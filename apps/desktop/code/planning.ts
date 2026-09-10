@@ -114,7 +114,7 @@ async function staticBindings(
     const snapshot = await withSpatialProjectLease(application, reference, async leased =>
       await readSpatialProjectAuthority(await spatialProjectStorePorts(leased, reference)));
     const descriptor = { id: reference, kind: "spatial-project" as const, schemaVersion: 2 as const, basis: snapshot.basis };
-    initialSubjects.push({ ...descriptor, descriptorSha256: sha256Hex(`atet.workflow.spatial-project-binding/v1\0${canonicalJson(descriptor)}`) });
+    initialSubjects.push({ ...descriptor, descriptorSha256: sha256Hex(`slopcamera.workflow.spatial-project-binding/v1\0${canonicalJson(descriptor)}`) });
   }
   for (const reference of [...references].sort()) {
     const snapshot = await openLeasedProjectSnapshot(application, reference);

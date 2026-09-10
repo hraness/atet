@@ -1,4 +1,4 @@
-"""Fixed ATET CadQuery adapter for explicitly trusted native source bundles."""
+"""Fixed SLOPCAMERA CadQuery adapter for explicitly trusted native source bundles."""
 
 import argparse
 import hashlib
@@ -92,7 +92,7 @@ def run(cq, request):
     sys.dont_write_bytecode = True
     source = child_path(request["sourceRoot"], request["bundle"]["entrypoint"]["path"])
     sys.path.insert(0, request["sourceRoot"])
-    namespace = runpy.run_path(str(source), init_globals={"ATET_CONTEXT": context}, run_name="__atet_studio__")
+    namespace = runpy.run_path(str(source), init_globals={"SLOPCAMERA_CONTEXT": context}, run_name="__slopcamera_studio__")
     if callable(namespace.get("build")):
         built = namespace["build"](context)
         if built is not None:
@@ -138,7 +138,7 @@ def run(cq, request):
                        "maximum": [box.xmax, box.ymax, box.zmax],
                        "volume": shape.Volume(), "solids": len(shape.Solids()),
                        "faces": len(shape.Faces()), "valid": shape.isValid()})
-    result = {"kind": "atet.studio-cadquery-result", "schemaVersion": 1,
+    result = {"kind": "slopcamera.studio-cadquery-result", "schemaVersion": 1,
               "version": cq.__version__, "stage": job["stage"], "bounds": bounds,
               "sourceSpace": {"units": "millimeters", "upAxis": "z", "handedness": "right"},
               "tessellation": {"tolerance": options["tolerance"], "angularTolerance": options["angularTolerance"]},
@@ -162,7 +162,7 @@ def main():
                 packages[name] = importlib.metadata.version(name)
             except importlib.metadata.PackageNotFoundError:
                 pass
-        print("ATET_STUDIO_PROBE=" + json.dumps({"name": "CadQuery", "version": cq.__version__,
+        print("SLOPCAMERA_STUDIO_PROBE=" + json.dumps({"name": "CadQuery", "version": cq.__version__,
                           "packages": packages, "capabilities": ["python-authoring", "build", "bake", "render", "model-export", "native-cache"]}))
         return
     with Path(args.request).open("rb") as stream:

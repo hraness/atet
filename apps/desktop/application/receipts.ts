@@ -67,7 +67,7 @@ export function hashProjectEditRevisionOutputGeometry(input: {
 
 const ProjectEditRevisionDocumentBodySchema = z.strictObject({
   kind: z.union([
-    z.literal("atet.project-edit-revision"),
+    z.literal("slopcamera.project-edit-revision"),
     z.literal("studio.project-edit-revision"),
   ]),
   project: VideoProjectV1Schema,
@@ -144,7 +144,7 @@ export function createProjectEditRevisionDocument(
   const project = VideoProjectV1Schema.parse(projectInput);
   const projectEditPlan = ProjectEditPlanV1Schema.parse(planInput);
   const body = ProjectEditRevisionDocumentBodySchema.parse({
-    kind: "atet.project-edit-revision",
+    kind: "slopcamera.project-edit-revision",
     project,
     projectEditPlan,
     projectEditPlanSha256: canonicalJsonSha256(projectEditPlan),
@@ -165,7 +165,7 @@ export const ProjectEditRevisionReferenceSchema = z.strictObject({
   baseGeneration: ProjectGenerationHashesSchema,
   derivationSha256: Sha256Schema,
   kind: z.union([
-    z.literal("atet.project-edit-revision-reference"),
+    z.literal("slopcamera.project-edit-revision-reference"),
     z.literal("studio.project-edit-revision-reference"),
   ]),
   outputGeometrySha256: Sha256Schema,
@@ -232,7 +232,7 @@ export const RenderableProjectEditRevisionReferenceSchema = z.strictObject({
   artifact: ProjectEditRevisionArtifactSchema,
   baseGeneration: ProjectGenerationHashesSchema,
   kind: z.union([
-    z.literal("atet.project-edit-revision-reference"),
+    z.literal("slopcamera.project-edit-revision-reference"),
     z.literal("studio.project-edit-revision-reference"),
   ]),
   outputGeometrySha256: Sha256Schema,
@@ -282,7 +282,7 @@ export const ProjectEditRevisionRenderInputSchema = z.union([
 
 export const ProjectRenderPlanDocumentSchema = z.strictObject({
   kind: z.union([
-    z.literal("atet.project-render-plan-document"),
+    z.literal("slopcamera.project-render-plan-document"),
     z.literal("studio.project-render-plan-document"),
   ]),
   outputGeometrySha256: Sha256Schema,
@@ -328,7 +328,7 @@ export const ProjectRenderPlanDocumentSchema = z.strictObject({
 export const ProjectRenderPlanReferenceSchema = z.strictObject({
   artifact: ProjectRenderPlanArtifactSchema,
   kind: z.union([
-    z.literal("atet.project-render-plan-reference"),
+    z.literal("slopcamera.project-render-plan-reference"),
     z.literal("studio.project-render-plan-reference"),
   ]),
   outputGeometrySha256: Sha256Schema,
@@ -355,7 +355,7 @@ export const ProjectRenderPlanReferenceSchema = z.strictObject({
 export const ProjectRenderOutputReferenceSchema = z.strictObject({
   bytes: z.number().int().safe().positive(),
   kind: z.union([
-    z.literal("atet.project-render-output-reference"),
+    z.literal("slopcamera.project-render-output-reference"),
     z.literal("studio.project-render-output-reference"),
   ]),
   path: ProjectRenderOutputPathSchema,
@@ -372,7 +372,7 @@ const ProjectRenderReceiptV2BodyBaseSchema = z.strictObject({
   invocation: ProjectRenderInvocationSchema,
   invocationSha256: Sha256Schema,
   kind: z.union([
-    z.literal("atet.project-render-receipt"),
+    z.literal("slopcamera.project-render-receipt"),
     z.literal("studio.project-render-receipt"),
   ]),
   output: ProjectRenderOutputReferenceSchema,
@@ -482,7 +482,7 @@ export function createProjectRenderReceiptV2(input: {
   const body = ProjectRenderReceiptV2BodySchema.parse({
     ...input,
     invocationSha256: canonicalJsonSha256(input.invocation),
-    kind: "atet.project-render-receipt",
+    kind: "slopcamera.project-render-receipt",
     projectId: input.plan.projectId,
     revisionSha256: input.plan.revisionSha256,
     schemaVersion: 2,
@@ -496,7 +496,7 @@ export function createProjectRenderReceiptV2(input: {
 export const ProjectRenderReceiptReferenceSchema = z.strictObject({
   bytes: z.number().int().safe().positive().max(256 * 1024 * 1024),
   kind: z.union([
-    z.literal("atet.project-render-receipt-reference"),
+    z.literal("slopcamera.project-render-receipt-reference"),
     z.literal("studio.project-render-receipt-reference"),
   ]),
   nodePlanSha256: Sha256Schema,

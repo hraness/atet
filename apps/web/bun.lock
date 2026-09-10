@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@hraness/atet-web",
+      "name": "@hraness/slopcamera-web",
       "dependencies": {
         "@hraness/design-kit": "github:hraness/design-kit#v0.5.2",
         "@hraness/site-footer": "github:hraness/site-footer#v0.6.1",

@@ -58,11 +58,11 @@ async function verifiedRendererVersion(): Promise<void> {
     || !("version" in manifest)
     || manifest.version !== rendererVersion
   ) {
-    throw new Error(`Atet social rendering requires @resvg/resvg-js ${rendererVersion}`)
+    throw new Error(`Slopcamera social rendering requires @resvg/resvg-js ${rendererVersion}`)
   }
 }
 
-export async function renderAtetSocialImage(): Promise<Uint8Array> {
+export async function renderSlopcameraSocialImage(): Promise<Uint8Array> {
   await verifiedRendererVersion()
   const [source, hero, fontBytes] = await Promise.all([
     readFile(sourcePath, "utf8"),
@@ -112,7 +112,7 @@ export async function renderAtetSocialImage(): Promise<Uint8Array> {
 }
 
 if (import.meta.main) {
-  const png = await renderAtetSocialImage()
+  const png = await renderSlopcameraSocialImage()
   await writeFile(checkedOutputPath, png)
   console.log(`Generated ${png.byteLength} bytes at ${checkedOutputPath}`)
 }

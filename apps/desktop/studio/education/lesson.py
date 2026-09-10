@@ -68,7 +68,7 @@ def parse_lesson(value):
     value = _object(value, ("kind", "schemaVersion", "title", "subtitle", "durationUs", "topic",
                             "beats", "presenter", "captions", "captionTiming", "mouthCues", "mouthTiming", "gestures"),
                     ("narration", "sfx", "showCaptions"))
-    if value["kind"] != "atet.education-lesson" or type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1:
+    if value["kind"] != "slopcamera.education-lesson" or type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1:
         raise LessonError("Unsupported educational lesson version.")
     _text(value["title"], 48)
     _text(value["subtitle"], 72)

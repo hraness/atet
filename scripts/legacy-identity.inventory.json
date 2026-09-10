@@ -1,7 +1,7 @@
 [
   {
     "identityLineCount": 2,
-    "identityLinesSha256": "7066293befa6fa72427ee5ae37805e3a06a71800ab25ff954ac252fd149b5408",
+    "identityLinesSha256": "9181b56dc76220da0880d374de1a874a6d5f53a2b76b678092c69e606e8eb0d6",
     "occurrenceCount": 2,
     "path": "AGENTS.md",
     "categories": [
@@ -67,7 +67,7 @@
   },
   {
     "identityLineCount": 3,
-    "identityLinesSha256": "762d9fa1c467dde5144f670998a08dead5e72ca55d2affda5281d680f2765070",
+    "identityLinesSha256": "9b7208b63a4f4a734b5454ef94e20f51cf2f2770ca2b04b9023827160f0a8823",
     "occurrenceCount": 3,
     "path": "apps/desktop/application/operation-completion-checkpoint.test.ts",
     "categories": [
@@ -86,7 +86,7 @@
   },
   {
     "identityLineCount": 1,
-    "identityLinesSha256": "45e5a536ff44efa2975b66ca9d2262cdb4f33cc09c20f6ebe877695d6641bbbb",
+    "identityLinesSha256": "50285eb74400bde31edb07347ad9ab3433dc2107c630ba088d0667079a8ef4a3",
     "occurrenceCount": 1,
     "path": "apps/desktop/application/operation.ts",
     "categories": [
@@ -195,7 +195,7 @@
   },
   {
     "identityLineCount": 12,
-    "identityLinesSha256": "c0e61734fd8734e7233192c0895238b4973c93a1f974c2122cc2bd3b064614b9",
+    "identityLinesSha256": "de07e677b0f7fd28f3f154d412b488fd9542441d6f9bf44be09f7bf146642faa",
     "occurrenceCount": 21,
     "path": "apps/desktop/application/operations/studio-test-support.ts",
     "categories": [
@@ -204,7 +204,7 @@
   },
   {
     "identityLineCount": 41,
-    "identityLinesSha256": "526a077f8676a948f653c97e1e9efdea7bb92f56c8e1dd96733aafac7190b4df",
+    "identityLinesSha256": "4aadc2297d554de19bd1e70e6532084ca3f0a43a5c3644932a90842512a3afaa",
     "occurrenceCount": 55,
     "path": "apps/desktop/application/operations/studio.test.ts",
     "categories": [
@@ -213,7 +213,7 @@
   },
   {
     "identityLineCount": 42,
-    "identityLinesSha256": "2b32bfa0b3b151b0be10e3f52ec56507d9a302ef137142ca36b7ab89ab58b334",
+    "identityLinesSha256": "33815f4f8020d9dcc77c70be645b0ba144d3b9515b35613b796e7ea87ec93b60",
     "occurrenceCount": 60,
     "path": "apps/desktop/application/operations/studio.ts",
     "categories": [
@@ -270,7 +270,7 @@
   },
   {
     "identityLineCount": 5,
-    "identityLinesSha256": "0409b049185d16d1fb004daae80ccdde88c2744686667c1112222ec9237050af",
+    "identityLinesSha256": "571f2497769f7a5b8006668202bdb51a9bc61cf85ef51f7e421962d9841c8fbf",
     "occurrenceCount": 5,
     "path": "apps/desktop/application/verified-receipt-reconciliation.test.ts",
     "categories": [
@@ -280,7 +280,7 @@
   },
   {
     "identityLineCount": 4,
-    "identityLinesSha256": "97245a0bf8ad1cb95ccde95550117e332f09775eb45a0dba06493ec29e9e66c3",
+    "identityLinesSha256": "4b3730b9d9d0b3c1c9fa2e8a594ed16da2199504b9dd057bae97a1ac5e850f9e",
     "occurrenceCount": 5,
     "path": "apps/desktop/application/verified-receipt-reconciliation.ts",
     "categories": [
@@ -316,7 +316,7 @@
   },
   {
     "identityLineCount": 33,
-    "identityLinesSha256": "d4d3af4b7415778683074341165db79db0c2cbf3bfae8f8fffebfb371cf30709",
+    "identityLinesSha256": "4eb63722748f6783ce82d731a8b6201dcb9319eb8484068df9e8da930055d9e5",
     "occurrenceCount": 45,
     "path": "apps/desktop/cli/args.ts",
     "categories": [
@@ -363,7 +363,7 @@
   },
   {
     "identityLineCount": 10,
-    "identityLinesSha256": "9c83e5098d3230b0c90af3b53fc8ed52c04ff57d6c0df88ea97d95722640eccc",
+    "identityLinesSha256": "fab046c9bc05ebfd34685f605c37206965a452c871cf2a803f759f91b4b2be58",
     "occurrenceCount": 10,
     "path": "apps/desktop/cli/compiled-portable-surface.macos.test.ts",
     "categories": [
@@ -448,7 +448,7 @@
   },
   {
     "identityLineCount": 22,
-    "identityLinesSha256": "8aa1700d3e9c7da12855cbf6779a880439c693a0fc336db10ceed82def5b5470",
+    "identityLinesSha256": "eaa7ccd8f0827d2899b5e3f8133f2ca538398e433cb0f77ac13f86da704f412b",
     "occurrenceCount": 31,
     "path": "apps/desktop/cli/help.ts",
     "categories": [
@@ -576,7 +576,7 @@
   },
   {
     "identityLineCount": 32,
-    "identityLinesSha256": "326b1db09ca0f717f4332c60a4e73bb4ebc0585358991d1e6e4572c67852343d",
+    "identityLinesSha256": "d85cb57fd681b8982def9da2163b2c7bcab5a55e54fe9707660fc50d62d3997d",
     "occurrenceCount": 49,
     "path": "apps/desktop/cli/studio-assemble.test.ts",
     "categories": [
@@ -585,7 +585,7 @@
   },
   {
     "identityLineCount": 24,
-    "identityLinesSha256": "26066f36caaeeead5d1971cdc6ccf7aec8e4a43da349938ab0db154fb8f81a48",
+    "identityLinesSha256": "8c928d9b0a9173419714e467b5f01bb8df8c2a0051c01ec3a42131d0acdce527",
     "occurrenceCount": 36,
     "path": "apps/desktop/cli/studio-assemble.ts",
     "categories": [
@@ -603,7 +603,7 @@
   },
   {
     "identityLineCount": 24,
-    "identityLinesSha256": "cd0d3e02b2dcc5b614acfb4c6738fbb7c7ea9ad2c111f62d0dc8cfaf3e1730d7",
+    "identityLinesSha256": "493a0a7a7f6c2705a592e766895a8b278a74ee5cb31fce898e7665cddb9f0c56",
     "occurrenceCount": 39,
     "path": "apps/desktop/cli/studio-command.ts",
     "categories": [
@@ -612,7 +612,7 @@
   },
   {
     "identityLineCount": 13,
-    "identityLinesSha256": "7615016459fcb5d84ef3f55255142208608878ffa9e02c83d6da6675ebff79a0",
+    "identityLinesSha256": "7768a3f8cc6f767d170c7449cea072a3ca2e3de7c2d0fc5836196457fedd7c80",
     "occurrenceCount": 17,
     "path": "apps/desktop/cli/studio-custody.ts",
     "categories": [
@@ -621,7 +621,7 @@
   },
   {
     "identityLineCount": 45,
-    "identityLinesSha256": "b68767497a06062ff05a5ad09434494f17182844beb4dd67afb0bec6a447a450",
+    "identityLinesSha256": "9fde2c92d530d36ecf33c030eb15c9d7884ba412f9899ed6e537f5e72726f435",
     "occurrenceCount": 62,
     "path": "apps/desktop/cli/studio-encode.test.ts",
     "categories": [
@@ -630,7 +630,7 @@
   },
   {
     "identityLineCount": 49,
-    "identityLinesSha256": "0d5d3a1223cd809f16e8f6a3c60c56b23ff01a556e4174de49ce71b5eb988d65",
+    "identityLinesSha256": "ed65c2c6db127df21eecc6f5d68be3b89f3a2ac62010df7aace752d157b1b8fd",
     "occurrenceCount": 79,
     "path": "apps/desktop/cli/studio-encode.ts",
     "categories": [
@@ -657,7 +657,7 @@
   },
   {
     "identityLineCount": 13,
-    "identityLinesSha256": "c172ea5729dd32e18b482b8daf2ed59ea50b053945b97623c8bcc6e9b0e9121b",
+    "identityLinesSha256": "e20fc5eaabc53d65f253108a1252e138eece84899b792fd9bc8f00809a79c944",
     "occurrenceCount": 16,
     "path": "apps/desktop/cli/studio-files.test.ts",
     "categories": [
@@ -666,7 +666,7 @@
   },
   {
     "identityLineCount": 60,
-    "identityLinesSha256": "4e674b9aee6fd40dfac6b8b13d963f4239adc136c7cc353d9290d9e4ce633a69",
+    "identityLinesSha256": "a8e2849c32ee703c6436cf827c6021f3de8c6ed70ab9c8d6810f7bf1f0e1efd9",
     "occurrenceCount": 77,
     "path": "apps/desktop/cli/studio-files.ts",
     "categories": [
@@ -675,7 +675,7 @@
   },
   {
     "identityLineCount": 21,
-    "identityLinesSha256": "29801134786777313821449b339c2372f2835a2673adf163f714724c395352b7",
+    "identityLinesSha256": "5f39d932b367c096764bd4a6bb1a107172e05c8e665d45cc6af41db0efe0dd61",
     "occurrenceCount": 35,
     "path": "apps/desktop/cli/studio-output-validation.test.ts",
     "categories": [
@@ -693,7 +693,7 @@
   },
   {
     "identityLineCount": 19,
-    "identityLinesSha256": "d4345fa1f5a184c580050e2d446c6d9af10d54559243b944726033c4822a8f0a",
+    "identityLinesSha256": "062ca10287e7987f6a48bd68d73aa65f54028d4ca48d5d3a6b22b7cf05aed5e4",
     "occurrenceCount": 23,
     "path": "apps/desktop/cli/studio-process.test.ts",
     "categories": [
@@ -711,7 +711,7 @@
   },
   {
     "identityLineCount": 26,
-    "identityLinesSha256": "368ff4ab5107fd46ddc4b883c32950610e84ee0bd67c6e4e35e6aef6b69e7707",
+    "identityLinesSha256": "d8a85012280477336b578ba31b3b557177393833e44aae2ea7b660052f48ed51",
     "occurrenceCount": 38,
     "path": "apps/desktop/cli/studio-runtime.ts",
     "categories": [
@@ -720,7 +720,7 @@
   },
   {
     "identityLineCount": 26,
-    "identityLinesSha256": "e86c7b942e71450b692ee119d0c98d072ccb645662710fdd8f42e498ffd2cffe",
+    "identityLinesSha256": "be5767889394612a7c3a9345b7795804433872da5b70786bff55a3ff88d3c406",
     "occurrenceCount": 39,
     "path": "apps/desktop/cli/studio-scaffold.ts",
     "categories": [
@@ -729,7 +729,7 @@
   },
   {
     "identityLineCount": 28,
-    "identityLinesSha256": "347df866aa02c4b940875e6d67fec1e8a67670b854aba01fa12ed48c5b971d4b",
+    "identityLinesSha256": "ab0f1a57324bb5b39da38924814918f1fbe1f64a9d1afcef629615cc34ff8434",
     "occurrenceCount": 51,
     "path": "apps/desktop/cli/studio-service.test.ts",
     "categories": [
@@ -738,7 +738,7 @@
   },
   {
     "identityLineCount": 113,
-    "identityLinesSha256": "8901ecd30d08e4c0d5fc112a55a675df832b64b3a2037d0621065f4b156a3004",
+    "identityLinesSha256": "c16af8da5875fe9d9c25e93105c4accb579fd6be64fee3b3b371298a54362d63",
     "occurrenceCount": 164,
     "path": "apps/desktop/cli/studio-service.ts",
     "categories": [
@@ -747,7 +747,7 @@
   },
   {
     "identityLineCount": 50,
-    "identityLinesSha256": "ae627ac662b0ceab0618e9390f2ac3b19ac19455d056e8f6b411fb2fe8d024fa",
+    "identityLinesSha256": "e4348f70580cf8c6fb862c1e4175287742d36f9919b2e7c147e9df450977514a",
     "occurrenceCount": 65,
     "path": "apps/desktop/cli/studio-spatial-asset.test.ts",
     "categories": [
@@ -756,7 +756,7 @@
   },
   {
     "identityLineCount": 55,
-    "identityLinesSha256": "5887cbe3b03eeca6ee2c694e3d603253098fd5e910a284416728d486465428f4",
+    "identityLinesSha256": "584e38ba00afe81afb6b03be40179303ed5075f8b4fbc9423bfbbcaf6d21ff56",
     "occurrenceCount": 78,
     "path": "apps/desktop/cli/studio-spatial-asset.ts",
     "categories": [
@@ -792,7 +792,7 @@
   },
   {
     "identityLineCount": 9,
-    "identityLinesSha256": "1002723b8647aab8d7f04a56c25918ba2f5b77a25730624e68850161101b9371",
+    "identityLinesSha256": "a4d071b12a4ec61820f71e9759ddea3a4b0cf2fa3229747490e47ff38bd46724",
     "occurrenceCount": 11,
     "path": "apps/desktop/code/application-node-planner.ts",
     "categories": [
@@ -803,7 +803,7 @@
   },
   {
     "identityLineCount": 14,
-    "identityLinesSha256": "05becaebf64bb54294236f40e18504acefa487634426a99bcdf361c01ba4325a",
+    "identityLinesSha256": "a40525ee4045450e39ff40480fac8a065f308ec15fcc8bb7a7ae59253ad21cca",
     "occurrenceCount": 14,
     "path": "apps/desktop/code/compiler.test.ts",
     "categories": [
@@ -812,7 +812,7 @@
   },
   {
     "identityLineCount": 6,
-    "identityLinesSha256": "95536567cc939a92410f3a336cb8fd7c70631be5b030dbfc952f6692cf40ad55",
+    "identityLinesSha256": "82391d648b5d4e64244c43c3109fc6400ebcdaf962e118927571ebdd06881d07",
     "occurrenceCount": 6,
     "path": "apps/desktop/code/compiler.ts",
     "categories": [
@@ -832,7 +832,7 @@
   },
   {
     "identityLineCount": 3,
-    "identityLinesSha256": "e9237a5a426a9f378bef60d967463e7ad0bd2b75587b56bf2fb0272d4cea5d86",
+    "identityLinesSha256": "d9fdc370c41604be02a736b85d7bd0498b8c170ae437cf76e86396268114849d",
     "occurrenceCount": 3,
     "path": "apps/desktop/code/file-candidate-provenance.test.ts",
     "categories": [
@@ -841,7 +841,7 @@
   },
   {
     "identityLineCount": 2,
-    "identityLinesSha256": "6083cf3dc8be1a4aa9dd23d28a47953290d9fdb337f636e741923099df9ed338",
+    "identityLinesSha256": "49a517f56b5e1083f90257d1bf3589ff0b5ff843fbe4b0e0e2f73c05e1daa916",
     "occurrenceCount": 2,
     "path": "apps/desktop/code/file-candidate-provenance.ts",
     "categories": [
@@ -892,7 +892,7 @@
   },
   {
     "identityLineCount": 20,
-    "identityLinesSha256": "7eafb40dd1df39297f9f03f1cfa8e51c7bc7e4ce2d04e4240c75c90b36af0ff8",
+    "identityLinesSha256": "1da8c4e259148f5781bd8d10d5c4d6f38008fac3746f606bb8524eaa6702468e",
     "occurrenceCount": 33,
     "path": "apps/desktop/code/scheduler.test.ts",
     "categories": [
@@ -901,7 +901,7 @@
   },
   {
     "identityLineCount": 8,
-    "identityLinesSha256": "7d9631d0423e70a6bd7d54de485c8f7ef229a54ff851b553d25dac5db5393b64",
+    "identityLinesSha256": "68c87268df12a48ced3bf6e66cc28bf1c1d71be6bc2e113ad95b6601df80892b",
     "occurrenceCount": 9,
     "path": "apps/desktop/code/scheduler.ts",
     "categories": [
@@ -912,7 +912,7 @@
   },
   {
     "identityLineCount": 10,
-    "identityLinesSha256": "cd170b5db9cab57b03e45bfa0f59ff4efb943188c19b2bd05a82c0eafdc1e015",
+    "identityLinesSha256": "56b7a4cd394fee817e252950ac1591275e056fcc20231371ee28f5f89c64feac",
     "occurrenceCount": 13,
     "path": "apps/desktop/code/semantic-builder-studio.test.ts",
     "categories": [
@@ -921,7 +921,7 @@
   },
   {
     "identityLineCount": 4,
-    "identityLinesSha256": "9d1ded793c03bbd1ec47ebfaedfb8bf7f42eca84c135564ff4f698a166098455",
+    "identityLinesSha256": "a8fe673c2e8bea415d093a1c1f34d43b19722dd0ba6a3127fe1379c14f82e6d2",
     "occurrenceCount": 8,
     "path": "apps/desktop/code/semantic-builder.ts",
     "categories": [
@@ -1045,7 +1045,7 @@
   },
   {
     "identityLineCount": 7,
-    "identityLinesSha256": "40a57d05811344b604ee7d6ba9618cfb152b319f512adb43fd8bc9a45d66f2e7",
+    "identityLinesSha256": "65548d9188da19a1efffad91d1c23819a91b31b3f258927ceee424d6818758b1",
     "occurrenceCount": 8,
     "path": "apps/desktop/contracts/recording.ts",
     "categories": [
@@ -1065,7 +1065,7 @@
   },
   {
     "identityLineCount": 4,
-    "identityLinesSha256": "30edb44828930d862a24c12e247311cf0af86befda6a68fcf380d956605439de",
+    "identityLinesSha256": "c695320dfc35c63a3139274d30d806e3d3d33a98dc3080393f31ecc1751e0608",
     "occurrenceCount": 4,
     "path": "apps/desktop/contracts/runtime.test.ts",
     "categories": [
@@ -1240,7 +1240,7 @@
   },
   {
     "identityLineCount": 9,
-    "identityLinesSha256": "de922217a537e510804b48dbc9087261fde5f2deba5ac0b147777718d0f91f23",
+    "identityLinesSha256": "f84c15832d2847f5839bc5afb6bd17ff11eae0e28b55b23cf9c834ee96f13c04",
     "occurrenceCount": 10,
     "path": "apps/desktop/core/storage.test.ts",
     "categories": [
@@ -1249,7 +1249,7 @@
   },
   {
     "identityLineCount": 1,
-    "identityLinesSha256": "250b9536d7185a6a7360460dbb342a2541265e0fb91fa91632f10abb94494b06",
+    "identityLinesSha256": "b5dfa73caac9786f1f380ba09816dec4fb67c49a70963e91c26230c513f4f451",
     "occurrenceCount": 1,
     "path": "apps/desktop/core/storage.ts",
     "categories": [
@@ -1268,7 +1268,7 @@
   },
   {
     "identityLineCount": 83,
-    "identityLinesSha256": "7f973b7361c0009cc48540fe93ed4c57adc7e0f4ae73a64a94ba33cfde44d99b",
+    "identityLinesSha256": "d6a26efa5e108895676474e2e71f2129387abfd1408c53406abbd0c3649ef553",
     "occurrenceCount": 443,
     "path": "apps/desktop/dist/cli/main.js",
     "categories": [
@@ -1323,7 +1323,7 @@
   },
   {
     "identityLineCount": 7,
-    "identityLinesSha256": "9e59fe1f82c9a2755ce7d69d104fdea64c0bea461dce0fc2aaa9791e6f61c0fb",
+    "identityLinesSha256": "fd8740c2eb08d4c1c8fe8c6d873ed0c2161e3d5060c9b35ca3b0af203376475a",
     "occurrenceCount": 8,
     "path": "apps/desktop/studio/assets/contracts.ts",
     "categories": [
@@ -1341,7 +1341,7 @@
   },
   {
     "identityLineCount": 8,
-    "identityLinesSha256": "7b3678707d10f97545d937f75be55169e2a24393feaa80ad07d0a01fb91227a1",
+    "identityLinesSha256": "3c631582bb82824f2734628506dea7bba701f01e12019569784804021cf4dffd",
     "occurrenceCount": 11,
     "path": "apps/desktop/studio/assets/poly-haven.ts",
     "categories": [
@@ -1350,7 +1350,7 @@
   },
   {
     "identityLineCount": 6,
-    "identityLinesSha256": "21b5fa7a4286243d2d005f5ba2e98847115da4054fb5e1c63ca7e1ba143af5be",
+    "identityLinesSha256": "345eb4e0d0856194cb103820496dee85230f0c11531baa9ed789ba778de14bc2",
     "occurrenceCount": 6,
     "path": "apps/desktop/studio/assets/README.md",
     "categories": [
@@ -1368,7 +1368,7 @@
   },
   {
     "identityLineCount": 3,
-    "identityLinesSha256": "bebaeb11dbbd563af74366257ee41a0ebe29df403994c5c390ec7c90a347aef6",
+    "identityLinesSha256": "b8f2b29cefb4067216e7532c75bb709ca192f7f5292583c48cbd7c7da678e1e2",
     "occurrenceCount": 3,
     "path": "apps/desktop/studio/drivers/blender_driver.py",
     "categories": [
@@ -1377,7 +1377,7 @@
   },
   {
     "identityLineCount": 3,
-    "identityLinesSha256": "3df5ece9ae2d230b2472aa8103507f717ead936f75a58b853418f2e7d4f1dc54",
+    "identityLinesSha256": "04f939249aef9251ded4e2af86def668a11507c96520ac48a25cf8123e1e3769",
     "occurrenceCount": 3,
     "path": "apps/desktop/studio/drivers/cadquery_driver.py",
     "categories": [
@@ -1395,7 +1395,7 @@
   },
   {
     "identityLineCount": 4,
-    "identityLinesSha256": "d92c06d0bfd9bc511101f2b8b975fd5dc48053c3090385eecc973989cc474fd3",
+    "identityLinesSha256": "a81d242632f693819ac0f9f139b4a4eafc3114eb7085d89998cf9142f7b30f5d",
     "occurrenceCount": 5,
     "path": "apps/desktop/studio/education/driver.py",
     "categories": [
@@ -1404,7 +1404,7 @@
   },
   {
     "identityLineCount": 5,
-    "identityLinesSha256": "e85b0ae46a1ed2048ab3d9e651f3bf4ea091525011cc9428dc02edaa659fa060",
+    "identityLinesSha256": "5156d417c23bf2ce288e379004f3be6eb9ffd1c8b6d9327a471193643e48fa9f",
     "occurrenceCount": 8,
     "path": "apps/desktop/studio/education/qualify_native.py",
     "categories": [
@@ -1413,7 +1413,7 @@
   },
   {
     "identityLineCount": 2,
-    "identityLinesSha256": "c9b27b39ccd2cd012282c65622d08e82c4a7c15a3dce4ce70ea9066ee3a80e89",
+    "identityLinesSha256": "dfd1caa13075ad3aa0c935c4e0a9a07a2cb608f3bc85ffd6c06b68c85ec74457",
     "occurrenceCount": 2,
     "path": "apps/desktop/studio/education/test_driver.py",
     "categories": [
@@ -1448,12 +1448,66 @@
     ]
   },
   {
-    "identityLineCount": 6,
-    "identityLinesSha256": "f11e34e281193df19f31de1dc82c114ba1c445b0e2103c50ebf32e6a0745321d",
-    "occurrenceCount": 6,
+    "identityLineCount": 1,
+    "identityLinesSha256": "a0665f97bb6145769f533864ae7615a10d13222b8bfa4e9cd43c95f2ac8099e3",
+    "occurrenceCount": 1,
+    "path": "apps/web/README.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 4,
+    "identityLinesSha256": "236ab72fb1b957b97b24320b5b05a2003205a1485e0b967632397c6bad5711fc",
+    "occurrenceCount": 4,
+    "path": "apps/web/scripts/site-copy-content.test.ts",
+    "categories": [
+      "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 12,
+    "identityLinesSha256": "a307bd8e758fd38283d4a6f1247ba7a520c6372498e223704af68f7098304344",
+    "occurrenceCount": 12,
     "path": "apps/web/site.test.ts",
     "categories": [
       "test-fixture"
+    ]
+  },
+  {
+    "identityLineCount": 9,
+    "identityLinesSha256": "c37d7a3884863b6563b685038d213ffe9202b8789758a8c7413e4e90bca411dd",
+    "occurrenceCount": 10,
+    "path": "apps/web/src/agent-pages.ts",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 14,
+    "identityLinesSha256": "2ea2183651eccaf40fe8a547ac3bb413eae0c9668ada636168fff37baa1426ae",
+    "occurrenceCount": 17,
+    "path": "apps/web/src/index.html",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "671bc3616f83a796c1e758a8a65f2e8f102eebac5a284ac191b653c0e56fb238",
+    "occurrenceCount": 2,
+    "path": "apps/web/src/og-source.svg",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "cbf54a602b93da46152ccc258110c2df079d113f1397bf418160ca813e51baac",
+    "occurrenceCount": 2,
+    "path": "apps/web/src/preview.html",
+    "categories": [
+      "native-film-studio"
     ]
   },
   {
@@ -1468,18 +1522,18 @@
   },
   {
     "identityLineCount": 9,
-    "identityLinesSha256": "ed411c1d13875da1f80536b32a9a6e96dffb5dafd8b846496c7dd4813476ef52",
+    "identityLinesSha256": "f82f29507a30cb8049cad748d202b719140e8c915b107dea5cdd6051d026e681",
     "occurrenceCount": 9,
-    "path": "dist/index-s2k1wajz.js",
+    "path": "dist/index-42zsesc1.js",
     "categories": [
       "generated"
     ]
   },
   {
     "identityLineCount": 142,
-    "identityLinesSha256": "b9f6f6233464cea266c7da6aebf9fbca8b7098cd56a846f6e0cdf9cca08a8e52",
+    "identityLinesSha256": "e91181ab2773a1435458dfd1882ddfa12cf529dfc20648fa1460e9c868bc17a0",
     "occurrenceCount": 237,
-    "path": "dist/index-twgfp3wm.js",
+    "path": "dist/index-e6rgc351.js",
     "categories": [
       "generated"
     ]
@@ -1494,17 +1548,116 @@
     ]
   },
   {
-    "identityLineCount": 39,
-    "identityLinesSha256": "50ca470d3e07c2cee9709b6184ebc4a332218df3e61ff402d02348f7ab95cd4d",
-    "occurrenceCount": 53,
-    "path": "docs/studio.md",
+    "identityLineCount": 3,
+    "identityLinesSha256": "d390b460be871971c6be1620a5e8d55f70735f898301a2957138cd00709f1d70",
+    "occurrenceCount": 3,
+    "path": "docs/architecture.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "0bce46cac75165849f88b77fc2c5c7954c38f06d145266bbfe6c54308133f6eb",
+    "occurrenceCount": 2,
+    "path": "docs/how-to/edit-video.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 9,
+    "identityLinesSha256": "0ecdb53302e7accb71797a575a5aac59f438a5496eef9f79e18d1c0f1895d78a",
+    "occurrenceCount": 10,
+    "path": "docs/how-to/educational-video.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "826b72e1f2b78e993661857413d450c853535e62e9310774d495c142ddec0691",
+    "occurrenceCount": 6,
+    "path": "docs/how-to/run-workflows.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "bbc456d8f88fca204fdac8eef70b716616679a7b2bfb82d85f261fdce7944c03",
+    "occurrenceCount": 3,
+    "path": "docs/how-to/use-current-source.md",
     "categories": [
       "native-film-studio"
     ]
   },
   {
     "identityLineCount": 1,
-    "identityLinesSha256": "08fdd1b32c3de3fd145aa6e8a681aeefb99fe7d7cbbbd755ad3cd67da00c07c7",
+    "identityLinesSha256": "9fb25b314f9af5549e3d67d749bafc2301f4d2f90747d1e7b49aaea90de669e1",
+    "occurrenceCount": 2,
+    "path": "docs/html-overlay-creative-toolkit.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "95b3e28ea74c0955f5e3e16711c88b843edf76cb77e4aa7b6fb56dbd25f02cde",
+    "occurrenceCount": 1,
+    "path": "docs/README.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 7,
+    "identityLinesSha256": "1af1e3a9a5c522937a00892489cdfacfda1b974f0400236dc4922e9d5cad938c",
+    "occurrenceCount": 8,
+    "path": "docs/reference/capabilities.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 12,
+    "identityLinesSha256": "455ac25688aa79eb475e00b57c823d19b722b88c866a6d4c93f7f74f3561ce22",
+    "occurrenceCount": 12,
+    "path": "docs/reference/sdk.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "cc1573599bcc95c12530b9db066a5dc744f037b021d03e31828ba7d0dd30317d",
+    "occurrenceCount": 2,
+    "path": "docs/spatial-scenes.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 40,
+    "identityLinesSha256": "65c625a4d813fc25aa89d21c3daef5e55ff43ba1c4e5a2e0a8038d62b1056357",
+    "occurrenceCount": 54,
+    "path": "docs/studio.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 12,
+    "identityLinesSha256": "b83aaed5dc1bb85226d6fbe9f3293c891da56c5e16175609796d2088d26ec608",
+    "occurrenceCount": 16,
+    "path": "docs/tutorials/first-native-film.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "10a75aa1e2a03908e7cdcbfa40cf86f497f8c2881025c37c5fbf9c882171d64c",
     "occurrenceCount": 2,
     "path": "docs/vercel.md",
     "categories": [
@@ -1576,7 +1729,7 @@
   },
   {
     "identityLineCount": 2,
-    "identityLinesSha256": "ea307085a3f343eac0a3045c258c7e4b72f3e4fd5bb3823cdaaf06fbcfc2bd63",
+    "identityLinesSha256": "b8e0e513ae85d39ab14313caab14d4dcd1a39acce423084c06e8dee4ff9dfdef",
     "occurrenceCount": 2,
     "path": "examples/studio/blender/README.md",
     "categories": [
@@ -1621,7 +1774,7 @@
   },
   {
     "identityLineCount": 6,
-    "identityLinesSha256": "a18785ff70e5023bd0aa03fb657b3807286e700417400e0905be3156db16b88a",
+    "identityLinesSha256": "becdb05e72a1945897234d1322c153ea8f5da92b11b005f4e9506ea11d00bd04",
     "occurrenceCount": 6,
     "path": "examples/studio/native-workflow.ts",
     "categories": [
@@ -1630,7 +1783,7 @@
   },
   {
     "identityLineCount": 3,
-    "identityLinesSha256": "813012b250c794c8b24d64a551ae7e94d14c9f52662103858b0eb6e6ba4b1c8d",
+    "identityLinesSha256": "2e8a9f98c0ef83a85ada5c1a5a1868eb219cad0590fc0a6408c6aa37190f8b3b",
     "occurrenceCount": 4,
     "path": "examples/studio/vgpu/README.md",
     "categories": [
@@ -1638,18 +1791,18 @@
     ]
   },
   {
-    "identityLineCount": 16,
-    "identityLinesSha256": "262a359659224cace2a8dc97582818aef11512ad7b72c502789f5c28a9e1ecdd",
-    "occurrenceCount": 16,
+    "identityLineCount": 17,
+    "identityLinesSha256": "e3bf7030b073e985ad713e4ac2688ea9c81a1bbd983566fa33aae04847451134",
+    "occurrenceCount": 17,
     "path": "package.json",
     "categories": [
       "native-film-studio"
     ]
   },
   {
-    "identityLineCount": 2,
-    "identityLinesSha256": "1a7d49f3997f71b3b9f99bf49931d28490fd9dfba16343ad8e249968b7535931",
-    "occurrenceCount": 3,
+    "identityLineCount": 5,
+    "identityLinesSha256": "151126d3b3c0ab9969d2289813a4f5483a78c163e7bf5bdb2c1b8d1f7c21a7b9",
+    "occurrenceCount": 7,
     "path": "README.md",
     "categories": [
       "native-film-studio"
@@ -1657,7 +1810,7 @@
   },
   {
     "identityLineCount": 18,
-    "identityLinesSha256": "5b17cbd6311365bad79e5b405a5d5204274bebeba4f7ab61211a4c6ecd94897c",
+    "identityLinesSha256": "2e427c85a5871890044586c3fded2a0cf1d4c209d9fc425d3f088177e76110e2",
     "occurrenceCount": 18,
     "path": "scripts/package-smoke.ts",
     "categories": [
@@ -1674,19 +1827,55 @@
     ]
   },
   {
-    "identityLineCount": 10,
-    "identityLinesSha256": "225df86569dd22037c32a3e71a0b5e3a1f678b38c2e708b210f8f90b211c079b",
-    "occurrenceCount": 17,
-    "path": "skills/atet/references/native-studio.md",
+    "identityLineCount": 1,
+    "identityLinesSha256": "bb581fb79ecad78d7e828bf95fce849396f3d3d8103f6a7e46ad1199429c0b2b",
+    "occurrenceCount": 2,
+    "path": "skills/slopcamera/references/directed-scenes.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 2,
+    "identityLinesSha256": "63b09b776270be2c470b1834c9856c0e9a618d1f29ad11178bd9dbc0869d3ba9",
+    "occurrenceCount": 5,
+    "path": "skills/slopcamera/references/educational-video.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 15,
+    "identityLinesSha256": "fcc8fbed1f7ab29dfaffe06e47624f3f9d429c82e62325d637018ff41d2fb7a8",
+    "occurrenceCount": 24,
+    "path": "skills/slopcamera/references/native-studio.md",
     "categories": [
       "native-film-studio"
     ]
   },
   {
     "identityLineCount": 1,
-    "identityLinesSha256": "4483ed3fa3bbb3f84fce10cdcbb6dfd856270423cc87fb92b078fed3fab0136c",
+    "identityLinesSha256": "c39f0e2d24a14f468ae1de87b9a8b6833029ed04dd6fa3cd50c333bbf9015028",
+    "occurrenceCount": 1,
+    "path": "skills/slopcamera/references/video-projects.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 3,
+    "identityLinesSha256": "a55083b80ef750d915384caddbb1d36519fb71ef8e2908657bbc4aa359a45cd8",
+    "occurrenceCount": 7,
+    "path": "skills/slopcamera/references/workflows-sdk.md",
+    "categories": [
+      "native-film-studio"
+    ]
+  },
+  {
+    "identityLineCount": 1,
+    "identityLinesSha256": "f3eb1024f5a599d1bbdfb30d7f804c61f71ffee4dc9ecaa89392667b0aa68942",
     "occurrenceCount": 2,
-    "path": "skills/atet/SKILL.md",
+    "path": "skills/slopcamera/SKILL.md",
     "categories": [
       "native-film-studio"
     ]
@@ -1702,7 +1891,7 @@
   },
   {
     "identityLineCount": 2,
-    "identityLinesSha256": "ab2a4958c109c2b9ad0c1a704cd4829072b767963ebf5bfb541f4264d32b8884",
+    "identityLinesSha256": "dc0c7b1a8e58b727a4f545dbb60da71d0bb7989842501925491a7c313bb35cd3",
     "occurrenceCount": 2,
     "path": "src/code/compiler.ts",
     "categories": [
@@ -1724,7 +1913,7 @@
   },
   {
     "identityLineCount": 2,
-    "identityLinesSha256": "ab2a4958c109c2b9ad0c1a704cd4829072b767963ebf5bfb541f4264d32b8884",
+    "identityLinesSha256": "dc0c7b1a8e58b727a4f545dbb60da71d0bb7989842501925491a7c313bb35cd3",
     "occurrenceCount": 2,
     "path": "src/code/projection.ts",
     "categories": [
@@ -1761,7 +1950,7 @@
   },
   {
     "identityLineCount": 57,
-    "identityLinesSha256": "e97872e47860e40555506d06a364ea035d548e5b98a3343061b9c329aeab4ba7",
+    "identityLinesSha256": "6fa65cba0ff93be49f7ff9a60924cb2504c82d44ddf5d4446234688e6ab47bd7",
     "occurrenceCount": 113,
     "path": "src/studio/contracts.ts",
     "categories": [
@@ -1770,7 +1959,7 @@
   },
   {
     "identityLineCount": 63,
-    "identityLinesSha256": "2b615b8bcfc0aff53dfd28c73bda099e0e8458f4be8fc4938f0795cf4c65709d",
+    "identityLinesSha256": "22b2e77961386791ba0e655a8fae9122e1092784cb06197bb7fbd43ecb57dcc6",
     "occurrenceCount": 136,
     "path": "src/studio/plan.ts",
     "categories": [
@@ -1779,7 +1968,7 @@
   },
   {
     "identityLineCount": 14,
-    "identityLinesSha256": "e06520893318277b143d4c07107c045c213563e12e124bd47a2c0969ce5bf6b3",
+    "identityLinesSha256": "c5e6798d8a4c9e333aae1073739e9e4e0b5185c79b239cd74586ceb46e519089",
     "occurrenceCount": 22,
     "path": "src/studio/shared.ts",
     "categories": [
@@ -1788,7 +1977,7 @@
   },
   {
     "identityLineCount": 80,
-    "identityLinesSha256": "fe4c1cdf1bd330281d5c697573a5f73c330bded53c97a79d089c1c00598f6989",
+    "identityLinesSha256": "4ebbfb991136635bef0c9abdb77fb9a0b7c5f4c3cde1d2335ec6fd0205c38acb",
     "occurrenceCount": 103,
     "path": "src/studio/studio.test.ts",
     "categories": [

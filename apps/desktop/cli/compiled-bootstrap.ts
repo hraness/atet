@@ -7,10 +7,10 @@ import { join } from "node:path";
 
 import embeddedLibvips from "@img/sharp-libvips-darwin-arm64/binary" with { type: "file" };
 
-const NATIVE_ROOT_ENV = "ATET_COMPILED_NATIVE_ROOT";
+const NATIVE_ROOT_ENV = "SLOPCAMERA_COMPILED_NATIVE_ROOT";
 
 async function runChildWithNativeRuntime(): Promise<void> {
-  const nativeRoot = join(tmpdir(), `atet-native-${randomUUID()}`);
+  const nativeRoot = join(tmpdir(), `slopcamera-native-${randomUUID()}`);
   const addonTemporaryRoot = join(nativeRoot, "tmp");
   const libvipsDirectory = join(
     nativeRoot,
@@ -55,6 +55,6 @@ if (process.env[NATIVE_ROOT_ENV] === undefined) {
 } else {
   await import("./native-media-runtime.macos");
   const { runMainEntrypoint } = await import("./main");
-  const { main: runHeadlessAtetCli } = await import("../../../src/cli");
-  await runMainEntrypoint({ runHeadless: runHeadlessAtetCli });
+  const { main: runHeadlessSlopcameraCli } = await import("../../../src/cli");
+  await runMainEntrypoint({ runHeadless: runHeadlessSlopcameraCli });
 }

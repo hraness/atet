@@ -4,16 +4,16 @@ import "@hraness/design-kit/fonts.css";
 import "../frontend/src/index.css";
 import "./workbench.css";
 
-import { mountAtetDirect } from "./mount";
+import { mountSlopcameraDirect } from "./mount";
 import {
-  AtetDirectError,
-  AtetDirectWorkbench,
+  SlopcameraDirectError,
+  SlopcameraDirectWorkbench,
 } from "./workbench";
 
 const rootElement = document.querySelector("#root");
-if (rootElement === null) throw new Error("The Atet Direct root element is missing.");
+if (rootElement === null) throw new Error("The Slopcamera Direct root element is missing.");
 const root = createRoot(rootElement);
-const mounted = mountAtetDirect(
+const mounted = mountSlopcameraDirect(
   { kind: "query", source: globalThis.location.search },
   {
     registerPagehide: (listener) => {
@@ -28,10 +28,10 @@ const mounted = mountAtetDirect(
 );
 
 if (!mounted.ok) {
-  root.render(<AtetDirectError message={mounted.error.message} />);
+  root.render(<SlopcameraDirectError message={mounted.error.message} />);
 } else {
   try {
-    root.render(<AtetDirectWorkbench mounted={mounted.value} />);
+    root.render(<SlopcameraDirectWorkbench mounted={mounted.value} />);
   } catch (reason) {
     mounted.value.dispose();
     throw reason;

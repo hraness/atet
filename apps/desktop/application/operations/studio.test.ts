@@ -17,7 +17,7 @@ function checkpointIdentity(context: OperationExecutionContext) {
 }
 
 async function withHost(callback: (host: { context: OperationExecutionContext; calls: { bind: number; execute: number; reconcile: number; guard: number }; port: ApplicationStudioPort }) => Promise<void>) {
-  const root = await mkdtemp(join(tmpdir(), "atet-studio-operation-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-studio-operation-"));
   const { input, output } = studioOperationFixture();
   const calls = { bind: 0, execute: 0, reconcile: 0, guard: 0 };
   const port: ApplicationStudioPort = { bind: async () => { calls.bind++; return input; }, execute: async () => { calls.execute++; return output; }, reconcile: async () => { calls.reconcile++; return { kind: "completed", output }; } };
@@ -32,7 +32,7 @@ async function withHost(callback: (host: { context: OperationExecutionContext; c
 
 test("studio discovery is closed, complete, and separates the host authorization from authored input", () => {
   const registry = createApplicationOperationRegistry();
-  const definition = registry.describe("atet.studio.run", 1);
+  const definition = registry.describe("slopcamera.studio.run", 1);
   expect(definition.inputJsonSchema.type).toBe("object");
   expect(definition.outputJsonSchema.type).toBe("object");
   expect(definition.policy).toMatchObject({ resume: "verified-receipt", effect: "local-derived-write" });

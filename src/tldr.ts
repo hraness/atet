@@ -86,7 +86,7 @@ function authoredShapeId(id: string): string {
 }
 
 function generatedShapeId(kind: "box-icon" | "box-label" | "edge-label", id: string): string {
-  return `shape:atet:${kind}:${id}`
+  return `shape:slopcamera:${kind}:${id}`
 }
 
 function shapeMeta(sourceId: string): Readonly<Record<string, unknown>> {

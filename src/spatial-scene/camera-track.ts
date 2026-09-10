@@ -17,7 +17,7 @@ const rationalSchema = z.strictObject({
   denominator: z.string().regex(/^[1-9][0-9]{0,6}$/u),
 })
 export const SpatialCameraTrackSchema = z.strictObject({
-  kind: z.literal("atet.spatial-camera-track"), schemaVersion: z.literal(1),
+  kind: z.literal("slopcamera.spatial-camera-track"), schemaVersion: z.literal(1),
   sceneSha256: SpatialDigestSchema, cameraId: SpatialCameraIdSchema, clock: clockSchema,
   samples: z.array(z.strictObject({
     frameIndex: z.number().int().min(0).max(SPATIAL_CAMERA_TRACK_MAX_FRAMES - 1),
@@ -73,7 +73,7 @@ export function sampleSpatialCameraTrack(sceneInput: unknown, optionsInput: unkn
   // scene once, then evaluate only this closed subset at each absolute time.
   const cameraScene = { ...scene, cameras: [camera], entities: [], assets: [], generators: [], overrides: [],
     animations: scene.animations.filter(channel => channel.targetId === cameraId) }
-  return parseSpatialCameraTrack({ kind: "atet.spatial-camera-track", schemaVersion: 1,
+  return parseSpatialCameraTrack({ kind: "slopcamera.spatial-camera-track", schemaVersion: 1,
     sceneSha256: spatialValueSha256(scene), cameraId, clock,
     samples: Array.from({ length: clock.frameCount }, (_, frameIndex) => {
       const sample = absoluteSample(frameIndex, clock)

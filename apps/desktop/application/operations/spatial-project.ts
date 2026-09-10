@@ -118,8 +118,8 @@ function mutationDefinition<Kind extends OperationKind, Input>(
   execute: (context: OperationExecutionContext, input: Input) => Promise<SpatialProjectMutationOutput>,
 ): OperationDefinition<Kind, Input, SpatialProjectMutationOutput> {
   return {
-    kind, version: 1, inputSchema, inputSchemaId: `atet.operation.${kind}.input/v1`,
-    outputSchema: SpatialProjectMutationOutputSchema, outputSchemaId: `atet.operation.${kind}.output/v1`,
+    kind, version: 1, inputSchema, inputSchemaId: `slopcamera.operation.${kind}.input/v1`,
+    outputSchema: SpatialProjectMutationOutputSchema, outputSchemaId: `slopcamera.operation.${kind}.output/v1`,
     lifecycle: { kind: "project-transaction", execute: async (context, input) => await execute(context, inputSchema.parse(input)) },
     policy: mutationPolicy,
     receiptReference: output => output.kind === "completed" ? output.settlement.path : undefined,
@@ -129,8 +129,8 @@ function mutationDefinition<Kind extends OperationKind, Input>(
 
 export const spatialProjectSnapshotOperationDefinition: OperationDefinition<"spatial.project.snapshot", SpatialProjectSnapshotInput, SpatialProjectSnapshotOutput> = {
   kind: "spatial.project.snapshot", version: 1,
-  inputSchema: SpatialProjectSnapshotInputSchema, inputSchemaId: "atet.operation.spatial.project.snapshot.input/v1",
-  outputSchema: SpatialProjectSnapshotOutputSchema, outputSchemaId: "atet.operation.spatial.project.snapshot.output/v1",
+  inputSchema: SpatialProjectSnapshotInputSchema, inputSchemaId: "slopcamera.operation.spatial.project.snapshot.input/v1",
+  outputSchema: SpatialProjectSnapshotOutputSchema, outputSchemaId: "slopcamera.operation.spatial.project.snapshot.output/v1",
   lifecycle: { kind: "local-artifact", execute: async (context, input) => {
     const request = SpatialProjectSnapshotInputSchema.parse(input);
     if (context.abortSignal.aborted) throw new ApplicationError("cancelled", "Spatial snapshot cancelled.");

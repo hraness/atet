@@ -17,7 +17,7 @@ export function fixtureAsset(assetId = "asset_image"): SpatialAssetManifest {
     dependencies: [], provenance: { source: "authored", description: "Fixture" } }
 }
 export function fixtureScene(): SpatialSceneV1 {
-  return { kind: "atet.spatial-scene", schemaVersion: 1, sceneId: "scene_fixture", coordinates: "right-handed-y-up-meters", durationUs: 1_000_000,
+  return { kind: "slopcamera.spatial-scene", schemaVersion: 1, sceneId: "scene_fixture", coordinates: "right-handed-y-up-meters", durationUs: 1_000_000,
     entities: [fixtureEntity()], cameras: [fixtureCamera()], assets: [], generators: [], animations: [], overrides: [] }
 }
 export function fixtureGenerated(): { entity: SpatialEntity; generator: SpatialGenerator } {

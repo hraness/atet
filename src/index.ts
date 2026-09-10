@@ -14,9 +14,9 @@ import {
   selectDesktopAsset,
 } from "./desktop.js"
 import {
-  generateAtetImage,
-  generateAtetImageFile,
-  atetGatewayCredentialStatus,
+  generateSlopcameraImage,
+  generateSlopcameraImageFile,
+  slopcameraGatewayCredentialStatus,
 } from "./generate.js"
 import { builtInIcons } from "./icons.js"
 import {
@@ -27,15 +27,15 @@ import {
 } from "./layout.js"
 import { lintDiagram } from "./lint.js"
 import {
-  executeAtetOperation,
-  atetOperationRegistry,
-  searchAtetOperations,
+  executeSlopcameraOperation,
+  slopcameraOperationRegistry,
+  searchSlopcameraOperations,
 } from "./operations.js"
 import {
-  atetMcpProtocolVersion,
-  atetMcpServerName,
-  atetMcpTools,
-  AtetMcpToolRuntime,
+  slopcameraMcpProtocolVersion,
+  slopcameraMcpServerName,
+  slopcameraMcpTools,
+  SlopcameraMcpToolRuntime,
   mcpMaximumRenderedPixels,
   mcpMaximumScale,
   mcpSourceByteLimit,
@@ -53,31 +53,31 @@ import { bundledSkillPath, installSkill } from "./skill-install.js"
 import { serializeTldr } from "./tldr.js"
 import { vectorizeImage } from "./vectorize/vectorize.js"
 import {
-  defineAtetWorkflow,
-  runAtetWorkflow,
-  AtetWorkflowError,
+  defineSlopcameraWorkflow,
+  runSlopcameraWorkflow,
+  SlopcameraWorkflowError,
 } from "./workflow.js"
-export { ATET_VERSION } from "./version.js"
+export { SLOPCAMERA_VERSION } from "./version.js"
 
-export const atetApi = Object.freeze({
+export const slopcameraApi = Object.freeze({
   artifactSummary,
   builtInIcons,
   bundledSkillPath,
   checkDiagramFile,
   desktopDownloadPage,
   desktopStatus,
-  defineAtetWorkflow,
+  defineSlopcameraWorkflow,
   DiagramValidationError,
   findDesktopApplication,
-  generateAtetImage,
-  generateAtetImageFile,
+  generateSlopcameraImage,
+  generateSlopcameraImageFile,
   getLatestDesktopRelease,
-  atetGatewayCredentialStatus,
-  atetMcpProtocolVersion,
-  atetMcpServerName,
-  atetMcpTools,
-  atetOperationRegistry,
-  AtetMcpToolRuntime,
+  slopcameraGatewayCredentialStatus,
+  slopcameraMcpProtocolVersion,
+  slopcameraMcpServerName,
+  slopcameraMcpTools,
+  slopcameraOperationRegistry,
+  SlopcameraMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
@@ -94,22 +94,22 @@ export const atetApi = Object.freeze({
   resolveEdge,
   resolveDiagramSource,
   resolveStackLayout,
-  runAtetWorkflow,
+  runSlopcameraWorkflow,
   runMcpServer,
-  searchAtetOperations,
+  searchSlopcameraOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
   StackLayoutError,
-  AtetWorkflowError,
+  SlopcameraWorkflowError,
   vectorizeImage,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
-  executeAtetOperation,
+  executeSlopcameraOperation,
 })
 
-/** @deprecated Use atetApi. Retained through the Atet 2.x line. */
-export const diagramApi = atetApi
+/** @deprecated Use slopcameraApi. Retained through the Slopcamera 2.x line. */
+export const diagramApi = slopcameraApi
 
 export {
   artifactSummary,
@@ -120,15 +120,15 @@ export {
   desktopStatus,
   DiagramValidationError,
   findDesktopApplication,
-  generateAtetImage,
-  generateAtetImageFile,
+  generateSlopcameraImage,
+  generateSlopcameraImageFile,
   getLatestDesktopRelease,
-  atetGatewayCredentialStatus,
-  atetMcpProtocolVersion,
-  atetMcpServerName,
-  atetMcpTools,
-  atetOperationRegistry,
-  AtetMcpToolRuntime,
+  slopcameraGatewayCredentialStatus,
+  slopcameraMcpProtocolVersion,
+  slopcameraMcpServerName,
+  slopcameraMcpTools,
+  slopcameraOperationRegistry,
+  SlopcameraMcpToolRuntime,
   installDesktop,
   installSkill,
   lintDiagram,
@@ -146,18 +146,18 @@ export {
   resolveEdge,
   resolveStackLayout,
   runMcpServer,
-  searchAtetOperations,
+  searchSlopcameraOperations,
   selectDesktopAsset,
   serializeTldr,
   stackLayoutDefaults,
   StackLayoutError,
   vectorizeImage,
-  defineAtetWorkflow,
-  runAtetWorkflow,
-  AtetWorkflowError,
+  defineSlopcameraWorkflow,
+  runSlopcameraWorkflow,
+  SlopcameraWorkflowError,
   WorkspaceBoundary,
   WorkspaceBoundaryError,
-  executeAtetOperation,
+  executeSlopcameraOperation,
 }
 export * from "./cloud-errors.js"
 export * from "./generate.js"

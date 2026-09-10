@@ -34,19 +34,19 @@ export function findRepositoryRoot(start: string): string {
     if (candidate === filesystemRoot) break;
     candidate = dirname(candidate);
   }
-  throw new Error("Could not find the Atet checkout containing Atet.");
+  throw new Error("Could not find the Slopcamera checkout containing Slopcamera.");
 }
 
 export function resolveDevelopmentRuntimeResources(desktopRoot: string): DevelopmentRuntimeResources {
   const canonicalDesktopRoot = realpathSync(desktopRoot);
   return {
     captureHelper: executable(
-      resolve(canonicalDesktopRoot, "capture", "dist", "atet-capture"),
-      "Atet capture helper",
+      resolve(canonicalDesktopRoot, "capture", "dist", "slopcamera-capture"),
+      "Slopcamera capture helper",
     ),
     gateway: executable(
-      resolve(canonicalDesktopRoot, "runtime", "dist", "atet-gateway"),
-      "Atet gateway",
+      resolve(canonicalDesktopRoot, "runtime", "dist", "slopcamera-gateway"),
+      "Slopcamera gateway",
     ),
     repositoryRoot: findRepositoryRoot(canonicalDesktopRoot),
   };
@@ -67,9 +67,9 @@ async function main(): Promise<void> {
     cwd: desktopRoot,
     env: {
       ...process.env,
-      ATET_CAPTURE_HELPER: resources.captureHelper,
-      ATET_GATEWAY_PATH: resources.gateway,
-      ATET_REPOSITORY_ROOT: resources.repositoryRoot,
+      SLOPCAMERA_CAPTURE_HELPER: resources.captureHelper,
+      SLOPCAMERA_GATEWAY_PATH: resources.gateway,
+      SLOPCAMERA_REPOSITORY_ROOT: resources.repositoryRoot,
     },
     stdin: "inherit",
     stdout: "inherit",

@@ -17,7 +17,7 @@ export const ProjectRenderSpatialBindingV1Schema = z.strictObject({
 }).superRefine((value, context) => {
   try {
     const cadence = assertSpatialCompositorCadence(value.cadence);
-    if (canonicalJsonSha256({ domain: "atet.scene-render-projection/v1", projection: value.projection }) !== value.projectionSha256
+    if (canonicalJsonSha256({ domain: "slopcamera.scene-render-projection/v1", projection: value.projection }) !== value.projectionSha256
       || cadence.cadence.projectionSha256 !== value.projectionSha256
       || cadence.cadence.compositionPlanSha256 !== value.projection.compositionPlanSha256
       || canonicalJson(cadence.cadence.frameRate) !== canonicalJson(value.projection.output.frameRate)) throw new Error("Spatial projection and cadence identities disagree.");
@@ -25,7 +25,7 @@ export const ProjectRenderSpatialBindingV1Schema = z.strictObject({
 });
 
 const receiptBodySchema = z.strictObject({
-  kind: z.literal("atet.spatial-project-render-receipt"), schemaVersion: z.literal(1),
+  kind: z.literal("slopcamera.spatial-project-render-receipt"), schemaVersion: z.literal(1),
   /** Existing execution identities keep their V2 meaning inside this distinct authority envelope. */
   execution: ProjectRenderReceiptV2Schema,
   spatial: ProjectRenderSpatialBindingV1Schema,
@@ -33,7 +33,7 @@ const receiptBodySchema = z.strictObject({
 });
 const receiptShape = receiptBodySchema.extend({ receiptSha256: SpatialDigestSchema }).superRefine((receipt, context) => {
   const { receiptSha256, ...body } = receipt;
-  if (canonicalJsonSha256({ domain: "atet.spatial-project-render-receipt/v1", ...body }) !== receiptSha256
+  if (canonicalJsonSha256({ domain: "slopcamera.spatial-project-render-receipt/v1", ...body }) !== receiptSha256
     || receipt.execution.projectId !== receipt.spatial.projection.source.projectId
     || receipt.execution.revisionSha256 !== receipt.spatial.projection.derivedV1RevisionSha256
     || receipt.execution.plan.planSha256 !== receipt.spatial.projection.compositionPlanSha256
@@ -50,11 +50,11 @@ const capture = (input: unknown) => createBoundedJsonValueSnapshot(input, PROJEC
 export const ProjectSpatialRenderReceiptV1Schema = z.preprocess(capture, receiptShape);
 export type ProjectSpatialRenderReceiptV1 = z.infer<typeof ProjectSpatialRenderReceiptV1Schema>;
 export function createProjectSpatialRenderReceipt(input: Omit<z.infer<typeof receiptBodySchema>, "kind" | "schemaVersion">): ProjectSpatialRenderReceiptV1 {
-  const body = receiptBodySchema.parse({ ...input, kind: "atet.spatial-project-render-receipt", schemaVersion: 1 });
-  return ProjectSpatialRenderReceiptV1Schema.parse({ ...body, receiptSha256: canonicalJsonSha256({ domain: "atet.spatial-project-render-receipt/v1", ...body }) });
+  const body = receiptBodySchema.parse({ ...input, kind: "slopcamera.spatial-project-render-receipt", schemaVersion: 1 });
+  return ProjectSpatialRenderReceiptV1Schema.parse({ ...body, receiptSha256: canonicalJsonSha256({ domain: "slopcamera.spatial-project-render-receipt/v1", ...body }) });
 }
 export const ProjectSpatialRenderReceiptReferenceSchema = z.strictObject({
-  kind: z.literal("atet.spatial-project-render-receipt-reference"), schemaVersion: z.literal(1),
+  kind: z.literal("slopcamera.spatial-project-render-receipt-reference"), schemaVersion: z.literal(1),
   projectId: ProjectRenderOutputReferenceSchema.shape.projectId,
   revisionSha256: SpatialDigestSchema, projectRevisionSha256: SpatialDigestSchema,
   projectionSha256: SpatialDigestSchema, cadenceSha256: SpatialDigestSchema,

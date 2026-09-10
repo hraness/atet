@@ -26,21 +26,25 @@ test("reports the ignored local emoji-pack metadata paths", async () => {
 });
 
 test("searches and resolves checked brand-catalog emoji overlays", async () => {
-  const search = await searchEmojiAssets(REPOSITORY_ROOT, "atet", 10, undefined, "brand-catalog");
+  const search = await searchEmojiAssets(REPOSITORY_ROOT, "slopcamera", 10, undefined, "brand-catalog");
   expect(search).toHaveLength(1);
+  for (const query of ["slop.camera", "brand:slop.camera", "📷", "1f4f7"]) {
+    expect(await searchEmojiAssets(REPOSITORY_ROOT, query, 10, "color", "brand-catalog")).toEqual(search);
+  }
+  expect(await searchEmojiAssets(REPOSITORY_ROOT, "slopcamera", 10, "duotone", "brand-catalog")).toEqual([]);
   expect(search[0]).toMatchObject({
-    available: { color: false, duotone: true },
-    emoji: "☀️",
-    name: "atet.sh",
+    available: { color: true, duotone: false },
+    emoji: "📷",
+    name: "slop.camera",
     provider: "brand-catalog",
   });
 
-  const resolved = await resolveEmojiAsset(REPOSITORY_ROOT, "atet", undefined, "auto");
+  const resolved = await resolveEmojiAsset(REPOSITORY_ROOT, "slopcamera", undefined, "auto");
   expect(resolved.provider).toBe("brand-catalog");
-  expect(resolved.variant).toBe("duotone");
-  expect(resolved.path).toEndWith("/apps/desktop/assets/brand-emoji/atet.sh.svg");
+  expect(resolved.variant).toBe("color");
+  expect(resolved.path).toEndWith("/apps/desktop/assets/brand-emoji/slop.camera.svg");
 
-  const temporary = await mkdtemp(join(tmpdir(), "atet-brand-emoji-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-brand-emoji-test-"));
   try {
     const ingested = await ingestEmojiAsset(join(temporary, "rec_emoji001"), resolved);
     expect(ingested.mediaType).toBe("image/svg+xml");
@@ -50,12 +54,12 @@ test("searches and resolves checked brand-catalog emoji overlays", async () => {
   }
 });
 
-test("reports an unavailable variant instead of substituting brand color assets", async () => {
+test("reports an unavailable variant instead of substituting brand artwork", async () => {
   let failure: unknown;
   try {
-    await resolveEmojiAsset(REPOSITORY_ROOT, "brand:atet.sh", "color", "brand-catalog");
+    await resolveEmojiAsset(REPOSITORY_ROOT, "brand:slop.camera", "duotone", "brand-catalog");
   } catch (error) {
     failure = error;
   }
-  expect(String(failure)).toContain("duotone variant only");
+  expect(String(failure)).toContain("color variant only");
 });

@@ -3,10 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import {
   createProcessLocalHostResourceCoordinator,
-  defaultAtetHostResourceProfile,
+  defaultSlopcameraHostResourceProfile,
   type HostResourceCoordinator,
   type HostResourceProfile,
-} from "@hraness/atet/host-resources";
+} from "@hraness/slopcamera/host-resources";
 
 import { runCli as runProductionCli } from "./commands";
 
@@ -27,12 +27,12 @@ function testHostResourceProfile(
   ) {
     throw new Error("CLI test runner invocation must be an integer from 1 through 32.");
   }
-  const defaults = defaultAtetHostResourceProfile(TEST_HOST_PARALLELISM);
+  const defaults = defaultSlopcameraHostResourceProfile(TEST_HOST_PARALLELISM);
   return {
     capacities: defaults.capacities,
     id: invocation === undefined
-      ? `atet.cli-test/${testFileName}/v1`
-      : `atet.cli-test/${testFileName}/invocation-${invocation}/v1`,
+      ? `slopcamera.cli-test/${testFileName}/v1`
+      : `slopcamera.cli-test/${testFileName}/invocation-${invocation}/v1`,
   };
 }
 

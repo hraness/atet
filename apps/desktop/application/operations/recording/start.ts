@@ -119,7 +119,7 @@ export const recordingStartOperationDefinitionV1: OperationDefinition<
   RecordingStartOutputV1
 > = {
   inputSchema: RecordingStartInputV1Schema,
-  inputSchemaId: "atet.operation.recording.start.input/v1",
+  inputSchemaId: "slopcamera.operation.recording.start.input/v1",
   kind: "recording.start",
   lifecycle: {
     kind: "live-control",
@@ -132,7 +132,7 @@ export const recordingStartOperationDefinitionV1: OperationDefinition<
     ),
   },
   outputSchema: RecordingStartOutputV1Schema,
-  outputSchemaId: "atet.operation.recording.start.output/v1",
+  outputSchemaId: "slopcamera.operation.recording.start.output/v1",
   policy: recordingStartPolicy,
   summarize: output => ({
     fields: {
@@ -153,7 +153,7 @@ export const recordingStartOperationDefinition: OperationDefinition<
   RecordingStartOutput
 > = {
   inputSchema: RecordingStartInputSchema,
-  inputSchemaId: "atet.operation.recording.start.input/v2",
+  inputSchemaId: "slopcamera.operation.recording.start.input/v2",
   kind: "recording.start",
   lifecycle: {
     kind: "live-control",
@@ -162,7 +162,7 @@ export const recordingStartOperationDefinition: OperationDefinition<
     ),
   },
   outputSchema: RecordingStartOutputSchema,
-  outputSchemaId: "atet.operation.recording.start.output/v2",
+  outputSchemaId: "slopcamera.operation.recording.start.output/v2",
   policy: recordingStartPolicy,
   summarize: output => summarizeRecordingControl("recording.start", output),
   version: 2,

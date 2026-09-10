@@ -8,9 +8,9 @@ import {
 } from "./contracts.js"
 import { assertDistinctPaths, parseStudioValue, STUDIO_LIMITS, studioCompare, studioDocument, studioHash, studioRequire, type StudioReadonly } from "./shared.js"
 
-export const studioSourceBundleSha256 = (input: unknown): string => studioHash("atet.studio-source-bundle/v1", parseStudioSourceBundle(input))
-export const studioJobSha256 = (input: unknown): string => studioHash("atet.studio-job/v1", parseStudioJob(input))
-export const studioRuntimeSha256 = (input: unknown): string => studioHash("atet.studio-runtime/v1", parseStudioRuntimeIdentity(input))
+export const studioSourceBundleSha256 = (input: unknown): string => studioHash("slopcamera.studio-source-bundle/v1", parseStudioSourceBundle(input))
+export const studioJobSha256 = (input: unknown): string => studioHash("slopcamera.studio-job/v1", parseStudioJob(input))
+export const studioRuntimeSha256 = (input: unknown): string => studioHash("slopcamera.studio-runtime/v1", parseStudioRuntimeIdentity(input))
 
 /** Resolves only the declared fixed-width frame token. It never evaluates paths or source. */
 export function studioOutputPath(output: StudioOutputSpec, frame?: number): string {
@@ -62,16 +62,16 @@ function derivePlan(input: { readonly bundle: StudioSourceBundle; readonly job: 
     : capabilityChecks.some(item => item.support === "unavailable") ? "capability-unavailable" as const
     : capabilityChecks.some(item => item.support === "unverified") ? "capability-unverified" as const : "authorization-required" as const
   const body = {
-    kind: "atet.studio-plan" as const, schemaVersion: 1 as const, bundle, job, ...(runtime === undefined ? {} : { runtime, runtimeSha256: studioRuntimeSha256(runtime) }),
+    kind: "slopcamera.studio-plan" as const, schemaVersion: 1 as const, bundle, job, ...(runtime === undefined ? {} : { runtime, runtimeSha256: studioRuntimeSha256(runtime) }),
     bundleSha256, jobSha256, sourceBytes: bundle.files.reduce((total, file) => total + file.bytes, 0),
     frameCount: job.render === undefined ? 0 : job.render.endFrameExclusive - job.render.startFrame,
     outputCount: { minimum: declared.files.length + declared.directories.length, maximum: declared.directories.length === 0 ? declared.files.length : job.limits.maximumOutputFiles },
     requiredCapabilities: required, capabilityChecks, readiness,
   }
-  return { ...body, planSha256: studioHash("atet.studio-plan/v1", body) }
+  return { ...body, planSha256: studioHash("slopcamera.studio-plan/v1", body) }
 }
 const plan = z.strictObject({
-  kind: z.literal("atet.studio-plan"), schemaVersion: z.literal(1), bundle: StudioSourceBundleSchema, job: StudioJobSchema,
+  kind: z.literal("slopcamera.studio-plan"), schemaVersion: z.literal(1), bundle: StudioSourceBundleSchema, job: StudioJobSchema,
   runtime: StudioRuntimeIdentitySchema.optional(), runtimeSha256: StudioDigestSchema.optional(), bundleSha256: StudioDigestSchema, jobSha256: StudioDigestSchema, planSha256: StudioDigestSchema,
   sourceBytes: z.number().int().safe().nonnegative().max(STUDIO_LIMITS.sourceBytes), frameCount: z.number().int().nonnegative().max(STUDIO_LIMITS.frames),
   outputCount: z.strictObject({ minimum: z.number().int().positive().max(STUDIO_LIMITS.outputFiles), maximum: z.number().int().positive().max(STUDIO_LIMITS.outputFiles) }),
@@ -94,7 +94,7 @@ export function planStudioJob(input: { readonly bundle: unknown; readonly job: u
 
 const failure = z.strictObject({ code: z.enum(["subprocess", "cancelled", "deadline", "validation", "custody", "publication", "unavailable"]), message: z.string().min(1).max(2048) })
 const receiptCommon = {
-  kind: z.literal("atet.studio-receipt"), schemaVersion: z.literal(1), jobId: z.string().regex(/^studio_[a-zA-Z0-9][a-zA-Z0-9_-]{0,120}$/u), attemptId: z.string().regex(/^attempt_[a-zA-Z0-9][a-zA-Z0-9_-]{0,120}$/u),
+  kind: z.literal("slopcamera.studio-receipt"), schemaVersion: z.literal(1), jobId: z.string().regex(/^studio_[a-zA-Z0-9][a-zA-Z0-9_-]{0,120}$/u), attemptId: z.string().regex(/^attempt_[a-zA-Z0-9][a-zA-Z0-9_-]{0,120}$/u),
   planSha256: StudioDigestSchema, bundleSha256: StudioDigestSchema, jobSha256: StudioDigestSchema, runtime: StudioRuntimeIdentitySchema, runtimeSha256: StudioDigestSchema,
   startedAt: z.iso.datetime({ offset: true }), finishedAt: z.iso.datetime({ offset: true }), outputs: z.array(StudioOutputArtifactSchema).max(STUDIO_LIMITS.outputFiles),
 }

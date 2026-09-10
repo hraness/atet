@@ -6,7 +6,7 @@ import { arch, cpus, release, totalmem } from "node:os";
 import { join, relative, resolve } from "node:path";
 
 import sharp from "sharp";
-import { createDefaultHostResourceCoordinator } from "@hraness/atet/host-resources";
+import { createDefaultHostResourceCoordinator } from "@hraness/slopcamera/host-resources";
 
 import { parseSpatialScene, spatialSceneSha256 } from "../../../src/spatial-scene/index";
 import { SpatialShotV1Schema } from "../../../src/spatial-scene/contracts";
@@ -114,7 +114,7 @@ const audioSha256 = hash(audio), now = new Date().toISOString(), range = { start
 const source = (name: string, digest: string) => ({ kind: "imported", importedAt: now, originalName: name, sourceSha256: digest });
 const segment = (path: string, bytes: number, sha256: string, codec: string, container: string) => ({ path: relative(repositoryRoot, path), bytes, sha256, codec, container, streamIndex: 0, assetRange: range, fileRange: range });
 const sync = { anchors: [{ assetTimeUs: 0, projectTimeUs: 0 }, { assetTimeUs: sourceDurationUs, projectTimeUs: sourceDurationUs }], provenance: { kind: "identity" } };
-const project = VideoProjectV1Schema.parse({ kind: "atet.video-project", schemaVersion: 1, projectId, name: "Qualified scene source clock", createdAt: now, updatedAt: now,
+const project = VideoProjectV1Schema.parse({ kind: "slopcamera.video-project", schemaVersion: 1, projectId, name: "Qualified scene source clock", createdAt: now, updatedAt: now,
   currentEditPlanPath: "edits/current.json", timeline: { durationUs: sourceDurationUs, timebase: "microseconds" }, analyses: [], referencePlacementId: "placement_video001",
   assets: [{ assetId: "asset_video001", createdAt: now, durationUs: sourceDurationUs, label: "Actual desaturated scene footage", role: "screen", source: source("base.mov", baseSha256),
     streams: [{ kind: "video", streamId: "stream_video001", label: "Video", role: "screen", pixelWidth: 320, pixelHeight: 180, frameRate: 30_000 / 1_001, segments: [segment(baseVideo, baseBytes.length, baseSha256, "qtrle", "mov")] }] },
@@ -158,11 +158,11 @@ assert.equal(projected.renderPlan.videoSlices.filter(slice => slice.assetId.star
 assert.ok(projected.renderPlan.overlays.length > 0);
 await fs.writeTextNoReplace!(projected.projection.derivedV1Revision.path, spatialProjectDocumentText(projected.revision));
 const outputGeometrySha256 = hashProjectEditRevisionOutputGeometry({ pixelWidth: 320, pixelHeight: 180, revisionSha256: projected.revision.revisionSha256 });
-const document = ProjectRenderPlanDocumentSchema.parse({ kind: "atet.project-render-plan-document", schemaVersion: 1, plan: projected.renderPlan, outputGeometrySha256,
+const document = ProjectRenderPlanDocumentSchema.parse({ kind: "slopcamera.project-render-plan-document", schemaVersion: 1, plan: projected.renderPlan, outputGeometrySha256,
   projectEditPlanSha256: projected.revision.projectEditPlanSha256, projectSha256: projected.revision.projectSha256, revisionSha256: projected.revision.revisionSha256, renderPlanSha256: canonicalJsonSha256(projected.renderPlan) });
 const text = spatialProjectDocumentText(document), artifact = { path: `renders/plans/${sha256Hex(text)}.json`, sha256: sha256Hex(text), bytes: Buffer.byteLength(text) };
 await fs.writeTextNoReplace!(artifact.path, text);
-const plan = ProjectRenderPlanReferenceSchema.parse({ kind: "atet.project-render-plan-reference", schemaVersion: 1, artifact, projectId, outputGeometrySha256,
+const plan = ProjectRenderPlanReferenceSchema.parse({ kind: "slopcamera.project-render-plan-reference", schemaVersion: 1, artifact, projectId, outputGeometrySha256,
   projectEditPlanSha256: projected.revision.projectEditPlanSha256, projectSha256: projected.revision.projectSha256, revisionSha256: projected.revision.revisionSha256,
   renderPlanSha256: canonicalJsonSha256(projected.renderPlan), planSha256: projected.renderPlan.planSha256 });
 const cadence = createSpatialCompositorCadence({ ...projected, plan: projected.renderPlan });
@@ -275,7 +275,7 @@ for (const frame of frameChecks) {
   assert.deepEqual(await sharp(actualPath).raw().toBuffer(), await sharp(frame.framePath).raw().toBuffer(), "Actual CLI preparation must preserve the qualified scene, source clock and overlay pixels.");
 }
 assert.equal(await fs.readText("project.json"), headText); assert.equal(await fs.readText("edits/current.json"), currentPlanText);
-const report = { kind: "atet.spatial-project-qualification", schemaVersion: 1, passed: true, sourceReport: sourceReportPath, sourceSceneRender: sceneResult,
+const report = { kind: "slopcamera.spatial-project-qualification", schemaVersion: 1, passed: true, sourceReport: sourceReportPath, sourceSceneRender: sceneResult,
   qualificationScriptSha256: hash(await readFile(import.meta.path)),
   projectId, runId: created.runId, graphPlanSha256: planned.plan.graphPlanSha256, applicationBuild: planned.plan.runtime.applicationBuild,
   output, receipt, projection: projected.projection, cadence, baseProbe, tonalChecks, frameChecks, commands,

@@ -16,7 +16,7 @@ import {
 } from "../contracts";
 import {
   analyzeSpeech,
-  canonicalAtetPersistenceDocument,
+  canonicalSlopcameraPersistenceDocument,
   canonicalJson,
   canonicalJsonSha256,
   loadAnalysisArtifact,
@@ -34,8 +34,8 @@ import { projectAnalysisPath } from "./project-service";
 import { resolveAudioAnalysisSubject } from "./audio-analysis";
 import { assertCompleteMusicAnalysis } from "./music-analysis-service";
 
-export const ATET_WHISPER_CPP_PROFILE = "atet-whisper-cpp-word-timestamps-v1";
-export const ATET_SPEECH_PCM_PROFILE = "pcm-s16le-16000hz-mono-wav-v1";
+export const SLOPCAMERA_WHISPER_CPP_PROFILE = "slopcamera-whisper-cpp-word-timestamps-v1";
+export const SLOPCAMERA_SPEECH_PCM_PROFILE = "pcm-s16le-16000hz-mono-wav-v1";
 
 const SPEECH_SAMPLE_RATE_HZ = 16_000;
 const MAXIMUM_PCM_BYTES = 8 * 1024 * 1024 * 1024;
@@ -620,7 +620,7 @@ export async function runLocalSpeechAnalysis(
       inputDigest: canonicalJsonSha256({
         config: options.config,
         musicAnalysisId: music?.analysis.analysisId ?? null,
-        pcmProfile: ATET_SPEECH_PCM_PROFILE,
+        pcmProfile: SLOPCAMERA_SPEECH_PCM_PROFILE,
         runtime: {
           executable: canonicalJsonSha256(options.runtime.executable),
           model: canonicalJsonSha256(options.runtime.modelPath),
@@ -628,13 +628,13 @@ export async function runLocalSpeechAnalysis(
         },
         subject: selected.subject,
         transcript,
-        whisperProfile: ATET_WHISPER_CPP_PROFILE,
+        whisperProfile: SLOPCAMERA_WHISPER_CPP_PROFILE,
       }),
       musicRegions: music?.analysis.musicRegions ?? [],
       subject: selected.subject,
       tool: {
         name: "whisper.cpp",
-        profile: ATET_WHISPER_CPP_PROFILE,
+        profile: SLOPCAMERA_WHISPER_CPP_PROFILE,
         version: options.runtime.version,
       },
       words: transcript.words,
@@ -668,7 +668,7 @@ export async function persistSpeechAnalysis(options: {
   const timestamp = requestedTimestamp.localeCompare(options.project.updatedAt) < 0
     ? options.project.updatedAt
     : requestedTimestamp;
-  const nextProject = canonicalAtetPersistenceDocument(VideoProjectV1Schema.parse({
+  const nextProject = canonicalSlopcameraPersistenceDocument(VideoProjectV1Schema.parse({
     ...options.project,
     analyses: [
       ...options.project.analyses.filter(existing => existing.analysisId !== analysis.analysisId),

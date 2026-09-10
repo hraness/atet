@@ -50,7 +50,7 @@ describe("output publication lease", () => {
     { label: "close false", primary: undefined, temporary: new Error("private temporary"), close: false, unlink: { fails: false } },
     { label: "unlink null", primary: false, temporary: undefined, close: new Error("private close"), unlink: { fails: true, cause: null } },
   ])("native close/unlink settlement retains finally precedence and the same-output queue ($label)", async scenario => {
-    const root = await realpath(await mkdtemp(join(tmpdir(), "atet-lease-finally-")));
+    const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-lease-finally-")));
     const context = application(root);
     const closing = Promise.withResolvers<void>();
     const releaseClose = Promise.withResolvers<void>();
@@ -135,7 +135,7 @@ describe("output publication lease", () => {
   });
 
   test.each(["promise-first", "effect-first"] as const)("serializes mixed callers without coupling distinct outputs (%s)", async firstKind => {
-    const root = await mkdtemp(join(tmpdir(), "atet-output-lease-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-output-lease-"));
     const context = application(root);
     const events: string[] = [];
     let releaseFirst!: () => void;
@@ -187,7 +187,7 @@ describe("output publication lease", () => {
   });
 
   test("rejects paths outside renders and prepositioned lease symlinks", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-output-lease-path-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-output-lease-path-"));
     const context = application(root);
     try {
       expect(withOutputPublicationLease(context, {

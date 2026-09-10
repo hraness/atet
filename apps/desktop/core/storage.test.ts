@@ -28,7 +28,7 @@ import {
 
 test("guarded publication rejects stage substitution and same-inode edits during custody checks", async () => {
   for (const attack of ["symlink", "rewrite"] as const) {
-    const directory = await mkdtemp(join(tmpdir(), "atet-guarded-stage-"));
+    const directory = await mkdtemp(join(tmpdir(), "slopcamera-guarded-stage-"));
     try {
       const root = await import("node:fs/promises").then(fs => fs.realpath(directory));
       const fs = createNodeBundleFileSystem(root);
@@ -48,7 +48,7 @@ test("guarded publication rejects stage substitution and same-inode edits during
 });
 
 test("bundle structured reads and hashing reject caller byte limits before loading", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-bounded-read-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-bounded-read-"));
   try {
     const fs = createNodeBundleFileSystem(root);
     await writeFile(join(root, "large.json"), "x".repeat(1_024));
@@ -59,7 +59,7 @@ test("bundle structured reads and hashing reject caller byte limits before loadi
 });
 
 test("immutable writes and copies fence the exact staged bytes before publication", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-immutable-fence-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-immutable-fence-"));
   try {
     const fs = createNodeBundleFileSystem(root);
     await writeFile(join(root, "source.mov"), "original");
@@ -72,7 +72,7 @@ test("immutable writes and copies fence the exact staged bytes before publicatio
       await expect(publish(async () => { throw new Error("custody revoked"); })).rejects.toThrow("custody revoked");
       await expect(lstat(join(root, destination))).rejects.toMatchObject({ code: "ENOENT" });
       await expect(publish(async () => {
-        const stage = (await readdir(root)).find(name => kind === "copy" ? name.startsWith(".atet-copy-") : name.startsWith(`${destination}.tmp-`))!;
+        const stage = (await readdir(root)).find(name => kind === "copy" ? name.startsWith(".slopcamera-copy-") : name.startsWith(`${destination}.tmp-`))!;
         await writeFile(join(root, stage), "tampered");
       })).rejects.toThrow("stage changed");
       await expect(lstat(join(root, destination))).rejects.toMatchObject({ code: "ENOENT" });
@@ -92,11 +92,11 @@ test("immutable writes and copies fence the exact staged bytes before publicatio
     let fenceCalled = false;
     await expect(fs.copyFileNoReplace!("source.mov", "oversize.mov", { ...expected, bytes: 3 }, async () => { fenceCalled = true; })).rejects.toThrow("changed before opening");
     expect(fenceCalled).toBe(false);
-    expect((await readdir(root)).some(name => name.startsWith(".atet-copy-"))).toBe(false);
+    expect((await readdir(root)).some(name => name.startsWith(".slopcamera-copy-"))).toBe(false);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("mutable bundle persistence preserves Studio reads and writes canonical Atet", async () => {
+test("mutable bundle persistence preserves Studio reads and writes canonical Slopcamera", async () => {
   const files = new Map<string, string>();
   const fileSystem = {
     readText: async (path: string) => {
@@ -138,16 +138,16 @@ test("mutable bundle persistence preserves Studio reads and writes canonical Ate
     kind: "studio.video-project",
   });
   expect(JSON.parse(files.get("manifest.json")!)).toMatchObject({
-    kind: "atet.recording-bundle",
-    tool: { name: "atet" },
+    kind: "slopcamera.recording-bundle",
+    tool: { name: "slopcamera" },
   });
   expect(JSON.parse(files.get("project.json")!)).toMatchObject({
-    kind: "atet.video-project",
+    kind: "slopcamera.video-project",
   });
 });
 
 test.skipIf(process.platform === "win32")("bundle storage rejects symlink leaves and redirected parent directories", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-storage-path-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-storage-path-test-"));
   const bundle = join(temporary, "bundle");
   const outside = join(temporary, "outside");
   try {
@@ -180,13 +180,13 @@ test.skipIf(process.platform === "win32")("bundle storage rejects symlink leaves
 });
 
 test.skipIf(process.platform === "win32")("bundle inspection retries one hard-link cleanup and rejects repeated instability", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-storage-inspection-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-storage-inspection-test-"));
   const bundle = join(temporary, "bundle");
   try {
     await mkdir(bundle);
     const destination = join(bundle, "published.mp4");
-    const firstStage = join(bundle, ".atet-copy-first.tmp");
-    const secondStage = join(bundle, ".atet-copy-second.tmp");
+    const firstStage = join(bundle, ".slopcamera-copy-first.tmp");
+    const secondStage = join(bundle, ".slopcamera-copy-second.tmp");
     const source = "verified delivery bytes";
     await writeFile(destination, source);
     await Promise.all([
@@ -253,7 +253,7 @@ test.skipIf(process.platform === "win32")("bundle inspection retries one hard-li
 });
 
 test.skipIf(process.platform === "win32")("bundle inspection rehashes a ctime-only transition and rejects continued changes", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-storage-ctime-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-storage-ctime-"));
   try {
     const path = join(root, "asset.bin");
     const source = "exact retained asset bytes";
@@ -286,12 +286,12 @@ test.skipIf(process.platform === "win32")("bundle inspection rehashes a ctime-on
 });
 
 test.skipIf(process.platform === "win32")("bundle inspection rejects a destination unlinked during hard-link cleanup", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-storage-unlink-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-storage-unlink-test-"));
   const bundle = join(temporary, "bundle");
   try {
     await mkdir(bundle);
     const destination = join(bundle, "published.mp4");
-    const stage = join(bundle, ".atet-copy-stage.tmp");
+    const stage = join(bundle, ".slopcamera-copy-stage.tmp");
     const source = "verified delivery bytes";
     await writeFile(destination, source);
     await link(destination, stage);
@@ -314,12 +314,12 @@ test.skipIf(process.platform === "win32")("bundle inspection rejects a destinati
 });
 
 test.skipIf(process.platform === "win32")("bundle inspection rejects a different-inode destination replacement", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-storage-replacement-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-storage-replacement-test-"));
   const bundle = join(temporary, "bundle");
   try {
     await mkdir(bundle);
     const destination = join(bundle, "published.mp4");
-    const stage = join(bundle, ".atet-copy-stage.tmp");
+    const stage = join(bundle, ".slopcamera-copy-stage.tmp");
     const source = "verified delivery bytes";
     const replacement = "replacement delivery bytes";
     await writeFile(destination, source);
@@ -352,7 +352,7 @@ test.skipIf(process.platform === "win32")("bundle inspection rejects a different
 });
 
 test.skipIf(process.platform === "win32")("immutable copies require one stable exact rehash after a ctime-only transition", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-storage-copy-ctime-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-storage-copy-ctime-"));
   try {
     const path = join(root, "source.bin");
     const source = "a".repeat(3 * 1024 * 1024 + 37);
@@ -398,13 +398,13 @@ test.skipIf(process.platform === "win32")("immutable copies require one stable e
         expect(publicationChecks).toBe(transition === "revoked" ? 1 : 0);
       }
       expect(attempts).toEqual(transition === "permission" || transition === "replacement" ? [1] : [1, 2]);
-      expect((await readdir(root)).some(name => name.startsWith(".atet-copy-"))).toBe(false);
+      expect((await readdir(root)).some(name => name.startsWith(".slopcamera-copy-"))).toBe(false);
     }
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("immutable bundle copies publish atomically and preserve no-replace recovery", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-storage-copy-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-storage-copy-test-"));
   const bundle = join(temporary, "bundle");
   try {
     await mkdir(bundle);
@@ -448,7 +448,7 @@ test("immutable bundle copies publish atomically and preserve no-replace recover
       "utf8",
     )).toBe(source);
     expect((await readdir(join(bundle, "renders/deliveries"))).some(
-      name => name.startsWith(".atet-copy-"),
+      name => name.startsWith(".slopcamera-copy-"),
     )).toBe(false);
 
     const wrong = { ...expected, sha256: "f".repeat(64) };
@@ -460,14 +460,14 @@ test("immutable bundle copies publish atomically and preserve no-replace recover
     expect(lstat(join(bundle, "renders/deliveries/failed.mp4")))
       .rejects.toMatchObject({ code: "ENOENT" });
     expect((await readdir(join(bundle, "renders/deliveries"))).some(
-      name => name.startsWith(".atet-copy-"),
+      name => name.startsWith(".slopcamera-copy-"),
     )).toBe(false);
 
     // Model a process killed after writing only its private staging inode.
     // An unpublished partial copy must not reserve or expose the final path.
     const interruptedStage = join(
       bundle,
-      "renders/deliveries/.atet-copy-00000000-0000-4000-8000-000000000000.tmp",
+      "renders/deliveries/.slopcamera-copy-00000000-0000-4000-8000-000000000000.tmp",
     );
     await writeFile(interruptedStage, "partial copy", { mode: 0o600 });
     expect(lstat(join(bundle, "renders/deliveries/recovered.mp4")))

@@ -214,7 +214,7 @@ function bootIdentity(): string {
       `Code-worker process identity is unsupported on ${process.platform}.`,
     );
   }
-  cachedBootIdentity = digestIdentity("atet-worker-boot", source);
+  cachedBootIdentity = digestIdentity("slopcamera-worker-boot", source);
   return cachedBootIdentity;
 }
 
@@ -405,7 +405,7 @@ function identityFor(
   rawStartIdentity: string,
 ): string {
   return digestIdentity(
-    "atet-worker-process-start",
+    "slopcamera-worker-process-start",
     `${bootIdentity()}\0${String(processId)}\0${rawStartIdentity}`,
   );
 }

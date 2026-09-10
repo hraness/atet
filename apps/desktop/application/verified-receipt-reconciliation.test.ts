@@ -45,7 +45,7 @@ afterEach(async () => {
 });
 
 async function rootFixture(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "atet-receipt-recovery-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-receipt-recovery-"));
   roots.push(root);
   return root;
 }
@@ -61,7 +61,7 @@ describe("verified-receipt reconciliation", () => {
   test("registers every local receipt-backed recovery boundary", () => {
     expect(LOCAL_VERIFIED_RECEIPT_OPERATION_KINDS).toEqual([
       "scene.render",
-      "atet.studio.run",
+      "slopcamera.studio.run",
       "analysis.faces",
       "analysis.music",
       "analysis.project-inactivity",
@@ -70,8 +70,8 @@ describe("verified-receipt reconciliation", () => {
       "media.html-overlay",
       "media.ingest",
       "media.overlay",
-      "atet.diagram.render",
-      "atet.image.vectorize",
+      "slopcamera.diagram.render",
+      "slopcamera.image.vectorize",
     ]);
   });
 
@@ -144,7 +144,7 @@ describe("verified-receipt reconciliation", () => {
       createdAt: "2026-07-23T15:01:00.000Z",
       durationUs: 10_000_000,
       inputDigest: "b".repeat(64),
-      kind: "atet.face-analysis",
+      kind: "slopcamera.face-analysis",
       privacy: {
         biometricIdentification: "not-performed",
         execution: "local-only",
@@ -163,7 +163,7 @@ describe("verified-receipt reconciliation", () => {
         exactInput.source,
       ).subject,
       tool: {
-        name: "atet-face-analyzer",
+        name: "slopcamera-face-analyzer",
         profile: "offline-boxes",
         version: "test",
       },

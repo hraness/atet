@@ -33,7 +33,7 @@ const rgbProbeFixture = () => {
   return probe;
 };
 async function fixture(options: { probe?: ReturnType<typeof probeFixture>; run?: ProcessRunner["run"] } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "atet-directing-media-")); roots.push(root);
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-directing-media-")); roots.push(root);
   // Resolve macOS /var's canonical parent before constructing repository-relative paths.
   const { realpath } = await import("node:fs/promises");
   const repositoryRoot = await realpath(root), calls: readonly string[][] = [];
@@ -47,7 +47,7 @@ async function fixture(options: { probe?: ReturnType<typeof probeFixture>; run?:
     return { exitCode: 0, stdout: "", stderr: `[Parsed_showinfo_1 @ fixture] config in time_base: 1/1000, frame_rate: 4/1\n[Parsed_showinfo_1 @ fixture] n: 0 pts: ${value} pts_time: ${value / 1000}\n` };
   } };
   const application: ApplicationContext = {
-    paths: { repositoryRoot, desktopRoot: repositoryRoot, artifactRoot: join(repositoryRoot, "artifacts/atet/recordings"), privateRoot: join(repositoryRoot, "artifacts/atet/private"), projectRoot: join(repositoryRoot, "artifacts/atet/projects") },
+    paths: { repositoryRoot, desktopRoot: repositoryRoot, artifactRoot: join(repositoryRoot, "artifacts/slopcamera/recordings"), privateRoot: join(repositoryRoot, "artifacts/slopcamera/private"), projectRoot: join(repositoryRoot, "artifacts/slopcamera/projects") },
     clock: { now: () => new Date("2026-09-09T00:00:00Z"), timestampMilliseconds: () => Date.parse("2026-09-09T00:00:00Z") },
     capability: async name => ({ name, available: true, command: name, version: `${name} fixture` }), capabilities: async () => [], runner,
   };
@@ -83,7 +83,7 @@ async function normalizationFixture(change?: (probe: ReturnType<typeof rgbProbeF
 }
 async function interruptedAssemblyFixture() {
   const f = await normalizationFixture();
-  const mediaRoot = join(f.root, "artifacts/atet/generated/directing-media");
+  const mediaRoot = join(f.root, "artifacts/slopcamera/generated/directing-media");
   const application: ApplicationContext = { ...f.application, hostResourceLease: {
     claims: [], inheritedFileDescriptor: -1, inheritedFileDescriptors: [], profile: { id: "unit-interrupt", capacities: [] }, ticket: "1",
     assertOwned: async () => {
@@ -160,7 +160,7 @@ describe("retained directing media", () => {
       return { exitCode: mode === "exit" ? 1 : 0, stdout: "", stderr: "interrupted" };
     } });
     await expect(extractDirectingEndpoint(f.application, f.source, "last", abort.signal)).rejects.toThrow();
-    const entries = await readdir(join(f.root, "artifacts/atet/generated/directing-media"));
+    const entries = await readdir(join(f.root, "artifacts/slopcamera/generated/directing-media"));
     expect(entries.some(entry => entry.startsWith(".endpoint-"))).toBe(false);
     expect(entries.some(entry => entry.endsWith(".json"))).toBe(false);
   });
@@ -174,7 +174,7 @@ describe("retained directing media", () => {
       return { exitCode: 0, stdout: "", stderr: "[Parsed_showinfo_1] config in time_base: 1/1000\n[Parsed_showinfo_1] n: 0 pts: 900" };
     } });
     await expect(extractDirectingEndpoint(f.application, f.source, "last", signal())).rejects.toThrow();
-    const entries = await readdir(join(f.root, "artifacts/atet/generated/directing-media"));
+    const entries = await readdir(join(f.root, "artifacts/slopcamera/generated/directing-media"));
     expect(entries.some(entry => entry.endsWith(".png") || entry.endsWith(".json"))).toBe(false);
   });
   test.skipIf(process.platform === "win32")("preserves primary failure and refuses cleanup of a substituted decoder output", async () => {
@@ -202,7 +202,7 @@ describe("retained directing media", () => {
     probe.streams[0]!.color_transfer = "unknown"; probe.streams[0]!.color_primaries = "unknown"; probe.streams[0]!.color_space = "unknown";
     const f = await fixture({ probe });
     await extractDirectingEndpoint(f.application, f.source, "last", signal());
-    const mediaRoot = join(f.root, "artifacts/atet/generated/directing-media");
+    const mediaRoot = join(f.root, "artifacts/slopcamera/generated/directing-media");
     const receiptPath = (await readdir(mediaRoot)).find(path => path.startsWith("endpoint-") && path.endsWith(".json"))!;
     const receipt = JSON.parse(await readFile(join(mediaRoot, receiptPath), "utf8")) as { color: { policy: string; assumptions: string[]; observed: { pixelFormat: string } } };
     expect(receipt.color.policy).toBe("untagged-8bit-yuv-assume-bt709-v1");
@@ -325,7 +325,7 @@ describe("retained directing media", () => {
     expect(normalization.codec).toBe("libx264rgb-lossless-v1");
     expect(await assembleDirectingClips(f.application, input, signal())).toEqual(output);
     expect(f.calls.filter(argv => argv[0] === "ffmpeg")).toHaveLength(1);
-    expect((await readdir(join(f.root, "artifacts/atet/generated/directing-media"))).some(name => name.startsWith(".rgb-"))).toBe(false);
+    expect((await readdir(join(f.root, "artifacts/slopcamera/generated/directing-media"))).some(name => name.startsWith(".rgb-"))).toBe(false);
   });
   test.each(["timestamp", "final-duration", "frame-hdr", "frame-range", "alpha"]) ("rejects a normalized derivative with changed %s before project publication", async kind => {
     const f = await normalizationFixture(probe => {
@@ -336,7 +336,7 @@ describe("retained directing media", () => {
       if (kind === "alpha") probe.streams[0]!.pix_fmt = "rgba";
     });
     await expect(assembleDirectingClips(f.application, { id: "bad-rgb", title: "Invalid derivative", recipeSha256: "b".repeat(64), clips: [{ shotId: "one", attemptId: "one", source: f.source, durationUs: 1_200_000 }] }, signal())).rejects.toThrow();
-    expect((await readdir(join(f.root, "artifacts/atet/generated/directing-media"))).some(name => name.startsWith(".rgb-") || name.startsWith("assembly-") && name.endsWith(".json"))).toBe(false);
+    expect((await readdir(join(f.root, "artifacts/slopcamera/generated/directing-media"))).some(name => name.startsWith(".rgb-") || name.startsWith("assembly-") && name.endsWith(".json"))).toBe(false);
   });
   test("retains a substituted regular native output and preserves the primary validation failure", async () => {
     const f = await normalizationFixture(probe => { probe.frames[1]!.best_effort_timestamp += 1; }, true);
@@ -358,7 +358,7 @@ describe("retained directing media", () => {
       throw new Error("Normalization native failure");
     } });
     await expect(assembleDirectingClips(f.application, { id: "partial-rgb", title: "Interrupted normalization", recipeSha256: "b".repeat(64), clips: [{ shotId: "one", attemptId: "one", source: f.source, durationUs: 1_000_000 }] }, signal())).rejects.toThrow("Normalization native failure");
-    expect((await readdir(join(f.root, "artifacts/atet/generated/directing-media"))).some(name => name.startsWith(".rgb-"))).toBe(false);
+    expect((await readdir(join(f.root, "artifacts/slopcamera/generated/directing-media"))).some(name => name.startsWith(".rgb-"))).toBe(false);
   });
   test("keeps accepted clip audio in the same authored project clock", async () => {
     const probe = rgbProbeFixture();
@@ -384,7 +384,7 @@ describe("retained directing media", () => {
       { index: 1, codec_type: "audio", codec_name: "aac", start_time: "0", duration: "1.3", channels: 1, sample_rate: "32000", time_base: "1/32000" },
     ] }) }) });
     const input = { id: "video-clock", title: "Video-clock cuts", recipeSha256: "d".repeat(64), clips: ["one", "two", "three"].map(id => ({ shotId: id, attemptId: id, source: f.source, durationUs: 1_300_000 })) };
-    const oldDigest = sha256Hex(canonicalJson({ kind: "atet.directing-assembly", schemaVersion: 1, colorPolicy: "sdr-rgb-assembly-v1", input }));
+    const oldDigest = sha256Hex(canonicalJson({ kind: "slopcamera.directing-assembly", schemaVersion: 1, colorPolicy: "sdr-rgb-assembly-v1", input }));
     const oldProject = join(f.application.paths.projectRoot, `project_directing_${oldDigest.slice(0, 40)}`);
     await mkdir(oldProject, { recursive: true }); await writeFile(join(oldProject, "project.json"), "Retained V1 evidence");
     const output = await assembleDirectingClips(f.application, input, signal());
@@ -404,7 +404,7 @@ describe("retained directing media", () => {
   });
 });
 
-test.skipIf(process.env.ATET_DIRECTING_MEDIA_NATIVE !== "1")("native sparse VFR endpoint pixels and accepted project render", async () => {
+test.skipIf(process.env.SLOPCAMERA_DIRECTING_MEDIA_NATIVE !== "1")("native sparse VFR endpoint pixels and accepted project render", async () => {
   const f = await fixture(), runner = new BunProcessRunner(), ffmpeg = "/opt/homebrew/bin/ffmpeg", ffprobe = "/opt/homebrew/bin/ffprobe";
   const application: ApplicationContext = { ...f.application, runner, capability: async name => ({ name, available: true, command: name === "ffmpeg" ? ffmpeg : ffprobe, version: `${name} native qualification` }) };
   const path = join(f.root, "native.mp4");
@@ -447,7 +447,7 @@ test.skipIf(process.env.ATET_DIRECTING_MEDIA_NATIVE !== "1")("native sparse VFR 
   }
 }, 60_000);
 
-test.skipIf(process.env.ATET_DIRECTING_MEDIA_NATIVE !== "1")("native video-clock cuts remove multi-frame AAC tails without a black CFR join", async () => {
+test.skipIf(process.env.SLOPCAMERA_DIRECTING_MEDIA_NATIVE !== "1")("native video-clock cuts remove multi-frame AAC tails without a black CFR join", async () => {
   const f = await fixture(), runner = new BunProcessRunner(), ffmpeg = "/opt/homebrew/bin/ffmpeg", ffprobe = "/opt/homebrew/bin/ffprobe";
   const application: ApplicationContext = { ...f.application, runner, capability: async name => ({ name, available: true, command: name === "ffmpeg" ? ffmpeg : ffprobe, version: `${name} native qualification` }) };
   const clips: { shotId: string; attemptId: string; source: GatewayMediaSourceReference; durationUs: number }[] = [];

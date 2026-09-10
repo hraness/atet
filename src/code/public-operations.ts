@@ -30,18 +30,18 @@ function schemaWithReadonlyOutput<Output>(
   return schema as z.ZodType<Output>
 }
 
-export type AtetImageModel = string
+export type SlopcameraImageModel = string
 
-export interface AtetDiagramCheckInput {
+export interface SlopcameraDiagramCheckInput {
   readonly path: string
 }
 
-export interface AtetDiagramRenderInput extends AtetDiagramCheckInput {
+export interface SlopcameraDiagramRenderInput extends SlopcameraDiagramCheckInput {
   readonly outDirectory?: string
   readonly scale?: number
 }
 
-export interface AtetImageVectorizeInput {
+export interface SlopcameraImageVectorizeInput {
   readonly alphaCutoff?: number
   readonly duotone?: readonly [string, string]
   readonly inputPath: string
@@ -49,24 +49,24 @@ export interface AtetImageVectorizeInput {
   readonly timeoutMs?: number
 }
 
-export interface AtetImageGenerateInput {
-  readonly model: AtetImageModel
+export interface SlopcameraImageGenerateInput {
+  readonly model: SlopcameraImageModel
   readonly outputPath: string
   readonly prompt: string
 }
 
-export interface AtetLintFinding {
+export interface SlopcameraLintFinding {
   readonly code: string
   readonly message: string
   readonly shapeIds: readonly string[]
 }
 
-export interface AtetDiagramCheckOutput {
+export interface SlopcameraDiagramCheckOutput {
   readonly configPath: null
-  readonly findings: readonly AtetLintFinding[]
+  readonly findings: readonly SlopcameraLintFinding[]
 }
 
-export interface AtetRenderArtifacts {
+export interface SlopcameraRenderArtifacts {
   readonly darkPng: string
   readonly darkSvg: string
   readonly lightPng: string
@@ -75,13 +75,13 @@ export interface AtetRenderArtifacts {
   readonly tldr: string
 }
 
-export interface AtetDiagramRenderOutput {
-  readonly artifacts: AtetRenderArtifacts
+export interface SlopcameraDiagramRenderOutput {
+  readonly artifacts: SlopcameraRenderArtifacts
   readonly configPath: null
-  readonly findings: readonly AtetLintFinding[]
+  readonly findings: readonly SlopcameraLintFinding[]
 }
 
-export interface AtetVectorizeQualityReceipt {
+export interface SlopcameraVectorizeQualityReceipt {
   readonly alphaRmse: number
   readonly colorRmse: number
   readonly outsideAlphaRatio: number
@@ -90,7 +90,7 @@ export interface AtetVectorizeQualityReceipt {
   readonly supportRecall: number
 }
 
-export interface AtetVectorizeProvenance {
+export interface SlopcameraVectorizeProvenance {
   readonly arch: string
   readonly platform: string
   readonly sharp: string
@@ -101,7 +101,7 @@ export interface AtetVectorizeProvenance {
   readonly vtracerVersion: string
 }
 
-export interface AtetVectorizeReceipt {
+export interface SlopcameraVectorizeReceipt {
   readonly alphaCutoff: number
   readonly bytes: number
   readonly candidatesEvaluated: number
@@ -111,8 +111,8 @@ export interface AtetVectorizeReceipt {
   readonly outputMode: "color" | "duotone"
   readonly pathCount: number
   readonly profile: "balanced" | "detailed" | "photo"
-  readonly provenance: AtetVectorizeProvenance
-  readonly quality: AtetVectorizeQualityReceipt
+  readonly provenance: SlopcameraVectorizeProvenance
+  readonly quality: SlopcameraVectorizeQualityReceipt
   readonly receiptVersion: 1
   readonly representation: "color-paths" | "alpha-mask"
   readonly sourceSha256: string
@@ -120,15 +120,15 @@ export interface AtetVectorizeReceipt {
   readonly width: number
 }
 
-export interface AtetImageVectorizeOutput {
+export interface SlopcameraImageVectorizeOutput {
   readonly outputPath: string
-  readonly receipt: AtetVectorizeReceipt
+  readonly receipt: SlopcameraVectorizeReceipt
 }
 
-export interface AtetImageGenerateOutput {
+export interface SlopcameraImageGenerateOutput {
   readonly bytes: number
   readonly mediaType: "image/jpeg" | "image/png" | "image/webp"
-  readonly model: AtetImageModel
+  readonly model: SlopcameraImageModel
   readonly outputPath: string
   readonly provider: "vercel-ai-gateway"
   readonly requestId: string
@@ -136,25 +136,25 @@ export interface AtetImageGenerateOutput {
   readonly warnings: readonly string[]
 }
 
-export const AtetImageModelSchema = z.string()
+export const SlopcameraImageModelSchema = z.string()
   .min(3)
   .max(256)
-  .regex(/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/iu) satisfies z.ZodType<AtetImageModel>
+  .regex(/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/iu) satisfies z.ZodType<SlopcameraImageModel>
 
-export const AtetDiagramCheckInputSchema = z.strictObject({
+export const SlopcameraDiagramCheckInputSchema = z.strictObject({
   path: BoundedPathSchema,
-}) satisfies z.ZodType<AtetDiagramCheckInput>
+}) satisfies z.ZodType<SlopcameraDiagramCheckInput>
 
-export const AtetDiagramRenderInputSchema = schemaWithReadonlyOutput<
-  AtetDiagramRenderInput
+export const SlopcameraDiagramRenderInputSchema = schemaWithReadonlyOutput<
+  SlopcameraDiagramRenderInput
 >(z.strictObject({
   outDirectory: BoundedPathSchema.optional(),
   path: BoundedPathSchema,
   scale: z.number().finite().positive().max(4).optional(),
 }))
 
-export const AtetImageVectorizeInputSchema = schemaWithReadonlyOutput<
-  AtetImageVectorizeInput
+export const SlopcameraImageVectorizeInputSchema = schemaWithReadonlyOutput<
+  SlopcameraImageVectorizeInput
 >(z.strictObject({
   alphaCutoff: z.number().int().min(1).max(64).optional(),
   duotone: z.tuple([
@@ -189,10 +189,10 @@ const PromptSchema = z.string().superRefine((value, context) => {
   }
 })
 
-export const AtetImageGenerateInputSchema = schemaWithReadonlyOutput<
-  AtetImageGenerateInput
+export const SlopcameraImageGenerateInputSchema = schemaWithReadonlyOutput<
+  SlopcameraImageGenerateInput
 >(z.strictObject({
-  model: AtetImageModelSchema,
+  model: SlopcameraImageModelSchema,
   outputPath: BoundedPathSchema.refine(
     value => /\.(?:jpe?g|png|webp)$/iu.test(value),
     "Generated image output paths must end in .png, .jpg, .jpeg, or .webp.",
@@ -200,42 +200,42 @@ export const AtetImageGenerateInputSchema = schemaWithReadonlyOutput<
   prompt: PromptSchema,
 }))
 
-export const AtetLintFindingSchema = z.strictObject({
+export const SlopcameraLintFindingSchema = z.strictObject({
   code: z.string().min(1).max(160),
   message: z.string().min(1).max(4_096),
   shapeIds: z.array(z.string().min(1).max(256)).max(4_096),
-}) satisfies z.ZodType<AtetLintFinding>
+}) satisfies z.ZodType<SlopcameraLintFinding>
 
-export const AtetDiagramCheckOutputSchema = z.strictObject({
+export const SlopcameraDiagramCheckOutputSchema = z.strictObject({
   configPath: z.null(),
-  findings: z.array(AtetLintFindingSchema).max(4_096),
-}) satisfies z.ZodType<AtetDiagramCheckOutput>
+  findings: z.array(SlopcameraLintFindingSchema).max(4_096),
+}) satisfies z.ZodType<SlopcameraDiagramCheckOutput>
 
-export const AtetRenderArtifactsSchema = z.strictObject({
+export const SlopcameraRenderArtifactsSchema = z.strictObject({
   darkPng: BoundedPathSchema,
   darkSvg: BoundedPathSchema,
   lightPng: BoundedPathSchema,
   lightSvg: BoundedPathSchema,
   spec: BoundedPathSchema,
   tldr: BoundedPathSchema,
-}) satisfies z.ZodType<AtetRenderArtifacts>
+}) satisfies z.ZodType<SlopcameraRenderArtifacts>
 
-export const AtetDiagramRenderOutputSchema = z.strictObject({
-  artifacts: AtetRenderArtifactsSchema,
+export const SlopcameraDiagramRenderOutputSchema = z.strictObject({
+  artifacts: SlopcameraRenderArtifactsSchema,
   configPath: z.null(),
-  findings: z.array(AtetLintFindingSchema).max(4_096),
-}) satisfies z.ZodType<AtetDiagramRenderOutput>
+  findings: z.array(SlopcameraLintFindingSchema).max(4_096),
+}) satisfies z.ZodType<SlopcameraDiagramRenderOutput>
 
-export const AtetVectorizeQualityReceiptSchema = z.strictObject({
+export const SlopcameraVectorizeQualityReceiptSchema = z.strictObject({
   alphaRmse: z.number().finite().nonnegative(),
   colorRmse: z.number().finite().nonnegative(),
   outsideAlphaRatio: z.number().finite().min(0).max(1),
   sampleHeight: PositiveSafeIntegerSchema,
   sampleWidth: PositiveSafeIntegerSchema,
   supportRecall: z.number().finite().min(0).max(1),
-}) satisfies z.ZodType<AtetVectorizeQualityReceipt>
+}) satisfies z.ZodType<SlopcameraVectorizeQualityReceipt>
 
-export const AtetVectorizeProvenanceSchema = z.strictObject({
+export const SlopcameraVectorizeProvenanceSchema = z.strictObject({
   arch: BoundedVersionStringSchema,
   platform: BoundedVersionStringSchema,
   sharp: BoundedVersionStringSchema,
@@ -247,9 +247,9 @@ export const AtetVectorizeProvenanceSchema = z.strictObject({
   vtracerSha256: Sha256Schema,
   vtracerSource: z.enum(["official-release", "override"]),
   vtracerVersion: BoundedVersionStringSchema,
-}) satisfies z.ZodType<AtetVectorizeProvenance>
+}) satisfies z.ZodType<SlopcameraVectorizeProvenance>
 
-export const AtetVectorizeReceiptSchema = z.strictObject({
+export const SlopcameraVectorizeReceiptSchema = z.strictObject({
   alphaCutoff: z.number().int().min(1).max(64),
   bytes: NonnegativeSafeIntegerSchema.max(MAX_VECTOR_OUTPUT_BYTES),
   candidatesEvaluated: PositiveSafeIntegerSchema,
@@ -259,24 +259,24 @@ export const AtetVectorizeReceiptSchema = z.strictObject({
   outputMode: z.enum(["color", "duotone"]),
   pathCount: NonnegativeSafeIntegerSchema.max(12_000),
   profile: z.enum(["balanced", "detailed", "photo"]),
-  provenance: AtetVectorizeProvenanceSchema,
-  quality: AtetVectorizeQualityReceiptSchema,
+  provenance: SlopcameraVectorizeProvenanceSchema,
+  quality: SlopcameraVectorizeQualityReceiptSchema,
   receiptVersion: z.literal(1),
   representation: z.enum(["color-paths", "alpha-mask"]),
   sourceSha256: Sha256Schema,
   svgSha256: Sha256Schema,
   width: PositiveSafeIntegerSchema.max(4_096),
-}) satisfies z.ZodType<AtetVectorizeReceipt>
+}) satisfies z.ZodType<SlopcameraVectorizeReceipt>
 
-export const AtetImageVectorizeOutputSchema = z.strictObject({
+export const SlopcameraImageVectorizeOutputSchema = z.strictObject({
   outputPath: BoundedPathSchema,
-  receipt: AtetVectorizeReceiptSchema,
-}) satisfies z.ZodType<AtetImageVectorizeOutput>
+  receipt: SlopcameraVectorizeReceiptSchema,
+}) satisfies z.ZodType<SlopcameraImageVectorizeOutput>
 
-export const AtetImageGenerateOutputSchema = z.strictObject({
+export const SlopcameraImageGenerateOutputSchema = z.strictObject({
   bytes: PositiveSafeIntegerSchema.max(MAX_GENERATED_IMAGE_BYTES),
   mediaType: z.enum(["image/jpeg", "image/png", "image/webp"]),
-  model: AtetImageModelSchema,
+  model: SlopcameraImageModelSchema,
   outputPath: BoundedPathSchema,
   provider: z.literal("vercel-ai-gateway"),
   requestId: z.string()
@@ -288,41 +288,41 @@ export const AtetImageGenerateOutputSchema = z.strictObject({
     ),
   sha256: Sha256Schema,
   warnings: z.array(z.string().min(1).max(256)).max(100),
-}) satisfies z.ZodType<AtetImageGenerateOutput>
+}) satisfies z.ZodType<SlopcameraImageGenerateOutput>
 
-export interface PortableAtetOperationInputMap {
-  readonly "atet.diagram.check": AtetDiagramCheckInput
-  readonly "atet.diagram.render": AtetDiagramRenderInput
-  readonly "atet.image.generate": AtetImageGenerateInput
-  readonly "atet.image.vectorize": AtetImageVectorizeInput
+export interface PortableSlopcameraOperationInputMap {
+  readonly "slopcamera.diagram.check": SlopcameraDiagramCheckInput
+  readonly "slopcamera.diagram.render": SlopcameraDiagramRenderInput
+  readonly "slopcamera.image.generate": SlopcameraImageGenerateInput
+  readonly "slopcamera.image.vectorize": SlopcameraImageVectorizeInput
 }
 
-export interface PortableAtetOperationResultMap {
-  readonly "atet.diagram.check": AtetDiagramCheckOutput
-  readonly "atet.diagram.render": AtetDiagramRenderOutput
-  readonly "atet.image.generate": AtetImageGenerateOutput
-  readonly "atet.image.vectorize": AtetImageVectorizeOutput
+export interface PortableSlopcameraOperationResultMap {
+  readonly "slopcamera.diagram.check": SlopcameraDiagramCheckOutput
+  readonly "slopcamera.diagram.render": SlopcameraDiagramRenderOutput
+  readonly "slopcamera.image.generate": SlopcameraImageGenerateOutput
+  readonly "slopcamera.image.vectorize": SlopcameraImageVectorizeOutput
 }
 
-export const PORTABLE_ATET_OPERATION_KINDS = Object.freeze([
-  "atet.diagram.check",
-  "atet.diagram.render",
-  "atet.image.generate",
-  "atet.image.vectorize",
+export const PORTABLE_SLOPCAMERA_OPERATION_KINDS = Object.freeze([
+  "slopcamera.diagram.check",
+  "slopcamera.diagram.render",
+  "slopcamera.image.generate",
+  "slopcamera.image.vectorize",
 ] as const)
-export type PortableAtetOperationKind =
-  typeof PORTABLE_ATET_OPERATION_KINDS[number]
+export type PortableSlopcameraOperationKind =
+  typeof PORTABLE_SLOPCAMERA_OPERATION_KINDS[number]
 
-export interface PortableAtetOperationContract<
-  Kind extends PortableAtetOperationKind,
+export interface PortableSlopcameraOperationContract<
+  Kind extends PortableSlopcameraOperationKind,
 > extends OperationContract<
-    PortableAtetOperationInputMap[Kind],
-    PortableAtetOperationResultMap[Kind]
+    PortableSlopcameraOperationInputMap[Kind],
+    PortableSlopcameraOperationResultMap[Kind]
   > {
-  readonly inputSchema: z.ZodType<PortableAtetOperationInputMap[Kind]>
+  readonly inputSchema: z.ZodType<PortableSlopcameraOperationInputMap[Kind]>
   readonly kind: Kind
   readonly lifecycle: OperationLifecycleKind
-  readonly outputSchema: z.ZodType<PortableAtetOperationResultMap[Kind]>
+  readonly outputSchema: z.ZodType<PortableSlopcameraOperationResultMap[Kind]>
   readonly policy: OperationPolicy
   readonly version: 2
 }
@@ -333,20 +333,20 @@ function freezePolicy(policy: OperationPolicy): OperationPolicy {
   return Object.freeze({ ...policy, preparation, resources })
 }
 
-function portableContract<Kind extends PortableAtetOperationKind>(
-  contract: PortableAtetOperationContract<Kind>,
-): PortableAtetOperationContract<Kind> {
+function portableContract<Kind extends PortableSlopcameraOperationKind>(
+  contract: PortableSlopcameraOperationContract<Kind>,
+): PortableSlopcameraOperationContract<Kind> {
   return Object.freeze({ ...contract, policy: freezePolicy(contract.policy) })
 }
 
-export const PORTABLE_ATET_OPERATION_CONTRACTS = Object.freeze({
-  "atet.diagram.check": portableContract({
-    inputSchema: AtetDiagramCheckInputSchema,
-    inputSchemaId: "atet.operation.diagram.check.input/v2",
-    kind: "atet.diagram.check",
+export const PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS = Object.freeze({
+  "slopcamera.diagram.check": portableContract({
+    inputSchema: SlopcameraDiagramCheckInputSchema,
+    inputSchemaId: "slopcamera.operation.diagram.check.input/v2",
+    kind: "slopcamera.diagram.check",
     lifecycle: "pure",
-    outputSchema: AtetDiagramCheckOutputSchema,
-    outputSchemaId: "atet.operation.diagram.check.output/v2",
+    outputSchema: SlopcameraDiagramCheckOutputSchema,
+    outputSchemaId: "slopcamera.operation.diagram.check.output/v2",
     policy: {
       cache: "content-addressed",
       cancellable: false,
@@ -364,13 +364,13 @@ export const PORTABLE_ATET_OPERATION_CONTRACTS = Object.freeze({
     },
     version: 2,
   }),
-  "atet.diagram.render": portableContract({
-    inputSchema: AtetDiagramRenderInputSchema,
-    inputSchemaId: "atet.operation.diagram.render.input/v2",
-    kind: "atet.diagram.render",
+  "slopcamera.diagram.render": portableContract({
+    inputSchema: SlopcameraDiagramRenderInputSchema,
+    inputSchemaId: "slopcamera.operation.diagram.render.input/v2",
+    kind: "slopcamera.diagram.render",
     lifecycle: "local-artifact",
-    outputSchema: AtetDiagramRenderOutputSchema,
-    outputSchemaId: "atet.operation.diagram.render.output/v2",
+    outputSchema: SlopcameraDiagramRenderOutputSchema,
+    outputSchemaId: "slopcamera.operation.diagram.render.output/v2",
     policy: {
       cache: "none",
       cancellable: false,
@@ -388,13 +388,13 @@ export const PORTABLE_ATET_OPERATION_CONTRACTS = Object.freeze({
     },
     version: 2,
   }),
-  "atet.image.generate": portableContract({
-    inputSchema: AtetImageGenerateInputSchema,
-    inputSchemaId: "atet.operation.image.generate.input/v2",
-    kind: "atet.image.generate",
+  "slopcamera.image.generate": portableContract({
+    inputSchema: SlopcameraImageGenerateInputSchema,
+    inputSchemaId: "slopcamera.operation.image.generate.input/v2",
+    kind: "slopcamera.image.generate",
     lifecycle: "paid-dispatch",
-    outputSchema: AtetImageGenerateOutputSchema,
-    outputSchemaId: "atet.operation.image.generate.output/v2",
+    outputSchema: SlopcameraImageGenerateOutputSchema,
+    outputSchemaId: "slopcamera.operation.image.generate.output/v2",
     policy: {
       cache: "exact-run",
       cancellable: false,
@@ -413,13 +413,13 @@ export const PORTABLE_ATET_OPERATION_CONTRACTS = Object.freeze({
     },
     version: 2,
   }),
-  "atet.image.vectorize": portableContract({
-    inputSchema: AtetImageVectorizeInputSchema,
-    inputSchemaId: "atet.operation.image.vectorize.input/v2",
-    kind: "atet.image.vectorize",
+  "slopcamera.image.vectorize": portableContract({
+    inputSchema: SlopcameraImageVectorizeInputSchema,
+    inputSchemaId: "slopcamera.operation.image.vectorize.input/v2",
+    kind: "slopcamera.image.vectorize",
     lifecycle: "local-artifact",
-    outputSchema: AtetImageVectorizeOutputSchema,
-    outputSchemaId: "atet.operation.image.vectorize.output/v2",
+    outputSchema: SlopcameraImageVectorizeOutputSchema,
+    outputSchemaId: "slopcamera.operation.image.vectorize.output/v2",
     policy: {
       cache: "none",
       cancellable: false,
@@ -438,13 +438,13 @@ export const PORTABLE_ATET_OPERATION_CONTRACTS = Object.freeze({
     version: 2,
   }),
 }) satisfies {
-  readonly [Kind in PortableAtetOperationKind]: PortableAtetOperationContract<Kind>
+  readonly [Kind in PortableSlopcameraOperationKind]: PortableSlopcameraOperationContract<Kind>
 }
 
-export function isPortableAtetOperationKind(
+export function isPortableSlopcameraOperationKind(
   value: string,
-): value is PortableAtetOperationKind {
-  return PORTABLE_ATET_OPERATION_KINDS.includes(
-    value as PortableAtetOperationKind,
+): value is PortableSlopcameraOperationKind {
+  return PORTABLE_SLOPCAMERA_OPERATION_KINDS.includes(
+    value as PortableSlopcameraOperationKind,
   )
 }

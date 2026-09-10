@@ -83,7 +83,7 @@ export async function importSavedSpatialWorld(options: {
   const attempted: Artifact[] = [];
   const fence = async () => { options.signal.throwIfAborted(); await options.beforePublication?.(); options.signal.throwIfAborted(); };
   await fence();
-  const workspace = await mkdtemp(join(destinationRoot, ".atet-world-import-"));
+  const workspace = await mkdtemp(join(destinationRoot, ".slopcamera-world-import-"));
   let result: SavedSpatialWorldImportOutput | undefined, failure: { error: unknown } | undefined;
   const publishBytes = async (bytes: Uint8Array, extension: "spz" | "glb" | "json"): Promise<Artifact> => {
     const sha256 = createHash("sha256").update(bytes).digest("hex"), artifact = { path: `spatial/worlds/assets/${sha256}.${extension}`, sha256, bytes: bytes.byteLength };
@@ -98,7 +98,7 @@ export async function importSavedSpatialWorld(options: {
   try {
     const splat = await publishBytes(splatBytes, "spz"), collider = colliderBytes === undefined ? undefined : await publishBytes(colliderBytes, "glb");
     const receipt = providerBytes === undefined ? undefined : await publishBytes(providerBytes, "json");
-    const manifest = SpatialWorldImportManifestSchema.parse({ kind: "atet.spatial-world-import", schemaVersion: 1,
+    const manifest = SpatialWorldImportManifestSchema.parse({ kind: "slopcamera.spatial-world-import", schemaVersion: 1,
       splat: { payload: splat, facts }, collider: collider === undefined ? null : { payload: collider, role: "approximate-collider", validation: "bounded-glb-structure-only" },
       identities: input.identities, normalization: input.normalization,
       provenance: { ...input.provenance, ...(receipt === undefined ? {} : { receipt }) },
@@ -117,8 +117,8 @@ export async function importSavedSpatialWorld(options: {
     const receiptAssetId = receipt === undefined ? undefined : `asset_world_provider_${receipt.sha256}`;
     const assets = [
       ...(collider === undefined ? [] : [SpatialAssetManifestSchema.parse({ assetId: input.identities.colliderAssetId, payload: collider, interpretation: { kind: "gltf", format: "glb", ...interpretation }, dependencies: [], provenance })]),
-      SpatialAssetManifestSchema.parse({ assetId: manifestAssetId, payload: manifestArtifact, interpretation: { kind: "metadata", format: "json", schema: "atet.spatial-world-import" }, dependencies: receiptAssetId === undefined ? [] : [receiptAssetId], provenance }),
-      ...(receipt === undefined ? [] : [SpatialAssetManifestSchema.parse({ assetId: receiptAssetId, payload: receipt, interpretation: { kind: "metadata", format: "json", schema: "atet.world-labs-provenance" }, dependencies: [], provenance })]),
+      SpatialAssetManifestSchema.parse({ assetId: manifestAssetId, payload: manifestArtifact, interpretation: { kind: "metadata", format: "json", schema: "slopcamera.spatial-world-import" }, dependencies: receiptAssetId === undefined ? [] : [receiptAssetId], provenance }),
+      ...(receipt === undefined ? [] : [SpatialAssetManifestSchema.parse({ assetId: receiptAssetId, payload: receipt, interpretation: { kind: "metadata", format: "json", schema: "slopcamera.world-labs-provenance" }, dependencies: [], provenance })]),
       SpatialAssetManifestSchema.parse({ assetId: input.identities.assetId, payload: splat, interpretation: { kind: "splat", format: "spz", ...interpretation }, dependencies: [...(input.identities.colliderAssetId === undefined ? [] : [input.identities.colliderAssetId]), manifestAssetId], provenance }),
     ];
     if (new Set(assets.map(asset => asset.assetId)).size !== assets.length) throw new RangeError("World metadata asset IDs conflict with requested identities.");

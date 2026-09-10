@@ -41,7 +41,7 @@ export type CreateVariantMatrixOutput = z.infer<
 
 export const createVariantMatrixOperationDefinition = {
   inputSchema: CreateVariantMatrixInputSchema,
-  inputSchemaId: "atet.operation.iteration.create-matrix.input/v1",
+  inputSchemaId: "slopcamera.operation.iteration.create-matrix.input/v1",
   kind: "iteration.create-matrix",
   lifecycle: {
     kind: "local-artifact",
@@ -85,7 +85,7 @@ export const createVariantMatrixOperationDefinition = {
     },
   },
   outputSchema: CreateVariantMatrixOutputSchema,
-  outputSchemaId: "atet.operation.iteration.create-matrix.output/v1",
+  outputSchemaId: "slopcamera.operation.iteration.create-matrix.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,

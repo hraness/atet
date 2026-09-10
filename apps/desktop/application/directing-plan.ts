@@ -13,7 +13,7 @@ export function directingRecipeSha256(input: unknown): string { return canonical
 
 export function createDirectingState(recipeInput: unknown, budgetMicroUsd: number): DirectingState {
   const recipe = parseDirectingRecipe(recipeInput), sha256 = directingRecipeSha256(recipe);
-  return parseDirectingState({ kind: "atet.directing-state", schemaVersion: 1, id: recipe.id, budgetMicroUsd, activeRecipeSha256: sha256, recipes: [{ sha256, recipe }], attempts: [], selections: {} });
+  return parseDirectingState({ kind: "slopcamera.directing-state", schemaVersion: 1, id: recipe.id, budgetMicroUsd, activeRecipeSha256: sha256, recipes: [{ sha256, recipe }], attempts: [], selections: {} });
 }
 
 function currentRecipe(state: DirectingState): DirectingRecipe {

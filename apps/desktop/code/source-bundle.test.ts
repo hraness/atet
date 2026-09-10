@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { createHostResourceCoordinator } from "@hraness/atet/host-resources";
+import { createHostResourceCoordinator } from "@hraness/slopcamera/host-resources";
 
 import {
   bundleWorkflowSource,
@@ -26,7 +26,7 @@ import { workerProcessStartIdentityStatus } from "./worker-process-identity";
 const temporaryDirectories: string[] = [];
 
 async function temporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "atet-code-bundle-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-code-bundle-"));
   temporaryDirectories.push(directory);
   return directory;
 }
@@ -519,7 +519,7 @@ await coordinator.withLease(
     await writeFile(
       join(root, "workflow.ts"),
       `import { z } from "zod";
-import { defineWorkflow } from "@hraness/atet/local/code";
+import { defineWorkflow } from "@hraness/slopcamera/local/code";
 
 export default defineWorkflow({
   id: "invalid-recording",
@@ -556,7 +556,7 @@ export default defineWorkflow({
     await writeFile(
       join(root, "workflow.ts"),
       `import { z } from "zod";
-import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
+import { defineCompute, defineWorkflow } from "@hraness/slopcamera/local/code";
 
 const double = defineCompute({
   key: "test.double",
@@ -597,8 +597,8 @@ export default defineWorkflow({
   createHtmlOverlayScaffold,
   createThreeReferenceScaffoldInput,
   type HtmlOverlayScaffoldKind,
-} from "@hraness/atet/local/html-overlay";
-import { createMetallicLogoImageRequest } from "@hraness/atet/local/code";
+} from "@hraness/slopcamera/local/html-overlay";
+import { createMetallicLogoImageRequest } from "@hraness/slopcamera/local/code";
 
 const kinds = ["plain", "motion", "p5", "two", "paper-shaders", "three", "vgpu"] as const satisfies readonly HtmlOverlayScaffoldKind[];
 const reference = {
@@ -664,7 +664,7 @@ export default {
     await writeFile(join(root, "bare.ts"), "import x from 'not-allowed'; export default x;\n", { mode: 0o600 });
     expect(bundleWorkflowSource({ allowedRoot: root, entryPath: "bare.ts" })).rejects.toThrow("not allowlisted");
 
-    await writeFile(join(root, "testing.ts"), "import x from '@hraness/atet/local/code/testing'; export default x;\n", { mode: 0o600 });
+    await writeFile(join(root, "testing.ts"), "import x from '@hraness/slopcamera/local/code/testing'; export default x;\n", { mode: 0o600 });
     expect(bundleWorkflowSource({ allowedRoot: root, entryPath: "testing.ts" })).rejects.toThrow("cannot import");
 
     const outside = await temporaryDirectory();

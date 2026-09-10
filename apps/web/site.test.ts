@@ -35,13 +35,13 @@ import {
 } from "./src/negotiate-request"
 import middleware, { config as middlewareConfig } from "./middleware"
 import { buildWebsite, renderAskAiAboutThis, renderSitemapXml } from "./scripts/build"
-import { renderAtetSocialImage } from "./scripts/generate-og"
-import { parsePublishedRelease, publishedArchiveUrl, publishedRelease } from "./src/published-release"
+import { renderSlopcameraSocialImage } from "./scripts/generate-og"
+import { parsePublishedRelease, publishedArchiveUrl, publishedRelease, sourceInstall } from "./src/published-release"
 import { replaceSiteSlot } from "./src/site-template"
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
-const brandDescription = "Agentic creative coding toolkit. At the beginning of time, when there was nothing but chaos, Atum existed alone in the watery mass of Nun. A pyramid mound called Benben emerged. When the lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the underworld on the solar barque Atet."
-const searchDescription = "Atet is a local visual studio for coding agents. Author scenes, combine generated and recorded media, and export images, diagrams, animation, and video from retained sources."
+const brandDescription = "Slopcamera is a local visual studio for coding agents."
+const searchDescription = "Slopcamera is a local visual studio for coding agents. Author scenes, combine generated and recorded media, and export images, diagrams, animation, and video from retained sources."
 let builtAssets: Awaited<ReturnType<typeof buildWebsite>>
 
 // Each build compiles the independent ordinary-site and preview graphs. These
@@ -129,9 +129,9 @@ async function readBuilt(path: string): Promise<string> {
 }
 
 function assertAuthoredShellBudget(template: string): number {
-  let authored = replaceSiteSlot(template, "{{PUBLISHED_VERSION}}", publishedRelease.version, 6)
-  authored = replaceSiteSlot(authored, "{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1)
-  authored = replaceSiteSlot(authored, "{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl, 1)
+  let authored = replaceSiteSlot(template, "{{SOURCE_CHECKOUT_COMMAND}}", sourceInstall.checkoutCommand, 1)
+  authored = replaceSiteSlot(authored, "{{SOURCE_ENTER_COMMAND}}", sourceInstall.enterCommand, 1)
+  authored = replaceSiteSlot(authored, "{{SOURCE_INSTALL_URL}}", sourceInstall.guideUrl, 1)
   // Discount only the finite compiler-slot spelling, never authored classes or HTML.
   for (const [slot, count] of [
     ["{{SITE_SKIP_CLASS}}", 1], ["{{SITE_HEADER_CLASS}}", 1],
@@ -167,7 +167,7 @@ test("authored shell budget rejects content growth and unapproved slot discounts
   }
   expect(() => assertAuthoredShellBudget(`${template}{{SITE_SKIP_CLASS}}`))
     .toThrow("Site document must contain 1 instance(s) of {{SITE_SKIP_CLASS}}")
-  for (const slot of ["PUBLISHED_ARCHIVE_URL", "PUBLISHED_RELEASE_URL"]) {
+  for (const slot of ["SOURCE_CHECKOUT_COMMAND", "SOURCE_ENTER_COMMAND", "SOURCE_INSTALL_URL"]) {
     expect(() => assertAuthoredShellBudget(`${template}{{${slot}}}`))
       .toThrow(`Site document must contain 1 instance(s) of {{${slot}}}`)
   }
@@ -175,12 +175,12 @@ test("authored shell budget rejects content growth and unapproved slot discounts
 
 test("ships agent instructions for video editing and Gateway media generation", async () => {
   const [skill, video, gateway] = await Promise.all([
-    readFile(join(repositoryDirectory, "skills/atet/SKILL.md"), "utf8"),
-    readFile(join(repositoryDirectory, "skills/atet/references/video-projects.md"), "utf8"),
-    readFile(join(repositoryDirectory, "skills/atet/references/gateway-media.md"), "utf8"),
+    readFile(join(repositoryDirectory, "skills/slopcamera/SKILL.md"), "utf8"),
+    readFile(join(repositoryDirectory, "skills/slopcamera/references/video-projects.md"), "utf8"),
+    readFile(join(repositoryDirectory, "skills/slopcamera/references/gateway-media.md"), "utf8"),
   ])
 
-  expect(skill).toContain("# Create visual media with Atet")
+  expect(skill).toContain("# Create visual media with Slopcamera")
   expect(skill).toContain("[Video projects](references/video-projects.md)")
   expect(skill).toContain("[Gateway media](references/gateway-media.md)")
   expect(skill).toContain("Record, clean up, caption, frame or deliver video")
@@ -196,15 +196,40 @@ test("ships agent instructions for video editing and Gateway media generation", 
   }
 
   for (const command of [
-    "atet ai models list --type image",
-    "atet ai video generate",
-    "atet ai speech generate",
-    "atet ai transcribe",
+    "slopcamera ai models list --type image",
+    "slopcamera ai video generate",
+    "slopcamera ai speech generate",
+    "slopcamera ai transcribe",
     "--allow-cloud-upload",
     "--allow-cloud-audio-upload",
   ]) {
     expect(gateway).toContain(command)
   }
+})
+
+test("published release validates exact fields and safe stable versions before rendering", () => {
+  for (const version of ["0.0.0", "3.2.1", "9007199254740991.0.0"]) {
+    const value = { version, releaseUrl: `https://github.com/hraness/atet/releases/tag/v${version}` }
+    expect(parsePublishedRelease(value)).toEqual(value)
+  }
+  for (const value of [null, [], "3.2.0", {}, { version: "3.2.0" },
+    { ...publishedRelease, verificationRun: "invented" },
+    { ...publishedRelease, [Symbol("extra")]: true },
+  ]) expect(() => parsePublishedRelease(value)).toThrow()
+  for (const version of ["03.2.0", "3.2", "v3.2.0", "3.2.0-beta.1", "3.2.0+build", "3.2.0\n",
+    "3.2.0 ", " 3.2.0", "3.2.-1", "3.2.0<script>", "9007199254740992.0.0", "1".repeat(51),
+  ]) {
+    expect(() => parsePublishedRelease({
+      version, releaseUrl: `https://github.com/hraness/atet/releases/tag/v${version}`,
+    })).toThrow("canonical stable SemVer")
+  }
+  for (const releaseUrl of [
+    "https://github.com/hraness/atet/releases/tag/v3.2.1",
+    `${publishedRelease.releaseUrl}?source=main`, `${publishedRelease.releaseUrl}#proof`,
+    `${publishedRelease.releaseUrl}/`, "http://github.com/hraness/atet/releases/tag/v3.2.0",
+    "https://github.com.evil.test/hraness/atet/releases/tag/v3.2.0",
+    "https://github.com/another/atet/releases/tag/v3.2.0", 42, null,
+  ]) expect(() => parsePublishedRelease({ version: "3.2.0", releaseUrl })).toThrow("historical Atet tag")
 })
 
 describe("compilation fixture ownership (controlled promises, no compiler)", () => {
@@ -227,7 +252,7 @@ describe("compilation fixture ownership (controlled promises, no compiler)", () 
     let builds = 0
     let reachedSecondBuild = false
     const task = ownedCompilation(async fixture => {
-      directory = await fixture.temporaryDirectory("atet-web-owned-settlement-")
+      directory = await fixture.temporaryDirectory("slopcamera-web-owned-settlement-")
       await fixture.build({ outputDirectory: directory })
       reachedSecondBuild = true
       await fixture.build({ outputDirectory: directory })
@@ -262,7 +287,7 @@ describe("compilation fixture ownership (controlled promises, no compiler)", () 
     const failure = new Error("controlled compiler rejection")
     let directory = ""
     const task = ownedCompilation(async fixture => {
-      directory = await fixture.temporaryDirectory("atet-web-owned-rejection-")
+      directory = await fixture.temporaryDirectory("slopcamera-web-owned-rejection-")
       await fixture.build({ outputDirectory: directory })
     }, async () => { throw failure })
     await expect(task).rejects.toBe(failure)
@@ -291,7 +316,7 @@ test("analytics preserves an optional timestamp without manufacturing an undefin
   }
 })
 
-describe("static Atet site", () => {
+describe("static Slopcamera site", () => {
   beforeAll(async () => {
     try {
       builtAssets = await ownedCompilation(fixture => fixture.build({ environment: {} }))
@@ -300,60 +325,30 @@ describe("static Atet site", () => {
     }
   }, compilationTimeoutMs)
 
-  test("published release separates public availability from the source candidate", async () => {
-    expect(publishedRelease).toEqual({
-      version: "3.2.3",
-      releaseUrl: "https://github.com/hraness/atet/releases/tag/v3.2.3",
-    })
+  test("source installation never advertises renamed historical archive bytes", async () => {
+    expect(publishedRelease).toEqual({ version: "3.2.3", releaseUrl: "https://github.com/hraness/atet/releases/tag/v3.2.3" })
     expect(Object.isFrozen(publishedRelease)).toBe(true)
-    const template = await readSource("index.html")
-    const html = await readBuilt("index.html")
-    expect(template.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(6)
-    expect(template).not.toContain(publishedRelease.version)
-    expect(html).not.toContain("{{PUBLISHED_VERSION}}")
-    expect(html).not.toContain("{{PUBLISHED_ARCHIVE_URL}}")
-    expect(html).not.toContain("{{PUBLISHED_RELEASE_URL}}")
     expect(publishedArchiveUrl).toBe("https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz")
-    expect(html).toContain(`"softwareVersion": "${publishedRelease.version}"`)
-    expect(html).toContain(`"version": "${publishedRelease.version}"`)
-    expect(html).toContain(`Free and open source under the MIT license · v${publishedRelease.version}`)
-    expect(html).toContain(`<strong>Release availability:</strong> v${publishedRelease.version}`)
-    expect(html).toContain(`bun add --global ${publishedArchiveUrl}`)
-    expect(homeMarkdown).toContain(`Version ${publishedRelease.version}.`)
-    expect(homeMarkdown).toContain(`bun add --global ${publishedArchiveUrl}`)
-    expect(await readBuilt("index.md")).toBe(homeMarkdown)
+    const html = await readBuilt("index.html")
     for (const publicText of [html, homeMarkdown, llmsTxt]) {
-      expect(publicText).not.toContain("3.2.2")
+      expect(publicText).toContain("No Slopcamera release archive has been published.")
+      expect(publicText).not.toContain("hraness-slopcamera-3.2.3.tgz")
+      expect(publicText).not.toContain("tree/v3.2.3")
     }
-  })
-
-  test("published release validates exact fields and safe stable versions before rendering", () => {
-    for (const version of ["0.0.0", "3.2.1", "9007199254740991.0.0"]) {
-      const value = { version, releaseUrl: `https://github.com/hraness/atet/releases/tag/v${version}` }
-      expect(parsePublishedRelease(value)).toEqual(value)
+    for (const command of [sourceInstall.checkoutCommand, sourceInstall.enterCommand, sourceInstall.skillCommand]) expect(html).toContain(command)
+    expect(html).toContain(sourceInstall.guideUrl)
+    expect(html).not.toMatch(/\{\{(?:PUBLISHED|SOURCE)_[^}]+\}\}/u)
+    const graph = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/u)![1]!)["@graph"] as Record<string, unknown>[]
+    for (const item of graph) {
+      expect(item).not.toHaveProperty("softwareVersion")
+      expect(item).not.toHaveProperty("offers")
+      expect(item).not.toHaveProperty("version")
     }
-    for (const value of [null, [], "3.2.0", {}, { version: "3.2.0" },
-      { ...publishedRelease, verificationRun: "invented" },
-      { ...publishedRelease, [Symbol("extra")]: true },
-    ]) expect(() => parsePublishedRelease(value)).toThrow()
-    for (const version of ["03.2.0", "3.2", "v3.2.0", "3.2.0-beta.1", "3.2.0+build", "3.2.0\n",
-      "3.2.0 ", " 3.2.0", "3.2.-1", "3.2.0<script>", "9007199254740992.0.0", "1".repeat(51),
-    ]) {
-      expect(() => parsePublishedRelease({
-        version, releaseUrl: `https://github.com/hraness/atet/releases/tag/v${version}`,
-      })).toThrow("canonical stable SemVer")
-    }
-    for (const releaseUrl of [
-      "https://github.com/hraness/atet/releases/tag/v3.2.1",
-      `${publishedRelease.releaseUrl}?source=main`, `${publishedRelease.releaseUrl}#proof`,
-      `${publishedRelease.releaseUrl}/`, "http://github.com/hraness/atet/releases/tag/v3.2.0",
-      "https://github.com.evil.test/hraness/atet/releases/tag/v3.2.0",
-      "https://github.com/another/atet/releases/tag/v3.2.0", 42, null,
-    ]) expect(() => parsePublishedRelease({ version: "3.2.0", releaseUrl })).toThrow("exact immutable Atet tag")
+    expect(await readBuilt("index.md")).toBe(homeMarkdown)
   })
 
   test("keeps product Ask AI links off utility pages", async () => {
-    const subjectUrl = "https://atet.sh/"
+    const subjectUrl = "https://slop.camera/"
     const prompt = `Tell me about ${subjectUrl}`
     const row = renderAskAiAboutThis(subjectUrl)
     const providers = [
@@ -402,12 +397,12 @@ describe("static Atet site", () => {
       .toLowerCase()
 
     for (const heading of [
-      "## Why Atet",
-      "## Install Atet",
+      "## Why Slopcamera",
+      "## Install Slopcamera",
       "## Make your first diagram",
       "### Instructions for coding agents",
-      "## What Atet does",
-      "## How Atet works",
+      "## What Slopcamera does",
+      "## How Slopcamera works",
       "## Important limitations",
       "## Design and trust",
       "## Verification",
@@ -417,11 +412,11 @@ describe("static Atet site", () => {
     }
 
     const readerPath = [
-      "## Why Atet",
-      "## Install Atet",
+      "## Why Slopcamera",
+      "## Install Slopcamera",
       "## Make your first diagram",
-      "## What Atet does",
-      "## How Atet works",
+      "## What Slopcamera does",
+      "## How Slopcamera works",
       "## Important limitations",
       "## Design and trust",
       "## Verification",
@@ -431,7 +426,6 @@ describe("static Atet site", () => {
     expect(readerPath).toEqual([...readerPath].sort((left, right) => left - right))
 
     for (const term of [
-      "agentic creative coding toolkit",
       "TypeScript SDK",
       "Bun CLI",
       "Agent Skill",
@@ -447,44 +441,46 @@ describe("static Atet site", () => {
 
     expect(searchableReadme).toContain(brandDescription.toLowerCase())
 
-    expect(readme).toContain(`npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`)
-    expect(readme).toContain(`bun add --global ${publishedArchiveUrl}`)
-    expect(readme).toContain(`bun add ${publishedArchiveUrl}`)
-    expect(readme).toContain("atet skill install --target claude")
-    expect(readme).toContain("atet operations list --json")
+    expect(readme).toContain(sourceInstall.checkoutCommand)
+    expect(readme).toContain("bun run build:sdk")
+    expect(readme).toContain("bun run build:desktop:cli")
+    expect(readme).toContain("slopcamera skill install --target agents")
+    expect(readme).toContain(publishedArchiveUrl)
+    expect(readme).not.toContain(`bun add --global ${publishedArchiveUrl}`)
+    expect(readme).toContain("slopcamera operations list --json")
     expect(readme).toContain("docs/how-to/generate-media.md")
-    expect(readme).toContain("atet workflows show social-variants --json")
+    expect(readme).toContain("slopcamera workflows show social-variants --json")
     expect(readme).toContain("[`CONTRIBUTING.md`](CONTRIBUTING.md)")
     expect(readme).not.toMatch(/checked step|checked path|bounded capability|delivery variant/i)
-    expect(readme).not.toContain("https://atet.sh/docs")
+    expect(readme).not.toContain("https://slop.camera/docs")
   })
 
-  test("publishes one canonical Atet identity across discovery metadata", async () => {
+  test("publishes one canonical Slopcamera identity across discovery metadata", async () => {
     const html = await readSource("index.html")
 
-    expect(html).toContain("<title>Atet: a visual studio for coding agents</title>")
+    expect(html).toContain("<title>Slopcamera: a visual studio for coding agents</title>")
     expect(html).toContain(`<meta name="description" content="${searchDescription}">`)
     expect(html).toContain(`<meta property="og:description" content="${searchDescription}">`)
     expect(html).toContain(`<meta name="twitter:description" content="${searchDescription}">`)
     expect(html).toContain('<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">')
     expect(html).not.toContain('<meta name="keywords"')
-    expect(html).toContain('<link rel="canonical" href="https://atet.sh/">')
+    expect(html).toContain('<link rel="canonical" href="https://slop.camera/">')
     expect(html).toContain('<link rel="alternate" type="text/markdown" href="/index.md">')
     expect(html).toContain('<link rel="describedby" href="/llms.txt">')
-    expect(html).toContain('<meta property="og:url" content="https://atet.sh/">')
-    expect(html).toContain('<meta property="og:image" content="https://atet.sh/og.png">')
+    expect(html).toContain('<meta property="og:url" content="https://slop.camera/">')
+    expect(html).toContain('<meta property="og:image" content="https://slop.camera/og.png">')
     expect(html).toContain('<meta property="og:image:width" content="1200">')
     expect(html).toContain('<meta property="og:image:height" content="630">')
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image">')
-    expect(html).toContain('<meta name="twitter:image" content="https://atet.sh/og.png">')
-    expect(html).toContain('<meta name="twitter:image:alt" content="Atet, a visual studio for coding agents, beside an abstract solar disk and barque path">')
+    expect(html).toContain('<meta name="twitter:image" content="https://slop.camera/og.png">')
+    expect(html).toContain('<meta name="twitter:image:alt" content="Slopcamera, a visual studio for coding agents, beside a camera-frame and lens motif">')
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">')
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">')
-    expect(html).toContain('<a class="{{INSTALL_PANEL_LINK_CLASS}}" href="{{PUBLISHED_RELEASE_URL}}">immutable Atet release</a>')
-    expect(html).toContain('<a class="{{INSTALL_PANEL_LINK_CLASS}}" href="https://skills.sh/hraness/atet">Atet Agent Skill</a>')
+    expect(html).toContain('<a class="{{INSTALL_PANEL_LINK_CLASS}}" href="{{SOURCE_INSTALL_URL}}">complete source-install guide</a>')
+    expect(html).toContain('<a class="{{INSTALL_PANEL_LINK_CLASS}}" href="https://github.com/hraness/slopcamera/blob/main/skills/slopcamera/SKILL.md">packaged Agent Skill</a>')
   })
 
-  test("builds an inert noindex Atet preview with the homepage as canonical", async () => {
+  test("builds an inert noindex Slopcamera preview with the homepage as canonical", async () => {
     const [source, built, productCss, recipes, css] = await Promise.all([
       readSource("preview.html"),
       readBuilt("preview.html"),
@@ -499,11 +495,11 @@ describe("static Atet site", () => {
 
     for (const html of [source, built]) {
       expect(html.match(/<h1\b/gu)).toHaveLength(1)
-      expect(html).toMatch(/<h1 id="preview-title" class="[^"]+">Atet<\/h1>/u)
+      expect(html).toMatch(/<h1 id="preview-title" class="[^"]+">Slopcamera<\/h1>/u)
       expect(html).toMatch(/<main aria-labelledby="preview-title" class="preview-shell [^"]+">/u)
       expect(html).toContain("Make and edit visual media with your coding agent.")
       expect(html).toContain('<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">')
-      expect(html).toContain('<link rel="canonical" href="https://atet.sh/">')
+      expect(html).toContain('<link rel="canonical" href="https://slop.camera/">')
       expect(html).not.toMatch(/<script\b|<style\b|\sstyle\s*=|<a\b|<button\b|<form\b|<input\b|<select\b|<textarea\b|contenteditable/iu)
       expect(html).not.toMatch(/analytics|posthog|account|authentication|authorization|sign[ -]?in|user data/iu)
       expect(html).not.toContain('rel="alternate"')
@@ -609,8 +605,8 @@ describe("static Atet site", () => {
     const foundation = await readBuilt(builtAssets.previewFoundationPath.slice(1))
     expect(foundation.match(/@font-face\b/gu)).toHaveLength(13)
     expect([...foundation.matchAll(/url\(["']?([^"')]+)["']?\)/gu)].map(match => {
-      const url = new URL(match[1]!, `https://atet.sh${builtAssets.previewFoundationPath}`)
-      expect(url.origin).toBe("https://atet.sh")
+      const url = new URL(match[1]!, `https://slop.camera${builtAssets.previewFoundationPath}`)
+      expect(url.origin).toBe("https://slop.camera")
       return url.pathname.slice(1)
     }).sort()).toEqual([...fonts].sort())
     expect(foundation).not.toMatch(/sourceMappingURL|@import\b/u)
@@ -641,13 +637,13 @@ describe("static Atet site", () => {
     const union = await readBuilt(builtAssets.stylesPath.slice(1))
     expect(foundation.match(/@font-face\b/gu)).toHaveLength(13)
     expect([...foundation.matchAll(/url\(["']?([^"')]+)["']?\)/gu)].map(match => {
-      const url = new URL(match[1]!, "https://atet.sh" + builtAssets.siteFoundationPath)
-      expect(url.origin).toBe("https://atet.sh")
+      const url = new URL(match[1]!, "https://slop.camera" + builtAssets.siteFoundationPath)
+      expect(url.origin).toBe("https://slop.camera")
       return url.pathname.slice(1)
     }).sort()).toEqual([...fonts].sort())
     expect(foundation).not.toMatch(/sourceMappingURL|@import\b/u)
     expect(union).not.toMatch(/url\(|@font-face|sourceMappingURL/u)
-    expect(foundation).toContain("components.atet-legacy")
+    expect(foundation).toContain("components.slopcamera-legacy")
     expect(union).toContain("components.hraness-stylex")
     expect(await readdir(join(appDirectory, "dist/graphs/site-foundation"))).toEqual(["assets"])
     expect((await readdir(join(appDirectory, "dist/graphs/site-foundation/assets"))).sort())
@@ -686,48 +682,43 @@ describe("static Atet site", () => {
         sameAs: ["https://github.com/hraness"],
       }),
       expect.objectContaining({
-        "@id": "https://atet.sh/#website",
+        "@id": "https://slop.camera/#website",
         "@type": "WebSite",
         description: searchDescription,
         inLanguage: "en",
         publisher: { "@id": "https://hraness.com/#organization" },
       }),
       expect.objectContaining({
-        "@id": "https://atet.sh/#webpage",
+        "@id": "https://slop.camera/#webpage",
         "@type": "WebPage",
-        isPartOf: { "@id": "https://atet.sh/#website" },
-        mainEntity: { "@id": "https://atet.sh/#software" },
+        isPartOf: { "@id": "https://slop.camera/#website" },
+        mainEntity: { "@id": "https://slop.camera/#software" },
         publisher: { "@id": "https://hraness.com/#organization" },
       }),
       expect.objectContaining({
-        "@id": "https://atet.sh/#software",
+        "@id": "https://slop.camera/#software",
         "@type": "SoftwareApplication",
         description: searchDescription,
         author: { "@id": "https://hraness.com/#organization" },
-        installUrl: "https://atet.sh/#install",
+        installUrl: "https://slop.camera/#install",
         publisher: { "@id": "https://hraness.com/#organization" },
-        sameAs: [
-          "https://github.com/hraness/atet",
-          "https://www.npmjs.com/package/@hraness/atet",
-          "https://skills.sh/hraness/atet",
-        ],
-        softwareVersion: publishedRelease.version,
+        sameAs: ["https://github.com/hraness/slopcamera"],
+        softwareRequirements: "Git and Bun 1.3.14; install from source",
       }),
       expect.objectContaining({
-        "@id": "https://atet.sh/#source",
+        "@id": "https://slop.camera/#source",
         "@type": "SoftwareSourceCode",
         author: { "@id": "https://hraness.com/#organization" },
-        codeRepository: "https://github.com/hraness/atet",
-        targetProduct: { "@id": "https://atet.sh/#software" },
-        version: publishedRelease.version,
+        codeRepository: "https://github.com/hraness/slopcamera",
+        targetProduct: { "@id": "https://slop.camera/#software" },
       }),
       expect.objectContaining({
-        "@id": "https://atet.sh/#questions",
+        "@id": "https://slop.camera/#questions",
         "@type": "FAQPage",
         mainEntity: expect.arrayContaining([
           expect.objectContaining({
             "@type": "Question",
-            name: "Does Atet require an account or subscription?",
+            name: "Does Slopcamera require an account or subscription?",
           }),
           expect.objectContaining({
             "@type": "Question",
@@ -738,47 +729,20 @@ describe("static Atet site", () => {
     ]))
   })
 
-  test("puts the complete agent install in the first product section", async () => {
+  test("puts the truthful source-install sequence in the first product section", async () => {
     const html = await readBuilt("index.html")
-    const searchableHtml = html.replace(/\s+/gu, " ")
-    const commands = [
-      `bun add --global ${publishedArchiveUrl}`,
-      "atet doctor",
-      `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
-    ]
-    const installMarker = html.indexOf('data-hraness-marketing="install"')
-    const installStart = html.lastIndexOf("<section", installMarker)
-    const installEnd = html.indexOf("</section>", installMarker) + "</section>".length
-    const installHtml = html.slice(installStart, installEnd)
-    const positions = commands.map(command => installHtml.indexOf(command))
-
+    const marker = html.indexOf('data-hraness-marketing="install"')
+    const installHtml = html.slice(html.lastIndexOf("<section", marker), html.indexOf("</section>", marker))
+    const positions = [sourceInstall.checkoutCommand, sourceInstall.enterCommand, sourceInstall.skillCommand].map(command => installHtml.indexOf(command))
     expect(positions.every(position => position >= 0)).toBe(true)
-    expect(positions).toEqual([...positions].sort((left, right) => left - right))
-    expect(installStart).toBeGreaterThan(0)
-    expect(installEnd).toBeGreaterThan(installStart)
-    expect(html).toContain("Direct scenes and films with your coding agent")
-    expect(searchableHtml).toContain("generate images, video, and voice")
-    expect(searchableHtml.toLowerCase()).toContain("edit screen recordings and imported footage")
-    expect(searchableHtml).toContain("add captions, graphics, and motion")
-    expect(searchableHtml).toContain("Export finished videos")
-    expect(searchableHtml).toContain("Source media stays unchanged")
-    expect(searchableHtml).toContain("Preview and final renders use the same timeline and composition")
-    expect(html).toContain("Install the Atet Agent Skill")
-    expect(html).toContain("Install the local media tools · Requires Bun 1.3.14+")
-    expect(html.match(/Using Bun\? <code class="[A-Za-z_][A-Za-z0-9_ -]*">([^<]+)<\/code>/u)?.[1])
-      .toBe(`bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`)
-    expect(html).toContain("inside the project you want to work")
-    expect(html).toContain("start a new agent session")
-    expect(installHtml).not.toContain("atet skill install")
-    expect(html).toContain("When that command is not being used")
-    expect(html).toContain("atet skill install --target claude")
-    expect(html).toContain("atet skill install --target agents")
-    expect(html).toContain("--scope project")
-    expect(html).toContain(publishedArchiveUrl)
-    expect(html).toContain('data-hraness-marketing="hero"')
-    expect(html).toContain('data-hraness-marketing="flow"')
-    expect(html).toContain('data-hraness-marketing="facts"')
-    expect(html).toContain('data-hraness-marketing="install"')
+    expect(positions).toEqual([...positions].sort((a, b) => a - b))
+    expect(installHtml).toContain("After building: install the matching Agent Skill")
+    expect(installHtml).toContain("Cloning is the first step.")
+    expect(installHtml).toContain("install locked dependencies, build the SDK and CLI")
+    expect(installHtml).toContain(sourceInstall.guideUrl)
+    expect(installHtml).toContain(sourceInstall.alternateSkillCommand)
+    expect(installHtml).not.toContain("bun add --global")
+    expect(html).not.toContain("{{SITE")
   })
 
   test("renders a progressively enhanced reusable copy command in the hero", async () => {
@@ -791,9 +755,9 @@ describe("static Atet site", () => {
     expect(build).toContain("function renderCopyCommand(options: CopyCommandOptions)")
     expect(html.match(/data-copy-command(?:>|\s)/gu)).toHaveLength(1)
     expect(html.match(/<code class="copy-command__value [A-Za-z_][A-Za-z0-9_ -]*" data-copy-command-value>([^<]+)<\/code>/u)?.[1])
-      .toBe(`npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`)
-    expect(html.match(/Using Bun\? <code class="[A-Za-z_][A-Za-z0-9_ -]*">([^<]+)<\/code>/u)?.[1])
-      .toBe(`bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`)
+      .toBe(sourceInstall.skillCommand)
+    expect(html.match(/For Claude Code: <code class="[A-Za-z_][A-Za-z0-9_ -]*">([^<]+)<\/code>/u)?.[1])
+      .toBe(sourceInstall.alternateSkillCommand)
     expect(html).toContain('aria-label="Copy install command"')
     expect(html).toContain("data-copy-command-button hidden type=\"button\">Copy</button>")
     expect(html).toContain('aria-live="polite"')
@@ -825,7 +789,7 @@ describe("static Atet site", () => {
       "#examples",
       "#workflow",
       "/docs",
-      "https://github.com/hraness/atet",
+      "https://github.com/hraness/slopcamera",
       "#install",
     ])
     expect(navigation).toContain('class="site-action {{SITE_NAVIGATION_ACTION_CLASS}}" data-emphasis="primary" href="#install"')
@@ -850,10 +814,10 @@ describe("static Atet site", () => {
     const html = await readBuilt("index.html")
 
     for (const example of [
-      `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
-      "atet workflows list --json",
-      'import { vectorizeImage } from "@hraness/atet"',
-      "atet mcp --root /absolute/path/to/workspace",
+      "slopcamera skill install --target agents",
+      "slopcamera workflows list --json",
+      'import { vectorizeImage } from "@hraness/slopcamera"',
+      "slopcamera mcp --root /absolute/path/to/workspace",
     ]) {
       expect(html).toContain(example)
     }
@@ -878,8 +842,8 @@ describe("static Atet site", () => {
 
     expect(html).not.toMatch(/checked step|checked path|bounded capability|delivery variant/i)
     expect(html).not.toMatch(/<table\b|class="table-wrap"/)
-    expect(html).not.toMatch(/atet\.diagram\.|atet\.image\.|@hraness\/atet\/code/)
-    expect(html).not.toMatch(/AI_GATEWAY_API_KEY|VERCEL_OIDC_TOKEN|ATET_CACHE_DIR/)
+    expect(html).not.toMatch(/slopcamera\.diagram\.|slopcamera\.image\.|@hraness\/slopcamera\/code/)
+    expect(html).not.toMatch(/AI_GATEWAY_API_KEY|VERCEL_OIDC_TOKEN|SLOPCAMERA_CACHE_DIR/)
   })
 
   test("presents one complete creative workflow in order", async () => {
@@ -906,21 +870,17 @@ describe("static Atet site", () => {
     }
     expect(html).toContain("Retain the sources behind the result.")
     expect(searchableHtml).toContain("your Vercel AI Gateway credential")
-    expect(searchableHtml).toContain("There is no Atet account or hosted project database")
-    expect(searchableHtml).toContain("uploads local media only after explicit acknowledgement")
+    expect(searchableHtml).toContain("There is no Slopcamera account or hosted project database")
+    expect(searchableHtml).toContain("Media uploads require acknowledgement")
     expect(searchableHtml).toContain("without an operating-system sandbox")
     expect(html).not.toMatch(/<form|type="password"|\/api\//)
   })
 
-  test("keeps the approved creation story as quiet identity context", async () => {
+  test("uses the camera identity without rewriting historical mythology", async () => {
     const html = await readSource("index.html")
-    const searchableHtml = html.replace(/\s+/gu, " ")
-
-    expect(searchableHtml).toContain(brandDescription)
-    expect(html).toContain("Atum dawned and became Ra")
-    expect(html).toContain("underworld on the solar barque Atet")
-    expect(html).toContain('<h3>The name Atet</h3>')
-    expect(html).not.toMatch(/hieroglyph|pharaoh|ankh/i)
+    expect(html.replace(/\s+/gu, " ")).toContain(brandDescription)
+    expect(html).toContain("camera-frame and lens motif")
+    expect(html).not.toMatch(/Atum|solar barque|Benben|hieroglyph|pharaoh|ankh/u)
   })
 
   test("keeps the page semantic, linkable, keyboard-operable, and responsive", async () => {
@@ -1003,7 +963,7 @@ describe("static Atet site", () => {
     expect(html).toContain('data-hraness-marketing="proof-frame"')
     expect(html).toContain("Built by Ben Guo")
     expect(html).not.toContain('class="hraness-marketing-hero__eyebrow"')
-    expect(html).toContain('class="hraness-marketing-hero atet-product-hero" data-align="start"')
+    expect(html).toContain('class="hraness-marketing-hero slopcamera-product-hero" data-align="start"')
     expect(css).toContain("grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr)")
     expect(css).toContain("overflow-wrap: anywhere")
     expect(html).not.toMatch(/<h1[^>]*>[^<]*(?:bounded|exact|authority|custody|immutable|inspectable|canonical|projection|receipt)/iu)
@@ -1021,7 +981,7 @@ describe("static Atet site", () => {
 
   test("ships reproducible correctly sized social and icon assets", async () => {
     const social = new Uint8Array(await Bun.file(join(appDirectory, "src/og.png")).arrayBuffer())
-    const generatedSocial = await renderAtetSocialImage()
+    const generatedSocial = await renderSlopcameraSocialImage()
     const serifHero = new Uint8Array(await Bun.file(
       join(appDirectory, "src/og-serif-hero.png"),
     ).arrayBuffer())
@@ -1039,7 +999,7 @@ describe("static Atet site", () => {
 
     expect(generatedSocial).toEqual(social)
     expect(new Bun.CryptoHasher("sha256").update(social).digest("hex")).toBe(
-      "cef166a0abb2fb7e92b0416d614c5d20db9a71917e2baec63228bef10aefe8ab",
+      "8238c2765dfb3ad2ef1a67d55f471453ef3aefbd33d92cbe8542cea7892c33ab",
     )
     expect(Array.from(social.slice(1, 4))).toEqual([80, 78, 71])
     expect(socialView.getUint32(16)).toBe(1200)
@@ -1141,7 +1101,7 @@ describe("static Atet site", () => {
     expect(html).toContain("{{ANALYTICS_SCRIPT}}")
     expect(html.match(/<script\b/gu)).toHaveLength(2)
     expect(theme).toContain('from "@hraness/design-kit/browser"')
-    expect(theme).toContain('storageKey: "atet.appearance"')
+    expect(theme).toContain('storageKey: "slopcamera.appearance"')
     expect(theme).toContain('import { installCopyCommands } from "./copy-command"')
     expect(theme).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
     expect(copyCommand).not.toMatch(/fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/)
@@ -1168,32 +1128,32 @@ describe("static Atet site", () => {
     expect(build).not.toContain('outputDirectory, "docs"')
   })
 
-  test("allows only a canonical cookieless Atet pageview", () => {
-    expect(isCanonicalAnalyticsPage({ origin: "https://atet.sh", pathname: "/" })).toBe(true)
-    expect(isCanonicalAnalyticsPage({ origin: "https://preview.atet.sh", pathname: "/" })).toBe(false)
-    expect(isCanonicalAnalyticsPage({ origin: "https://atet.sh", pathname: "/404" })).toBe(false)
+  test("allows only a canonical cookieless Slopcamera pageview", () => {
+    expect(isCanonicalAnalyticsPage({ origin: "https://slop.camera", pathname: "/" })).toBe(true)
+    expect(isCanonicalAnalyticsPage({ origin: "https://preview.slop.camera", pathname: "/" })).toBe(false)
+    expect(isCanonicalAnalyticsPage({ origin: "https://slop.camera", pathname: "/404" })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://atet.sh",
+      origin: "https://slop.camera",
       pathname: "/reading/draw-faces-with-javascript",
     })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://atet.sh",
+      origin: "https://slop.camera",
       pathname: "/reading/feynobg",
     })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://atet.sh",
+      origin: "https://slop.camera",
       pathname: "/reading/painting-with-gaussians",
     })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://atet.sh",
+      origin: "https://slop.camera",
       pathname: "/reading/gemini-omni",
     })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://atet.sh",
+      origin: "https://slop.camera",
       pathname: "/reading/paint-with-code",
     })).toBe(false)
     expect(isCanonicalAnalyticsPage({
-      origin: "https://atet.sh",
+      origin: "https://slop.camera",
       pathname: "/reading/how-i-design-with-ai",
     })).toBe(false)
 
@@ -1202,10 +1162,10 @@ describe("static Atet site", () => {
       event: "$pageview",
       properties: {
         $cookieless_mode: true,
-        $current_url: "https://atet.sh/?private=value#fragment",
+        $current_url: "https://slop.camera/?private=value#fragment",
         $device_id: "device",
         $pathname: "/",
-        $raw_user_agent: "Atet test browser",
+        $raw_user_agent: "Slopcamera test browser",
         $referrer: "https://example.com/private",
         analytics_schema_version: 99,
         distinct_id: posthogCookielessDistinctId,
@@ -1221,10 +1181,10 @@ describe("static Atet site", () => {
       properties: {
         $cookieless_mode: true,
         $process_person_profile: false,
-        $raw_user_agent: "Atet test browser",
+        $raw_user_agent: "Slopcamera test browser",
         analytics_schema_version: 1,
         distinct_id: posthogCookielessDistinctId,
-        site_id: "atet",
+        site_id: "slopcamera",
         token: "phc_testtoken",
       },
       timestamp,
@@ -1252,7 +1212,7 @@ describe("static Atet site", () => {
       event: "$pageview",
       properties: {
         $cookieless_mode: false,
-        $raw_user_agent: "Atet test browser",
+        $raw_user_agent: "Slopcamera test browser",
         distinct_id: posthogCookielessDistinctId,
         token: "phc_testtoken",
       },
@@ -1271,8 +1231,8 @@ describe("static Atet site", () => {
 
   test("emits analytics only for a configured Production build", async () => {
     await ownedCompilation(async fixture => {
-      const productionDirectory = await fixture.temporaryDirectory("atet-web-production-")
-      const secondDirectory = await fixture.temporaryDirectory("atet-web-production-repeat-")
+      const productionDirectory = await fixture.temporaryDirectory("slopcamera-web-production-")
+      const secondDirectory = await fixture.temporaryDirectory("slopcamera-web-production-repeat-")
       const environment = {
         NEXT_PUBLIC_POSTHOG_HOST: "https://us.i.posthog.com",
         NEXT_PUBLIC_POSTHOG_KEY: "phc_test-token_value",
@@ -1310,7 +1270,7 @@ describe("static Atet site", () => {
 
   test("keeps missing, Preview, and unsupported-host analytics builds inert", async () => {
     await ownedCompilation(async fixture => {
-      const outputDirectory = await fixture.temporaryDirectory("atet-web-inert-")
+      const outputDirectory = await fixture.temporaryDirectory("slopcamera-web-inert-")
       const preview = await fixture.build({
         environment: {
           NEXT_PUBLIC_POSTHOG_KEY: "phc_testtoken",
@@ -1393,8 +1353,8 @@ describe("static Atet site", () => {
     ])
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1])
     expect(locations).toEqual([
-      "https://atet.sh/",
-      "https://atet.sh/index.md",
+      "https://slop.camera/",
+      "https://slop.camera/index.md",
     ])
     expect(await readBuilt("index.md")).toBe(homeMarkdown)
     expect(await readBuilt("llms.txt")).toBe(llmsTxt)
@@ -1420,21 +1380,21 @@ describe("static Atet site", () => {
     }
     expect(robotsTxt).toContain("User-agent: *\nAllow: /")
     expect(robotsTxt).not.toMatch(/^\s*Disallow:/mu)
-    expect(robotsTxt).toContain("Sitemap: https://atet.sh/sitemap.xml")
+    expect(robotsTxt).toContain("Sitemap: https://slop.camera/sitemap.xml")
     expect(sitemap).not.toContain("xmlns:image")
     expect(sitemap).toBe(renderSitemapXml())
-    expect(llmsTxt).toMatch(/^# Atet\n/u)
-    expect(llmsTxt).toContain("> Atet is a local visual studio for coding agents.")
-    expect(llmsTxt).toContain("## When to use Atet")
-    expect(llmsTxt).toContain("https://atet.sh/index.md")
+    expect(llmsTxt).toMatch(/^# Slopcamera\n/u)
+    expect(llmsTxt).toContain("> Slopcamera is a local visual studio for coding agents.")
+    expect(llmsTxt).toContain("## When to use Slopcamera")
+    expect(llmsTxt).toContain("https://slop.camera/index.md")
     expect(sitemapMarkdown).toMatch(/^# Sitemap\n/u)
-    expect(sitemapMarkdown).toContain("https://atet.sh/index.md")
-    expect(sitemapMarkdown).toContain("https://atet.sh/llms.txt")
+    expect(sitemapMarkdown).toContain("https://slop.camera/index.md")
+    expect(sitemapMarkdown).toContain("https://slop.camera/llms.txt")
     expect(homeMarkdown).toContain("## Sitemap")
-    expect(homeMarkdown).toContain("https://atet.sh/sitemap.md")
+    expect(homeMarkdown).toContain("https://slop.camera/sitemap.md")
     expect(notFound).toContain('<meta name="robots" content="noindex, nofollow">')
-    expect(notFoundMarkdown).toContain("https://atet.sh/llms.txt")
-    expect(notFoundMarkdown).toContain("https://atet.sh/sitemap.xml")
+    expect(notFoundMarkdown).toContain("https://slop.camera/llms.txt")
+    expect(notFoundMarkdown).toContain("https://slop.camera/sitemap.xml")
   })
 
   test("routes documentation to its canonical index and preserves reviewed predecessor hosts", async () => {
@@ -1466,28 +1426,34 @@ describe("static Atet site", () => {
       }))
 
     expect(routeRedirects).toEqual([
-      { source: "/docs", destination: "https://github.com/hraness/atet/blob/main/docs/README.md", permanent: true },
-      { source: "/docs/:path*", destination: "https://github.com/hraness/atet/blob/main/docs/README.md", permanent: true },
+      { source: "/docs", destination: "https://github.com/hraness/slopcamera/blob/main/docs/README.md", permanent: true },
+      { source: "/docs/:path*", destination: "https://github.com/hraness/slopcamera/blob/main/docs/README.md", permanent: true },
     ])
     expect(hostRedirects).toEqual([
-      { source: "/", host: { type: "host", value: "transmute.rocks" }, destination: "https://atet.sh/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "transmute.rocks" }, destination: "https://atet.sh/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://atet.sh/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://atet.sh/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "hraness.graphics" }, destination: "https://atet.sh/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "hraness.graphics" }, destination: "https://atet.sh/:path*", permanent: true },
-      { source: "/", host: { type: "host", value: "hraness.studio" }, destination: "https://atet.sh/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "hraness.studio" }, destination: "https://atet.sh/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "slopcamera.com" }, destination: "https://slop.camera/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "slopcamera.com" }, destination: "https://slop.camera/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "atet.sh" }, destination: "https://slop.camera/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "atet.sh" }, destination: "https://slop.camera/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "transmute.rocks" }, destination: "https://slop.camera/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "transmute.rocks" }, destination: "https://slop.camera/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://slop.camera/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "www.transmute.rocks" }, destination: "https://slop.camera/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "hraness.graphics" }, destination: "https://slop.camera/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "hraness.graphics" }, destination: "https://slop.camera/:path*", permanent: true },
+      { source: "/", host: { type: "host", value: "hraness.studio" }, destination: "https://slop.camera/", permanent: true },
+      { source: "/:path*", host: { type: "host", value: "hraness.studio" }, destination: "https://slop.camera/:path*", permanent: true },
     ])
 
     for (const redirect of hostRedirects) {
       const sourceHost = redirect.host?.value
-      expect(sourceHost).not.toBe("atet.sh")
+      expect(sourceHost).not.toBe("slop.camera")
       expect(new URL(redirect.destination?.replace(":path*", "") ?? "https://invalid").host)
         .not.toBe(sourceHost)
     }
 
     expect(new Set(hostRedirects.map(redirect => redirect.host?.value))).toEqual(new Set([
+      "slopcamera.com",
+      "atet.sh",
       "transmute.rocks",
       "www.transmute.rocks",
       "hraness.graphics",
@@ -1537,7 +1503,7 @@ describe("static Atet site", () => {
     expect(previewByKey.get("X-Robots-Tag")).toBe(
       "noindex, nofollow, noarchive, nosnippet",
     )
-    expect(previewByKey.get("Link")).toBe('<https://atet.sh/>; rel="canonical"')
+    expect(previewByKey.get("Link")).toBe('<https://slop.camera/>; rel="canonical"')
     for (const key of [
       "Permissions-Policy",
       "Referrer-Policy",
@@ -1688,7 +1654,7 @@ describe("static Atet site", () => {
     expect(isNegotiableDocumentPath("/index.md")).toBe(false)
     expect(isNegotiableDocumentPath("/assets/styles.css")).toBe(false)
 
-    const markdownHome = negotiateSiteRequest(new Request("https://atet.sh/", {
+    const markdownHome = negotiateSiteRequest(new Request("https://slop.camera/", {
       headers: { Accept: "text/markdown" },
     }))
     expect(markdownHome?.status).toBe(200)
@@ -1697,14 +1663,14 @@ describe("static Atet site", () => {
     expect(markdownHome?.headers.get("link")).toContain('rel="canonical"')
     expect(await markdownHome?.text()).toBe(homeMarkdown)
 
-    expect(negotiateSiteRequest(new Request("https://atet.sh/", {
+    expect(negotiateSiteRequest(new Request("https://slop.camera/", {
       headers: { Accept: "text/html" },
     }))).toBeUndefined()
-    expect(negotiateSiteRequest(new Request("https://atet.sh/docs", {
+    expect(negotiateSiteRequest(new Request("https://slop.camera/docs", {
       headers: { Accept: "text/markdown" },
     }))).toBeUndefined()
 
-    const markdownNotFound = negotiateSiteRequest(new Request("https://atet.sh/this-path-does-not-exist", {
+    const markdownNotFound = negotiateSiteRequest(new Request("https://slop.camera/this-path-does-not-exist", {
       headers: { Accept: "text/markdown" },
     }))
     expect(markdownNotFound?.status).toBe(404)
@@ -1714,7 +1680,7 @@ describe("static Atet site", () => {
     expect(markdownNotFound?.headers.get("x-robots-tag")).toBe("noindex")
     expect(await markdownNotFound?.text()).toBe(notFoundMarkdown)
 
-    const notAcceptable = negotiateSiteRequest(new Request("https://atet.sh/", {
+    const notAcceptable = negotiateSiteRequest(new Request("https://slop.camera/", {
       headers: { Accept: "application/xml" },
     }))
     expect(notAcceptable?.status).toBe(406)
@@ -1722,12 +1688,12 @@ describe("static Atet site", () => {
     expect(notAcceptable?.headers.get("vary")).toBe("Accept")
     expect(await notAcceptable?.text()).toBe(notAcceptableBody)
 
-    expect(negotiateSiteRequest(new Request("https://atet.sh/llms.txt", {
+    expect(negotiateSiteRequest(new Request("https://slop.camera/llms.txt", {
       headers: { Accept: "application/xml" },
     }))).toBeUndefined()
 
     for (const accept of ["text/markdown", "application/xml", "text/html;q=0, */*;q=1"]) {
-      const preview = new Request("https://atet.sh/preview", {
+      const preview = new Request("https://slop.camera/preview", {
         headers: { Accept: accept },
       })
       const negotiated = negotiateSiteRequest(preview)
@@ -1742,14 +1708,14 @@ describe("static Atet site", () => {
     }
 
     for (const accept of ["text/html", "*/*"]) {
-      const preview = new Request("https://atet.sh/preview", {
+      const preview = new Request("https://slop.camera/preview", {
         headers: { Accept: accept },
       })
       expect(negotiateSiteRequest(preview)).toBeUndefined()
       expect(middleware(preview)).toBeUndefined()
     }
 
-    const headMarkdown = negotiateSiteRequest(new Request("https://atet.sh/", {
+    const headMarkdown = negotiateSiteRequest(new Request("https://slop.camera/", {
       headers: { Accept: "text/markdown" },
       method: "HEAD",
     }))
@@ -1757,7 +1723,7 @@ describe("static Atet site", () => {
     expect(headMarkdown?.headers.get("content-type")).toBe("text/markdown; charset=utf-8")
     expect(await headMarkdown?.text()).toBe("")
 
-    const headNotFound = negotiateSiteRequest(new Request("https://atet.sh/missing-route", {
+    const headNotFound = negotiateSiteRequest(new Request("https://slop.camera/missing-route", {
       headers: { Accept: "text/markdown" },
       method: "HEAD",
     }))
@@ -1765,7 +1731,7 @@ describe("static Atet site", () => {
     expect(await headNotFound?.text()).toBe("")
 
     for (const path of ["/", "/preview"]) {
-      const headNotAcceptable = negotiateSiteRequest(new Request(`https://atet.sh${path}`, {
+      const headNotAcceptable = negotiateSiteRequest(new Request(`https://slop.camera${path}`, {
         headers: { Accept: "application/xml" },
         method: "HEAD",
       }))
@@ -1773,7 +1739,7 @@ describe("static Atet site", () => {
       expect(headNotAcceptable?.headers.get("vary")).toBe("Accept")
       expect(await headNotAcceptable?.text()).toBe("")
 
-      const headHtml = new Request(`https://atet.sh${path}`, {
+      const headHtml = new Request(`https://slop.camera${path}`, {
         headers: { Accept: "text/html" },
         method: "HEAD",
       })
@@ -1784,7 +1750,7 @@ describe("static Atet site", () => {
     for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
       for (const path of ["/", "/missing-route", "/preview"]) {
         for (const accept of ["text/markdown", "application/xml", "text/html"]) {
-          const url = `https://atet.sh${path}`
+          const url = `https://slop.camera${path}`
           expect(negotiateSiteRequest(new Request(url, {
             headers: { Accept: accept },
             method,
@@ -1798,7 +1764,7 @@ describe("static Atet site", () => {
     }
 
     expect(middlewareConfig.matcher).toContain("/")
-    const middlewareMarkdown = middleware(new Request("https://atet.sh/", {
+    const middlewareMarkdown = middleware(new Request("https://slop.camera/", {
       headers: { Accept: "text/markdown" },
     }))
     expect(middlewareMarkdown?.status).toBe(200)
@@ -1813,7 +1779,7 @@ describe("static Atet site", () => {
       "paint-with-code",
       "how-i-design-with-ai",
     ]) {
-      const removed = negotiateSiteRequest(new Request(`https://atet.sh/reading${slug === "" ? "" : `/${slug}`}`, {
+      const removed = negotiateSiteRequest(new Request(`https://slop.camera/reading${slug === "" ? "" : `/${slug}`}`, {
         headers: { Accept: "text/markdown" },
       }))
       expect(removed?.status).toBe(404)
@@ -1823,7 +1789,7 @@ describe("static Atet site", () => {
       expect(removed?.headers.get("x-robots-tag")).toBe("noindex")
       expect(await removed?.text()).toBe(notFoundMarkdown)
 
-      expect(negotiateSiteRequest(new Request(`https://atet.sh/reading${slug === "" ? "" : `/${slug}`}`, {
+      expect(negotiateSiteRequest(new Request(`https://slop.camera/reading${slug === "" ? "" : `/${slug}`}`, {
         headers: { Accept: "text/html" },
       }))).toBeUndefined()
     }

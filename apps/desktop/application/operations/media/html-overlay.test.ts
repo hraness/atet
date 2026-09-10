@@ -173,7 +173,7 @@ async function workflowContext(
 
 describe("media.html-overlay application operation", () => {
   test("binds an HTML document, declared assets, and exact host capabilities", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-html-operation-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-html-operation-"));
     roots.push(root);
     const inputDirectory = join(root, "overlay-inputs");
     await mkdir(inputDirectory, { recursive: true });
@@ -272,7 +272,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test("binds inline HTML deterministically without a repository document", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-html-operation-inline-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-html-operation-inline-"));
     roots.push(root);
     const capabilities = await fixtureCapabilities(root);
     const application = operationApplicationContext(root, {
@@ -303,7 +303,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test("binds generated Gateway images as exact HTML overlay resources", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-html-generated-resource-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-html-generated-resource-"));
     roots.push(root);
     const image = Buffer.from([
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -386,7 +386,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test("rejects fake renderer lock and execution-integrity evidence", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-html-operation-locks-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-html-operation-locks-"));
     roots.push(root);
     const fixture = await createOperationProjectFixture(root);
     const snapshot = await openProjectSnapshot(
@@ -468,7 +468,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test("retains explicit fetch transport through media binding and browser authoring reconstruction", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-html-fetch-transport-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-html-fetch-transport-"));
     roots.push(root);
     const fixture = await createOperationProjectFixture(root);
     const snapshot = await openProjectSnapshot(fixture.projectRoot, fixture.project.projectId);
@@ -503,7 +503,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test("publishes exact locks and fail-closed checkpoint recovery evidence", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-html-operation-recovery-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-html-operation-recovery-"));
     roots.push(root);
     const fixture = await createOperationProjectFixture(root);
     const motion = getApprovedHtmlOverlayLibraryLock("motion");
@@ -580,12 +580,12 @@ describe("media.html-overlay application operation", () => {
       version: 1,
     });
     const output = HtmlOverlayOutputSchema.parse(result.output);
-    expect(observedGeneratorVersion).toBe("atet-3.2.3");
+    expect(observedGeneratorVersion).toBe("slopcamera-3.2.3");
     expect(result.receiptReference).toBe(output.receipt.path);
     const receipt = HtmlOverlayReceiptSchema.parse(JSON.parse(
       await readFile(join(root, output.receipt.path), "utf8"),
     ));
-    expect(receipt.kind).toBe("atet.html-overlay-preparation-receipt");
+    expect(receipt.kind).toBe("slopcamera.html-overlay-preparation-receipt");
     expect(receipt.libraryLocks).toEqual([motion, three]);
     expect(receipt.libraryLocksSha256).toBe(
       canonicalJsonSha256(receipt.libraryLocks),
@@ -595,11 +595,11 @@ describe("media.html-overlay application operation", () => {
       throw new Error("Expected an HTML-overlay workflow context.");
     }
     const identity = {
-      inputSchemaId: "atet.operation.media.html-overlay.input/v1",
+      inputSchemaId: "slopcamera.operation.media.html-overlay.input/v1",
       kind: "media.html-overlay",
       nodeKey: context.workflow.nodeKey,
       nodePlanSha256: context.workflow.nodePlanSha256,
-      outputSchemaId: "atet.operation.media.html-overlay.output/v1",
+      outputSchemaId: "slopcamera.operation.media.html-overlay.output/v1",
       runId: context.workflow.runId,
       version: 1,
     } as const;
@@ -693,7 +693,7 @@ describe("media.html-overlay application operation", () => {
   });
 
   test.skipIf(
-    process.env.ATET_RUN_HTML_OVERLAY_OPERATION_SMOKE !== "1"
+    process.env.SLOPCAMERA_RUN_HTML_OVERLAY_OPERATION_SMOKE !== "1"
     || process.platform !== "darwin"
     || !existsSync(CHROME)
     || !existsSync(FFMPEG)
@@ -701,7 +701,7 @@ describe("media.html-overlay application operation", () => {
   )(
     "renders, alpha-encodes, ingests, and prepares a real compositor overlay",
     async () => {
-      const root = await mkdtemp(join(tmpdir(), "atet-html-operation-real-"));
+      const root = await mkdtemp(join(tmpdir(), "slopcamera-html-operation-real-"));
       roots.push(root);
       const fixture = await createOperationProjectFixture(root);
       const inputDirectory = join(root, "overlay-inputs");
@@ -739,7 +739,7 @@ describe("media.html-overlay application operation", () => {
       };
       const registry = new OperationRegistry();
       registry.register(createHtmlOverlayOperationDefinition({
-        toolVersion: "atet-smoke",
+        toolVersion: "slopcamera-smoke",
       }));
       const snapshot = await openProjectSnapshot(
         fixture.projectRoot,

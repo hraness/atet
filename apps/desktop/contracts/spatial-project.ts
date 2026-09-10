@@ -62,7 +62,7 @@ export const SpatialCandidateSelectionSchema = z.strictObject({
   candidateId: SpatialCandidateIdSchema,
 });
 export const SpatialProjectRevisionV2Schema = z.strictObject({
-  kind: z.literal("atet.spatial-project-revision"),
+  kind: z.literal("slopcamera.spatial-project-revision"),
   schemaVersion: z.literal(2),
   projectId: VideoProjectIdSchema,
   parent: SpatialProjectBasisSchema,
@@ -103,7 +103,7 @@ export const SpatialProjectRevisionV2Schema = z.strictObject({
   }
 });
 export const SpatialProjectHeadV2Schema = z.strictObject({
-  kind: z.literal("atet.spatial-project-head"),
+  kind: z.literal("slopcamera.spatial-project-head"),
   schemaVersion: z.literal(2),
   projectId: VideoProjectIdSchema,
   projectRevisionSha256: SpatialDigestSchema,
@@ -111,14 +111,14 @@ export const SpatialProjectHeadV2Schema = z.strictObject({
   transactionId: SpatialTransactionIdSchema,
 });
 export const SpatialProjectAttemptV1Schema = z.strictObject({
-  kind: z.literal("atet.spatial-project-attempt"),
+  kind: z.literal("slopcamera.spatial-project-attempt"),
   schemaVersion: z.literal(1),
   beforeHeadSha256: SpatialDigestSchema,
   expected: SpatialProjectBasisSchema,
   after: SpatialProjectHeadV2Schema,
 });
 export const SpatialProjectSettlementV1Schema = z.strictObject({
-  kind: z.literal("atet.spatial-project-settlement"),
+  kind: z.literal("slopcamera.spatial-project-settlement"),
   schemaVersion: z.literal(1),
   attempt: SpatialProjectArtifactSchema.refine(value => value.path.startsWith("spatial/attempts/")),
   headSha256: SpatialDigestSchema,

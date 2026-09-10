@@ -171,7 +171,7 @@ export function createDefaultEditPlan(
       typedText: { enabled: false },
     },
     keep: durationUs === 0 ? [] : [{ startUs: 0, endUs: durationUs }],
-    kind: "atet.edit-plan",
+    kind: "slopcamera.edit-plan",
     overlays: [],
     planId,
     recordingId: manifest.recordingId,

@@ -19,7 +19,7 @@ import {
 } from "../contracts";
 import {
   DEFAULT_MINIMUM_FREEZE_CONFIDENCE,
-  canonicalAtetPersistenceDocument,
+  canonicalSlopcameraPersistenceDocument,
   canonicalJson,
   canonicalJsonSha256,
   hashPlacementSync,
@@ -392,7 +392,7 @@ export async function analyzeProjectInactivity(
     durationUs: options.project.project.timeline.durationUs,
     inputDigest,
     interactions: reference.interactions,
-    kind: "atet.project-inactivity-analysis",
+    kind: "slopcamera.project-inactivity-analysis",
     projectId: options.project.project.projectId,
     projectStructureSha256,
     referenceRecording: reference.referenceRecording,
@@ -541,7 +541,7 @@ export async function analyzeAndPersistProjectInactivity(
     project: options.project.project,
     updatedAt: analyzed.analysis.createdAt,
   });
-  const project = canonicalAtetPersistenceDocument(update.project);
+  const project = canonicalSlopcameraPersistenceDocument(update.project);
   await saveVideoProject(options.project.fileSystem, project);
   return {
     analysis: analyzed.analysis,

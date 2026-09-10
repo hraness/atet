@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
 import {
-  PORTABLE_ATET_OPERATION_CONTRACTS,
-  PORTABLE_ATET_OPERATION_KINDS,
+  PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS,
+  PORTABLE_SLOPCAMERA_OPERATION_KINDS,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
-} from "@hraness/atet/code/advanced";
+} from "@hraness/slopcamera/code/advanced";
 
 import { createApplicationOperationRegistry } from "./default-registry";
 import { ApplicationError } from "./errors";
-import { ATET_APPLICATION_TOOL_VERSION } from "./operation";
+import { SLOPCAMERA_APPLICATION_TOOL_VERSION } from "./operation";
 import { OperationRegistry } from "./registry";
 import type { OperationDefinition } from "./operation";
 
@@ -86,10 +86,10 @@ describe("operation registry", () => {
     const descriptions = registry.list().map(operation => (
       registry.describe(operation.kind, operation.version)
     ));
-    expect(ATET_APPLICATION_TOOL_VERSION).toBe("atet-3.2.3");
+    expect(SLOPCAMERA_APPLICATION_TOOL_VERSION).toBe("slopcamera-3.2.3");
     expect(registry.list().every(operation => (
-      operation.inputSchemaId.startsWith("atet.operation.")
-      && operation.outputSchemaId.startsWith("atet.operation.")
+      operation.inputSchemaId.startsWith("slopcamera.operation.")
+      && operation.outputSchemaId.startsWith("slopcamera.operation.")
     ))).toBe(true);
     expect(descriptions).toHaveLength(63);
     expect(registry.list().filter(operation => (
@@ -109,8 +109,8 @@ describe("operation registry", () => {
       "spatial.project.snapshot@1",
     ]);
     const portableKinds = new Set<string>(
-      PORTABLE_ATET_OPERATION_KINDS.map(
-        kind => PORTABLE_ATET_OPERATION_CONTRACTS[kind].kind,
+      PORTABLE_SLOPCAMERA_OPERATION_KINDS.map(
+        kind => PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS[kind].kind,
       ),
     );
     const portableProjection = registry.list().filter(operation => (
@@ -123,12 +123,12 @@ describe("operation registry", () => {
     expect(registry.list().filter(operation => (
       operation.version === 1 && portableKinds.has(operation.kind)
     )).map(operation => operation.kind)).toEqual([
-      "atet.diagram.check",
-      "atet.diagram.render",
-      "atet.image.vectorize",
+      "slopcamera.diagram.check",
+      "slopcamera.diagram.render",
+      "slopcamera.image.vectorize",
     ]);
-    expect(registry.describe("atet.image.generate", 2).version).toBe(2);
-    expect(() => registry.describe("atet.image.generate", 1))
+    expect(registry.describe("slopcamera.image.generate", 2).version).toBe(2);
+    expect(() => registry.describe("slopcamera.image.generate", 1))
       .toThrow(ApplicationError);
     expect(registry.list().filter(operation => (
       operation.kind.startsWith("iteration.")

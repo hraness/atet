@@ -38,7 +38,7 @@ function metalDeviceIdentity(renderer: string): string | undefined {
 
 /** Host observations, not authored assertions or a promise of cross-driver pixel identity. */
 export const HtmlOverlayGpuEvidenceSchema = z.strictObject({
-  kind: z.literal("atet.html-overlay-gpu-evidence"), schemaVersion: z.literal(1),
+  kind: z.literal("slopcamera.html-overlay-gpu-evidence"), schemaVersion: z.literal(1),
   executionProfile: HtmlOverlayExecutionProfileSchema,
   api: z.literal("webgl2"), backend: z.literal("angle-metal"),
   platform: z.literal("darwin"), architecture: z.enum(["arm64", "x64"]), osRelease: description,

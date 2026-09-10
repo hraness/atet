@@ -66,7 +66,7 @@ import {
 import {
   CandidateProjectRenderInputSchema,
   CandidateRenderDerivationV1Schema,
-  ATET_PROJECT_RENDERER_ABI,
+  SLOPCAMERA_PROJECT_RENDERER_ABI,
   bindCandidateRenderOutputInput,
   bindCandidateRenderOutputOperationDefinition,
   candidateRenderDerivationSha256,
@@ -151,7 +151,7 @@ async function immutableRenderFixture(
         createdAt: mediaProject.createdAt,
         durationUs: mediaProject.assets[0]!.durationUs,
         inputDigest: "c".repeat(64),
-        kind: "atet.speech-analysis",
+        kind: "slopcamera.speech-analysis",
         result: {
           detectedLanguage: "en",
           fillers: [],
@@ -253,7 +253,7 @@ async function immutableRenderFixture(
       sha256: artifactSha256,
     },
     baseGeneration: hashProjectGeneration(project, plan),
-    kind: "atet.project-edit-revision-reference",
+    kind: "slopcamera.project-edit-revision-reference",
     outputGeometrySha256: hashProjectEditRevisionOutputGeometry({
       pixelHeight: 720,
       pixelWidth: 1_280,
@@ -342,7 +342,7 @@ async function compileFrozenPlan(
     version: 1,
   });
   const output = ProjectRenderPlanOutputSchema.parse(result.output);
-  expect(output.kind).toBe("atet.project-render-plan-reference");
+  expect(output.kind).toBe("slopcamera.project-render-plan-reference");
   return output;
 }
 
@@ -436,7 +436,7 @@ async function exactCandidateRenderInput(
     bindingsSha256: "9".repeat(64),
     candidate,
     derivationSha256: "a".repeat(64),
-    kind: "atet.creative-candidate-revision-reference",
+    kind: "slopcamera.creative-candidate-revision-reference",
     planId: fixture.revision.planId,
     projectEditPlanSha256: fixture.revision.projectEditPlanSha256,
     projectId: fixture.revision.projectId,
@@ -509,7 +509,7 @@ function candidateRenderInputWithRendererAbi(
 
 describe("immutable workflow project rendering", () => {
   test("render-plan publication revalidates the workflow fence", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-plan-fence-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-render-plan-fence-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const application = renderApplication(repositoryRoot, {
@@ -530,7 +530,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("derives packed social captions from an exact frozen speech analysis", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-captioned-render-plan-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-captioned-render-plan-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot, {
         captions: true,
@@ -621,7 +621,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("fails closed when a caption binding changes after node planning", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-caption-binding-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-caption-binding-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot, {
         captions: true,
@@ -693,7 +693,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("current project and plan mutation cannot change a revision render", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-operation-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-render-operation-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       expect(() => RenderableProjectEditRevisionReferenceSchema.parse({
@@ -773,7 +773,7 @@ describe("immutable workflow project rendering", () => {
   test("adopts an exact candidate render across runs from immutable source evidence", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-candidate-render-adoption-",
+      "slopcamera-candidate-render-adoption-",
     ));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
@@ -808,13 +808,13 @@ describe("immutable workflow project rendering", () => {
       expect(JSON.parse(await fixture.fileSystem.readText(reusePath)))
         .toMatchObject({
           derivationSha256: input.derivation.derivationSha256,
-          rendererAbi: ATET_PROJECT_RENDERER_ABI,
+          rendererAbi: SLOPCAMERA_PROJECT_RENDERER_ABI,
           sourceReceipt: { path: first.receipt.path },
         });
 
       const incompatibleInput = candidateRenderInputWithRendererAbi(
         input,
-        "atet-project-renderer-abi-v2",
+        "slopcamera-project-renderer-abi-v2",
       );
       expect(incompatibleInput.output.path).not.toBe(input.output.path);
       const incompatibleError: unknown = await bindProjectRenderInputV3(
@@ -847,7 +847,7 @@ describe("immutable workflow project rendering", () => {
       expect(JSON.parse(await fixture.fileSystem.readText(reusePath)))
         .toMatchObject({
           derivationSha256: input.derivation.derivationSha256,
-          rendererAbi: ATET_PROJECT_RENDERER_ABI,
+          rendererAbi: SLOPCAMERA_PROJECT_RENDERER_ABI,
           sourceReceipt: { path: first.receipt.path },
         });
 
@@ -888,12 +888,12 @@ describe("immutable workflow project rendering", () => {
       expect(validRecordSha256).toMatch(/^[a-f0-9]{64}$/u);
       const incompatibleReuseBody = {
         ...validReuseBody,
-        rendererAbi: "atet-project-renderer-abi-v2",
+        rendererAbi: "slopcamera-project-renderer-abi-v2",
       };
       const incompatibleReuseRecord = {
         ...incompatibleReuseBody,
         recordSha256: canonicalJsonSha256({
-          domain: "atet.candidate-render-reuse-record/v1",
+          domain: "slopcamera.candidate-render-reuse-record/v1",
           ...incompatibleReuseBody,
         }),
       };
@@ -970,12 +970,12 @@ describe("immutable workflow project rendering", () => {
   test("reconciliation recovers a candidate output from its exact run-private precommit", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-candidate-render-precommit-recovery-",
+      "slopcamera-candidate-render-precommit-recovery-",
     ));
     const receiptDirectory = join(
       repositoryRoot,
       "artifacts",
-      "atet",
+      "slopcamera",
       "projects",
       "project_operation01",
       "renders",
@@ -1020,7 +1020,7 @@ describe("immutable workflow project rendering", () => {
       expect(await readFile(
         publicationPrecommitPath(application),
         "utf8",
-      )).toContain("atet.project-render-publication-precommit");
+      )).toContain("slopcamera.project-render-publication-precommit");
 
       let publicationChecks = 0;
       const reconciliation = await reconcileProjectRender(
@@ -1050,7 +1050,7 @@ describe("immutable workflow project rendering", () => {
         .toMatchObject({
           derivationSha256: input.derivation.derivationSha256,
           output: reconciliation.output.output,
-          rendererAbi: ATET_PROJECT_RENDERER_ABI,
+          rendererAbi: SLOPCAMERA_PROJECT_RENDERER_ABI,
           sourceReceipt: { path: receiptPath },
         });
       expect(rendererCalls).toBe(1);
@@ -1067,7 +1067,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("rejects a canvas target that disagrees with the exact render plan", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-target-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-render-target-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       let rendererCalls = 0;
@@ -1107,7 +1107,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("a cancellation requested at the publication point cannot strand an output without its receipt", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-finalize-cancel-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-render-finalize-cancel-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const application = renderApplication(repositoryRoot, {
@@ -1149,7 +1149,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("an interrupted native fresh-render fence settles exact publication before admitting the next output owner", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-fiber-fence-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-render-fiber-fence-"));
     const enteredFence = Promise.withResolvers<void>();
     const releaseFence = Promise.withResolvers<void>();
     try {
@@ -1208,7 +1208,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("candidate adoption still refuses cancellation requested inside its successful fence", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-adoption-cancel-fence-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-adoption-cancel-fence-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       let renderCalls = 0;
@@ -1251,7 +1251,7 @@ describe("immutable workflow project rendering", () => {
     { mode: "reconcile", first: "receipt", primary: false, label: "legacy later-position false" },
   ] as const)("concurrent native existence failures keep the first rejection while joining later reads ($label)", async scenario => {
     const { mode, primary } = scenario;
-    const repositoryRoot = await realpath(await mkdtemp(join(tmpdir(), "atet-render-existence-failures-")));
+    const repositoryRoot = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-render-existence-failures-")));
     const releaseFirst = Promise.withResolvers<void>();
     const releaseSecond = Promise.withResolvers<void>();
     try {
@@ -1344,7 +1344,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("reconciliation finalizes an exact receipt after failure between output and receipt publication", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-precommit-recovery-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-render-precommit-recovery-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const receiptDirectory = join(
@@ -1379,7 +1379,7 @@ describe("immutable workflow project rendering", () => {
       expect(await readFile(
         publicationPrecommitPath(application),
         "utf8",
-      )).toContain("atet.project-render-publication-precommit");
+      )).toContain("slopcamera.project-render-publication-precommit");
 
       const fenced = await reconcileProjectRender(
         application,
@@ -1444,7 +1444,7 @@ describe("immutable workflow project rendering", () => {
       )).toEqual(reconciliation);
     } finally {
       await chmod(
-        join(repositoryRoot, "artifacts", "atet", "projects", "project_operation01", "renders", "receipts"),
+        join(repositoryRoot, "artifacts", "slopcamera", "projects", "project_operation01", "renders", "receipts"),
         0o700,
       ).catch(() => undefined);
       await rm(repositoryRoot, { force: true, recursive: true });
@@ -1452,7 +1452,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("reconciliation rejects forged and differently-bound publication precommits", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-precommit-forgery-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-render-precommit-forgery-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const receiptDirectory = join(
@@ -1546,7 +1546,7 @@ describe("immutable workflow project rendering", () => {
       ).catch(() => null)).toBeNull();
     } finally {
       await chmod(
-        join(repositoryRoot, "artifacts", "atet", "projects", "project_operation01", "renders", "receipts"),
+        join(repositoryRoot, "artifacts", "slopcamera", "projects", "project_operation01", "renders", "receipts"),
         0o700,
       ).catch(() => undefined);
       await rm(repositoryRoot, { force: true, recursive: true });
@@ -1554,7 +1554,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("media mutation after encoding prevents public output and receipt publication", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-media-race-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-render-media-race-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const runner: ApplicationProcessRunner = {
@@ -1586,7 +1586,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("a pre-existing unrelated output is preserved without dispatch", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-no-replace-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-render-no-replace-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       let rendererCalls = 0;
@@ -1632,7 +1632,7 @@ describe("immutable workflow project rendering", () => {
   });
 
   test("rejects same-version executable replacement after exact node planning", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-render-tool-binding-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-render-tool-binding-"));
     try {
       const fixture = await immutableRenderFixture(repositoryRoot);
       const ffmpeg = join(repositoryRoot, "ffmpeg-fixture");

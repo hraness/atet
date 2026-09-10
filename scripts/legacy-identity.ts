@@ -51,7 +51,7 @@ interface DuplicateIssue {
 }
 
 const LEGACY_IDENTITY_PATTERN = /studio|hraness\.graphics/giu
-const IDENTITY_LITERAL_PATTERN = /^(?:atet|studio)(?:[./-][a-z0-9][a-z0-9./-]*)?$/iu
+const IDENTITY_LITERAL_PATTERN = /^(?:slopcamera|studio)(?:[./-][a-z0-9][a-z0-9./-]*)?$/iu
 const SYNTAX_EXTENSIONS = /\.(?:[cm]?[jt]sx?)$/u
 const TYPESCRIPT_EXTENSIONS = /\.(?:[cm]?tsx?)$/u
 
@@ -73,7 +73,7 @@ export function isNativeFilmStudioPath(path: string): boolean {
       "apps/desktop/application/operations/studio-test-support.ts",
       "apps/desktop/code/semantic-builder-studio.test.ts",
       "docs/studio.md",
-      "skills/atet/references/native-studio.md",
+      "skills/slopcamera/references/native-studio.md",
     ].includes(path)
     || /^apps\/desktop\/cli\/studio-(?:args|assemble|bridge-args|command|custody|encode|exr|files|output-validation|process|runtime|scaffold|service|spatial-asset|template-names|workflow)(?:\.test)?\.ts$/u.test(path)
 }

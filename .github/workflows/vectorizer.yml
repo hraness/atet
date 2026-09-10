@@ -1,4 +1,4 @@
-name: Atet VTracer
+name: Slopcamera VTracer
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   official_vtracer:
-    name: Atet VTracer (${{ matrix.target }})
+    name: Slopcamera VTracer (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     strategy:

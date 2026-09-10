@@ -43,7 +43,7 @@ export const MediaAudioEffectsReceiptSchema = z.strictObject({
   filterGraph: z.string().min(1).max(256 * 1024),
   input: MediaArtifactReferenceSchema,
   kind: z.union([
-    z.literal("atet.local-media-transform-receipt"),
+    z.literal("slopcamera.local-media-transform-receipt"),
     z.literal("studio.local-media-transform-receipt"),
   ]),
   operation: z.literal("audio-effects"),
@@ -285,7 +285,7 @@ export function mediaAudioEffectsProgram(input: MediaAudioEffectsInput): Effect.
             ffprobeVersion: mediaCapabilityVersion(capabilityBindings, "ffprobe"),
             filterGraph: rendered.filterGraph,
             input: boundInput.input,
-            kind: "atet.local-media-transform-receipt",
+            kind: "slopcamera.local-media-transform-receipt",
             operation: "audio-effects",
             output: { ...published.artifact, durationUs },
             schemaVersion: 1,
@@ -302,9 +302,9 @@ export function mediaAudioEffectsProgram(input: MediaAudioEffectsInput): Effect.
             transform: rendered.transform,
           }));
           yield* platform.checkpoint({
-            inputSchemaId: "atet.operation.media.audio-effects.input/v1",
+            inputSchemaId: "slopcamera.operation.media.audio-effects.input/v1",
             kind: "media.audio-effects",
-            outputSchemaId: "atet.operation.media.audio-effects.output/v1",
+            outputSchemaId: "slopcamera.operation.media.audio-effects.output/v1",
             version: 1,
           }, output);
           return output;
@@ -329,7 +329,7 @@ export function createMediaAudioEffectsOperationDefinition(
     })));
   return {
     inputSchema: MediaAudioEffectsInputSchema,
-    inputSchemaId: "atet.operation.media.audio-effects.input/v1",
+    inputSchemaId: "slopcamera.operation.media.audio-effects.input/v1",
     kind: "media.audio-effects",
     lifecycle: {
       kind: "local-artifact",
@@ -337,7 +337,7 @@ export function createMediaAudioEffectsOperationDefinition(
       executeEffect,
     },
     outputSchema: MediaAudioEffectsOutputSchema,
-    outputSchemaId: "atet.operation.media.audio-effects.output/v1",
+    outputSchemaId: "slopcamera.operation.media.audio-effects.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

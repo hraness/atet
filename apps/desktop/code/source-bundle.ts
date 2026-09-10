@@ -33,10 +33,10 @@ import { typecheckWorkflowSnapshot } from "./source-typecheck";
 import { captureWorkerProcessStartIdentity } from "./worker-process-identity";
 
 export const WORKFLOW_ALLOWED_BARE_IMPORTS = Object.freeze([
-  "@hraness/atet/local/code",
-  "@hraness/atet/local/code/advanced",
-  "@hraness/atet/local/code/workflows",
-  "@hraness/atet/local/html-overlay",
+  "@hraness/slopcamera/local/code",
+  "@hraness/slopcamera/local/code/advanced",
+  "@hraness/slopcamera/local/code/workflows",
+  "@hraness/slopcamera/local/html-overlay",
   "zod",
 ]);
 
@@ -76,7 +76,7 @@ if (!Number.isSafeInteger(maximumBundleBytes) || maximumBundleBytes < 1) {
   throw new Error("Workflow bundler output byte limit is invalid.");
 }
 const plugin = {
-  name: "atet-workflow-allowlisted-imports",
+  name: "slopcamera-workflow-allowlisted-imports",
   setup(build) {
     for (const [specifier, path] of Object.entries(request.aliases)) {
       const escaped = specifier.replace(/[|\\{}()[\]^$+*?.-]/g, "\\$&");
@@ -953,7 +953,7 @@ async function buildWorkflowBundle(
   // The runtime identity records this Bun, so bundling must not silently
   // switch to a different PATH-resolved executable.
   const bunExecutable = process.execPath;
-  const directory = await mkdtemp(join(tmpdir(), "atet-workflow-bundle-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-workflow-bundle-"));
   await chmod(directory, 0o700);
   const requestPath = join(directory, "request.json");
   const outputPath = join(directory, "workflow.bundle.js");
@@ -1436,8 +1436,8 @@ async function scanSourceGraph(options: {
     }
     for (const specifier of semanticImports) staticSpecifiers.add(specifier);
     for (const specifier of staticSpecifiers) {
-      if (specifier.includes("@hraness/atet/local/code/testing")) {
-        throw new ApplicationError("unsupported-plan", "Production workflows cannot import @hraness/atet/local/code/testing.");
+      if (specifier.includes("@hraness/slopcamera/local/code/testing")) {
+        throw new ApplicationError("unsupported-plan", "Production workflows cannot import @hraness/slopcamera/local/code/testing.");
       }
       if (!specifier.startsWith(".") && !isAbsolute(specifier)) {
         if (!allowedBareImport(specifier, options.allowedBareImports)) {

@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key>
-  <string>atet-capture</string>
+  <string>slopcamera-capture</string>
   <key>CFBundleIdentifier</key>
-  <string>com.hraness.atet.capture</string>
+  <string>com.hraness.slopcamera.capture</string>
   <key>CFBundleName</key>
-  <string>Atet Capture</string>
+  <string>Slopcamera Capture</string>
   <key>CFBundleShortVersionString</key>
   <string>3.2.3</string>
   <key>CFBundleVersion</key>
@@ -15,12 +15,12 @@
   <key>LSMinimumSystemVersion</key>
   <string>15.0</string>
   <key>NSAudioCaptureUsageDescription</key>
-  <string>Atet records system audio as a separate editing source.</string>
+  <string>Slopcamera records system audio as a separate editing source.</string>
   <key>NSCameraUsageDescription</key>
-  <string>Atet records the selected camera as a separate editing source.</string>
+  <string>Slopcamera records the selected camera as a separate editing source.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Atet records the selected microphone as a separate editing source.</string>
+  <string>Slopcamera records the selected microphone as a separate editing source.</string>
   <key>NSScreenCaptureUsageDescription</key>
-  <string>Atet records each display as a separate editing source.</string>
+  <string>Slopcamera records each display as a separate editing source.</string>
 </dict>
 </plist>

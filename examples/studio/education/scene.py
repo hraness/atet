@@ -4,4 +4,4 @@ from toolkit import EducationalScene, lesson_from_context
 
 
 class PythagoreanLesson(EducationalScene):
-    lesson_data = lesson_from_context(ATET_CONTEXT)
+    lesson_data = lesson_from_context(SLOPCAMERA_CONTEXT)

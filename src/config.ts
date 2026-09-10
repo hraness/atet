@@ -12,10 +12,10 @@ import type {
 } from "./types.js"
 
 const configNames = [
-  { current: "atet.config.ts", retired: "diagram.config.ts" },
-  { current: "atet.config.mjs", retired: "diagram.config.mjs" },
-  { current: "atet.config.js", retired: "diagram.config.js" },
-  { current: "atet.config.json", retired: "diagram.config.json" },
+  { current: "slopcamera.config.ts", retired: "diagram.config.ts" },
+  { current: "slopcamera.config.mjs", retired: "diagram.config.mjs" },
+  { current: "slopcamera.config.js", retired: "diagram.config.js" },
+  { current: "slopcamera.config.json", retired: "diagram.config.json" },
 ] as const
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -90,7 +90,7 @@ function parseTheme(value: unknown, at: string): PartialTheme {
 }
 
 function parseConfig(value: unknown): DiagramConfig {
-  if (!isRecord(value)) throw new Error("Atet config must export an object")
+  if (!isRecord(value)) throw new Error("Slopcamera config must export an object")
   const font = value.font === undefined ? undefined : parseFont(value.font, "font")
   const icons = value.icons === undefined ? undefined : parseIcons(value.icons, "icons")
   let theme: DiagramConfig["theme"]
@@ -123,7 +123,7 @@ async function discoverConfig(directory: string): Promise<string | null> {
     if (await pathExists(candidate)) {
       const replacement = resolve(directory, names.current)
       throw new Error(
-        `Legacy Atet config found at ${candidate}. Rename it to ${replacement}; Atet does not auto-load diagram.config.*.`,
+        `Legacy Slopcamera config found at ${candidate}. Rename it to ${replacement}; Slopcamera does not auto-load diagram.config.*.`,
       )
     }
   }

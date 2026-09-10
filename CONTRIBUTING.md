@@ -23,7 +23,7 @@ bun run check:desktop
 bun run check:web
 ```
 
-After the tree converges, independently review the complete diff and its impact. Fresh complete CI may own the final source aggregate when Plan, Atet standalone boundary, Atet SDK, Atet local runtime, Atet site, Atet packed consumer, Atet macOS shell and Required all succeed. Required alone accepts routed skips; a skipped, missing, failed, cancelled or incomplete job does not qualify as complete CI. Bind the receipt to the exact PR head, the current authoritative `refs/heads/main`, the checked integration tree, and the CI run, attempt and Required job. Recheck those identities before merging; a stale PR base field is not current-main evidence.
+After the tree converges, independently review the complete diff and its impact. Fresh complete CI may own the final source aggregate when Plan, Slopcamera standalone boundary, Slopcamera SDK, Slopcamera local runtime, Slopcamera site, Slopcamera packed consumer, Slopcamera macOS shell and Required all succeed. Required alone accepts routed skips; a skipped, missing, failed, cancelled or incomplete job does not qualify as complete CI. Bind the receipt to the exact PR head, the current authoritative `refs/heads/main`, the checked integration tree, and the CI run, attempt and Required job. Recheck those identities before merging; a stale PR base field is not current-main evidence.
 
 The CI coverage contract in `scripts/release-workflow.test.ts` preserves the full source phases, their order within each job, post-build standalone scans, committed-output cleanliness, pinned browser verification and macOS acceptance. Independent jobs build disjoint outputs; the package job installs the committed SDK and CLI bytes whose reproduction the build jobs verify. Review workflow, command, test-discovery, deadline, platform or coverage changes against the prior required coverage. Editing coverage assertions cannot itself certify a reduction.
 
@@ -31,7 +31,7 @@ Use `bun run check` as the complete local fallback when CI is unavailable, parti
 
 Parser, layout, operation, protocol, configuration, or scheduler changes need deterministic examples. Add a property test for a law, round trip, ordering rule, or arbitrary-input boundary. A shrunk property failure should become a named regression.
 
-Keep the portable declarative graph SDK canonical in `src/code/`. The complete local host extends that fixed model under `apps/desktop/`; it does not maintain a competing graph contract. Public local-host entrypoints use `@hraness/atet/local/*`.
+Keep the portable declarative graph SDK canonical in `src/code/`. The complete local host extends that fixed model under `apps/desktop/`; it does not maintain a competing graph contract. Public local-host entrypoints use `@hraness/slopcamera/local/*`.
 
 Generation uses Vercel AI Gateway directly. Do not add an account service, session store, custom OAuth flow, hosted proxy, billing dependency, or browser credential field. Tests must use inert credentials and controlled transports.
 

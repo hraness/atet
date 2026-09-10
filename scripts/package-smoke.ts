@@ -24,7 +24,7 @@ import {
 
 import { verifyNpmPublishManifest } from "./npm-publish-policy";
 
-const packageName = "@hraness/atet";
+const packageName = "@hraness/slopcamera";
 const importSpecifiers = [
   packageName,
   `${packageName}/cli`,
@@ -47,7 +47,7 @@ const maximumPackedFiles = 450;
 const maximumPackedBytes = 4_300_000;
 const maximumUnpackedBytes = 11_300_000;
 const requiredPackedPaths = [
-  "DISCLOSURE",
+  "PRIVACY.md",
   "LICENSE",
   "NOTICE.md",
   "README.md",
@@ -75,12 +75,12 @@ const requiredPackedPaths = [
   "examples/studio/blender/product.py",
   "examples/studio/education/scene.py",
   "examples/studio/native-workflow.ts",
-  "skills/atet/references/native-studio.md",
+  "skills/slopcamera/references/native-studio.md",
   "docs/studio.md",
-  "skills/atet/SKILL.md",
-  "skills/atet/references/rubber-stamp-examples/poster-example-1.jpg",
-  "skills/atet/references/rubber-stamp-examples/stamp-style-1.png",
-  "skills/atet/scripts/compose-rubber-stamp-field-note.ts",
+  "skills/slopcamera/SKILL.md",
+  "skills/slopcamera/references/rubber-stamp-examples/poster-example-1.jpg",
+  "skills/slopcamera/references/rubber-stamp-examples/stamp-style-1.png",
+  "skills/slopcamera/scripts/compose-rubber-stamp-field-note.ts",
   "src/assets/fonts/nebula-sans/LICENSE.txt",
   "src/assets/fonts/nebula-sans/NebulaSans-Bold.otf",
   "src/assets/fonts/nebula-sans/NebulaSans-Bold.woff2",
@@ -152,7 +152,7 @@ const packageTextExtensions = new Set([
 ]);
 const forbiddenPackageText = [
   { label: "private package", pattern: /@jungle\//u },
-  { label: "private source path", pattern: /projects\/atet/u },
+  { label: "private source path", pattern: /projects\/slopcamera/u },
   { label: "private fixture path", pattern: /\/(?:tmp|work)\/jungle\//u },
   { label: "account database runtime", pattern: /(?:^|[^a-z])convex(?:[^a-z]|$)/iu },
   { label: "hosted auth runtime", pattern: /better-auth/iu },
@@ -384,17 +384,16 @@ async function verifyPackedRuntimeClosure(
     JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8")) as unknown,
     "packed package.json",
   );
-  const contentPolicy = record(manifest.contentPolicy, "package.json contentPolicy");
-  if (contentPolicy.class !== "dual-use") {
-    throw new Error("packed package.json must retain contentPolicy.class=dual-use.");
+  if (Object.prototype.hasOwnProperty.call(manifest, "contentPolicy")) {
+    throw new Error("packed Slopcamera package.json must not inherit a contentPolicy declaration.");
   }
   verifyNpmPublishManifest(manifest);
-  const [sourceDisclosure, packedDisclosure] = await Promise.all([
-    readFile(join(process.cwd(), "DISCLOSURE")),
-    readFile(join(packageRoot, "DISCLOSURE")),
+  const [sourcePrivacy, packedPrivacy] = await Promise.all([
+    readFile(join(process.cwd(), "PRIVACY.md")),
+    readFile(join(packageRoot, "PRIVACY.md")),
   ]);
-  if (!sourceDisclosure.equals(packedDisclosure)) {
-    throw new Error("packed DISCLOSURE differs from the reviewed source disclosure.");
+  if (!sourcePrivacy.equals(packedPrivacy)) {
+    throw new Error("packed PRIVACY.md differs from the reviewed source privacy guide.");
   }
   const entryTargets = new Set<string>();
   for (const [key, value] of Object.entries(record(manifest.exports, "package.json exports"))) {
@@ -480,7 +479,7 @@ function parseNpmPackResult(value: unknown): NpmPackResult {
   if (!/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.test(String(result.version))) {
     throw new Error(`npm pack reported non-stable version ${String(result.version)}.`);
   }
-  const expectedFilename = `hraness-atet-${String(result.version)}.tgz`;
+  const expectedFilename = `hraness-slopcamera-${String(result.version)}.tgz`;
   if (result.filename !== expectedFilename) {
     throw new Error(
       `npm pack reported filename ${String(result.filename)} instead of ${expectedFilename}.`,
@@ -744,7 +743,7 @@ async function verifySideEffectFreeImports(
   runtime: "bun" | "node",
   environment: Readonly<Record<string, string | undefined>>,
 ): Promise<void> {
-  const stateRoot = join(consumer, `.atet-${runtime}-import-state`);
+  const stateRoot = join(consumer, `.slopcamera-${runtime}-import-state`);
   for (const directory of [
     stateRoot,
     join(stateRoot, "cache"),
@@ -755,12 +754,12 @@ async function verifySideEffectFreeImports(
   ]) {
     await mkdir(directory, { recursive: true });
   }
-  const probe = join(consumer, `.atet-${runtime}-import-probe.mjs`);
+  const probe = join(consumer, `.slopcamera-${runtime}-import-probe.mjs`);
   await writeFile(probe, importSideEffectProbeSource(specifiers));
   const probeEnvironment = {
     ...environment,
-    ATET_CACHE_DIR: join(stateRoot, "cache", "atet"),
-    ATET_TEST_STATE_ROOT: join(stateRoot, "data", "atet"),
+    SLOPCAMERA_CACHE_DIR: join(stateRoot, "cache", "slopcamera"),
+    SLOPCAMERA_TEST_STATE_ROOT: join(stateRoot, "data", "slopcamera"),
     BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
     HOME: join(stateRoot, "home"),
     TMPDIR: join(stateRoot, "tmp"),
@@ -796,7 +795,7 @@ const providedPackResult = arguments_.packJson === undefined
   : parseNpmPackResult(
     JSON.parse(await readFile(arguments_.packJson, "utf8")) as unknown,
   );
-const work = await mkdtemp(join(tmpdir(), "atet-package-smoke-"));
+const work = await mkdtemp(join(tmpdir(), "slopcamera-package-smoke-"));
 try {
   const packageEnvironment = {
     ...process.env,
@@ -843,7 +842,7 @@ try {
     packageEnvironment,
   );
   const installedPackage = await realpath(
-    join(consumer, "node_modules", "@hraness", "atet"),
+    join(consumer, "node_modules", "@hraness", "slopcamera"),
   );
   const packedStats = await scanPackedPackage(installedPackage);
   await verifyPackedRuntimeClosure(installedPackage, packedStats);
@@ -857,17 +856,17 @@ try {
   await run([
     process.execPath,
     "-e",
-    `const { createSpatialSceneStarter, inspectSpatialScene, applySpatialScenePatch, evaluateSpatialScene } = await import("@hraness/atet/code");
+    `const { createSpatialSceneStarter, inspectSpatialScene, applySpatialScenePatch, evaluateSpatialScene } = await import("@hraness/slopcamera/code");
 const scene = createSpatialSceneStarter();
 const before = inspectSpatialScene(scene);
-const changed = applySpatialScenePatch(scene, { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: before.sceneSha256, operations: [{ kind: "set-color", entityId: "entity_product", color: "#f97316" }] });
+const changed = applySpatialScenePatch(scene, { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: before.sceneSha256, operations: [{ kind: "set-color", entityId: "entity_product", color: "#f97316" }] });
 const evaluated = evaluateSpatialScene(changed.scene, { cameraId: "camera_hero", timeUs: 1000000 });
 if (changed.sceneSha256 === before.sceneSha256 || evaluated.sceneSha256 !== changed.sceneSha256 || inspectSpatialScene(scene).sceneSha256 !== before.sceneSha256) throw new Error("Packed spatial SDK lost immutable edit/evaluation identity.");`,
   ], consumer);
   await run([
     process.execPath,
     "-e",
-    `const { renderPng, renderSvg } = await import("@hraness/atet");
+    `const { renderPng, renderSvg } = await import("@hraness/slopcamera");
 const source = weight => ({ version: 1, name: \`installed-font-proof-\${weight}\`, canvas: { width: 320, height: 120 }, shapes: [{ id: "label", type: "text", x: 16, y: 16, text: "Nebula Sans", fontSize: 42, weight }] });
 const blank = await renderSvg({ version: 1, name: "installed-font-blank", canvas: { width: 320, height: 120 }, shapes: [] }, "light", {});
 const blankPng = renderPng(blank, {}, 1);
@@ -883,24 +882,24 @@ for (const weight of [400, 700]) {
 if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed SDK did not preserve distinct Book and Bold raster faces.");`,
   ], consumer);
   await run([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "--help",
   ], consumer);
   const htmlCatalogText = await runOutput([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "html",
     "catalog",
     "--json",
   ], consumer);
   const htmlCatalog = record(
     JSON.parse(htmlCatalogText) as unknown,
-    "atet html catalog --json",
+    "slopcamera html catalog --json",
   );
   if (htmlCatalog.schemaVersion !== 1 || !Array.isArray(htmlCatalog.profiles)) {
     throw new Error("Packed CLI returned an invalid HTML scaffold catalog.");
   }
   const installedHtmlProfiles = htmlCatalog.profiles.map((value, index) =>
-    record(value, `atet html catalog profile ${String(index)}`)
+    record(value, `slopcamera html catalog profile ${String(index)}`)
   );
   if (
     JSON.stringify(installedHtmlProfiles.map(profile => profile.kind))
@@ -930,7 +929,7 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
   }
   const installedP5Scaffold = join(consumer, "installed-p5-overlay.html");
   await run([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "html",
     "scaffold",
     "p5",
@@ -946,7 +945,7 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
   }
   const installedTwoScaffold = join(consumer, "installed-two-overlay.html");
   await run([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "html",
     "scaffold",
     "two",
@@ -956,16 +955,16 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
   const installedTwoHtml = await readFile(installedTwoScaffold, "utf8");
   if (
     !installedTwoHtml.includes('from "two.js"')
-    || !installedTwoHtml.includes("AtetOverlay.onFrame")
+    || !installedTwoHtml.includes("SlopcameraOverlay.onFrame")
   ) {
     throw new Error("Packed CLI did not emit the admitted Two.js scaffold.");
   }
   const doctorText = await runOutput([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "doctor",
     "--json",
   ], consumer);
-  const doctor = record(JSON.parse(doctorText) as unknown, "atet doctor --json");
+  const doctor = record(JSON.parse(doctorText) as unknown, "slopcamera doctor --json");
   const consumerRoot = await realpath(consumer);
   if (doctor.repositoryRoot !== consumerRoot) {
     throw new Error(
@@ -979,10 +978,10 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
   }
   const installedScene = join(consumer, "installed.scene.json");
   const initializedScene = record(JSON.parse(await runOutput([
-    join(consumer, "node_modules", ".bin", "atet"), "scene", "init", installedScene, "--json",
+    join(consumer, "node_modules", ".bin", "slopcamera"), "scene", "init", installedScene, "--json",
   ], consumer)) as unknown, "packed scene init");
   const inspectedScene = record(JSON.parse(await runOutput([
-    join(consumer, "node_modules", ".bin", "atet"), "scene", "inspect", installedScene, "--json",
+    join(consumer, "node_modules", ".bin", "slopcamera"), "scene", "inspect", installedScene, "--json",
   ], consumer)) as unknown, "packed scene inspect");
   if (typeof initializedScene.sceneSha256 !== "string" || initializedScene.sceneSha256 !== inspectedScene.sceneSha256
     || !Array.isArray(inspectedScene.entities) || inspectedScene.entities.length !== 4) {
@@ -990,33 +989,33 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
   }
   for (const template of ["blender-product", "blender-character", "blender-cloth", "blender-fluid", "cadquery-bracket", "manim-lesson"]) {
     const initialized = record(JSON.parse(await runOutput([
-      join(consumer, "node_modules", ".bin", "atet"), "studio", "init", `installed-${template}`, "--template", template, "--json",
+      join(consumer, "node_modules", ".bin", "slopcamera"), "studio", "init", `installed-${template}`, "--template", template, "--json",
     ], consumer)) as unknown, "packed studio scaffold");
     const bundled = record(JSON.parse(await runOutput([
-      join(consumer, "node_modules", ".bin", "atet"), "studio", "bundle", String(initialized.source), "--json",
+      join(consumer, "node_modules", ".bin", "slopcamera"), "studio", "bundle", String(initialized.source), "--json",
     ], consumer)) as unknown, "packed studio bundle");
     const planned = record(JSON.parse(await runOutput([
-      join(consumer, "node_modules", ".bin", "atet"), "studio", "plan", String(initialized.job), "--json",
+      join(consumer, "node_modules", ".bin", "slopcamera"), "studio", "plan", String(initialized.job), "--json",
     ], consumer)) as unknown, "packed studio inert plan");
     if (initialized.bundleSha256 !== bundled.bundleSha256 || planned.readiness !== "runtime-unbound") {
       throw new Error("Packed native studio source or inert planning changed.");
     }
   }
   const operationsText = await runOutput([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "operations",
     "list",
     "--json",
   ], consumer);
   const operations = record(
     JSON.parse(operationsText) as unknown,
-    "atet operations list --json",
+    "slopcamera operations list --json",
   ).operations;
   if (!Array.isArray(operations) || operations.length === 0) {
     throw new Error("Packed CLI returned no local operations.");
   }
   const semanticSearchText = await runOutput([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "code",
     "search",
     "--limit",
@@ -1024,13 +1023,13 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
   ], consumer);
   const semanticOperations = record(
     JSON.parse(semanticSearchText) as unknown,
-    "atet code search --limit 1",
+    "slopcamera code search --limit 1",
   ).operations;
   if (!Array.isArray(semanticOperations) || semanticOperations.length !== 1) {
     throw new Error("Packed CLI did not delegate semantic code search.");
   }
   const skillPath = (await runOutput([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "skill",
     "path",
   ], consumer)).trim();
@@ -1052,7 +1051,7 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
       throw new Error(`Packed rubber-stamp workflow is missing ${required}.`);
     }
   }
-  if ([...rubberStampReference.matchAll(/skill_root="\$\(atet skill path\)"/gu)].length !== 2) {
+  if ([...rubberStampReference.matchAll(/skill_root="\$\(slopcamera skill path\)"/gu)].length !== 2) {
     throw new Error("Packed rubber-stamp steps do not resolve their skill root independently.");
   }
   const posterExample = join(
@@ -1072,7 +1071,7 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
     "scripts",
     "compose-rubber-stamp-field-note.ts",
   );
-  const compositorOutput = join(consumer, "atet-rubber-stamp-smoke.jpg");
+  const compositorOutput = join(consumer, "slopcamera-rubber-stamp-smoke.jpg");
   await run([
     process.execPath,
     compositor,
@@ -1100,7 +1099,7 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
     throw new Error("Packed rubber-stamp compositor did not produce a JPEG.");
   }
   await run([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "skill",
     "install",
     "--target",
@@ -1110,7 +1109,7 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
     "--project",
     consumer,
   ], consumer);
-  const runnerSkill = await realpath(join(consumer, ".agents", "skills", "atet"));
+  const runnerSkill = await realpath(join(consumer, ".agents", "skills", "slopcamera"));
   if (runnerSkill.startsWith(`${installedPackage}${sep}`)) {
     throw new Error("Packed skill install did not exercise a runner-specific copied layout.");
   }
@@ -1118,19 +1117,19 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
     join(runnerSkill, "references", "rubber-stamp-field-notes.md"),
     "utf8",
   );
-  if ([...runnerRubberStampReference.matchAll(/skill_root="\$\(atet skill path\)"/gu)].length !== 2) {
+  if ([...runnerRubberStampReference.matchAll(/skill_root="\$\(slopcamera skill path\)"/gu)].length !== 2) {
     throw new Error("Runner-installed skill lost packaged-resource discovery.");
   }
   const canvasStatus = record(JSON.parse(await runOutput([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "canvas",
     "status",
-  ], consumer)) as unknown, "atet canvas status");
+  ], consumer)) as unknown, "slopcamera canvas status");
   if (!("installedPath" in canvasStatus) || !("server" in canvasStatus)) {
     throw new Error("Packed CLI did not delegate canvas status.");
   }
   await runFailure([
-    join(consumer, "node_modules", ".bin", "atet"),
+    join(consumer, "node_modules", ".bin", "slopcamera"),
     "mcp",
   ], consumer, "--root is required");
   await run([
@@ -1145,15 +1144,15 @@ if (Buffer.from(pngs[0]).equals(Buffer.from(pngs[1]))) throw new Error("Packed S
     .join("\n");
   const uses = importSpecifiers.map((_, index) => `surface${String(index)}`).join(", ");
   const publicTypeFixture = `
-if (surface0.atetApi !== surface0.diagramApi) {
-  throw new Error("Deprecated diagramApi must be the canonical atetApi object.");
+if (surface0.slopcameraApi !== surface0.diagramApi) {
+  throw new Error("Deprecated diagramApi must be the canonical slopcameraApi object.");
 }
 void [
-  surface0.atetApi.defineAtetWorkflow,
-  surface0.atetApi.runAtetWorkflow,
-  surface0.atetApi.executeAtetOperation,
-  surface0.atetApi.generateAtetImage,
-  surface0.atetApi.searchAtetOperations,
+  surface0.slopcameraApi.defineSlopcameraWorkflow,
+  surface0.slopcameraApi.runSlopcameraWorkflow,
+  surface0.slopcameraApi.executeSlopcameraOperation,
+  surface0.slopcameraApi.generateSlopcameraImage,
+  surface0.slopcameraApi.searchSlopcameraOperations,
 ];
 `;
   await writeFile(
@@ -1195,7 +1194,7 @@ void [
     "--registry=https://registry.npmjs.org",
   ], npmConsumer, packageEnvironment);
   const npmInstalledPackage = await realpath(
-    join(npmConsumer, "node_modules", "@hraness", "atet"),
+    join(npmConsumer, "node_modules", "@hraness", "slopcamera"),
   );
   const npmPackedStats = await scanPackedPackage(npmInstalledPackage);
   await verifyPackedRuntimeClosure(npmInstalledPackage, npmPackedStats);
@@ -1203,7 +1202,7 @@ void [
     npmPackedStats.fileCount !== packedStats.fileCount
     || npmPackedStats.unpackedBytes !== packedStats.unpackedBytes
   ) {
-    throw new Error("npm and Bun consumers installed different Atet package contents.");
+    throw new Error("npm and Bun consumers installed different Slopcamera package contents.");
   }
   await verifySideEffectFreeImports(
     npmConsumer,
@@ -1212,7 +1211,7 @@ void [
     packageEnvironment,
   );
   await run([
-    join(npmConsumer, "node_modules", ".bin", "atet"),
+    join(npmConsumer, "node_modules", ".bin", "slopcamera"),
     "--version",
   ], npmConsumer, packageEnvironment);
   console.log(

@@ -1,5 +1,5 @@
 import type { z } from "zod"
-import { AtetCodeError } from "../code/errors.js"
+import { SlopcameraCodeError } from "../code/errors.js"
 import { createBoundedJsonSnapshot, createBoundedJsonValueSnapshot, deepFreezeJson } from "../code/json-snapshot.js"
 import {
   SPATIAL_SCENE_LIMITS, SpatialAssetManifestSchema, SpatialEntitySchema,
@@ -8,7 +8,7 @@ import {
   type SpatialOverride, type SpatialSceneV1,
 } from "./contracts.js"
 
-export class SpatialSceneError extends AtetCodeError {
+export class SpatialSceneError extends SlopcameraCodeError {
   readonly path: string
   constructor(code: "invalid-data" | "conflict" | "not-found", message: string, path = "scene") {
     super(code, message, { path })
@@ -92,7 +92,7 @@ export function spatialTopologicalIds(edges: ReadonlyMap<string, readonly string
 export function generatedSpatialEntityId(generatorId: string, key: string): string {
   SpatialGeneratorIdSchema.parse(generatorId)
   if (typeof key !== "string" || key.length < 1 || key.length > 256) throw new SpatialSceneError("invalid-data", "Generator keys must contain 1–256 characters.")
-  return `entity_${spatialValueSha256({ domain: "atet.generated-entity.v1", generatorId, key })}`
+  return `entity_${spatialValueSha256({ domain: "slopcamera.generated-entity.v1", generatorId, key })}`
 }
 
 function normalizeEntity(entity: SpatialEntity): SpatialEntity {
@@ -113,7 +113,7 @@ function normalizeAsset(asset: SpatialAssetManifest): SpatialAssetManifest {
 export function spatialGeneratorOutputSha256(input: unknown): string {
   const entities = parseSpatialValue(SpatialEntitySchema.array().max(SPATIAL_SCENE_LIMITS.entities), input, "generator output")
   unique(entities, item => item.entityId, "generator output")
-  return spatialValueSha256({ domain: "atet.generator-output.v1", entities: sortSpatialBy(entities.map(normalizeEntity), item => item.entityId) })
+  return spatialValueSha256({ domain: "slopcamera.generator-output.v1", entities: sortSpatialBy(entities.map(normalizeEntity), item => item.entityId) })
 }
 
 /** Locators and descriptive provenance are excluded; interpretation and dependency digests are bound. */
@@ -127,7 +127,7 @@ export function spatialAssetManifestSha256(input: unknown, dependencyDigests: Re
     if (typeof sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(sha256)) throw new SpatialSceneError("invalid-data", `Missing dependency digest for ${assetId}.`)
     return { assetId, sha256 }
   })
-  return spatialValueSha256({ domain: "atet.asset-manifest.v1", payload: { sha256: asset.payload.sha256, bytes: asset.payload.bytes }, interpretation: asset.interpretation, dependencies })
+  return spatialValueSha256({ domain: "slopcamera.asset-manifest.v1", payload: { sha256: asset.payload.sha256, bytes: asset.payload.bytes }, interpretation: asset.interpretation, dependencies })
 }
 
 export function spatialAssetClosureDigests(assets: readonly SpatialAssetManifest[]): Readonly<Record<string, string>> {

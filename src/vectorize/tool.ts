@@ -82,7 +82,7 @@ const MAX_ARCHIVE_BYTES = 4 * 1_024 * 1_024
 const MAX_TOOL_BYTES = 16 * 1_024 * 1_024
 const FILE_CHUNK_BYTES = 64 * 1_024
 
-function renamedEnvironmentValue(canonical: `ATET_${string}`): string | undefined {
+function renamedEnvironmentValue(canonical: `SLOPCAMERA_${string}`): string | undefined {
   return process.env[canonical]
 }
 
@@ -91,7 +91,7 @@ export async function ensureVTracer(
   privateDirectory: string,
   cacheDirectory?: string,
 ): Promise<VTracerTool> {
-  const override = renamedEnvironmentValue("ATET_VTRACER_PATH")
+  const override = renamedEnvironmentValue("SLOPCAMERA_VTRACER_PATH")
   if (override !== undefined) {
     return copyAndInspectVTracer(
       resolve(override),
@@ -134,13 +134,13 @@ export async function ensureVTracer(
 }
 
 function defaultCacheDirectory(): string {
-  const explicit = renamedEnvironmentValue("ATET_CACHE_DIR")
+  const explicit = renamedEnvironmentValue("SLOPCAMERA_CACHE_DIR")
   if (explicit !== undefined && explicit.trim() !== "") return explicit
   if (process.platform === "win32") {
-    return join(process.env.LOCALAPPDATA ?? homedir(), "atet")
+    return join(process.env.LOCALAPPDATA ?? homedir(), "slopcamera")
   }
-  if (process.platform === "darwin") return join(homedir(), "Library", "Caches", "atet")
-  return join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "atet")
+  if (process.platform === "darwin") return join(homedir(), "Library", "Caches", "slopcamera")
+  return join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "slopcamera")
 }
 
 async function installOfficialVTracer(
@@ -488,7 +488,7 @@ async function downloadBounded(
   const timer = setTimeout(() => controller.abort(), deadline.remainingMs())
   try {
     const response = await fetch(url, {
-      headers: { "user-agent": "hraness-atet-vectorizer" },
+      headers: { "user-agent": "hraness-slopcamera-vectorizer" },
       redirect: "follow",
       signal: controller.signal,
     })

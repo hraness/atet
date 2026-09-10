@@ -11,10 +11,10 @@ import {
 test("self-spawns source and compiled CLI entrypoints without shell interpolation", () => {
   expect(daemonCommandFor("/opt/homebrew/bin/bun", "/repo/cli/main.ts"))
     .toEqual(["/opt/homebrew/bin/bun", "/repo/cli/main.ts"]);
-  expect(daemonCommandFor("/repo/dist/atet", "/$bunfs/root/cli/main.ts"))
-    .toEqual(["/repo/dist/atet"]);
-  expect(daemonCommandFor("/repo/dist/atet", "/repo/dist/atet"))
-    .toEqual(["/repo/dist/atet"]);
+  expect(daemonCommandFor("/repo/dist/slopcamera", "/$bunfs/root/cli/main.ts"))
+    .toEqual(["/repo/dist/slopcamera"]);
+  expect(daemonCommandFor("/repo/dist/slopcamera", "/repo/dist/slopcamera"))
+    .toEqual(["/repo/dist/slopcamera"]);
 });
 
 test("accepts only the compiled bundle's exact internal vectorizer worker invocation", () => {
@@ -61,7 +61,7 @@ test("keeps portable and copied-native CLI builds as distinct manifest commands"
     }),
   }).parse(await Bun.file(new URL("../../../package.json", import.meta.url)).json());
   expect(scripts["build:desktop:cli"]).toBe(
-    "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./apps/desktop/dist/cli\", { recursive: true, force: true })' && bun build --target=bun --minify --sourcemap=none --packages external --external @hraness/atet/cli apps/desktop/cli/main.ts --outdir apps/desktop/dist/cli",
+    "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./apps/desktop/dist/cli\", { recursive: true, force: true })' && bun build --target=bun --minify --sourcemap=none --packages external --external @hraness/slopcamera/cli apps/desktop/cli/main.ts --outdir apps/desktop/dist/cli",
   );
   expect(scripts["build:cli:macos"]).toBe("bun run ./apps/desktop/cli/build-compiled.ts");
   expect(scripts["test:cli:compiled:macos"]).toStartWith("bun run build:cli:macos &&");

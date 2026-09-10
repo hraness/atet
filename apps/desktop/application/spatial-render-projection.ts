@@ -59,7 +59,7 @@ export const SpatialMaterializedShotVideoSchema = z.strictObject({
   if (video.alpha === "straight" && (video.container !== "mov" || video.codec !== "qtrle")) context.addIssue({ code: "custom", message: "The initial straight-alpha projection requires the qualified qtrle MOV profile." });
 });
 export const SceneRenderProjectionV1Schema = z.strictObject({
-  kind: z.literal("atet.scene-render-projection"),
+  kind: z.literal("slopcamera.scene-render-projection"),
   schemaVersion: z.literal(1),
   source: SpatialProjectHeadV2Schema,
   policy: SpatialSceneProgramPolicySchema,
@@ -172,7 +172,7 @@ export function createSpatialRenderProjection(input: {
       || placements.some(placement => placement.placementId === placementId)) throw new Error("Derived spatial identity collides with a retained media identity.");
     assets.push(VideoProjectV1Schema.shape.assets.element.parse({
       assetId, createdAt: base.project.updatedAt, durationUs, label: `Spatial shot ${shot.shotId}`, role: "b-roll",
-      source: { kind: "generated", generator: "atet.spatial-render-projection", generatorVersion: "1", sourceSha256: materialized.shotSha256 },
+      source: { kind: "generated", generator: "slopcamera.spatial-render-projection", generatorVersion: "1", sourceSha256: materialized.shotSha256 },
       streams: [{ streamId, label: `Spatial shot ${shot.shotId}`, kind: "video", role: "b-roll", frameRate: numericFrameRate, pixelWidth: output.pixelWidth, pixelHeight: output.pixelHeight,
         segments: [{ assetRange: { startUs: 0, endUs: durationUs }, fileRange: { startUs: 0, endUs: durationUs }, ...materialized.artifact, codec: materialized.codec, container: materialized.container, streamIndex: materialized.streamIndex }] }],
     }));
@@ -191,11 +191,11 @@ export function createSpatialRenderProjection(input: {
   const artifactSha256 = sha256Hex(revisionText);
   const renderPlan = compileProjectRenderPlan(project, plan, { frameRate: numericFrameRate, pixelWidth: output.pixelWidth, pixelHeight: output.pixelHeight, background: output.background });
   const projection = SceneRenderProjectionV1Schema.parse({
-    kind: "atet.scene-render-projection", schemaVersion: 1, source: head, policy, output, shots: boundShots,
+    kind: "slopcamera.scene-render-projection", schemaVersion: 1, source: head, policy, output, shots: boundShots,
     legacyFrameRateAdapter: { kind: "numeric-ratio-for-planning-only", value: numericFrameRate, requiredEncoderArgument: spatialProjectionEncoderFrameRate(output.frameRate) },
     derivedV1RevisionSha256: revision.revisionSha256,
     derivedV1Revision: { bytes: new TextEncoder().encode(revisionText).byteLength, sha256: artifactSha256, path: projectEditRevisionPath(artifactSha256) },
     compositionPlanSha256: renderPlan.planSha256,
   });
-  return deepFreezeJson({ projection, projectionSha256: canonicalJsonSha256({ domain: "atet.scene-render-projection/v1", projection }), revision, renderPlan });
+  return deepFreezeJson({ projection, projectionSha256: canonicalJsonSha256({ domain: "slopcamera.scene-render-projection/v1", projection }), revision, renderPlan });
 }

@@ -112,7 +112,7 @@ export function syncedProject(): VideoProjectV1 {
     }],
     createdAt: NOW,
     currentEditPlanPath: "edits/current.json",
-    kind: "atet.video-project",
+    kind: "slopcamera.video-project",
     name: "Synchronized render",
     placements: [{
       assetId: "asset_reference001",

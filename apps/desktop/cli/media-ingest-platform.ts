@@ -56,7 +56,7 @@ export interface MediaIngestPlatformService {
   probe(ffprobe: string, runner: ProcessRunner, path: string): Native<RunResult>;
 }
 
-export class MediaIngestPlatform extends Context.Tag("@atet/local/MediaIngestPlatform")<
+export class MediaIngestPlatform extends Context.Tag("@slopcamera/local/MediaIngestPlatform")<
   MediaIngestPlatform, MediaIngestPlatformService
 >() { }
 

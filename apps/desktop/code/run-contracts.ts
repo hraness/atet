@@ -23,14 +23,14 @@ import {
   type JsonValue,
 } from "./contracts";
 
-export const RUN_STORE_VERSION = "atet-run-store-v2" as const;
-export const RUN_NODE_VERSION = "atet-run-node-v2" as const;
-export const NODE_PREPARATION_PLAN_VERSION = "atet-node-preparation-plan-v2" as const;
-export const NODE_EXECUTION_PLAN_VERSION = "atet-node-execution-plan-v2" as const;
-export const RUN_EVENT_VERSION = "atet-run-event-v2" as const;
-export const RUN_GRANT_VERSION = "atet-run-grant-v2" as const;
-export const RUN_FENCE_VERSION = "atet-run-fence-v2" as const;
-export const RUN_OUTPUTS_VERSION = "atet-run-outputs-v2" as const;
+export const RUN_STORE_VERSION = "slopcamera-run-store-v2" as const;
+export const RUN_NODE_VERSION = "slopcamera-run-node-v2" as const;
+export const NODE_PREPARATION_PLAN_VERSION = "slopcamera-node-preparation-plan-v2" as const;
+export const NODE_EXECUTION_PLAN_VERSION = "slopcamera-node-execution-plan-v2" as const;
+export const RUN_EVENT_VERSION = "slopcamera-run-event-v2" as const;
+export const RUN_GRANT_VERSION = "slopcamera-run-grant-v2" as const;
+export const RUN_FENCE_VERSION = "slopcamera-run-fence-v2" as const;
+export const RUN_OUTPUTS_VERSION = "slopcamera-run-outputs-v2" as const;
 
 /**
  * Active durable runs are machine-local execution state, not portable authored

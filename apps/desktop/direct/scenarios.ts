@@ -3,22 +3,22 @@ import { defineDirect } from "@hraness/direct";
 import {
   ALL_INPUT_SOURCES,
   AUTHORIZED_PERMISSIONS,
-  ATET_DIRECT_TIME_MS,
-  createAtetDirectWorld,
+  SLOPCAMERA_DIRECT_TIME_MS,
+  createSlopcameraDirectWorld,
   fixtureIdleSnapshot,
   fixturePausedSnapshot,
   fixtureRecordingSnapshot,
-  parseAtetDirectWorld,
+  parseSlopcameraDirectWorld,
   runtimeSnapshot,
 } from "./world";
 
-export type AtetDirectRoute = "/";
-export type AtetDirectViewport = "compact" | "wide";
+export type SlopcameraDirectRoute = "/";
+export type SlopcameraDirectViewport = "compact" | "wide";
 
-export interface AtetScenarioMetadata {
+export interface SlopcameraScenarioMetadata {
   readonly focus: "analysis" | "capture" | "overlays" | "project" | "workflow";
   readonly group: "Analysis" | "Capture" | "Editing" | "Permissions" | "Recovery" | "Workflows";
-  readonly viewport: AtetDirectViewport;
+  readonly viewport: SlopcameraDirectViewport;
 }
 
 const recording = fixtureRecordingSnapshot();
@@ -99,7 +99,7 @@ const scenarioInputs = [
     id: "idle-ready",
     route: "/",
     title: "Ready to record",
-    world: createAtetDirectWorld({
+    world: createSlopcameraDirectWorld({
       initial: idle,
       transitions: [{ command: "start", outcome: { kind: "success", snapshot: recording } }],
     }),
@@ -109,7 +109,7 @@ const scenarioInputs = [
     id: "permission-prompt",
     route: "/",
     title: "Permission prompts",
-    world: createAtetDirectWorld({
+    world: createSlopcameraDirectWorld({
       initial: permissionPrompt,
       transitions: [{
         command: "start",
@@ -128,7 +128,7 @@ const scenarioInputs = [
     id: "permission-denied",
     route: "/",
     title: "Optional inputs denied",
-    world: createAtetDirectWorld({
+    world: createSlopcameraDirectWorld({
       initial: permissionDenied,
       transitions: [{
         command: "start",
@@ -147,7 +147,7 @@ const scenarioInputs = [
     id: "all-input-recording",
     route: "/",
     title: "All-input recording",
-    world: createAtetDirectWorld({
+    world: createSlopcameraDirectWorld({
       initial: recording,
       transitions: [
         { command: "pause", outcome: { kind: "success", snapshot: paused } },
@@ -161,14 +161,14 @@ const scenarioInputs = [
     id: "multiple-displays",
     route: "/",
     title: "Extended displays",
-    world: createAtetDirectWorld({ initial: recording, transitions: [] }),
+    world: createSlopcameraDirectWorld({ initial: recording, transitions: [] }),
   },
   {
     description: "Pause closes a segment, resume opens another, and source time remains monotonic.",
     id: "pause-resume",
     route: "/",
     title: "Paused segment",
-    world: createAtetDirectWorld({
+    world: createSlopcameraDirectWorld({
       initial: paused,
       transitions: [
         { command: "resume", outcome: { kind: "success", snapshot: fixtureRecordingSnapshot(18_000_000) } },
@@ -182,7 +182,7 @@ const scenarioInputs = [
     id: "partial-source-failure",
     route: "/",
     title: "Camera disconnected",
-    world: createAtetDirectWorld({
+    world: createSlopcameraDirectWorld({
       initial: recording,
       pushes: [{
         after: "initial-snapshot",
@@ -208,14 +208,14 @@ const scenarioInputs = [
     id: "stop-finalized",
     route: "/",
     title: "Recording finalized",
-    world: createAtetDirectWorld({ initial: finalized, transitions: [] }),
+    world: createSlopcameraDirectWorld({ initial: finalized, transitions: [] }),
   },
   {
     description: "A settled capture failure can recover through a new production start action.",
     id: "failed-recovery",
     route: "/",
     title: "Failed then recovered",
-    world: createAtetDirectWorld({
+    world: createSlopcameraDirectWorld({
       initial: failed,
       transitions: [{ command: "start", outcome: { kind: "success", snapshot: recording } }],
     }),
@@ -225,28 +225,28 @@ const scenarioInputs = [
     id: "multi-asset-project",
     route: "/",
     title: "Synchronized multi-angle project",
-    world: createAtetDirectWorld({ initial: finalized, transitions: [] }),
+    world: createSlopcameraDirectWorld({ initial: finalized, transitions: [] }),
   },
   {
     description: "Local boundaries, compact scene descriptions, music structure, and filler safety stay inspectable without external execution.",
     id: "agent-analysis-ledger",
     route: "/",
     title: "Agent analysis ledger",
-    world: createAtetDirectWorld({ initial: finalized, transitions: [] }),
+    world: createSlopcameraDirectWorld({ initial: finalized, transitions: [] }),
   },
   {
     description: "A compiled code workflow exposes exact waves, parallel analysis, trusted computation, durable failure, scoped replay, and graph-bound run outputs.",
     id: "code-mode-workflow",
     route: "/",
     title: "Agent code-mode workflow",
-    world: createAtetDirectWorld({ initial: finalized, transitions: [] }),
+    world: createSlopcameraDirectWorld({ initial: finalized, transitions: [] }),
   },
   {
     description: "Image, SVG, GIF, video, and emoji layers expose composition, animation, playback, and audio controls.",
     id: "overlay-compositor",
     route: "/",
     title: "Overlay compositor controls",
-    world: createAtetDirectWorld({ initial: finalized, transitions: [] }),
+    world: createSlopcameraDirectWorld({ initial: finalized, transitions: [] }),
   },
 ] as const;
 
@@ -283,17 +283,17 @@ const coverage = [
   { claim: "Packaged Zig bridge, signatures, and resources require direct binary evidence.", key: "native.bundle.direct", mode: "direct", scenarios: [] },
 ] as const;
 
-export const atetDirect = defineDirect({
+export const slopcameraDirect = defineDirect({
   coverage,
   defaultScenario: "idle-ready",
-  parseWorld: parseAtetDirectWorld,
+  parseWorld: parseSlopcameraDirectWorld,
   scenarios: scenarioInputs,
 });
 
-export const atetScenarioCatalog = atetDirect.scenarios;
-export const atetCoverageCatalog = atetDirect.coverage;
+export const slopcameraScenarioCatalog = slopcameraDirect.scenarios;
+export const slopcameraCoverageCatalog = slopcameraDirect.coverage;
 
-export const atetScenarioMetadata: Readonly<Record<string, AtetScenarioMetadata>> = Object.freeze({
+export const slopcameraScenarioMetadata: Readonly<Record<string, SlopcameraScenarioMetadata>> = Object.freeze({
   "agent-analysis-ledger": { focus: "analysis", group: "Analysis", viewport: "wide" },
   "all-input-recording": { focus: "capture", group: "Capture", viewport: "wide" },
   "code-mode-workflow": { focus: "workflow", group: "Workflows", viewport: "wide" },
@@ -309,4 +309,4 @@ export const atetScenarioMetadata: Readonly<Record<string, AtetScenarioMetadata>
   "stop-finalized": { focus: "capture", group: "Editing", viewport: "compact" },
 });
 
-export const ATET_DIRECT_NOW_MS = ATET_DIRECT_TIME_MS;
+export const SLOPCAMERA_DIRECT_NOW_MS = SLOPCAMERA_DIRECT_TIME_MS;

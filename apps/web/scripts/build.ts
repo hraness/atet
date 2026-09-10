@@ -3,7 +3,7 @@ import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { renderAtetSocialImage } from "./generate-og"
+import { renderSlopcameraSocialImage } from "./generate-og"
 import { buildPreview } from "./build-preview"
 import type { PreviewArtifact } from "./preview-contract"
 import { buildSite } from "./build-site"
@@ -20,7 +20,7 @@ const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
 const sourceDirectory = join(appDirectory, "src")
 const defaultOutputDirectory = join(appDirectory, "dist")
 const posthogIngestOrigin = "https://us.i.posthog.com"
-const siteOrigin = "https://atet.sh"
+const siteOrigin = "https://slop.camera"
 const posthogPackageDirectory = dirname(fileURLToPath(import.meta.resolve("posthog-js/package.json")))
 const copiedFiles = [
   "apple-touch-icon.png",
@@ -112,8 +112,8 @@ async function bundleAnalytics(config: Readonly<{ host: string; key: string }>):
   const result = await Bun.build({
     banner: `/*! posthog-js ${manifest.version}\n${license.trim()}\n*/`,
     define: {
-      __ATET_POSTHOG_HOST__: JSON.stringify(config.host),
-      __ATET_POSTHOG_KEY__: JSON.stringify(config.key),
+      __SLOPCAMERA_POSTHOG_HOST__: JSON.stringify(config.host),
+      __SLOPCAMERA_POSTHOG_KEY__: JSON.stringify(config.key),
     },
     entrypoints: [join(sourceDirectory, "analytics.ts")],
     env: "disable",
@@ -163,7 +163,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   const outputDirectory = options.outputDirectory ?? defaultOutputDirectory
   const analyticsConfig = productionAnalyticsConfig(environment)
   const [theme, socialImage] = await Promise.all([
-    bundleTheme(), renderAtetSocialImage(),
+    bundleTheme(), renderSlopcameraSocialImage(),
   ])
   const themePath = assetPath("theme.js", theme)
   const analytics = analyticsConfig === null ? null : await bundleAnalytics(analyticsConfig)

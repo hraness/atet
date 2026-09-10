@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { main as runAtetCliInProcess } from "./cli.ts"
-import { atetImageModels } from "./generate.ts"
+import { main as runSlopcameraCliInProcess } from "./cli.ts"
+import { slopcameraImageModels } from "./generate.ts"
 import type {
   HostResourceClaim,
   HostResourceCoordinator,
@@ -14,7 +14,7 @@ function recordingCoordinator(record: {
   claims: HostResourceClaim[][]
 }, inheritedFileDescriptor = 83): HostResourceCoordinator {
   const profile = {
-    id: "atet.cli-test-host/v1",
+    id: "slopcamera.cli-test-host/v1",
     capacities: [],
   } as const
   return {
@@ -53,7 +53,7 @@ async function runCli(
   return { exitCode, stdout, stderr }
 }
 
-describe("Atet CLI", () => {
+describe("Slopcamera CLI", () => {
   test("reports v3.2.3 and documents namespaced media surfaces", async () => {
     const version = await runCli(["--version"], process.cwd())
     expect(version).toEqual({
@@ -64,30 +64,30 @@ describe("Atet CLI", () => {
     const help = await runCli(["--help"], process.cwd())
     expect(help.exitCode).toBe(0)
     for (const command of [
-      "atet diagram init",
-      "atet diagram check",
-      "atet diagram render",
-      "atet image vectorize",
-      "atet image generate",
-      "atet canvas open",
-      "atet code search",
-      "atet code execute",
-      "search_atet/execute_atet",
+      "slopcamera diagram init",
+      "slopcamera diagram check",
+      "slopcamera diagram render",
+      "slopcamera image vectorize",
+      "slopcamera image generate",
+      "slopcamera canvas open",
+      "slopcamera code search",
+      "slopcamera code execute",
+      "search_slopcamera/execute_slopcamera",
     ]) {
       expect(help.stdout).toContain(command)
     }
-    expect(help.stdout).not.toContain("atet auth")
+    expect(help.stdout).not.toContain("slopcamera auth")
   })
 
   test("initializes diagrams against the version-one schema in the v3 release", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-cli-init-"))
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-cli-init-"))
     try {
       const result = await runCli(["diagram", "init", "system.diagram.json"], root)
       expect(result.exitCode).toBe(0)
       expect(result.stderr).toBe("")
       const diagram = JSON.parse(await readFile(join(root, "system.diagram.json"), "utf8"))
       expect(diagram.$schema).toBe(
-        "https://raw.githubusercontent.com/hraness/atet/v3.2.3/schema/diagram.schema.json",
+        "https://raw.githubusercontent.com/hraness/slopcamera/main/schema/diagram.schema.json",
       )
     } finally {
       await rm(root, { recursive: true, force: true })
@@ -103,15 +103,15 @@ describe("Atet CLI", () => {
     expect(result.stderr).toBe("")
     const parsed = JSON.parse(result.stdout)
     expect(parsed.operations.map(({ code }: { code: string }) => code)).toEqual([
-      "atet.diagram.check",
-      "atet.diagram.render",
+      "slopcamera.diagram.check",
+      "slopcamera.diagram.render",
     ])
   })
 
   test("defaults direct generation to the Recraft utility model", async () => {
     const output: string[] = []
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-    await runAtetCliInProcess(
+    await runSlopcameraCliInProcess(
       [
         "image",
         "generate",
@@ -123,14 +123,14 @@ describe("Atet CLI", () => {
       {
         generate: async (input) => {
           expect(input).toEqual({
-            model: atetImageModels[1],
+            model: slopcameraImageModels[1],
             prompt: "one literal illustration",
             outputPath: "illustration.webp",
           })
           return {
             bytes: 128,
             mediaType: "image/webp",
-            model: atetImageModels[1],
+            model: slopcameraImageModels[1],
             outputPath: "/workspace/illustration.webp",
             provider: "vercel-ai-gateway",
             requestId: "request_default_model",
@@ -143,7 +143,7 @@ describe("Atet CLI", () => {
       },
     )
     expect(JSON.parse(output.join("\n"))).toMatchObject({
-      model: atetImageModels[1],
+      model: slopcameraImageModels[1],
       mediaType: "image/webp",
     })
     expect(admission.claims).toEqual([[
@@ -157,7 +157,7 @@ describe("Atet CLI", () => {
     const output: string[] = []
     let calls = 0
     const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-    await runAtetCliInProcess(
+    await runSlopcameraCliInProcess(
       ["image", "vectorize", "source.png", "--output", "source.svg", "--json"],
       {
         hostResourceCoordinator: recordingCoordinator(admission, 89),
@@ -218,12 +218,12 @@ describe("Atet CLI", () => {
       width: 16,
     })
     await expect(
-      runAtetCliInProcess(["vectorize", "source.png", "--output", "source.svg"]),
+      runSlopcameraCliInProcess(["vectorize", "source.png", "--output", "source.svg"]),
     ).rejects.toThrow("flat `vectorize` command moved")
   })
 
   test("executes exact typed JSON without loading workspace code", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-cli-code-"))
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-cli-code-"))
     const marker = join(root, "config-executed")
     try {
       await writeFile(
@@ -245,14 +245,14 @@ describe("Atet CLI", () => {
         }),
       )
       await writeFile(
-        join(root, "atet.config.ts"),
+        join(root, "slopcamera.config.ts"),
         `await Bun.write(${JSON.stringify(marker)}, "executed"); export default {}\n`,
       )
       const result = await runCli(
         [
           "code",
           "execute",
-          "atet.diagram.check",
+          "slopcamera.diagram.check",
           "--input",
           JSON.stringify({ path: "flow.diagram.json" }),
         ],
@@ -260,7 +260,7 @@ describe("Atet CLI", () => {
       )
       expect(result.exitCode).toBe(0)
       expect(JSON.parse(result.stdout)).toMatchObject({
-        operation: "atet.diagram.check",
+        operation: "slopcamera.diagram.check",
         result: { configPath: null },
       })
       expect(await Bun.file(marker).exists()).toBe(false)
@@ -269,7 +269,7 @@ describe("Atet CLI", () => {
         [
           "code",
           "execute",
-          "atet.diagram.check",
+          "slopcamera.diagram.check",
           "--input",
           JSON.stringify({
             path: "flow.diagram.json",
@@ -287,7 +287,7 @@ describe("Atet CLI", () => {
   })
 
   test("admits in-process code execution through the operation registry", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-cli-admission-"))
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-cli-admission-"))
     try {
       const path = join(root, "flow.diagram.json")
       await writeFile(path, JSON.stringify({
@@ -298,10 +298,10 @@ describe("Atet CLI", () => {
       }))
       const output: string[] = []
       const admission = { assertions: 0, claims: [] as HostResourceClaim[][] }
-      await runAtetCliInProcess([
+      await runSlopcameraCliInProcess([
         "code",
         "execute",
-        "atet.diagram.check",
+        "slopcamera.diagram.check",
         "--input",
         JSON.stringify({ path }),
       ], {
@@ -309,7 +309,7 @@ describe("Atet CLI", () => {
         log: line => output.push(line),
       })
       expect(JSON.parse(output.join("\n"))).toMatchObject({
-        operation: "atet.diagram.check",
+        operation: "slopcamera.diagram.check",
         result: { configPath: null },
       })
       expect(admission.claims).toEqual([[

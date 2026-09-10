@@ -8,7 +8,7 @@ const npmPublishPredicate = "https://github.com/npm/attestation/tree/main/specs/
 const slsaPredicate = "https://slsa.dev/provenance/v1";
 const workflowBuildType = "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1";
 const workflowPath = ".github/workflows/npm-stage.yml";
-const repository = "hraness/atet";
+const repository = "hraness/slopcamera";
 const repositoryId = "1310516748";
 const repositoryOwnerId = "307125679";
 const shaPattern = /^[a-f0-9]{40}$/u;
@@ -182,9 +182,9 @@ function verifySlsaStatement(
     || Object.keys(dependencyDigest).length !== 1
     || builder.id !== "https://github.com/actions/runner/github-hosted"
   ) throw new Error("SLSA provenance does not bind the exact npm staging workflow and source.");
-  const match = /^https:\/\/github\.com\/hraness\/atet\/actions\/runs\/([1-9][0-9]*)\/attempts\/([1-9][0-9]*)$/u.exec(invocation);
+  const match = /^https:\/\/github\.com\/hraness\/slopcamera\/actions\/runs\/([1-9][0-9]*)\/attempts\/([1-9][0-9]*)$/u.exec(invocation);
   if (match === null || match[1] === undefined || match[2] === undefined) {
-    throw new Error("SLSA invocation ID is not an exact Atet GitHub Actions run attempt.");
+    throw new Error("SLSA invocation ID is not an exact Slopcamera GitHub Actions run attempt.");
   }
   return Object.freeze({
     runAttempt: parsePositiveInteger(match[2], "SLSA run attempt"),
@@ -217,8 +217,8 @@ function verifyAttestationUrl(value: unknown, expectedName: string, expectedVers
 export async function verifyNpmPublishAuthority(
   input: NpmPublishAuthorityInput,
 ): Promise<NpmPublicationAuthority> {
-  if (input.expectedName !== "@hraness/atet") {
-    throw new Error("npm publication authority is restricted to @hraness/atet.");
+  if (input.expectedName !== "@hraness/slopcamera") {
+    throw new Error("npm publication authority is restricted to @hraness/slopcamera.");
   }
   if (!shaPattern.test(input.expectedSourceSha)) {
     throw new Error("npm publication authority requires one lowercase source SHA.");
@@ -229,7 +229,7 @@ export async function verifyNpmPublishAuthority(
   }
   const integrity = `sha512-${createHash("sha512").update(archive).digest("base64")}`;
   const sha512 = createHash("sha512").update(archive).digest("hex");
-  const expectedPurl = `pkg:npm/%40hraness/atet@${input.expectedVersion}`;
+  const expectedPurl = `pkg:npm/%40hraness/slopcamera@${input.expectedVersion}`;
 
   const view = record(
     JSON.parse(await readFile(input.registryView, "utf8")) as unknown,
@@ -275,19 +275,19 @@ export async function verifyNpmPublishAuthority(
   const candidates = verified.map(value => record(value, "npm audit verified package")).filter(value => (
     value.name === input.expectedName
     && value.version === input.expectedVersion
-    && value.location === "node_modules/@hraness/atet"
+    && value.location === "node_modules/@hraness/slopcamera"
     && value.registry === canonicalRegistry
   ));
   if (candidates.length !== 1) {
-    throw new Error("npm audit signatures did not verify exactly one direct Atet package.");
+    throw new Error("npm audit signatures did not verify exactly one direct Slopcamera package.");
   }
   const candidate = candidates[0] as Record<string, unknown>;
-  const auditedAttestations = record(candidate.attestations, "npm audit Atet attestations");
+  const auditedAttestations = record(candidate.attestations, "npm audit Slopcamera attestations");
   if (
     verifyAttestationUrl(auditedAttestations.url, input.expectedName, input.expectedVersion) !== attestationUrl
-    || record(auditedAttestations.provenance, "npm audit Atet provenance").predicateType !== slsaPredicate
+    || record(auditedAttestations.provenance, "npm audit Slopcamera provenance").predicateType !== slsaPredicate
   ) throw new Error("npm audit attestation summary differs from canonical registry metadata.");
-  const bundles = array(candidate.attestationBundles, "npm audit Atet attestation bundles", 10);
+  const bundles = array(candidate.attestationBundles, "npm audit Slopcamera attestation bundles", 10);
   if (bundles.length !== 2) {
     throw new Error("npm audit must verify exactly the npm publish and SLSA attestations.");
   }

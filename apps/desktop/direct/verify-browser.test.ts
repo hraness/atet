@@ -6,19 +6,19 @@ import {
   externalOrFailedRequests,
   normalizeBaseUrl,
   parseArguments,
-  parseAtetDefinitionCoverage,
-  probeAtetDirectServer,
+  parseSlopcameraDefinitionCoverage,
+  probeSlopcameraDirectServer,
   responsiveLayoutFailures,
   scenarioAuditFailures,
-  atetBrowserScenarioIds,
+  slopcameraBrowserScenarioIds,
   visibleTextContains,
   waitForDirectBridge,
 } from "./verify-browser";
-import { atetScenarioCatalog } from "./scenarios";
-import { createAtetDirectSession } from "./session";
+import { slopcameraScenarioCatalog } from "./scenarios";
+import { createSlopcameraDirectSession } from "./session";
 
-describe("Atet browser verifier", () => {
-  test("uses the shared closed base-URL parser for Atet browser verification", () => {
+describe("Slopcamera browser verifier", () => {
+  test("uses the shared closed base-URL parser for Slopcamera browser verification", () => {
     expect(parseArguments([])).toEqual({ baseUrl: "http://127.0.0.1:5174", kind: "run" });
     expect(parseArguments(["--base-url", "http://localhost:6000"])).toEqual({
       baseUrl: "http://localhost:6000",
@@ -35,12 +35,12 @@ describe("Atet browser verifier", () => {
     expect(canAutomaticallyStartServer("https://example.com")).toBe(false);
   });
 
-  test("distinguishes Atet Direct from another reachable local workbench", async () => {
-    const atet = Bun.serve({
+  test("distinguishes Slopcamera Direct from another reachable local workbench", async () => {
+    const slopcamera = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
       fetch: () => new Response(
-        '<html data-atet-surface="product"><head><title>Atet Direct</title></head></html>',
+        '<html data-slopcamera-surface="product"><head><title>Slopcamera Direct</title></head></html>',
       ),
     });
     const other = Bun.serve({
@@ -51,12 +51,12 @@ describe("Atet browser verifier", () => {
       ),
     });
     try {
-      expect(await probeAtetDirectServer(`http://127.0.0.1:${String(atet.port)}`))
-        .toBe("atet");
-      expect(await probeAtetDirectServer(`http://127.0.0.1:${String(other.port)}`))
+      expect(await probeSlopcameraDirectServer(`http://127.0.0.1:${String(slopcamera.port)}`))
+        .toBe("slopcamera");
+      expect(await probeSlopcameraDirectServer(`http://127.0.0.1:${String(other.port)}`))
         .toBe("other");
     } finally {
-      await Promise.all([atet.stop(true), other.stop(true)]);
+      await Promise.all([slopcamera.stop(true), other.stop(true)]);
     }
   });
 
@@ -146,8 +146,8 @@ describe("Atet browser verifier", () => {
     ]);
   });
 
-  test("defines browser evidence for every authored Atet scenario", () => {
-    const created = createAtetDirectSession({
+  test("defines browser evidence for every authored Slopcamera scenario", () => {
+    const created = createSlopcameraDirectSession({
       kind: "scenario",
       scenario: "idle-ready",
     });
@@ -155,20 +155,20 @@ describe("Atet browser verifier", () => {
     const session = created.value;
 
     expect(scenarioAuditFailures(
-      atetScenarioCatalog.list().map(({ id }) => id),
-      atetBrowserScenarioIds,
-      atetBrowserScenarioIds,
+      slopcameraScenarioCatalog.list().map(({ id }) => id),
+      slopcameraBrowserScenarioIds,
+      slopcameraBrowserScenarioIds,
       session.coverage.entries,
     )).toEqual([]);
     session.dispose();
   });
 
-  test("rejects valid coverage that drifted from the authored Atet definition", () => {
-    const created = createAtetDirectSession({ kind: "scenario", scenario: "idle-ready" });
+  test("rejects valid coverage that drifted from the authored Slopcamera definition", () => {
+    const created = createSlopcameraDirectSession({ kind: "scenario", scenario: "idle-ready" });
     if (!created.ok) throw new Error(created.error.message);
     const session = created.value;
     const first = session.coverage.entries[0];
-    if (first === undefined) throw new Error("Atet coverage is empty.");
+    if (first === undefined) throw new Error("Slopcamera coverage is empty.");
     const driftedCoverage: readonly unknown[] = [
       {
         ...session.coverage,
@@ -181,12 +181,12 @@ describe("Atet browser verifier", () => {
       { ...session.coverage, entries: session.coverage.entries.slice(1) },
     ];
 
-    expect(parseAtetDefinitionCoverage(session.coverage)).toEqual({
+    expect(parseSlopcameraDefinitionCoverage(session.coverage)).toEqual({
       ok: true,
       value: session.coverage,
     });
     for (const drifted of driftedCoverage) {
-      expect(parseAtetDefinitionCoverage(drifted)).toMatchObject({
+      expect(parseSlopcameraDefinitionCoverage(drifted)).toMatchObject({
         ok: false,
         error: { code: "coverage-mismatch" },
       });

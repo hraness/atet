@@ -26,7 +26,7 @@ import {
 
 const roots: string[] = [];
 const NOW = new Date("2026-07-28T17:00:00.000Z");
-const LEASE_FILE = ".atet-runtime-lease.json";
+const LEASE_FILE = ".slopcamera-runtime-lease.json";
 
 afterEach(async () => {
   for (const root of roots.splice(0)) {
@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 async function anchorFixture(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "atet-snapshot-scavenger-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-snapshot-scavenger-"));
   roots.push(root);
   return await realpath(root);
 }
@@ -45,7 +45,7 @@ async function snapshotFixture(
   suffix: string,
   pid: number,
 ): Promise<string> {
-  const path = join(anchor, `.atet-browser-runtime-${suffix}`);
+  const path = join(anchor, `.slopcamera-browser-runtime-${suffix}`);
   await mkdir(path, { mode: 0o700 });
   await chmod(path, 0o700);
   await writeFile(join(path, LEASE_FILE), `${JSON.stringify({
@@ -231,7 +231,7 @@ describe("browser runtime snapshot scavenging", () => {
     expect(reclaimed).toEqual([stale]);
     expect(removed).toHaveLength(1);
     expect(removed[0]).toMatch(
-      /\/\.atet-browser-reclaim-[0-9a-f-]{36}$/u,
+      /\/\.slopcamera-browser-reclaim-[0-9a-f-]{36}$/u,
     );
     expect(await pathExists(stale)).toBe(false);
   });
@@ -272,7 +272,7 @@ describe("browser runtime snapshot scavenging", () => {
     const changed = await snapshotFixture(anchor, "MNO345", 999_994);
     const linkTarget = join(anchor, "link-target");
     await mkdir(linkTarget, { mode: 0o700 });
-    await symlink(linkTarget, join(anchor, ".atet-browser-runtime-PQR678"));
+    await symlink(linkTarget, join(anchor, ".slopcamera-browser-runtime-PQR678"));
     const removed: string[] = [];
     const actualUid = typeof process.getuid === "function" ? process.getuid() : 501;
 
@@ -316,11 +316,11 @@ describe("browser runtime snapshot scavenging", () => {
 
     expect(removed).toHaveLength(1);
     expect(removed[0]).toMatch(
-      /\/\.atet-browser-reclaim-[0-9a-f-]{36}$/u,
+      /\/\.slopcamera-browser-reclaim-[0-9a-f-]{36}$/u,
     );
     expect(await pathExists(wrongOwner)).toBe(false);
     expect(await pathExists(changed)).toBe(true);
-    expect(await pathExists(join(anchor, ".atet-browser-runtime-PQR678")))
+    expect(await pathExists(join(anchor, ".slopcamera-browser-runtime-PQR678")))
       .toBe(true);
   });
 
@@ -373,7 +373,7 @@ describe("browser runtime snapshot scavenging", () => {
     expect(releaseCalls).toBe(0);
     expect(await pathExists(stale)).toBe(false);
     expect((await readdir(anchor)).some(name =>
-      name.startsWith(".atet-browser-reclaim-"))).toBe(true);
+      name.startsWith(".slopcamera-browser-reclaim-"))).toBe(true);
   });
 
   test("treats lsof PID evidence as open even when lsof exits one", () => {
@@ -421,12 +421,12 @@ describe("browser runtime snapshot scavenging", () => {
     const anchor = await anchorFixture();
     const first = await removalFixture(
       anchor,
-      ".atet-browser-runtime-AAA111",
+      ".slopcamera-browser-runtime-AAA111",
       "00000000-0000-4000-8000-000000000011",
     );
     const second = await removalFixture(
       anchor,
-      ".atet-browser-runtime-BBB222",
+      ".slopcamera-browser-runtime-BBB222",
       "00000000-0000-4000-8000-000000000022",
     );
     const swap = join(anchor, ".fixture-swap");
@@ -439,15 +439,15 @@ describe("browser runtime snapshot scavenging", () => {
     await removal.catch(() => undefined);
 
     const quarantineName = (await readdir(anchor)).find(name =>
-      name.startsWith(".atet-browser-reclaim-"));
+      name.startsWith(".slopcamera-browser-reclaim-"));
     expect(quarantineName).toBeDefined();
     const quarantine = join(anchor, quarantineName!);
     expect(await readFile(join(quarantine, "browser", "identity.txt"), "utf8"))
-      .toBe(".atet-browser-runtime-BBB222");
+      .toBe(".slopcamera-browser-runtime-BBB222");
     expect(await readFile(
       join(second.directory, "browser", "identity.txt"),
       "utf8",
-    )).toBe(".atet-browser-runtime-AAA111");
+    )).toBe(".slopcamera-browser-runtime-AAA111");
 
     await removeBrowserRuntimeSnapshot({
       ...second,
@@ -461,12 +461,12 @@ describe("browser runtime snapshot scavenging", () => {
     const anchor = await anchorFixture();
     const first = await removalFixture(
       anchor,
-      ".atet-browser-runtime-CCC333",
+      ".slopcamera-browser-runtime-CCC333",
       "00000000-0000-4000-8000-000000000033",
     );
     const second = await removalFixture(
       anchor,
-      ".atet-browser-runtime-DDD444",
+      ".slopcamera-browser-runtime-DDD444",
       "00000000-0000-4000-8000-000000000044",
     );
     const swap = join(anchor, ".fixture-home-swap");
@@ -479,17 +479,17 @@ describe("browser runtime snapshot scavenging", () => {
     await removal.catch(() => undefined);
 
     const quarantineName = (await readdir(anchor)).find(name =>
-      name.startsWith(".atet-browser-reclaim-"));
+      name.startsWith(".slopcamera-browser-reclaim-"));
     expect(quarantineName).toBeDefined();
     const quarantine = join(anchor, quarantineName!);
     expect(await readFile(join(quarantine, "home", "identity.txt"), "utf8"))
-      .toBe(".atet-browser-runtime-DDD444");
+      .toBe(".slopcamera-browser-runtime-DDD444");
     expect(await readFile(
       join(second.directory, "home", "identity.txt"),
       "utf8",
-    )).toBe(".atet-browser-runtime-CCC333");
+    )).toBe(".slopcamera-browser-runtime-CCC333");
     expect(await readFile(join(quarantine, "browser", "identity.txt"), "utf8"))
-      .toBe(".atet-browser-runtime-CCC333");
+      .toBe(".slopcamera-browser-runtime-CCC333");
     await second.leaseHandle.close();
   });
 
@@ -497,12 +497,12 @@ describe("browser runtime snapshot scavenging", () => {
     const anchor = await anchorFixture();
     const first = await removalFixture(
       anchor,
-      ".atet-browser-runtime-EEE555",
+      ".slopcamera-browser-runtime-EEE555",
       "00000000-0000-4000-8000-000000000055",
     );
     const second = await removalFixture(
       anchor,
-      ".atet-browser-runtime-FFF666",
+      ".slopcamera-browser-runtime-FFF666",
       "00000000-0000-4000-8000-000000000066",
     );
     const firstNested = join(
@@ -527,15 +527,15 @@ describe("browser runtime snapshot scavenging", () => {
     await removal.catch(() => undefined);
 
     const quarantineName = (await readdir(anchor)).find(name =>
-      name.startsWith(".atet-browser-reclaim-"));
+      name.startsWith(".slopcamera-browser-reclaim-"));
     expect(quarantineName).toBeDefined();
     const quarantine = join(anchor, quarantineName!);
     expect(await readFile(
       join(quarantine, "browser", "Contents", "Frameworks", "shared.bin"),
       "utf8",
-    )).toBe(".atet-browser-runtime-FFF666");
+    )).toBe(".slopcamera-browser-runtime-FFF666");
     expect(await readFile(secondNested, "utf8"))
-      .toBe(".atet-browser-runtime-EEE555");
+      .toBe(".slopcamera-browser-runtime-EEE555");
     await second.leaseHandle.close();
   });
 
@@ -543,7 +543,7 @@ describe("browser runtime snapshot scavenging", () => {
     const anchor = await anchorFixture();
     const fixture = await removalFixture(
       anchor,
-      ".atet-browser-runtime-GGG777",
+      ".slopcamera-browser-runtime-GGG777",
       "00000000-0000-4000-8000-000000000077",
     );
     let quarantine = "";

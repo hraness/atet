@@ -2,25 +2,25 @@
 import {
   HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
   HostResourceError,
-  atetHostResourceNames,
   createDefaultHostResourceCoordinator,
   createHostResourceCoordinator,
   createProcessLocalHostResourceCoordinator,
-  defaultAtetHostResourceProfile,
-  defaultAtetHostResourceStateRoot,
+  defaultSlopcameraHostResourceProfile,
+  defaultSlopcameraHostResourceStateRoot,
   normalizeHostResourceClaims,
-  normalizeHostResourceProfile
-} from "./index-6kb9qvnn.js";
+  normalizeHostResourceProfile,
+  slopcameraHostResourceNames
+} from "./index-sh6xbav6.js";
 import"./index-z1w83f81.js";
 export {
+  slopcameraHostResourceNames,
   normalizeHostResourceProfile,
   normalizeHostResourceClaims,
-  defaultAtetHostResourceStateRoot,
-  defaultAtetHostResourceProfile,
+  defaultSlopcameraHostResourceStateRoot,
+  defaultSlopcameraHostResourceProfile,
   createProcessLocalHostResourceCoordinator,
   createHostResourceCoordinator,
   createDefaultHostResourceCoordinator,
-  atetHostResourceNames,
   HostResourceError,
   HOST_RESOURCE_MAX_WAIT_MILLISECONDS
 };

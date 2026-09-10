@@ -4,16 +4,16 @@ import {
   DesktopEventSchema,
   DesktopRequestSchema,
   DesktopResponseSchema,
-  ATET_DESKTOP_PROTOCOL,
-  ATET_DESKTOP_PROTOCOL_VERSION,
+  SLOPCAMERA_DESKTOP_PROTOCOL,
+  SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
   type CaptureDomainCommand,
   type CaptureRuntimeSnapshot,
   type DesktopEvent,
 } from "../../contracts";
 
-export const ATET_RUNTIME_SNAPSHOT_COMMAND = "atet.runtime.snapshot";
-export const ATET_RUNTIME_DISPATCH_COMMAND = "atet.runtime.dispatch";
-export const ATET_RUNTIME_EVENT = "atet.runtime.event";
+export const SLOPCAMERA_RUNTIME_SNAPSHOT_COMMAND = "slopcamera.runtime.snapshot";
+export const SLOPCAMERA_RUNTIME_DISPATCH_COMMAND = "slopcamera.runtime.dispatch";
+export const SLOPCAMERA_RUNTIME_EVENT = "slopcamera.runtime.event";
 
 export interface NativeRuntimeTransport {
   invoke(command: string, payload?: NativeSdkJson): Promise<unknown>;
@@ -83,8 +83,8 @@ function request(
   try {
     return DesktopRequestSchema.parse({
       payload,
-      protocol: ATET_DESKTOP_PROTOCOL,
-      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+      protocol: SLOPCAMERA_DESKTOP_PROTOCOL,
+      protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
       requestId,
     });
   } catch (error: unknown) {
@@ -127,12 +127,12 @@ export function createRuntimeBridge(
   };
   return Object.freeze({
     dispatch: async (command: CaptureDomainCommand) => await invoke(
-      ATET_RUNTIME_DISPATCH_COMMAND,
+      SLOPCAMERA_RUNTIME_DISPATCH_COMMAND,
       { command, kind: "dispatch" },
     ),
-    snapshot: async () => await invoke(ATET_RUNTIME_SNAPSHOT_COMMAND, { kind: "snapshot" }),
+    snapshot: async () => await invoke(SLOPCAMERA_RUNTIME_SNAPSHOT_COMMAND, { kind: "snapshot" }),
     subscribe(listener: RuntimeBridgeListener) {
-      return transport.on(ATET_RUNTIME_EVENT, (detail) => {
+      return transport.on(SLOPCAMERA_RUNTIME_EVENT, (detail) => {
         try {
           listener.onEvent(DesktopEventSchema.parse(detail));
         } catch (error: unknown) {

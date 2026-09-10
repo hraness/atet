@@ -17,10 +17,10 @@ export async function executeSpatialWorldCommand(
     const input = SavedSpatialWorldImportInputSchema.safeParse(await readSpatialJson(resolve(repositoryRoot, command.input)));
     if (!input.success) throw new CliError("invalid-data", "The saved world import input is invalid.");
     const outputRoot = resolve(repositoryRoot, command.outputRoot);
-    const generatedRoot = join(repositoryRoot, "artifacts", "atet", "generated");
+    const generatedRoot = join(repositoryRoot, "artifacts", "slopcamera", "generated");
     const outputRelative = relative(generatedRoot, outputRoot);
     if (outputRelative === "" || outputRelative.startsWith(`..${sep}`) || outputRelative === ".." || resolve(generatedRoot, outputRelative) !== outputRoot) {
-      throw new CliError("unsafe-path", "World imports require a dedicated directory below artifacts/atet/generated.");
+      throw new CliError("unsafe-path", "World imports require a dedicated directory below artifacts/slopcamera/generated.");
     }
     const destinationRoot = await ensurePhysicalPrivateDirectoryWithin(repositoryRoot, relative(repositoryRoot, outputRoot));
     return await importSavedSpatialWorld({

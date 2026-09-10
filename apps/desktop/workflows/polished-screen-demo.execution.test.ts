@@ -146,7 +146,7 @@ const REAL_WORKFLOW_NOW = new Date("2026-07-23T16:00:00.000Z");
 const REAL_CAPTURE_OPTIONS = {
   camera: { kind: "disabled" },
   displays: { kind: "all" },
-  excludedBundleIdentifiers: ["com.hraness.atet"],
+  excludedBundleIdentifiers: ["com.hraness.slopcamera"],
   interactionEventProcessIdentifier: null,
   metadata: true,
   microphone: { kind: "disabled" },
@@ -391,7 +391,7 @@ function faceAnalysis(
       fixture: "polished-screen-demo",
       subject,
     }),
-    kind: "atet.face-analysis",
+    kind: "slopcamera.face-analysis",
     privacy: {
       biometricIdentification: "not-performed",
       execution: "local-only",
@@ -425,7 +425,7 @@ function faceAnalysis(
     schemaVersion: 1,
     subject,
     tool: {
-      name: "atet-face-analyzer",
+      name: "slopcamera-face-analyzer",
       profile: "offline-boxes",
       version: "workflow-fixture",
     },
@@ -620,7 +620,7 @@ describe("polished screen demo durable execution", () => {
     const repositoryRoot = await mkdtemp(
       join(
         await realpath(tmpdir()),
-        "atet-polished-demo-execution-",
+        "slopcamera-polished-demo-execution-",
       ),
     );
     try {
@@ -847,7 +847,7 @@ describe("polished screen demo durable execution", () => {
       const repositoryRoot = await mkdtemp(
         join(
           await realpath(tmpdir()),
-          "atet-polished-demo-real-media-",
+          "slopcamera-polished-demo-real-media-",
         ),
       );
       const runner = new BunProcessRunner();
@@ -856,7 +856,7 @@ describe("polished screen demo durable execution", () => {
         const recordingRoot = join(
           repositoryRoot,
           "artifacts",
-          "atet",
+          "slopcamera",
           "recordings",
         );
         const recordingId = "rec_polishedreal01";
@@ -978,7 +978,7 @@ describe("polished screen demo durable execution", () => {
           helperVersion: CAPTURE_HELPER_VERSION,
           now: () => OPERATION_TEST_LATER,
           recordingId,
-          toolVersion: "atet-golden-path",
+          toolVersion: "slopcamera-golden-path",
           verifier: new CaptureMediaVerifier({
             ffprobe,
             runner,
@@ -1093,7 +1093,7 @@ describe("polished screen demo durable execution", () => {
           projectRoot: join(
             repositoryRoot,
             "artifacts",
-            "atet",
+            "slopcamera",
             "projects",
           ),
           recording,
@@ -1134,7 +1134,7 @@ describe("polished screen demo durable execution", () => {
           desktopRoot,
           {
             ...process.env,
-            ATET_FACE_ANALYZER: faceAnalyzer.path,
+            SLOPCAMERA_FACE_ANALYZER: faceAnalyzer.path,
           },
         );
         for (const name of ["face-analyzer", "ffmpeg", "ffprobe"] as const) {
@@ -1170,7 +1170,7 @@ describe("polished screen demo durable execution", () => {
           runner,
         } satisfies ApplicationContext;
         const registry = createApplicationOperationRegistry({
-          toolVersion: "atet-golden-path",
+          toolVersion: "slopcamera-golden-path",
         });
         const workflow = builtInWorkflow("polished-screen-demo");
         if (workflow === undefined) {

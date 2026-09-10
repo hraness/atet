@@ -151,7 +151,7 @@ export const FaceFollowDerivationProvenanceSchema = z.strictObject({
 const FaceFollowRevisionDraftBodySchema = z.strictObject({
   cameraMove: ProjectCameraMoveSchema,
   kind: z.union([
-    z.literal("atet.face-follow-edit-revision-draft"),
+    z.literal("slopcamera.face-follow-edit-revision-draft"),
     z.literal("studio.face-follow-edit-revision-draft"),
   ]),
   pixelHeight: z.number().int().safe().positive().max(16_384),
@@ -331,7 +331,7 @@ export function createFollowFacesOperationDefinition(
     }));
   return {
     inputSchema: FollowFacesInputSchema,
-    inputSchemaId: "atet.operation.derive.follow-faces.input/v1",
+    inputSchemaId: "slopcamera.operation.derive.follow-faces.input/v1",
     kind: "derive.follow-faces",
     lifecycle: {
       kind: "local-artifact",
@@ -408,7 +408,7 @@ export function createFollowFacesOperationDefinition(
         return FaceFollowRevisionDraftSchema.parse({
           cameraMove: planned.move,
           derivationSha256,
-          kind: "atet.face-follow-edit-revision-draft",
+          kind: "slopcamera.face-follow-edit-revision-draft",
           ...dimensions,
           plan,
           planSha256: hashProjectEditPlan(plan),
@@ -419,7 +419,7 @@ export function createFollowFacesOperationDefinition(
       },
     },
     outputSchema: FaceFollowRevisionDraftSchema,
-    outputSchemaId: "atet.operation.derive.follow-faces.output/v1",
+    outputSchemaId: "slopcamera.operation.derive.follow-faces.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

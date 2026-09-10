@@ -53,7 +53,7 @@ describe("built-in workflow catalog", () => {
       2,
     ]);
     expect(BUILT_IN_WORKFLOWS.every(workflow => (
-      workflow.inputSchemaId.startsWith("atet.workflow.")
+      workflow.inputSchemaId.startsWith("slopcamera.workflow.")
     ))).toBe(true);
   });
 
@@ -86,8 +86,8 @@ describe("built-in workflow catalog", () => {
     });
     expect(plan.registry.discovery.every(operation => (
       OPERATION_KINDS.includes(operation.kind as OperationKind)
-      && operation.inputSchemaId.startsWith("atet.operation.")
-      && operation.outputSchemaId.startsWith("atet.operation.")
+      && operation.inputSchemaId.startsWith("slopcamera.operation.")
+      && operation.outputSchemaId.startsWith("slopcamera.operation.")
     ))).toBe(true);
 
     expect(plan.topologicalWaves).toEqual([
@@ -180,7 +180,7 @@ describe("built-in workflow catalog", () => {
       base,
       candidateCount: 2,
       candidateSetSha256: "d".repeat(64),
-      kind: "atet.variant-matrix-reference",
+      kind: "slopcamera.variant-matrix-reference",
       matrixSha256,
       schemaVersion: 1,
     });
@@ -665,7 +665,7 @@ describe("built-in workflow catalog", () => {
     const workflow = defineWorkflow({
       id: "common-variant-compatibility",
       inputSchema: z.strictObject({ project: z.string() }),
-      inputSchemaId: "atet.workflow.common-variant-compatibility.input/v1",
+      inputSchemaId: "slopcamera.workflow.common-variant-compatibility.input/v1",
       version: 1,
       build(builder, input) {
         const project = builder.project.snapshot("project", input.project);
@@ -744,7 +744,7 @@ describe("built-in workflow catalog", () => {
       inputSchema: z.strictObject({
         project: z.string(),
       }),
-      inputSchemaId: "atet.workflow.caption-only-matrix.input/v1",
+      inputSchemaId: "slopcamera.workflow.caption-only-matrix.input/v1",
       version: 1,
       build(builder, input) {
         const project = builder.project.snapshot("project", input.project);

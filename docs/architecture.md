@@ -1,6 +1,6 @@
-# How ATET connects sources, scenes and films
+# How Slopcamera connects sources, scenes and films
 
-ATET keeps authored source available while turning it into inspectable visual artifacts. A diagram, a native Blender scene, an AI-generated clip and a recorded screen can all contribute to a film, but they retain different editing capabilities and provenance. A finished image or video is a useful common boundary between renderers; it does not preserve every property of the source that produced it.
+Slopcamera keeps authored source available while turning it into inspectable visual artifacts. A diagram, a native Blender scene, an AI-generated clip and a recorded screen can all contribute to a film, but they retain different editing capabilities and provenance. A finished image or video is a useful common boundary between renderers; it does not preserve every property of the source that produced it.
 
 ## One local host, several authoring representations
 
@@ -36,6 +36,6 @@ A failed or interrupted attempt can leave useful outputs and uncertain effects. 
 
 ## Local and network responsibilities
 
-Project state lives locally; ATET has no product account or hosted project database. Local rendering consumes admitted assets, while explicit acquisition and provider operations cross separate boundaries. Gateway sends authorized prompts and references to models; private Blob hosting grants temporary reference access; Poly Haven imports selected assets. Initial browser libraries or VTracer provisioning may download verified tool dependencies before local execution.
+Project state lives locally; Slopcamera has no product account or hosted project database. Local rendering consumes admitted assets, while explicit acquisition and provider operations cross separate boundaries. Gateway sends authorized prompts and references to models; private Blob hosting grants temporary reference access; Poly Haven imports selected assets. Initial browser libraries or VTracer provisioning may download verified tool dependencies before local execution.
 
 Credentials belong to the invocation environment and are not project data. A model request's local estimate is not a provider-enforced spending cap. Downloading a public asset, uploading private references and rendering retained bytes are distinct operations with distinct receipts. The [capability reference](reference/capabilities.md) records current platform and trust limits; [generation](how-to/generate-media.md) and [native production](studio.md) explain the corresponding tasks.

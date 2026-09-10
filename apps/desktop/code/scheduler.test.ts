@@ -13,7 +13,7 @@ import {
   HOST_RESOURCE_MAX_WAIT_MILLISECONDS,
   type HostResourceClaim,
   type HostResourceCoordinator,
-} from "@hraness/atet/host-resources";
+} from "@hraness/slopcamera/host-resources";
 
 import type { ApplicationContext } from "../application/context";
 import { ApplicationError } from "../application/errors";
@@ -155,7 +155,7 @@ async function settleWithin<Value>(
 }
 
 async function temporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(await realpath(tmpdir()), "atet-scheduler-"));
+  const directory = await mkdtemp(join(await realpath(tmpdir()), "slopcamera-scheduler-"));
   temporaryDirectories.push(directory);
   return directory;
 }
@@ -268,7 +268,7 @@ async function createRun(
   runId: string,
   options: {
     readonly projectFinalOutputs?: boolean;
-    readonly operationKind?: "derive.edit-batch" | "atet.studio.run";
+    readonly operationKind?: "derive.edit-batch" | "slopcamera.studio.run";
     readonly studioInput?: JsonValue;
     readonly storeFactory?: (root: string) => RunStore;
   } = {},
@@ -2700,13 +2700,13 @@ test("studio fixed-runtime planning waits for physical admission and inherits th
     },
   };
   const registry = new OperationRegistry();
-  registry.register({ kind: "atet.studio.run", version: 1, inputSchema: StudioRunInputSchema, inputSchemaId: "test.studio-probe.input/v1", outputSchema: OutputSchema, outputSchemaId: "test.studio-probe.output/v1",
+  registry.register({ kind: "slopcamera.studio.run", version: 1, inputSchema: StudioRunInputSchema, inputSchemaId: "test.studio-probe.input/v1", outputSchema: OutputSchema, outputSchemaId: "test.studio-probe.output/v1",
     policy: policy({ resources: [{ resource: "cpu", amount: 1 }, { resource: "local-io", amount: 1 }] }),
     lifecycle: { kind: "local-artifact", execute: async (_context, input: StudioRunInput) => { expect(active).toBe(1); executions++; return { id: input.job.jobId, value: 1 }; } },
-    summarize: (output: FixtureOutput) => ({ kind: "atet.studio.run", fields: { id: output.id } }),
+    summarize: (output: FixtureOutput) => ({ kind: "slopcamera.studio.run", fields: { id: output.id } }),
   });
   const runId = "run_studio_probe_admission01";
-  const run = await createRun(registry, [{ id: "native" }], runId, { operationKind: "atet.studio.run", studioInput: JsonValueSchema.parse(studioOperationFixture().input) });
+  const run = await createRun(registry, [{ id: "native" }], runId, { operationKind: "slopcamera.studio.run", studioInput: JsonValueSchema.parse(studioOperationFixture().input) });
   const running = scheduler(run.store, registry, { application: { ...application, studioAuthorization: { authorize: async () => true } }, hostResourceCoordinator: coordinator, nodePlanner: { ...passThroughPlanner,
     plan: async request => {
       expect(active).toBe(1);
@@ -2733,12 +2733,12 @@ test("studio fixed-runtime planning waits for physical admission and inherits th
 test("studio missing native authorization pauses before execution and resumes only with an explicit envelope", async () => {
   let executions = 0;
   const registry = new OperationRegistry();
-  registry.register({ kind: "atet.studio.run", version: 1, inputSchema: StudioRunInputSchema, inputSchemaId: "test.studio-authorization.input/v1", outputSchema: OutputSchema, outputSchemaId: "test.studio-authorization.output/v1",
+  registry.register({ kind: "slopcamera.studio.run", version: 1, inputSchema: StudioRunInputSchema, inputSchemaId: "test.studio-authorization.input/v1", outputSchema: OutputSchema, outputSchemaId: "test.studio-authorization.output/v1",
     policy: policy(), lifecycle: { kind: "local-artifact", execute: async (_context, input: StudioRunInput) => { executions++; return { id: input.job.jobId, value: 1 }; } },
-    summarize: (output: FixtureOutput) => ({ kind: "atet.studio.run", fields: { id: output.id } }),
+    summarize: (output: FixtureOutput) => ({ kind: "slopcamera.studio.run", fields: { id: output.id } }),
   });
   const input = studioOperationFixture().input, runId = "run_studio_authorization01";
-  const run = await createRun(registry, [{ id: "native" }], runId, { operationKind: "atet.studio.run", studioInput: JsonValueSchema.parse(input) });
+  const run = await createRun(registry, [{ id: "native" }], runId, { operationKind: "slopcamera.studio.run", studioInput: JsonValueSchema.parse(input) });
   expect((await scheduler(run.store, registry).run(runId)).summary.status).toBe("approval-required");
   expect(executions).toBe(0);
   expect((await scheduler(run.store, registry).run(runId)).summary.status).toBe("approval-required");

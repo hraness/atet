@@ -36,18 +36,18 @@ function png(alpha: boolean, depth: 8 | 16, frame: number): Buffer {
 
 async function fixture(options: { alpha?: boolean; depth?: 8 | 16; native?: boolean } = {}) {
   const alpha = options.alpha ?? false, depth = options.depth ?? 8;
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-studio-encode-"))); roots.push(root);
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-studio-encode-"))); roots.push(root);
   const privateRoot = await ensurePhysicalPrivateDirectoryWithin(root, "private");
   const jobRoot = await ensurePhysicalPrivateDirectoryWithin(privateRoot, "studio/jobs/studio_encode_fixture");
   const sourceRoot = await ensurePhysicalPrivateDirectoryWithin(jobRoot, "source"), outputRoot = await ensurePhysicalPrivateDirectoryWithin(jobRoot, "outputs");
   const sourceText = "# Retained fixture source; encoder must never execute it.\n";
   await writeFile(join(sourceRoot, "scene.py"), sourceText);
-  const bundle = { kind: "atet.studio-source-bundle", schemaVersion: 1, engine: "blender", entrypoint: { kind: "python", path: "scene.py" }, files: [{ path: "scene.py", bytes: Buffer.byteLength(sourceText), sha256: studioBytesSha256(sourceText) }] };
-  const job = { kind: "atet.studio-job", schemaVersion: 1, jobId: "studio_encode_fixture", bundleSha256: studioSourceBundleSha256(bundle), stage: "render", parameters: {}, render,
+  const bundle = { kind: "slopcamera.studio-source-bundle", schemaVersion: 1, engine: "blender", entrypoint: { kind: "python", path: "scene.py" }, files: [{ path: "scene.py", bytes: Buffer.byteLength(sourceText), sha256: studioBytesSha256(sourceText) }] };
+  const job = { kind: "slopcamera.studio-job", schemaVersion: 1, jobId: "studio_encode_fixture", bundleSha256: studioSourceBundleSha256(bundle), stage: "render", parameters: {}, render,
     engine: { engine: "blender", renderer: "cycles", device: "cpu", samples: 1, transparent: alpha, viewTransform: "Standard", denoise: false, seed: 0 },
     outputs: [{ kind: "sequence", id: "beauty", role: "beauty", format: "png", pathPattern: "frame_%06d.png", interpretation: { kind: "raster", semantic: "color", colorSpace: "srgb", alpha: alpha ? "straight" : "opaque", dataType: depth === 16 ? "uint16" : "uint8", channels: alpha ? ["R", "G", "B", "A"] : ["R", "G", "B"], unit: "unitless" } }],
     limits: { timeoutSeconds: 30, maximumOutputBytes: 1_048_576, maximumOutputFiles: 2 }, execution: { trust: "trusted-current-user", isolation: "none", hermetic: false } };
-  const sha = "d".repeat(64), runtime = { kind: "atet.studio-runtime", schemaVersion: 1, engine: "blender", tool: { name: "Blender", version: "fixture", executableSha256: sha }, driverSha256: sha,
+  const sha = "d".repeat(64), runtime = { kind: "slopcamera.studio-runtime", schemaVersion: 1, engine: "blender", tool: { name: "Blender", version: "fixture", executableSha256: sha }, driverSha256: sha,
     environment: { fingerprintSha256: sha, evidence: "observed-package-environment", hermetic: false }, capabilities: ["python-authoring", "render", "image-sequence"].map(name => ({ name, support: "available", evidence: "probe" })) };
   const plan = planStudioJob({ bundle, job, runtime });
   const frames = [];
@@ -55,7 +55,7 @@ async function fixture(options: { alpha?: boolean; depth?: 8 | 16; native?: bool
     const data = png(alpha, depth, frame), path = `frame_${String(frame).padStart(6, "0")}.png`;
     await writeFile(join(outputRoot, path), data); frames.push({ outputId: "beauty", path, frame, sha256: studioBytesSha256(data), bytes: data.length, role: "beauty", format: "png" });
   }
-  const document = { kind: "atet.studio-receipt", schemaVersion: 1, jobId: job.jobId, attemptId: "attempt_fixture", planSha256: plan.planSha256, bundleSha256: plan.bundleSha256, jobSha256: plan.jobSha256,
+  const document = { kind: "slopcamera.studio-receipt", schemaVersion: 1, jobId: job.jobId, attemptId: "attempt_fixture", planSha256: plan.planSha256, bundleSha256: plan.bundleSha256, jobSha256: plan.jobSha256,
     runtime: plan.runtime, runtimeSha256: plan.runtimeSha256, startedAt: "2026-09-09T00:00:00Z", finishedAt: "2026-09-09T00:00:01Z", state: "succeeded", custody: "closed", exitCode: 0, outputs: frames };
   await writeFile(join(jobRoot, "plan.json"), studioJson(plan)); await writeFile(join(jobRoot, "receipt.json"), studioJson(document));
   const fakeExe = join(root, "tool"); await writeFile(fakeExe, "#!/bin/sh\nexit 0\n"); await chmod(fakeExe, 0o700);
@@ -163,7 +163,7 @@ describe("retained studio sequence encoding", () => {
   });
 });
 
-const native = process.env.ATET_STUDIO_ENCODE_NATIVE === "1";
+const native = process.env.SLOPCAMERA_STUDIO_ENCODE_NATIVE === "1";
 describe.skipIf(!native)("native studio encode qualification", () => {
   for (const alpha of [false, true]) for (const depth of [8, 16] as const) test(`${alpha ? "RGBA" : "RGB"}${depth}: two PNGs retain exact quantized pixels and rational timing`, async () => {
     const f = await fixture({ alpha, depth, native: true });

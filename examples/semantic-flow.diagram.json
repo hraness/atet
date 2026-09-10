@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/hraness/atet/v3.2.3/schema/diagram.schema.json",
+  "$schema": "https://raw.githubusercontent.com/hraness/slopcamera/v3.2.3/schema/diagram.schema.json",
   "version": 1,
   "name": "semantic-flow",
   "canvas": {
@@ -20,12 +20,12 @@
       "tone": "purple"
     },
     {
-      "id": "atet",
+      "id": "slopcamera",
       "type": "rect",
       "width": 220,
       "height": 168,
       "radius": 28,
-      "label": "Atet",
+      "label": "Slopcamera",
       "tone": "blue"
     },
     {
@@ -39,13 +39,13 @@
   ],
   "edges": [
     {
-      "id": "prompt-atet",
+      "id": "prompt-slopcamera",
       "from": "prompt",
-      "to": "atet"
+      "to": "slopcamera"
     },
     {
-      "id": "atet-artifact",
-      "from": "atet",
+      "id": "slopcamera-artifact",
+      "from": "slopcamera",
       "to": "artifact"
     }
   ]

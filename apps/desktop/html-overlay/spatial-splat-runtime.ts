@@ -5,9 +5,9 @@ export function addSpatialSplatRuntime(document: string): string {
     document = document.replace(source, replacement);
   };
   replace('import * as THREE from "three";', 'import * as THREE from "three";\nimport { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";');
-  replace('AtetOverlay.ready(initialization);', `
+  replace('SlopcameraOverlay.ready(initialization);', `
 // Exact offline readback avoids Three's wall-clock fence polling under the
-// absolute Atet frame clock. Both APIs bind the same target and MRT attachment.
+// absolute Slopcamera frame clock. Both APIs bind the same target and MRT attachment.
 renderer.readRenderTargetPixelsAsync=async(target,x,y,width,height,buffer,face,attachment)=>{
   const texture=target.textures?.[attachment],gl=renderer.getContext();
   if(attachment!==2||texture?.format!==THREE.RGBAFormat||texture?.type!==THREE.UnsignedByteType||buffer.BYTES_PER_ELEMENT!==1||buffer.byteLength<width*height*4||x<0||y<0||x+width>target.width||y+height>target.height)throw new Error("Spark requested an unqualified MRT readback.");
@@ -38,8 +38,8 @@ const splatInitialization=initialization.then(async()=>{
     mesh.matrixAutoUpdate=false;mesh.frustumCulled=false;
   }
 }).catch(error=>{disposeSplats();throw error;});
-AtetOverlay.ready(splatInitialization);`);
-  replace('AtetOverlay.onFrame(({frame:index})=>{', 'AtetOverlay.onFrame(async({frame:index})=>{');
+SlopcameraOverlay.ready(splatInitialization);`);
+  replace('SlopcameraOverlay.onFrame(({frame:index})=>{', 'SlopcameraOverlay.onFrame(async({frame:index})=>{');
   replace('camera.updateMatrixWorld(true);return camera;', 'camera.near=data.near;camera.far=data.far;camera.updateMatrixWorld(true);return camera;');
   replace('    for(const object of frame.objects){', `    const hasFrameSplats=frame.objects.some(object=>object.kind==="splat");spark.visible=hasFrameSplats;world.add(spark);
     for(const object of frame.objects){
@@ -50,7 +50,7 @@ AtetOverlay.ready(splatInitialization);`);
   replace('    renderer.setRenderTarget(beautyTarget);renderer.clear(true,true,true);renderer.render(world,camera);', `    if(spark.sorting||spark.sortDirty||spark.sortTimeoutId!==-1||spark.updateTimeoutId!==-1)throw new Error("A previous Spark view did not settle.");
     // Explicit offline samples may seek backwards; never apply a wall-clock throttle.
     spark.lastSortTime=0;
-    spark.time=frame.timeUs/1000000;spark.renderSize.set(AtetOverlay.width,AtetOverlay.height);
+    spark.time=frame.timeUs/1000000;spark.renderSize.set(SlopcameraOverlay.width,SlopcameraOverlay.height);
     world.updateMatrixWorld(true);if(hasFrameSplats)await spark.update({scene:world,camera});
     if(spark.sorting||spark.sortDirty||(hasFrameSplats&&spark.display!==spark.current))throw new Error("Spark did not settle the exact directed camera sample.");
     if(contextFailure||disposed)throw contextFailure??new Error("Spatial renderer was disposed while sorting.");

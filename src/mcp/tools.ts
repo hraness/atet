@@ -1,23 +1,23 @@
 import { rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { AtetCloudError } from "../cloud-errors.js"
+import { SlopcameraCloudError } from "../cloud-errors.js"
 import {
-  generateAtetImageFile,
-  type AtetGenerateDependencies,
+  generateSlopcameraImageFile,
+  type SlopcameraGenerateDependencies,
 } from "../generate.js"
 import { builtInIcons } from "../icons.js"
 import { lintDiagram } from "../lint.js"
 import {
-  AtetOperationError,
-  atetOperationCodes,
-  parseAtetOperationInput,
-  searchAtetOperations,
-  withAtetOperationHostAdmission,
-  type CheckAtetOperationInput,
-  type GenerateAtetOperationInput,
-  type AtetOperationCode,
-  type RenderAtetOperationInput,
-  type VectorizeAtetOperationInput,
+  SlopcameraOperationError,
+  slopcameraOperationCodes,
+  parseSlopcameraOperationInput,
+  searchSlopcameraOperations,
+  withSlopcameraOperationHostAdmission,
+  type CheckSlopcameraOperationInput,
+  type GenerateSlopcameraOperationInput,
+  type SlopcameraOperationCode,
+  type RenderSlopcameraOperationInput,
+  type VectorizeSlopcameraOperationInput,
 } from "../operations.js"
 import {
   createDefaultHostResourceCoordinator,
@@ -77,12 +77,12 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value)
 }
 
-export const atetMcpTools: readonly McpToolDefinition[] = deepFreeze([
+export const slopcameraMcpTools: readonly McpToolDefinition[] = deepFreeze([
   {
     name: "check_diagram",
     title: "Check diagram",
     description:
-      "Parse and lint one root-relative Atet diagram source without changing files. Uses only built-in icons and themes.",
+      "Parse and lint one root-relative Slopcamera diagram source without changing files. Uses only built-in icons and themes.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -134,7 +134,7 @@ export const atetMcpTools: readonly McpToolDefinition[] = deepFreeze([
     name: "render_diagram",
     title: "Render diagram",
     description:
-      "Render one root-relative Atet diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
+      "Render one root-relative Slopcamera diagram source with built-in icons and themes, overwriting its paired .tldr, light/dark SVG, and light/dark PNG artifacts.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -208,10 +208,10 @@ export const atetMcpTools: readonly McpToolDefinition[] = deepFreeze([
     },
   },
   {
-    name: "search_atet",
-    title: "Search Atet operations",
+    name: "search_slopcamera",
+    title: "Search Slopcamera operations",
     description:
-      "Search the fixed semantic Atet operation registry by bounded text. This never executes code or changes files.",
+      "Search the fixed semantic Slopcamera operation registry by bounded text. This never executes code or changes files.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -253,7 +253,7 @@ export const atetMcpTools: readonly McpToolDefinition[] = deepFreeze([
       },
     },
     annotations: {
-      title: "Search Atet operations",
+      title: "Search Slopcamera operations",
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
@@ -261,8 +261,8 @@ export const atetMcpTools: readonly McpToolDefinition[] = deepFreeze([
     },
   },
   {
-    name: "execute_atet",
-    title: "Execute Atet operation",
+    name: "execute_slopcamera",
+    title: "Execute Slopcamera operation",
     description:
       "Execute one exact operation code with typed JSON input. Never accepts or evaluates source code. Local paths remain confined to the configured workspace root.",
     inputSchema: {
@@ -272,7 +272,7 @@ export const atetMcpTools: readonly McpToolDefinition[] = deepFreeze([
       properties: {
         operation: {
           type: "string",
-          enum: atetOperationCodes,
+          enum: slopcameraOperationCodes,
         },
         input: {
           type: "object",
@@ -287,12 +287,12 @@ export const atetMcpTools: readonly McpToolDefinition[] = deepFreeze([
       required: ["ok", "operation", "result"],
       properties: {
         ok: { const: true },
-        operation: { type: "string", enum: atetOperationCodes },
+        operation: { type: "string", enum: slopcameraOperationCodes },
         result: { type: "object" },
       },
     },
     annotations: {
-      title: "Execute Atet operation",
+      title: "Execute Slopcamera operation",
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: false,
@@ -328,7 +328,7 @@ interface ParsedSearchArguments {
 }
 
 interface ParsedExecuteArguments {
-  readonly operation: AtetOperationCode
+  readonly operation: SlopcameraOperationCode
   readonly input: unknown
 }
 
@@ -438,7 +438,7 @@ function parseSearchArguments(value: unknown): ParsedSearchArguments {
   }
   rejectUnknownKeys(value, new Set(["query", "limit"]))
   const query = value.query ?? ""
-  const limit = value.limit ?? atetOperationCodes.length
+  const limit = value.limit ?? slopcameraOperationCodes.length
   if (
     typeof query !== "string" ||
     query.length > 200 ||
@@ -462,16 +462,16 @@ function parseExecuteArguments(value: unknown): ParsedExecuteArguments {
   rejectUnknownKeys(value, new Set(["operation", "input"]))
   if (
     typeof value.operation !== "string" ||
-    !atetOperationCodes.includes(value.operation as AtetOperationCode) ||
+    !slopcameraOperationCodes.includes(value.operation as SlopcameraOperationCode) ||
     !isRecord(value.input)
   ) {
     throw new ToolFailure(
       "INVALID_ARGUMENTS",
-      "operation must be an exact Atet operation code and input must be an object.",
+      "operation must be an exact Slopcamera operation code and input must be an object.",
     )
   }
   return {
-    operation: value.operation as AtetOperationCode,
+    operation: value.operation as SlopcameraOperationCode,
     input: value.input,
   }
 }
@@ -584,13 +584,13 @@ function failureResult(error: unknown): McpToolResult {
   } else if (error instanceof WorkspaceBoundaryError) {
     code = error.code
     message = safeFragment(error.message, 320)
-  } else if (error instanceof AtetCloudError) {
+  } else if (error instanceof SlopcameraCloudError) {
     code = error.code
     message = safeFragment(
       error.message.replace(/^\[[A-Z_]+\]\s*/u, ""),
       320,
     )
-  } else if (error instanceof AtetOperationError) {
+  } else if (error instanceof SlopcameraOperationError) {
     code = error.code
     message = safeFragment(
       error.message.replace(/^\[[A-Z_]+\]\s*/u, ""),
@@ -636,7 +636,7 @@ async function atomicOverwrite(
 ): Promise<void> {
   const temporaryPath = join(
     dirname(filePath),
-    `.${crypto.randomUUID()}.atet-mcp.tmp`,
+    `.${crypto.randomUUID()}.slopcamera-mcp.tmp`,
   )
   try {
     await writeFile(temporaryPath, data, { flag: "wx" })
@@ -680,15 +680,15 @@ async function loadDiagram(
   return { source, spec }
 }
 
-export class AtetMcpToolRuntime {
+export class SlopcameraMcpToolRuntime {
   readonly boundary: WorkspaceBoundary
-  readonly generateDependencies: AtetGenerateDependencies
+  readonly generateDependencies: SlopcameraGenerateDependencies
   readonly hostResourceCoordinator: HostResourceCoordinator
   private renderQueue: Promise<void> = Promise.resolve()
 
   private constructor(
     boundary: WorkspaceBoundary,
-    generateDependencies: AtetGenerateDependencies,
+    generateDependencies: SlopcameraGenerateDependencies,
     hostResourceCoordinator: HostResourceCoordinator,
   ) {
     this.boundary = boundary
@@ -698,10 +698,10 @@ export class AtetMcpToolRuntime {
 
   static async create(
     rootDirectory: string,
-    generateDependencies: AtetGenerateDependencies = {},
+    generateDependencies: SlopcameraGenerateDependencies = {},
     hostResourceCoordinator?: HostResourceCoordinator,
-  ): Promise<AtetMcpToolRuntime> {
-    return new AtetMcpToolRuntime(
+  ): Promise<SlopcameraMcpToolRuntime> {
+    return new SlopcameraMcpToolRuntime(
       await WorkspaceBoundary.create(rootDirectory),
       generateDependencies,
       hostResourceCoordinator ?? createDefaultHostResourceCoordinator(),
@@ -709,10 +709,10 @@ export class AtetMcpToolRuntime {
   }
 
   private async withHostAdmission<T>(
-    operation: AtetOperationCode,
+    operation: SlopcameraOperationCode,
     callback: (lease: HostResourceLease) => T | Promise<T>,
   ): Promise<T> {
-    return await withAtetOperationHostAdmission(operation, callback, {
+    return await withSlopcameraOperationHostAdmission(operation, callback, {
       hostResourceCoordinator: this.hostResourceCoordinator,
     })
   }
@@ -731,7 +731,7 @@ export class AtetMcpToolRuntime {
       if (name === "check_diagram") {
         const options = parseCheckArguments(argumentsValue)
         return await this.withHostAdmission(
-          "atet.diagram.check",
+          "slopcamera.diagram.check",
           async () => await this.check(options),
         )
       }
@@ -739,23 +739,23 @@ export class AtetMcpToolRuntime {
         const options = parseRenderArguments(argumentsValue)
         return await this.enqueueRender(async () => (
           await this.withHostAdmission(
-            "atet.diagram.render",
+            "slopcamera.diagram.render",
             async () => await this.render(options),
           )
         ))
       }
-      if (name === "search_atet") {
+      if (name === "search_slopcamera") {
         const options = parseSearchArguments(argumentsValue)
-        const operations = searchAtetOperations(
+        const operations = searchSlopcameraOperations(
           options.query,
           options.limit,
         )
         return successResult(
-          `Found ${operations.length} Atet operation${operations.length === 1 ? "" : "s"}.`,
+          `Found ${operations.length} Slopcamera operation${operations.length === 1 ? "" : "s"}.`,
           { ok: true, operations },
         )
       }
-      if (name === "execute_atet") {
+      if (name === "execute_slopcamera") {
         const options = parseExecuteArguments(argumentsValue)
         return await this.execute(options)
       }
@@ -766,7 +766,7 @@ export class AtetMcpToolRuntime {
   }
 
   private wrapSemanticResult(
-    operation: AtetOperationCode,
+    operation: SlopcameraOperationCode,
     result: McpToolResult,
   ): McpToolResult {
     if (result.isError === true) return result
@@ -783,11 +783,11 @@ export class AtetMcpToolRuntime {
   private async execute(
     options: ParsedExecuteArguments,
   ): Promise<McpToolResult> {
-    if (options.operation === "atet.diagram.check") {
-      const input = parseAtetOperationInput(
+    if (options.operation === "slopcamera.diagram.check") {
+      const input = parseSlopcameraOperationInput(
         options.operation,
         options.input,
-      ) as CheckAtetOperationInput
+      ) as CheckSlopcameraOperationInput
       return this.wrapSemanticResult(
         options.operation,
         await this.withHostAdmission(
@@ -796,11 +796,11 @@ export class AtetMcpToolRuntime {
         ),
       )
     }
-    if (options.operation === "atet.diagram.render") {
-      const input = parseAtetOperationInput(
+    if (options.operation === "slopcamera.diagram.render") {
+      const input = parseSlopcameraOperationInput(
         options.operation,
         options.input,
-      ) as RenderAtetOperationInput
+      ) as RenderSlopcameraOperationInput
       return this.enqueueRender(async () => await this.withHostAdmission(
         options.operation,
         async () => this.wrapSemanticResult(
@@ -815,11 +815,11 @@ export class AtetMcpToolRuntime {
         ),
       ))
     }
-    if (options.operation === "atet.image.vectorize") {
-      const input = parseAtetOperationInput(
+    if (options.operation === "slopcamera.image.vectorize") {
+      const input = parseSlopcameraOperationInput(
         options.operation,
         options.input,
-      ) as VectorizeAtetOperationInput
+      ) as VectorizeSlopcameraOperationInput
       return this.enqueueRender(async () => await this.withHostAdmission(
         options.operation,
         async (lease) => {
@@ -855,12 +855,12 @@ export class AtetMcpToolRuntime {
       ))
     }
     return await this.withHostAdmission(options.operation, async () => {
-      const input = parseAtetOperationInput(
+      const input = parseSlopcameraOperationInput(
         options.operation,
         options.input,
-      ) as GenerateAtetOperationInput
+      ) as GenerateSlopcameraOperationInput
       const output = await this.boundary.prepareOutputFile(input.outputPath)
-      const generated = await generateAtetImageFile(
+      const generated = await generateSlopcameraImageFile(
         { ...input, outputPath: output.absolutePath },
         this.generateDependencies,
       )

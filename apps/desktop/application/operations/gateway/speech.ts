@@ -13,7 +13,7 @@ import {
 
 export const gatewaySpeechOperationDefinition = {
   inputSchema: GatewaySpeechOperationInputSchema,
-  inputSchemaId: "atet.operation.gateway.speech.input/v1",
+  inputSchemaId: "slopcamera.operation.gateway.speech.input/v1",
   kind: "gateway.speech",
   lifecycle: {
     kind: "paid-dispatch",
@@ -26,7 +26,7 @@ export const gatewaySpeechOperationDefinition = {
     },
   },
   outputSchema: GatewaySpeechOperationResultSchema,
-  outputSchemaId: "atet.operation.gateway.speech.output/v1",
+  outputSchemaId: "slopcamera.operation.gateway.speech.output/v1",
   policy: gatewayOperationPolicy({
     maximumDurationMs: 5 * 60_000,
     mediaInput: false,

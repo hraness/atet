@@ -8,44 +8,44 @@ import {
   DesktopEventSchema,
   DesktopRequestSchema,
   DesktopResponseSchema,
-  ATET_DESKTOP_PROTOCOL_VERSION,
+  SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
   type CaptureRuntimeSnapshot,
   type DesktopEvent,
   type DesktopRequest,
   type DesktopResponse,
 } from "../contracts";
 import {
-  ATET_RUNTIME_DISPATCH_COMMAND,
-  ATET_RUNTIME_EVENT,
-  ATET_RUNTIME_SNAPSHOT_COMMAND,
+  SLOPCAMERA_RUNTIME_DISPATCH_COMMAND,
+  SLOPCAMERA_RUNTIME_EVENT,
+  SLOPCAMERA_RUNTIME_SNAPSHOT_COMMAND,
   type NativeRuntimeTransport,
 } from "../frontend/src/runtime-bridge";
-import { parseAtetDirectWorld, type AtetDirectWorld } from "./world";
+import { parseSlopcameraDirectWorld, type SlopcameraDirectWorld } from "./world";
 
-export interface AtetDirectInvocation {
+export interface SlopcameraDirectInvocation {
   readonly command: string;
   readonly request: DesktopRequest;
 }
 
-export interface AtetDirectTransportSnapshot {
+export interface SlopcameraDirectTransportSnapshot {
   readonly activityErrors: number;
   readonly blockedNetworkRequests: number;
   readonly disposed: boolean;
   readonly eventListeners: number;
-  readonly invocations: readonly AtetDirectInvocation[];
+  readonly invocations: readonly SlopcameraDirectInvocation[];
   readonly protocolErrors: number;
   readonly remainingTransitions: number;
   readonly snapshot: CaptureRuntimeSnapshot;
 }
 
-export interface AtetDirectTransportHarness {
+export interface SlopcameraDirectTransportHarness {
   readonly dispose: () => void;
-  readonly getSnapshot: () => AtetDirectTransportSnapshot;
+  readonly getSnapshot: () => SlopcameraDirectTransportSnapshot;
   readonly recordBlockedNetworkRequest: () => void;
   readonly transport: NativeRuntimeTransport;
 }
 
-export interface AtetDirectTransportOptions {
+export interface SlopcameraDirectTransportOptions {
   readonly activity: DirectActivityScope;
   readonly signal: AbortSignal;
 }
@@ -53,7 +53,7 @@ export interface AtetDirectTransportOptions {
 function successResponse(requestId: string, snapshot: CaptureRuntimeSnapshot): DesktopResponse {
   return DesktopResponseSchema.parse({
     ok: true,
-    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
     requestId,
     snapshot,
   });
@@ -68,17 +68,17 @@ function errorResponse(
   return DesktopResponseSchema.parse({
     error: { code, message, retryable },
     ok: false,
-    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
     requestId,
   });
 }
 
-class DeterministicAtetTransport {
+class DeterministicSlopcameraTransport {
   readonly #activity: DirectActivityScope;
   readonly #signal: AbortSignal;
-  readonly #world: AtetDirectWorld;
+  readonly #world: SlopcameraDirectWorld;
   readonly #listeners = new Set<(detail: unknown) => void>();
-  readonly #invocations: AtetDirectInvocation[] = [];
+  readonly #invocations: SlopcameraDirectInvocation[] = [];
   readonly #leases = new Set<DirectActivityLease>();
   readonly #pushTimers = new Map<
     ReturnType<typeof setTimeout>,
@@ -92,10 +92,10 @@ class DeterministicAtetTransport {
   #blockedNetworkRequests = 0;
   #disposed = false;
 
-  constructor(world: AtetDirectWorld, options: AtetDirectTransportOptions) {
+  constructor(world: SlopcameraDirectWorld, options: SlopcameraDirectTransportOptions) {
     this.#activity = options.activity;
     this.#signal = options.signal;
-    this.#world = parseAtetDirectWorld(world);
+    this.#world = parseSlopcameraDirectWorld(world);
     this.#current = structuredClone(this.#world.runtime.initial);
   }
 
@@ -120,13 +120,13 @@ class DeterministicAtetTransport {
         return Promise.reject(
           reason instanceof Error
             ? reason
-            : new Error("Atet Direct transport invocation failed.", { cause: reason }),
+            : new Error("Slopcamera Direct transport invocation failed.", { cause: reason }),
         );
       }
     },
     on: (name, listener) => {
       this.#assertActive();
-      if (name !== ATET_RUNTIME_EVENT) {
+      if (name !== SLOPCAMERA_RUNTIME_EVENT) {
         throw new Error(`Direct received an unknown native event subscription: ${name}`);
       }
       this.#listeners.add(listener);
@@ -146,7 +146,7 @@ class DeterministicAtetTransport {
     for (const lease of [...this.#leases]) this.#releaseLease(lease);
   }
 
-  getSnapshot(): AtetDirectTransportSnapshot {
+  getSnapshot(): SlopcameraDirectTransportSnapshot {
     return Object.freeze({
       activityErrors: this.#activityErrors,
       blockedNetworkRequests: this.#blockedNetworkRequests,
@@ -175,11 +175,11 @@ class DeterministicAtetTransport {
     const request = parsed.data;
     this.#invocations.push({ command, request: structuredClone(request) });
 
-    if (command === ATET_RUNTIME_SNAPSHOT_COMMAND && request.payload.kind === "snapshot") {
+    if (command === SLOPCAMERA_RUNTIME_SNAPSHOT_COMMAND && request.payload.kind === "snapshot") {
       this.#schedulePushesAfterInitialSnapshot();
       return successResponse(request.requestId, this.#current);
     }
-    if (command === ATET_RUNTIME_DISPATCH_COMMAND && request.payload.kind === "dispatch") {
+    if (command === SLOPCAMERA_RUNTIME_DISPATCH_COMMAND && request.payload.kind === "dispatch") {
       return this.#dispatch(request);
     }
     this.#protocolErrors += 1;
@@ -209,13 +209,13 @@ class DeterministicAtetTransport {
     this.#current = structuredClone(transition.outcome.snapshot);
     this.#emit({
       kind: "snapshot-changed",
-      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+      protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
       snapshot: this.#current,
     });
     this.#emit({
       commandId: command.commandId,
       kind: "command-settled",
-      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+      protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
       status: transition.outcome.kind === "success" ? "succeeded" : "failed",
     });
     return transition.outcome.kind === "success"
@@ -255,7 +255,7 @@ class DeterministicAtetTransport {
           this.#current = structuredClone(push.snapshot);
           this.#emit({
             kind: "snapshot-changed",
-            protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+            protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
             snapshot: this.#current,
           });
         } catch {
@@ -279,16 +279,16 @@ class DeterministicAtetTransport {
 
   #assertActive(): void {
     if (this.#disposed || this.#signal.aborted) {
-      throw new Error("The Atet Direct transport has been disposed.");
+      throw new Error("The Slopcamera Direct transport has been disposed.");
     }
   }
 }
 
-export function createAtetDirectTransport(
-  world: AtetDirectWorld,
-  options: AtetDirectTransportOptions,
-): AtetDirectTransportHarness {
-  const implementation = new DeterministicAtetTransport(world, options);
+export function createSlopcameraDirectTransport(
+  world: SlopcameraDirectWorld,
+  options: SlopcameraDirectTransportOptions,
+): SlopcameraDirectTransportHarness {
+  const implementation = new DeterministicSlopcameraTransport(world, options);
   return Object.freeze({
     dispose: () => implementation.dispose(),
     getSnapshot: () => implementation.getSnapshot(),

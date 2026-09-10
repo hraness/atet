@@ -240,7 +240,7 @@ export function createDefaultProjectEditPlan(
       typedText: { enabled: false },
     },
     keep: [{ startUs: 0, endUs: project.timeline.durationUs }],
-    kind: "atet.project-edit-plan",
+    kind: "slopcamera.project-edit-plan",
     overlays: [],
     planId,
     projectId: project.projectId,

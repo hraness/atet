@@ -133,10 +133,10 @@ export function evaluateSpatialScene(sceneInput: unknown, options: EvaluateSpati
   }))
   // The state identity excludes camera choice, camera pose, asset locator and provenance.
   const assetDigests = spatialAssetClosureDigests(scene.assets)
-  const stateSha256 = spatialStateValueSha256({ domain: "atet.spatial-state.v1", timeUs, entities: evaluated, assetDigests })
-  const viewSha256 = spatialValueSha256({ domain: "atet.spatial-view.v1", stateSha256, camera })
+  const stateSha256 = spatialStateValueSha256({ domain: "slopcamera.spatial-state.v1", timeUs, entities: evaluated, assetDigests })
+  const viewSha256 = spatialValueSha256({ domain: "slopcamera.spatial-view.v1", stateSha256, camera })
   const result = EvaluatedSpatialSceneSchema.parse({
-    kind: "atet.spatial-snapshot", schemaVersion: 1, sceneSha256: spatialValueSha256(scene),
+    kind: "slopcamera.spatial-snapshot", schemaVersion: 1, sceneSha256: spatialValueSha256(scene),
     stateSha256, viewSha256, timeUs, camera,
     entities: evaluated.map(item => ({ ...item, visible: item.visible && (item.entity.placement.kind === "world" || item.entity.placement.cameraId === camera.cameraId) })),
     assets: scene.assets,

@@ -1,7 +1,7 @@
 .{
-    .id = "com.hraness.atet",
-    .name = "atet",
-    .display_name = "Atet",
+    .id = "com.hraness.slopcamera",
+    .name = "slopcamera",
+    .display_name = "Slopcamera",
     .version = "3.2.3",
     .icons = .{"assets/icon.png"},
     .platforms = .{"macos"},
@@ -10,11 +10,11 @@
     .bridge = .{
         .commands = .{
             .{
-                .name = "atet.runtime.snapshot",
+                .name = "slopcamera.runtime.snapshot",
                 .origins = .{"zero://app"},
             },
             .{
-                .name = "atet.runtime.dispatch",
+                .name = "slopcamera.runtime.dispatch",
                 .origins = .{"zero://app"},
             },
         },
@@ -39,6 +39,6 @@
     .web_engine = "system",
     .cef = .{ .dir = "third_party/cef/macos", .auto_install = false },
     .windows = .{
-        .{ .label = "main", .title = "Atet", .width = 760, .height = 760, .restore_state = true },
+        .{ .label = "main", .title = "Slopcamera", .width = 760, .height = 760, .restore_state = true },
     },
 }

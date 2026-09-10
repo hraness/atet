@@ -19,7 +19,7 @@ const signingKey = "test-signing-material-never-retain";
 const json = (value: unknown, status = 200) => Response.json(value, { status });
 
 async function harness() {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-directing-blob-"))); roots.push(root);
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-directing-blob-"))); roots.push(root);
   const application = operationApplicationContext(root, { now: new Date() });
   const bytes = await sharp({ create: { width: 16, height: 12, channels: 3, background: "#4681bd" } }).png().toBuffer();
   await mkdir(join(root, "images")); await writeFile(join(root, "images/frame.png"), bytes);
@@ -65,7 +65,7 @@ async function harness() {
       if (url.pathname === "/api/blob/delete") {
         expect(method).toBe("POST");
         const paths = body.urls as string[];
-        expect(paths).toHaveLength(1); expect(paths[0]).toMatch(/^atet\/directing\/[a-f0-9]{32}\/[01]-/u);
+        expect(paths).toHaveLength(1); expect(paths[0]).toMatch(/^slopcamera\/directing\/[a-f0-9]{32}\/[01]-/u);
         const object = objects.get(paths[0]!);
         expect(object).toBeDefined();
         expect(headers.get("x-if-match")).toBe(object!.etag);

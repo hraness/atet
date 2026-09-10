@@ -5,7 +5,7 @@ import { createApplicationOperationRegistry } from "../default-registry";
 import { operationApplicationContext } from "./test-support";
 
 const registry = createApplicationOperationRegistry();
-const context = { application: operationApplicationContext("/tmp/atet-pure-scene-unused"), abortSignal: new AbortController().signal };
+const context = { application: operationApplicationContext("/tmp/slopcamera-pure-scene-unused"), abortSignal: new AbortController().signal };
 
 test("closed scene operations expose complete JSON schemas and execute without host effects", async () => {
   const scene = createSpatialSceneStarter();
@@ -34,7 +34,7 @@ test("scene registry rejects accessors before Zod field traversal and checks gra
 test("registered patch returns a new revision and rejects a stale basis", async () => {
   const scene = createSpatialSceneStarter();
   const before = spatialSceneSha256(scene);
-  const patch = { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: before, operations: [{ kind: "rename-entity", entityId: "entity_product", name: "Renamed product" }] };
+  const patch = { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: before, operations: [{ kind: "rename-entity", entityId: "entity_product", name: "Renamed product" }] };
   const output = await registry.execute(context, { kind: "scene.patch", version: 1, input: { scene, patch } });
   expect(output.summary.fields.sceneSha256).not.toBe(before);
   expect(spatialSceneSha256(scene)).toBe(before);

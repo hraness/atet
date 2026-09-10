@@ -508,7 +508,7 @@ export function analyzeMusic(input: AnalyzeMusicInput): MusicAnalysisV1 {
     durationUs,
     inputDigest: input.inputDigest,
     keyRegions: detectKeyRegions(features, musicRegions, input.config.tempoWindowUs),
-    kind: "atet.music-analysis",
+    kind: "slopcamera.music-analysis",
     musicRegions,
     schemaVersion: 1,
     subject: input.subject,

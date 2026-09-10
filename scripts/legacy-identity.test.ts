@@ -9,11 +9,11 @@ import {
   validateInventoryEntries,
 } from "./legacy-identity";
 
-describe("Atet predecessor identity inventory", () => {
+describe("Slopcamera predecessor identity inventory", () => {
   test("canonical film feature paths still require exact reviewed source inventories", () => {
     for (const path of ["src/studio/contracts.ts", "apps/desktop/studio/drivers/blender_driver.py", "examples/studio/blender/product.py", "apps/desktop/cli/studio-service.ts", "apps/desktop/cli/studio-spatial-asset.ts", "apps/desktop/cli/studio-spatial-asset.test.ts", "apps/desktop/cli/studio-bridge-args.test.ts", "docs/studio.md"]) expect(isNativeFilmStudioPath(path)).toBe(true);
     for (const path of ["apps/studio/main.ts", "src/studio-old.ts", "apps/desktop/cli/studio-legacy.ts", "src/studio/../legacy.ts", "src\\studio\\old.ts", "src/studio/hraness.graphics.ts", "src/studio/old-studio.ts"]) expect(isNativeFilmStudioPath(path)).toBe(false);
-    const snapshot = legacyIdentitySnapshot("src/studio/contracts.ts", "export const kind = 'atet.studio-job';")!;
+    const snapshot = legacyIdentitySnapshot("src/studio/contracts.ts", "export const kind = 'slopcamera.studio-job';")!;
     expect(compareLegacyIdentityInventory([], [snapshot], new Set())).toEqual(["legacy identity inventory is missing src/studio/contracts.ts"]);
     const entry = { ...snapshot, categories: ["native-film-studio"] as const };
     expect(validateInventoryEntries([entry])).toEqual([]);
@@ -23,7 +23,7 @@ describe("Atet predecessor identity inventory", () => {
   });
   test("fingerprints exact predecessor-bearing lines and counts every occurrence", () => {
     expect(legacyIdentitySnapshot("fixture.ts", [
-      "const canonical = 'atet.video-project';",
+      "const canonical = 'slopcamera.video-project';",
       "const prior = 'studio.video-project';",
       "const old = ['hraness.graphics', 'studio.edit-plan'];",
       "",
@@ -33,22 +33,22 @@ describe("Atet predecessor identity inventory", () => {
       occurrenceCount: 3,
       path: "fixture.ts",
     });
-    expect(legacyIdentitySnapshot("clean.ts", "const kind = 'atet.video-project';\n"))
+    expect(legacyIdentitySnapshot("clean.ts", "const kind = 'slopcamera.video-project';\n"))
       .toBeNull();
   });
 
   test("detects nonadjacent duplicates in schemas and TypeScript unions", () => {
     const source = `import { z } from "zod";
       const schema = z.union([
-        z.literal("atet.video-project"),
+        z.literal("slopcamera.video-project"),
         z.literal("studio.video-project"),
-        z.literal("atet.video-project"),
+        z.literal("slopcamera.video-project"),
       ]);
-      const names = z.enum(["studio", "atet", "studio"]);
-      type Kind = "studio.render-plan" | "atet.render-plan" | "studio.render-plan";
+      const names = z.enum(["studio", "slopcamera", "studio"]);
+      type Kind = "studio.render-plan" | "slopcamera.render-plan" | "studio.render-plan";
     `;
     expect(duplicateIdentityAlternatives("fixture.ts", source)).toEqual([
-      "fixture.ts:2 repeats atet.video-project in z.union",
+      "fixture.ts:2 repeats slopcamera.video-project in z.union",
       "fixture.ts:7 repeats studio in z.enum",
       "fixture.ts:8 repeats studio.render-plan in a type union",
     ]);
@@ -61,18 +61,18 @@ describe("Atet predecessor identity inventory", () => {
       `      const pattern = /z\\.enum\\(\\["studio", "studio"\\]\\)/u;`,
       `      const template = \`type Hidden = "studio" | "studio"\`;`,
       "      const value = schema.union([",
-      `        schema.literal("at\\u0065t.video-project"),`,
+      `        schema.literal("slopcam\\u0065ra.video-project"),`,
       "        unrelatedSchema,",
-      `        schema.literal("atet.video-project"),`,
+      `        schema.literal("slopcamera.video-project"),`,
       "      ]);",
-      "      const embedded = `value: ${schema.enum([\"studio\", \"atet\", \"studio\"])}`;",
+      "      const embedded = `value: ${schema.enum([\"studio\", \"slopcamera\", \"studio\"])}`;",
       `      type Kind = "studio.render-plan" | Other | "studio.render-plan";`,
       `      const runtime = "studio" | "studio";`,
-      "      const unrelated = other.union([other.literal(\"atet\"), other.literal(\"atet\")]);",
+      "      const unrelated = other.union([other.literal(\"slopcamera\"), other.literal(\"slopcamera\")]);",
       "",
     ].join("\n");
     expect(duplicateIdentityAlternatives("fixture.ts", source)).toEqual([
-      "fixture.ts:5 repeats atet.video-project in z.union",
+      "fixture.ts:5 repeats slopcamera.video-project in z.union",
       "fixture.ts:10 repeats studio in z.enum",
       "fixture.ts:11 repeats studio.render-plan in a type union",
     ]);
@@ -82,12 +82,12 @@ describe("Atet predecessor identity inventory", () => {
   test("discovers default and namespace Zod bindings", () => {
     const source = `import schema, * as zod from "zod";
       const first = schema.union([
-        schema.literal("atet.run"),
-        schema.literal("atet.run"),
+        schema.literal("slopcamera.run"),
+        schema.literal("slopcamera.run"),
       ]);
       const second = zod.enum(["studio.run", "studio.run"]);`;
     expect(duplicateIdentityAlternatives("fixture.ts", source)).toEqual([
-      "fixture.ts:2 repeats atet.run in z.union",
+      "fixture.ts:2 repeats slopcamera.run in z.union",
       "fixture.ts:6 repeats studio.run in z.enum",
     ]);
   });

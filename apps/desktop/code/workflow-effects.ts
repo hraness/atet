@@ -36,7 +36,7 @@ export function workflowExitValue<A>(exit: Exit.Exit<A, WorkflowFailure>): A {
   throw Cause.squash(exit.cause);
 }
 
-class WorkflowCleanup extends Context.Tag("@atet/local/WorkflowCleanup")<
+class WorkflowCleanup extends Context.Tag("@slopcamera/local/WorkflowCleanup")<
   WorkflowCleanup, Ref.Ref<Cause.Cause<WorkflowFailure>>
 >() { }
 

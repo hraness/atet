@@ -75,7 +75,7 @@ const PLAIN_SCAFFOLD = documentShell(
       }
     </style>`,
   `      const label = document.querySelector(".label");
-      AtetOverlay.onFrame(({ progress }) => {
+      SlopcameraOverlay.onFrame(({ progress }) => {
         const reveal = Math.min(1, progress * 8);
         label.style.opacity = String(reveal);
         label.style.transform = \`scale(\${0.94 + reveal * 0.06})\`;
@@ -102,7 +102,7 @@ const MOTION_SCAFFOLD = documentShell(
   `      import { animate } from "motion";
 
       const card = document.querySelector(".card");
-      AtetOverlay.trackAnimation(animate(
+      SlopcameraOverlay.trackAnimation(animate(
         card,
         {
           opacity: [0, 1, 1, 0],
@@ -113,7 +113,7 @@ const MOTION_SCAFFOLD = documentShell(
             "translateY(-24px) scale(.98)",
           ],
         },
-        { duration: AtetOverlay.durationMs / 1000, ease: "linear" },
+        { duration: SlopcameraOverlay.durationMs / 1000, ease: "linear" },
       ));`,
   serializeHtmlOverlayImportMap(["motion"]),
 );
@@ -130,7 +130,7 @@ const P5_SCAFFOLD = documentShell(
     </style>`,
   `      import p5 from "p5";
 
-      // p5 owns drawing, while Atet remains the only clock and entropy source.
+      // p5 owns drawing, while Slopcamera remains the only clock and entropy source.
       // Keep this P2D starter seek-stable: no hidden frame state, mutable RNG,
       // native frame scheduler, live input, loaders, or cumulative drawing.
       p5.disableFriendlyErrors = true;
@@ -139,10 +139,10 @@ const P5_SCAFFOLD = documentShell(
       const particles = Object.freeze(Array.from(
         { length: particleCount },
         (_, index) => Object.freeze({
-          angle: AtetOverlay.randomFor("p5-angle-" + index) * Math.PI * 2,
-          orbit: AtetOverlay.randomFor("p5-orbit-" + index),
-          phase: AtetOverlay.randomFor("p5-phase-" + index),
-          size: AtetOverlay.randomFor("p5-size-" + index),
+          angle: SlopcameraOverlay.randomFor("p5-angle-" + index) * Math.PI * 2,
+          orbit: SlopcameraOverlay.randomFor("p5-orbit-" + index),
+          phase: SlopcameraOverlay.randomFor("p5-phase-" + index),
+          size: SlopcameraOverlay.randomFor("p5-size-" + index),
         }),
       ));
       let currentFrame = Object.freeze({ progress: 0, timeMs: 0 });
@@ -170,8 +170,8 @@ const P5_SCAFFOLD = documentShell(
             p.setup = () => {
               try {
                 p.createCanvas(
-                  AtetOverlay.width,
-                  AtetOverlay.height,
+                  SlopcameraOverlay.width,
+                  SlopcameraOverlay.height,
                   p.P2D,
                   canvas,
                   {
@@ -197,8 +197,8 @@ const P5_SCAFFOLD = documentShell(
                 return;
               }
               const { progress, timeMs } = currentFrame;
-              const width = AtetOverlay.width;
-              const height = AtetOverlay.height;
+              const width = SlopcameraOverlay.width;
+              const height = SlopcameraOverlay.height;
               const unit = Math.min(width, height);
               const phase = progress * Math.PI * 2;
               p.clear();
@@ -240,8 +240,8 @@ const P5_SCAFFOLD = documentShell(
         }
       });
 
-      AtetOverlay.ready(initialization);
-      AtetOverlay.onFrame(async (frame) => {
+      SlopcameraOverlay.ready(initialization);
+      SlopcameraOverlay.onFrame(async (frame) => {
         currentFrame = frame;
         await initialization;
         await sketch.redraw();
@@ -266,7 +266,7 @@ const TWO_SCAFFOLD = documentShell(
   `      import Two from "two.js";
 
       // Keep Two.js on its explicit WebGL renderer with autostart disabled.
-      // Atet remains the only clock and entropy source; this starter uses no
+      // Slopcamera remains the only clock and entropy source; this starter uses no
       // textures, loaders, live input, or Two.js animation state.
       let contextError = null;
       let disposing = false;
@@ -276,13 +276,13 @@ const TWO_SCAFFOLD = documentShell(
         antialias: false,
         autostart: false,
         domElement: canvas,
-        height: AtetOverlay.height,
+        height: SlopcameraOverlay.height,
         overdraw: false,
         premultipliedAlpha: true,
         preserveDrawingBuffer: true,
         ratio: devicePixelRatio,
         type: Two.Types.webgl,
-        width: AtetOverlay.width,
+        width: SlopcameraOverlay.width,
       });
       two.renderer.ctx.clearColor(0, 0, 0, 0);
       const stage = new Two.Group();
@@ -297,11 +297,11 @@ const TWO_SCAFFOLD = documentShell(
       const objects = Object.freeze(Array.from(
         { length: objectCount },
         (_, index) => {
-          const angle = AtetOverlay.randomFor("two-angle-" + index)
+          const angle = SlopcameraOverlay.randomFor("two-angle-" + index)
             * Math.PI * 2;
-          const orbit = AtetOverlay.randomFor("two-orbit-" + index);
-          const phase = AtetOverlay.randomFor("two-phase-" + index);
-          const size = AtetOverlay.randomFor("two-size-" + index);
+          const orbit = SlopcameraOverlay.randomFor("two-orbit-" + index);
+          const phase = SlopcameraOverlay.randomFor("two-phase-" + index);
+          const size = SlopcameraOverlay.randomFor("two-size-" + index);
           const shape = new Two.Circle(0, 0, 4 + size * 18, 24);
           shape.fill = colors[index % colors.length];
           shape.noStroke();
@@ -323,10 +323,10 @@ const TWO_SCAFFOLD = documentShell(
       };
       canvas.addEventListener("webglcontextlost", handleContextLoss);
 
-      AtetOverlay.onFrame(({ progress, timeMs }) => {
+      SlopcameraOverlay.onFrame(({ progress, timeMs }) => {
         if (contextError !== null) throw contextError;
-        const width = AtetOverlay.width;
-        const height = AtetOverlay.height;
+        const width = SlopcameraOverlay.width;
+        const height = SlopcameraOverlay.height;
         const unit = Math.min(width, height);
         const absolutePhase = progress * Math.PI * 2;
         for (const object of objects) {
@@ -397,14 +397,14 @@ const PAPER_SCAFFOLD = documentShell(
           u_rotation: 0,
           u_scale: 1,
           u_swirl: 0.35,
-          u_worldHeight: AtetOverlay.height,
-          u_worldWidth: AtetOverlay.width,
+          u_worldHeight: SlopcameraOverlay.height,
+          u_worldWidth: SlopcameraOverlay.width,
         },
         { alpha: true, premultipliedAlpha: false },
         0,
       );
 
-      AtetOverlay.onFrame(({ timeMs }) => shader.setFrame(timeMs));`,
+      SlopcameraOverlay.onFrame(({ timeMs }) => shader.setFrame(timeMs));`,
   serializeHtmlOverlayImportMap(["@paper-design/shaders"]),
 );
 
@@ -421,7 +421,7 @@ const THREE_SCAFFOLD = documentShell(
   `      import * as THREE from "three";
 
       // Keep this scene seek-stable: derive motion from progress/timeMs and use
-      // AtetOverlay.randomFor(key), never requestAnimationFrame or mutable RNG.
+      // SlopcameraOverlay.randomFor(key), never requestAnimationFrame or mutable RNG.
       const MAX_DRAW_CALLS = 64;
       const MAX_TRIANGLES = 200_000;
       const canvas = document.querySelector(".scene");
@@ -439,13 +439,13 @@ const THREE_SCAFFOLD = documentShell(
       // The authoring canvas owns preview/final supersampling. Use 1x for
       // iteration and raise deviceScaleFactor only for a selected final render.
       renderer.setPixelRatio(devicePixelRatio);
-      renderer.setSize(AtetOverlay.width, AtetOverlay.height, false);
+      renderer.setSize(SlopcameraOverlay.width, SlopcameraOverlay.height, false);
       renderer.setClearColor(0x000000, 0);
 
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(
         42,
-        AtetOverlay.width / AtetOverlay.height,
+        SlopcameraOverlay.width / SlopcameraOverlay.height,
         0.1,
         100,
       );
@@ -518,7 +518,7 @@ const THREE_SCAFFOLD = documentShell(
         return { direction, home, part };
       });
       const numberParameter = (name, fallback, minimum, maximum) => {
-        const value = AtetOverlay.parameters[name];
+        const value = SlopcameraOverlay.parameters[name];
         return typeof value === "number" && Number.isFinite(value)
           ? THREE.MathUtils.clamp(value, minimum, maximum)
           : fallback;
@@ -531,9 +531,9 @@ const THREE_SCAFFOLD = documentShell(
         event.preventDefault();
         throw new Error("The Three.js rendering context was lost.");
       });
-      AtetOverlay.ready(renderer.compileAsync(scene, camera));
+      SlopcameraOverlay.ready(renderer.compileAsync(scene, camera));
 
-      AtetOverlay.onFrame(({ progress }) => {
+      SlopcameraOverlay.onFrame(({ progress }) => {
         const phase = progress * Math.PI * 2;
         subject.rotation.set(
           Math.sin(phase) * 0.08,
@@ -585,7 +585,7 @@ const VGPU_SCAFFOLD = documentShell(
   `      import { effect, frame, init, surface, target } from "vgpu";
 
       // Keep this starter seek-stable: derive every value from the absolute
-      // Atet frame and submit one bounded fullscreen pass per output frame.
+      // Slopcamera frame and submit one bounded fullscreen pass per output frame.
       const canvas = document.querySelector(".effect");
       const shaderSource = \`
         struct Params {
@@ -620,7 +620,7 @@ const VGPU_SCAFFOLD = documentShell(
       \`;
 
       const numberParameter = (name, fallback, minimum, maximum) => {
-        const value = AtetOverlay.parameters[name];
+        const value = SlopcameraOverlay.parameters[name];
         return typeof value === "number" && Number.isFinite(value)
           ? Math.min(maximum, Math.max(minimum, value))
           : fallback;
@@ -695,8 +695,8 @@ const VGPU_SCAFFOLD = documentShell(
         }
       })();
 
-      AtetOverlay.ready(initialization);
-      AtetOverlay.onFrame(async ({ timeMs }) => {
+      SlopcameraOverlay.ready(initialization);
+      SlopcameraOverlay.onFrame(async ({ timeMs }) => {
         const state = await initialization;
         state.shader.set({
           params: {
@@ -774,7 +774,7 @@ export function createHtmlOverlayScaffold(kind: HtmlOverlayScaffoldKind): string
 /**
  * Binds one exact image to the general Three.js starter as code-generation
  * provenance. The author edits the returned document's createSubject()
- * function after inspecting that image; Atet never evaluates model text.
+ * function after inspecting that image; Slopcamera never evaluates model text.
  */
 export function createThreeReferenceScaffoldInput<TArtifact, TMediaType>(
   artifact: TArtifact,

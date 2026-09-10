@@ -97,21 +97,21 @@ export function capabilityCandidates(
   env: Readonly<Record<string, string | undefined>>,
 ): readonly ProbeDefinition[] {
   const captureCandidates = [
-    renamedEnvironmentValue(env, "ATET_CAPTURE_HELPER"),
-    "atet-capture",
-    join(desktopRoot, "capture", "dist", "atet-capture"),
-    join(desktopRoot, "capture", ".build", "release", "atet-capture"),
-    join(desktopRoot, "capture", ".build", "debug", "atet-capture"),
-    join(desktopRoot, "dist", "atet-capture"),
+    renamedEnvironmentValue(env, "SLOPCAMERA_CAPTURE_HELPER"),
+    "slopcamera-capture",
+    join(desktopRoot, "capture", "dist", "slopcamera-capture"),
+    join(desktopRoot, "capture", ".build", "release", "slopcamera-capture"),
+    join(desktopRoot, "capture", ".build", "debug", "slopcamera-capture"),
+    join(desktopRoot, "dist", "slopcamera-capture"),
   ].filter((candidate): candidate is string => candidate !== undefined && candidate !== "");
   const faceAnalyzerCandidates = [
-    renamedEnvironmentValue(env, "ATET_FACE_ANALYZER"),
-    "atet-face-analyzer",
-    join(desktopRoot, "analysis", "dist", "atet-face-analyzer"),
-    join(desktopRoot, "dist", "atet-face-analyzer"),
+    renamedEnvironmentValue(env, "SLOPCAMERA_FACE_ANALYZER"),
+    "slopcamera-face-analyzer",
+    join(desktopRoot, "analysis", "dist", "slopcamera-face-analyzer"),
+    join(desktopRoot, "dist", "slopcamera-face-analyzer"),
   ].filter((candidate): candidate is string => candidate !== undefined && candidate !== "");
   const htmlBrowserCandidates = [
-    renamedEnvironmentValue(env, "ATET_HTML_BROWSER"),
+    renamedEnvironmentValue(env, "SLOPCAMERA_HTML_BROWSER"),
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   ].filter((candidate): candidate is string => candidate !== undefined && candidate !== "");
   return [
@@ -137,7 +137,7 @@ export function capabilityCandidates(
     },
     {
       candidates: [
-        renamedEnvironmentValue(env, "ATET_WHISPER_CPP"),
+        renamedEnvironmentValue(env, "SLOPCAMERA_WHISPER_CPP"),
         "whisper-cli",
         "whisper-cpp",
         "/opt/homebrew/bin/whisper-cli",

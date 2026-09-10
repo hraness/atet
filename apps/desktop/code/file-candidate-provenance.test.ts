@@ -164,26 +164,26 @@ describe("workflow file candidate provenance", () => {
     }))).not.toThrow();
   });
 
-  test("applies file authority to every progressive Atet visual source", () => {
+  test("applies file authority to every progressive Slopcamera visual source", () => {
     const cases = [
       {
-        input: { bundle: { path: "artifacts/atet/private/studio/bundles/fixture/bundle.json" } },
-        kind: "atet.studio.run",
-        path: "artifacts/atet/private/studio/bundles/fixture/bundle.json",
+        input: { bundle: { path: "artifacts/slopcamera/private/studio/bundles/fixture/bundle.json" } },
+        kind: "slopcamera.studio.run",
+        path: "artifacts/slopcamera/private/studio/bundles/fixture/bundle.json",
       },
       {
         input: { path: "fixtures/system.diagram.json" },
-        kind: "atet.diagram.check",
+        kind: "slopcamera.diagram.check",
         path: "fixtures/system.diagram.json",
       },
       {
         input: { path: "fixtures/render.diagram.json", scale: 2 },
-        kind: "atet.diagram.render",
+        kind: "slopcamera.diagram.render",
         path: "fixtures/render.diagram.json",
       },
       {
         input: { inputPath: "fixtures/sketch.png" },
-        kind: "atet.image.vectorize",
+        kind: "slopcamera.image.vectorize",
         path: "fixtures/sketch.png",
       },
     ] as const;
@@ -247,7 +247,7 @@ describe("workflow file candidate provenance", () => {
   });
 
   test("planner pins declared overlay bytes and accepts exact Gateway dependency output", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-overlay-provenance-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-overlay-provenance-"));
     try {
       const fixtureProject = await createOperationProjectFixture(root);
       const sourcePath = join(root, "fixtures", "title.png");
@@ -283,9 +283,9 @@ describe("workflow file candidate provenance", () => {
           operation: { kind: "project.snapshot", version: 1 },
         },
         input: { project: fixtureProject.project.projectId },
-        inputSchemaId: "atet.operation.project.snapshot.input/v1",
+        inputSchemaId: "slopcamera.operation.project.snapshot.input/v1",
         key: "project",
-        outputSchemaId: "atet.operation.project.snapshot.output/v1",
+        outputSchemaId: "slopcamera.operation.project.snapshot.output/v1",
       };
       const projectOutput = {
         currentPlan: initial.plan,
@@ -316,7 +316,7 @@ describe("workflow file candidate provenance", () => {
           planSha256: initial.generation.currentPlanSha256,
           projectSha256: initial.generation.projectSha256,
         }],
-        version: "atet-static-bindings-v1",
+        version: "slopcamera-static-bindings-v1",
       };
       const planner = createApplicationNodePlanner(
         operationApplicationContext(root, {
@@ -364,9 +364,9 @@ describe("workflow file candidate provenance", () => {
           operation: { kind: "gateway.image", version: 1 },
         },
         input: {},
-        inputSchemaId: "atet.operation.gateway.image.input/v1",
+        inputSchemaId: "slopcamera.operation.gateway.image.input/v1",
         key: "image",
-        outputSchemaId: "atet.operation.gateway.image.output/v1",
+        outputSchemaId: "slopcamera.operation.gateway.image.output/v1",
       };
       const gatewayInput = {
         ...input,
@@ -428,7 +428,7 @@ describe("workflow file candidate provenance", () => {
   });
 
   test("planner binds exact HTML documents and declared resources", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-html-overlay-provenance-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-html-overlay-provenance-"));
     try {
       const fixtureProject = await createOperationProjectFixture(root);
       const documentPath = join(root, "fixtures", "lower-third.html");
@@ -485,9 +485,9 @@ describe("workflow file candidate provenance", () => {
           operation: { kind: "project.snapshot", version: 1 },
         },
         input: { project: fixtureProject.project.projectId },
-        inputSchemaId: "atet.operation.project.snapshot.input/v1",
+        inputSchemaId: "slopcamera.operation.project.snapshot.input/v1",
         key: "project",
-        outputSchemaId: "atet.operation.project.snapshot.output/v1",
+        outputSchemaId: "slopcamera.operation.project.snapshot.output/v1",
       };
       const node = {
         dependencies: ["project"],
@@ -557,7 +557,7 @@ describe("workflow file candidate provenance", () => {
               planSha256: initial.generation.currentPlanSha256,
               projectSha256: initial.generation.projectSha256,
             }],
-            version: "atet-static-bindings-v1",
+            version: "slopcamera-static-bindings-v1",
           },
         },
         node,
@@ -588,9 +588,9 @@ describe("workflow file candidate provenance", () => {
           operation: { kind: "gateway.image", version: 1 },
         },
         input: {},
-        inputSchemaId: "atet.operation.gateway.image.input/v1",
+        inputSchemaId: "slopcamera.operation.gateway.image.input/v1",
         key: "image",
-        outputSchemaId: "atet.operation.gateway.image.output/v1",
+        outputSchemaId: "slopcamera.operation.gateway.image.output/v1",
       };
       const gatewayInput = {
         ...input,
@@ -638,7 +638,7 @@ describe("workflow file candidate provenance", () => {
               planSha256: initial.generation.currentPlanSha256,
               projectSha256: initial.generation.projectSha256,
             }],
-            version: "atet-static-bindings-v1",
+            version: "slopcamera-static-bindings-v1",
           },
         },
         node: gatewayOverlayNode,
@@ -784,27 +784,27 @@ describe("workflow file candidate provenance", () => {
       .toEqual(["fixtures/title-card.svg"]);
   });
 
-  test("planning declares every authored Atet visual source", () => {
+  test("planning declares every authored Slopcamera visual source", () => {
     const graph = fixture<AuthoredWorkflowGraphV1>({
       nodes: [
         {
           executor: {
             kind: "operation",
-            operation: { kind: "atet.diagram.check", version: 1 },
+            operation: { kind: "slopcamera.diagram.check", version: 1 },
           },
           input: { path: "fixtures/check.diagram.json" },
         },
         {
           executor: {
             kind: "operation",
-            operation: { kind: "atet.diagram.render", version: 1 },
+            operation: { kind: "slopcamera.diagram.render", version: 1 },
           },
           input: { path: "fixtures/render.diagram.json", scale: 2 },
         },
         {
           executor: {
             kind: "operation",
-            operation: { kind: "atet.image.vectorize", version: 1 },
+            operation: { kind: "slopcamera.image.vectorize", version: 1 },
           },
           input: { inputPath: "fixtures/sketch.png" },
         },

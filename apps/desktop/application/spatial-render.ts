@@ -268,7 +268,7 @@ export const SpatialRenderOutputSchema = z.strictObject({ artifact: MediaArtifac
   sceneSource: MediaArtifactReferenceSchema, retainedAssets: z.array(retainedAssetSchema).max(128), render: renderSummarySchema });
 export type SpatialRenderOutput = z.infer<typeof SpatialRenderOutputSchema>;
 export const SpatialRenderReceiptSchema = z.strictObject({
-  kind: z.literal("atet.spatial-render-receipt"), schemaVersion: z.literal(1), attemptId: z.string().uuid(), sceneSha256: SpatialDigestSchema,
+  kind: z.literal("slopcamera.spatial-render-receipt"), schemaVersion: z.literal(1), attemptId: z.string().uuid(), sceneSha256: SpatialDigestSchema,
   source: z.strictObject({ canonicalScene: MediaArtifactReferenceSchema, canonicalization: z.literal("parsed-spatial-scene-v1"),
     originalSceneArtifact: MediaArtifactReferenceSchema.optional(), retainedAssets: z.array(retainedAssetSchema).max(128), sourceManifests: z.record(SpatialAssetIdSchema, SpatialDigestSchema) }),
   request: SpatialRenderRequestSchema, requestSha256: SpatialDigestSchema,
@@ -630,7 +630,7 @@ export async function renderSpatialScene(context: OperationExecutionContext, inp
     const render: SpatialRenderResult["render"] = { kind: plan.request.selection.kind, frameCount: plan.samples.length, width: plan.outputWidth, height: plan.outputHeight,
       ...(encodedEvidence === undefined ? {} : { frameRate: encodedEvidence.frameRate, encodedEvidence }) };
     const receiptValue = SpatialRenderReceiptSchema.parse({
-      kind: "atet.spatial-render-receipt", schemaVersion: 1, attemptId, sceneSha256: plan.sceneSha256,
+      kind: "slopcamera.spatial-render-receipt", schemaVersion: 1, attemptId, sceneSha256: plan.sceneSha256,
       source: { canonicalScene: sceneSource, canonicalization: "parsed-spatial-scene-v1", ...(originalSceneArtifact === undefined ? {} : { originalSceneArtifact }), retainedAssets, sourceManifests },
       request: plan.request, requestSha256: plan.requestSha256, samples: sampleEvidence, render, output: artifact, batches, frameArtifacts,
       runtime: { artifact: runtimeArtifact, rootSha256: runtime.manifest.rootSha256, capabilities, renderer: "three-webgl2-snapshot-v1", threeVersion: "0.185.1",

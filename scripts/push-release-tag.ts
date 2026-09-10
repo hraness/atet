@@ -2,13 +2,13 @@ import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
 const EXPECTED_ACTOR_ID = 894119;
-const EXPECTED_PACKAGE = "@hraness/atet";
-const EXPECTED_REPOSITORY = "hraness/atet";
+const EXPECTED_PACKAGE = "@hraness/slopcamera";
+const EXPECTED_REPOSITORY = "hraness/slopcamera";
 const EXPECTED_REPOSITORY_ID = 1310516748;
 const EXPECTED_REMOTE_URLS = new Set([
-  "git@github.com:hraness/atet.git",
-  "https://github.com/hraness/atet.git",
-  "ssh://git@github.com/hraness/atet.git",
+  "git@github.com:hraness/slopcamera.git",
+  "https://github.com/hraness/slopcamera.git",
+  "ssh://git@github.com/hraness/slopcamera.git",
 ]);
 const DEFAULT_BRANCH = "main";
 const CI_WORKFLOW_NAME = "CI";

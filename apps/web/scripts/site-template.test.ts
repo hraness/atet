@@ -133,7 +133,7 @@ describe("ordinary shell authored contract (pure, process-free)", () => {
     const source = (await read("src/site-ask-ai-compatibility.css")).replace(/\/\*[\s\S]*?\*\//gu, "")
     const selectors = [...source.matchAll(/(?:^|\})\s*([^{}]+)\{/gu)].flatMap(match => match[1]!.split(",").map(value => value.trim()))
     expect(selectors.length).toBeGreaterThan(10)
-    for (const selector of selectors) expect(selector).toMatch(/^\.atet-ask-ai(?:$| \[data-slot="ask-ai-about-this-(?:label|links|link|icon)"\](?::(?:hover|active|focus-visible))?$)/u)
+    for (const selector of selectors) expect(selector).toMatch(/^\.slopcamera-ask-ai(?:$| \[data-slot="ask-ai-about-this-(?:label|links|link|icon)"\](?::(?:hover|active|focus-visible))?$)/u)
     expect(source).not.toMatch(/!important|@import|@font-face|url\(|all\s*:|\.x[A-Za-z0-9_-]+/u)
     for (const value of ["text-transform: none", "letter-spacing: normal", "font-family: inherit", "background-color: transparent", "transform: none", "outline-offset: 3px"]) {
       expect(source).toContain(value)
@@ -151,7 +151,7 @@ describe("ordinary shell authored contract (pure, process-free)", () => {
     ])
     expect(foundation).toContain('@import "@hraness/design-kit/compiler-foundation.css" layer(base.hraness-foundation)')
     expect(foundation).toContain('@import "@hraness/site-footer/compiler-foundation.css"')
-    expect(foundation).toContain('@import "./styles.css" layer(components.atet-legacy)')
+    expect(foundation).toContain('@import "./styles.css" layer(components.slopcamera-legacy)')
     expect(foundation).toContain('@import "./site-ask-ai-compatibility.css"')
     expect(foundation).not.toMatch(/hraness-stylex|(?:ui|design-kit|site-footer)\/stylex\.css|preview-foundation/u)
     expect(ua).not.toMatch(/all\s*:|!important/u)

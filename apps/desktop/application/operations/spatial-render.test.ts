@@ -19,15 +19,15 @@ import { publishContentAddressedMedia, type MediaArtifactReference } from "./med
 
 const request = { cameraId: "camera_main", selection: { kind: "frame", timeUs: 0 }, mode: { kind: "beauty" } } as const;
 const identity: OperationCheckpointExecutionIdentity = {
-  kind: "scene.render", version: 1, inputSchemaId: "atet.operation.scene.render.input/v1", outputSchemaId: "atet.operation.scene.render.output/v1",
+  kind: "scene.render", version: 1, inputSchemaId: "slopcamera.operation.scene.render.input/v1", outputSchemaId: "slopcamera.operation.scene.render.output/v1",
   nodeKey: "render", nodePlanSha256: "a".repeat(64), runId: "run_spatial_operation",
 };
 const bindRuntime: typeof bindHtmlOverlayBrowserRuntime = async (capability, signal) => await bindHtmlOverlayBrowserRuntime(capability, signal, { allowUnverifiedRuntimeForTesting: true });
 const dependencies: SpatialRenderOperationDependencies = { bindBrowserRuntime: bindRuntime,
   render: async (context, input) => await renderSpatialScene(context, input, { bindBrowserRuntime: bindRuntime }) };
 async function fixture() {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-spatial-render-operation-")));
-  const privateRoot = join(root, "artifacts", "atet", "private");
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-spatial-render-operation-")));
+  const privateRoot = join(root, "artifacts", "slopcamera", "private");
   const workspace = join(privateRoot, "node-workspace");
   await mkdir(workspace, { recursive: true, mode: 0o700 });
   const binary = join(root, "browser"); await writeFile(binary, "browser-fixture", { mode: 0o700 });
@@ -38,7 +38,7 @@ async function fixture() {
   let renders = 0;
   const capabilityRequests: string[] = [];
   const application: ApplicationContext = {
-    paths: { repositoryRoot: root, privateRoot, artifactRoot: join(root, "artifacts", "atet", "recordings"), desktopRoot: root, projectRoot: join(root, "artifacts", "atet", "projects") },
+    paths: { repositoryRoot: root, privateRoot, artifactRoot: join(root, "artifacts", "slopcamera", "recordings"), desktopRoot: root, projectRoot: join(root, "artifacts", "slopcamera", "projects") },
     clock: { now: () => new Date(), timestampMilliseconds: () => Date.now() },
     capability: async name => { capabilityRequests.push(name); return name === "html-browser" ? { name, available: true, command: binary, version: "test" } : { name, available: false }; },
     capabilities: async () => [], runner: { run: async () => { throw new Error("Frame render must not run FFmpeg."); } },
@@ -65,7 +65,7 @@ async function withFixture(run: (f: Fixture) => Promise<void>) {
 async function json(f: Fixture, artifact: MediaArtifactReference): Promise<unknown> { return JSON.parse(await readFile(join(f.root, artifact.path), "utf8")); }
 async function publishJson(f: Fixture, value: unknown): Promise<MediaArtifactReference> {
   const text = `${canonicalJson(value)}\n`, sha256 = sha256Hex(text);
-  const path = `artifacts/atet/generated/media-operations/outputs/${sha256}.json`;
+  const path = `artifacts/slopcamera/generated/media-operations/outputs/${sha256}.json`;
   await writeFile(join(f.root, path), text);
   return { path, sha256, bytes: Buffer.byteLength(text) };
 }
@@ -231,7 +231,7 @@ test("recovery verifies all ordered contact-sheet sample partitions across multi
 
 test("service publication uncertainty remains ambiguous and service cleanup retains proven completion", async () => {
   await withFixture(async f => {
-    const prospective = { path: `artifacts/atet/generated/media-operations/outputs/${"b".repeat(64)}.png`, bytes: 1, sha256: "b".repeat(64) };
+    const prospective = { path: `artifacts/slopcamera/generated/media-operations/outputs/${"b".repeat(64)}.png`, bytes: 1, sha256: "b".repeat(64) };
     await expect(executeSpatialRender(f.context, f.input, { ...dependencies, render: async () => {
       throw new SpatialRenderFailure(new Error("frame link uncertainty"), { attemptId: "00000000-0000-4000-8000-000000000001", stage: "publication", published: [], uncertainPublication: prospective });
     } })).rejects.toMatchObject({ code: "ambiguous", details: { spatialRenderOperation: { uncertainPublication: prospective } } });

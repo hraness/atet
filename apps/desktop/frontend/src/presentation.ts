@@ -111,13 +111,13 @@ function ownedFailureLabel(
   }
   switch (state.code) {
     case "repository-not-configured":
-      return "Atet needs a configured Atet checkout";
+      return "Slopcamera needs a configured Slopcamera checkout";
     case "invalid-recorder-state":
       return "The local recorder returned an invalid active state";
     case "capture-session-failed":
       return "The recording stopped after a local capture failure";
     case "capture-recovery-incomplete":
-      return "Recording recovery incomplete — restart Atet to record again";
+      return "Recording recovery incomplete — restart Slopcamera to record again";
     case "system-audio-track-missing":
       return "System audio missing — recording stopped";
     default:

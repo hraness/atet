@@ -1,22 +1,20 @@
-# Atet
+# Slopcamera
 
-[![Atet: a visual studio for coding agents](https://atet.sh/og.png)](https://atet.sh)
+[![Slopcamera: a visual studio for coding agents](https://slop.camera/og.png)](https://slop.camera)
 
-[![skills.sh](https://skills.sh/b/hraness/atet)](https://skills.sh/hraness/atet)
-
-**Atet is a local visual studio for coding agents. Author scenes, combine
+**Slopcamera is a local visual studio for coding agents. Author scenes, combine
 generated and recorded media, and export images, diagrams, animation, and video
 from retained sources.**
 
-Describe a finished result to Codex, Claude, or another coding agent. Atet gives
+Describe a finished result to Codex, Claude, or another coding agent. Slopcamera gives
 it a Bun CLI, TypeScript SDK, and version-matched Agent Skill to inspect sources,
 direct cameras, edit a composition, and render the result. A separate MCP server
-exposes a fixed diagram and image toolset. There is no Atet account or hosted
+exposes a fixed diagram and image toolset. There is no Slopcamera account or hosted
 project database.
 
-[Install](#install-atet) · [Make a first diagram](#make-your-first-diagram) · [Capabilities](#what-atet-does) · [Documentation](docs/README.md) · [GitHub release](https://github.com/hraness/atet/releases/tag/v3.2.3) · [atet.sh](https://atet.sh)
+[Install](#install-slopcamera) · [Make a first diagram](#make-your-first-diagram) · [Capabilities](#what-slopcamera-does) · [Documentation](docs/README.md) · [slop.camera](https://slop.camera)
 
-## Why Atet
+## Why Slopcamera
 
 - **Keep creative work editable.** Native scenes, portable scenes, diagrams,
   and video projects retain their own sources and settings. Rendered frames
@@ -33,64 +31,63 @@ project database.
   explicit acknowledgement before named local media is uploaded. Native Python
   authoring requires separate trust because it runs as your current user.
 
-## Install Atet
+## Install Slopcamera
 
-Install [Bun 1.3.14 or newer](https://bun.sh), then the published CLI:
-
-```sh
-bun add --global https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz
-atet doctor
-```
-
-Install the matching Agent Skill with either runner:
+Slopcamera currently installs from source. No renamed release archive has been
+published. Install [Bun 1.3.14 or newer](https://bun.sh) and Git, then use a new
+checkout:
 
 ```sh
-npx skills add https://github.com/hraness/atet/tree/v3.2.3 --skill atet
-# or
-bunx skills add https://github.com/hraness/atet/tree/v3.2.3 --skill atet
+git clone --branch main https://github.com/hraness/slopcamera.git slopcamera-source
+cd slopcamera-source
+git rev-parse HEAD > ../slopcamera-source-commit.txt
+bun install --frozen-lockfile --ignore-scripts
+bun run build:sdk
+bun run build:desktop:cli
 ```
 
-Start a new agent session in the directory where you want to work. Name your
-sources, the finished result, and the details that must remain unchanged.
-`atet doctor` reports the local rendering, recording, browser, and media tools.
+Keep the checkout and recorded commit. In this shell, define the command against
+that exact build:
 
-The GitHub archive and skill above are pinned to **v3.2.3**. That release includes
-portable scenes, the qualified Three.js hardware GPU profile, and saved worlds
-through Spark. Native `studio`, shot-recipe `direct`, and `scene camera-track`
-commands currently require a build from `main`; installing v3.2.3 does not add
-them. The [capability reference](docs/reference/capabilities.md) separates
-released features from current source and names their runtime requirements.
+```sh
+export SLOPCAMERA_SOURCE_ROOT="$PWD"
+slopcamera() { bun "$SLOPCAMERA_SOURCE_ROOT/apps/desktop/dist/cli/main.js" "$@"; }
+slopcamera --help
+slopcamera doctor --json
+slopcamera skill install --target agents
+```
+
+Use `--target claude` for Claude Code or omit the target for Codex. Add
+`--scope project` inside the target repository for a project-only skill install.
+The skill comes from the same checkout as the CLI. Start a new agent session
+after installation. In a later shell, restore the checkout path and function.
+
+Native engines install separately. The [source-install guide](docs/how-to/use-current-source.md)
+explains workspace placement and durable-run identity; the
+[capability reference](docs/reference/capabilities.md) names runtime requirements.
 
 <details>
-<summary>Other version-matched Agent Skill installs</summary>
+<summary>Historical Atet release evidence</summary>
 
-The CLI carries its own released guide. `atet skill install` installs that guide
-for Codex by default; the public `skills` command follows the scope selected in
-its installer.
-
-```sh
-atet skill install --target claude
-atet skill install --target agents
-```
-
-Use `atet skill install --scope project` inside a repository to limit the install
-to that project, or `--project <path>` to select one. `atet skill path` prints the
-packaged guide. npm may carry an optional mirror; the immutable GitHub archive
-is the canonical install.
+[Atet v3.2.3](https://github.com/hraness/atet/releases/tag/v3.2.3) and its
+[original archive](https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz)
+remain historical publication evidence. Those immutable bytes install Atet,
+not Slopcamera. Renaming the repository does not create a renamed package or
+change an existing release.
 
 </details>
 
 ## Make your first diagram
 
-This local task works with v3.2.3 and needs no model account. In a new directory,
+After the source build above, this local task needs no model account. In a new directory,
 create the included diagram, check it, and render it:
 
 ```sh
-mkdir atet-first
-cd atet-first
-atet diagram init first.diagram.json
-atet diagram check first.diagram.json --strict
-atet diagram render first.diagram.json
+mkdir slopcamera-first
+cd slopcamera-first
+slopcamera diagram init first.diagram.json
+slopcamera diagram check first.diagram.json --strict
+slopcamera diagram render first.diagram.json
 ```
 
 You now have `example-flow.tldr`, `example-flow.light.svg`,
@@ -104,7 +101,7 @@ see the result. For a moving 3D subject, use [Directed scenes](docs/spatial-scen
 For detailed native 3D from the current source build, follow
 [Your first native film](docs/tutorials/first-native-film.md).
 
-## What Atet does
+## What Slopcamera does
 
 ### Author scenes and direct cameras
 
@@ -135,7 +132,8 @@ and educational presenter.
 > city. Keep the native scenes and diagram sources for later edits.
 
 Native source and exact job settings remain retained. Verified frames can become
-an ordinary project clip. Supported GLB derivatives and calibrated cameras can
+an ordinary project clip. `slopcamera scene camera-track` samples an explicit
+camera clock for reuse. Supported GLB derivatives and calibrated cameras can
 cross between native and portable scenes; rigs, solvers, and procedural materials
 remain native. Blender and Python environments are installed separately, and
 source execution requires explicit current-user trust. See [Native film studio](docs/studio.md)
@@ -149,7 +147,7 @@ p5, Two, Paper Shaders, or Three.js. Outputs can stand alone or join a video
 project. The optional vgpu example renders programmable WebGPU passes into
 retained raster frames for use on a world-space screen.
 
-Use `atet html catalog` to inspect the admitted local creative tools. The
+Use `slopcamera html catalog` to inspect the admitted local creative tools. The
 [creative toolkit reference](docs/html-overlay-creative-toolkit.md) distinguishes
 available profiles from upstream possibilities. vgpu does not enable shared GPU
 textures or a Three WebGPU renderer inside the current WebGL2/Spark profile.
@@ -186,21 +184,21 @@ in 16:9, 9:16, 1:1, and 4:5 from the same edit.
 Recording requires the corresponding macOS permissions. Input-event capture can
 include clicks, cursor movement, key activity, and focused-input information;
 typed-text capture is separately opt-in and secure fields are suppressed. Read
-[`DISCLOSURE`](DISCLOSURE) before recording sensitive material.
+[`PRIVACY.md`](PRIVACY.md) before recording sensitive material.
 
 Start with [Edit a video](docs/how-to/edit-video.md) or inspect a reusable recipe:
 
 ```sh
-atet workflows list --json
-atet workflows show social-variants --json
+slopcamera workflows list --json
+slopcamera workflows show social-variants --json
 ```
 
-## How Atet works
+## How Slopcamera works
 
 Keep the source that owns each creative decision. A native scene owns a rig or
 simulation; a portable scene owns supported geometry, cameras, and media surfaces;
 a diagram owns its objects and labels; a video project owns cuts and delivery.
-ATET connects these through explicit assets and rendered derivatives.
+SLOPCAMERA connects these through explicit assets and rendered derivatives.
 
 1. **Prepare the sources.** Import footage and assets or author a scene, diagram,
    or native program. Inspect available tools before choosing an engine.
@@ -214,7 +212,7 @@ ATET connects these through explicit assets and rendered derivatives.
 ### Instructions for coding agents
 
 Read local project instructions and inspect sources before changing them. Use
-`atet --help`, `atet doctor --json`, `atet operations list --json`, and the
+`slopcamera --help`, `slopcamera doctor --json`, `slopcamera operations list --json`, and the
 installed skill to discover the exact local surface. Agree on material output
 requirements, preview substantial changes, inspect the resulting files, and
 report their paths. Do not infer provider access, native trust, or model quality
@@ -227,7 +225,7 @@ declarative graphs, approvals, and resuming work.
 
 - **Runtime support varies.** The CLI uses Bun on macOS, Linux, and Windows;
   capture is macOS-specific. Media, browser, GPU, and native studio profiles
-  have additional requirements. Use the capability reference and `atet doctor`.
+  have additional requirements. Use the capability reference and `slopcamera doctor`.
 - **Interchange preserves a supported subset.** Native rigs and simulations do
   not become editable Three scenes by exporting a GLB. An image or video on a
   plane supplies pixels, not hidden geometry. Calibrated camera exchange does
@@ -243,7 +241,7 @@ declarative graphs, approvals, and resuming work.
 
 ## Design and trust
 
-There is no Atet account, hosted project database, or browser generation service.
+There is no Slopcamera account, hosted project database, or browser generation service.
 Ordinary editing and rendering remain local. Gateway generation and selected
 cloud analysis use credentials from the local process and request explicit
 acknowledgement before uploading named media. This website never accepts a
@@ -258,7 +256,7 @@ Native tools, providers, codecs, and GPU drivers can affect results, so retained
 source identity alone does not promise identical pixels on another machine.
 
 See [Architecture](docs/architecture.md), [`SECURITY.md`](SECURITY.md),
-[`DISCLOSURE`](DISCLOSURE), and [`NOTICE`](NOTICE) for the detailed boundaries.
+[`PRIVACY.md`](PRIVACY.md), and [`NOTICE`](NOTICE) for the detailed boundaries.
 
 ## Documentation
 
@@ -271,35 +269,23 @@ The [documentation index](docs/README.md) connects these paths.
 
 ## For software integrations
 
-Add the published package to a Bun project:
-
-```sh
-bun add https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz
-```
+Run this example with Bun from the source checkout after `bun run build:sdk`.
+The checkout resolves its own `@hraness/slopcamera` package exports.
 
 SDK imports do not start the CLI or inspect local project state. For example,
 convert an existing local image into an SVG:
 
 ```ts
-import { vectorizeImage } from "@hraness/atet"
+import { vectorizeImage } from "@hraness/slopcamera"
 
 const result = await vectorizeImage("logo.png", { outputPath: "logo.svg" })
 console.log(result.receipt.sourceSha256, result.receipt.svgSha256)
 ```
 
-Use `@hraness/atet/code` for declarative workflow graphs,
-`@hraness/atet/workflow` for trusted Bun workflows, and `@hraness/atet/local/*`
+Use `@hraness/slopcamera/code` for declarative workflow graphs,
+`@hraness/slopcamera/workflow` for trusted Bun workflows, and `@hraness/slopcamera/local/*`
 for the local media engine. See the [SDK reference](docs/reference/sdk.md) for
 entrypoint scope and execution effects.
-
-## Why the name Atet
-
-**Agentic creative coding toolkit.**
-
-At the beginning of time, when there was nothing but chaos, Atum existed alone
-in the watery mass of Nun. A pyramid mound called Benben emerged. When the
-lotus flower bloomed, Atum dawned and became Ra. Every night Ra sails in the
-underworld on the solar barque Atet.
 
 ## Verification
 

@@ -11,4 +11,4 @@ export {
   type CanonicalJsonBounds,
   type CanonicalJsonValue,
   type CanonicalJsonFingerprint,
-} from "@hraness/atet/code/advanced";
+} from "@hraness/slopcamera/code/advanced";

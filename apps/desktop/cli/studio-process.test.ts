@@ -14,14 +14,14 @@ if (mode === "ordinary-tree") {
   process.on("SIGTERM", () => {});
   child.on("exit", () => process.exit(0));
 } else if (mode === "ordinary-leaf") {
-  writeFileSync(state, JSON.stringify({ kind: "atet-studio-process-test", pid: process.pid }));
+  writeFileSync(state, JSON.stringify({ kind: "slopcamera-studio-process-test", pid: process.pid }));
   setInterval(() => {}, 1000);
 } else if (mode === "escaped-parent") {
   const child = spawn(process.execPath, [import.meta.path, "escaped-leaf", state], { detached: true, stdio: ["ignore", "inherit", "inherit"] });
   child.unref();
   process.exit(0);
 } else if (mode === "escaped-leaf") {
-  writeFileSync(state, JSON.stringify({ kind: "atet-studio-process-test", pid: process.pid }));
+  writeFileSync(state, JSON.stringify({ kind: "slopcamera-studio-process-test", pid: process.pid }));
   process.on("SIGTERM", () => process.exit(0));
   setTimeout(() => process.exit(0), 15000);
   setInterval(() => {}, 1000);
@@ -48,7 +48,7 @@ async function waitForFixturePid(path: string): Promise<number> {
   while (performance.now() < deadline) {
     try {
       const state: unknown = JSON.parse(await readFile(path, "utf8"));
-      if (typeof state === "object" && state !== null && "kind" in state && state.kind === "atet-studio-process-test"
+      if (typeof state === "object" && state !== null && "kind" in state && state.kind === "slopcamera-studio-process-test"
         && "pid" in state && typeof state.pid === "number" && Number.isSafeInteger(state.pid) && state.pid > 1) return state.pid;
     } catch (error) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error; }
     await new Promise(resolve => setTimeout(resolve, 20));
@@ -78,7 +78,7 @@ async function stopOwnedFixture(pid: number): Promise<void> {
 }
 
 async function fixture(run: (context: { root: string; path: string; options: StudioProcessOptions }) => Promise<void>) {
-  const root = await mkdtemp(join(await realpath(tmpdir()), "atet-studio-process-test-"));
+  const root = await mkdtemp(join(await realpath(tmpdir()), "slopcamera-studio-process-test-"));
   const path = join(root, "fixture.mjs");
   await writeFile(path, helper, { mode: 0o600 });
   for (const name of ["home", "tmp", "blender-user"]) await mkdir(join(root, name), { mode: 0o700 });

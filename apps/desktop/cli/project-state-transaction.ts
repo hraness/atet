@@ -14,7 +14,7 @@ import {
 import {
   canonicalJson,
   canonicalJsonSha256,
-  canonicalAtetPersistenceDocument,
+  canonicalSlopcameraPersistenceDocument,
   hashProjectStructure,
   loadProjectEditPlan,
   loadVideoProject,
@@ -45,7 +45,7 @@ const TransactionBaseShape = {
   after: GenerationReferenceSchema,
   before: GenerationReferenceSchema,
   kind: z.union([
-    z.literal("atet.project-state-transaction"),
+    z.literal("slopcamera.project-state-transaction"),
     z.literal("studio.project-state-transaction"),
   ]),
   projectId: VideoProjectIdSchema,
@@ -101,7 +101,7 @@ export const ProjectStateTransactionSettlementV1Schema = z.strictObject({
   after: GenerationReferenceSchema,
   before: GenerationReferenceSchema,
   kind: z.union([
-    z.literal("atet.project-state-transaction-settlement"),
+    z.literal("slopcamera.project-state-transaction-settlement"),
   ]),
   projectId: VideoProjectIdSchema,
   schemaVersion: z.literal(1),
@@ -142,8 +142,8 @@ function validateGeneration(input: ProjectGeneration, label: string): ProjectGen
     throw new CliError("invalid-data", `${label} project state has an edit plan for another structure generation.`);
   }
   return {
-    plan: canonicalAtetPersistenceDocument(plan),
-    project: canonicalAtetPersistenceDocument(project),
+    plan: canonicalSlopcameraPersistenceDocument(plan),
+    project: canonicalSlopcameraPersistenceDocument(project),
   };
 }
 
@@ -194,7 +194,7 @@ async function writeTransaction(
 ): Promise<void> {
   const parsed = ProjectStateTransactionV1Schema.parse({
     ...transaction,
-    kind: "atet.project-state-transaction",
+    kind: "slopcamera.project-state-transaction",
   });
   await fileSystem.writeTextAtomic(PROJECT_STATE_TRANSACTION_PATH, `${canonicalJson(parsed)}\n`);
 }
@@ -287,7 +287,7 @@ export async function loadProjectStateTransactionSettlement(
   }
   return ProjectStateTransactionSettlementV1Schema.parse({
     ...rawSettlement,
-    kind: "atet.project-state-transaction-settlement",
+    kind: "slopcamera.project-state-transaction-settlement",
   });
 }
 
@@ -299,7 +299,7 @@ async function publishTransactionSettlement(
     active: transaction.active,
     after: transaction.after,
     before: transaction.before,
-    kind: "atet.project-state-transaction-settlement",
+    kind: "slopcamera.project-state-transaction-settlement",
     projectId: transaction.projectId,
     schemaVersion: 1,
     transactionId: transaction.transactionId,
@@ -370,7 +370,7 @@ function transactionWithPhase(
   return ProjectStateTransactionV1Schema.parse({
     after: transaction.after,
     before: transaction.before,
-    kind: "atet.project-state-transaction",
+    kind: "slopcamera.project-state-transaction",
     phase,
     projectId: transaction.projectId,
     schemaVersion: transaction.schemaVersion,
@@ -386,7 +386,7 @@ function settledTransaction(
     after: transaction.after,
     before: transaction.before,
     active,
-    kind: "atet.project-state-transaction",
+    kind: "slopcamera.project-state-transaction",
     phase: "settled",
     projectId: transaction.projectId,
     schemaVersion: transaction.schemaVersion,
@@ -418,8 +418,8 @@ export async function recoverProjectStateTransaction(
   const authority: unknown = JSON.parse(await fileSystem.readText("project.json"));
   if (typeof authority === "object" && authority !== null && !Array.isArray(authority)
     && (("schemaVersion" in authority && authority.schemaVersion === 2)
-      || ("kind" in authority && authority.kind === "atet.spatial-project-head"))) {
-    throw new CliError("unsupported-plan", "This project uses spatial V2 authority. Use atet scene project commands; legacy recovery cannot modify it.");
+      || ("kind" in authority && authority.kind === "slopcamera.spatial-project-head"))) {
+    throw new CliError("unsupported-plan", "This project uses spatial V2 authority. Use slopcamera scene project commands; legacy recovery cannot modify it.");
   }
   if (transaction.phase === "settled") {
     await publishTransactionSettlement(fileSystem, transaction);
@@ -471,7 +471,7 @@ export async function commitProjectStateTransaction(options: {
   const transaction = ProjectStateTransactionV1Schema.parse({
     after: referenceFor(transactionId, "after", after),
     before: referenceFor(transactionId, "before", before),
-    kind: "atet.project-state-transaction",
+    kind: "slopcamera.project-state-transaction",
     phase: "prepare",
     projectId: before.project.projectId,
     schemaVersion: 1,

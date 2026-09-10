@@ -46,7 +46,7 @@ const bundle = {
 } satisfies WorkflowBundleIdentity;
 
 const runtime = {
-  applicationBuild: "atet-compiler-test",
+  applicationBuild: "slopcamera-compiler-test",
   bunRevision: "compiler-test-revision",
   bunVersion: "1.3.14",
   bundlerConfigurationSha256: ZERO_HASH,
@@ -294,13 +294,13 @@ describe("workflow graph compiler", () => {
     });
   });
 
-  test("derives the Atet family for visual media operations", () => {
+  test("derives the Slopcamera family for visual media operations", () => {
     const registry = new OperationRegistry();
     register(
       registry,
-      "atet.diagram.check",
-      "test.atet-diagram-check-input/v1",
-      "test.atet-diagram-check-output/v1",
+      "slopcamera.diagram.check",
+      "test.slopcamera-diagram-check-input/v1",
+      "test.slopcamera-diagram-check-output/v1",
       policy({
         cancellable: false,
         effect: "local-read",
@@ -312,12 +312,12 @@ describe("workflow graph compiler", () => {
     const builder = WorkflowGraphBuilder.create(registry);
     const checked = builder.operationByKind("check", {
       input: { path: "fixtures/system.diagram.json" },
-      kind: "atet.diagram.check",
+      kind: "slopcamera.diagram.check",
       version: 1,
     });
     const graph = builder.build({
-      id: "atet-visual-compiler",
-      inputSchemaId: "test.atet-visual-compiler-input/v1",
+      id: "slopcamera-visual-compiler",
+      inputSchemaId: "test.slopcamera-visual-compiler-input/v1",
       version: 1,
     }, { checked });
 
@@ -331,8 +331,8 @@ describe("workflow graph compiler", () => {
 
     expect(plan.envelope).toMatchObject({
       effects: ["local-read"],
-      operationFamilies: ["atet"],
-      operationKinds: ["atet.diagram.check"],
+      operationFamilies: ["slopcamera"],
+      operationKinds: ["slopcamera.diagram.check"],
       preparation: ["local-media"],
       resources: [{ amount: 1, resource: "local-io" }],
     });
@@ -619,15 +619,15 @@ describe("workflow graph compiler", () => {
     })).toThrow(/topology/u);
   });
 
-  test("verifies Studio plan hashes before coherent Atet normalization and rejects retired runtime ABIs", () => {
+  test("verifies Studio plan hashes before coherent Slopcamera normalization and rejects retired runtime ABIs", () => {
     const canonical = compile(graphFixture(registryFixture()));
     const legacy = JSON.parse(
       JSON.stringify(canonical)
-        .replaceAll("atet-workflow-graph-v2", "studio-workflow-graph-v2")
-        .replaceAll("atet-workflow-ref-v1", "studio-workflow-ref-v1")
-        .replaceAll("atet-requirement-envelope-v2", "studio-requirement-envelope-v2")
-        .replaceAll("atet-workflow-graph-abi-v2", "studio-workflow-graph-abi-v2")
-        .replaceAll("atet-compiler-test", "studio-compiler-test")
+        .replaceAll("slopcamera-workflow-graph-v2", "studio-workflow-graph-v2")
+        .replaceAll("slopcamera-workflow-ref-v1", "studio-workflow-ref-v1")
+        .replaceAll("slopcamera-requirement-envelope-v2", "studio-requirement-envelope-v2")
+        .replaceAll("slopcamera-workflow-graph-abi-v2", "studio-workflow-graph-abi-v2")
+        .replaceAll("slopcamera-compiler-test", "studio-compiler-test")
         .replaceAll("test.snapshot-input/v1", "studio.operation.project.snapshot.input/v1")
         .replaceAll("test.snapshot-output/v1", "studio.operation.project.snapshot.output/v1")
         .replaceAll("test.faces-input/v1", "studio.operation.analysis.faces.input/v1")
@@ -649,7 +649,7 @@ describe("workflow graph compiler", () => {
     expect(parsed.graph.version).toBe(WORKFLOW_GRAPH_VERSION);
     expect(parsed.envelope.version).toBe(REQUIREMENT_ENVELOPE_VERSION);
     expect(parsed.runtime).toMatchObject({
-      applicationBuild: "atet-compiler-test",
+      applicationBuild: "slopcamera-compiler-test",
       codeWorkerAbi: CODE_WORKER_ABI,
       compilerAbi: GRAPH_COMPILER_ABI,
       graphAbi: GRAPH_ABI,
@@ -657,8 +657,8 @@ describe("workflow graph compiler", () => {
     });
     expect(parsed.staticBindings.version).toBe(STATIC_BINDINGS_VERSION);
     expect(parsed.registry.discovery.every(discovery => (
-      discovery.inputSchemaId.startsWith("atet.operation.")
-      && discovery.outputSchemaId.startsWith("atet.operation.")
+      discovery.inputSchemaId.startsWith("slopcamera.operation.")
+      && discovery.outputSchemaId.startsWith("slopcamera.operation.")
     ))).toBe(true);
     expect(parsed.graph.nodes.every(node => (
       node.executor.kind !== "operation"

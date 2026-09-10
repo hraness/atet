@@ -5,7 +5,7 @@ export function hardwareEvidenceFixture(executionProfile: HtmlOverlayExecutionPr
   const renderer = "ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Pro, Unspecified Version)";
   const browserRenderer = "ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Pro, Version fixture)";
   return {
-    kind: "atet.html-overlay-gpu-evidence", schemaVersion: 1, executionProfile, api: "webgl2", backend: "angle-metal",
+    kind: "slopcamera.html-overlay-gpu-evidence", schemaVersion: 1, executionProfile, api: "webgl2", backend: "angle-metal",
     platform: "darwin", architecture: "arm64", osRelease: "25.0.0",
     context: { vendor: "WebKit", renderer: "WebKit WebGL", version: "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
       shadingLanguageVersion: "WebGL GLSL ES 3.00", unmaskedVendor: "Google Inc. (Apple)", unmaskedRenderer: renderer,

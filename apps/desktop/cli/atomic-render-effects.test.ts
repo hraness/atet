@@ -61,7 +61,7 @@ function render(input: AtomicRenderRequest, platform: AtomicRenderPlatformServic
 
 test("final native publication rejects revoked custody and mutations made during the final fence", async () => {
   for (const attack of ["revoke", "rewrite", "symlink"] as const) {
-    const directory = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "atet-final-render-fence-")));
+    const directory = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "slopcamera-final-render-fence-")));
     try {
       const input = request(directory);
       const external = join(directory, "external.mp4");
@@ -91,7 +91,7 @@ async function outcome(promise: Promise<unknown>) {
 }
 
 test("interruption joins the real descriptor verification before close or staging cleanup", async () => {
-  const directory = await fs.mkdtemp(join(tmpdir(), "atet-hash-custody-"));
+  const directory = await fs.mkdtemp(join(tmpdir(), "slopcamera-hash-custody-"));
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   const nativeOpen = fs.open;
@@ -143,7 +143,7 @@ test("interruption joins the real descriptor verification before close or stagin
 test.each([undefined, null, false, new Error("abort cleanup")])(
   "a failed abort (%p) still joins a process acquired immediately before interruption",
   async abortFailure => {
-    const directory = await fs.mkdtemp(join(tmpdir(), "atet-process-custody-"));
+    const directory = await fs.mkdtemp(join(tmpdir(), "slopcamera-process-custody-"));
     const acquired = Promise.withResolvers<void>();
     const handoff = Promise.withResolvers<void>();
     const aborted = Promise.withResolvers<void>();
@@ -196,7 +196,7 @@ test.each([undefined, null, false, new Error("abort cleanup")])(
 );
 
 test.each([false, true])("native process settlement joins an active poll and retains its late failure (%s)", async failPoll => {
-  const directory = await fs.mkdtemp(join(tmpdir(), "atet-poll-custody-"));
+  const directory = await fs.mkdtemp(join(tmpdir(), "slopcamera-poll-custody-"));
   const polling = Promise.withResolvers<void>();
   const releasePoll = Promise.withResolvers<void>();
   const completion = Promise.withResolvers<RunResult>();
@@ -248,7 +248,7 @@ test.each([false, true])("native process settlement joins an active poll and ret
 test.each([undefined, null, false, new Error("temporary cleanup")])(
   "native temporary cleanup retains its selected rejection (%p) without decorating errors",
   async cleanupFailure => {
-    const directory = await fs.mkdtemp(join(tmpdir(), "atet-cleanup-precedence-"));
+    const directory = await fs.mkdtemp(join(tmpdir(), "slopcamera-cleanup-precedence-"));
     const primary = new Error("private earlier execution sentinel");
     const keys = cleanupFailure instanceof Error ? Reflect.ownKeys(cleanupFailure) : [];
     try {

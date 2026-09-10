@@ -34,20 +34,20 @@ export async function discoverRepositoryRoot(start: string): Promise<string> {
   }
   throw new CliError(
     "not-found",
-    `Could not find an Atet checkout from ${resolve(start)} (expected package.json and apps/desktop).`,
+    `Could not find a Slopcamera checkout from ${resolve(start)} (expected package.json and apps/desktop).`,
   );
 }
 
 export function defaultArtifactRoot(repositoryRoot: string): string {
-  return join(repositoryRoot, "artifacts", "atet", "recordings");
+  return join(repositoryRoot, "artifacts", "slopcamera", "recordings");
 }
 
 function defaultProjectRoot(repositoryRoot: string): string {
-  return join(repositoryRoot, "artifacts", "atet", "projects");
+  return join(repositoryRoot, "artifacts", "slopcamera", "projects");
 }
 
 function defaultPrivateRoot(repositoryRoot: string): string {
-  return join(repositoryRoot, "artifacts", "atet", "private");
+  return join(repositoryRoot, "artifacts", "slopcamera", "private");
 }
 
 /** Shared local state coordinates resource admission across checkouts. */
@@ -57,7 +57,7 @@ export function defaultCliStateRoot(
 ): string {
   const userHome = homedir();
   if (platform === "darwin") {
-    return join(userHome, "Library", "Application Support", "Atet", "cli");
+    return join(userHome, "Library", "Application Support", "Slopcamera", "cli");
   }
   if (platform === "win32") {
     const localAppData = env.LOCALAPPDATA;
@@ -65,7 +65,7 @@ export function defaultCliStateRoot(
       localAppData !== undefined && isAbsolute(localAppData)
         ? localAppData
         : join(userHome, "AppData", "Local"),
-      "Atet",
+      "Slopcamera",
       "cli",
     );
   }
@@ -74,7 +74,7 @@ export function defaultCliStateRoot(
     stateHome !== undefined && isAbsolute(stateHome)
       ? stateHome
       : join(userHome, ".local", "state"),
-    "atet",
+    "slopcamera",
   );
 }
 
@@ -218,29 +218,29 @@ export async function resolveRepositoryPaths(
   const desktopRoot = installedFrom.startsWith("/$bunfs/")
     ? dirname(await realpath(executable))
     : join(await discoverRepositoryRoot(installedFrom), "apps", "desktop");
-  const repositoryRootInput = env.ATET_REPOSITORY_ROOT;
+  const repositoryRootInput = env.SLOPCAMERA_REPOSITORY_ROOT;
   const requestedRoot = resolve(repositoryRootInput ?? cwd);
   if (requestedRoot === "/$bunfs" || requestedRoot.startsWith("/$bunfs/")) {
-    throw new CliError("unsafe-path", "Atet project state requires a physical caller workspace, not the embedded executable filesystem.");
+    throw new CliError("unsafe-path", "Slopcamera project state requires a physical caller workspace, not the embedded executable filesystem.");
   }
   if (!await isDirectory(requestedRoot)) {
-    throw new CliError("not-found", `Atet project root is not a directory: ${requestedRoot}`);
+    throw new CliError("not-found", `Slopcamera project root is not a directory: ${requestedRoot}`);
   }
   const repositoryRoot = await realpath(requestedRoot);
   const requiredArtifactRoot = defaultArtifactRoot(repositoryRoot);
-  const configuredArtifactRoot = env.ATET_ARTIFACT_ROOT;
+  const configuredArtifactRoot = env.SLOPCAMERA_ARTIFACT_ROOT;
   if (
     configuredArtifactRoot !== undefined
     && resolve(configuredArtifactRoot) !== resolve(requiredArtifactRoot)
   ) {
     throw new CliError(
       "unsafe-path",
-      `ATET_ARTIFACT_ROOT must remain ${requiredArtifactRoot}; external recording roots are forbidden.`,
+      `SLOPCAMERA_ARTIFACT_ROOT must remain ${requiredArtifactRoot}; external recording roots are forbidden.`,
     );
   }
   const artifactRoot = await ensurePhysicalPrivateDirectoryWithin(
     repositoryRoot,
-    "artifacts/atet/recordings",
+    "artifacts/slopcamera/recordings",
   );
   const projectRoot = await ensurePhysicalPrivateDirectoryWithin(
     repositoryRoot,

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import {
-  defineAtetWorkflow,
-  runAtetWorkflow,
-  AtetWorkflowError,
-  type AtetWorkflowExecutor,
+  defineSlopcameraWorkflow,
+  runSlopcameraWorkflow,
+  SlopcameraWorkflowError,
+  type SlopcameraWorkflowExecutor,
 } from "./workflow.ts"
 import {
   createProcessLocalHostResourceCoordinator,
@@ -33,7 +33,7 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
   }
 }
 
-describe("typed Atet workflows", () => {
+describe("typed Slopcamera workflows", () => {
   test("wraps a custom executor in immutable operation-owned admission", async () => {
     const coordinator = createProcessLocalHostResourceCoordinator({
       profile: {
@@ -55,17 +55,17 @@ describe("typed Atet workflows", () => {
       },
     }
     let observedLease: unknown
-    const workflow = defineAtetWorkflow({
+    const workflow = defineSlopcameraWorkflow({
       id: "custom-executor-admission",
       version: 1,
       parseInput: diagramInput,
       run: (context, input) => context.operation(
         "check",
-        "atet.diagram.check",
+        "slopcamera.diagram.check",
         input,
       ),
     })
-    await runAtetWorkflow(workflow, { path: "flow.diagram.json" }, {
+    await runSlopcameraWorkflow(workflow, { path: "flow.diagram.json" }, {
       dependencies: {
         hostResourceCoordinator: workflowCoordinator,
         signal: workflowSignal,
@@ -80,7 +80,7 @@ describe("typed Atet workflows", () => {
           { resource: "local-io", amount: 1 },
         ])
         return { configPath: null, findings: [] }
-      }) as AtetWorkflowExecutor,
+      }) as SlopcameraWorkflowExecutor,
     })
     expect(observedLease).toBeDefined()
     expect(observedAdmissionOptions).toEqual({
@@ -91,12 +91,12 @@ describe("typed Atet workflows", () => {
 
   test("parses input and runs typed operations with an ordered receipt", async () => {
     const calls: string[] = []
-    const executor: AtetWorkflowExecutor = (async (code, input) => {
+    const executor: SlopcameraWorkflowExecutor = (async (code, input) => {
       calls.push(`${code}:${Reflect.get(input, "path") as string}`)
-      if (code === "atet.diagram.check") {
+      if (code === "slopcamera.diagram.check") {
         return { configPath: null, findings: [] }
       }
-      if (code === "atet.diagram.render") {
+      if (code === "slopcamera.diagram.render") {
         return {
           artifacts: {
             spec: "/tmp/flow.diagram.json",
@@ -111,20 +111,20 @@ describe("typed Atet workflows", () => {
         }
       }
       throw new Error(`Unexpected operation ${code}`)
-    }) as AtetWorkflowExecutor
-    const workflow = defineAtetWorkflow({
+    }) as SlopcameraWorkflowExecutor
+    const workflow = defineSlopcameraWorkflow({
       id: "checked-render",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
         const checked = await context.operation(
           "check",
-          "atet.diagram.check",
+          "slopcamera.diagram.check",
           input,
         )
         const rendered = await context.operation(
           "render",
-          "atet.diagram.render",
+          "slopcamera.diagram.render",
           input,
         )
         return {
@@ -134,22 +134,22 @@ describe("typed Atet workflows", () => {
       },
     })
 
-    const result = await runAtetWorkflow(
+    const result = await runSlopcameraWorkflow(
       workflow,
       { path: "/tmp/flow.diagram.json" },
       { executor },
     )
 
     expect(calls).toEqual([
-      "atet.diagram.check:/tmp/flow.diagram.json",
-      "atet.diagram.render:/tmp/flow.diagram.json",
+      "slopcamera.diagram.check:/tmp/flow.diagram.json",
+      "slopcamera.diagram.render:/tmp/flow.diagram.json",
     ])
     expect(result).toEqual({
       workflow: { id: "checked-render", version: 1 },
       output: { artifact: "/tmp/flow.light.svg", findingCount: 0 },
       steps: [
-        { id: "check", index: 0, operation: "atet.diagram.check" },
-        { id: "render", index: 1, operation: "atet.diagram.render" },
+        { id: "check", index: 0, operation: "slopcamera.diagram.check" },
+        { id: "render", index: 1, operation: "slopcamera.diagram.render" },
       ],
     })
   })
@@ -180,20 +180,20 @@ describe("typed Atet workflows", () => {
       await blockers.get(stepId)
       completed.add(stepId)
       return { configPath: null, findings: [] }
-    }) as AtetWorkflowExecutor
-    const workflow = defineAtetWorkflow({
+    }) as SlopcameraWorkflowExecutor
+    const workflow = defineSlopcameraWorkflow({
       id: "parallel-checks",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
         const first = context.operation(
           "first",
-          "atet.diagram.check",
+          "slopcamera.diagram.check",
           input,
         )
         const second = context.operation(
           "second",
-          "atet.diagram.check",
+          "slopcamera.diagram.check",
           input,
         )
         try {
@@ -210,7 +210,7 @@ describe("typed Atet workflows", () => {
       },
     })
 
-    const result = await runAtetWorkflow(
+    const result = await runSlopcameraWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       { executor, hostResourceCoordinator: coordinator },
@@ -225,19 +225,19 @@ describe("typed Atet workflows", () => {
         release = resolve
       })
       return { configPath: null, findings: [] }
-    }) as AtetWorkflowExecutor
-    const workflow = defineAtetWorkflow({
+    }) as SlopcameraWorkflowExecutor
+    const workflow = defineSlopcameraWorkflow({
       id: "drain-operation",
       version: 1,
       parseInput: diagramInput,
       run(context, input) {
-        void context.operation("check", "atet.diagram.check", input)
+        void context.operation("check", "slopcamera.diagram.check", input)
         return "scheduled"
       },
     })
 
     let settled = false
-    const execution = runAtetWorkflow(
+    const execution = runSlopcameraWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       { executor },
@@ -252,29 +252,29 @@ describe("typed Atet workflows", () => {
     const result = await execution
     expect(result.output).toBe("scheduled")
     expect(result.steps).toEqual([
-      { id: "check", index: 0, operation: "atet.diagram.check" },
+      { id: "check", index: 0, operation: "slopcamera.diagram.check" },
     ])
   })
 
   test("turns an un-awaited operation rejection into workflow failure", async () => {
     const cause = new Error("background check failed")
-    const workflow = defineAtetWorkflow({
+    const workflow = defineSlopcameraWorkflow({
       id: "drain-failure",
       version: 1,
       parseInput: diagramInput,
       run(context, input) {
-        void context.operation("check", "atet.diagram.check", input)
+        void context.operation("check", "slopcamera.diagram.check", input)
         return "scheduled"
       },
     })
 
-    await expect(runAtetWorkflow(
+    await expect(runSlopcameraWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       {
         executor: (async () => {
           throw cause
-        }) as AtetWorkflowExecutor,
+        }) as SlopcameraWorkflowExecutor,
       },
     )).rejects.toMatchObject({
       cause,
@@ -286,20 +286,20 @@ describe("typed Atet workflows", () => {
 
   test("rejects invalid foreign input before invoking an operation", async () => {
     let executed = false
-    const workflow = defineAtetWorkflow({
+    const workflow = defineSlopcameraWorkflow({
       id: "checked-render",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
-        return context.operation("check", "atet.diagram.check", input)
+        return context.operation("check", "slopcamera.diagram.check", input)
       },
     })
     await expect(
-      runAtetWorkflow(workflow, null, {
+      runSlopcameraWorkflow(workflow, null, {
         executor: (async () => {
           executed = true
           throw new Error("must not execute")
-        }) as AtetWorkflowExecutor,
+        }) as SlopcameraWorkflowExecutor,
       }),
     ).rejects.toMatchObject({ code: "INVALID_WORKFLOW_INPUT" })
     expect(executed).toBe(false)
@@ -310,8 +310,8 @@ describe("typed Atet workflows", () => {
     const executor = (async () => {
       executions += 1
       return { configPath: null, findings: [] }
-    }) as AtetWorkflowExecutor
-    const unknownOperation = defineAtetWorkflow({
+    }) as SlopcameraWorkflowExecutor
+    const unknownOperation = defineSlopcameraWorkflow({
       id: "unknown-operation",
       version: 1,
       parseInput: diagramInput,
@@ -323,33 +323,33 @@ describe("typed Atet workflows", () => {
         ) => Promise<unknown>
         return unsafeOperation(
           "unknown",
-          "atet.private.render",
+          "slopcamera.private.render",
           input,
         )
       },
     })
     await expect(
-      runAtetWorkflow(
+      runSlopcameraWorkflow(
         unknownOperation,
         { path: "flow.diagram.json" },
         { executor },
       ),
     ).rejects.toMatchObject({ code: "INVALID_WORKFLOW_STEP" })
 
-    const invalidInput = defineAtetWorkflow({
+    const invalidInput = defineSlopcameraWorkflow({
       id: "invalid-operation-input",
       version: 1,
       parseInput: diagramInput,
       run(context) {
         return context.operation(
           "invalid",
-          "atet.diagram.check",
+          "slopcamera.diagram.check",
           { path: "" },
         )
       },
     })
     await expect(
-      runAtetWorkflow(
+      runSlopcameraWorkflow(
         invalidInput,
         { path: "flow.diagram.json" },
         { executor },
@@ -360,37 +360,37 @@ describe("typed Atet workflows", () => {
 
   test("bounds steps and rejects duplicate ids", async () => {
     const executor = (async () => ({ configPath: null, findings: [] })) as
-      AtetWorkflowExecutor
-    const duplicate = defineAtetWorkflow({
+      SlopcameraWorkflowExecutor
+    const duplicate = defineSlopcameraWorkflow({
       id: "duplicate",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
-        await context.operation("same", "atet.diagram.check", input)
-        return context.operation("same", "atet.diagram.check", input)
+        await context.operation("same", "slopcamera.diagram.check", input)
+        return context.operation("same", "slopcamera.diagram.check", input)
       },
     })
     await expect(
-      runAtetWorkflow(duplicate, { path: "flow.diagram.json" }, { executor }),
+      runSlopcameraWorkflow(duplicate, { path: "flow.diagram.json" }, { executor }),
     ).rejects.toMatchObject({
       code: "INVALID_WORKFLOW_STEP",
       completedSteps: [
-        { id: "same", index: 0, operation: "atet.diagram.check" },
+        { id: "same", index: 0, operation: "slopcamera.diagram.check" },
       ],
       message: expect.stringContaining("Duplicate workflow step id"),
     })
 
-    const bounded = defineAtetWorkflow({
+    const bounded = defineSlopcameraWorkflow({
       id: "bounded",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
-        await context.operation("one", "atet.diagram.check", input)
-        return context.operation("two", "atet.diagram.check", input)
+        await context.operation("one", "slopcamera.diagram.check", input)
+        return context.operation("two", "slopcamera.diagram.check", input)
       },
     })
     await expect(
-      runAtetWorkflow(bounded, { path: "flow.diagram.json" }, {
+      runSlopcameraWorkflow(bounded, { path: "flow.diagram.json" }, {
         executor,
         maximumSteps: 1,
       }),
@@ -402,30 +402,30 @@ describe("typed Atet workflows", () => {
 
   test("identifies a failed step without hiding its cause", async () => {
     const cause = new Error("render unavailable")
-    const workflow = defineAtetWorkflow({
+    const workflow = defineSlopcameraWorkflow({
       id: "failed-render",
       version: 1,
       parseInput: diagramInput,
       run(context, input) {
-        return context.operation("render", "atet.diagram.render", input)
+        return context.operation("render", "slopcamera.diagram.render", input)
       },
     })
     try {
-      await runAtetWorkflow(workflow, { path: "flow.diagram.json" }, {
+      await runSlopcameraWorkflow(workflow, { path: "flow.diagram.json" }, {
         executor: (async () => {
           throw cause
-        }) as AtetWorkflowExecutor,
+        }) as SlopcameraWorkflowExecutor,
       })
       throw new Error("Expected workflow failure")
     } catch (error) {
-      expect(error).toBeInstanceOf(AtetWorkflowError)
+      expect(error).toBeInstanceOf(SlopcameraWorkflowError)
       expect(error).toMatchObject({
         cause,
         code: "WORKFLOW_STEP_FAILED",
         completedSteps: [],
         failedStep: {
           id: "render",
-          operation: "atet.diagram.render",
+          operation: "slopcamera.diagram.render",
         },
       })
     }
@@ -434,18 +434,18 @@ describe("typed Atet workflows", () => {
   test("wraps authored-code failure with completed step receipts", async () => {
     const cause = new Error("postcondition failed")
     const executor = (async () => ({ configPath: null, findings: [] })) as
-      AtetWorkflowExecutor
-    const workflow = defineAtetWorkflow({
+      SlopcameraWorkflowExecutor
+    const workflow = defineSlopcameraWorkflow({
       id: "postcondition",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
-        await context.operation("check", "atet.diagram.check", input)
+        await context.operation("check", "slopcamera.diagram.check", input)
         throw cause
       },
     })
 
-    await expect(runAtetWorkflow(
+    await expect(runSlopcameraWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       { executor },
@@ -453,7 +453,7 @@ describe("typed Atet workflows", () => {
       cause,
       code: "WORKFLOW_FAILED",
       completedSteps: [
-        { id: "check", index: 0, operation: "atet.diagram.check" },
+        { id: "check", index: 0, operation: "slopcamera.diagram.check" },
       ],
     })
   })
@@ -486,20 +486,20 @@ describe("typed Atet workflows", () => {
       siblingAdmitted = true
       await siblingBlocker
       return { configPath: null, findings: [] }
-    }) as AtetWorkflowExecutor
-    const workflow = defineAtetWorkflow({
+    }) as SlopcameraWorkflowExecutor
+    const workflow = defineSlopcameraWorkflow({
       id: "parallel-failure",
       version: 1,
       parseInput: diagramInput,
       async run(context, input) {
         await Promise.all([
-          context.operation("failed", "atet.diagram.check", input),
-          context.operation("sibling", "atet.diagram.check", input),
+          context.operation("failed", "slopcamera.diagram.check", input),
+          context.operation("sibling", "slopcamera.diagram.check", input),
         ])
       },
     })
 
-    const execution = runAtetWorkflow(
+    const execution = runSlopcameraWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       { executor, hostResourceCoordinator: coordinator },
@@ -534,14 +534,14 @@ describe("typed Atet workflows", () => {
   test("honors an already-aborted signal", async () => {
     const controller = new AbortController()
     controller.abort()
-    const workflow = defineAtetWorkflow({
+    const workflow = defineSlopcameraWorkflow({
       id: "abort-before-run",
       version: 1,
       parseInput: diagramInput,
       run: () => "unreachable",
     })
     await expect(
-      runAtetWorkflow(workflow, { path: "flow.diagram.json" }, {
+      runSlopcameraWorkflow(workflow, { path: "flow.diagram.json" }, {
         dependencies: { signal: controller.signal },
       }),
     ).rejects.toMatchObject({ code: "WORKFLOW_ABORTED" })
@@ -551,15 +551,15 @@ describe("typed Atet workflows", () => {
     const controller = new AbortController()
     const executorCause = new Error("executor observed abort")
     let receivedSignal: AbortSignal | undefined
-    const workflow = defineAtetWorkflow({
+    const workflow = defineSlopcameraWorkflow({
       id: "abort-in-flight",
       version: 1,
       parseInput: diagramInput,
       run(context, input) {
-        return context.operation("check", "atet.diagram.check", input)
+        return context.operation("check", "slopcamera.diagram.check", input)
       },
     })
-    const execution = runAtetWorkflow(
+    const execution = runSlopcameraWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       {
@@ -568,7 +568,7 @@ describe("typed Atet workflows", () => {
           receivedSignal = signal
           controller.abort()
           throw executorCause
-        }) as AtetWorkflowExecutor,
+        }) as SlopcameraWorkflowExecutor,
       },
     )
     await expect(execution).rejects.toMatchObject({
@@ -581,15 +581,15 @@ describe("typed Atet workflows", () => {
 
   test("retains a completed step when cancellation becomes visible at settlement", async () => {
     const controller = new AbortController()
-    const workflow = defineAtetWorkflow({
+    const workflow = defineSlopcameraWorkflow({
       id: "abort-at-settlement",
       version: 1,
       parseInput: diagramInput,
       run(context, input) {
-        return context.operation("check", "atet.diagram.check", input)
+        return context.operation("check", "slopcamera.diagram.check", input)
       },
     })
-    const execution = runAtetWorkflow(
+    const execution = runSlopcameraWorkflow(
       workflow,
       { path: "flow.diagram.json" },
       {
@@ -597,25 +597,25 @@ describe("typed Atet workflows", () => {
         executor: (async () => {
           controller.abort()
           return { configPath: null, findings: [] }
-        }) as AtetWorkflowExecutor,
+        }) as SlopcameraWorkflowExecutor,
       },
     )
     await expect(execution).rejects.toMatchObject({
       code: "WORKFLOW_ABORTED",
       completedSteps: [
-        { id: "check", index: 0, operation: "atet.diagram.check" },
+        { id: "check", index: 0, operation: "slopcamera.diagram.check" },
       ],
     })
   })
 
   test("validates stable workflow identity", () => {
-    expect(() => defineAtetWorkflow({
+    expect(() => defineSlopcameraWorkflow({
       id: "Desktop Workflow",
       version: 1,
       parseInput: (value) => value,
       run: (_context, input) => input,
     })).toThrow("[INVALID_WORKFLOW]")
-    expect(() => defineAtetWorkflow({
+    expect(() => defineSlopcameraWorkflow({
       id: "valid",
       version: 0,
       parseInput: (value) => value,

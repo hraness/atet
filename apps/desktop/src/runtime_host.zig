@@ -1,9 +1,9 @@
 const std = @import("std");
 const native_sdk = @import("native_sdk");
 
-pub const snapshot_command = "atet.runtime.snapshot";
-pub const dispatch_command = "atet.runtime.dispatch";
-pub const renderer_event = "atet.runtime.event";
+pub const snapshot_command = "slopcamera.runtime.snapshot";
+pub const dispatch_command = "slopcamera.runtime.dispatch";
+pub const renderer_event = "slopcamera.runtime.event";
 
 const main_window_id: native_sdk.WindowId = 1;
 const max_pending_requests: usize = 64;
@@ -124,9 +124,9 @@ fn resolveRuntimePathsForExecutable(
 
     if (packaged_root) |root| return runtimePathsFromRoot(allocator, root, .{});
 
-    const gateway_override = options.gateway_path orelse parent.get("ATET_GATEWAY_PATH");
-    const helper_override = options.capture_helper_path orelse parent.get("ATET_CAPTURE_HELPER");
-    const face_analyzer_override = options.face_analyzer_path orelse parent.get("ATET_FACE_ANALYZER");
+    const gateway_override = options.gateway_path orelse parent.get("SLOPCAMERA_GATEWAY_PATH");
+    const helper_override = options.capture_helper_path orelse parent.get("SLOPCAMERA_CAPTURE_HELPER");
+    const face_analyzer_override = options.face_analyzer_path orelse parent.get("SLOPCAMERA_FACE_ANALYZER");
     const raw_runtime_root = options.runtime_root orelse root: {
         const gateway = gateway_override orelse return error.MissingDevelopmentRuntimeRoot;
         const bin_dir = std.fs.path.dirname(gateway) orelse return error.InvalidAbsolutePath;
@@ -157,19 +157,19 @@ fn runtimePathsFromRoot(
     paths.gateway_path = if (overrides.gateway_path) |path|
         try normalizedAbsolute(allocator, path)
     else
-        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "atet-gateway" });
+        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "slopcamera-gateway" });
     errdefer allocator.free(paths.gateway_path);
 
     paths.capture_helper_path = if (overrides.capture_helper_path) |path|
         try normalizedAbsolute(allocator, path)
     else
-        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "atet-capture" });
+        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "slopcamera-capture" });
     errdefer allocator.free(paths.capture_helper_path);
 
     paths.face_analyzer_path = if (overrides.face_analyzer_path) |path|
         try normalizedAbsolute(allocator, path)
     else
-        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "atet-face-analyzer" });
+        try joinAbsolute(allocator, &.{ paths.runtime_root, "bin", "slopcamera-face-analyzer" });
     return paths;
 }
 
@@ -222,15 +222,15 @@ pub fn buildSanitizedEnvironment(
     for (inherited_environment_keys) |key| {
         if (parent.get(key)) |value| try environment.put(key, value);
     }
-    if (parent.get("ATET_REPOSITORY_ROOT")) |value| {
-        try environment.put("ATET_REPOSITORY_ROOT", value);
+    if (parent.get("SLOPCAMERA_REPOSITORY_ROOT")) |value| {
+        try environment.put("SLOPCAMERA_REPOSITORY_ROOT", value);
     }
     if (environment.get("TMPDIR") == null) try environment.put("TMPDIR", "/tmp");
     if (environment.get("LANG") == null) try environment.put("LANG", "en_US.UTF-8");
 
-    try environment.put("ATET_GATEWAY_PATH", paths.gateway_path);
-    try environment.put("ATET_CAPTURE_HELPER", paths.capture_helper_path);
-    try environment.put("ATET_FACE_ANALYZER", paths.face_analyzer_path);
+    try environment.put("SLOPCAMERA_GATEWAY_PATH", paths.gateway_path);
+    try environment.put("SLOPCAMERA_CAPTURE_HELPER", paths.capture_helper_path);
+    try environment.put("SLOPCAMERA_FACE_ANALYZER", paths.face_analyzer_path);
 
     const gateway_dir = std.fs.path.dirname(paths.gateway_path) orelse paths.runtime_root;
     const helper_dir = std.fs.path.dirname(paths.capture_helper_path) orelse paths.runtime_root;
@@ -929,51 +929,51 @@ fn respondError(
 test "packaged paths ignore development sidecar overrides" {
     var parent: std.process.Environ.Map = .init(std.testing.allocator);
     defer parent.deinit();
-    try parent.put("ATET_GATEWAY_PATH", "/tmp/untrusted/atet-gateway");
-    try parent.put("ATET_CAPTURE_HELPER", "/tmp/untrusted/atet-capture");
-    try parent.put("ATET_FACE_ANALYZER", "/tmp/untrusted/atet-face-analyzer");
+    try parent.put("SLOPCAMERA_GATEWAY_PATH", "/tmp/untrusted/slopcamera-gateway");
+    try parent.put("SLOPCAMERA_CAPTURE_HELPER", "/tmp/untrusted/slopcamera-capture");
+    try parent.put("SLOPCAMERA_FACE_ANALYZER", "/tmp/untrusted/slopcamera-face-analyzer");
 
     var paths = try resolveRuntimePathsForExecutable(
         std.testing.allocator,
         &parent,
         .{
             .runtime_root = "/tmp/explicit/runtime",
-            .gateway_path = "/tmp/explicit/atet-gateway",
-            .capture_helper_path = "/tmp/explicit/atet-capture",
-            .face_analyzer_path = "/tmp/explicit/atet-face-analyzer",
+            .gateway_path = "/tmp/explicit/slopcamera-gateway",
+            .capture_helper_path = "/tmp/explicit/slopcamera-capture",
+            .face_analyzer_path = "/tmp/explicit/slopcamera-face-analyzer",
         },
-        "/Applications/Atet.app/Contents/MacOS/atet",
+        "/Applications/Slopcamera.app/Contents/MacOS/slopcamera",
     );
     defer paths.deinit(std.testing.allocator);
 
-    try std.testing.expectEqualStrings("/Applications/Atet.app/Contents/Resources/runtime", paths.runtime_root);
-    try std.testing.expectEqualStrings("/Applications/Atet.app/Contents/Resources/runtime/bin/atet-gateway", paths.gateway_path);
-    try std.testing.expectEqualStrings("/Applications/Atet.app/Contents/Resources/runtime/bin/atet-capture", paths.capture_helper_path);
-    try std.testing.expectEqualStrings("/Applications/Atet.app/Contents/Resources/runtime/bin/atet-face-analyzer", paths.face_analyzer_path);
+    try std.testing.expectEqualStrings("/Applications/Slopcamera.app/Contents/Resources/runtime", paths.runtime_root);
+    try std.testing.expectEqualStrings("/Applications/Slopcamera.app/Contents/Resources/runtime/bin/slopcamera-gateway", paths.gateway_path);
+    try std.testing.expectEqualStrings("/Applications/Slopcamera.app/Contents/Resources/runtime/bin/slopcamera-capture", paths.capture_helper_path);
+    try std.testing.expectEqualStrings("/Applications/Slopcamera.app/Contents/Resources/runtime/bin/slopcamera-face-analyzer", paths.face_analyzer_path);
 }
 
 test "development paths require and honor absolute sidecars" {
     var parent: std.process.Environ.Map = .init(std.testing.allocator);
     defer parent.deinit();
-    try parent.put("ATET_GATEWAY_PATH", "/tmp/atet-runtime/bin/atet-gateway");
-    try parent.put("ATET_CAPTURE_HELPER", "/tmp/atet-capture");
-    try parent.put("ATET_FACE_ANALYZER", "/tmp/atet-face-analyzer");
+    try parent.put("SLOPCAMERA_GATEWAY_PATH", "/tmp/slopcamera-runtime/bin/slopcamera-gateway");
+    try parent.put("SLOPCAMERA_CAPTURE_HELPER", "/tmp/slopcamera-capture");
+    try parent.put("SLOPCAMERA_FACE_ANALYZER", "/tmp/slopcamera-face-analyzer");
 
     var paths = try resolveRuntimePathsForExecutable(
         std.testing.allocator,
         &parent,
         .{},
-        "/tmp/zig-cache/atet",
+        "/tmp/zig-cache/slopcamera",
     );
     defer paths.deinit(std.testing.allocator);
 
-    try std.testing.expectEqualStrings("/tmp/atet-runtime", paths.runtime_root);
-    try std.testing.expectEqualStrings("/tmp/atet-runtime/bin/atet-gateway", paths.gateway_path);
-    try std.testing.expectEqualStrings("/tmp/atet-capture", paths.capture_helper_path);
-    try std.testing.expectEqualStrings("/tmp/atet-face-analyzer", paths.face_analyzer_path);
+    try std.testing.expectEqualStrings("/tmp/slopcamera-runtime", paths.runtime_root);
+    try std.testing.expectEqualStrings("/tmp/slopcamera-runtime/bin/slopcamera-gateway", paths.gateway_path);
+    try std.testing.expectEqualStrings("/tmp/slopcamera-capture", paths.capture_helper_path);
+    try std.testing.expectEqualStrings("/tmp/slopcamera-face-analyzer", paths.face_analyzer_path);
     try std.testing.expectError(
         error.MissingDevelopmentRuntimeRoot,
-        resolveRuntimePathsForExecutable(std.testing.allocator, &.{}, .{}, "/tmp/zig-cache/atet"),
+        resolveRuntimePathsForExecutable(std.testing.allocator, &.{}, .{}, "/tmp/zig-cache/slopcamera"),
     );
 }
 
@@ -981,13 +981,13 @@ test "sanitized environment carries only trusted runtime configuration" {
     var parent: std.process.Environ.Map = .init(std.testing.allocator);
     defer parent.deinit();
     try parent.put("HOME", "/Users/example");
-    try parent.put("ATET_REPOSITORY_ROOT", "/work/atet-project");
+    try parent.put("SLOPCAMERA_REPOSITORY_ROOT", "/work/slopcamera-project");
     try parent.put("OPENAI_API_KEY", "secret");
     try parent.put("HTTPS_PROXY", "http://proxy.invalid");
     try parent.put("DYLD_INSERT_LIBRARIES", "/tmp/evil.dylib");
     try parent.put("BUN_OPTIONS", "--preload=/tmp/evil.js");
 
-    var paths = try runtimePathsFromRoot(std.testing.allocator, "/opt/atet/runtime", .{});
+    var paths = try runtimePathsFromRoot(std.testing.allocator, "/opt/slopcamera/runtime", .{});
     defer paths.deinit(std.testing.allocator);
     var environment = try buildSanitizedEnvironment(std.testing.allocator, &parent, &paths);
     defer environment.deinit();
@@ -995,9 +995,9 @@ test "sanitized environment carries only trusted runtime configuration" {
     try std.testing.expectEqualStrings("/Users/example", environment.get("HOME").?);
     try std.testing.expectEqualStrings("/tmp", environment.get("TMPDIR").?);
     try std.testing.expectEqualStrings("en_US.UTF-8", environment.get("LANG").?);
-    try std.testing.expectEqualStrings("/work/atet-project", environment.get("ATET_REPOSITORY_ROOT").?);
-    try std.testing.expectEqualStrings("/opt/atet/runtime/bin/atet-capture", environment.get("ATET_CAPTURE_HELPER").?);
-    try std.testing.expectEqualStrings("/opt/atet/runtime/bin/atet-face-analyzer", environment.get("ATET_FACE_ANALYZER").?);
+    try std.testing.expectEqualStrings("/work/slopcamera-project", environment.get("SLOPCAMERA_REPOSITORY_ROOT").?);
+    try std.testing.expectEqualStrings("/opt/slopcamera/runtime/bin/slopcamera-capture", environment.get("SLOPCAMERA_CAPTURE_HELPER").?);
+    try std.testing.expectEqualStrings("/opt/slopcamera/runtime/bin/slopcamera-face-analyzer", environment.get("SLOPCAMERA_FACE_ANALYZER").?);
     try std.testing.expect(environment.get("OPENAI_API_KEY") == null);
     try std.testing.expect(environment.get("HTTPS_PROXY") == null);
     try std.testing.expect(environment.get("DYLD_INSERT_LIBRARIES") == null);
@@ -1017,11 +1017,11 @@ test "gateway codec preserves JSON values and exact command names" {
         std.testing.allocator,
         "bridge-42",
         snapshot_command,
-        "{\"protocol\":\"atet.desktop\"}",
+        "{\"protocol\":\"slopcamera.desktop\"}",
     );
     defer std.testing.allocator.free(encoded);
     try std.testing.expectEqualStrings(
-        "{\"id\":\"bridge-42\",\"command\":\"atet.runtime.snapshot\",\"payload\":{\"protocol\":\"atet.desktop\"}}\n",
+        "{\"id\":\"bridge-42\",\"command\":\"slopcamera.runtime.snapshot\",\"payload\":{\"protocol\":\"slopcamera.desktop\"}}\n",
         encoded,
     );
 }

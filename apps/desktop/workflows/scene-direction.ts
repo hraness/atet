@@ -5,7 +5,7 @@ import { defineWorkflow } from "../code/public";
 export const directedScene = defineWorkflow({
   id: "directed-scene", version: 1,
   inputSchema: ProjectRenderInputSchemaV4,
-  inputSchemaId: "atet.workflow.directed-scene.input/v1",
+  inputSchemaId: "slopcamera.workflow.directed-scene.input/v1",
   build(workflow, input) {
     return { render: workflow.render.spatialProject("render", input) };
   },

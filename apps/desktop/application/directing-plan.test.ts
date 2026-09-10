@@ -14,7 +14,7 @@ import type { GatewayPortRequest, GatewayVideoOperationResult } from "./gateway-
 const hash = (value: unknown) => canonicalJsonSha256(value);
 function recipe(): DirectingRecipe {
   const shot = { prompt: "An original silver sculpture in a sunlit atrium.", model: "minimax/minimax-h3-max", durationSeconds: 5, resolution: "480p", aspectRatio: "16:9", fps: 24 };
-  return parseDirectingRecipe({ kind: "atet.directing-recipe", schemaVersion: 1, id: "direct_film", title: "Sculpture study", shots: [
+  return parseDirectingRecipe({ kind: "slopcamera.directing-recipe", schemaVersion: 1, id: "direct_film", title: "Sculpture study", shots: [
     { ...shot, id: "establish" },
     { ...shot, id: "orbit", firstFrame: { kind: "shot-end", shotId: "establish" } },
     { ...shot, id: "close", firstFrame: { kind: "shot-end", shotId: "orbit" } },
@@ -33,9 +33,9 @@ function reservation(state: DirectingState, shotId: string, slug = shotId, rate 
   });
 }
 function output(attempt: DirectingAttempt, durationSeconds = 4.96): { result: GatewayVideoOperationResult; endpoint: DirectingEndpoint } {
-  const source = { bytes: 1_234, mediaType: "video/mp4", path: `artifacts/atet/generated/${attempt.id}/video.mp4`, sha256: hash(attempt.id), facts: { durationSeconds, width: 848, height: 480 } };
-  const result: GatewayVideoOperationResult = { operation: "video", model: attempt.request.request.model, requestId: attempt.requestId, outputs: [{ bytes: source.bytes, path: source.path, mediaType: source.mediaType, sha256: source.sha256 }], receipt: { bytes: 256, path: `artifacts/atet/generated/${attempt.id}/receipt.json`, sha256: hash([attempt.id, "receipt"]) } };
-  const endpoint: DirectingEndpoint = { source, image: { bytes: 125, mediaType: "image/png", path: `artifacts/atet/generated/${attempt.id}/last.png`, sha256: hash([attempt.id, "image"]) }, frameIndex: 118, pts: { value: "118", timeBaseNumerator: 1, timeBaseDenominator: 24 }, timeUs: 4_916_667 };
+  const source = { bytes: 1_234, mediaType: "video/mp4", path: `artifacts/slopcamera/generated/${attempt.id}/video.mp4`, sha256: hash(attempt.id), facts: { durationSeconds, width: 848, height: 480 } };
+  const result: GatewayVideoOperationResult = { operation: "video", model: attempt.request.request.model, requestId: attempt.requestId, outputs: [{ bytes: source.bytes, path: source.path, mediaType: source.mediaType, sha256: source.sha256 }], receipt: { bytes: 256, path: `artifacts/slopcamera/generated/${attempt.id}/receipt.json`, sha256: hash([attempt.id, "receipt"]) } };
+  const endpoint: DirectingEndpoint = { source, image: { bytes: 125, mediaType: "image/png", path: `artifacts/slopcamera/generated/${attempt.id}/last.png`, sha256: hash([attempt.id, "image"]) }, frameIndex: 118, pts: { value: "118", timeBaseNumerator: 1, timeBaseDenominator: 24 }, timeUs: 4_916_667 };
   return { result, endpoint };
 }
 function accepted(state: DirectingState, shotId: string, slug = shotId): DirectingState {
@@ -147,7 +147,7 @@ describe("paid-attempt accounting and immutable recovery", () => {
   test("request identity retains its canonical domain and binds every dispatch input", () => {
     const state = createDirectingState(recipe(), 5_000_000), take = reservation(state, "establish");
     const identity = { id: state.id, attemptId: take.id, recipeSha256: take.recipeSha256, shotSha256: take.shotSha256, request: take.request };
-    expect(directingRequestId(identity)).toBe(`gateway_${hash({ domain: "atet.directing-request/v1", ...identity })}`);
+    expect(directingRequestId(identity)).toBe(`gateway_${hash({ domain: "slopcamera.directing-request/v1", ...identity })}`);
     expect(directingRequestId({ ...identity, request: { operation: "video", request: Object.fromEntries(Object.entries(take.request.request).reverse()) as typeof take.request.request } })).toBe(take.requestId);
     for (const changed of [
       { ...identity, id: "direct_different" }, { ...identity, attemptId: "take_different" },

@@ -45,7 +45,7 @@ export const projectSnapshotOperationDefinition: OperationDefinition<
   ProjectSnapshotOutput
 > = {
   inputSchema: ProjectSnapshotInputSchema,
-  inputSchemaId: "atet.operation.project.snapshot.input/v1",
+  inputSchemaId: "slopcamera.operation.project.snapshot.input/v1",
   kind: "project.snapshot",
   lifecycle: {
     kind: "local-artifact",
@@ -69,7 +69,7 @@ export const projectSnapshotOperationDefinition: OperationDefinition<
     },
   },
   outputSchema: ProjectSnapshotOutputSchema,
-  outputSchemaId: "atet.operation.project.snapshot.output/v1",
+  outputSchemaId: "slopcamera.operation.project.snapshot.output/v1",
   policy: {
     cache: "none",
     cancellable: true,

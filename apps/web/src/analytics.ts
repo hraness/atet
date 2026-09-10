@@ -2,17 +2,17 @@ import posthog from "posthog-js/dist/module.slim.no-external"
 
 import { isCanonicalAnalyticsPage, sanitizePageview } from "./analytics-contract"
 
-declare const __ATET_POSTHOG_HOST__: string
-declare const __ATET_POSTHOG_KEY__: string
+declare const __SLOPCAMERA_POSTHOG_HOST__: string
+declare const __SLOPCAMERA_POSTHOG_KEY__: string
 
 if (isCanonicalAnalyticsPage(window.location)) {
-  posthog.init(__ATET_POSTHOG_KEY__, {
+  posthog.init(__SLOPCAMERA_POSTHOG_KEY__, {
     advanced_disable_flags: true,
     advanced_disable_toolbar_metrics: true,
     autocapture: false,
     before_send: event => (
       isCanonicalAnalyticsPage(window.location)
-        ? sanitizePageview(event, __ATET_POSTHOG_KEY__)
+        ? sanitizePageview(event, __SLOPCAMERA_POSTHOG_KEY__)
         : null
     ),
     capture_dead_clicks: false,
@@ -39,11 +39,11 @@ if (isCanonicalAnalyticsPage(window.location)) {
     request_batching: false,
     save_campaign_params: false,
     save_referrer: false,
-    api_host: __ATET_POSTHOG_HOST__,
+    api_host: __SLOPCAMERA_POSTHOG_HOST__,
   })
   posthog.capture("$pageview", {
     analytics_schema_version: 1,
-    site_id: "atet",
+    site_id: "slopcamera",
   }, {
     send_instantly: true,
     transport: "fetch",

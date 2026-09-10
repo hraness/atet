@@ -14,7 +14,7 @@ import {
 import {
   assertProjectCameraMoveBindings,
   assertStaticProjectZoomTargetVisible,
-  canonicalAtetPersistenceDocument,
+  canonicalSlopcameraPersistenceDocument,
   canonicalJsonSha256,
   cutProjectPlan,
   hashProjectCameraGeometry,
@@ -379,7 +379,7 @@ async function assertMetadataEffectsAvailable(
   if (asset?.source.kind !== "recording") {
     throw new ApplicationError(
       "conflict",
-      `Metadata placement ${placementId} is not backed by an Atet recording.`,
+      `Metadata placement ${placementId} is not backed by a Slopcamera recording.`,
     );
   }
   let manifest: Awaited<ReturnType<typeof openRecording>>["manifest"];
@@ -661,7 +661,7 @@ async function resolveManualZoomBinding(
   if (asset?.source.kind !== "recording") {
     throw new ApplicationError(
       "conflict",
-      `Zoom placement ${placementId} is not backed by an Atet recording.`,
+      `Zoom placement ${placementId} is not backed by a Slopcamera recording.`,
     );
   }
   let recording: ManualZoomRecordingEvidence;
@@ -1754,9 +1754,9 @@ async function executeProjectEditsTransaction<
     await context.workflow?.beforePublication();
     throwIfAborted(context.abortSignal);
   }
-  const persistedProject = canonicalAtetPersistenceDocument(snapshot.project);
-  const persistedPriorPlan = canonicalAtetPersistenceDocument(snapshot.plan);
-  const persistedNextPlan = canonicalAtetPersistenceDocument(next);
+  const persistedProject = canonicalSlopcameraPersistenceDocument(snapshot.project);
+  const persistedPriorPlan = canonicalSlopcameraPersistenceDocument(snapshot.plan);
+  const persistedNextPlan = canonicalSlopcameraPersistenceDocument(next);
   const nodePlanSha256 = context.workflow?.nodePlanSha256
     ?? canonicalJsonSha256({
       generation: snapshot.generation,
@@ -1788,7 +1788,7 @@ function normalizeCompleteEditDraft(
 
 export const commitProjectEditsOperationDefinition = {
   inputSchema: CommitProjectEditsInputSchema,
-  inputSchemaId: "atet.operation.project.commit-edits.input/v1",
+  inputSchemaId: "slopcamera.operation.project.commit-edits.input/v1",
   kind: "project.commit-edits",
   lifecycle: {
     kind: "project-transaction",
@@ -1799,7 +1799,7 @@ export const commitProjectEditsOperationDefinition = {
     ),
   },
   outputSchema: ProjectEditCommitReceiptSchema,
-  outputSchemaId: "atet.operation.project.commit-edits.output/v1",
+  outputSchemaId: "slopcamera.operation.project.commit-edits.output/v1",
   policy: {
     cache: "none",
     cancellable: true,
@@ -1835,7 +1835,7 @@ export const commitProjectEditsOperationDefinition = {
 
 export const commitProjectEditsOperationDefinitionV2 = {
   inputSchema: CommitProjectEditsInputV2Schema,
-  inputSchemaId: "atet.operation.project.commit-edits.input/v2",
+  inputSchemaId: "slopcamera.operation.project.commit-edits.input/v2",
   kind: "project.commit-edits",
   lifecycle: {
     kind: "project-transaction",
@@ -1883,7 +1883,7 @@ export const commitProjectEditsOperationDefinitionV2 = {
     },
   },
   outputSchema: ProjectEditCommitReceiptSchema,
-  outputSchemaId: "atet.operation.project.commit-edits.output/v2",
+  outputSchemaId: "slopcamera.operation.project.commit-edits.output/v2",
   policy: {
     cache: "none",
     cancellable: true,
@@ -1919,7 +1919,7 @@ export const commitProjectEditsOperationDefinitionV2 = {
 
 export const commitProjectEditsOperationDefinitionV3 = {
   inputSchema: CommitProjectEditsInputV3Schema,
-  inputSchemaId: "atet.operation.project.commit-edits.input/v3",
+  inputSchemaId: "slopcamera.operation.project.commit-edits.input/v3",
   kind: "project.commit-edits",
   lifecycle: {
     kind: "project-transaction",
@@ -2019,7 +2019,7 @@ export const commitProjectEditsOperationDefinitionV3 = {
     },
   },
   outputSchema: ProjectEditCommitReceiptSchema,
-  outputSchemaId: "atet.operation.project.commit-edits.output/v3",
+  outputSchemaId: "slopcamera.operation.project.commit-edits.output/v3",
   policy: {
     cache: "none",
     cancellable: true,

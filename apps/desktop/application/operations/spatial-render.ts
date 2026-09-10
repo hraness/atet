@@ -91,7 +91,7 @@ async function writePrivateFile(path: string, bytes: Uint8Array): Promise<void> 
 
 const definitionIdentity = {
   kind: "scene.render", version: 1,
-  inputSchemaId: "atet.operation.scene.render.input/v1", outputSchemaId: "atet.operation.scene.render.output/v1",
+  inputSchemaId: "slopcamera.operation.scene.render.input/v1", outputSchemaId: "slopcamera.operation.scene.render.output/v1",
 } as const;
 
 const ATTEMPT_FILE = "spatial-render-attempt.v1.json";
@@ -103,8 +103,8 @@ const executionIdentitySchema = z.strictObject({
   nodeKey: z.string().min(1).max(255), nodePlanSha256: SpatialDigestSchema, runId: z.string().min(1).max(256),
 });
 const markerBase = { schemaVersion: z.literal(1), identity: executionIdentitySchema, inputSha256: SpatialDigestSchema };
-const attemptSchema = z.strictObject({ ...markerBase, kind: z.literal("atet.spatial-render-operation-attempt"), originalSceneArtifact: MediaArtifactReferenceSchema });
-const resultSchema = z.strictObject({ ...markerBase, kind: z.literal("atet.spatial-render-operation-result"), output: SpatialRenderOutputSchema });
+const attemptSchema = z.strictObject({ ...markerBase, kind: z.literal("slopcamera.spatial-render-operation-attempt"), originalSceneArtifact: MediaArtifactReferenceSchema });
+const resultSchema = z.strictObject({ ...markerBase, kind: z.literal("slopcamera.spatial-render-operation-result"), output: SpatialRenderOutputSchema });
 
 /** Trusted test ports are never part of a serialized render request. */
 export interface SpatialRenderOperationDependencies {
@@ -155,7 +155,7 @@ export async function executeSpatialRender(context: OperationExecutionContext, i
       await context.workflow!.beforePublication();
       await beforePublication();
       const disposition = await immutableMarker(context.application, workspace.path, ATTEMPT_FILE, attemptSchema.parse({
-        kind: "atet.spatial-render-operation-attempt", schemaVersion: 1, identity, inputSha256,
+        kind: "slopcamera.spatial-render-operation-attempt", schemaVersion: 1, identity, inputSha256,
         originalSceneArtifact: originalArtifact(context.application, source.artifact),
       }));
       if (disposition === "exists") throw new ApplicationError("ambiguous", "This exact spatial render attempt already started; reconcile its retained evidence instead of rendering again.");
@@ -194,7 +194,7 @@ export async function executeSpatialRender(context: OperationExecutionContext, i
     if (identity !== undefined) {
       resultRetentionAttempted = true;
       await immutableMarker(context.application, workspace.path, RESULT_FILE, resultSchema.parse({
-        kind: "atet.spatial-render-operation-result", schemaVersion: 1, identity, inputSha256, output: completed,
+        kind: "slopcamera.spatial-render-operation-result", schemaVersion: 1, identity, inputSha256, output: completed,
       }));
     }
     await (dependencies.checkpoint ?? writeOperationCompletionCheckpoint)(context, definitionIdentity, completed);
@@ -209,7 +209,7 @@ export async function executeSpatialRender(context: OperationExecutionContext, i
       // immutable evidence publication, never render or provider replay.
       resultRetentionAttempted = true;
       try { await immutableMarker(context.application, workspace.path, RESULT_FILE, resultSchema.parse({
-        kind: "atet.spatial-render-operation-result", schemaVersion: 1, identity, inputSha256, output: completed,
+        kind: "slopcamera.spatial-render-operation-result", schemaVersion: 1, identity, inputSha256, output: completed,
       })); } catch (settlementError) { cleanupErrors.push(settlementError); }
     }
   }
@@ -361,7 +361,7 @@ export async function recoverSpatialRenderOutput(application: ApplicationContext
     gpuEvidence: HtmlOverlayGpuEvidenceSchema.optional(),
     metadata: z.unknown(), metadataSha256: SpatialDigestSchema, executionIntegrity: HtmlOverlayExecutionIntegritySchema,
     libraryLocks: z.array(z.unknown()).min(1).max(3), preparedAssets: z.array(PreparedSpatialAssetSchema).max(SPATIAL_OVERLAY_LIMITS.preparedAssets),
-    preparation: z.strictObject({ kind: z.literal("atet.spatial-asset-preparation"), schemaVersion: z.literal(1), sourceManifests: z.record(SpatialAssetIdSchema, SpatialDigestSchema),
+    preparation: z.strictObject({ kind: z.literal("slopcamera.spatial-asset-preparation"), schemaVersion: z.literal(1), sourceManifests: z.record(SpatialAssetIdSchema, SpatialDigestSchema),
       preparedSha256: SpatialDigestSchema, sourceBytes: z.number().int().safe().min(0).max(MAXIMUM_ASSET_BYTES), outputBytes: z.number().int().safe().min(0).max(MAXIMUM_ASSET_BYTES), profiles: z.array(z.string().min(1).max(256)).max(1_024) }),
     samples: SpatialRenderReceiptSchema.shape.samples,
   });

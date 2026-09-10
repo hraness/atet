@@ -7,7 +7,7 @@ export const SPATIAL_COMPOSITOR_LIMITS = Object.freeze({ frames: 864_000, probeB
 
 /** An outer adapter preserves the meaning of all existing V1 numeric plan hashes. */
 export const SpatialCompositorCadenceV1Schema = z.strictObject({
-  kind: z.literal("atet.spatial-compositor-cadence"),
+  kind: z.literal("slopcamera.spatial-compositor-cadence"),
   schemaVersion: z.literal(1),
   projectionSha256: SpatialDigestSchema,
   compositionPlanSha256: SpatialDigestSchema,
@@ -35,7 +35,7 @@ export const SpatialCompositorVideoProfileSchema = z.strictObject({
   pixelFormat: z.literal("yuv420p"),
 }).refine(value => value.pixelWidth * value.pixelHeight <= 33_554_432, "Compositor video exceeds the admitted output pixel budget.");
 export const SpatialCompositorTimingVerificationV1Schema = z.strictObject({
-  kind: z.literal("atet.spatial-compositor-timing-verification"),
+  kind: z.literal("slopcamera.spatial-compositor-timing-verification"),
   schemaVersion: z.literal(1),
   cadenceSha256: SpatialDigestSchema,
   profile: z.literal("mp4-h264-cfr-integer-pts-v1"),

@@ -2,13 +2,13 @@ import { renderHranessSiteFooter } from "@hraness/site-footer"
 import { AskAiAboutThis } from "@hraness/ui"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { publishedArchiveUrl, publishedRelease } from "./published-release"
+import { sourceInstall } from "./published-release"
 
 // Existing content producers run within the ordinary page's captured SSR
 // graph. They introduce no client renderer and retain their public APIs.
 export function renderAskAiAboutThis(canonicalUrl: string): string {
   return renderToStaticMarkup(createElement(AskAiAboutThis, {
-    className: "atet-ask-ai",
+    className: "slopcamera-ask-ai",
     url: canonicalUrl,
   }))
 }
@@ -65,7 +65,7 @@ function renderCopyCommand(options: CopyCommandOptions): string {
       data-copy-copied-class="copy-command__button {{INSTALL_COPIED_CLASS}}"
       data-copy-failed-class="copy-command__button {{INSTALL_FAILED_CLASS}}"
       data-copy-command-button hidden type="button">Copy</button>
-    <p class="copy-command__note {{INSTALL_COPY_NOTE_CLASS}}">Using Bun? <code class="{{INSTALL_NOTE_CODE_CLASS}}">${alternateCommand}</code></p>
+    <p class="copy-command__note {{INSTALL_COPY_NOTE_CLASS}}">For Claude Code: <code class="{{INSTALL_NOTE_CODE_CLASS}}">${alternateCommand}</code></p>
     <p aria-atomic="true" aria-live="polite" class="copy-command__status {{INSTALL_STATUS_CLASS}}"
       data-copy-command-status id="${id}"></p>
     <template data-copy-command-fallback><textarea class="{{INSTALL_FALLBACK_CLASS}}" readonly></textarea></template>
@@ -87,14 +87,14 @@ export function siteContentSlots(document: SiteDocument, assets: SiteAssets): Re
   ]
   if (document === "404.html") return common
   return [...common,
-    ["{{ASK_AI_ABOUT_THIS}}", renderAskAiAboutThis("https://atet.sh/"), 1],
-    ["{{PUBLISHED_VERSION}}", publishedRelease.version, 6],
-    ["{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1],
-    ["{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl, 1],
+    ["{{ASK_AI_ABOUT_THIS}}", renderAskAiAboutThis("https://slop.camera/"), 1],
+    ["{{SOURCE_CHECKOUT_COMMAND}}", sourceInstall.checkoutCommand, 1],
+    ["{{SOURCE_ENTER_COMMAND}}", sourceInstall.enterCommand, 1],
+    ["{{SOURCE_INSTALL_URL}}", sourceInstall.guideUrl, 1],
     ["{{ANALYTICS_SCRIPT}}", assets.analyticsPath === null ? "" : `<script src="${assets.analyticsPath}" type="module"></script>`, 1],
     ["{{SKILL_INSTALL_COMMAND}}", renderCopyCommand({
-      alternateCommand: `bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
-      command: `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`,
+      alternateCommand: sourceInstall.alternateSkillCommand,
+      command: sourceInstall.skillCommand,
       id: "skill-install-copy-status",
     }), 1],
   ]

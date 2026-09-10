@@ -77,7 +77,7 @@ export interface PreparedSpatialAssets {
   /** Private verified source copies, valid only while the consumer callback is active. */
   readonly sources: readonly { readonly manifest: SpatialAssetManifest; readonly manifestSha256: string; readonly absolutePath: string }[];
   readonly receipt: Readonly<{
-    readonly kind: "atet.spatial-asset-preparation";
+    readonly kind: "slopcamera.spatial-asset-preparation";
     readonly schemaVersion: 1;
     readonly sourceManifests: Readonly<Record<string, string>>;
     readonly preparedSha256: string;
@@ -357,7 +357,7 @@ export async function withPreparedSpatialAssets<Result>(
   });
   aborted(signal);
   const assetRoot = await physicalRoot(request.assetRoot), parent = await physicalRoot(request.workspaceParent);
-  const workspace = await mkdtemp(join(parent, ".atet-spatial-assets-"));
+  const workspace = await mkdtemp(join(parent, ".slopcamera-spatial-assets-"));
   const verified = new Map<string, SpatialVerifiedAsset>(), paths = new Map<string, string>(), resources = new Map<string, BoundHtmlOverlayResource>();
   const preparedAssets = new Map<string, PreparedSpatialAsset>(), profiles = new Set<string>();
   let sourceBytes = 0, outputBytes = 0;
@@ -427,7 +427,7 @@ export async function withPreparedSpatialAssets<Result>(
           const captured = createBoundedJsonSnapshot(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)), SPATIAL_SPLAT_LIMITS.metadataBytes, "Retained world metadata", { maximumDepth: 24, maximumValues: 32_768 });
           const metadata = captured.value as Record<string, unknown>;
           if (metadata.kind !== manifest.interpretation.schema || metadata.schemaVersion !== 1) throw new RangeError("Retained metadata does not match its declared schema.");
-          if (manifest.interpretation.schema === "atet.spatial-world-import") SpatialWorldImportManifestSchema.parse(metadata);
+          if (manifest.interpretation.schema === "slopcamera.spatial-world-import") SpatialWorldImportManifestSchema.parse(metadata);
           else WorldLabsProvenanceSchema.parse(metadata);
         }
         const record = { manifest, manifestSha256: closures[manifest.assetId]!, bytes };
@@ -458,7 +458,7 @@ export async function withPreparedSpatialAssets<Result>(
           resources.set(name, { ...resource, absolutePath: paths.get(assetId)! }); outputBytes += asset.bytes.byteLength;
         }
         preparedAssets.set(key, PreparedSpatialAssetSchema.parse({ kind: "splat", assetId, entityId: entity.entityId, assetManifestSha256: asset.manifestSha256, resource, facts }));
-        profiles.add("atet.spz-v2-v3-spark-2.1.0-full-resolution-v1");
+        profiles.add("slopcamera.spz-v2-v3-spark-2.1.0-full-resolution-v1");
         continue;
       }
       if (entity.kind === "mesh") {
@@ -522,7 +522,7 @@ export async function withPreparedSpatialAssets<Result>(
           preparedAssets.set(key, await publishGeometry(resolved));
           profiles.add(geometry.profile);
         }
-        profiles.add("atet.prepared-geometry-canonical-json-resource-v1");
+        profiles.add("slopcamera.prepared-geometry-canonical-json-resource-v1");
         continue;
       }
       const staticKey = `${assetId}:${entity.entityId}:static`, key = entity.kind === "video" ? `${assetId}:${entity.entityId}:${snapshot.timeUs}` : staticKey;
@@ -661,7 +661,7 @@ export async function withPreparedSpatialAssets<Result>(
     completed = { value: await consume(Object.freeze({ preparedAssets: prepared, resources: [...resources.values()],
       sources: [...verified].map(([id, asset]) => ({ manifest: asset.manifest, manifestSha256: asset.manifestSha256, absolutePath: paths.get(id)! })),
       receipt: Object.freeze({
-      kind: "atet.spatial-asset-preparation", schemaVersion: 1, sourceManifests: Object.fromEntries([...verified].map(([id, asset]) => [id, asset.manifestSha256])),
+      kind: "slopcamera.spatial-asset-preparation", schemaVersion: 1, sourceManifests: Object.fromEntries([...verified].map(([id, asset]) => [id, asset.manifestSha256])),
       preparedSha256: canonicalJsonSha256(prepared), sourceBytes, outputBytes, profiles: [...profiles].sort(),
     }) })) };
   } catch (error) { failure = { error }; }

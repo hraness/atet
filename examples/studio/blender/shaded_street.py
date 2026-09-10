@@ -248,7 +248,7 @@ def install_camera(record, native_position, native_target):
     camera = bpy.data.objects.new("Shaded street portrait camera", data)
     bpy.context.collection.objects.link(camera)
     bpy.context.scene.camera = camera
-    apply = globals().get("ATET_APPLY_SPATIAL_CAMERA")
+    apply = globals().get("SLOPCAMERA_APPLY_SPATIAL_CAMERA")
     if apply:
         apply(record, camera)
     else:
@@ -375,7 +375,7 @@ def camera_motion(camera, motion, width, height, global_start_frame):
     begin = POSES["establish"] if motion == "approach" else ((2.3, -1.2255, 1.47), (2.3, .837, 1.47))
     end = POSES["speaker"] if motion == "approach" else POSES["final"]
     camera.rotation_mode = "QUATERNION"
-    apply = globals().get("ATET_APPLY_SPATIAL_CAMERA")
+    apply = globals().get("SLOPCAMERA_APPLY_SPATIAL_CAMERA")
     samples, calibrated = [], []
     # Calibrate every pose before adding animation owners. The injected helper
     # deliberately rejects cameras whose constraints/animation could override it.
@@ -458,7 +458,7 @@ def build(context):
                             parameters.get("globalStartFrame", 0 if motion == "approach" else 312)) if motion else []
     scene.frame_set(render.get("startFrame", 1))
     # This ledger is a retained working observation, not a claimed output format.
-    observation = {"kind": "atet.shaded-street-reference", "schemaVersion": 1,
+    observation = {"kind": "slopcamera.shaded-street-reference", "schemaVersion": 1,
                    "shot": shot, "cityOnly": city_only, "canopy": bool(parameters.get("canopy", False)),
                    "camera": record, "nativeCameraMatrix": [list(row) for row in camera.matrix_world],
                    "motion": motion, "cameraSamples": samples, "speaking": speaking, "panelRaster": panel_raster,
@@ -475,7 +475,7 @@ def build(context):
     points = [obj.matrix_world @ Vector(corner) for obj in scene.objects if obj.type == "MESH" for corner in obj.bound_box]
     observation["nativeMeshBounds"] = {"min": [min(point[axis] for point in points) for axis in range(3)],
                                        "max": [max(point[axis] for point in points) for axis in range(3)]}
-    scene["atet_shaded_street_reference"] = json.dumps(observation, separators=(",", ":"))
+    scene["slopcamera_shaded_street_reference"] = json.dumps(observation, separators=(",", ":"))
     with (Path(context["workingRoot"]) / "creative-metadata.json").open("x") as stream:
         json.dump(observation, stream, indent=2)
         stream.write("\n")

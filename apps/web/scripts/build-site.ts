@@ -45,7 +45,7 @@ async function sourceRoot(app: string): Promise<string> {
   if (relative(candidate, app).split(sep).join("/") !== "apps/web") return app
   try {
     const value: unknown = JSON.parse(new TextDecoder().decode(await bytesAt(join(candidate, "package.json"), 1024 * 1024)))
-    if (value !== null && typeof value === "object" && "name" in value && value.name === "@hraness/atet") return candidate
+    if (value !== null && typeof value === "object" && "name" in value && value.name === "@hraness/slopcamera") return candidate
   } catch (error) {
     if (!(error !== null && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error
   }
@@ -90,14 +90,14 @@ export async function buildSite(appDirectory: string, assets: SiteAssets): Promi
     unionPolicySha256: stylexUnionPolicySha256, vite: viteVersion,
   }))
   const finalCssPath = `assets/site-${fingerprint}.css`
-  const outputDirectory = await realpath(await mkdtemp(join(tmpdir(), "atet-web-site-")))
+  const outputDirectory = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-web-site-")))
   try {
     const generation = await createStylexGeneration({
       expectedGraphs: [
         { adapter: "vite", entrypoints: [below(root, join(app, "src/site-foundation.ts"))], id: "site-foundation", kind: "client" },
         { adapter: "bun", entrypoints: [below(root, join(app, "src/site-renderer.ts"))], id: "site-renderer", kind: "ssr" },
       ],
-      finalCssPath, generationId: "atet-site-shell", outputDirectory,
+      finalCssPath, generationId: "slopcamera-site-shell", outputDirectory,
       packageManifests: packageInputs.map(item => item.path), rootDirectory: root,
       templates: documents.map(path => ({
         cssHref: `/${finalCssPath}`, graphId: "site-renderer", outputPath: path, sourcePath: path, stylesheetGraphId: "site-foundation",

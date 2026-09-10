@@ -14,7 +14,7 @@ import type { SpatialProjectSnapshot } from "./spatial-project-store";
 const output: SpatialProjectionOutput = { pixelWidth: 640, pixelHeight: 480, frameRate: { numerator: 30_000, denominator: 1_001 }, background: "#000000ff", colorSpace: "srgb" };
 const policy = { kind: "full-frame-above-legacy-video-below-overlays" as const, alpha: "straight" as const };
 const document = parseSpatialScene({
-  kind: "atet.spatial-scene", schemaVersion: 1, sceneId: "scene_projection", coordinates: "right-handed-y-up-meters", durationUs: 10_000_000,
+  kind: "slopcamera.spatial-scene", schemaVersion: 1, sceneId: "scene_projection", coordinates: "right-handed-y-up-meters", durationUs: 10_000_000,
   entities: [], assets: [], animations: [], overrides: [], generators: [],
   cameras: [{ cameraId: "camera_main", name: "Main", pose: { position: [0, 0, 5], rotation: [0, 0, 0, 1] }, projection: { kind: "perspective", width: 640, height: 480, near: 0.1, far: 100, fx: 500, fy: 500, cx: 320, cy: 240 } }],
 });
@@ -24,10 +24,10 @@ function fixture(ranges = [{ startUs: 0, endUs: 7_000_000 }]) {
   const source = { document, sceneSha256: spatialSceneSha256(document) };
   const shots = ranges.map((range, index) => SpatialShotV1Schema.parse({ shotId: `shot_${index}`, sceneSha256: source.sceneSha256, cameraId: "camera_main", range, sceneStartUs: 0, playback: "once", overrides: [] }));
   const revision = SpatialProjectRevisionV2Schema.parse({
-    kind: "atet.spatial-project-revision", schemaVersion: 2, projectId: project.projectId, parent: { version: 1, sha256: "a".repeat(64) }, transactionId: `transaction_${"0".repeat(32)}`,
+    kind: "slopcamera.spatial-project-revision", schemaVersion: 2, projectId: project.projectId, parent: { version: 1, sha256: "a".repeat(64) }, transactionId: `transaction_${"0".repeat(32)}`,
     legacy: { project, projectEditPlan }, scenes: [{ sceneSha256: source.sceneSha256, artifact: spatialProjectArtifact("scenes", spatialProjectDocumentText(source.document)) }], shots, candidates: [], selections: [],
   });
-  const head = SpatialProjectHeadV2Schema.parse({ kind: "atet.spatial-project-head", schemaVersion: 2, projectId: project.projectId, projectRevisionSha256: spatialProjectRevisionSha256(revision), revision: spatialProjectArtifact("revisions", spatialProjectDocumentText(revision)), transactionId: revision.transactionId });
+  const head = SpatialProjectHeadV2Schema.parse({ kind: "slopcamera.spatial-project-head", schemaVersion: 2, projectId: project.projectId, projectRevisionSha256: spatialProjectRevisionSha256(revision), revision: spatialProjectArtifact("revisions", spatialProjectDocumentText(revision)), transactionId: revision.transactionId });
   const snapshot: SpatialProjectSnapshot = { version: 2, head, revision, headText: spatialProjectDocumentText(head), basis: { version: 2, sha256: head.projectRevisionSha256 }, contents: spatialProjectContents(revision, [source]) };
   const materializedShots: SpatialMaterializedShotVideo[] = shots.map(shot => {
     const sha256 = sha256Hex(shot.shotId);

@@ -23,7 +23,7 @@ describe("Direct desktop typography", () => {
   });
 
   test("emits the canonical WOFF2 payload from the Direct Vite path", async () => {
-    const temporaryRoot = await mkdtemp(join(tmpdir(), "atet-direct-fonts-"));
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "slopcamera-direct-fonts-"));
     try {
       await build({
         build: { emptyOutDir: true, outDir: temporaryRoot },

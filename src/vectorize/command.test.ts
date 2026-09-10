@@ -33,7 +33,7 @@ test("bounded commands terminate after the declared time limit", async () => {
 })
 
 test("bounded commands escalate to SIGKILL and await process cleanup", async () => {
-  const work = await mkdtemp(join(tmpdir(), "atet-command-kill-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-kill-"))
   const pidPath = join(work, "pid")
   let pid: number | undefined
   try {
@@ -83,7 +83,7 @@ test("bounded commands stop a growing primary-output stream", async () => {
 
 test("bounded pathname output streams through a portable private endpoint", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "atet-command-output-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-output-"))
   let outputPath: string | undefined
   try {
     const program = [
@@ -118,7 +118,7 @@ test("bounded pathname output streams through a portable private endpoint", asyn
 
 test("bounded pathname output drains fast writers after process exit", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "atet-command-output-exit-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-output-exit-"))
   try {
     const program = [
       "const output = process.argv[1]",
@@ -146,7 +146,7 @@ test("bounded pathname output drains fast writers after process exit", async () 
 
 test("bounded pathname output stops at its streaming quota and cleans each endpoint", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "atet-command-output-limit-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-output-limit-"))
   let outputPath: string | undefined
   try {
     const program = [
@@ -184,7 +184,7 @@ test("bounded pathname output stops at its streaming quota and cleans each endpo
 
 test("bounded pathname cleanup refuses a replaced output inode", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "atet-command-output-race-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-output-race-"))
   let outputPath: string | undefined
   try {
     const program = [
@@ -218,7 +218,7 @@ test("bounded pathname cleanup refuses a replaced output inode", async () => {
 
 test("bounded pathname cleanup never follows a replaced output directory", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "atet-command-directory-race-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-directory-race-"))
   const target = join(work, "unrelated-target")
   const targetOutput = join(target, "output.svg")
   let outputPath: string | undefined
@@ -259,7 +259,7 @@ test("bounded pathname cleanup never follows a replaced output directory", async
 })
 
 test("bounded commands terminate descendants in the isolated process tree", async () => {
-  const work = await mkdtemp(join(tmpdir(), "atet-command-tree-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-tree-"))
   const parentPidPath = join(work, "parent-pid")
   const childPidPath = join(work, "child-pid")
   const pids: number[] = []
@@ -301,7 +301,7 @@ test("bounded commands terminate descendants in the isolated process tree", asyn
 
 test("bounded commands reap background descendants after a successful leader exit", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "atet-command-success-tree-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-success-tree-"))
   const childPidPath = join(work, "child-pid")
   let childPid: number | undefined
   try {
@@ -337,7 +337,7 @@ test("bounded commands reap background descendants after a successful leader exi
 
 test("worker-local command cleanup kills the tracer's private process tree", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "atet-command-worker-tree-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-worker-tree-"))
   const tracerPidPath = join(work, "tracer-pid")
   const descendantPidPath = join(work, "descendant-pid")
   const pids: number[] = []
@@ -396,7 +396,7 @@ test("worker-local command cleanup kills the tracer's private process tree", asy
 
 test("worker termination forwards a supervisor signal to active command groups", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "atet-command-forward-signal-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-forward-signal-"))
   const tracerPidPath = join(work, "tracer-pid")
   const descendantPidPath = join(work, "descendant-pid")
   const readyPath = join(work, "ready")
@@ -460,7 +460,7 @@ test("worker termination forwards a supervisor signal to active command groups",
 
 test("spawn permission failures are normalized as VectorizeError", async () => {
   if (process.platform === "win32") return
-  const work = await mkdtemp(join(tmpdir(), "atet-command-eacces-"))
+  const work = await mkdtemp(join(tmpdir(), "slopcamera-command-eacces-"))
   try {
     const command = join(work, "not-executable")
     await writeFile(command, "#!/bin/sh\nexit 0\n")

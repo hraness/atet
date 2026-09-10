@@ -1,7 +1,7 @@
 """Fixed Manim Community render adapter. Source executes only with --request.
 
 This is trusted current-user Python, not an operating-system security sandbox.
-The ATET host owns consent, source hashes, process custody and authoritative receipts.
+The SLOPCAMERA host owns consent, source hashes, process custody and authoritative receipts.
 """
 
 import argparse
@@ -45,7 +45,7 @@ def validate_request(request):
     if type(request) is not dict or set(request) != {"bundle", "job", "sourceRoot", "outputRoot", "workingRoot"}:
         raise ValueError("Invalid fixed driver request envelope.")
     job, bundle = request["job"], request["bundle"]
-    if job["kind"] != "atet.studio-job" or type(job["schemaVersion"]) is not int or job["schemaVersion"] != 1 or bundle["kind"] != "atet.studio-source-bundle" or type(bundle["schemaVersion"]) is not int or bundle["schemaVersion"] != 1:
+    if job["kind"] != "slopcamera.studio-job" or type(job["schemaVersion"]) is not int or job["schemaVersion"] != 1 or bundle["kind"] != "slopcamera.studio-source-bundle" or type(bundle["schemaVersion"]) is not int or bundle["schemaVersion"] != 1:
         raise ValueError("Unsupported studio protocol.")
     if job["stage"] != "render" or bundle["engine"] != "manim" or bundle["entrypoint"]["kind"] != "python":
         raise ValueError("The Manim adapter supports explicit Python render jobs only.")
@@ -192,10 +192,10 @@ def render_request(request):
             pass
 
         def add_sound(self, *args, **kwargs):
-            raise ValueError("Compose retained narration and sound effects in the ATET project audio layer.")
+            raise ValueError("Compose retained narration and sound effects in the SLOPCAMERA project audio layer.")
 
         def add_audio_segment(self, *args, **kwargs):
-            raise ValueError("Compose retained audio in the ATET project audio layer.")
+            raise ValueError("Compose retained audio in the SLOPCAMERA project audio layer.")
 
     class RetainedCairoRenderer(CairoRenderer):
         raw_frames = 0
@@ -256,7 +256,7 @@ def render_request(request):
         with tempconfig(settings):
             context = source_context(request)
             sys.path.insert(0, str(source_root))
-            namespace = runpy.run_path(str(entrypoint), init_globals={"ATET_CONTEXT": context}, run_name="__atet_studio_source__")
+            namespace = runpy.run_path(str(entrypoint), init_globals={"SLOPCAMERA_CONTEXT": context}, run_name="__slopcamera_studio_source__")
             scene_class = namespace.get(job["engine"]["scene"])
             if not isinstance(scene_class, type) or not issubclass(scene_class, Scene):
                 raise ValueError("The selected source entrypoint did not declare a Manim Scene.")
@@ -293,13 +293,13 @@ def render_request(request):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ATET fixed Manim Community driver")
+    parser = argparse.ArgumentParser(description="SLOPCAMERA fixed Manim Community driver")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--probe", action="store_true")
     mode.add_argument("--request")
     arguments = parser.parse_args()
     if arguments.probe:
-        print("ATET_STUDIO_PROBE="+json.dumps(probe(), separators=(",", ":")))
+        print("SLOPCAMERA_STUDIO_PROBE="+json.dumps(probe(), separators=(",", ":")))
     else:
         render_request(bounded_json(arguments.request))
 
