@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { admitAttempt, admitExpectedHandoff, admitMirrorAuthority, admitRelease, admitRemoteAssetBytes, authorizeRelease, authorityPaths, admitVerifiedProvenance, checksums, compareVersions, findReleaseForTag, hash, parseManifest, releaseBody, verifyHandoff } from "./github-release";
+import { admitAttempt, admitExpectedHandoff, admitNpmHandoffRun, admitPublishedRelease, admitRelease, admitRemoteAssetBytes, authorizeRelease, authorityPaths, admitVerifiedProvenance, checksums, compareVersions, findReleaseForTag, hash, parseManifest, releaseBody, verifyHandoff } from "./github-release";
 import { admitPublishedGitHubRelease } from "./push-release-tag";
 
 const archive = Buffer.from("exact canonical bytes");
@@ -28,55 +28,38 @@ function attempt() {
     actor: { id: 894119, type: "User" }, triggering_actor: { id: 894119, type: "User" },
     repository: { id: 1310516748, full_name: "hraness/slopcamera", private: false } };
 }
-test("mirror binds an older canonical source to the current protected workflow without conflating them", () => {
+test("npm publication reuses the attested handoff of an earlier attempt of the same run only", () => {
   const m = manifest();
-  const current = "b".repeat(40);
-  const environment = { GITHUB_SHA: current, GITHUB_REF: "refs/heads/main", GITHUB_EVENT_NAME: "workflow_dispatch",
-    GITHUB_REPOSITORY: "hraness/slopcamera", GITHUB_REPOSITORY_ID: "1310516748" };
-  const ref = { object: { type: "commit", sha: current } };
-  const branch = { protected: true, commit: { sha: current } };
-  const comparison = { status: "ahead" };
-  expect(() => admitMirrorAuthority(m, current, environment, ref, branch, comparison)).not.toThrow();
-  expect(() => admitMirrorAuthority({ ...m, sourceSha: current }, current, environment, ref, branch, { status: "identical" })).not.toThrow();
-  for (const status of ["behind", "diverged", "unknown"]) {
-    expect(() => admitMirrorAuthority(m, current, environment, ref, branch, { status })).toThrow("ancestor");
-  }
-  expect(() => admitMirrorAuthority(m, current, environment, { object: { type: "commit", sha: "c".repeat(40) } }, branch, comparison)).toThrow();
-  expect(() => admitMirrorAuthority(m, current, environment, ref, { ...branch, protected: false }, comparison)).toThrow();
-  expect(() => admitMirrorAuthority(m, current, { ...environment, GITHUB_SHA: m.sourceSha }, ref, branch, comparison)).toThrow();
-  expect(() => admitMirrorAuthority(m, current, { ...environment, GITHUB_EVENT_NAME: "push" }, ref, branch, comparison)).toThrow();
+  const environment = { GITHUB_SHA: m.sourceSha, GITHUB_REF: `refs/tags/${m.tag}`, GITHUB_REF_NAME: m.tag,
+    GITHUB_RUN_ID: String(m.runId), GITHUB_RUN_ATTEMPT: "1" };
+  expect(() => admitNpmHandoffRun(m, environment)).not.toThrow();
+  expect(() => admitNpmHandoffRun(m, { ...environment, GITHUB_RUN_ATTEMPT: "3" })).not.toThrow();
+  expect(() => admitNpmHandoffRun({ ...m, runAttempt: 2 }, environment)).toThrow("exact run");
+  expect(() => admitNpmHandoffRun(m, { ...environment, GITHUB_RUN_ID: "124" })).toThrow("exact run");
+  expect(() => admitNpmHandoffRun(m, { ...environment, GITHUB_SHA: "b".repeat(40) })).toThrow("exact run");
+  expect(() => admitNpmHandoffRun(m, { ...environment, GITHUB_REF: "refs/heads/main" })).toThrow("exact run");
+  expect(() => admitNpmHandoffRun(m, { ...environment, GITHUB_RUN_ATTEMPT: "0" })).toThrow("Run attempt");
 });
-test("final npm admission binds immutable canonical source and exact complete asset identities", async () => {
-  const stage = await readFile(new URL("../.github/workflows/npm-stage.yml", import.meta.url), "utf8");
-  const marker = '          RELEASE_JSON="$release_json" node <<\'NODE\'\n';
-  const start = stage.indexOf(marker);
-  expect(start).toBeGreaterThan(-1);
-  const script = stage.slice(start + marker.length, stage.indexOf("          NODE\n", start)).split("\n").map(line => line.slice(10)).join("\n");
-  const source = "a".repeat(40);
-  const values = { EXPECTED_VERSION: "3.2.3", EXPECTED_SOURCE_SHA: "b".repeat(40), EXPECTED_CANONICAL_SOURCE_SHA: source,
-    EXPECTED_ARCHIVE_SHA256: "1".repeat(64), EXPECTED_METADATA_SHA256: "2".repeat(64) };
-  const release = { id: 1, tag_name: "v3.2.3", target_commitish: source, draft: false, prerelease: false, immutable: true,
-    author: { id: 41898282, login: "github-actions[bot]", type: "Bot" },
-    assets: ["hraness-slopcamera-3.2.3.tgz", "npm-pack.json", "release-manifest.json", "SHA256SUMS", "provenance.jsonl"]
-      .map((name, index) => ({ id: index + 1, name, state: "uploaded", digest: `sha256:${String(index + 1).repeat(64)}` })) };
-  const run = (value: unknown) => Bun.spawnSync([process.execPath, "-e", script], {
-    env: { ...values, RELEASE_JSON: JSON.stringify(value) }, timeout: 1_000, stdout: "pipe", stderr: "pipe",
-  });
-  expect(run(release).exitCode).toBe(0);
-  for (const invalid of [{ ...release, target_commitish: values.EXPECTED_SOURCE_SHA }, { ...release, immutable: false },
+test("npm publication admits only the published immutable release with exact complete asset identities", () => {
+  const m = manifest();
+  const inputs = files();
+  inputs.set("provenance.jsonl", Buffer.from("{}\n"));
+  const release = { id: 7, tag_name: m.tag, name: `Slopcamera ${m.tag}`, target_commitish: m.sourceSha, draft: false, prerelease: false, immutable: true,
+    author: { id: 41898282, login: "github-actions[bot]", type: "Bot" }, body: releaseBody(m),
+    assets: [...inputs].map(([name, bytes], index) => ({ id: index + 1, name, state: "uploaded", size: bytes.length, digest: `sha256:${hash(bytes)}` })) };
+  expect(admitPublishedRelease(release, m, inputs)).toBe(7);
+  for (const invalid of [{ ...release, draft: true }, { ...release, target_commitish: "b".repeat(40) }, { ...release, immutable: false },
     { ...release, author: { ...release.author, type: "User" } }, { ...release, assets: release.assets.slice(0, 4) },
     { ...release, assets: release.assets.map((asset, index) => index === 1 ? { ...asset, id: 1 } : asset) },
     { ...release, assets: release.assets.map((asset, index) => index === 1 ? { ...asset, digest: `sha256:${"0".repeat(64)}` } : asset) }]) {
-    const result = run(invalid);
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stderr.toString()).toContain("Canonical immutable GitHub mirror authority changed");
+    expect(() => admitPublishedRelease(invalid, m, inputs)).toThrow();
   }
 });
 test("canonical manifest rejects identity, bounds, override and path drift", () => {
   const m = manifest();
   expect(parseManifest(m)).toEqual(m);
   for (const change of [{ unexpected: true }, { repository: "other/slopcamera" }, { repositoryId: 1 }, { package: "slopcamera" }, { version: "3.2.3-beta.1" },
-    { tag: "v3.2.4" }, { sourceSha: "main" }, { workflowSha: "main" }, { runId: 0 }, { runAttempt: 1.5 }, { workflow: ".github/workflows/npm-stage.yml" },
+    { tag: "v3.2.4" }, { sourceSha: "main" }, { workflowSha: "main" }, { runId: 0 }, { runAttempt: 1.5 }, { workflow: ".github/workflows/ci.yml" },
     { archive: { ...m.archive, name: "../package.tgz" } }, { archive: { ...m.archive, bytes: 4_300_001 } }, { archive: { ...m.archive, sha256: "0" } }]) {
     expect(() => parseManifest({ ...m, ...change })).toThrow();
   }
@@ -270,7 +253,7 @@ test("canonical workflow preserves all source/native gates before scoped signing
   expect(source).toContain("needs: [verify, official_vtracer, native_macos, attest]");
   expect(source).toContain("fetch-tags: false");
   expect(source).toContain('git fetch --no-tags --unshallow origin "refs/heads/main:refs/remotes/origin/main"');
-  const privileged = source.slice(source.indexOf("\n  attest:\n"));
+  const privileged = source.slice(source.indexOf("\n  attest:\n"), source.indexOf("\n  publish_npm:\n"));
   expect(privileged).not.toContain("actions/checkout@");
   expect(privileged).not.toContain("bun install");
   expect(privileged).not.toContain("npm install");
@@ -279,17 +262,14 @@ test("canonical workflow preserves all source/native gates before scoped signing
   expect(privileged).toContain("artifact-ids: ${{ needs.verify.outputs.artifact_id }}");
   expect(privileged).toContain("artifact-ids: ${{ needs.attest.outputs.artifact_id }}");
   expect(privileged.indexOf("Rebind verified artifact before OIDC")).toBeLessThan(privileged.indexOf("actions/attest@"));
-  expect(source).not.toContain("npm latest");
   expect(source).not.toContain("npm stage");
-  expect(source).not.toContain("npm-publish-authority");
-  const stage = await readFile(new URL("../.github/workflows/npm-stage.yml", import.meta.url), "utf8");
-  expect(stage.slice(0, stage.indexOf("permissions:"))).not.toContain("  push:");
-  expect(stage).toContain("node scripts/github-release.ts mirror");
-  expect(stage).toContain('git worktree add --detach "$source_directory" "$canonical_source_sha"');
-  expect(stage).toContain('working-directory: ${{ steps.canonical.outputs.source_directory }}');
-  expect(stage).toContain('bun run "$GITHUB_WORKSPACE/scripts/package-smoke.ts"');
-  expect(stage).toContain('bun run check');
-  expect(stage).toContain("Canonical immutable GitHub mirror authority changed immediately before npm staging");
-  expect(stage).toContain("npm publish");
-  expect(stage).toContain("cd \"$clean_npm_directory\"");
+  const npm = source.slice(source.indexOf("\n  publish_npm:\n"), source.indexOf("\n  admit_npm:\n"));
+  expect(npm).not.toContain("actions/checkout@");
+  expect(npm).not.toContain("bun install");
+  expect(npm).toContain("environment: npm-release");
+  expect(npm).toContain("id-token: write");
+  expect(npm).toContain("artifact-ids: ${{ needs.attest.outputs.artifact_id }}");
+  expect(npm.indexOf('github-release.ts" npm-admit')).toBeLessThan(npm.indexOf('npm publish "$TARBALL"'));
+  expect(npm).toContain("cd \"$clean_npm_directory\"");
+  expect(source.slice(source.indexOf("\n  admit_npm:\n"))).toContain("npm-publish-authority");
 });

@@ -1,9 +1,9 @@
 # Publish Slopcamera
 
-GitHub Releases are canonical. A protected stable tag produces one verified package archive, GitHub provenance, and an immutable Release. npm is an optional downstream mirror. The new `@hraness/slopcamera` package has no dual-use content declaration or classification-based disclosure requirement. Its npm publisher must be configured for this exact new identity; settings on historical `@hraness/atet` do not carry over.
+GitHub Releases are canonical. A protected stable tag produces one verified package archive, GitHub provenance, and an immutable Release, then the same workflow publishes those exact bytes to npm through trusted publishing. npm is a downstream mirror. The new `@hraness/slopcamera` package has no dual-use content declaration or classification-based disclosure requirement. Its npm publisher must be configured for this exact new identity; settings on historical `@hraness/atet` do not carry over.
 
 Start with [canonical GitHub publication](#publish-a-canonical-github-release).
-The [npm mirror](#mirror-a-canonical-release-to-npm) is optional.
+The [npm publication](#publish-the-canonical-release-to-npm) follows automatically in the same workflow.
 Slopcamera v3.2.4 is the first canonical Slopcamera release; these procedures publish each later version the same way, and no archive is advertised before its live acceptance.
 
 ## Publish a canonical GitHub release
@@ -28,37 +28,75 @@ Keep the source candidate separate from a verified public release. `apps/web/pub
 
 The manifest has exactly schema `hraness-github-release-v1`, repository/name and numeric repository ID, package, stable version/tag, source SHA, release workflow/current authority SHA, numeric run ID/attempt, and archive name/bytes/SHA-256/SHA-512. Every file is bounded and regular; unexpected files, symlinks, traversal, unsafe packed configuration and inconsistent bytes reject. Native package construction remains release acceptance; native binaries are not added to this distribution without separately enumerated asset and installation proof.
 
-## Mirror a canonical release to npm
+## Publish the canonical release to npm
 
-The **Stage npm package** workflow is dispatch-only. Canonical publication owns artifact construction; the optional mirror must download that exact immutable GitHub archive, verify its complete signed handoff and successful release attempt, and smoke it. It must not rebuild different bytes and call them the same canonical artifact. The mirror retains its full source gate, with pinned Node and Chromium, followed by fresh canonical provenance/asset admission and isolated installation of those exact bytes. A failed or incomplete canonical release run cannot admit a mirror.
+npm publication is automatic. The same tag Release workflow that publishes the
+immutable GitHub Release then runs `publish_npm`, which publishes the exact
+canonical archive bytes to `@hraness/slopcamera` through npm trusted publishing
+(OIDC) with npm provenance, and `admit_npm`, which verifies the public registry
+copy against the canonical asset. No dispatch, staged approval, two-factor
+prompt, or token is involved; Slopcamera is ordinary software and carries no
+content-policy classification. Preserve account two-factor authentication and
+the exact configured publisher; never substitute a long-lived publishing token.
 
-The dispatch runs from current protected `main`. `package_version` selects an exact canonical version and defaults to the current source version. Keep the immutable artifact source distinct from the workflow source: the full gate runs in an isolated checkout of the canonical source, while the current workflow's smoke and npm policy helpers admit its archive. The canonical source must remain an ancestor of current `main`; later documentation or version changes do not relabel it. Staging rechecks the current workflow, annotated canonical tag, immutable archive and metadata digests, complete asset identities and npm latest immediately before mutation.
+`publish_npm` runs only after `publish` has verified immutable Latest. It checks
+out no product source and installs no dependencies. It re-runs the owner and
+current-main authority checks, loads the byte-identical current-main release
+helper, downloads the attested five-file handoff by numeric artifact ID (so a
+rerun of only the failed job still publishes the identical bytes), and admits it
+through `github-release.ts npm-admit`: exact handoff bytes and trusted digests,
+this run's source and tag, cryptographic provenance, and the published immutable
+Latest release whose assets carry the same digests. The checkout-free USTAR and
+packed-manifest reader then rejects any packed `tag`, non-canonical
+`publishConfig`, or unsafe archive before the job requests OIDC.
 
-From current `main` at the released source, dispatch:
+Immediately before mutation the job scrubs ambient `npm_config_tag`, proves that
+npm 11.19.0's clean default tag is `latest`, rehashes the archive, and reads the
+registry version. An absent version must be newer than public `latest`; a
+version that already publishes the identical SHA-512 integrity is an earlier
+attempt of the same publication and completes without a second write; a
+different integrity fails closed and is never overwritten. The only registry
+mutation is equivalent to:
 
 ```sh
-gh workflow run npm-stage.yml --ref main -f publish_to_npm=true
+npm publish <attested-archive> \
+  --@hraness:registry=https://registry.npmjs.org \
+  --access public \
+  --ignore-scripts \
+  --provenance \
+  --registry=https://registry.npmjs.org
 ```
 
-The current-main dispatch must be newer than npm's public `latest`. The checkout-free OIDC job retains its exact owner/triggering-actor, workflow, repository, environment and source guards. It recognizes every attempted terminal npm mutation before considering a stage-job display name. Every attempted write requires exactly one successful durable intent at the immediately preceding safe positive Actions step number. It revalidates the three-file staging handoff (`.tgz`, `npm-pack.json`, `npm-package.sha256`), independently parses the bounded archive/configuration, rechecks protected source and the immutable GitHub asset digest immediately before mutation, and captures npm's returned stage ID.
+It runs from a clean directory with separate empty user and global npm
+configuration files and deliberately omits `--tag`, so npm keeps its built-in
+monotonic-`latest` guard. The returned identity must match the archive
+integrity exactly.
 
-Leave `resolved_stage_version` empty normally. Resolve an ambiguous or rejected exact provider attempt before an owner dispatch clears that version's retained intent. A completed publication advances `latest` and releases the intent automatically. Keep the stage-only publisher as the sole staging authority; a newer GitHub release does not clear an unresolved npm intent.
+`admit_npm` checks out the verified tag read-only, downloads the immutable
+GitHub asset and the registry archive, and compares them with
+`npm-package-identity.ts` (complete content inventory, entry types, modes,
+sizes and hashes; npm may re-encode transport bytes). It installs the exact
+registry version in an isolated consumer, runs
+`npm audit signatures --json --include-attestations --omit=dev`, and verifies
+registry signatures plus the npm publish and SLSA attestations with
+`npm-publish-authority.ts`, which binds the provenance to this repository, the
+tag ref, the `push` event and the Release workflow. The isolated package smoke
+runs against the registry archive. Those npm proofs are mirror acceptance; they
+are not GitHub release authority. An npm write can succeed before its runner
+reports failure, so rerun only the failed jobs and let the registry readback
+reconcile the state; never republish a version or move `latest` backward.
 
-Publication is direct: the trusted publisher's `npm publish` makes the exact
-canonical bytes public as `latest` in one step, with npm provenance. No staged
-approval or two-factor promotion step follows; Slopcamera is ordinary software
-and carries no content-policy classification. Preserve account two-factor
-authentication and the exact configured publisher; do not substitute a
-long-lived publishing token.
-
-After publication, download the registry archive and use `npm-package-identity.ts` plus isolated package smoke to compare the complete canonical content inventory, entry types, modes, sizes and hashes against the GitHub artifact. npm may re-encode transport bytes; preserve both archives and their own metadata rather than claim different gzip or tar bytes are identical. Verify registry signatures and the npm-publish/SLSA attestations using `npm audit signatures --json --include-attestations --omit=dev` and `npm-publish-authority.ts`. Those npm proofs remain mirror acceptance; they are no longer GitHub release authority. An npm write can succeed before its runner reports failure, so reconcile the cryptographically verified provider state before retrying.
-
-Never dispatch the next stable version while a previous dispatch's mutation
-is unresolved. The workflow records a version-bound successful intent
-immediately before mutation and scans that intent across all retained attempts,
-failing closed until public `latest` advances or the owner explicitly names the
-resolved intent through `resolved_stage_version`. Human dispatch order controls
-`latest`; workflow concurrency alone cannot serialize an external mutation.
+The packed manifest must not contain a top-level `tag`, because npm gives that
+field precedence over the command's explicit dist-tag. Its `publishConfig` must
+contain exactly `access` and `registry`, with values `public` and
+`https://registry.npmjs.org`. A scoped registry, proxy, authentication, tag,
+provenance-file, or any other packed npm configuration is forbidden because npm
+otherwise lets package metadata override its network and publication options.
+The checkout-free publication parser and source/release identity parser both
+require the exact eight-byte USTAR signature (`ustar\0` plus `00`) and
+npm/node-tar's byte-475 prefix discriminator (zero means 130 prefix bytes;
+nonzero means 155). Shared hostile fixtures keep both tar consumers
+behaviorally aligned.
 
 ## Protect release tags without a sudo prompt
 
@@ -73,66 +111,37 @@ create the exact release tag under standing task authority without a routine
 GitHub sudo approval. Never create probe tags or move a version tag. The canonical GitHub gate is independent of optional npm mirroring.
 
 See npm's documentation for [trusted
-publishing](https://docs.npmjs.com/trusted-publishers/), [staged
-publishing](https://docs.npmjs.com/staged-publishing/).
+publishing](https://docs.npmjs.com/trusted-publishers/).
 
 ## Configure trusted publishing
 
-After `@hraness/slopcamera` exists, configure one GitHub Actions trusted publisher in
-the npm package settings with this exact identity:
+`@hraness/slopcamera` publishes only through one GitHub Actions trusted
+publisher with this exact identity:
 
 - organization or owner: `hraness`
 - repository: `slopcamera`
-- workflow filename: `npm-stage.yml`
+- workflow filename: `release.yml`
+- environment: `npm-release`
 - allowed action: `npm publish`
-- environment: `npm-stage`
 
-Create a GitHub environment named `npm-stage`. Disable administrator bypass.
-Its sole protection rule must be `branch_policy`, and its sole deployment
-policy must be the selected branch `main` with type `branch`. Configure no
-required deployment reviewers and add no environment secret. Optional manual dispatches first verify and upload the exact canonical GitHub archive without OIDC. A dispatch with its default false input stops there. The dependent staging job starts only when a current-main
-owner manual dispatch explicitly sets `publish_to_npm=true`. The staging job
-re-reads that exact run attempt and requires both the original actor and the
-attempt's triggering actor to be immutable owner `User` ID `894119` before it
-sets up npm or requests an OIDC token. This GitHub environment binds
-the trusted-publisher identity and branch without adding a separate human gate;
-publication makes the package public as `latest`. Only the minimal staging job may
-reference this environment or request an OIDC token. The npm trusted-publisher
-environment must match `npm-stage` exactly.
-
-Set package publishing access to **Require two-factor authentication and
-disallow tokens**. Remove traditional publishing tokens. Do not add an npm
-publishing token to GitHub. Do not copy historical Atet classification metadata
-or its disclosure requirement into the new package.
-
-The trusted workflow's only registry mutation is equivalent to:
+The one-time owner setup (passkey or two-factor prompt) is:
 
 ```sh
-npm publish <reviewed-tarball> \
-  --@hraness:registry=https://registry.npmjs.org \
-  --access public \
-  --ignore-scripts \
-  --provenance \
-  --registry=https://registry.npmjs.org
+npm trust github @hraness/slopcamera --repo hraness/slopcamera --file release.yml --environment npm-release --allow-publish --yes
+npm trust list @hraness/slopcamera
 ```
 
-The job runs that command from a clean directory with separate empty user and
-global npm configuration files. It rejects any ambient `npm_config_tag`, proves
-that npm 11.19.0's untouched default tag is `latest`, and deliberately omits
-`--tag`: npm treats an explicit tag as non-default and would otherwise skip its
-built-in monotonic-`latest` guard. The workflow also performs its own immediate
-live-version comparison before mutation.
+Revoke any earlier relationship that names another workflow file or
+environment with `npm trust revoke @hraness/slopcamera --id <trust-id>`.
 
-The packed manifest must not contain a top-level `tag`, because npm gives that
-field precedence over the command's explicit dist-tag. Its `publishConfig` must
-contain exactly `access` and `registry`, with values `public` and
-`https://registry.npmjs.org`. A scoped registry, proxy, authentication, tag,
-provenance-file, or any other packed npm configuration is forbidden because npm
-otherwise lets package metadata override its network and publication options.
-The checkout-free staging parser and source/release identity parser both require
-the exact eight-byte USTAR signature (`ustar\0` plus `00`) and npm/node-tar's
-byte-475 prefix discriminator (zero means 130 prefix bytes; nonzero means 155).
-Shared hostile fixtures keep both tar consumers behaviorally aligned.
+The GitHub environment `npm-release` has administrator bypass disabled, the
+sole protection rule `branch_policy`, and the sole deployment policy tag `v*`.
+It has no required reviewers and no secrets. Only `publish_npm` may reference
+this environment or request the npm OIDC token; `attest` holds the only other
+`id-token: write`. Set package publishing access to **Require two-factor
+authentication and disallow tokens**, remove traditional publishing tokens, and
+never add an npm token to GitHub. Do not copy historical Atet classification
+metadata or its disclosure requirement into the new package.
 
 ## Historical Atet publication
 

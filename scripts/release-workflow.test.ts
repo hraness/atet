@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { createHash } from "node:crypto"
-import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { fileURLToPath } from "node:url"
@@ -325,7 +325,7 @@ function npmPackFixture(
   }]
 }
 
-const stageRequiredPaths = [
+const packedRequiredPaths = [
   "PRIVACY.md",
   "LICENSE",
   "NOTICE.md",
@@ -412,13 +412,13 @@ function replacePackedManifestText(tar: Buffer, before: string, after: string): 
   }
 }
 
-type StageTarMutation = (tar: Buffer) => void
+type ArchiveTarMutation = (tar: Buffer) => void
 
-async function writeStageArtifactFixture(
+async function writeReleaseArtifactFixture(
   root: string,
-  mutation?: StageTarMutation,
-): Promise<Readonly<{ metadata: string; registryView: string; tarball: string }>> {
-  const artifactDirectory = join(root, "slopcamera-npm-stage")
+  mutation?: ArchiveTarMutation,
+): Promise<Readonly<{ archiveSha256: string; metadata: string; metadataSha256: string; registryView: string; tarball: string }>> {
+  const artifactDirectory = join(root, "slopcamera-release")
   const tarballName = "hraness-slopcamera-3.2.0.tgz"
   const manifest = `${JSON.stringify({
     name: "@hraness/slopcamera",
@@ -426,7 +426,7 @@ async function writeStageArtifactFixture(
     type: "module",
     publishConfig: { access: "public", registry: "https://registry.npmjs.org" },
   })}\n`
-  const entries: PackageFixtureEntry[] = stageRequiredPaths.map(path => ({
+  const entries: PackageFixtureEntry[] = packedRequiredPaths.map(path => ({
     body: path === "package.json" ? manifest : `fixture for ${path}\n`,
     mode: 0o644,
     path,
@@ -453,13 +453,11 @@ async function writeStageArtifactFixture(
       name: "@hraness/slopcamera",
       version: "3.2.0",
     })),
-    writeFile(
-      join(artifactDirectory, "npm-package.sha256"),
-      `${createHash("sha256").update(archive).digest("hex")}  ${tarballName}\n${createHash("sha256").update(metadata).digest("hex")}  npm-pack.json\n`,
-    ),
   ])
   return {
+    archiveSha256: createHash("sha256").update(archive).digest("hex"),
     metadata: join(artifactDirectory, "npm-pack.json"),
+    metadataSha256: createHash("sha256").update(metadata).digest("hex"),
     registryView,
     tarball: join(artifactDirectory, tarballName),
   }
@@ -606,7 +604,7 @@ function auditAttestation(
   }
 }
 
-test("npm publication authority binds latest, registry signatures, signed provenance, and stage invocation", async () => {
+test("npm publication authority binds latest, registry signatures, signed provenance, and tag release invocation", async () => {
   const root = await mkdtemp(join(tmpdir(), "slopcamera-npm-authority-"))
   const entries = [
     { body: "read me\n", mode: 0o644, path: "README.md" },
@@ -644,19 +642,19 @@ test("npm publication authority binds latest, registry signatures, signed proven
           externalParameters: {
             workflow: {
               repository: "https://github.com/hraness/slopcamera",
-              ref: "refs/heads/main",
-              path: ".github/workflows/npm-stage.yml",
+              ref: "refs/tags/v3.2.0",
+              path: ".github/workflows/release.yml",
             },
           },
           internalParameters: {
             github: {
-              event_name: "workflow_dispatch",
+              event_name: "push",
               repository_id: "1310516748",
               repository_owner_id: "307125679",
             },
           },
           resolvedDependencies: [{
-            uri: "git+https://github.com/hraness/slopcamera@refs/heads/main",
+            uri: "git+https://github.com/hraness/slopcamera@refs/tags/v3.2.0",
             digest: { gitCommit: sourceSha },
           }],
         },
@@ -730,7 +728,7 @@ test("npm publication authority binds latest, registry signatures, signed proven
         buildDefinition: {
           ...slsaStatement.predicate.buildDefinition,
           resolvedDependencies: [{
-            uri: "git+https://github.com/hraness/slopcamera@refs/heads/main",
+            uri: "git+https://github.com/hraness/slopcamera@refs/tags/v3.2.0",
             digest: { gitCommit: "b".repeat(40) },
           }],
         },
@@ -738,7 +736,7 @@ test("npm publication authority binds latest, registry signatures, signed proven
     })
     await Bun.write(auditPath, JSON.stringify(wrongSourceAudit))
     await expect(verifyNpmPublishAuthority(input)).rejects.toThrow(
-      "does not bind the exact npm staging workflow and source",
+      "does not bind the exact tag release workflow and source",
     )
 
     await Bun.write(auditPath, JSON.stringify({ ...audit, invalid: [{ code: "EATTESTATIONVERIFY" }] }))
@@ -819,407 +817,135 @@ test("the safe stable-tag creator fails closed before its one exact tag push", a
   expect(script).not.toMatch(/npm publish(?:\s|$)/u)
 })
 
-test("only an owner dispatch mirrors the exact canonical GitHub artifact through npm staging", async () => {
-  const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
+test("the tag workflow publishes the exact immutable release bytes to npm through OIDC only", async () => {
+  const workflow = await readWorkflow("public-release.yml", "release.yml")
+  const publishStart = workflow.indexOf("\n  publish_npm:\n")
+  const admitStart = workflow.indexOf("\n  admit_npm:\n")
+  expect(publishStart).toBeGreaterThan(workflow.indexOf("\n  publish:\n"))
+  expect(admitStart).toBeGreaterThan(publishStart)
+  const publishJob = workflow.slice(publishStart, admitStart)
+  const admitJob = workflow.slice(admitStart)
 
-  const verifyStart = workflow.indexOf("  verify:\n")
-  const stageStart = workflow.indexOf("\n  stage:\n")
-  expect(verifyStart).toBeGreaterThan(-1)
-  expect(stageStart).toBeGreaterThan(verifyStart)
-  const verifyJob = workflow.slice(verifyStart, stageStart)
-  const stageJob = workflow.slice(stageStart)
+  expect(workflow.slice(0, workflow.indexOf("permissions:"))).not.toContain("workflow_dispatch")
+  expect(publishJob).toContain("name: Publish exact npm package")
+  expect(publishJob).toContain("needs: [verify, official_vtracer, native_macos, attest, publish]")
+  expect(publishJob).toContain("environment: npm-release")
+  expect(publishJob).toContain("permissions:\n      actions: read\n      contents: read\n      id-token: write")
+  expect(workflow.match(/environment: npm-release/gu)).toHaveLength(1)
+  expect(workflow.match(/id-token: write/gu)).toHaveLength(2)
+  expect(publishJob).not.toContain("actions/checkout@")
+  expect(publishJob).not.toContain("setup-bun@")
+  expect(publishJob).not.toContain("bun install")
+  expect(publishJob).not.toContain("bun run")
+  expect(publishJob).not.toContain("./scripts/")
+  expect(publishJob).toContain("name: Load current release authority")
+  expect(publishJob).toContain("run.triggering_actor?.id !== 894119")
+  expect(publishJob).toContain("run.workflow_id !== 320001524")
+  expect(publishJob).toContain("current.equals(decode(e.GITHUB_SHA))")
+  expect(publishJob).toContain('node "$RUNNER_TEMP/github-release.ts" authorize "$RUNNER_TEMP"')
+  expect(publishJob).toContain("npm install --global --ignore-scripts npm@11.19.0")
+  expect(publishJob).toContain("artifact-ids: ${{ needs.attest.outputs.artifact_id }}")
+  expect(publishJob).not.toContain("github.run_attempt")
+  expect(publishJob).toContain('node "$RUNNER_TEMP/github-release.ts" npm-admit "$RUNNER_TEMP/slopcamera-release"')
+  expect(publishJob).toContain("name: Rebind attested package before OIDC")
+  expect(publishJob).toContain('const expectedName = "@hraness/slopcamera"')
+  expect(publishJob).toContain("const maximumFiles = 450")
+  expect(publishJob).toContain("const maximumPackedBytes = 4_300_000")
+  expect(publishJob).toContain("const maximumUnpackedBytes = 11_300_000")
+  expect(publishJob).toContain("record.files.length !== record.entryCount")
+  expect(publishJob).toContain("unpackedSize !== record.unpackedSize")
+  expect(publishJob).toContain('"src/assets/fonts/nebula-sans/PROVENANCE.md"')
+  expect(publishJob).toContain("Downloaded files differ from the trusted verification digests")
+  expect(publishJob).toContain('JSON.stringify(["access", "registry"])')
+  expect(publishJob).toContain("Packed package manifest can override the canonical npm publication boundary")
+  expect(publishJob).toContain("header.subarray(257, 265).equals(ustarSignature)")
+  expect(publishJob).toContain("header[475] === 0 ? 130 : 155")
+  expect(publishJob).toContain("Packed npm tar duplicates normalized path")
+  expect(publishJob).toContain("Pinned npm's clean default publication tag is not latest")
+  expect(publishJob).toContain('name.toLowerCase() === "npm_config_tag"')
+  expect(publishJob).toContain("never overwrite it")
+  expect(publishJob).toContain('if [[ "$registry_state" == published ]]')
+  expect(publishJob).toContain("Release candidate must be newer than current npm latest")
+  expect(publishJob).toContain("9007199254740991n")
+  expect(publishJob).not.toContain("stable-stage intent")
+  expect(publishJob).not.toContain("resolved_stage_version")
 
-  expect(workflow.slice(0, workflow.indexOf("permissions:"))).not.toContain("  push:")
-  expect(workflow).toContain("workflow_dispatch:")
-  expect(workflow).toContain(
-    "publish_to_npm:\n        description: Stage the verified package through npm trusted publishing\n        required: false\n        default: false\n        type: boolean",
-  )
-  expect(workflow).toContain(
-    "resolved_stage_version:\n        description: Exact cleared stage-intent version that releases the retained history lock",
-  )
-  expect(workflow).toContain("stage_required: ${{ steps.identity.outputs.stage_required }}")
-  expect(verifyJob).toContain("name: Verify exact package")
-  expect(verifyJob).toContain("permissions:\n      actions: read\n      contents: read")
-  expect(verifyJob).not.toContain("id-token: write")
-  expect(verifyJob).not.toContain("environment:")
-  expect(verifyJob).toContain("actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0")
-  expect(verifyJob).toContain('node-version: "24.18.1"')
-  expect(verifyJob).toContain('bun-version: "1.3.14"')
-  expect(verifyJob).toContain("npm install --global --ignore-scripts npm@11.19.0")
-  expect(verifyJob).toContain('[[ "$(npm --version)" == "11.19.0" ]]')
-  expect(verifyJob).toContain('if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]')
-  expect(verifyJob).toContain('"$GITHUB_SHA" != "$default_sha" || "$checked_out_sha" != "$default_sha"')
-  expect(verifyJob).toContain("Optional npm mirroring requires an explicit workflow dispatch")
-  expect(verifyJob).toContain("stage_required=true")
-  expect(verifyJob).toContain('npm view "$package_name" name --json')
-  expect(verifyJob).toContain('npm view "$package_name@$package_version" version --json')
-  expect(verifyJob).toContain("bun install --frozen-lockfile --ignore-scripts")
-  expect(verifyJob).toContain("bun run check")
-  expect(verifyJob).toContain("Verify with pinned Node and Chromium")
-  expect(verifyJob).toContain("Verify clean source tree")
-  expect(verifyJob).toContain("node scripts/github-release.ts mirror-verify")
-  expect(verifyJob).toContain("node scripts/github-release.ts mirror")
-  expect(verifyJob).toContain('cp "$canonical_directory/npm-pack.json" "$metadata"')
-  expect(verifyJob).toContain('cat "$metadata"')
-  expect(verifyJob).toContain('bun run "$GITHUB_WORKSPACE/scripts/package-smoke.ts"')
-  expect(verifyJob).toContain('--archive "$archive"')
-  expect(verifyJob).toContain('--pack-json "$metadata"')
-  expect(verifyJob).toContain("npm-package.sha256")
-  expect(verifyJob).toContain('sha256sum "$archive"')
-  expect(verifyJob).toContain('sha256sum "$metadata"')
-  expect(verifyJob).toContain("$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT")
-  expect(verifyJob).toContain("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02")
-  expect(verifyJob.match(/if: steps\.identity\.outputs\.stage_required == 'true'/gu)).toHaveLength(6)
-
-  expect(stageJob).toContain("name: Stage exact package v${{ needs.verify.outputs.package_version }}")
-  expect(stageJob).toContain("needs: verify")
-  expect(stageJob).toContain(
-    "if: needs.verify.outputs.stage_required == 'true' && inputs.publish_to_npm == true",
-  )
-  expect(stageJob).toContain("environment:\n      name: npm-stage")
-  expect(stageJob).toContain("permissions:\n      actions: read\n      id-token: write")
-  expect(workflow.match(/environment:\n {6}name: npm-stage/gu)).toHaveLength(1)
-  expect(workflow.match(/id-token: write/gu)).toHaveLength(1)
-  expect(stageJob).not.toContain("actions/checkout@")
-  expect(stageJob).not.toContain("setup-bun@")
-  expect(stageJob).not.toContain("bun install")
-  expect(stageJob).not.toContain("bun run")
-  expect(stageJob).not.toContain("./scripts/")
-  expect(stageJob).toContain("name: Reauthorize exact staging attempt")
-  expect(stageJob).toContain('EXPECTED_WORKFLOW_ID: "344208600"')
-  expect(stageJob).toContain('attempt.actor?.id !== actorId')
-  expect(stageJob).toContain('attempt.triggering_actor?.id !== actorId')
-  expect(stageJob).toContain('attempt.status !== "in_progress"')
-  expect(stageJob).toContain('"$PUBLISH_TO_NPM" != true')
-  expect(stageJob).toContain('node-version: "24"')
-  expect(stageJob).toContain("npm install --global --ignore-scripts npm@11.19.0")
-  expect(stageJob).toContain("name: Bind artifact reference")
-  expect(stageJob).toContain("name: Reject unresolved stable-stage intent")
-  expect(stageJob).toContain("completed npm-stage workflow runs")
-  expect(stageJob).toContain("already reserved stable stage")
-  expect(stageJob).toContain("has a terminal write without one durable intent")
-  expect(stageJob).toContain(
-    "terminal write is not immediately preceded by its durable intent",
-  )
-  expect(stageJob).toContain("jobs?filter=all&per_page=100")
-  expect(stageJob).toContain("RESOLVED_STAGE_VERSION: ${{ inputs.resolved_stage_version }}")
-  expect(stageJob).toContain("$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT")
-  expect(stageJob).toContain("Verified artifact name is not bound to this run and attempt")
-  expect(stageJob).toContain("actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093")
-  expect(stageJob).toContain("name: ${{ needs.verify.outputs.artifact_name }}")
-  expect(stageJob).toContain("Downloaded npm artifact must contain exactly the tarball, npm-pack.json, and npm-package.sha256")
-  expect(stageJob).toContain('if [[ ! -f "$required_file" || -L "$required_file" ]]')
-  expect(stageJob).toContain('expected_tarball_name="hraness-slopcamera-$EXPECTED_VERSION.tgz"')
-  expect(stageJob).toContain('const expectedName = "@hraness/slopcamera"')
-  expect(stageJob).toContain("const maximumFiles = 450")
-  expect(stageJob).toContain("const maximumPackedBytes = 4_300_000")
-  expect(stageJob).toContain("const maximumUnpackedBytes = 11_300_000")
-  expect(stageJob).toContain("record.files.length !== record.entryCount")
-  expect(stageJob).toContain("unpackedSize !== record.unpackedSize")
-  expect(stageJob).toContain('"dist/NebulaSans-Book-5ax05zvn.woff2"')
-  expect(stageJob).toContain('"src/assets/fonts/nebula-sans/LICENSE.txt"')
-  expect(stageJob).toContain('"src/assets/fonts/nebula-sans/PROVENANCE.md"')
-  expect(stageJob).toContain('createHash("sha1")')
-  expect(stageJob).toContain('createHash("sha512")')
-  expect(stageJob).toContain('createHash("sha256")')
-  expect(stageJob).toContain("Downloaded files differ from the independent SHA-256 manifest")
-  expect(stageJob).toContain('JSON.stringify(["access", "registry"])')
-  expect(stageJob).toContain("Packed package manifest can override the canonical npm staging boundary")
-  expect(stageJob).toContain("header.subarray(257, 265).equals(ustarSignature)")
-  expect(stageJob).toContain("header[475] === 0 ? 130 : 155")
-  expect(stageJob).toContain("Packed npm tar duplicates normalized path")
-  expect(stageJob).toContain('git init --quiet --bare "$current_main"')
-  expect(stageJob).toContain('"https://github.com/$GITHUB_REPOSITORY.git"')
-  expect(stageJob).toContain("Default branch advanced to $current_default_sha after verification")
-  expect(stageJob).toContain("EXPECTED_VERSION: ${{ needs.verify.outputs.package_version }}")
-  expect(stageJob).toContain("Canonical immutable GitHub mirror authority changed immediately before npm staging")
-  expect(stageJob).toContain("name: Record exclusive stable-stage intent")
-  expect(stageJob).toContain("name: Record cleared stable-stage intent v${{ inputs.resolved_stage_version }}")
-  expect(stageJob).not.toContain("npm stage list @hraness/slopcamera --json")
-  expect(stageJob).toContain("Pinned npm's clean default publication tag is not latest")
-  expect(stageJob).toContain('name.toLowerCase() === "npm_config_tag"')
-
-  const artifactReferenceIndex = stageJob.indexOf("Bind artifact reference")
-  const downloadIndex = stageJob.indexOf("Download reviewed package")
-  const rebindIndex = stageJob.indexOf("Rebind downloaded package")
-  const fetchIndex = stageJob.lastIndexOf('git --git-dir="$current_main" fetch')
-  const tagIndex = stageJob.lastIndexOf("Canonical immutable GitHub mirror authority changed immediately before npm staging")
-  const intentIndex = stageJob.lastIndexOf("Record exclusive stable-stage intent")
-  const rehashIndex = stageJob.lastIndexOf('current_archive_sha256="$(sha256sum "$TARBALL"')
-  const stageIndex = stageJob.indexOf('npm publish "$TARBALL"')
-  expect(artifactReferenceIndex).toBeLessThan(downloadIndex)
-  expect(downloadIndex).toBeLessThan(rebindIndex)
-  expect(rebindIndex).toBeLessThan(fetchIndex)
-  expect(fetchIndex).toBeLessThan(rehashIndex)
-  expect(rehashIndex).toBeLessThan(tagIndex)
-  expect(intentIndex).toBeLessThan(stageIndex)
-  expect(tagIndex).toBeLessThan(stageIndex)
-  expect(stageIndex).toBeGreaterThan(-1)
-  expect(stageJob.slice(stageIndex)).toContain("--access public")
-  expect(stageJob.slice(stageIndex)).toContain("--ignore-scripts")
-  expect(stageJob.slice(stageIndex)).toContain("--provenance")
-  expect(stageJob.slice(stageIndex)).not.toContain("--tag latest")
-  expect(stageJob.slice(stageIndex)).toContain('--globalconfig="$clean_global_config"')
-  expect(stageJob.slice(stageIndex)).toContain('--userconfig="$clean_user_config"')
-  expect(stageJob.slice(stageIndex)).toContain("--@hraness:registry=https://registry.npmjs.org")
-  expect(stageJob.slice(stageIndex)).toContain("--registry=https://registry.npmjs.org")
-  expect(stageJob).toContain("Staged candidate must be newer than current npm latest")
-  expect(stageJob).toContain("9007199254740991n")
-  expect(stageJob.match(/--provenance/gu)).toHaveLength(1)
-  expect(workflow.match(/--registry=https:\/\/registry\.npmjs\.org/gu)?.length).toBeGreaterThanOrEqual(5)
-  expect(workflow).not.toContain("NPM_TOKEN")
+  const authorityIndex = publishJob.indexOf("Load current release authority")
+  const setupIndex = publishJob.indexOf("npm install --global")
+  const downloadIndex = publishJob.indexOf("actions/download-artifact@")
+  const admitIndex = publishJob.indexOf("github-release.ts\" npm-admit")
+  const rebindIndex = publishJob.indexOf("Rebind attested package before OIDC")
+  const rehashIndex = publishJob.lastIndexOf('current_archive_sha256="$(sha256sum "$TARBALL"')
+  const registryIndex = publishJob.indexOf('if [[ "$registry_state" == published ]]')
+  const latestIndex = publishJob.indexOf("Release candidate must be newer than current npm latest")
+  const publishIndex = publishJob.indexOf('npm publish "$TARBALL"')
+  expect(authorityIndex).toBeGreaterThan(-1)
+  expect(authorityIndex).toBeLessThan(setupIndex)
+  expect(setupIndex).toBeLessThan(downloadIndex)
+  expect(downloadIndex).toBeLessThan(admitIndex)
+  expect(admitIndex).toBeLessThan(rebindIndex)
+  expect(rebindIndex).toBeLessThan(rehashIndex)
+  expect(rehashIndex).toBeLessThan(registryIndex)
+  expect(registryIndex).toBeLessThan(latestIndex)
+  expect(latestIndex).toBeLessThan(publishIndex)
+  const publishCommand = publishJob.slice(publishIndex)
+  expect(publishCommand).toContain("--access public")
+  expect(publishCommand).toContain("--ignore-scripts")
+  expect(publishCommand).toContain("--provenance")
+  expect(publishCommand).not.toContain("--tag")
+  expect(publishCommand).toContain('--globalconfig="$clean_global_config"')
+  expect(publishCommand).toContain('--userconfig="$clean_user_config"')
+  expect(publishCommand).toContain("--@hraness:registry=https://registry.npmjs.org")
+  expect(publishCommand).toContain("--registry=https://registry.npmjs.org")
+  expect(publishCommand).toContain("output.integrity !== process.env.EXPECTED_ARCHIVE_INTEGRITY")
   expect(workflow.match(/npm publish "\$TARBALL"/gu)).toHaveLength(1)
-  expect(workflow).not.toContain("npm stage publish")
-  expect(workflow.slice(0, workflow.indexOf("permissions:"))).not.toContain("tags:")
-})
+  expect(workflow.match(/--provenance/gu)).toHaveLength(1)
+  expect(workflow).not.toContain("NPM_TOKEN")
+  expect(workflow).not.toContain("npm stage")
 
-test("the earliest OIDC job step rejects collaborator dispatches and reruns", async () => {
-  const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
-  const stageJob = workflow.slice(workflow.indexOf("\n  stage:\n"))
-  const authorizationIndex = stageJob.indexOf("Reauthorize exact staging attempt")
-  const setupIndex = stageJob.indexOf("actions/setup-node@")
-  expect(authorizationIndex).toBeGreaterThan(-1)
-  expect(authorizationIndex).toBeLessThan(setupIndex)
-
-  const script = workflowStepScript(workflow, "Reauthorize exact staging attempt")
-  const directory = await mkdtemp(join(tmpdir(), "slopcamera-stage-attempt-"))
-  const binaryDirectory = join(directory, "bin")
-  const attemptPath = join(directory, "attempt.json")
-  const workflowPath = join(directory, "workflow.json")
-  const repositoryPath = join(directory, "repository.json")
-  const sourceSha = "b".repeat(40)
-  const attempt = {
-    id: 45678,
-    run_attempt: 2,
-    workflow_id: 344208600,
-    name: "Stage npm package",
-    path: ".github/workflows/npm-stage.yml",
-    event: "workflow_dispatch",
-    head_branch: "main",
-    head_sha: sourceSha,
-    status: "in_progress",
-    conclusion: null,
-    actor: { id: 894119, type: "User" },
-    triggering_actor: { id: 894119, type: "User" },
-    repository: { id: 1310516748, full_name: "hraness/slopcamera", private: false },
-  }
-  try {
-    await mkdir(binaryDirectory, { recursive: true })
-    await writeFile(join(binaryDirectory, "gh"), [
-      "#!/bin/bash",
-      "set -euo pipefail",
-      'endpoint=""',
-      'for argument in "$@"; do endpoint="$argument"; done',
-      'case "$endpoint" in',
-      '  */actions/runs/*) cat "$MOCK_ATTEMPT_JSON" ;;',
-      '  */actions/workflows/*) cat "$MOCK_WORKFLOW_JSON" ;;',
-      '  /repos/hraness/slopcamera) cat "$MOCK_REPOSITORY_JSON" ;;',
-      '  *) exit 2 ;;',
-      "esac",
-    ].join("\n"))
-    await chmod(join(binaryDirectory, "gh"), 0o755)
-    await Promise.all([
-      writeFile(attemptPath, JSON.stringify(attempt)),
-      writeFile(workflowPath, JSON.stringify({
-        id: 344208600,
-        name: "Stage npm package",
-        path: ".github/workflows/npm-stage.yml",
-        state: "active",
-      })),
-      writeFile(repositoryPath, JSON.stringify({
-        id: 1310516748,
-        full_name: "hraness/slopcamera",
-        visibility: "public",
-        private: false,
-        default_branch: "main",
-      })),
-    ])
-    const environment = {
-      PATH: `${binaryDirectory}:${process.env.PATH ?? ""}`,
-      MOCK_ATTEMPT_JSON: attemptPath,
-      MOCK_WORKFLOW_JSON: workflowPath,
-      MOCK_REPOSITORY_JSON: repositoryPath,
-      RUNNER_TEMP: directory,
-      PUBLISH_TO_NPM: "true",
-      REF_PROTECTED: "true",
-      EXPECTED_ACTOR_ID: "894119",
-      EXPECTED_REPOSITORY: "hraness/slopcamera",
-      EXPECTED_REPOSITORY_ID: "1310516748",
-      EXPECTED_SOURCE_SHA: sourceSha,
-      EXPECTED_WORKFLOW_ID: "344208600",
-      EXPECTED_WORKFLOW_NAME: "Stage npm package",
-      EXPECTED_WORKFLOW_PATH: ".github/workflows/npm-stage.yml",
-      GITHUB_ACTOR_ID: "894119",
-      GITHUB_EVENT_NAME: "workflow_dispatch",
-      GITHUB_REF: "refs/heads/main",
-      GITHUB_REPOSITORY: "hraness/slopcamera",
-      GITHUB_REPOSITORY_ID: "1310516748",
-      GITHUB_RUN_ATTEMPT: "2",
-      GITHUB_RUN_ID: "45678",
-      GITHUB_SHA: sourceSha,
-    }
-    expect((await runWorkflowScript(script, environment)).exitCode).toBe(0)
-
-    await writeFile(attemptPath, JSON.stringify({
-      ...attempt,
-      triggering_actor: { id: 123456, type: "User" },
-    }))
-    const hostileRerun = await runWorkflowScript(script, environment)
-    expect(hostileRerun.exitCode).not.toBe(0)
-    expect(hostileRerun.stderr).toContain("Current npm staging attempt is not owner-authorized")
-
-    await writeFile(attemptPath, JSON.stringify({
-      ...attempt,
-      actor: { id: 123456, type: "User" },
-      triggering_actor: { id: 123456, type: "User" },
-    }))
-    const hostileDispatch = await runWorkflowScript(script, {
-      ...environment,
-      GITHUB_ACTOR_ID: "123456",
-    })
-    expect(hostileDispatch.exitCode).not.toBe(0)
-    expect(`${hostileDispatch.stdout}${hostileDispatch.stderr}`).toContain(
-      "npm staging requires the owner-authorized exact protected-main dispatch",
-    )
-  } finally {
-    await rm(directory, { force: true, recursive: true })
-  }
-})
-
-test("optional npm mirror rejects automatic events and admits explicit current-main dispatch", async () => {
-  const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
-  const script = workflowStepScript(
-    workflow,
-    "Verify default-branch package identity",
-  )
-  const directory = await mkdtemp(join(tmpdir(), "slopcamera-stage-identity-"))
-  const binaryDirectory = join(directory, "bin")
-  const gitLog = join(directory, "git.log")
-  const npmLog = join(directory, "npm.log")
-  const output = join(directory, "github-output.txt")
-  const sourceSha = "b".repeat(40)
-  const previousSha = "a".repeat(40)
-
-  try {
-    await mkdir(binaryDirectory, { recursive: true })
-    await Promise.all([
-      writeFile(join(binaryDirectory, "git"), `#!/bin/bash
-set -euo pipefail
-printf 'git %s\\n' "$*" >> "$GIT_COMMAND_LOG"
-case "\${1-}" in
-  fetch|cat-file|merge-base) exit 0 ;;
-  show)
-    printf '{"name":"@hraness/slopcamera","version":"%s"}\\n' "$MOCK_PREVIOUS_VERSION"
-    exit 0
-    ;;
-  rev-parse)
-    case "$*" in
-      "rev-parse origin/main"|"rev-parse HEAD") printf '%s\\n' "$GITHUB_SHA"; exit 0 ;;
-      "rev-parse --verify --quiet refs/tags/v3.2.4") exit 1 ;;
-    esac
-    ;;
-esac
-echo "unexpected git command: $*" >&2
-exit 64
-`, "utf8"),
-      writeFile(join(binaryDirectory, "npm"), `#!/bin/bash
-set -euo pipefail
-printf 'npm %s\\n' "$*" >> "$NPM_COMMAND_LOG"
-case "$*" in
-  "view @hraness/slopcamera name --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
-    printf '"@hraness/slopcamera"\\n'
-    exit 0
-    ;;
-  "view @hraness/slopcamera@3.2.4 version --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
-    echo 'npm error code E404' >&2
-    exit 1
-    ;;
-esac
-echo "unexpected npm command: $*" >&2
-exit 64
-`, "utf8"),
-    ])
-    await Promise.all([
-      chmod(join(binaryDirectory, "git"), 0o755),
-      chmod(join(binaryDirectory, "npm"), 0o755),
-    ])
-
-    const runIdentity = async (
-      eventName: "push" | "workflow_dispatch",
-      previousVersion: string,
-    ) => {
-      await Promise.all([
-        rm(gitLog, { force: true }),
-        rm(npmLog, { force: true }),
-        rm(output, { force: true }),
-      ])
-      const result = await runWorkflowScript(script, {
-        DEFAULT_BRANCH: "main",
-        GIT_COMMAND_LOG: gitLog,
-        GITHUB_EVENT_NAME: eventName,
-        GITHUB_OUTPUT: output,
-        GITHUB_REF: "refs/heads/main",
-        GITHUB_SHA: sourceSha,
-        MOCK_PREVIOUS_VERSION: previousVersion,
-        NPM_COMMAND_LOG: npmLog,
-        PATH: `${binaryDirectory}:${process.env.PATH ?? ""}`,
-        PUSH_BEFORE: eventName === "push" ? previousSha : "",
-        RUNNER_TEMP: directory,
-      })
-      return Object.freeze({
-        ...result,
-        npmCommands: await Bun.file(npmLog).exists()
-          ? await readFile(npmLog, "utf8")
-          : "",
-        outputs: await Bun.file(output).exists()
-          ? await readFile(output, "utf8")
-          : "",
-      })
-    }
-
-    const automatic = await runIdentity("push", "3.2.4")
-    expect(automatic.exitCode).not.toBe(0)
-    expect(automatic.npmCommands).toBe("")
-    expect(`${automatic.stdout}${automatic.stderr}`).toContain("explicit workflow dispatch")
-    const dispatched = await runIdentity("workflow_dispatch", "3.2.4")
-    expect(dispatched.exitCode).toBe(0)
-    expect(dispatched.outputs).toBe(`stage_required=true\nsource_sha=${sourceSha}\npackage_version=3.2.4\n`)
-    expect(dispatched.npmCommands).toContain("npm view @hraness/slopcamera@3.2.4 version --json")
-
-  } finally {
-    await rm(directory, { force: true, recursive: true })
-  }
+  expect(admitJob).toContain("name: Admit the public npm package")
+  expect(admitJob).toContain("needs: [verify, publish_npm]")
+  expect(admitJob).toContain("permissions:\n      contents: read")
+  expect(admitJob).not.toContain("id-token")
+  expect(admitJob).not.toContain("environment:")
+  expect(admitJob).toContain("persist-credentials: false")
+  expect(admitJob).toContain("bun run scripts/npm-package-identity.ts")
+  expect(admitJob).toContain("npm audit signatures --json --include-attestations --omit=dev")
+  expect(admitJob).toContain("bun run scripts/npm-publish-authority.ts")
+  expect(admitJob).toContain("bun run scripts/package-smoke.ts")
+  expect(admitJob).not.toContain("npm publish")
 })
 
 test("both tar consumers reject hostile USTAR headers and packed dist-tag overrides", async () => {
-  const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
-  const script = workflowStepScript(workflow, "Rebind downloaded package")
+  const workflow = await readWorkflow("public-release.yml", "release.yml")
+  const script = workflowStepScript(workflow, "Rebind attested package before OIDC")
   const identitySource = await readFile(
     join(import.meta.dir, "npm-package-identity.ts"),
     "utf8",
   )
   expect(identitySource).toContain("header.subarray(257, 265).equals(ustarSignature)")
   expect(identitySource).toContain("header[475] === 0 ? 130 : 155")
-  const root = await mkdtemp(join(tmpdir(), "slopcamera-stage-archive-"))
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-release-archive-"))
   const output = join(root, "github-output.txt")
-  const environment = {
-    EXPECTED_SOURCE_SHA: "a".repeat(40),
-    EXPECTED_TARBALL_NAME: "hraness-slopcamera-3.2.0.tgz",
-    EXPECTED_VERSION: "3.2.0",
-    GITHUB_OUTPUT: output,
-    RUNNER_TEMP: root,
-  }
   const runFixture = async (
-    mutation?: StageTarMutation,
+    mutation?: ArchiveTarMutation,
   ): Promise<Readonly<{
     identity: Parameters<typeof verifyNpmPackageIdentity>[0]
     stage: Awaited<ReturnType<typeof runWorkflowScript>>
   }>> => {
     await Promise.all([
-      rm(join(root, "slopcamera-npm-stage"), { force: true, recursive: true }),
+      rm(join(root, "slopcamera-release"), { force: true, recursive: true }),
       rm(output, { force: true }),
     ])
-    const artifact = await writeStageArtifactFixture(root, mutation)
+    const artifact = await writeReleaseArtifactFixture(root, mutation)
+    const environment = {
+      EXPECTED_ARCHIVE_NAME: "hraness-slopcamera-3.2.0.tgz",
+      EXPECTED_ARCHIVE_SHA256: artifact.archiveSha256,
+      EXPECTED_PACK_SHA256: artifact.metadataSha256,
+      EXPECTED_VERSION: "3.2.0",
+      GITHUB_OUTPUT: output,
+      RUNNER_TEMP: root,
+    }
     return {
       identity: {
         expectedFilename: "hraness-slopcamera-3.2.0.tgz",
@@ -1247,8 +973,20 @@ test("both tar consumers reject hostile USTAR headers and packed dist-tag overri
     })
     expect(topLevelTag.stage.exitCode).not.toBe(0)
     expect(topLevelTag.stage.stderr).toContain(
-      "Packed package manifest can override the canonical npm staging boundary",
+      "Packed package manifest can override the canonical npm publication boundary",
     )
+    const wrongDigest = await runFixture()
+    expect(wrongDigest.stage.exitCode).toBe(0)
+    const driftedDigest = await runWorkflowScript(script, {
+      EXPECTED_ARCHIVE_NAME: "hraness-slopcamera-3.2.0.tgz",
+      EXPECTED_ARCHIVE_SHA256: "0".repeat(64),
+      EXPECTED_PACK_SHA256: "0".repeat(64),
+      EXPECTED_VERSION: "3.2.0",
+      GITHUB_OUTPUT: output,
+      RUNNER_TEMP: root,
+    })
+    expect(driftedDigest.exitCode).not.toBe(0)
+    expect(driftedDigest.stderr).toContain("Downloaded files differ from the trusted verification digests")
 
     for (const [label, mutation, expectedIdentity, expectedStage] of [
       [
@@ -1313,190 +1051,6 @@ test("both tar consumers reject hostile USTAR headers and packed dist-tag overri
       await expect(verifyNpmPackageIdentity(rejected.identity)).rejects.toThrow(expectedIdentity)
       expect(rejected.stage.exitCode, label).not.toBe(0)
       expect(rejected.stage.stderr, label).toContain(expectedStage)
-    }
-  } finally {
-    await rm(root, { force: true, recursive: true })
-  }
-})
-
-test("the retained stage-intent lock survives a failed job and same-run rerun", async () => {
-  const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
-  const script = workflowStepScript(workflow, "Reject unresolved stable-stage intent")
-  const root = await mkdtemp(join(tmpdir(), "slopcamera-stage-history-"))
-  const binaryDirectory = join(root, "bin")
-  const currentJobsPath = join(root, "current-jobs.json")
-  const runsPath = join(root, "runs.json")
-  const jobsPath = join(root, "jobs.json")
-  try {
-    await mkdir(binaryDirectory)
-    await Promise.all([
-      writeFile(join(binaryDirectory, "npm"), `#!/bin/bash
-set -euo pipefail
-if [[ "\${1-}" == view ]]; then printf '"3.1.1"\\n'; else exit 64; fi
-`),
-      writeFile(join(binaryDirectory, "gh"), `#!/bin/bash
-set -euo pipefail
-case "$*" in
-  *'/runs?'*) cat "$RUNS_JSON" ;;
-  *'/actions/runs/999/jobs?'*) cat "$CURRENT_JOBS_JSON" ;;
-  *'/jobs?'*) cat "$JOBS_JSON" ;;
-  *) exit 64 ;;
-esac
-`),
-      writeFile(runsPath, JSON.stringify({ total_count: 0, workflow_runs: [] })),
-      writeFile(currentJobsPath, JSON.stringify({ total_count: 0, jobs: [] })),
-      writeFile(jobsPath, JSON.stringify({ total_count: 0, jobs: [] })),
-    ])
-    await Promise.all([
-      chmod(join(binaryDirectory, "npm"), 0o755),
-      chmod(join(binaryDirectory, "gh"), 0o755),
-    ])
-    const environment = {
-      EXPECTED_VERSION: "3.3.0",
-      EXPECTED_WORKFLOW_ID: "344208600",
-      CURRENT_JOBS_JSON: currentJobsPath,
-      GITHUB_REPOSITORY: "hraness/slopcamera",
-      GITHUB_RUN_ID: "999",
-      JOBS_JSON: jobsPath,
-      PATH: `${binaryDirectory}:${process.env.PATH ?? ""}`,
-      RESOLVED_STAGE_VERSION: "",
-      RUNNER_TEMP: root,
-      RUNS_JSON: runsPath,
-    }
-    expect((await runWorkflowScript(script, environment)).exitCode).toBe(0)
-
-    await Promise.all([
-      writeFile(runsPath, JSON.stringify({
-        total_count: 1,
-        workflow_runs: [{
-          id: 123,
-          workflow_id: 344208600,
-          event: "workflow_dispatch",
-          head_branch: "main",
-          status: "completed",
-        }],
-      })),
-      writeFile(jobsPath, JSON.stringify({
-        total_count: 1,
-        jobs: [{
-          name: "Stage exact package v3.2.0",
-          conclusion: "failure",
-          steps: [{
-            name: "Record exclusive stable-stage intent",
-            conclusion: "success",
-            number: 7,
-          }, {
-            name: "Revalidate current main and stage exact package",
-            conclusion: "failure",
-            number: 8,
-          }],
-        }],
-      })),
-    ])
-    const blocked = await runWorkflowScript(script, environment)
-    expect(blocked.exitCode).not.toBe(0)
-    expect(blocked.stderr).toContain("run 123 already reserved stable stage 3.2.0")
-    expect((await runWorkflowScript(script, {
-      ...environment,
-      RESOLVED_STAGE_VERSION: "3.2.0",
-    })).exitCode).toBe(0)
-
-    await Promise.all([
-      writeFile(runsPath, JSON.stringify({ total_count: 0, workflow_runs: [] })),
-      writeFile(currentJobsPath, await readFile(jobsPath, "utf8")),
-    ])
-    const blockedRerun = await runWorkflowScript(script, environment)
-    expect(blockedRerun.exitCode).not.toBe(0)
-    expect(blockedRerun.stderr).toContain("run 999 already reserved stable stage 3.2.0")
-    expect((await runWorkflowScript(script, {
-      ...environment,
-      RESOLVED_STAGE_VERSION: "3.2.0",
-    })).exitCode).toBe(0)
-
-    await Promise.all([
-      writeFile(runsPath, JSON.stringify({
-        total_count: 1,
-        workflow_runs: [{
-          id: 123,
-          workflow_id: 344208600,
-          event: "workflow_dispatch",
-          head_branch: "main",
-          status: "completed",
-        }],
-      })),
-      writeFile(currentJobsPath, JSON.stringify({ total_count: 0, jobs: [] })),
-      writeFile(jobsPath, JSON.stringify({
-        total_count: 1,
-        jobs: [{
-          name: "Renamed terminal npm writer",
-          conclusion: "failure",
-          steps: [{
-            name: "Record exclusive stable-stage intent",
-            conclusion: "success",
-            number: 7,
-          }, {
-            name: "Revalidate current main and stage exact package",
-            conclusion: "failure",
-            number: 8,
-          }],
-        }],
-      })),
-    ])
-    const renamedTerminalJob = await runWorkflowScript(script, environment)
-    expect(renamedTerminalJob.exitCode).not.toBe(0)
-    expect(renamedTerminalJob.stderr).toContain("lacks a version-bound stage job")
-
-    await writeFile(jobsPath, JSON.stringify({
-      total_count: 1,
-      jobs: [{
-        name: "Stage exact package v3.2.0",
-        conclusion: "failure",
-        steps: [{
-          name: "Revalidate current main and stage exact package",
-          conclusion: "failure",
-          number: 7,
-        }, {
-          name: "Record exclusive stable-stage intent",
-          conclusion: "success",
-          number: 8,
-        }],
-      }],
-    }))
-    const reversedIntent = await runWorkflowScript(script, environment)
-    expect(reversedIntent.exitCode).not.toBe(0)
-    expect(reversedIntent.stderr).toContain(
-      "terminal write is not immediately preceded by its durable intent",
-    )
-
-    for (const [label, intentNumber, terminalNumber] of [
-      ["missing intent step number", undefined, 8],
-      ["missing terminal step number", 7, undefined],
-      ["non-integer intent step number", 7.5, 8],
-      ["non-integer terminal step number", 7, 8.5],
-      ["zero intent step number", 0, 1],
-      ["zero terminal step number", 1, 0],
-    ] as const) {
-      await writeFile(jobsPath, JSON.stringify({
-        total_count: 1,
-        jobs: [{
-          name: "Stage exact package v3.2.0",
-          conclusion: "failure",
-          steps: [{
-            name: "Record exclusive stable-stage intent",
-            conclusion: "success",
-            number: intentNumber,
-          }, {
-            name: "Revalidate current main and stage exact package",
-            conclusion: "failure",
-            number: terminalNumber,
-          }],
-        }],
-      }))
-      const unsafeStepNumber = await runWorkflowScript(script, environment)
-      expect(unsafeStepNumber.exitCode, label).not.toBe(0)
-      expect(unsafeStepNumber.stderr, label).toContain(
-        "terminal write is not immediately preceded by its durable intent",
-      )
     }
   } finally {
     await rm(root, { force: true, recursive: true })
@@ -1575,11 +1129,13 @@ test("Slopcamera source installs stay distinct from historical Atet archives", a
   expect(readme).toContain("(PRIVACY.md)")
   expect(security).toContain("(PRIVACY.md)")
   expect(publishing).toContain("GitHub Releases are canonical")
-  expect(publishing).toContain("npm publish <reviewed-tarball>")
-  expect(publishing).toContain("resolved_stage_version")
+  expect(publishing).toContain("npm publish <attested-archive>")
+  expect(publishing).toContain("--file release.yml --environment npm-release --allow-publish")
+  expect(publishing).not.toContain("resolved_stage_version")
+  expect(publishing).not.toContain("npm-stage")
   expect(publishing).toContain("npm-package-identity.ts")
-  expect(publishing).toContain("different gzip or tar bytes")
-  expect(publishing).toContain("npm is an optional downstream mirror")
+  expect(publishing).toContain("npm may re-encode transport bytes")
+  expect(publishing).toContain("npm is a downstream mirror")
 
   for (const source of [readme, skillInstall, siteBuild, siteMarkdown, siteTemplate]) {
     expect(source).not.toContain("v3.1.0")
