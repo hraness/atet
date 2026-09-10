@@ -4,9 +4,9 @@ This reference describes the current Slopcamera CLI and its runtime requirements
 
 ## Current Slopcamera and historical Atet
 
-Slopcamera currently installs from [source](../how-to/use-current-source.md); no renamed release archive is available. The historical **Atet v3.2.3** archive contains `@hraness/atet` and the `atet` command. Its tag resolves to `27e0ce4923002953d0b384e29fbc8ced35e5e789`; the [immutable help source](https://github.com/hraness/atet/blob/27e0ce4923002953d0b384e29fbc8ced35e5e789/apps/desktop/cli/help.ts) records its contract. Renaming the repository does not change those archived bytes.
+Slopcamera v3.2.4 installs from its [canonical release archive](https://github.com/hraness/slopcamera/releases/download/v3.2.4/hraness-slopcamera-3.2.4.tgz) or from [source](../how-to/use-current-source.md). The historical **Atet v3.2.3** archive contains `@hraness/atet` and the `atet` command; it does not install Slopcamera.
 
-| Surface | Historical Atet v3.2.3 | Current Slopcamera source |
+| Surface | Historical Atet v3.2.3 | Slopcamera v3.2.4 |
 | --- | --- | --- |
 | Diagrams, vectorization, Gateway media, recording, ordinary project edits, local workflows | Available with the relevant local tools and credentials | Available |
 | Editable spatial scenes, calibrated scene cameras, V2 shots, Three hardware and Spark profiles, saved-world import | Available | Available |
@@ -17,7 +17,7 @@ Slopcamera currently installs from [source](../how-to/use-current-source.md); no
 | Calibrated camera samples: `scene camera-track` | Absent | Available |
 | External vgpu 0.4.1 native example | Absent | Explicit example runtime; not a new registered studio engine |
 
-Use the Slopcamera source installation for the commands below. Do not substitute the renamed package or executable into an old Atet archive URL, silently switch versions, or use historical paid-world commands as a substitute for the current saved-world workflow.
+Use the Slopcamera release installation or a source build for the commands below. Do not substitute the renamed package or executable into an old Atet archive URL, silently switch versions, or use historical paid-world commands as a substitute for the current saved-world workflow.
 
 ## Discover the installed contract
 

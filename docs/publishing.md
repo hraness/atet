@@ -4,11 +4,11 @@ GitHub Releases are canonical. A protected stable tag produces one verified pack
 
 Start with [canonical GitHub publication](#publish-a-canonical-github-release).
 The [npm mirror](#mirror-a-canonical-release-to-npm) is optional.
-Slopcamera currently installs from source. These procedures describe future publication; no renamed archive is advertised before its live acceptance.
+Slopcamera v3.2.4 is the first canonical Slopcamera release; these procedures publish each later version the same way, and no archive is advertised before its live acceptance.
 
 ## Publish a canonical GitHub release
 
-Keep the source candidate separate from a verified public release. `apps/web/published-release.json` retains the historical Atet release datum; it is not a Slopcamera download. Keep source installation as the public default until a Slopcamera archive passes live verification. Then update the installation surface and its verified release datum together.
+Keep the source candidate separate from a verified public release. `apps/web/published-release.json` names the verified canonical Slopcamera release that the site and README advertise. Keep source installation as the public default until a Slopcamera archive passes live verification. Then update the installation surface and its verified release datum together.
 
 1. Merge the new stable source through the current-head Required gate and complete the repository's local and native acceptance. From clean current `main`, run `bun run ./scripts/push-release-tag.ts <exact-stable-version>`. Its sole annotated-tag push follows owner, repository, protected-main, exact CI run/attempt/Required job, both live tag rulesets, immutable GitHub latest and monotonic remote-tag checks. It never publishes npm, moves a tag, or deletes a remote ref.
 2. The protected tag workflow repeats owner and sender ID `894119`, repository ID `1310516748`, annotated tag, source ancestry and current-main workflow/helper closure checks. The read-only job runs the complete source gate, builds one `npm pack --ignore-scripts` archive, independently validates its bounded USTAR inventory and metadata, and exercises the exact archive in isolated Bun and npm consumers. Five official VTracer targets and the existing macOS shell tests/package must pass before attestation.

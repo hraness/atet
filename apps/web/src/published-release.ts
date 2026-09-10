@@ -5,7 +5,7 @@ export interface PublishedRelease {
   readonly releaseUrl: string
 }
 
-/** Historical Atet publication evidence. These bytes do not install Slopcamera. */
+/** Canonical Slopcamera publication datum: the verified immutable GitHub Release. */
 export function parsePublishedRelease(value: unknown): PublishedRelease {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Published release must be an object.")
@@ -21,17 +21,25 @@ export function parsePublishedRelease(value: unknown): PublishedRelease {
     throw new Error("Published release version must be canonical stable SemVer with safe integer components.")
   }
   const releaseUrl: unknown = Reflect.get(value, "releaseUrl")
-  if (typeof releaseUrl !== "string" || releaseUrl !== `https://github.com/hraness/atet/releases/tag/v${version}`) {
-    throw new Error("Published release URL must identify its exact historical Atet tag.")
+  if (typeof releaseUrl !== "string" || releaseUrl !== `https://github.com/hraness/slopcamera/releases/tag/v${version}`) {
+    throw new Error("Published release URL must identify its exact Slopcamera tag.")
   }
   return Object.freeze({ version, releaseUrl })
 }
 
 export const publishedRelease = parsePublishedRelease(releaseData)
 
-export const publishedArchiveUrl = `https://github.com/hraness/atet/releases/download/v${publishedRelease.version}/hraness-atet-${publishedRelease.version}.tgz`
+export const publishedArchiveUrl = `https://github.com/hraness/slopcamera/releases/download/v${publishedRelease.version}/hraness-slopcamera-${publishedRelease.version}.tgz`
 
-/** The renamed project has no canonical release archive yet. */
+/** Standard installation from the exact verified canonical archive. */
+export const archiveInstall = Object.freeze({
+  command: `bun add --global ${publishedArchiveUrl}`,
+  checkCommand: "slopcamera doctor --json",
+  skillCommand: "slopcamera skill install --target agents",
+  alternateSkillCommand: "slopcamera skill install --target claude",
+})
+
+/** Contributor path: build the CLI from a source checkout. */
 export const sourceInstall = Object.freeze({
   repositoryUrl: "https://github.com/hraness/slopcamera",
   guideUrl: "https://github.com/hraness/slopcamera/blob/main/docs/how-to/use-current-source.md",

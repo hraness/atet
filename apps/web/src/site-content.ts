@@ -2,7 +2,7 @@ import { renderHranessSiteFooter } from "@hraness/site-footer"
 import { AskAiAboutThis } from "@hraness/ui"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import { sourceInstall } from "./published-release"
+import { archiveInstall, sourceInstall } from "./published-release"
 
 // Existing content producers run within the ordinary page's captured SSR
 // graph. They introduce no client renderer and retain their public APIs.
@@ -88,6 +88,7 @@ export function siteContentSlots(document: SiteDocument, assets: SiteAssets): Re
   if (document === "404.html") return common
   return [...common,
     ["{{ASK_AI_ABOUT_THIS}}", renderAskAiAboutThis("https://slopcamera.com/"), 1],
+    ["{{ARCHIVE_INSTALL_COMMAND}}", archiveInstall.command, 1],
     ["{{SOURCE_CHECKOUT_COMMAND}}", sourceInstall.checkoutCommand, 1],
     ["{{SOURCE_ENTER_COMMAND}}", sourceInstall.enterCommand, 1],
     ["{{SOURCE_INSTALL_URL}}", sourceInstall.guideUrl, 1],

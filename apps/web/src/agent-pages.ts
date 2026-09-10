@@ -1,4 +1,4 @@
-import { sourceInstall } from "./published-release"
+import { archiveInstall, publishedRelease, sourceInstall } from "./published-release"
 
 export const homeMarkdown = `# Direct scenes and films with your coding agent
 
@@ -24,9 +24,17 @@ Slopcamera covers four output families: images, diagrams, animated loops, and vi
 - Compose rendered shots with generated media and real footage. Add world-space screens, narration, captions, graphics, and sound.
 - Deliver the required formats and retain the sources and project decisions for the next revision.
 
-## Install from source
+## Install
 
-No Slopcamera release archive has been published. You need Git and Bun 1.3.14 or newer. Start a new checkout:
+Install the verified Slopcamera v${publishedRelease.version} release with Bun 1.3.14 or newer:
+
+\`\`\`sh
+${archiveInstall.command}
+\`\`\`
+
+### Or build from source
+
+You need Git and Bun 1.3.14 or newer. Start a new checkout:
 
 \`\`\`sh
 ${sourceInstall.checkoutCommand}
@@ -175,7 +183,7 @@ Use the Agent Skill and CLI for the broad local workflow. The TypeScript SDK sup
 
 Use Slopcamera to author portable scenes and direct cameras; film saved worlds; create diagrams and motion graphics; edit footage and deliver multiple formats; or generate images, video, speech, and transcripts through your own Vercel AI Gateway access. Native Blender, CadQuery, and Manim workflows add detailed worlds and educational films in the current source build.
 
-Slopcamera currently requires a source build from main. It includes portable scenes, the qualified Three.js GPU profile, saved Spark worlds, native studio, shot-recipe directing, and camera-track export. No Slopcamera release archive has been published. Follow the source-install guide and check runtime requirements.
+Slopcamera installs from its verified release archive with \`${archiveInstall.command}\` (Bun 1.3.14 or newer) or from a source build of main. It includes portable scenes, the qualified Three.js GPU profile, saved Spark worlds, native studio, shot-recipe directing, and camera-track export. Install the verified release with \`${archiveInstall.command}\` (Bun 1.3.14 or newer), or build from source. Follow the source-install guide and check runtime requirements.
 
 Editing and rendering stay local. Gateway generation and selected cloud analysis upload named media only after acknowledgement. Native Python requires separate authorization. Custom Bun workflow modules execute when loaded, including during check and plan; review their source first. Both run as the current user without an operating-system sandbox. This website accepts no credentials and performs no generation.
 
