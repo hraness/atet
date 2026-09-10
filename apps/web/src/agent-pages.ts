@@ -149,20 +149,20 @@ Slopcamera is built by Ben Guo, a musician and builder, formerly a founder and e
 
 ## Sitemap
 
-- [Slopcamera home](https://slop.camera/index.md)
-- [Machine-readable site guide](https://slop.camera/llms.txt)
-- [Markdown sitemap](https://slop.camera/sitemap.md)
-- [XML sitemap](https://slop.camera/sitemap.xml)
+- [Slopcamera home](https://slopcamera.com/index.md)
+- [Machine-readable site guide](https://slopcamera.com/llms.txt)
+- [Markdown sitemap](https://slopcamera.com/sitemap.md)
+- [XML sitemap](https://slopcamera.com/sitemap.xml)
 `
 
 export const notFoundMarkdown = `# Page not found
 
 The requested Slopcamera resource does not exist. Use one of these public indexes to recover:
 
-- [Home and installation guide](https://slop.camera/)
-- [Machine-readable site guide](https://slop.camera/llms.txt)
-- [Markdown sitemap](https://slop.camera/sitemap.md)
-- [XML sitemap](https://slop.camera/sitemap.xml)
+- [Home and installation guide](https://slopcamera.com/)
+- [Machine-readable site guide](https://slopcamera.com/llms.txt)
+- [Markdown sitemap](https://slopcamera.com/sitemap.md)
+- [XML sitemap](https://slopcamera.com/sitemap.xml)
 `
 
 export const llmsTxt = `# Slopcamera
@@ -181,7 +181,7 @@ Editing and rendering stay local. Gateway generation and selected cloud analysis
 
 ## Start
 
-- [Slopcamera home](https://slop.camera/index.md): Product overview, source installation, first task, and limits
+- [Slopcamera home](https://slopcamera.com/index.md): Product overview, source installation, first task, and limits
 - [Documentation index](https://github.com/hraness/slopcamera/blob/main/docs/README.md): Learning, task guides, reference, and explanation
 - [First diagram](https://github.com/hraness/slopcamera/blob/main/docs/tutorials/first-diagram.md): Complete local input-to-output task using the source-built CLI
 - [Repository README](https://github.com/hraness/slopcamera#readme): Product contract and install
@@ -202,17 +202,17 @@ Editing and rendering stay local. Gateway generation and selected cloud analysis
 - [SDK entrypoints](https://github.com/hraness/slopcamera/blob/main/docs/reference/sdk.md): Import surfaces and execution effects
 - [Architecture](https://github.com/hraness/slopcamera/blob/main/docs/architecture.md): Sources, projects, operations, and local host
 - [Security policy](https://github.com/hraness/slopcamera/blob/main/SECURITY.md): Trust boundary and reporting
-- [Markdown sitemap](https://slop.camera/sitemap.md): Public page indexes
-- [XML sitemap](https://slop.camera/sitemap.xml): Search-engine sitemap
+- [Markdown sitemap](https://slopcamera.com/sitemap.md): Public page indexes
+- [XML sitemap](https://slopcamera.com/sitemap.xml): Search-engine sitemap
 `
 
 export const sitemapMarkdown = `# Sitemap
 
 ## Slopcamera
 
-- [Slopcamera home](https://slop.camera/index.md): Visual studio overview, installation, examples, workflow, and trust
+- [Slopcamera home](https://slopcamera.com/index.md): Visual studio overview, installation, examples, workflow, and trust
 - [Documentation](https://github.com/hraness/slopcamera/blob/main/docs/README.md): Tutorials, task guides, reference, and explanation
-- [Machine-readable site guide](https://slop.camera/llms.txt): When to use Slopcamera and the public indexes
+- [Machine-readable site guide](https://slopcamera.com/llms.txt): When to use Slopcamera and the public indexes
 `
 
 export const robotsTxt = `User-agent: OAI-SearchBot
@@ -238,11 +238,11 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://slop.camera/sitemap.xml
+Sitemap: https://slopcamera.com/sitemap.xml
 `
 
-export const homeCanonicalUrl = "https://slop.camera/"
-export const homeMarkdownUrl = "https://slop.camera/index.md"
-export const llmsTxtUrl = "https://slop.camera/llms.txt"
-export const sitemapMarkdownUrl = "https://slop.camera/sitemap.md"
-export const sitemapXmlUrl = "https://slop.camera/sitemap.xml"
+export const homeCanonicalUrl = "https://slopcamera.com/"
+export const homeMarkdownUrl = "https://slopcamera.com/index.md"
+export const llmsTxtUrl = "https://slopcamera.com/llms.txt"
+export const sitemapMarkdownUrl = "https://slopcamera.com/sitemap.md"
+export const sitemapXmlUrl = "https://slopcamera.com/sitemap.xml"

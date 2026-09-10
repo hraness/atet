@@ -28,21 +28,21 @@ test("reports the ignored local emoji-pack metadata paths", async () => {
 test("searches and resolves checked brand-catalog emoji overlays", async () => {
   const search = await searchEmojiAssets(REPOSITORY_ROOT, "slopcamera", 10, undefined, "brand-catalog");
   expect(search).toHaveLength(1);
-  for (const query of ["slop.camera", "brand:slop.camera", "📷", "1f4f7"]) {
+  for (const query of ["slopcamera.com", "brand:slopcamera.com", "📷", "1f4f7"]) {
     expect(await searchEmojiAssets(REPOSITORY_ROOT, query, 10, "color", "brand-catalog")).toEqual(search);
   }
   expect(await searchEmojiAssets(REPOSITORY_ROOT, "slopcamera", 10, "duotone", "brand-catalog")).toEqual([]);
   expect(search[0]).toMatchObject({
     available: { color: true, duotone: false },
     emoji: "📷",
-    name: "slop.camera",
+    name: "slopcamera.com",
     provider: "brand-catalog",
   });
 
   const resolved = await resolveEmojiAsset(REPOSITORY_ROOT, "slopcamera", undefined, "auto");
   expect(resolved.provider).toBe("brand-catalog");
   expect(resolved.variant).toBe("color");
-  expect(resolved.path).toEndWith("/apps/desktop/assets/brand-emoji/slop.camera.svg");
+  expect(resolved.path).toEndWith("/apps/desktop/assets/brand-emoji/slopcamera.com.svg");
 
   const temporary = await mkdtemp(join(tmpdir(), "slopcamera-brand-emoji-test-"));
   try {
@@ -57,7 +57,7 @@ test("searches and resolves checked brand-catalog emoji overlays", async () => {
 test("reports an unavailable variant instead of substituting brand artwork", async () => {
   let failure: unknown;
   try {
-    await resolveEmojiAsset(REPOSITORY_ROOT, "brand:slop.camera", "duotone", "brand-catalog");
+    await resolveEmojiAsset(REPOSITORY_ROOT, "brand:slopcamera.com", "duotone", "brand-catalog");
   } catch (error) {
     failure = error;
   }

@@ -354,8 +354,8 @@ if (rootPackage.description !== expectedDescription) {
 if (JSON.stringify(rootPackage.keywords) !== JSON.stringify(expectedKeywords)) {
   problems.push("package.json keywords do not match the focused Slopcamera discovery vocabulary");
 }
-if (rootPackage.homepage !== "https://slop.camera/") {
-  problems.push("package.json homepage must be https://slop.camera/");
+if (rootPackage.homepage !== "https://slopcamera.com/") {
+  problems.push("package.json homepage must be https://slopcamera.com/");
 }
 const repository = rootPackage.repository;
 if (

@@ -20,7 +20,7 @@ const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)))
 const sourceDirectory = join(appDirectory, "src")
 const defaultOutputDirectory = join(appDirectory, "dist")
 const posthogIngestOrigin = "https://us.i.posthog.com"
-const siteOrigin = "https://slop.camera"
+const siteOrigin = "https://slopcamera.com"
 const posthogPackageDirectory = dirname(fileURLToPath(import.meta.resolve("posthog-js/package.json")))
 const copiedFiles = [
   "apple-touch-icon.png",

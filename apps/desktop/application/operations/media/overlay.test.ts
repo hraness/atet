@@ -583,7 +583,7 @@ describe("media.overlay application operation", () => {
         expect({ query, variant, provider }).toEqual({ query: "slopcamera", variant: undefined, provider: "brand-catalog" });
         return Promise.resolve({
           available: { color: true, duotone: false }, emoji: "📷", group: "brand",
-          id: "1f4f7", name: "slop.camera", path: emojiPath, provider: "brand-catalog",
+          id: "1f4f7", name: "slopcamera.com", path: emojiPath, provider: "brand-catalog",
           sha256: sha256(emojiBytes), subgroup: "brand", variant: "color",
         });
       },

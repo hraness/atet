@@ -11,10 +11,10 @@
       "has": [
         {
           "type": "host",
-          "value": "slopcamera.com"
+          "value": "slop.camera"
         }
       ],
-      "destination": "https://slop.camera/",
+      "destination": "https://slopcamera.com/",
       "permanent": true
     },
     {
@@ -22,10 +22,10 @@
       "has": [
         {
           "type": "host",
-          "value": "slopcamera.com"
+          "value": "slop.camera"
         }
       ],
-      "destination": "https://slop.camera/:path*",
+      "destination": "https://slopcamera.com/:path*",
       "permanent": true
     },
     {
@@ -36,7 +36,7 @@
           "value": "atet.sh"
         }
       ],
-      "destination": "https://slop.camera/",
+      "destination": "https://slopcamera.com/",
       "permanent": true
     },
     {
@@ -47,7 +47,7 @@
           "value": "atet.sh"
         }
       ],
-      "destination": "https://slop.camera/:path*",
+      "destination": "https://slopcamera.com/:path*",
       "permanent": true
     },
     {
@@ -58,7 +58,7 @@
           "value": "transmute.rocks"
         }
       ],
-      "destination": "https://slop.camera/",
+      "destination": "https://slopcamera.com/",
       "permanent": true
     },
     {
@@ -69,7 +69,7 @@
           "value": "transmute.rocks"
         }
       ],
-      "destination": "https://slop.camera/:path*",
+      "destination": "https://slopcamera.com/:path*",
       "permanent": true
     },
     {
@@ -80,7 +80,7 @@
           "value": "www.transmute.rocks"
         }
       ],
-      "destination": "https://slop.camera/",
+      "destination": "https://slopcamera.com/",
       "permanent": true
     },
     {
@@ -91,7 +91,7 @@
           "value": "www.transmute.rocks"
         }
       ],
-      "destination": "https://slop.camera/:path*",
+      "destination": "https://slopcamera.com/:path*",
       "permanent": true
     },
     {
@@ -102,7 +102,7 @@
           "value": "hraness.graphics"
         }
       ],
-      "destination": "https://slop.camera/",
+      "destination": "https://slopcamera.com/",
       "permanent": true
     },
     {
@@ -113,7 +113,7 @@
           "value": "hraness.graphics"
         }
       ],
-      "destination": "https://slop.camera/:path*",
+      "destination": "https://slopcamera.com/:path*",
       "permanent": true
     },
     {
@@ -124,7 +124,7 @@
           "value": "hraness.studio"
         }
       ],
-      "destination": "https://slop.camera/",
+      "destination": "https://slopcamera.com/",
       "permanent": true
     },
     {
@@ -135,7 +135,7 @@
           "value": "hraness.studio"
         }
       ],
-      "destination": "https://slop.camera/:path*",
+      "destination": "https://slopcamera.com/:path*",
       "permanent": true
     },
     {
@@ -237,7 +237,7 @@
         },
         {
           "key": "Link",
-          "value": "<https://slop.camera/>; rel=\"canonical\""
+          "value": "<https://slopcamera.com/>; rel=\"canonical\""
         }
       ]
     },
@@ -259,7 +259,7 @@
         },
         {
           "key": "Link",
-          "value": "<https://slop.camera/>; rel=\"canonical\""
+          "value": "<https://slopcamera.com/>; rel=\"canonical\""
         }
       ]
     },

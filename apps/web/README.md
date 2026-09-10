@@ -1,6 +1,6 @@
 # Slopcamera web
 
-`slop.camera` is the static public site and documentation for Slopcamera. It
+`slopcamera.com` is the static public site and documentation for Slopcamera. It
 presents the agent-directed visual studio, SDK, Bun CLI, local runtime, and desktop capture shell without
 adding a server, account surface, API route, remote font, or browser credential path.
 Agents can read `/llms.txt` and request `Accept: text/markdown` on the homepage.
@@ -16,11 +16,11 @@ bun run check
 The build fingerprints the local stylesheet and appearance script, then copies
 an explicit allowlist from `src/` into `dist/`. A configured Vercel Production
 build also bundles the pinned PostHog client as a fingerprinted local asset.
-That client sends one anonymous cookieless pageview from `https://slop.camera/` and
+That client sends one anonymous cookieless pageview from `https://slopcamera.com/` and
 does not run on Preview, alternate hosts, or the not-found page. Configure the
 Vercel project with this directory as its Root Directory. The checked
 `vercel.json` installs from this directory's frozen Bun lockfile without relying
 on the parent workspace catalog, serves only built files under a strict CSP,
-and redirects `slopcamera.com`, `atet.sh`, and the reviewed predecessor hosts
-directly to `https://slop.camera` with their paths preserved. Provider domain
+and redirects `slop.camera`, `atet.sh`, and the reviewed predecessor hosts
+directly to `https://slopcamera.com` with their paths preserved. Provider domain
 attachment and production acceptance are separate deployment steps.

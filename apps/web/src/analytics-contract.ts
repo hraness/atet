@@ -1,7 +1,7 @@
 import type { CaptureResult } from "posthog-js/dist/module.slim.no-external"
 
 export const analyticsSchemaVersion = 1
-export const canonicalAnalyticsOrigin = "https://slop.camera"
+export const canonicalAnalyticsOrigin = "https://slopcamera.com"
 export const posthogCookielessDistinctId = "$posthog_cookieless"
 export const siteId = "slopcamera"
 

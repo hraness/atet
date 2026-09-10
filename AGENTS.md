@@ -3,7 +3,7 @@
 
 - `src/` – portable declarative and imperative workflow SDKs, host-resource admission, diagrams, direct Vercel AI Gateway generation, local vectorization, semantic operations, MCP, and canvas integration.
 - `apps/desktop/` – the canonical `slopcamera` CLI, complete local media host, durable scheduler, HTML and Three.js overlays, native capture helpers, frontend, and desktop shell.
-- `apps/web/` – the static `slop.camera` site, with a local browser bundle and a production-only anonymous pageview boundary but no API, account, or credential surface.
+- `apps/web/` – the static `slopcamera.com` site, with a local browser bundle and a production-only anonymous pageview boundary but no API, account, or credential surface.
 - `packages/scene/` – the shared local scene-analysis contract.
 - `src/code/` – portable declarative graph authoring, the closed public capability projection, compilation, planning, and execution contracts.
 - `src/spatial-scene/` – portable editable scene contracts, stable identity, semantic patches, calibrated evaluation, and bounded GLB parsing.

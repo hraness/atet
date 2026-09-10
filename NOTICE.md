@@ -48,7 +48,7 @@ sent to Vercel AI Gateway and the model provider selected by the caller, under
 those services' terms. Slopcamera does not operate an intermediary generation
 service.
 
-The production `slop.camera` browser bundle includes
+The production `slopcamera.com` browser bundle includes
 [`posthog-js`](https://github.com/PostHog/posthog-js), distributed under its
 combined Apache License 2.0 and MIT terms. The fingerprinted bundle carries the
 upstream license text generated from the exact locked package.

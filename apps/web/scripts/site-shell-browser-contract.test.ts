@@ -1279,7 +1279,7 @@ test("worker requires genuine exact Node and complete explicit loopback inputs",
   expect(parseShellRequest(value)).toEqual(value)
   for (const patch of [{ baseline: null }, { appDirectory: "relative" }, { chromeExecutable: "chrome" }, { extra: true },
     { endpoint: "ws://127.0.0.1:0/devtools/browser/abcd" }, { endpoint: "ws://127.0.0.1:70000/devtools/browser/abcd" },
-    { current: { ...value.current, origin: "https://slop.camera" } }, { current: { ...value.current, origin: "http://127.0.0.1:12346/" } },
+    { current: { ...value.current, origin: "https://slopcamera.com" } }, { current: { ...value.current, origin: "http://127.0.0.1:12346/" } },
     { current: { ...value.current, origin: "http://127.0.0.1:0" } }, { current: { ...value.current, finalCss: value.current.stylesheets[0] } },
     { current: { ...value.current, resources: [...value.current.resources, "/../private"].sort() } },
     { current: { ...value.current, resources: [...value.current.resources].reverse() } },
