@@ -5,9 +5,9 @@ import { resolve, join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-export const repository = "hraness/atet";
+export const repository = "hraness/slopcamera";
 export const repositoryId = 1310516748;
-export const packageName = "@hraness/atet";
+export const packageName = "@hraness/slopcamera";
 export const workflow = ".github/workflows/release.yml";
 export const authorityPaths = [workflow, "scripts/github-release.ts", "scripts/prepare-github-release.ts", "scripts/package-smoke.ts",
   "scripts/npm-package-identity.ts", "scripts/npm-publish-policy.ts", "package.json", "bun.lock"] as const;
@@ -69,7 +69,7 @@ export function parseManifest(value: unknown): ReleaseManifest {
   if (item.schema !== "hraness-github-release-v1" || item.repository !== repository || item.repositoryId !== repositoryId
     || item.package !== packageName || item.tag !== `v${version}` || item.workflow !== workflow
     || typeof item.sourceSha !== "string" || !sha.test(item.sourceSha) || typeof item.workflowSha !== "string" || !sha.test(item.workflowSha)
-    || archive.name !== `hraness-atet-${version}.tgz` || positive(archive.bytes, "Archive size") > 4_300_000
+    || archive.name !== `hraness-slopcamera-${version}.tgz` || positive(archive.bytes, "Archive size") > 4_300_000
     || typeof archive.sha256 !== "string" || !digest.test(archive.sha256)
     || typeof archive.sha512 !== "string" || !/^[a-f0-9]{128}$/u.test(archive.sha512)) throw new Error("Release manifest identity is invalid.");
   positive(item.runId, "Run ID");
@@ -257,7 +257,7 @@ export function releaseBody(manifest: ReleaseManifest): string {
 export function admitRelease(value: unknown, manifest: ReleaseManifest, files: ReadonlyMap<string, Buffer>, allowMissing: boolean): { id: number; draft: boolean; present: Set<string> } {
   const release = record(value, "GitHub release");
   const author = record(release.author, "Release author");
-  if (release.tag_name !== manifest.tag || release.name !== `Atet ${manifest.tag}` || release.target_commitish !== manifest.sourceSha
+  if (release.tag_name !== manifest.tag || release.name !== `Slopcamera ${manifest.tag}` || release.target_commitish !== manifest.sourceSha
     || release.prerelease !== false || typeof release.draft !== "boolean" || author.id !== authorId || author.login !== "github-actions[bot]" || author.type !== "Bot"
     || release.body !== releaseBody(manifest) || (!release.draft && release.immutable !== true)) throw new Error("Existing release is not the exact Actions-authored immutable artifact.");
   if (!Array.isArray(release.assets) || release.assets.length > files.size) throw new Error("Release asset inventory is invalid.");
@@ -355,7 +355,7 @@ async function publish(directory: string): Promise<void> {
     await authorizeRelease();
     // A failed response may represent a successful write. A rerun reads it first.
     existing = await request(`/repos/${repository}/releases`, "POST", { tag_name: m.tag, target_commitish: m.sourceSha,
-      name: `Atet ${m.tag}`, body: releaseBody(m), draft: true, prerelease: false, make_latest: "false" });
+      name: `Slopcamera ${m.tag}`, body: releaseBody(m), draft: true, prerelease: false, make_latest: "false" });
   }
   let state = admitRelease(existing, m, handoff.files, true);
   verifyRemoteBytes(existing, handoff.files);
@@ -404,7 +404,7 @@ export async function downloadMirror(directory: string, version: string, expecte
   if (!sha.test(expectedWorkflow)) throw new Error("Mirror requires the exact current workflow SHA.");
   const tag = `v${version}`;
   const download = spawnSync("gh", ["release", "download", tag, "--repo", repository, "--dir", directory,
-    "--pattern", `hraness-atet-${version}.tgz`, "--pattern", "npm-pack.json", "--pattern", "release-manifest.json",
+    "--pattern", `hraness-slopcamera-${version}.tgz`, "--pattern", "npm-pack.json", "--pattern", "release-manifest.json",
     "--pattern", "SHA256SUMS", "--pattern", "provenance.jsonl"],
   { timeout: 60_000, killSignal: "SIGKILL", encoding: "utf8", maxBuffer: maximumFileBytes, stdio: ["ignore", "pipe", "pipe"] });
   if (download.error || download.status !== 0) throw new Error(`Canonical mirror download failed: ${download.error?.message ?? download.stderr}`);

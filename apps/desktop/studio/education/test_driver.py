@@ -12,8 +12,8 @@ from driver import bounded_json, create_output, physical_directory, relative_pat
 
 def request():
     interpretation = {"kind": "raster", "colorSpace": "srgb", "alpha": "opaque", "dataType": "uint8", "channels": ["R", "G", "B"], "semantic": "color", "unit": "unitless"}
-    return {"bundle": {"kind": "atet.studio-source-bundle", "schemaVersion": 1, "engine": "manim", "entrypoint": {"kind": "python", "path": "scene.py"}, "files": [{"path": "scene.py", "sha256": "a"*64, "bytes": 20}]},
-            "job": {"kind": "atet.studio-job", "schemaVersion": 1, "stage": "render", "parameters": {},
+    return {"bundle": {"kind": "slopcamera.studio-source-bundle", "schemaVersion": 1, "engine": "manim", "entrypoint": {"kind": "python", "path": "scene.py"}, "files": [{"path": "scene.py", "sha256": "a"*64, "bytes": 20}]},
+            "job": {"kind": "slopcamera.studio-job", "schemaVersion": 1, "stage": "render", "parameters": {},
                     "execution": {"trust": "trusted-current-user", "isolation": "none", "hermetic": False},
                     "engine": {"engine": "manim", "scene": "Example", "renderer": "cairo", "transparent": False},
                     "render": {"width": 480, "height": 854, "frameRate": {"numerator": 24, "denominator": 1}, "startFrame": 0, "endFrameExclusive": 240},

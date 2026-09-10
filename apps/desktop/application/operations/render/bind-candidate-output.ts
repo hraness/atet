@@ -25,23 +25,23 @@ import {
 import { throwIfAborted } from "../shared";
 
 /**
- * Increment this ABI whenever Atet's project-render implementation can
+ * Increment this ABI whenever Slopcamera's project-render implementation can
  * change encoded output without changing the render plan or encoder recipe.
  */
-export const ATET_PROJECT_RENDERER_ABI =
-  "atet-project-renderer-abi-v1" as const;
+export const SLOPCAMERA_PROJECT_RENDERER_ABI =
+  "slopcamera-project-renderer-abi-v1" as const;
 
 export const CandidateProjectRendererAbiSchema = z.string()
   .min(1)
   .max(80)
-  .regex(/^atet-project-renderer-abi-v[1-9][0-9]*$/u);
+  .regex(/^slopcamera-project-renderer-abi-v[1-9][0-9]*$/u);
 
 const CandidateRenderDerivationBodyV1Schema = z.strictObject({
   binding: ProjectRenderToolchainSchema,
   candidateRevision: CreativeCandidateRevisionReferenceV1Schema,
   encoderRecipe: ProjectRenderEncoderRecipeSchema,
   kind: z.union([
-    z.literal("atet.candidate-render-derivation"),
+    z.literal("slopcamera.candidate-render-derivation"),
   ]),
   maximumBytes: ProjectRenderOutputRequestSchema.shape.maximumBytes,
   plan: ProjectRenderPlanReferenceSchema,
@@ -193,12 +193,12 @@ function validateCandidateRenderRelationships(
 export function assertCurrentCandidateProjectRendererAbi(
   rendererAbi: string,
 ): void {
-  if (rendererAbi !== ATET_PROJECT_RENDERER_ABI) {
+  if (rendererAbi !== SLOPCAMERA_PROJECT_RENDERER_ABI) {
     throw new ApplicationError(
       "incompatible",
-      "Candidate renderer ABI differs from the current Atet project renderer.",
+      "Candidate renderer ABI differs from the current Slopcamera project renderer.",
       {
-        currentRendererAbi: ATET_PROJECT_RENDERER_ABI,
+        currentRendererAbi: SLOPCAMERA_PROJECT_RENDERER_ABI,
         rendererAbi,
       },
     );
@@ -210,7 +210,7 @@ export function candidateRenderDerivationSha256(
 ): string {
   const body = CandidateRenderDerivationBodyV1Schema.parse(input);
   return canonicalJsonSha256({
-    domain: "atet.candidate-render-derivation/v1",
+    domain: "slopcamera.candidate-render-derivation/v1",
     ...body,
   });
 }
@@ -225,7 +225,7 @@ export function createCandidateRenderDerivationV1(
   const body = CandidateRenderDerivationBodyV1Schema.parse({
     ...exact,
     encoderRecipe,
-    kind: "atet.candidate-render-derivation",
+    kind: "slopcamera.candidate-render-derivation",
     schemaVersion: 1,
   });
   return CandidateRenderDerivationV1Schema.parse({
@@ -266,7 +266,7 @@ export function bindCandidateRenderOutputInput(
   const exact = BindCandidateRenderOutputInputSchema.parse({
     ...requested,
     binding,
-    rendererAbi: ATET_PROJECT_RENDERER_ABI,
+    rendererAbi: SLOPCAMERA_PROJECT_RENDERER_ABI,
   });
   validateCandidateRenderRelationships(exact);
   return exact;
@@ -274,7 +274,7 @@ export function bindCandidateRenderOutputInput(
 
 export const bindCandidateRenderOutputOperationDefinition = {
   inputSchema: BindCandidateRenderOutputInputSchema,
-  inputSchemaId: "atet.operation.render.bind-candidate-output.input/v1",
+  inputSchemaId: "slopcamera.operation.render.bind-candidate-output.input/v1",
   kind: "render.bind-candidate-output",
   lifecycle: {
     kind: "pure",
@@ -295,7 +295,7 @@ export const bindCandidateRenderOutputOperationDefinition = {
     },
   },
   outputSchema: CandidateProjectRenderInputSchema,
-  outputSchemaId: "atet.operation.render.bind-candidate-output.output/v1",
+  outputSchemaId: "slopcamera.operation.render.bind-candidate-output.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,

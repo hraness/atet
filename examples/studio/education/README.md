@@ -33,7 +33,7 @@ The driver profile supports up to 2048 pixels per dimension, four megapixels, 60
 
 ## Bind narration, sound effects, and delivery captions
 
-The optional narration shape is `{"assetId":"voice_luma","transcript":"..."}`. Sound effects use `{"assetId":"tile_click","atUs":7600000,"gainDb":-18}`. These are inert references to existing retained ATET assets; the host verifies the source bytes and places audio in the ordinary project clock. The Manim driver never resolves credentials, synthesizes speech, or fetches an asset.
+The optional narration shape is `{"assetId":"voice_luma","transcript":"..."}`. Sound effects use `{"assetId":"tile_click","atUs":7600000,"gainDb":-18}`. These are inert references to existing retained SLOPCAMERA assets; the host verifies the source bytes and places audio in the ordinary project clock. The Manim driver never resolves credentials, synthesizes speech, or fetches an asset.
 
 For measured mouth movement, run Rhubarb on the exact retained WAV/OGG and import its JSON with `rhubarb_mouth_cues`. Retain the original cue receipt and recognizer identity with the audio, set `mouthTiming: "rhubarb"`, and retain the returned microsecond cues in the lesson. The converter discards absolute `soundFile` metadata and rejects overlap, nonfinite timestamps, or cues outside the lesson. Rhubarb mouth shapes are not word alignment; supply measured word timings separately before setting `captionTiming: "aligned"`.
 

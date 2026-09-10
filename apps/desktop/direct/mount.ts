@@ -2,43 +2,43 @@ import type { DirectSessionActivation } from "@hraness/direct/testing";
 import { installDirectBrowser } from "@hraness/direct/web";
 
 import {
-  createAtetDirectSession,
-  type AtetDirectSession,
+  createSlopcameraDirectSession,
+  type SlopcameraDirectSession,
 } from "./session";
 
-export type AtetPagehideRegistration = (
+export type SlopcameraPagehideRegistration = (
   listener: () => undefined,
 ) => () => undefined;
 
-export interface AtetDirectMountOptions {
-  readonly registerPagehide: AtetPagehideRegistration;
+export interface SlopcameraDirectMountOptions {
+  readonly registerPagehide: SlopcameraPagehideRegistration;
   readonly target?: object;
 }
 
-export interface MountedAtetDirect {
+export interface MountedSlopcameraDirect {
   readonly dispose: () => undefined;
-  readonly session: AtetDirectSession;
+  readonly session: SlopcameraDirectSession;
 }
 
-export type AtetDirectMountErrorCode =
+export type SlopcameraDirectMountErrorCode =
   | "activation-failed"
   | "browser-install-failed"
   | "pagehide-registration-failed";
 
-export type AtetDirectMountResult =
-  | Readonly<{ ok: true; value: MountedAtetDirect }>
+export type SlopcameraDirectMountResult =
+  | Readonly<{ ok: true; value: MountedSlopcameraDirect }>
   | Readonly<{
     ok: false;
     error: Readonly<{
-      code: AtetDirectMountErrorCode;
+      code: SlopcameraDirectMountErrorCode;
       message: string;
     }>;
   }>;
 
 function failure(
-  code: AtetDirectMountErrorCode,
+  code: SlopcameraDirectMountErrorCode,
   message: string,
-): AtetDirectMountResult {
+): SlopcameraDirectMountResult {
   return Object.freeze({
     ok: false,
     error: Object.freeze({ code, message }),
@@ -56,11 +56,11 @@ function renderReason(reason: unknown): string {
 }
 
 /** Install containment and page lifecycle ownership before React can run product effects. */
-export function mountAtetDirect(
+export function mountSlopcameraDirect(
   activation: DirectSessionActivation,
-  options: AtetDirectMountOptions,
-): AtetDirectMountResult {
-  const created = createAtetDirectSession(activation);
+  options: SlopcameraDirectMountOptions,
+): SlopcameraDirectMountResult {
+  const created = createSlopcameraDirectSession(activation);
   if (!created.ok) return failure("activation-failed", created.error.message);
   const session = created.value;
 

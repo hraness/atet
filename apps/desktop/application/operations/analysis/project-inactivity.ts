@@ -249,7 +249,7 @@ export function createProjectInactivityOperationDefinition(
   const toolVersion = resolveToolVersion(dependencies);
   return {
     inputSchema: ProjectInactivityOperationInputSchema,
-    inputSchemaId: "atet.operation.analysis.project-inactivity.input/v1",
+    inputSchemaId: "slopcamera.operation.analysis.project-inactivity.input/v1",
     kind: "analysis.project-inactivity",
     lifecycle: {
       kind: "local-artifact",
@@ -339,17 +339,17 @@ export function createProjectInactivityOperationDefinition(
         });
         await writeOperationCompletionCheckpoint(context, {
           inputSchemaId:
-            "atet.operation.analysis.project-inactivity.input/v1",
+            "slopcamera.operation.analysis.project-inactivity.input/v1",
           kind: "analysis.project-inactivity",
           outputSchemaId:
-            "atet.operation.analysis.project-inactivity.output/v1",
+            "slopcamera.operation.analysis.project-inactivity.output/v1",
           version: 1,
         }, output);
         return output;
       },
     },
     outputSchema: ProjectInactivityOperationOutputSchema,
-    outputSchemaId: "atet.operation.analysis.project-inactivity.output/v1",
+    outputSchemaId: "slopcamera.operation.analysis.project-inactivity.output/v1",
     policy: {
       cache: "none",
       cancellable: true,

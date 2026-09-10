@@ -6,21 +6,21 @@ import {
   CaptureStartOptionsSchema,
   DesktopRequestSchema,
   LEGACY_STUDIO_DESKTOP_PROTOCOL,
-  ATET_DESKTOP_PROTOCOL,
-  ATET_DESKTOP_PROTOCOL_VERSION,
+  SLOPCAMERA_DESKTOP_PROTOCOL,
+  SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
 } from "./runtime";
 
-test("desktop runtime writes the Atet protocol while reading the Studio protocol", () => {
-  expect(ATET_DESKTOP_PROTOCOL_VERSION).toBe(3);
+test("desktop runtime writes the Slopcamera protocol while reading the Studio protocol", () => {
+  expect(SLOPCAMERA_DESKTOP_PROTOCOL_VERSION).toBe(3);
   const request = {
     payload: { kind: "snapshot" },
-    protocol: ATET_DESKTOP_PROTOCOL,
+    protocol: SLOPCAMERA_DESKTOP_PROTOCOL,
     requestId: "request_fixture001",
   } as const;
   expect(DesktopRequestSchema.parse({
     ...request,
     protocolVersion: 3,
-  }).protocol).toBe("atet.desktop");
+  }).protocol).toBe("slopcamera.desktop");
   expect(DesktopRequestSchema.parse({
     ...request,
     protocol: LEGACY_STUDIO_DESKTOP_PROTOCOL,
@@ -69,7 +69,7 @@ test("runtime snapshots keep selected sources, fresh availability, and interrupt
     },
     state: {
       recordingId: "rec_active001",
-      recordingPath: "artifacts/atet/recordings/rec_active001",
+      recordingPath: "artifacts/slopcamera/recordings/rec_active001",
       sourceTimeUs: 2_000_000,
       state: "paused",
     },
@@ -107,7 +107,7 @@ test("start options keep recordings in the repository and typed text disabled un
     camera: { kind: "disabled" },
     displays: { kind: "all" },
     microphone: { kind: "default" },
-    recordingDirectory: "artifacts/atet/recordings",
+    recordingDirectory: "artifacts/slopcamera/recordings",
     systemAudio: true,
     typedText: "disabled",
     windowMetadata: "titles-and-bounds",
@@ -125,7 +125,7 @@ test("start options keep recordings in the repository and typed text disabled un
     camera: { kind: "disabled" },
     displays: { kind: "all" },
     microphone: { kind: "default" },
-    recordingDirectory: "artifacts/atet/recordings",
+    recordingDirectory: "artifacts/slopcamera/recordings",
     systemAudio: true,
     typedText: "disabled",
     windowMetadata: "bounds-only",
@@ -140,7 +140,7 @@ test("start options preserve exact source IDs and reject duplicate or oversized 
       kind: "selected",
     },
     microphone: { deviceId: "microphone-usb", kind: "device" },
-    recordingDirectory: "artifacts/atet/recordings",
+    recordingDirectory: "artifacts/slopcamera/recordings",
     systemAudio: false,
     typedText: "disabled",
     windowMetadata: "titles-and-bounds",

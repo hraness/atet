@@ -15,12 +15,12 @@ const NODE_BUILTIN_SPECIFIERS = new Set(
 
 function rejectNodeBuiltins(): Plugin {
   return {
-    name: "atet-direct-browser-only",
+    name: "slopcamera-direct-browser-only",
     enforce: "pre",
     resolveId(source, importer) {
       if (importer !== undefined && NODE_BUILTIN_SPECIFIERS.has(source)) {
         this.error(
-          `Atet Direct browser module ${JSON.stringify(importer)} imports Node builtin ${JSON.stringify(source)}.`,
+          `Slopcamera Direct browser module ${JSON.stringify(importer)} imports Node builtin ${JSON.stringify(source)}.`,
         );
       }
       return null;

@@ -9,8 +9,8 @@
 # Guidelines
 
 - Treat recording bundles, multi-asset projects, and immutable analysis sidecars as the primary API. The desktop renderer may issue only typed start, pause, resume, stop, and snapshot commands.
-- Consume graph contracts, references, canonical identity, generic authoring, and compilation from `@hraness/atet/code`. Keep only host projection, durable scheduling, project authority, native capture, permissions, and UI adapters here; never fork the portable workflow core.
-- Store recordings, projects, generated artifacts, and private metadata under `artifacts/atet/{recordings,projects,generated,private}/`. Mutation leases and other secret-free state belong in the machine-global per-user CLI state root. Read Gateway credentials directly from `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN`; never persist, log, or pass them in argv.
+- Consume graph contracts, references, canonical identity, generic authoring, and compilation from `@hraness/slopcamera/code`. Keep only host projection, durable scheduling, project authority, native capture, permissions, and UI adapters here; never fork the portable workflow core.
+- Store recordings, projects, generated artifacts, and private metadata under `artifacts/slopcamera/{recordings,projects,generated,private}/`. Mutation leases and other secret-free state belong in the machine-global per-user CLI state root. Read Gateway credentials directly from `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN`; never persist, log, or pass them in argv.
 - Keep raw media and events immutable. Pause closes one synchronized segment and resume opens another; edits create plans and derivatives. Keep displays distinct and system audio, microphone, and webcam independently addressable.
 - Map every source into one checked project clock using integer microseconds while retaining native timestamps. Reject overlapping/inverted foreign ranges and apply edits once in project time.
 - Treat captured media, titles, focus, cursor, and typing evidence as sensitive. Typed-text capture is opt-in, secure fields are always suppressed, and each native permission reports an explicit state.
@@ -22,5 +22,5 @@
 - Keep HTML overlays deterministic and transparent: exact approved library locks, local bound assets, integer-microsecond frame time, seeded randomness, fixed browser settings, and denied ambient browser networking. Render them to verified alpha media before the ordinary overlay compositor sees them.
 - Keep ordinary build, lint, typecheck, and TypeScript tests portable. Exercise ScreenCaptureKit, AVFoundation, Vision, and Zig only through explicit `*:macos` commands.
 - Keep `@hraness/direct` development-only and outside production frontend, CLI, gateway, capture, Zig, and packaged graphs. Use its `tooling/*` subpaths for product-neutral browser-process, server-lease, artifact, contract-reading, and emitted-bundle mechanics.
-- Keep Atet's Direct document identity, fresh-port allocation, scenarios, assertions, and artifact manifest policy product-owned. Local verification must allocate a fresh port when the requested port belongs to another process.
+- Keep Slopcamera's Direct document identity, fresh-port allocation, scenarios, assertions, and artifact manifest policy product-owned. Local verification must allocate a fresh port when the requested port belongs to another process.
 - Run macOS builds, packages, tests, and performance benchmarks one at a time. Zig builds must inherit the caller's worker budget through `-j`.

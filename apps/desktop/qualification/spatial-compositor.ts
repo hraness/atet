@@ -32,7 +32,7 @@ await run([ffmpeg, "-v", "error", "-nostdin", "-f", "lavfi", "-i", "sine=frequen
 const audio = await readFile(join(root, "original-tone.wav")), sourceHash = sha256(audio);
 const durationUs = 600_000_001, frameRate = { numerator: 30_000, denominator: 1_001 };
 const interval = { startUs: 0, endUs: durationUs };
-const plan = ProjectRenderPlanV1Schema.parse({ kind: "atet.project-render-plan", schemaVersion: 1,
+const plan = ProjectRenderPlanV1Schema.parse({ kind: "slopcamera.project-render-plan", schemaVersion: 1,
   planSha256: sourceHash, projectEditPlanSha256: sourceHash, projectStructureSha256: sourceHash, projectId: "project_nativespatial",
   output: { background: "#223344ff", durationUs, frameRate: frameRate.numerator / frameRate.denominator, pixelWidth: 32, pixelHeight: 24 },
   videoSlices: [], overlays: [], cameraKeyframes: [], cameraSegments: [], warnings: [],
@@ -42,7 +42,7 @@ const plan = ProjectRenderPlanV1Schema.parse({ kind: "atet.project-render-plan",
   effects: { clickCues: [], clicks: { enabled: false }, cursor: { enabled: false }, cursorSamples: [], keystrokeCues: [], keystrokes: { enabled: false }, typedText: { enabled: false }, typingSpans: [] },
 });
 plan.planSha256 = hashProjectRenderPlanComposition(plan);
-const cadence = { kind: "atet.spatial-compositor-cadence" as const, schemaVersion: 1 as const,
+const cadence = { kind: "slopcamera.spatial-compositor-cadence" as const, schemaVersion: 1 as const,
   // This standalone native timing fixture tests an exact adapter, not a V2-authority claim.
   projectionSha256: sourceHash, compositionPlanSha256: plan.planSha256, frameRate, durationUs, frameCount: spatialFrameCount(durationUs, frameRate) };
 const binding = assertSpatialCompositorCadence({ cadence, cadenceSha256: spatialCompositorCadenceSha256(cadence) }, plan);
@@ -69,7 +69,7 @@ for (let index = 0; index < tail.length; index += 4) power += tail.readFloatLE(i
 const rms = Math.sqrt(power / (tail.length / 4)); assert.ok(rms > .01, "Final authored audio must remain audible.");
 const output = await readFile(outputPath);
 const versions = { ffmpeg: (await run([ffmpeg, "-version"])).split("\n")[0], ffprobe: (await run([ffprobe, "-version"])).split("\n")[0], bun: Bun.version };
-const report = { kind: "atet.spatial-compositor-qualification", schemaVersion: 1, passed: true, versions,
+const report = { kind: "slopcamera.spatial-compositor-qualification", schemaVersion: 1, passed: true, versions,
   machine: { model: cpus()[0]?.model, logicalCores: cpus().length, totalMemoryBytes: totalmem(), architecture: arch(), kernelRelease: release() },
   measurements: { elapsedMilliseconds: performance.now() - started, parentProcessMemory: process.memoryUsage(), parentProcessResourceUsage: process.resourceUsage(), tailRms: rms },
   source: { bytes: audio.length, sha256: sourceHash }, output: { path: outputPath, bytes: output.length, sha256: sha256(output) },

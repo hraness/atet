@@ -65,7 +65,7 @@ function snapshot(state: DirectingState) {
       requestId: attempt.requestId, dependencies: attempt.dependencies,
       ...(attempt.state === "completed" ? { outputs: attempt.result.outputs, receipt: attempt.result.receipt, endpoint: attempt.endpoint ?? null, review: attempt.review ?? null } : {}),
     })),
-    nextCommands: [`atet direct inspect ${state.id} --json`, `atet direct assemble ${state.id} --json`],
+    nextCommands: [`slopcamera direct inspect ${state.id} --json`, `slopcamera direct assemble ${state.id} --json`],
   };
 }
 
@@ -90,12 +90,12 @@ async function executeDirectingCommandBody(
   aborted(signal);
   if (command.action === "init") {
     const recipe = parseDirectingRecipe({
-      kind: "atet.directing-recipe", schemaVersion: 1, id: "direct_film", title: "Untitled film",
+      kind: "slopcamera.directing-recipe", schemaVersion: 1, id: "direct_film", title: "Untitled film",
       shots: [{ id: "opening", model: "minimax/minimax-h3-max", prompt: "Replace this with the shot you want to direct.", durationSeconds: 5, resolution: "480p", aspectRatio: "16:9", fps: 24 }],
     });
     const path = resolve(application.paths.repositoryRoot, command.path);
     await publishSpatialSource(path, recipe, async () => aborted(signal));
-    return { path, recipeSha256: directingRecipeSha256(recipe), nextCommand: `atet direct plan ${JSON.stringify(command.path)} --json` };
+    return { path, recipeSha256: directingRecipeSha256(recipe), nextCommand: `slopcamera direct plan ${JSON.stringify(command.path)} --json` };
   }
   if (command.action === "anchor") return await media.anchor(application, command.input, signal);
   if (command.action === "plan") {
@@ -177,7 +177,7 @@ async function executeDirectingCommandBody(
       aborted(signal);
       await lease.assertOwned();
       const assembled = await media.assemble(application, { id: state.id, title: currentRecipe(state).title, clips: clips.map(({ shotId, attemptId, source, durationUs }) => ({ shotId, attemptId, source, durationUs })), recipeSha256: state.activeRecipeSha256 }, signal);
-      return { ...assembled, nextCommand: `atet project render run ${assembled.projectId} --width 1280 --height 720 --fps 24 --output renders/directed-film.mp4 --json` };
+      return { ...assembled, nextCommand: `slopcamera project render run ${assembled.projectId} --width 1280 --height 720 --fps 24 --output renders/directed-film.mp4 --json` };
     } else if (command.action === "generate") {
       const prior = state.attempts.find(attempt => attempt.id === command.attempt);
       if (prior !== undefined) {
@@ -242,7 +242,7 @@ async function executeDirectingCommandBody(
             const undispatched = recovered?.status === "not-dispatched";
             const reason = error instanceof GatewayMediaExecutionError || error instanceof GatewayCredentialError || error instanceof CliError ? error.code : "pre-dispatch-failure";
             await save(settleDirectingAttempt(state, command.attempt, undispatched ? "not-dispatched" : "ambiguous", undispatched ? reason : "unresolved-dispatch"));
-            throw new CliError(undispatched ? "unavailable" : "ambiguous", undispatched ? `The take failed before dispatch (${reason}); its reservation was released. Inspect model access and use a new take ID for a deliberate retry.` : "The take may have been charged. Its reservation remains held. Resume can recover completed local receipts; it never resubmits the provider call.", hosting === undefined ? undefined : { referenceHostingReceipt: hosting.receiptPath, cleanupCommand: `atet direct cleanup ${state.id} --attempt ${command.attempt} --json` });
+            throw new CliError(undispatched ? "unavailable" : "ambiguous", undispatched ? `The take failed before dispatch (${reason}); its reservation was released. Inspect model access and use a new take ID for a deliberate retry.` : "The take may have been charged. Its reservation remains held. Resume can recover completed local receipts; it never resubmits the provider call.", hosting === undefined ? undefined : { referenceHostingReceipt: hosting.receiptPath, cleanupCommand: `slopcamera direct cleanup ${state.id} --attempt ${command.attempt} --json` });
           }
         }
       })().then(() => ({ ok: true as const }), (error: unknown) => ({ ok: false as const, error }));
@@ -258,7 +258,7 @@ async function executeDirectingCommandBody(
         referenceHosting = {
           receiptPath: hosting.receiptPath,
           cleanupRequired: receipt === undefined || receipt.entries.some(entry => entry.cleanup !== "deleted"),
-          cleanupCommand: `atet direct cleanup ${state.id} --attempt ${command.attempt} --json`,
+          cleanupCommand: `slopcamera direct cleanup ${state.id} --attempt ${command.attempt} --json`,
           ...(receipt === undefined ? {} : { receipt }),
         };
       }

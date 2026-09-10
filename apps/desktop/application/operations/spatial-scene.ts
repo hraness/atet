@@ -59,8 +59,8 @@ const purePolicy = Object.freeze({
 
 export const spatialInspectOperationDefinition = {
   kind: "scene.inspect", version: 1,
-  inputSchema: SpatialInspectInputSchema, inputSchemaId: "atet.operation.scene.inspect.input/v1",
-  outputSchema: SpatialSceneInspectionOutputSchema, outputSchemaId: "atet.operation.scene.inspect.output/v1",
+  inputSchema: SpatialInspectInputSchema, inputSchemaId: "slopcamera.operation.scene.inspect.input/v1",
+  outputSchema: SpatialSceneInspectionOutputSchema, outputSchemaId: "slopcamera.operation.scene.inspect.output/v1",
   policy: purePolicy,
   lifecycle: { kind: "pure", execute: (context, input) => {
     throwIfAborted(context.abortSignal);
@@ -71,8 +71,8 @@ export const spatialInspectOperationDefinition = {
 
 export const spatialPatchOperationDefinition = {
   kind: "scene.patch", version: 1,
-  inputSchema: SpatialPatchInputSchema, inputSchemaId: "atet.operation.scene.patch.input/v1",
-  outputSchema: SpatialPatchOutputSchema, outputSchemaId: "atet.operation.scene.patch.output/v1",
+  inputSchema: SpatialPatchInputSchema, inputSchemaId: "slopcamera.operation.scene.patch.input/v1",
+  outputSchema: SpatialPatchOutputSchema, outputSchemaId: "slopcamera.operation.scene.patch.output/v1",
   policy: purePolicy,
   lifecycle: { kind: "pure", execute: (context, input) => {
     throwIfAborted(context.abortSignal);
@@ -83,8 +83,8 @@ export const spatialPatchOperationDefinition = {
 
 export const spatialEvaluateOperationDefinition = {
   kind: "scene.evaluate", version: 1,
-  inputSchema: SpatialEvaluateInputSchema, inputSchemaId: "atet.operation.scene.evaluate.input/v1",
-  outputSchema: EvaluatedSpatialSceneSchema, outputSchemaId: "atet.operation.scene.evaluate.output/v1",
+  inputSchema: SpatialEvaluateInputSchema, inputSchemaId: "slopcamera.operation.scene.evaluate.input/v1",
+  outputSchema: EvaluatedSpatialSceneSchema, outputSchemaId: "slopcamera.operation.scene.evaluate.output/v1",
   policy: purePolicy,
   lifecycle: { kind: "pure", execute: (context, input) => {
     throwIfAborted(context.abortSignal);

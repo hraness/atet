@@ -1,0 +1,4 @@
+interface:
+  display_name: "Slopcamera"
+  short_description: "Generate and edit video, images, audio, and diagrams"
+  default_prompt: "Use $slopcamera to create or edit this visual or media project from checked source, show a real preview, and preserve my literal requirements."

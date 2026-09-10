@@ -1,11 +1,11 @@
 import { z } from "zod"
 
-export const WORKFLOW_GRAPH_VERSION = "atet-workflow-graph-v2" as const
-export const WORKFLOW_REF_VERSION = "atet-workflow-ref-v1" as const
-export const GRAPH_ABI = "atet-workflow-graph-abi-v2" as const
-export const REQUIREMENT_ENVELOPE_VERSION = "atet-requirement-envelope-v2" as const
+export const WORKFLOW_GRAPH_VERSION = "slopcamera-workflow-graph-v2" as const
+export const WORKFLOW_REF_VERSION = "slopcamera-workflow-ref-v1" as const
+export const GRAPH_ABI = "slopcamera-workflow-graph-abi-v2" as const
+export const REQUIREMENT_ENVELOPE_VERSION = "slopcamera-requirement-envelope-v2" as const
 export const TRUSTED_COMPUTE_VERSION = 1 as const
-export const WORKFLOW_COMPILATION_VERSION = "atet-workflow-compilation-v1" as const
+export const WORKFLOW_COMPILATION_VERSION = "slopcamera-workflow-compilation-v1" as const
 export const LEGACY_WORKFLOW_GRAPH_VERSION = "studio-workflow-graph-v2" as const
 export const LEGACY_WORKFLOW_REF_VERSION = "studio-workflow-ref-v1" as const
 export const LEGACY_GRAPH_ABI = "studio-workflow-graph-abi-v2" as const
@@ -501,7 +501,7 @@ export interface OperationContract<Input, Output> {
 }
 
 export const TRUSTED_COMPUTE_BRAND: unique symbol = Symbol.for(
-  "atet.trusted-compute-definition",
+  "slopcamera.trusted-compute-definition",
 ) as never
 export const LEGACY_TRUSTED_COMPUTE_BRAND: unique symbol = Symbol.for(
   "studio.trusted-compute-definition",
@@ -541,7 +541,7 @@ export type OperationInputValue<Value> =
   )
 
 export const WORKFLOW_REF_BRAND: unique symbol = Symbol.for(
-  "atet.workflow-ref",
+  "slopcamera.workflow-ref",
 ) as never
 
 interface RefIdentity<Value> {

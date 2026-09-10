@@ -9,7 +9,7 @@ import { createPolyHavenAssetService, validateGltfAssetClosure } from "./poly-ha
 
 const roots: string[] = [];
 afterEach(async () => { for (const path of roots.splice(0)) await rm(path, { recursive: true, force: true }); });
-async function root(): Promise<string> { const value = await realpath(await mkdtemp(join(tmpdir(), "atet-poly-haven-"))); roots.push(value); return value; }
+async function root(): Promise<string> { const value = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-poly-haven-"))); roots.push(value); return value; }
 const md5 = (bytes: Uint8Array): string => createHash("md5").update(bytes).digest("hex");
 const hdri = Buffer.from("#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 1 +X 1\n\u0080\u0080\u0080\u0081", "latin1");
 const source = (bytes: Uint8Array, name: string) => ({ url: `${POLY_HAVEN.download}/file/ph-assets/HDRIs/hdr/1k/${name}`, size: bytes.length, md5: md5(bytes) });
@@ -94,7 +94,7 @@ test("glTF admits exact local dependencies and rejects omitted, extra and hidden
 });
 
 describe("bounded public network", () => {
-  test("identifies ATET and disables credentials and redirects", async () => {
+  test("identifies SLOPCAMERA and disables credentials and redirects", async () => {
     const fake = fakeNetwork(), network = createPolyHavenNetwork(fake);
     expect(await network.file(source(hdri, "test_1k.hdr").url, hdri.length)).toEqual(hdri);
     expect(fake.calls[0]!.init.redirect).toBe("error");

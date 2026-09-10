@@ -1,4 +1,4 @@
-import type { AtetGenerateDependencies } from "../generate.js"
+import type { SlopcameraGenerateDependencies } from "../generate.js"
 
 export type JsonRpcId = string | number
 export type JsonRpcResponseId = JsonRpcId | null
@@ -35,8 +35,8 @@ export interface McpToolDefinition {
   readonly name:
     | "check_diagram"
     | "render_diagram"
-    | "search_atet"
-    | "execute_atet"
+    | "search_slopcamera"
+    | "execute_slopcamera"
   readonly title: string
   readonly description: string
   readonly inputSchema: Readonly<Record<string, unknown>>
@@ -67,5 +67,5 @@ export interface McpServerOptions {
   readonly writeLine?: (line: string) => void | Promise<void>
   readonly serverVersion?: string
   /** Injectable Gateway runtime, environment, and fixed-origin fetch seams. */
-  readonly generateDependencies?: AtetGenerateDependencies
+  readonly generateDependencies?: SlopcameraGenerateDependencies
 }

@@ -10,7 +10,7 @@ import type { ProcessRunner } from "./io";
 import { verifySpatialCompositorOutput } from "./spatial-compositor-verifier";
 
 function request() {
-  const cadence = { kind: "atet.spatial-compositor-cadence" as const, schemaVersion: 1 as const,
+  const cadence = { kind: "slopcamera.spatial-compositor-cadence" as const, schemaVersion: 1 as const,
     projectionSha256: "a".repeat(64), compositionPlanSha256: "b".repeat(64),
     frameRate: { numerator: 30, denominator: 1 }, durationUs: 1_000_000, frameCount: 30 };
   const video = { streams: [{ codec_type: "video", codec_name: "h264", width: 16, height: 16, pix_fmt: "yuv420p", time_base: "1/30",
@@ -23,7 +23,7 @@ function request() {
 
 test.each(["stable", "once", "repeated", "bytes", "restored", "mode", "path", "hard-link", "native", "schema"] as const)(
   "timing verification handles %s evidence without re-encoding or trusting a mutable probe interval", async transition => {
-    const root = await realpath(await mkdtemp(join(tmpdir(), "atet-compositor-proof-")));
+    const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-compositor-proof-")));
     try {
       const outputPath = join(root, "out.mp4"), original = Buffer.from("original timing bytes");
       const stamp = new Date("2026-01-01T00:00:00Z");
@@ -93,7 +93,7 @@ test.each(["stable", "once", "repeated", "bytes", "restored", "mode", "path", "h
 );
 
 test("cancellation drains the admitted probe sibling and preserves native failure diagnostics", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-compositor-cancel-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-compositor-cancel-")));
   try {
     const outputPath = join(root, "out.mp4"); await writeFile(outputPath, "bounded media");
     const input = request(), controller = new AbortController();
@@ -122,7 +122,7 @@ test("cancellation drains the admitted probe sibling and preserves native failur
 });
 
 test("probe and descriptor cleanup failures retain both causes after closing the descriptor", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-compositor-close-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-compositor-close-")));
   try {
     const outputPath = join(root, "out.mp4"); await writeFile(outputPath, "bounded media");
     const input = request(), nativeOpen = fs.open;

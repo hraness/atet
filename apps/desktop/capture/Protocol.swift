@@ -92,7 +92,7 @@ struct CaptureOptions {
         systemAudio: true,
         typedText: false,
         typedTextFocusIdentities: nil,
-        excludedBundleIdentifiers: ["com.hraness.atet"]
+        excludedBundleIdentifiers: ["com.hraness.slopcamera"]
     )
 
     var json: [String: Any] {
@@ -569,7 +569,7 @@ final class ProtocolEmitter: @unchecked Sendable {
     }
 
     func diagnostic(_ message: String) {
-        let line = "atet-capture: \(bounded(message, maximumUTF8Bytes: 8_192))\n"
+        let line = "slopcamera-capture: \(bounded(message, maximumUTF8Bytes: 8_192))\n"
         guard let data = line.data(using: .utf8) else { return }
         try? FileHandle.standardError.write(contentsOf: data)
     }

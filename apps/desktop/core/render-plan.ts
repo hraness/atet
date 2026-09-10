@@ -425,7 +425,7 @@ export function compileRenderPlan(
       typedText: plan.effects.typedText,
       typingSpans,
     },
-    kind: "atet.render-plan",
+    kind: "slopcamera.render-plan",
     output: {
       durationUs: timeMap.durationUs,
       frameRate: options.frameRate,

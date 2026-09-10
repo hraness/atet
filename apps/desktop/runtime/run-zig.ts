@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { resolveZigExecutable } from "./zig-toolchain";
 import { renamedEnvironmentValue } from "../cli/renamed-environment";
 
-const workerBudgetVariable = "ATET_WORKER_BUDGET";
+const workerBudgetVariable = "SLOPCAMERA_WORKER_BUDGET";
 
 export function zigArgumentsWithWorkerBudget(
   arguments_: readonly string[],

@@ -24,13 +24,13 @@ function report(options: { format?: string; rate?: { numerator: number; denomina
 
 async function fixture(options: { format?: "mp4" | "mov" | "webm" | "exr" | "wav" | "usd" | "py"; count?: number; rate?: { numerator: number; denominator: number }; root?: string; native?: boolean;
   dataType?: "uint8" | "uint16" | "float32"; channels?: readonly string[]; alpha?: boolean } = {}) {
-  const root = options.root ?? await realpath(await mkdtemp(join(tmpdir(), "atet-studio-output-")));
+  const root = options.root ?? await realpath(await mkdtemp(join(tmpdir(), "slopcamera-studio-output-")));
   if (options.root === undefined) roots.push(root);
   await mkdir(root, { recursive: true });
   const tool = join(root, "tool"); await writeFile(tool, "#!/bin/sh\nexit 0\n"); await chmod(tool, 0o700);
   const format = options.format ?? "mp4", rate = options.rate ?? { numerator: 24, denominator: 1 };
   const role = format === "wav" ? "audio" : format === "usd" ? "model" : format === "py" ? "native-source" : "beauty";
-  const job = parseStudioJob({ kind: "atet.studio-job", schemaVersion: 1, jobId: "studio_output_fixture", bundleSha256: "a".repeat(64), stage: "render", parameters: {},
+  const job = parseStudioJob({ kind: "slopcamera.studio-job", schemaVersion: 1, jobId: "studio_output_fixture", bundleSha256: "a".repeat(64), stage: "render", parameters: {},
     engine: { engine: "manim", scene: "Fixture", renderer: "cairo", transparent: options.alpha ?? false },
     render: { width: 16, height: 16, frameRate: rate, startFrame: 7, endFrameExclusive: 7 + (options.count ?? 4) },
     outputs: [{ kind: "file", id: "beauty", role, format, path: `media.${format}`,
@@ -135,9 +135,9 @@ describe("studio decoded output boundaries", () => {
   });
 });
 
-const nativeTest = process.env.ATET_STUDIO_OUTPUT_NATIVE === "1" ? test : test.skip;
+const nativeTest = process.env.SLOPCAMERA_STUDIO_OUTPUT_NATIVE === "1" ? test : test.skip;
 nativeTest("native declared containers and rational clocks qualify; renamed playlist stays inert", async () => {
-  const root = join(process.cwd(), "artifacts", "atet", `studio-output-qualification-${Date.now()}`);
+  const root = join(process.cwd(), "artifacts", "slopcamera", `studio-output-qualification-${Date.now()}`);
   await mkdir(root, { recursive: true, mode: 0o700 });
   const results = [];
   const cases = [
@@ -170,7 +170,7 @@ nativeTest("native declared containers and rational clocks qualify; renamed play
   const f = await fixture({ root: join(root, "playlist"), native: true });
   await writeFile(f.path, "#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\nhttps://example.invalid/never-request.mp4\n#EXT-X-ENDLIST\n");
   await expect(f.run()).rejects.toThrow("fully decode");
-  await writeFile(join(root, "qualification.json"), studioJson({ kind: "atet.studio-output-validation-qualification", version: 1,
+  await writeFile(join(root, "qualification.json"), studioJson({ kind: "slopcamera.studio-output-validation-qualification", version: 1,
     validationSourceSha256: studioBytesSha256(await readFile(join(import.meta.dir, "studio-output-validation.ts"))), results, renamedPlaylistRejected: true }));
   console.log(`Studio output validation qualification: ${root}`);
 }, 120_000);

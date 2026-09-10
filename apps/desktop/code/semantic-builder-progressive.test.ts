@@ -87,7 +87,7 @@ const progressiveMedia = defineWorkflowFragment((
     transform: {
       audioStreamIndex: 0,
       effects: [{ gainDb: -3, kind: "volume" }],
-      kind: "atet.audio-effects-transform",
+      kind: "slopcamera.audio-effects-transform",
       output: { kind: "audio-only", profile: "wav-pcm-s16le" },
       schemaVersion: 1,
     },
@@ -96,7 +96,7 @@ const progressiveMedia = defineWorkflowFragment((
     input: ingested.select("artifact"),
     transform: {
       grade: { kind: "preset", preset: "clean" },
-      kind: "atet.color-grade-transform",
+      kind: "slopcamera.color-grade-transform",
       outputProfile: "h264-mp4",
       schemaVersion: 1,
       videoStreamIndex: 0,
@@ -313,23 +313,23 @@ describe("progressive semantic workflow helpers", () => {
       .toEqual(["recording-resume"]);
 
     expect(nodes.get("assets/audio")?.outputSchemaId)
-      .toBe("atet.operation.media.audio-effects.output/v1");
+      .toBe("slopcamera.operation.media.audio-effects.output/v1");
     expect(nodes.get("assets/color")?.outputSchemaId)
-      .toBe("atet.operation.media.color-grade.output/v1");
+      .toBe("slopcamera.operation.media.color-grade.output/v1");
     expect(nodes.get("assets/ingest")?.outputSchemaId)
-      .toBe("atet.operation.media.ingest.output/v1");
+      .toBe("slopcamera.operation.media.ingest.output/v1");
     expect(nodes.get("assets/html-overlay")?.outputSchemaId)
-      .toBe("atet.operation.media.html-overlay.output/v1");
+      .toBe("slopcamera.operation.media.html-overlay.output/v1");
     expect(nodes.get("assets/overlay")?.outputSchemaId)
-      .toBe("atet.operation.media.overlay.output/v1");
+      .toBe("slopcamera.operation.media.overlay.output/v1");
     expect(nodes.get("assets/image")?.outputSchemaId)
-      .toBe("atet.operation.gateway.image.output/v1");
+      .toBe("slopcamera.operation.gateway.image.output/v1");
     expect(nodes.get("assets/video")?.outputSchemaId)
-      .toBe("atet.operation.gateway.video.output/v1");
+      .toBe("slopcamera.operation.gateway.video.output/v1");
     expect(nodes.get("assets/speech")?.outputSchemaId)
-      .toBe("atet.operation.gateway.speech.output/v1");
+      .toBe("slopcamera.operation.gateway.speech.output/v1");
     expect(nodes.get("assets/transcription")?.outputSchemaId)
-      .toBe("atet.operation.gateway.transcription.output/v1");
+      .toBe("slopcamera.operation.gateway.transcription.output/v1");
   });
 
   test.each([

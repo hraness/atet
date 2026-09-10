@@ -23,7 +23,7 @@ jobs:
       - name: Verify immutable owner and public repository identity
         env:
           EXPECTED_ACTOR_ID: "894119"
-          EXPECTED_REPOSITORY: "hraness/atet"
+          EXPECTED_REPOSITORY: "hraness/slopcamera"
           EXPECTED_REPOSITORY_ID: "1310516748"
           REF_PROTECTED: ${{ github.ref_protected }}
         run: |
@@ -80,7 +80,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags --unshallow origin "refs/heads/main:refs/remotes/origin/main"
-          git fetch --no-tags origin "refs/tags/$GITHUB_REF_NAME:refs/atet-release-tags/$GITHUB_REF_NAME"
+          git fetch --no-tags origin "refs/tags/$GITHUB_REF_NAME:refs/slopcamera-release-tags/$GITHUB_REF_NAME"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24.18.1"
@@ -96,8 +96,8 @@ jobs:
           set -euo pipefail
           package_version="$(node -p 'require("./package.json").version')"
           [[ "$GITHUB_REF_NAME" == "v$package_version" ]]
-          [[ "$(git cat-file -t "refs/atet-release-tags/$GITHUB_REF_NAME")" == tag ]]
-          [[ "$(git rev-parse "refs/atet-release-tags/$GITHUB_REF_NAME^{commit}")" == "$GITHUB_SHA" ]]
+          [[ "$(git cat-file -t "refs/slopcamera-release-tags/$GITHUB_REF_NAME")" == tag ]]
+          [[ "$(git rev-parse "refs/slopcamera-release-tags/$GITHUB_REF_NAME^{commit}")" == "$GITHUB_SHA" ]]
           git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main
       - run: npm install --global --ignore-scripts npm@11.19.0 --registry=https://registry.npmjs.org
       - name: Install FFmpeg
@@ -107,13 +107,13 @@ jobs:
         run: |
           set -euo pipefail
           NODE_EXECUTABLE_PATH="$(command -v node)"
-          PLAYWRIGHT_BROWSERS_PATH="$(mktemp -d "$RUNNER_TEMP/atet-playwright.XXXXXX")"
+          PLAYWRIGHT_BROWSERS_PATH="$(mktemp -d "$RUNNER_TEMP/slopcamera-playwright.XXXXXX")"
           export NODE_EXECUTABLE_PATH PLAYWRIGHT_BROWSERS_PATH
           playwright_cli="$("$NODE_EXECUTABLE_PATH" -e 'const { createRequire } = require("node:module"); const { dirname, resolve } = require("node:path"); const appRequire = createRequire(resolve("apps/web/package.json")); const manifest = appRequire.resolve("playwright-core/package.json"); console.log(resolve(dirname(manifest), appRequire(manifest).bin["playwright-core"]))')"
           "$NODE_EXECUTABLE_PATH" "$playwright_cli" install --no-shell chromium
-          ATET_CHROME_PATH="$("$NODE_EXECUTABLE_PATH" -e 'const { createRequire } = require("node:module"); const { resolve } = require("node:path"); console.log(createRequire(resolve("apps/web/package.json"))("playwright-core").chromium.executablePath())')"
-          test -x "$ATET_CHROME_PATH"
-          export ATET_CHROME_PATH
+          SLOPCAMERA_CHROME_PATH="$("$NODE_EXECUTABLE_PATH" -e 'const { createRequire } = require("node:module"); const { resolve } = require("node:path"); console.log(createRequire(resolve("apps/web/package.json"))("playwright-core").chromium.executablePath())')"
+          test -x "$SLOPCAMERA_CHROME_PATH"
+          export SLOPCAMERA_CHROME_PATH
           bun run check
       - name: Verify clean source tree
         run: |
@@ -129,11 +129,11 @@ jobs:
           CURRENT_AUTHORITY_SHA: ${{ steps.authority.outputs.authority_sha }}
         run: |
           set -euo pipefail
-          release_directory="$RUNNER_TEMP/atet-release"
+          release_directory="$RUNNER_TEMP/slopcamera-release"
           mkdir "$release_directory"
           npm pack --ignore-scripts --json --pack-destination "$release_directory" --registry=https://registry.npmjs.org > "$release_directory/npm-pack.json"
           package_version="$(node -p 'require("./package.json").version')"
-          archive_name="hraness-atet-$package_version.tgz"
+          archive_name="hraness-slopcamera-$package_version.tgz"
           bun run scripts/prepare-github-release.ts "$release_directory"
           bun run scripts/package-smoke.ts --archive "$release_directory/$archive_name" --pack-json "$release_directory/npm-pack.json"
           printf 'archive_name=%s\n' "$archive_name" >> "$GITHUB_OUTPUT"
@@ -141,14 +141,14 @@ jobs:
         id: upload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: atet-release-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/atet-release
+          name: slopcamera-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/slopcamera-release
           compression-level: 0
           if-no-files-found: error
           retention-days: 30
 
   official_vtracer:
-    name: Atet VTracer (${{ matrix.target }})
+    name: Slopcamera VTracer (${{ matrix.target }})
     needs: verify
     permissions:
       contents: read
@@ -192,7 +192,7 @@ jobs:
           EXPECTED_ARCH: ${{ matrix.arch }}
 
   native_macos:
-    name: Atet macOS shell
+    name: Slopcamera macOS shell
     needs: verify
     permissions:
       contents: read
@@ -242,18 +242,18 @@ jobs:
           import { execFileSync } from 'node:child_process';
           import { writeFileSync } from 'node:fs';
           const e = process.env;
-          if (e.GITHUB_REPOSITORY !== 'hraness/atet' || e.GITHUB_REPOSITORY_ID !== '1310516748'
+          if (e.GITHUB_REPOSITORY !== 'hraness/slopcamera' || e.GITHUB_REPOSITORY_ID !== '1310516748'
             || e.GITHUB_ACTOR_ID !== '894119' || e.GITHUB_EVENT_NAME !== 'push'
             || !/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.test(e.GITHUB_REF_NAME ?? '')
             || e.GITHUB_REF !== `refs/tags/${e.GITHUB_REF_NAME}` || !/^[a-f0-9]{40}$/u.test(e.GITHUB_SHA ?? '')) throw new Error('Unexpected release request');
-          const api = path => JSON.parse(execFileSync('gh', ['api', `repos/hraness/atet/${path}`],
+          const api = path => JSON.parse(execFileSync('gh', ['api', `repos/hraness/slopcamera/${path}`],
             { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL', maxBuffer: 1000000, stdio: ['ignore', 'pipe', 'pipe'] }));
           const run = api(`actions/runs/${e.GITHUB_RUN_ID}/attempts/${e.GITHUB_RUN_ATTEMPT}`);
           if (run.id !== Number(e.GITHUB_RUN_ID) || run.run_attempt !== Number(e.GITHUB_RUN_ATTEMPT)
             || run.head_sha !== e.GITHUB_SHA || run.head_branch !== e.GITHUB_REF_NAME || run.event !== 'push'
             || run.workflow_id !== 320001524 || run.path !== '.github/workflows/release.yml'
             || run.actor?.id !== 894119 || run.actor?.type !== 'User' || run.triggering_actor?.id !== 894119 || run.triggering_actor?.type !== 'User'
-            || run.repository?.id !== 1310516748 || run.repository?.full_name !== 'hraness/atet' || run.repository?.private !== false
+            || run.repository?.id !== 1310516748 || run.repository?.full_name !== 'hraness/slopcamera' || run.repository?.private !== false
             || run.status !== 'in_progress' || run.conclusion !== null) throw new Error('Untrusted release attempt');
           const main = api('git/ref/heads/main').object;
           if (main?.type !== 'commit' || !/^[a-f0-9]{40}$/u.test(main.sha ?? '')) throw new Error('Invalid current main');
@@ -273,18 +273,18 @@ jobs:
         with:
           artifact-ids: ${{ needs.verify.outputs.artifact_id }}
           merge-multiple: true
-          path: ${{ runner.temp }}/atet-release
+          path: ${{ runner.temp }}/slopcamera-release
       - name: Rebind verified artifact before OIDC
-        run: node "$RUNNER_TEMP/github-release.ts" verify "$RUNNER_TEMP/atet-release"
+        run: node "$RUNNER_TEMP/github-release.ts" verify "$RUNNER_TEMP/slopcamera-release"
       - name: Attest exact canonical files
         id: provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: |
-            ${{ runner.temp }}/atet-release/${{ needs.verify.outputs.archive_name }}
-            ${{ runner.temp }}/atet-release/npm-pack.json
-            ${{ runner.temp }}/atet-release/release-manifest.json
-            ${{ runner.temp }}/atet-release/SHA256SUMS
+            ${{ runner.temp }}/slopcamera-release/${{ needs.verify.outputs.archive_name }}
+            ${{ runner.temp }}/slopcamera-release/npm-pack.json
+            ${{ runner.temp }}/slopcamera-release/release-manifest.json
+            ${{ runner.temp }}/slopcamera-release/SHA256SUMS
           push-to-registry: false
           create-storage-record: false
       - name: Preserve signed bundle and verify it
@@ -294,14 +294,14 @@ jobs:
         run: |
           set -euo pipefail
           test -f "$BUNDLE_PATH" && test ! -L "$BUNDLE_PATH"
-          cp "$BUNDLE_PATH" "$RUNNER_TEMP/atet-release/provenance.jsonl"
-          node "$RUNNER_TEMP/github-release.ts" verify "$RUNNER_TEMP/atet-release"
+          cp "$BUNDLE_PATH" "$RUNNER_TEMP/slopcamera-release/provenance.jsonl"
+          node "$RUNNER_TEMP/github-release.ts" verify "$RUNNER_TEMP/slopcamera-release"
       - name: Upload attested canonical artifact
         id: upload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: atet-attested-release-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/atet-release
+          name: slopcamera-attested-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/slopcamera-release
           compression-level: 0
           if-no-files-found: error
           retention-days: 30
@@ -332,18 +332,18 @@ jobs:
           import { execFileSync } from 'node:child_process';
           import { writeFileSync } from 'node:fs';
           const e = process.env;
-          if (e.GITHUB_REPOSITORY !== 'hraness/atet' || e.GITHUB_REPOSITORY_ID !== '1310516748'
+          if (e.GITHUB_REPOSITORY !== 'hraness/slopcamera' || e.GITHUB_REPOSITORY_ID !== '1310516748'
             || e.GITHUB_ACTOR_ID !== '894119' || e.GITHUB_EVENT_NAME !== 'push'
             || !/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.test(e.GITHUB_REF_NAME ?? '')
             || e.GITHUB_REF !== `refs/tags/${e.GITHUB_REF_NAME}` || !/^[a-f0-9]{40}$/u.test(e.GITHUB_SHA ?? '')) throw new Error('Unexpected release request');
-          const api = path => JSON.parse(execFileSync('gh', ['api', `repos/hraness/atet/${path}`],
+          const api = path => JSON.parse(execFileSync('gh', ['api', `repos/hraness/slopcamera/${path}`],
             { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL', maxBuffer: 1000000, stdio: ['ignore', 'pipe', 'pipe'] }));
           const run = api(`actions/runs/${e.GITHUB_RUN_ID}/attempts/${e.GITHUB_RUN_ATTEMPT}`);
           if (run.id !== Number(e.GITHUB_RUN_ID) || run.run_attempt !== Number(e.GITHUB_RUN_ATTEMPT)
             || run.head_sha !== e.GITHUB_SHA || run.head_branch !== e.GITHUB_REF_NAME || run.event !== 'push'
             || run.workflow_id !== 320001524 || run.path !== '.github/workflows/release.yml'
             || run.actor?.id !== 894119 || run.actor?.type !== 'User' || run.triggering_actor?.id !== 894119 || run.triggering_actor?.type !== 'User'
-            || run.repository?.id !== 1310516748 || run.repository?.full_name !== 'hraness/atet' || run.repository?.private !== false
+            || run.repository?.id !== 1310516748 || run.repository?.full_name !== 'hraness/slopcamera' || run.repository?.private !== false
             || run.status !== 'in_progress' || run.conclusion !== null) throw new Error('Untrusted release attempt');
           const main = api('git/ref/heads/main').object;
           if (main?.type !== 'commit' || !/^[a-f0-9]{40}$/u.test(main.sha ?? '')) throw new Error('Invalid current main');
@@ -363,6 +363,6 @@ jobs:
         with:
           artifact-ids: ${{ needs.attest.outputs.artifact_id }}
           merge-multiple: true
-          path: ${{ runner.temp }}/atet-release
+          path: ${{ runner.temp }}/slopcamera-release
       - name: Publish verified immutable GitHub Release
-        run: node "$RUNNER_TEMP/github-release.ts" publish "$RUNNER_TEMP/atet-release"
+        run: node "$RUNNER_TEMP/github-release.ts" publish "$RUNNER_TEMP/slopcamera-release"

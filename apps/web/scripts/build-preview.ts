@@ -40,7 +40,7 @@ async function sourceRoot(app: string): Promise<string> {
   if (relative(candidate, app).split(sep).join("/") !== "apps/web") return app
   try {
     const value: unknown = JSON.parse(new TextDecoder().decode(await bytesAt(join(candidate, "package.json"), 1024 * 1024)))
-    if (value !== null && typeof value === "object" && "name" in value && value.name === "@hraness/atet") return candidate
+    if (value !== null && typeof value === "object" && "name" in value && value.name === "@hraness/slopcamera") return candidate
   } catch (error) {
     if (!(error !== null && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error
   }
@@ -85,14 +85,14 @@ export async function buildPreview(appDirectory: string): Promise<BuiltPreview> 
     unionPolicySha256: stylexUnionPolicySha256, vite: viteVersion,
   }))
   const finalCssPath = `assets/preview-${fingerprint}.css`
-  const outputDirectory = await realpath(await mkdtemp(join(tmpdir(), "atet-web-preview-")))
+  const outputDirectory = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-web-preview-")))
   try {
     const generation = await createStylexGeneration({
       expectedGraphs: [
         { adapter: "vite", entrypoints: [below(root, join(app, "src/preview-foundation.ts"))], id: "preview-foundation", kind: "client" },
         { adapter: "bun", entrypoints: [below(root, join(app, "src/preview-renderer.ts"))], id: "preview-renderer", kind: "ssr" },
       ],
-      finalCssPath, generationId: "atet-preview", outputDirectory,
+      finalCssPath, generationId: "slopcamera-preview", outputDirectory,
       packageManifests: [manifestPath], rootDirectory: root,
       templates: [{ cssHref: `/${finalCssPath}`, graphId: "preview-renderer", outputPath: "preview.html", sourcePath: "preview.html", stylesheetGraphId: "preview-foundation" }],
     })

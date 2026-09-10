@@ -1,19 +1,21 @@
 # Native film studio
 
-ATET lets an agent retain a production scene, direct a native renderer, inspect its exact outputs and bring the result into an ordinary video project. Blender handles detailed 3D, CadQuery handles parametric solids and STEP, and Manim Community handles educational animation. Existing Three/Spark rendering, diagrams, image generation, narration, captions, effects and short-clip directing remain available in the same CLI.
+Slopcamera lets an agent retain a production scene, direct a native renderer, inspect its exact outputs and bring the result into an ordinary video project. Blender handles detailed 3D, CadQuery handles parametric solids and STEP, and Manim Community handles educational animation. Existing Three/Spark rendering, diagrams, image generation, narration, captions, effects and short-clip directing remain available in the same CLI.
 
 Native authoring preserves the engine's control. A Blender source can use armatures, skinning, IK, shape keys, geometry nodes, materials, lights, cameras and simulation caches. A CadQuery program preserves dimensions and solid operations. A Manim scene preserves mathematical objects and timing. Portable meshes and finished videos are derivatives; retain the native source when later edits require it.
 
+Use the [Slopcamera source installation](how-to/use-current-source.md) for the `studio` commands described here. Start with the [one-second native film tutorial](tutorials/first-native-film.md) for a bounded CPU shot, or use [educational animation with narration](how-to/educational-video.md) for Manim.
+
 ## Make the first shot
 
-Install a supported engine yourself, or use an existing installation. ATET does not silently install or upgrade native tools. The initial qualified versions are Blender 5.2.1 LTS, CadQuery 2.8.0 and Manim Community 0.21.0. Select the exact Blender executable or Python virtual environment for each invocation.
+Install a supported engine yourself, or use an existing installation. Slopcamera does not silently install or upgrade native tools. The initial qualified versions are Blender 5.2.1 LTS, CadQuery 2.8.0 and Manim Community 0.21.0. Select the exact Blender executable or Python virtual environment for each invocation.
 
 ```sh
-atet studio init product --template blender-product --json
-atet studio bundle product/source.json --json
-atet studio plan product/job.json --json
-atet studio probe product/job.json --blender-bin /Applications/Blender.app/Contents/MacOS/Blender --json
-atet studio run product/job.json --blender-bin /Applications/Blender.app/Contents/MacOS/Blender --allow-trusted-code --json
+slopcamera studio init product --template blender-product --json
+slopcamera studio bundle product/source.json --json
+slopcamera studio plan product/job.json --json
+slopcamera studio probe product/job.json --blender-bin /Applications/Blender.app/Contents/MacOS/Blender --json
+slopcamera studio run product/job.json --blender-bin /Applications/Blender.app/Contents/MacOS/Blender --allow-trusted-code --json
 ```
 
 The scaffold creates `scene.py`, any explicit helpers, `source.json` and `job.json`. Edit the source and job to direct the shot. After a source edit, run `studio bundle` again, copy the returned `bundleSha256` into the job and choose a new `jobId`. Reusing an old job ID with changed inputs is a conflict. `studio plan` parses and hashes the request without loading a native engine.
@@ -23,12 +25,12 @@ The default Blender product job requests Cycles GPU rendering. An unavailable GP
 Other starters:
 
 ```sh
-atet studio init character --template blender-character
-atet studio init city --template blender-shaded-street
-atet studio init cloth --template blender-cloth
-atet studio init liquid --template blender-fluid
-atet studio init bracket --template cadquery-bracket
-atet studio init lesson --template manim-lesson
+slopcamera studio init character --template blender-character
+slopcamera studio init city --template blender-shaded-street
+slopcamera studio init cloth --template blender-cloth
+slopcamera studio init liquid --template blender-fluid
+slopcamera studio init bracket --template cadquery-bracket
+slopcamera studio init lesson --template manim-lesson
 ```
 
 Run CAD or Manim with `--python /absolute/path/to/venv/bin/python`. Preserve that virtual-environment path: resolving its interpreter symlink to a system Python can select the wrong package environment.
@@ -49,9 +51,9 @@ Set `panelTexture: "panel.png"` and include that opaque 9:16 PNG in `source.json
 }
 ```
 
-The host stores a content-addressed manifest and immutable file copies under `artifacts/atet/private/studio/bundles/`. Jobs bind those retained bytes, typed engine settings, parameters, a stage, output declarations and limits. The source may execute at module scope or use the documented engine hooks. Blender and CadQuery support `build(context)`; an explicit bake job may call `bake(context)`. Manim selects a named scene class. See the checked examples for the exact hook contracts.
+The host stores a content-addressed manifest and immutable file copies under `artifacts/slopcamera/private/studio/bundles/`. Jobs bind those retained bytes, typed engine settings, parameters, a stage, output declarations and limits. The source may execute at module scope or use the documented engine hooks. Blender and CadQuery support `build(context)`; an explicit bake job may call `bake(context)`. Manim selects a named scene class. See the checked examples for the exact hook contracts.
 
-`ATET_CONTEXT` supplies detached parameters, stage, render clock and the private source/output/working roots. Helpers and imported assets belong in the explicit bundle. Diagnostics and temporary files belong in the working root; only declared deliverables belong in the output root. The host rejects undeclared files, links, empty outputs, missing frames and exceeded limits.
+`SLOPCAMERA_CONTEXT` supplies detached parameters, stage, render clock and the private source/output/working roots. Helpers and imported assets belong in the explicit bundle. Diagnostics and temporary files belong in the working root; only declared deliverables belong in the output root. The host rejects undeclared files, links, empty outputs, missing frames and exceeded limits.
 
 Frame intervals are half-open: `startFrame: 24, endFrameExclusive: 48` means 24 frames. Frame rate is a reduced rational numerator/denominator. Raster outputs declare channels, precision, color space, alpha and semantic meaning. Model outputs declare units, up axis and handedness. CadQuery's adapter explicitly converts its millimeter geometry into meter-scale, Y-up GLB; STEP remains millimeters and Z-up.
 
@@ -60,8 +62,8 @@ Successful receipts include the exact source/job/plan/runtime identities and eve
 ## Turn frames into a project clip
 
 ```sh
-atet studio encode <studio-id> --output-id beauty --json
-atet studio assemble <studio-id> --output-id beauty --name "The first shot" --json
+slopcamera studio encode <studio-id> --output-id beauty --json
+slopcamera studio assemble <studio-id> --output-id beauty --name "The first shot" --json
 ```
 
 Encoding accepts a successfully receipted PNG color sequence and creates a separately retained derivative. RGB becomes lossless H.264 RGB MP4; straight RGBA becomes lossless QTRLE MOV. The encoder checks every decoded frame against its source pixels and checks the exact clock. Native movie validation currently admits observed 8-bit RGB/RGBA interpretations; higher-precision video profiles require separate qualification. A 16-bit PNG sequence produces an explicitly recorded 8-bit derivative without dithering; the original masters remain intact. Linear EXR and data passes need an explicit compositing/color pipeline before delivery and are not silently converted by this command.
@@ -75,15 +77,15 @@ The returned artifact is an ordinary local media reference. A repeated encode ve
 The supported Poly Haven adapter searches and imports free HDRIs, selected PBR maps and glTF model dependencies. A selection chooses one asset, resolution and file format; the plan retains author, license, API credit, catalog bytes and the complete dependency list. Imports verify those bytes and retain SHA-256 identities. Powered by [Poly Haven](https://polyhaven.com/).
 
 ```sh
-atet studio assets search query.json --json
-atet studio assets describe dirty_football --json
-atet studio assets plan selection.json --json
-atet studio assets import asset-plan.json --json
+slopcamera studio assets search query.json --json
+slopcamera studio assets describe dirty_football --json
+slopcamera studio assets plan selection.json --json
+slopcamera studio assets import asset-plan.json --json
 ```
 
 A search input is `{"provider":"poly-haven","query":"football","type":"models","limit":5}`. A model selection is `{"provider":"poly-haven","assetId":"dirty_football","resolution":"1k","kind":"model","format":"gltf"}`. Save the complete JSON plan returned by the plan command before importing it. The default total download bound is 50 MiB. Include the returned source files explicitly in a studio bundle; acquisition never executes or inserts an asset into a native scene. See the [asset adapter contract](../apps/desktop/studio/assets/README.md) for texture/HDRI selections, current terms and supported dependencies.
 
-Use Blender's native importers for supplied GLB/glTF, OBJ/MTL, FBX and other supported formats. Retain all required textures, buffers and animation files. `examples/studio/blender/import_model.py` and the CadQuery STEP example show explicit local-input routes. Native imports have a broader feature set than ATET's deliberately bounded portable GLB parser; an imported native control rig is not automatically editable through portable spatial patches.
+Use Blender's native importers for supplied GLB/glTF, OBJ/MTL, FBX and other supported formats. Retain all required textures, buffers and animation files. `examples/studio/blender/import_model.py` and the CadQuery STEP example show explicit local-input routes. Native imports have a broader feature set tha Slopcamera's deliberately bounded portable GLB parser; an imported native control rig is not automatically editable through portable spatial patches.
 
 The original character example includes a deforming skeleton, blended weights, an IK target and facial shape keys. Keep control names and source parameters stable when directing later takes. Full upstream rigging APIs remain available to trusted authoring code, but arbitrary rig retargeting, production facial systems and third-party add-ons require their own setup and qualification.
 
@@ -105,17 +107,17 @@ Keep each native source alongside its portable representations. Use `.blend` for
 Admit an existing native output with an explicit asset identity:
 
 ```sh
-atet studio asset studio_city --output-id city --asset-id asset_city --representation native --json
-atet studio asset studio_shot --output-id beauty --asset-id asset_reference --representation native --frame 1 --json
-atet studio encode studio_shot --output-id beauty --json
-atet studio asset studio_shot --output-id beauty --asset-id asset_movie --representation encoded-video --json
+slopcamera studio asset studio_city --output-id city --asset-id asset_city --representation native --json
+slopcamera studio asset studio_shot --output-id beauty --asset-id asset_reference --representation native --frame 1 --json
+slopcamera studio encode studio_shot --output-id beauty --json
+slopcamera studio asset studio_shot --output-id beauty --asset-id asset_movie --representation encoded-video --json
 ```
 
 The result contains an `asset`, a `binding`, and a retained admission `receipt`. Add the asset to the spatial scene and supply an array of bindings through `scene render --assets bindings.json`. The asset payload path is a logical locator; the binding selects the exact retained physical bytes. Admission verifies the native job, source lineage and supported representation without executing source or encoding again. A sequence needs an exact frame for image admission. Encoded-video admission requires one unambiguous completed `studio encode` derivative. Conflicting derivatives require explicit resolution; there is no implicit latest selection.
 
 Prepared GLB geometry travels as a hash-bound local JSON resource, with source interpretation and validated primitives retained in the render evidence. Vertex arrays do not inflate the HTML document. An explicit resource fetch flag admits only its exact private path; the host and browser both verify its bytes. Existing geometry, texture, frame and resource limits still apply. Detailed native meshes may need an explicit preview LOD; preserve its export settings and measured bounds alongside the native source.
 
-Blender owns full native scene production. Three owns ATET's calibrated portable scene and world-space media composition. vgpu supplies programmable WebGPU passes. The [optional vgpu example](../examples/studio/vgpu/README.md) renders an exact-time graphic into retained raster frames for use on a world-space screen. It uses a separately provisioned runtime. It does not enable a second scene renderer or shared GPU textures inside ATET's WebGL2/Spark profile. The upstream [Three integration](https://github.com/vercel-labs/vgpu/blob/main/docs/topics/threejs.docs.md) can expose WGSL functions as TSL nodes, but using that path requires a qualified Three WebGPU profile.
+Blender owns full native scene production. Three owns Slopcamera's calibrated portable scene and world-space media composition. vgpu supplies programmable WebGPU passes. The [optional vgpu example](../examples/studio/vgpu/README.md) renders an exact-time graphic into retained raster frames for use on a world-space screen. It uses a separately provisioned runtime. It does not enable a second scene renderer or shared GPU textures inside Slopcamera's WebGL2/Spark profile. The upstream [Three integration](https://github.com/vercel-labs/vgpu/blob/main/docs/topics/threejs.docs.md) can expose WGSL functions as TSL nodes, but using that path requires a qualified Three WebGPU profile.
 
 ## Exchange calibrated cameras
 
@@ -128,12 +130,12 @@ Export one camera's evaluated poses and projection at a rational frame rate:
 Save that sampling request as `sampling.json`, then run:
 
 ```sh
-atet scene camera-track scene.json --request sampling.json --output camera-track.json --json
+slopcamera scene camera-track scene.json --request sampling.json --output camera-track.json --json
 ```
 
-The inert `atet.spatial-camera-track` document pins the scene revision and contains ordered `samples`, each with `frameIndex`, integer `timeUs`, exact rational `exactTimeUs`, and the existing `SpatialCamera` value. It preserves off-center principal points, unequal focal lengths, orthographic extents and the canonical Y-up meter basis. Export at most 2,048 frames per chunk within the 2 MiB JSON limit. Sampling uses the scene's half-open duration and independently rounds each exact sample once to microseconds.
+The inert `slopcamera.spatial-camera-track` document pins the scene revision and contains ordered `samples`, each with `frameIndex`, integer `timeUs`, exact rational `exactTimeUs`, and the existing `SpatialCamera` value. It preserves off-center principal points, unequal focal lengths, orthographic extents and the canonical Y-up meter basis. Export at most 2,048 frames per chunk within the 2 MiB JSON limit. Sampling uses the scene's half-open duration and independently rounds each exact sample once to microseconds.
 
-Retain this JSON in a native source bundle. The fixed Blender driver exposes `ATET_APPLY_SPATIAL_CAMERA(camera, camera_object=None)` to authored Python. It converts canonical `(x,y,z)` to Blender `(x,-z,y)` and preserves the camera's local negative-Z direction. Apply each sample explicitly at its associated native frame; do not interpolate a second time using an unrelated easing curve. A supplied camera must have no parent, constraints or animation owners. Unsupported native parameter ranges fail rather than silently changing framing. The helper does not exchange depth of field, distortion, shutter, lighting or color transforms.
+Retain this JSON in a native source bundle. The fixed Blender driver exposes `SLOPCAMERA_APPLY_SPATIAL_CAMERA(camera, camera_object=None)` to authored Python. It converts canonical `(x,y,z)` to Blender `(x,-z,y)` and preserves the camera's local negative-Z direction. Apply each sample explicitly at its associated native frame; do not interpolate a second time using an unrelated easing curve. A supplied camera must have no parent, constraints or animation owners. Unsupported native parameter ranges fail rather than silently changing framing. The helper does not exchange depth of field, distortion, shutter, lighting or color transforms.
 
 For a native animated camera, first calculate all requested poses on an unconstrained camera, then insert the saved poses as native keys. Calling the helper after adding an animation owner is rejected. A matching projection does not imply identical materials or lighting between renderers; use a shared raster surface when a cut must preserve finished pixels.
 
@@ -154,19 +156,19 @@ The Manim starter produces a 10-second portrait example with an original Luma pr
 Generate illustrations and narration through the existing Gateway operations, then retain their returned asset references:
 
 ```sh
-atet ai models list --type image --json
-atet ai image generate --model <image-model> --prompt-file illustration.txt --json
-atet ai models list --type speech --json
-atet ai speech generate --model <speech-model> --text-file narration.txt --json
+slopcamera ai models list --type image --json
+slopcamera ai image generate --model <image-model> --prompt-file illustration.txt --json
+slopcamera ai models list --type speech --json
+slopcamera ai speech generate --model <speech-model> --text-file narration.txt --json
 ```
 
 These generation commands can incur provider charges. Use the live catalog and existing explicit upload controls. Studio execution itself makes no paid model call. It neither receives provider credentials in its child environment nor automatically regenerates narration or images when a scene renders.
 
-Use `atet diagram init|check|render` for structured diagrams, `atet image vectorize` for local vectorization, existing transcription for measured captions, and ordinary audio/media operations for narration, music and SFX. Rhubarb mouth cues can be retained as measured performance input using the toolkit's conversion helper; mouth shapes are not word timestamps. A supplied or generated voice needs an actual listening/alignment review before authored cues can be described as synchronized speech.
+Use `slopcamera diagram init|check|render` for structured diagrams, `slopcamera image vectorize` for local vectorization, existing transcription for measured captions, and ordinary audio/media operations for narration, music and SFX. Rhubarb mouth cues can be retained as measured performance input using the toolkit's conversion helper; mouth shapes are not word timestamps. A supplied or generated voice needs an actual listening/alignment review before authored cues can be described as synchronized speech.
 
 Ordinary project overlays interpret `--position x,y` as a pixel offset from the selected anchor. Use `--anchor center --position 0,0` to center an overlay, or `--anchor top-left --position 42,70 --width 636 --height 180` to place a caption inside a 720×1280 portrait frame with 42-pixel side margins. A full-frame closing image uses `--anchor top-left --position 0,0` with the output dimensions. Inspect the rendered caption bounds and closing frame before delivery.
 
-The Manim driver owns silent visuals and exact frames. It rejects source-side audio so the existing ATET composition remains the audio owner. That separation lets an agent revise narration or sound independently while preserving the mathematical rendering and provider receipts.
+The Manim driver owns silent visuals and exact frames. It rejects source-side audio so the existing Slopcamera composition remains the audio owner. That separation lets an agent revise narration or sound independently while preserving the mathematical rendering and provider receipts.
 
 ## Qualified profiles and extension limits
 
@@ -182,28 +184,28 @@ Local acceptance used Blender 5.2.1 LTS on an Apple M4 Max, CadQuery 2.8.0 and M
 | Education | Portrait presenter, Typst mathematics, exact frame interval and transparent frame output | Authored cue timing is distinct from measured speech alignment |
 | Acquisition | Free Poly Haven HDRI and complete glTF dependency closure, verified offline replay | Other catalogs use authorized supplied files; no generic marketplace automation |
 
-Blender's native Python APIs can author Geometry Nodes, hair, volumes, additional solvers and compositor effects. Those APIs are available to trusted source; ATET does not advertise each as a separately qualified automatic workflow. USD, Alembic and other interchange retain only the semantics their particular exporters support. Robotics or RL environments additionally need step/reset, state/action, sensor and physical validation contracts; a cinematic scene or splat capture alone does not supply those guarantees.
+Blender's native Python APIs can author Geometry Nodes, hair, volumes, additional solvers and compositor effects. Those APIs are available to trusted source; Slopcamera does not advertise each as a separately qualified automatic workflow. USD, Alembic and other interchange retain only the semantics their particular exporters support. Robotics or RL environments additionally need step/reset, state/action, sensor and physical validation contracts; a cinematic scene or splat capture alone does not supply those guarantees.
 
 ## Use native jobs in an agent workflow
 
-The checked `examples/studio/native-workflow.ts` accepts `{bundle: {path: "<retained manifest>"}, job: <job document>}` as its input JSON. The local declarative SDK exposes `.studio.run()` through `@hraness/atet/local/code`. Its closed operation is `atet.studio.run`. Inputs refer to the retained bundle manifest and a parsed studio job; planning binds the installed runtime under normal host admission. Outputs are ordinary hash-bound media references and a studio receipt, ready for subsequent retained media operations.
+The checked `examples/studio/native-workflow.ts` accepts `{bundle: {path: "<retained manifest>"}, job: <job document>}` as its input JSON. The local declarative SDK exposes `.studio.run()` through `@hraness/slopcamera/local/code`. Its closed operation is `slopcamera.studio.run`. Inputs refer to the retained bundle manifest and a parsed studio job; planning binds the installed runtime under normal host admission. Outputs are ordinary hash-bound media references and a studio receipt, ready for subsequent retained media operations.
 
 ```sh
-atet code run film.ts --input input.json --studio-python /absolute/venv/bin/python --allow-trusted-code --json
-atet runs resume <run-id> --studio-python /absolute/venv/bin/python --allow-trusted-code --json
+slopcamera code run film.ts --input input.json --studio-python /absolute/venv/bin/python --allow-trusted-code --json
+slopcamera runs resume <run-id> --studio-python /absolute/venv/bin/python --allow-trusted-code --json
 ```
 
 The same runtime/authorization flags are available on `workflows run`. Runtime selection alone does not authorize source execution. A missing native trust envelope pauses the node before dispatch; adding the explicit flag on resume permits the exact bound plan. Generic stored write approval cannot grant native code permission. Changing a runtime, source or job after binding requires a compatible new plan.
 
 Use the source-backed Bun package for `code` workflows and local SDK imports. The copied macOS executable supports direct `studio` commands with embedded starters and drivers; its older workflow build-identity scanner still requires the installed source distribution.
 
-Native results can be imported into ordinary ATET projects with their declared video/audio roles. The existing V2 spatial renderer still has its qualified Three-specific rendering path; attaching a native candidate does not make that path consume it. Preserve a native shot's source and receipt alongside its ordinary project media derivative.
+Native results can be imported into ordinary Slopcamera projects with their declared video/audio roles. The existing V2 spatial renderer still has its qualified Three-specific rendering path; attaching a native candidate does not make that path consume it. Preserve a native shot's source and receipt alongside its ordinary project media derivative.
 
 ## Inspection and recovery
 
 ```sh
-atet studio inspect <studio-id> --json
-atet studio reconcile <studio-id> --json
+slopcamera studio inspect <studio-id> --json
+slopcamera studio reconcile <studio-id> --json
 ```
 
 Inspection rechecks source and physical output hashes. Reconciliation can restore a missing receipt only when a closed successful process completion and an unchanged output-validation checkpoint exist. Earlier interrupted execution remains ambiguous and is never automatically resubmitted. Choose a new job ID for an explicitly revised attempt after custody is settled.

@@ -84,10 +84,10 @@ describe("creative image recipes", () => {
   test("quotes treatment data instead of interpolating it as prompt instructions", () => {
     const prompt = createMetallicLogoPrompt({
       backgroundColor: "warm gray",
-      brandName: 'Hraness "Atet"',
+      brandName: 'Hraness "Slopcamera"',
       objectColor: 'brushed "cobalt"',
     });
-    expect(prompt).toContain('"brandName":"Hraness \\"Atet\\""');
+    expect(prompt).toContain('"brandName":"Hraness \\"Slopcamera\\""');
     expect(prompt).toContain('"objectColor":"brushed \\"cobalt\\""');
     expect(prompt).not.toContain('a brushed "cobalt" metal surface');
   });

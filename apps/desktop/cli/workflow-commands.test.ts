@@ -72,13 +72,13 @@ async function repositoryFixture(): Promise<{
   readonly root: string;
 }> {
   const root = await realpath(
-    await mkdtemp(join(tmpdir(), "atet-workflow-cli-")),
+    await mkdtemp(join(tmpdir(), "slopcamera-workflow-cli-")),
   );
   const paths: RepositoryPaths = {
-    artifactRoot: join(root, "artifacts", "atet"),
+    artifactRoot: join(root, "artifacts", "slopcamera"),
     desktopRoot: join(root, "desktop"),
-    privateRoot: join(root, ".atet"),
-    projectRoot: join(root, "projects", "atet"),
+    privateRoot: join(root, ".slopcamera"),
+    projectRoot: join(root, "projects", "slopcamera"),
     repositoryRoot: root,
   };
   await Promise.all([
@@ -90,7 +90,7 @@ async function repositoryFixture(): Promise<{
 }
 
 const PURE_WORKFLOW = `import { z } from "zod";
-import { defineWorkflow } from "@hraness/atet/local/code";
+import { defineWorkflow } from "@hraness/slopcamera/local/code";
 
 export default defineWorkflow({
   id: "pure-edit-batch",
@@ -113,7 +113,7 @@ export default defineWorkflow({
 `;
 
 const PROJECT_EDIT_WORKFLOW = `import { z } from "zod";
-import { defineWorkflow } from "@hraness/atet/local/code";
+import { defineWorkflow } from "@hraness/slopcamera/local/code";
 
 export default defineWorkflow({
   id: "checked-project-cut",
@@ -140,7 +140,7 @@ export default defineWorkflow({
 `;
 
 const TYPE_INVALID_WORKFLOW = `import { z } from "zod";
-import { defineWorkflow } from "@hraness/atet/local/code";
+import { defineWorkflow } from "@hraness/slopcamera/local/code";
 
 export default defineWorkflow({
   id: "type-invalid-recording",
@@ -163,7 +163,7 @@ export default defineWorkflow({
 `;
 
 const COMPUTE_WORKFLOW = `import { z } from "zod";
-import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
+import { defineCompute, defineWorkflow } from "@hraness/slopcamera/local/code";
 
 const double = defineCompute({
   key: "example.double",
@@ -192,7 +192,7 @@ export default defineWorkflow({
 function interruptedComputeWorkflow(marker: string): string {
   return `import { appendFileSync } from "node:fs";
 import { z } from "zod";
-import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
+import { defineCompute, defineWorkflow } from "@hraness/slopcamera/local/code";
 
 appendFileSync(
   ${JSON.stringify(marker)},
@@ -228,7 +228,7 @@ export default defineWorkflow({
 function parallelComputeWorkflow(marker: string): string {
   return `import { appendFileSync } from "node:fs";
 import { z } from "zod";
-import { defineCompute, defineWorkflow } from "@hraness/atet/local/code";
+import { defineCompute, defineWorkflow } from "@hraness/slopcamera/local/code";
 
 const marker = ${JSON.stringify(marker)};
 appendFileSync(marker, JSON.stringify({ kind: "load", pid: process.pid }) + "\\n");
@@ -295,13 +295,13 @@ describe("workflow CLI", () => {
       )).toBe(0);
       expect(JSON.parse(operationDescription.stdout())).toMatchObject({
         inputJsonSchema: {
-          $id: "atet.operation.derive.edit-batch.input/v1",
+          $id: "slopcamera.operation.derive.edit-batch.input/v1",
           additionalProperties: false,
           type: "object",
         },
         kind: "derive.edit-batch",
         outputJsonSchema: {
-          $id: "atet.operation.derive.edit-batch.output/v1",
+          $id: "slopcamera.operation.derive.edit-batch.output/v1",
           additionalProperties: false,
           type: "object",
         },
@@ -314,13 +314,13 @@ describe("workflow CLI", () => {
       )).toBe(0);
       expect(JSON.parse(completeOperationDescription.stdout())).toMatchObject({
         inputJsonSchema: {
-          $id: "atet.operation.derive.edit-batch.input/v2",
+          $id: "slopcamera.operation.derive.edit-batch.input/v2",
           additionalProperties: false,
           type: "object",
         },
         kind: "derive.edit-batch",
         outputJsonSchema: {
-          $id: "atet.operation.derive.edit-batch.output/v2",
+          $id: "slopcamera.operation.derive.edit-batch.output/v2",
           additionalProperties: false,
           type: "object",
         },
@@ -335,7 +335,7 @@ describe("workflow CLI", () => {
       expect(JSON.parse(workflowDescription.stdout())).toMatchObject({
         id: "polished-screen-demo",
         inputJsonSchema: {
-          $id: "atet.workflow.polished-screen-demo.input/v4",
+          $id: "slopcamera.workflow.polished-screen-demo.input/v4",
           additionalProperties: false,
           type: "object",
         },
@@ -352,7 +352,7 @@ describe("workflow CLI", () => {
       );
       expect(initializedSource).toContain("defineWorkflow");
       expect(initializedSource).toContain(
-        'inputSchemaId: "atet.workflow.clean-demo.input/v1"',
+        'inputSchemaId: "slopcamera.workflow.clean-demo.input/v1"',
       );
       expect(initializedSource).toContain("workflow.project.freezeRevision");
       expect(initializedSource).toContain("workflow.render.plan");
@@ -381,7 +381,7 @@ describe("workflow CLI", () => {
   test("rejects repository JSON paths that cross a symlink", async () => {
     const runCli = createWorkflowTestCliRunner(2);
     const fixture = await repositoryFixture();
-    const outside = await mkdtemp(join(tmpdir(), "atet-workflow-outside-"));
+    const outside = await mkdtemp(join(tmpdir(), "slopcamera-workflow-outside-"));
     try {
       await writeFile(join(outside, "input.json"), "{}\n");
       await symlink(outside, join(fixture.root, "linked"));
@@ -612,7 +612,7 @@ describe("workflow CLI", () => {
         paths: fixture.paths,
       })).toBe(0);
       expect(shown.stdout()).toContain(
-        `atet runs resume ${interrupted.summary.runId} --replay-ambiguous-code recover`,
+        `slopcamera runs resume ${interrupted.summary.runId} --replay-ambiguous-code recover`,
       );
 
       const ordinary = testIo(fixture.root);

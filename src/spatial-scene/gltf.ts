@@ -4,7 +4,7 @@ import { SpatialSceneError } from "./identity.js"
 import { composeTransform, invertTransform, multiplyTransforms, normalizeQuaternion, slerpQuaternion, transformPoint, type Bounds, type Mat4, type Quaternion, type Vec3 } from "./math.js"
 
 /** Deliberately closed GLB 2.0 profile. It is not a general glTF loader. */
-export const SPATIAL_GLB_PROFILE = "atet.glb-triangles-trs-pbr-basecolor-v1"
+export const SPATIAL_GLB_PROFILE = "slopcamera.glb-triangles-trs-pbr-basecolor-v1"
 export const SPATIAL_GLB_LIMITS = Object.freeze({
   bytes: 134_217_728, jsonBytes: 2_097_152, jsonValues: 200_000, jsonDepth: 32,
   nodes: 4096, meshes: 256, primitives: 256, verticesPerPrimitive: 65_536,

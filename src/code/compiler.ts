@@ -42,7 +42,7 @@ import {
   canonicalJsonSha256Prefixed,
 } from "./canonical-json.js"
 import { parseCodeBoundary } from "./boundary.js"
-import { AtetCodeError } from "./errors.js"
+import { SlopcameraCodeError } from "./errors.js"
 import {
   createBoundedJsonValueSnapshot,
   deepFreezeJson,
@@ -53,9 +53,9 @@ import {
   parseWorkflowRegistryProjection,
 } from "./projection.js"
 
-export const WORKFLOW_GRAPH_HASH_DOMAIN = "atet.workflow.graph/v1" as const
+export const WORKFLOW_GRAPH_HASH_DOMAIN = "slopcamera.workflow.graph/v1" as const
 export const WORKFLOW_COMPILATION_HASH_DOMAIN =
-  "atet.workflow.compilation/v1" as const
+  "slopcamera.workflow.compilation/v1" as const
 
 export const DEFAULT_GRAPH_COMPILER_LIMITS = Object.freeze({
   maxDepth: 64,
@@ -122,7 +122,7 @@ function invalidData(
   message: string,
   details?: Readonly<Record<string, unknown>>,
 ): never {
-  throw new AtetCodeError("invalid-data", message, details)
+  throw new SlopcameraCodeError("invalid-data", message, details)
 }
 
 function deepFreeze<Value>(value: Value): Value {
@@ -143,9 +143,9 @@ function uniqueSorted<Value extends string>(
   return [...new Set(values)].sort((left, right) => left.localeCompare(right))
 }
 
-function canonicalAtetIdentity(value: string): string {
-  if (value === "studio") return "atet"
-  return value.replace(/^studio\./u, "atet.")
+function canonicalSlopcameraIdentity(value: string): string {
+  if (value === "studio") return "slopcamera"
+  return value.replace(/^studio\./u, "slopcamera.")
 }
 
 function safeAdd(left: number, right: number, name: string): number {
@@ -244,7 +244,7 @@ function canonicalizeGraphValue(
     return {
       $ref: {
         ...value.$ref,
-        schemaId: canonicalAtetIdentity(value.$ref.schemaId),
+        schemaId: canonicalSlopcameraIdentity(value.$ref.schemaId),
       },
       version: WORKFLOW_REF_VERSION,
     }
@@ -272,26 +272,26 @@ function canonicalizeAuthoredWorkflowGraph(
             kind: "operation" as const,
             operation: {
               ...node.executor.operation,
-              kind: canonicalAtetIdentity(node.executor.operation.kind),
+              kind: canonicalSlopcameraIdentity(node.executor.operation.kind),
             },
           }
         : {
             compute: {
               ...node.executor.compute,
-              key: canonicalAtetIdentity(node.executor.compute.key),
+              key: canonicalSlopcameraIdentity(node.executor.compute.key),
             },
             kind: "compute" as const,
           },
       input: canonicalizeGraphValue(node.input),
-      inputSchemaId: canonicalAtetIdentity(node.inputSchemaId),
-      outputSchemaId: canonicalAtetIdentity(node.outputSchemaId),
+      inputSchemaId: canonicalSlopcameraIdentity(node.inputSchemaId),
+      outputSchemaId: canonicalSlopcameraIdentity(node.outputSchemaId),
     })),
     outputs: canonicalizeGraphValue(graph.outputs),
     version: WORKFLOW_GRAPH_VERSION,
     workflow: {
       ...graph.workflow,
-      id: canonicalAtetIdentity(graph.workflow.id),
-      inputSchemaId: canonicalAtetIdentity(graph.workflow.inputSchemaId),
+      id: canonicalSlopcameraIdentity(graph.workflow.id),
+      inputSchemaId: canonicalSlopcameraIdentity(graph.workflow.inputSchemaId),
     },
   }, "canonical authored workflow graph"))
 }
@@ -499,7 +499,7 @@ function validateGraph(
         operationKey(identity.kind, identity.version),
       )
       if (operation === undefined) {
-        throw new AtetCodeError(
+        throw new SlopcameraCodeError(
           "unsupported-plan",
           `Unsupported operation: ${operationKey(identity.kind, identity.version)}`,
           {
@@ -531,7 +531,7 @@ function validateGraph(
       policy = operation.policy
     } else if (isComputeGraphNode(node)) {
       if (!projection.trustedCompute) {
-        throw new AtetCodeError(
+        throw new SlopcameraCodeError(
           "unsupported-plan",
           `Trusted compute is unsupported at node ${node.key}.`,
           {
@@ -543,7 +543,7 @@ function validateGraph(
       }
       policy = trustedComputePolicy(node.executor.compute)
     } else {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "internal",
         `Unknown node executor for ${node.key}.`,
       )
@@ -611,7 +611,7 @@ function validateGraph(
 function operationFamily(kind: OperationKind): string {
   const separator = kind.indexOf(".")
   if (separator < 1) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "internal",
       `Operation ${kind} has no namespace family.`,
       { kind },
@@ -647,7 +647,7 @@ function deriveRequirementEnvelope(validated: ValidatedGraph): RequirementEnvelo
   for (const node of validated.graph.nodes) {
     const policy = validated.policiesByNode.get(node.key)
     if (policy === undefined) {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "internal",
         `Node ${node.key} lost its execution policy.`,
       )
@@ -749,9 +749,9 @@ function canonicalizeRequirementEnvelope(
   )
   return parseCodeBoundary(RequirementEnvelopeSchema, {
     ...envelope,
-    computeKeys: envelope.computeKeys.map(canonicalAtetIdentity),
-    operationFamilies: envelope.operationFamilies.map(canonicalAtetIdentity),
-    operationKinds: envelope.operationKinds.map(canonicalAtetIdentity),
+    computeKeys: envelope.computeKeys.map(canonicalSlopcameraIdentity),
+    operationFamilies: envelope.operationFamilies.map(canonicalSlopcameraIdentity),
+    operationKinds: envelope.operationKinds.map(canonicalSlopcameraIdentity),
     version: REQUIREMENT_ENVELOPE_VERSION,
   }, "canonical workflow requirement envelope")
 }
@@ -765,7 +765,7 @@ function resolveProjection(
       || options.projectionId !== undefined
       || options.trustedCompute !== undefined
     ) {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "invalid-data",
         "Compile with either a projection or a registry projection source, not both.",
       )
@@ -774,7 +774,7 @@ function resolveProjection(
   }
   if (options.registry !== undefined) {
     if (options.projectionId === undefined) {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "invalid-data",
         "A registry projection source requires an explicit projection id.",
       )
@@ -786,7 +786,7 @@ function resolveProjection(
     )
   }
   if (options.projectionId !== undefined || options.trustedCompute !== undefined) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
       "A projection id or trusted-compute authority requires a registry projection source.",
     )
@@ -888,7 +888,7 @@ export function parseCompiledWorkflowGraph(input: unknown): CompiledWorkflowGrap
   } = shallow
   const expected = workflowCompilationHashFromValidated(unsigned)
   if (parsedCompilationSha256 !== expected) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
       "Workflow compilation hash does not match its contents.",
       {
@@ -904,14 +904,14 @@ export function parseCompiledWorkflowGraph(input: unknown): CompiledWorkflowGrap
   )
   const exactGraph = parseAuthoredWorkflowGraphPreservingIdentity(parsed.graph)
   if (canonicalJsonSha256(parsed.graph) !== canonicalJsonSha256(exactGraph)) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
       "Compiled workflow graph nodes are not normalized.",
     )
   }
   const expectedGraphSha256 = workflowGraphHashFromNormalized(exactGraph)
   if (parsed.graphSha256 !== expectedGraphSha256) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
       "Workflow graph hash does not match its authenticated contents.",
       {
@@ -944,7 +944,7 @@ export function parseCompiledWorkflowGraph(input: unknown): CompiledWorkflowGrap
     recompiled.compilationSha256
     !== workflowCompilationHashFromValidated(canonicalUnsigned)
   ) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
       "Workflow compilation topology, requirements, or projection do not match the graph.",
     )

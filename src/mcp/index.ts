@@ -1,11 +1,11 @@
 export {
-  atetMcpProtocolVersion,
-  atetMcpServerName,
+  slopcameraMcpProtocolVersion,
+  slopcameraMcpServerName,
   runMcpServer,
 } from "./server.js"
 export {
-  atetMcpTools,
-  AtetMcpToolRuntime,
+  slopcameraMcpTools,
+  SlopcameraMcpToolRuntime,
   mcpMaximumEdges,
   mcpMaximumRenderedPixels,
   mcpMaximumReturnedFindings,

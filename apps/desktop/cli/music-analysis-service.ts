@@ -15,7 +15,7 @@ import {
 } from "../contracts";
 import {
   analyzeMusic,
-  canonicalAtetPersistenceDocument,
+  canonicalSlopcameraPersistenceDocument,
   canonicalJson,
   canonicalJsonSha256,
   saveAnalysisArtifact,
@@ -352,7 +352,7 @@ export async function analyzeProjectMusic(
 
   const config = validateMusicConfig(options.config ?? DEFAULT_MUSIC_ANALYSIS_CONFIG);
   const tool = AnalysisToolSchema.parse({
-    name: "atet-music-analyzer",
+    name: "slopcamera-music-analyzer",
     profile: "mono-pcm-spectral-v1",
     version: options.toolVersion,
   });
@@ -423,7 +423,7 @@ export async function analyzeAndPersistProjectMusic(
     project: options.project.project,
     updatedAt: analyzed.analysis.createdAt,
   });
-  const project = canonicalAtetPersistenceDocument(update.project);
+  const project = canonicalSlopcameraPersistenceDocument(update.project);
   await saveVideoProject(options.project.fileSystem, project);
   return {
     analysis: analyzed.analysis,

@@ -35,10 +35,10 @@ function within(root: string, candidate: string): boolean {
 function displayPath(path: string): string {
   if (within(desktopRoot, path)) return relative(desktopRoot, path);
   if (within(sdkSourceRoot, path)) {
-    return `@hraness/atet/${relative(sdkSourceRoot, path)}`;
+    return `@hraness/slopcamera/${relative(sdkSourceRoot, path)}`;
   }
   if (within(sceneSourceRoot, path)) {
-    return `@hraness/atet/scene/${relative(sceneSourceRoot, path)}`;
+    return `@hraness/slopcamera/scene/${relative(sceneSourceRoot, path)}`;
   }
   return path;
 }
@@ -86,7 +86,7 @@ async function browserImportBoundary(entry: string): Promise<Readonly<{
       }
       if (
         !specifier.startsWith(".")
-        && !specifier.startsWith("@hraness/atet")
+        && !specifier.startsWith("@hraness/slopcamera")
       ) continue;
       const resolved = await Bun.resolve(specifier, dirname(sourcePath));
       if (
@@ -118,7 +118,7 @@ test("the Direct browser graph cannot reach host-only Node modules", async () =>
   expect(boundary.modules).toContain("direct/workflow-fixtures.ts");
   expect(boundary.modules).toContain("code/semantic-builder.ts");
   expect(boundary.modules).toContain(
-    "@hraness/atet/code/compiler.ts",
+    "@hraness/slopcamera/code/compiler.ts",
   );
   expect(boundary.failures).toEqual([]);
 });

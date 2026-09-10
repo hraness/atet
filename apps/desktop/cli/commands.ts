@@ -15,7 +15,7 @@ import {
   type HostResourceClaim,
   type HostResourceCoordinator,
   type HostResourceLease,
-} from "@hraness/atet/host-resources";
+} from "@hraness/slopcamera/host-resources";
 import {
   AnalyzerEvidenceV1Schema,
   AlignmentCandidateIdSchema,
@@ -52,7 +52,7 @@ import {
   addZoom,
   buildProjectOutputTimeMap,
   buildSourceTimeMap,
-  canonicalAtetPersistenceDocument,
+  canonicalSlopcameraPersistenceDocument,
   canonicalJson,
   compileProjectRenderPlan,
   compileRenderPlan,
@@ -188,7 +188,7 @@ import {
 } from "./project-inactivity-service";
 import { resolveAnimatedPlaybackWindow } from "./overlay-playback";
 import { analyzeProjectScenes } from "./scene-analysis-service";
-import type { SceneDescriptionProvider } from "@hraness/atet/scene";
+import type { SceneDescriptionProvider } from "@hraness/slopcamera/scene";
 import { parseCliTime } from "./time";
 import {
   DEFAULT_FACE_ANALYSIS_CONFIG,
@@ -263,9 +263,9 @@ import {
   ProjectEditBatchSchema,
   ProjectEditBatchV3Schema,
   ProjectEditCommitReceiptSchema,
-  AtetDiagramCheckOutputSchema,
-  AtetDiagramRenderOutputSchema,
-  AtetImageVectorizeOutputSchema,
+  SlopcameraDiagramCheckOutputSchema,
+  SlopcameraDiagramRenderOutputSchema,
+  SlopcameraImageVectorizeOutputSchema,
   type ApplicationContext,
   type OperationExecutionContext,
 } from "../application";
@@ -300,7 +300,7 @@ import {
   workflowRunStore,
 } from "./workflow-runs";
 
-export const ATET_VERSION = "3.2.3";
+export const SLOPCAMERA_VERSION = "3.2.3";
 
 // Legacy direct renders predate per-target output contracts. Keep them
 // bounded generously enough for long-form production while preventing one
@@ -407,7 +407,7 @@ function contextWithApplicationHostResourceLease(
   if (inheritedFileDescriptors.length > 16) {
     throw new CliError(
       "unavailable",
-      "A direct Atet subprocess cannot inherit more than 16 file descriptors.",
+      "A direct Slopcamera subprocess cannot inherit more than 16 file descriptors.",
     );
   }
   const combinedLease: NonNullable<ApplicationContext["hostResourceLease"]> =
@@ -454,7 +454,7 @@ function contextWithApplicationHostResourceLease(
         if (subprocessDescriptors.length > 16) {
           throw new CliError(
             "unavailable",
-            "A direct Atet subprocess cannot inherit more than 16 file descriptors.",
+            "A direct Slopcamera subprocess cannot inherit more than 16 file descriptors.",
           );
         }
         return await context.runner.run(argv, {
@@ -811,7 +811,7 @@ async function persistMutation(
   json: boolean,
   io: CliIo,
 ): Promise<void> {
-  const persistedPlan = canonicalAtetPersistenceDocument(plan);
+  const persistedPlan = canonicalSlopcameraPersistenceDocument(plan);
   await ensurePrivateDirectory(join(recording.directory.path, "edits"));
   await saveEditPlan(recording.fileSystem, persistedPlan, CURRENT_EDIT_PLAN_PATH);
   const receipt = mutationReceipt(recording, operation, persistedPlan);
@@ -899,7 +899,7 @@ async function overlayOperation(
     ? await resolveEmojiAsset(
         context.paths.repositoryRoot,
         edit.source,
-        edit.variant ?? (edit.provider === "brand-catalog" ? "duotone" : "color"),
+        edit.variant,
         edit.provider,
       )
     : undefined;
@@ -1174,7 +1174,7 @@ async function handleEdit(context: CommandContext, command: Extract<CliCommand, 
             .reduce((total, slice) => total + slice.output.endUs - slice.output.startUs, 0),
         );
         try {
-          next = canonicalAtetPersistenceDocument(
+          next = canonicalSlopcameraPersistenceDocument(
             addOverlay(plan, prepared.operation, timestamp),
           );
           await ensurePrivateDirectory(join(recording.directory.path, "edits"));
@@ -1366,7 +1366,7 @@ async function analyzeInactivity(
   const evidence = AnalyzerEvidenceV1Schema.parse({
     audio,
     displays,
-    kind: "atet.analyzer-evidence",
+    kind: "slopcamera.analyzer-evidence",
     schemaVersion: 1,
     sourceDurationUs: recording.manifest.timeline.durationUs,
     tool: { name: "ffmpeg-freezedetect-silencedetect", version: ffmpegVersion.slice(0, 128) },
@@ -1405,7 +1405,7 @@ async function handleRecordingInactivity(
         ? cutPlan(next, range, context.io.now().toISOString())
         : setSpeed(next, range, command.speedRate, context.io.now().toISOString());
     }
-    next = canonicalAtetPersistenceDocument(next);
+    next = canonicalSlopcameraPersistenceDocument(next);
     await ensurePrivateDirectory(join(recording.directory.path, "edits"));
     await saveEditPlan(recording.fileSystem, next, CURRENT_EDIT_PLAN_PATH);
   }
@@ -1476,7 +1476,7 @@ async function handleProjectInactivity(
     if (application.status === "rejected") {
       throw new CliError("conflict", `Inactivity application was rejected: ${application.reason}`, application);
     }
-    next = canonicalAtetPersistenceDocument(application.plan);
+    next = canonicalSlopcameraPersistenceDocument(application.plan);
     await saveProjectEditPlan(project.fileSystem, next);
   }
   const output = {
@@ -1537,7 +1537,7 @@ async function handleAutomaticZooms(
       updatedAt: context.io.now().toISOString(),
       zooms: [...plan.zooms.filter(({ kind }) => kind !== "automatic"), ...suggestions],
     });
-    next = canonicalAtetPersistenceDocument(next);
+    next = canonicalSlopcameraPersistenceDocument(next);
     await ensurePrivateDirectory(join(recording.directory.path, "edits"));
     await saveEditPlan(recording.fileSystem, next, CURRENT_EDIT_PLAN_PATH);
   }
@@ -1697,7 +1697,7 @@ async function handleRender(
         `${canonicalJson(RecordingRenderReceiptV1Schema.parse({
           createdAt: context.io.now().toISOString(),
           display: resolved.renderPlan.composition.baseDisplay,
-          kind: "atet.recording-render-receipt",
+          kind: "slopcamera.recording-render-receipt",
           output: { ...integrity, path: outputRelative },
           plan: { path: artifactPath, sha256: resolvedPlanHash },
           recordingId: recording.manifest.recordingId,
@@ -2018,7 +2018,7 @@ async function handleProjectCameraEdit(
   if (editedMove === undefined) {
     throw new CliError("internal", "Camera edit completed without a bounded mutation receipt.");
   }
-  next = canonicalAtetPersistenceDocument(next);
+  next = canonicalSlopcameraPersistenceDocument(next);
   const planHash = hashProjectEditPlan(next);
   const nextCommands = projectCameraNextCommands(
     project.project.projectId,
@@ -2067,7 +2067,7 @@ async function projectMetadataContext(
   if (asset?.source.kind !== "recording") {
     throw new CliError(
       "conflict",
-      `Placement ${placement.placementId} is not backed by an Atet recording with window and input metadata.`,
+      `Placement ${placement.placementId} is not backed by a Slopcamera recording with window and input metadata.`,
     );
   }
   const recording = await openRecording(context.paths.artifactRoot, asset.source.recordingId);
@@ -2250,7 +2250,7 @@ async function handleProjectMetadataEdit(
                 }
               : { enabled: false },
           };
-  const next = canonicalAtetPersistenceDocument(
+  const next = canonicalSlopcameraPersistenceDocument(
     normalizeProjectEditPlan({ ...plan, effects, updatedAt: timestamp }),
   );
   await saveProjectEditPlan(project.fileSystem, next);
@@ -2307,7 +2307,7 @@ async function handleProjectOverlayEdit(
         updatedAt: timestamp,
       });
     }
-    next = canonicalAtetPersistenceDocument(next);
+    next = canonicalSlopcameraPersistenceDocument(next);
     await saveProjectEditPlan(project.fileSystem, next);
   } catch (error) {
     await rollback?.();
@@ -2418,7 +2418,7 @@ async function handleProjectRender(
         sidecarPath,
         `${canonicalJson(ProjectRenderReceiptV1Schema.parse({
           createdAt: context.io.now().toISOString(),
-          kind: "atet.project-render-receipt",
+          kind: "slopcamera.project-render-receipt",
           output: { ...integrity, path: outputRelative },
           plan: { path: planArtifactPath, sha256: planDocumentSha256 },
           projectId: project.project.projectId,
@@ -2609,12 +2609,12 @@ async function handleAlignAnalyze(
     referenceEnvelope,
     target: target.subject,
     targetEnvelope,
-    tool: { name: "atet-audio-aligner", profile: "envelope-correlation-v1", version: ATET_VERSION },
+    tool: { name: "slopcamera-audio-aligner", profile: "envelope-correlation-v1", version: SLOPCAMERA_VERSION },
   }));
   const analysisPath = projectAnalysisPath("alignment", analysis.analysisId);
   await saveAnalysisArtifact(project.fileSystem, analysis, analysisPath);
   const firstCandidate = analysis.result.status === "no-match" ? undefined : analysis.result.candidates[0];
-  const analysisProject = canonicalAtetPersistenceDocument(VideoProjectV1Schema.parse({
+  const analysisProject = canonicalSlopcameraPersistenceDocument(VideoProjectV1Schema.parse({
     ...project.project,
     analyses: [
       ...project.project.analyses.filter(existing => existing.analysisId !== analysis.analysisId),
@@ -2859,7 +2859,7 @@ async function handleSceneAnalysis(
     sha256: sha256Hex(`${canonicalJson(result.analysis)}\n`),
     streamIds: result.analysis.subjects.map(item => item.streamId),
   };
-  const nextProject = canonicalAtetPersistenceDocument(VideoProjectV1Schema.parse({
+  const nextProject = canonicalSlopcameraPersistenceDocument(VideoProjectV1Schema.parse({
     ...project.project,
     analyses: [
       ...project.project.analyses.filter(existing => existing.analysisId !== reference.analysisId),
@@ -2898,7 +2898,7 @@ async function handleMusicAnalysis(
     repositoryRoot: context.paths.repositoryRoot,
     runner: context.runner,
     source: command.source,
-    toolVersion: ATET_VERSION,
+    toolVersion: SLOPCAMERA_VERSION,
   });
   const tempoChanges = persisted.analysis.tempoRegions.filter(region => region.changeFromPrevious !== null).length;
   const keyChanges = persisted.analysis.keyRegions.filter(region => region.changeConfidence !== null).length;
@@ -2927,13 +2927,13 @@ async function handleSpeechAnalysis(
   const project = await openProject(context.paths.projectRoot, command.project);
   const ffmpeg = await requireRequestedCapability(context, "ffmpeg");
   const configuredExecutable = command.whisper
-    ?? renamedEnvironmentValue(context.io.env, "ATET_WHISPER_CPP");
+    ?? renamedEnvironmentValue(context.io.env, "SLOPCAMERA_WHISPER_CPP");
   const executable = configuredExecutable
     ?? await requireRequestedCapability(context, "whisper-cpp");
   const modelPathInput = command.model
-    ?? renamedEnvironmentValue(context.io.env, "ATET_WHISPER_MODEL");
+    ?? renamedEnvironmentValue(context.io.env, "SLOPCAMERA_WHISPER_MODEL");
   if (modelPathInput === undefined) {
-    throw new CliError("usage", "Speech analysis requires --model <whisper-model-path> or ATET_WHISPER_MODEL.");
+    throw new CliError("usage", "Speech analysis requires --model <whisper-model-path> or SLOPCAMERA_WHISPER_MODEL.");
   }
   let modelPath: string;
   try {
@@ -3009,7 +3009,7 @@ async function loadSpeechReferenceForProject(
 ) {
   const artifact = await loadAnalysisArtifact(project.fileSystem, reference.path);
   if (
-    (artifact.kind !== "atet.speech-analysis"
+    (artifact.kind !== "slopcamera.speech-analysis"
       && artifact.kind !== "studio.speech-analysis")
     || artifact.analysisId !== reference.analysisId
   ) {
@@ -3147,7 +3147,7 @@ async function projectMusicProtectionRanges(
       }
       const value = await loadAnalysisArtifact(project.fileSystem, reference.path);
       if (
-        value.kind !== "atet.music-analysis"
+        value.kind !== "slopcamera.music-analysis"
         && value.kind !== "studio.music-analysis"
       ) {
         throw new CliError("invalid-data", `Music sidecar does not match ${reference.analysisId}.`);
@@ -3277,7 +3277,7 @@ async function handleFillersApply(
   const current = await loadCurrentProjectPlan(project);
   const timestamp = context.io.now().toISOString();
   const cut = cutProjectPlan(project.project, current, projection.derivation.projectRange, timestamp);
-  const next = canonicalAtetPersistenceDocument(normalizeProjectEditPlan({
+  const next = canonicalSlopcameraPersistenceDocument(normalizeProjectEditPlan({
     ...cut,
     derivations: [...cut.derivations, projection.derivation],
     updatedAt: timestamp,
@@ -4232,7 +4232,7 @@ async function resolveGeneratedOutputPaths(
   }
   return {
     outputPath,
-    receiptPath: `${outputPath}.atet.json`,
+    receiptPath: `${outputPath}.slopcamera.json`,
   };
 }
 
@@ -4289,7 +4289,7 @@ async function publishGeneratedReceipt(
   receiptPath: string,
   receipt: unknown,
 ): Promise<void> {
-  const generatedRoot = join(paths.repositoryRoot, "artifacts", "atet", "generated");
+  const generatedRoot = join(paths.repositoryRoot, "artifacts", "slopcamera", "generated");
   if (!isWithin(generatedRoot, receiptPath) || receiptPath === generatedRoot) {
     throw new CliError("unsafe-path", "Generated receipt escaped the repository artifact boundary.");
   }
@@ -4695,7 +4695,7 @@ async function createGatewayJobTracker(
   const generatedRoot = join(
     context.paths.repositoryRoot,
     "artifacts",
-    "atet",
+    "slopcamera",
     "generated",
   );
   await ensurePrivateDirectory(generatedRoot);
@@ -4713,10 +4713,10 @@ async function createGatewayJobTracker(
     clientMaxRetries: 0,
     createdAt: context.io.now().toISOString(),
     jobId,
-    kind: "atet.gateway-media-job",
+    kind: "slopcamera.gateway-media-job",
     model: input.model,
     gatewayProviderFailover: "may-attempt-multiple-providers",
-    noAtetRetry: true,
+    noSlopcameraRetry: true,
     operation: input.operation,
     request: input.request,
     requestSha256: sha256Hex(canonicalJson(input.request)),
@@ -4778,7 +4778,7 @@ async function createGatewayJobTracker(
       await persist("dispatched", {
         chargeMayHaveOccurred: true,
         dispatchedAt: event.startedAt,
-        interruptionSemantics: "A nonterminal dispatched job is ambiguous and must not be retried by Atet; AI Gateway may have attempted multiple providers internally.",
+        interruptionSemantics: "A nonterminal dispatched job is ambiguous and must not be retried by Slopcamera; AI Gateway may have attempted multiple providers internally.",
       });
     },
     displayPath: display,
@@ -4830,7 +4830,7 @@ async function createGatewayServiceForContext(
   const generatedRoot = join(
     context.paths.repositoryRoot,
     "artifacts",
-    "atet",
+    "slopcamera",
     "generated",
   );
   await ensurePrivateDirectory(generatedRoot);
@@ -4893,7 +4893,7 @@ async function executeTrackedGatewayOperation<Result>(
         ...(failure.details === undefined ? {} : failure.details),
         jobPath: tracker.displayPath,
         jobState: state,
-        noAtetRetry: true,
+        noSlopcameraRetry: true,
       },
     );
   }
@@ -4928,7 +4928,7 @@ async function executeTrackedGatewayOperation<Result>(
         ...failure.details,
         jobPath: tracker.displayPath,
         jobState: state,
-        noAtetRetry: true,
+        noSlopcameraRetry: true,
       },
     );
   }
@@ -4950,7 +4950,7 @@ async function executeTrackedGatewayOperation<Result>(
         ),
         jobPath: tracker.displayPath,
         jobState: tracker.state(),
-        noAtetRetry: true,
+        noSlopcameraRetry: true,
       },
     );
   }
@@ -5505,7 +5505,7 @@ async function handleMediaAudio(
   const transform = {
     audioStreamIndex: command.audioStreamIndex,
     effects: audioEffectsForCommand(command),
-    kind: "atet.audio-effects-transform",
+    kind: "slopcamera.audio-effects-transform",
     output: audioOutputProfile(output.outputPath, videoStreams[0]?.index),
     schemaVersion: 1,
   } as const;
@@ -5555,7 +5555,7 @@ async function handleMediaAudio(
       output.receiptPath,
     );
     const nextCommands = {
-      addToProject: `atet project add <project> ${shellArgument(outputDisplay)} --role ${hasVideo ? "b-roll" : "dialogue"}`,
+      addToProject: `slopcamera project add <project> ${shellArgument(outputDisplay)} --role ${hasVideo ? "b-roll" : "dialogue"}`,
     };
     const receipt = {
       createdAt: context.io.now().toISOString(),
@@ -5566,7 +5566,7 @@ async function handleMediaAudio(
         path: displayPath(context.paths.repositoryRoot, inputPath),
         sha256: before.sha256,
       },
-      kind: "atet.local-media-transform-receipt",
+      kind: "slopcamera.local-media-transform-receipt",
       nextCommands,
       operation: "audio-effects",
       output: {
@@ -5653,7 +5653,7 @@ async function handleMediaColor(
   const transform = {
     grade,
     inputStreamIndex: selectedVideoStream.index,
-    kind: "atet.color-grade-transform",
+    kind: "slopcamera.color-grade-transform",
     outputProfile: colorOutputProfile(output.outputPath),
     schemaVersion: 1,
     videoStreamIndex: command.videoStreamIndex,
@@ -5704,7 +5704,7 @@ async function handleMediaColor(
       output.receiptPath,
     );
     const nextCommands = {
-      addToProject: `atet project add <project> ${shellArgument(outputDisplay)} --role b-roll`,
+      addToProject: `slopcamera project add <project> ${shellArgument(outputDisplay)} --role b-roll`,
     };
     const receipt = {
       createdAt: context.io.now().toISOString(),
@@ -5715,7 +5715,7 @@ async function handleMediaColor(
         path: displayPath(context.paths.repositoryRoot, inputPath),
         sha256: before.sha256,
       },
-      kind: "atet.local-media-transform-receipt",
+      kind: "slopcamera.local-media-transform-receipt",
       nextCommands,
       operation: "color-grade",
       output: {
@@ -5831,10 +5831,10 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
         application: applicationContext(context),
       }, {
         input: { path: command.path },
-        kind: "atet.diagram.check",
+        kind: "slopcamera.diagram.check",
         version: 1,
       });
-      const output = AtetDiagramCheckOutputSchema.parse(result.output);
+      const output = SlopcameraDiagramCheckOutputSchema.parse(result.output);
       writeValue(context.io, command.json, output, () => [
         `checked ${output.source.path} sha256=${output.source.sha256}`,
         ...output.findings.map(finding => (
@@ -5854,10 +5854,10 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
           path: command.path,
           ...(command.scale === undefined ? {} : { scale: command.scale }),
         },
-        kind: "atet.diagram.render",
+        kind: "slopcamera.diagram.render",
         version: 1,
       });
-      const output = AtetDiagramRenderOutputSchema.parse(result.output);
+      const output = SlopcameraDiagramRenderOutputSchema.parse(result.output);
       writeValue(context.io, command.json, output, () => [
         `rendered ${output.source.path} findings=${String(output.findings.length)}`,
         `light-png ${output.artifacts.lightPng.path}`,
@@ -5881,10 +5881,10 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
           ...(command.duotone === undefined ? {} : { duotone: command.duotone }),
           ...(command.timeoutMs === undefined ? {} : { timeoutMs: command.timeoutMs }),
         },
-        kind: "atet.image.vectorize",
+        kind: "slopcamera.image.vectorize",
         version: 1,
       });
-      const output = AtetImageVectorizeOutputSchema.parse(result.output);
+      const output = SlopcameraImageVectorizeOutputSchema.parse(result.output);
       writeValue(context.io, command.json, output, () => [
         `vectorized ${output.source.path} -> ${output.artifact.path}`,
         `sha256 ${output.artifact.sha256} paths=${String(output.vectorizer.pathCount)}`,
@@ -6179,7 +6179,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
           ...details.nodes
             .filter(node => node.status === "ambiguous-code")
             .map(node => (
-              `replay atet runs resume ${details.summary.runId} `
+              `replay slopcamera runs resume ${details.summary.runId} `
               + `--replay-ambiguous-code ${node.nodeKey}`
             )),
         ].join("\n"),
@@ -6230,7 +6230,7 @@ async function dispatch(context: CommandContext, command: CliCommand): Promise<v
         grant,
         () => [
           `approved ${grant.kind} ${command.nodeKey} ${command.planHash}`,
-          `next atet runs resume ${command.runId}`,
+          `next slopcamera runs resume ${command.runId}`,
         ].join("\n"),
       );
       return;
@@ -6683,7 +6683,7 @@ async function resolveMutationTarget(
     return {
       command: mutationCommandName(command),
       directory: stateRoot,
-      label: "Atet local state",
+      label: "Slopcamera local state",
       scope: "private",
     };
   }
@@ -6692,7 +6692,7 @@ async function resolveMutationTarget(
     return {
       command: mutationCommandName(command),
       directory: paths.privateRoot,
-      label: "Atet repository-private media state",
+      label: "Slopcamera repository-private media state",
       scope: "private",
     };
   }
@@ -6728,7 +6728,7 @@ export async function runCli(argv: readonly string[], dependencies: CliDependenc
       return 0;
     }
     if (command.kind === "version") {
-      writeLine(io, dependencies.version ?? ATET_VERSION);
+      writeLine(io, dependencies.version ?? SLOPCAMERA_VERSION);
       return 0;
     }
     if (command.kind === "complete") {
@@ -6804,7 +6804,7 @@ export async function runCli(argv: readonly string[], dependencies: CliDependenc
       sceneProviderFactory: dependencies.sceneProviderFactory
         ?? (options => createGatewaySceneProvider(options)),
       sleep: dependencies.sleep ?? (async milliseconds => await Bun.sleep(milliseconds)),
-      version: dependencies.version ?? ATET_VERSION,
+      version: dependencies.version ?? SLOPCAMERA_VERSION,
     };
     const mutationTarget = await resolveMutationTarget(paths, stateRoot, command);
     await withCommandHostResources(context, command, async admittedContext => {
@@ -6830,7 +6830,7 @@ export async function runCli(argv: readonly string[], dependencies: CliDependenc
       },
     };
     if (jsonRequested) io.stderr(`${JSON.stringify(payload)}\n`);
-    else io.stderr(`atet: ${failure.message}\n`);
+    else io.stderr(`slopcamera: ${failure.message}\n`);
     return EXIT_CODE[failure.code];
   }
 }

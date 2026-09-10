@@ -177,7 +177,7 @@ export function createSceneAnalysisOperationDefinition(
   const planScenes = dependencies.plan ?? planProjectScenes;
   return {
     inputSchema: SceneAnalysisOperationInputSchema,
-    inputSchemaId: "atet.operation.analysis.scenes.input/v1",
+    inputSchemaId: "slopcamera.operation.analysis.scenes.input/v1",
     kind: "analysis.scenes",
     lifecycle: {
       kind: "local-artifact",
@@ -237,7 +237,7 @@ export function createSceneAnalysisOperationDefinition(
       },
     },
     outputSchema: SceneAnalysisOperationOutputSchema,
-    outputSchemaId: "atet.operation.analysis.scenes.output/v1",
+    outputSchemaId: "slopcamera.operation.analysis.scenes.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

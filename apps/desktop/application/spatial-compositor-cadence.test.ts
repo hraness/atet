@@ -8,10 +8,10 @@ import { canonicalJsonSha256 } from "../core/canonical-json";
 
 function fixture() {
   const project = syncedProject();
-  const revision = SpatialProjectRevisionV2Schema.parse({ kind: "atet.spatial-project-revision", schemaVersion: 2,
+  const revision = SpatialProjectRevisionV2Schema.parse({ kind: "slopcamera.spatial-project-revision", schemaVersion: 2,
     projectId: project.projectId, parent: { version: 1, sha256: "a".repeat(64) }, transactionId: `transaction_${"0".repeat(32)}`,
     legacy: { project, projectEditPlan: editedPlan(project) }, scenes: [], shots: [], candidates: [], selections: [] });
-  const head = SpatialProjectHeadV2Schema.parse({ kind: "atet.spatial-project-head", schemaVersion: 2, projectId: project.projectId,
+  const head = SpatialProjectHeadV2Schema.parse({ kind: "slopcamera.spatial-project-head", schemaVersion: 2, projectId: project.projectId,
     projectRevisionSha256: spatialProjectRevisionSha256(revision), revision: spatialProjectArtifact("revisions", spatialProjectDocumentText(revision)), transactionId: revision.transactionId });
   return createSpatialRenderProjection({ snapshot: { version: 2, head, revision, headText: spatialProjectDocumentText(head), basis: { version: 2, sha256: head.projectRevisionSha256 }, contents: spatialProjectContents(revision, []) },
     materializedShots: [], policy: { kind: "full-frame-above-legacy-video-below-overlays", alpha: "straight" },

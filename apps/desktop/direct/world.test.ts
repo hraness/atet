@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  createAtetDirectWorld,
+  createSlopcameraDirectWorld,
   fixtureIdleSnapshot,
   fullEditEvidence,
   fullProjectEvidence,
-  parseAtetDirectWorld,
+  parseSlopcameraDirectWorld,
 } from "./world";
 
-describe("Atet Direct world", () => {
+describe("Slopcamera Direct world", () => {
   test("contains token-efficient evidence for every requested edit surface", () => {
-    const world = createAtetDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
+    const world = createSlopcameraDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
 
     expect(world.version).toBe(6);
     expect(world.runtime.initial.sources).toEqual({
@@ -174,26 +174,26 @@ describe("Atet Direct world", () => {
   });
 
   test("rejects inverted evidence ranges and repeated overlay kinds", () => {
-    const inverted = createAtetDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
+    const inverted = createSlopcameraDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
     inverted.editEvidence.analyzer[0]!.endUs = inverted.editEvidence.analyzer[0]!.startUs;
-    expect(() => parseAtetDirectWorld(inverted)).toThrow("positive duration");
+    expect(() => parseSlopcameraDirectWorld(inverted)).toThrow("positive duration");
 
     const evidence = fullEditEvidence();
     evidence.overlays[1]!.kind = evidence.overlays[0]!.kind;
-    expect(() => createAtetDirectWorld(
+    expect(() => createSlopcameraDirectWorld(
       { initial: fixtureIdleSnapshot(false), transitions: [] },
       evidence,
     )).toThrow("at most once");
   });
 
   test("rejects project evidence that loses sync, camera, privacy, or local-execution provenance", () => {
-    const invalidAlignment = createAtetDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
+    const invalidAlignment = createSlopcameraDirectWorld({ initial: fixtureIdleSnapshot(false), transitions: [] });
     invalidAlignment.projectEvidence.acceptedAlignments[0]!.candidateId = "candidate_missing1";
-    expect(() => parseAtetDirectWorld(invalidAlignment)).toThrow("Accepted alignment evidence");
+    expect(() => parseSlopcameraDirectWorld(invalidAlignment)).toThrow("Accepted alignment evidence");
 
     const externalScene = fullProjectEvidence();
     externalScene.scenes[0]!.usage.uploadedImages = 1;
-    expect(() => createAtetDirectWorld(
+    expect(() => createSlopcameraDirectWorld(
       { initial: fixtureIdleSnapshot(false), transitions: [] },
       fullEditEvidence(),
       externalScene,
@@ -205,7 +205,7 @@ describe("Atet Direct world", () => {
       "cameraMoveId",
       "camera_other0001",
     );
-    expect(() => createAtetDirectWorld(
+    expect(() => createSlopcameraDirectWorld(
       { initial: fixtureIdleSnapshot(false), transitions: [] },
       fullEditEvidence(),
       mismatchedCameraReceipt,
@@ -217,7 +217,7 @@ describe("Atet Direct world", () => {
       "biometricIdentification",
       "performed",
     );
-    expect(() => createAtetDirectWorld(
+    expect(() => createSlopcameraDirectWorld(
       { initial: fixtureIdleSnapshot(false), transitions: [] },
       fullEditEvidence(),
       biometricFaceEvidence,

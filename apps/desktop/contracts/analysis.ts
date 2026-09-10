@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   SCENE_UPLOAD_POLICY,
   SceneDescriptionSchema,
-} from "@hraness/atet/scene";
+} from "@hraness/slopcamera/scene";
 
 import { SourceIntervalSchema } from "./edit";
 import {
@@ -215,7 +215,7 @@ export const FaceAnalysisV1Schema = z.strictObject({
   durationUs: PositiveMicrosecondsSchema,
   inputDigest: Sha256Schema,
   kind: z.union([
-    z.literal("atet.face-analysis"),
+    z.literal("slopcamera.face-analysis"),
     z.literal("studio.face-analysis"),
   ]),
   privacy: z.strictObject({
@@ -377,7 +377,7 @@ export const ProjectInactivityAnalysisV1Schema = z.strictObject({
   inputDigest: Sha256Schema,
   interactions: z.array(ProjectInteractionEvidenceSchema).max(1_000_000),
   kind: z.union([
-    z.literal("atet.project-inactivity-analysis"),
+    z.literal("slopcamera.project-inactivity-analysis"),
     z.literal("studio.project-inactivity-analysis"),
   ]),
   projectId: VideoProjectIdSchema,
@@ -513,7 +513,7 @@ export const AudioAlignmentAnalysisV1Schema = z.strictObject({
   createdAt: IsoTimestampSchema,
   inputDigest: Sha256Schema,
   kind: z.union([
-    z.literal("atet.audio-alignment-analysis"),
+    z.literal("slopcamera.audio-alignment-analysis"),
     z.literal("studio.audio-alignment-analysis"),
   ]),
   matches: z.array(AlignmentMatchSchema).max(100_000),
@@ -640,7 +640,7 @@ export const MusicAnalysisV1Schema = z.strictObject({
   inputDigest: Sha256Schema,
   keyRegions: z.array(KeyRegionSchema).max(100_000),
   kind: z.union([
-    z.literal("atet.music-analysis"),
+    z.literal("slopcamera.music-analysis"),
     z.literal("studio.music-analysis"),
   ]),
   musicRegions: z.array(MusicPresenceRegionSchema).max(100_000),
@@ -734,7 +734,7 @@ export const SceneAnalysisV1Schema = z.strictObject({
   durationUs: MicrosecondsSchema,
   inputDigest: Sha256Schema,
   kind: z.union([
-    z.literal("atet.scene-analysis"),
+    z.literal("slopcamera.scene-analysis"),
     z.literal("studio.scene-analysis"),
   ]),
   model: z.strictObject({
@@ -857,7 +857,7 @@ export const SpeechAnalysisV1Schema = z.strictObject({
   durationUs: MicrosecondsSchema,
   inputDigest: Sha256Schema,
   kind: z.union([
-    z.literal("atet.speech-analysis"),
+    z.literal("slopcamera.speech-analysis"),
     z.literal("studio.speech-analysis"),
   ]),
   result: z.discriminatedUnion("status", [

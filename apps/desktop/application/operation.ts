@@ -4,14 +4,14 @@ import type { z } from "zod";
 
 import type { ApplicationContext } from "./context";
 
-export const ATET_APPLICATION_TOOL_VERSION = "atet-3.2.3" as const;
+export const SLOPCAMERA_APPLICATION_TOOL_VERSION = "slopcamera-3.2.3" as const;
 
 export const OPERATION_KINDS = [
   "scene.inspect",
   "scene.patch",
   "scene.evaluate",
   "scene.render",
-  "atet.studio.run",
+  "slopcamera.studio.run",
   "spatial.project.snapshot",
   "spatial.project.migrate",
   "spatial.project.patch",
@@ -54,10 +54,10 @@ export const OPERATION_KINDS = [
   "recording.pause",
   "recording.resume",
   "recording.stop",
-  "atet.diagram.check",
-  "atet.diagram.render",
-  "atet.image.vectorize",
-  "atet.image.generate",
+  "slopcamera.diagram.check",
+  "slopcamera.diagram.render",
+  "slopcamera.image.vectorize",
+  "slopcamera.image.generate",
 ] as const;
 
 export type OperationKind = typeof OPERATION_KINDS[number];

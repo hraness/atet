@@ -181,7 +181,7 @@ export function parseCopyPhase(value: unknown, sequence: 0 | 1 | 2, request: She
       assert.equal(observation.name, siteCopyCases[index]?.name); assert.deepEqual(observation.steps, copySteps)
       assert.equal(observation.elementsPerSample, copyElementKeys.length)
       assert.ok(typeof observation.command === "string")
-      assert.match(observation.command, /^npx skills add https:\/\/github\.com\/hraness\/atet\/tree\/v\d+\.\d+\.\d+ --skill atet$/u)
+      assert.equal(observation.command, "bun apps/desktop/dist/cli/main.js skill install --target agents")
       assertCopyPorts(observation.current as CopyPorts, observation.command)
       assertCopyPorts(observation.baseline as CopyPorts, observation.command)
     }
@@ -216,12 +216,12 @@ interface CopyPorts {
   fallbacks: { value: string; readonly: boolean; start: number; end: number; focused: boolean; offscreen: boolean }[]
   timers: { delay: number; started: number; fired: number | null; cancelled: boolean }[]
 }
-declare global { interface Window { __atetCopyProof: CopyPorts } }
+declare global { interface Window { __slopcameraCopyProof: CopyPorts } }
 /** Only fresh isolated fixture contexts receive these two ports. Neither calls
  * the real OS clipboard. Native textarea selection and the real timer remain. */
 export function installCopyProofPorts(): void {
   const ports: CopyPorts = { write: "success", fallback: "success", writes: [], fallbacks: [], timers: [] }
-  Object.defineProperty(window, "__atetCopyProof", { value: ports })
+  Object.defineProperty(window, "__slopcameraCopyProof", { value: ports })
   Object.defineProperty(navigator, "clipboard", { value: Object.freeze({ writeText: async (value: string) => {
     if (ports.writes.length >= 16) throw new Error("Copy proof command bound")
     ports.writes.push(value)
@@ -325,7 +325,7 @@ export async function checkCopyCase(browser: Browser, payload: ShellPayload, sce
     await chooseAppearance(page, scenario.theme, scenario.system)
     await copyState(page, "idle")
     const command = await page.locator("[data-copy-command-value]").innerText()
-    assert.match(command, /^npx skills add https:\/\/github\.com\/hraness\/atet\/tree\/v\d+\.\d+\.\d+ --skill atet$/u)
+    assert.equal(command, "bun apps/desktop/dist/cli/main.js skill install --target agents")
     assert.deepEqual(await page.evaluate(() => ({ width: innerWidth, forced: matchMedia("(forced-colors: active)").matches,
       theme: document.documentElement.dataset.theme })), { width: scenario.width, forced: scenario.forced === "active", theme: scenario.theme })
     const button = page.locator(buttonSelector), steps: { name: string; elements: ShellElement[] }[] = []
@@ -341,18 +341,18 @@ export async function checkCopyCase(browser: Browser, payload: ShellPayload, sce
     await page.keyboard.press("Enter"); await copyState(page, "copied"); await sample("copied-focus")
     await button.hover(); await sample("copied-hover")
     await copyState(page, "idle"); await sample("reset")
-    await page.evaluate(() => { window.__atetCopyProof.write = "reject" })
+    await page.evaluate(() => { window.__slopcameraCopyProof.write = "reject" })
     await button.click(); await copyState(page, "copied"); await sample("fallback-success")
-    await page.evaluate(() => { window.__atetCopyProof.fallback = "failed" })
+    await page.evaluate(() => { window.__slopcameraCopyProof.fallback = "failed" })
     await button.click(); await copyState(page, "failed"); await page.mouse.move(0, 0); await sample("fallback-failed")
     await button.hover(); await sample("failed-hover")
-    await page.evaluate(() => { window.__atetCopyProof.fallback = "throw" })
+    await page.evaluate(() => { window.__slopcameraCopyProof.fallback = "throw" })
     await button.click()
-    await page.waitForFunction(() => window.__atetCopyProof.fallbacks.length === 3)
+    await page.waitForFunction(() => window.__slopcameraCopyProof.fallbacks.length === 3)
     await copyState(page, "failed"); await sample("fallback-throw")
-    await page.evaluate(() => { window.__atetCopyProof.write = "success" })
+    await page.evaluate(() => { window.__slopcameraCopyProof.write = "success" })
     await button.click(); await copyState(page, "copied"); await sample("recovered")
-    const ports = await page.evaluate(() => window.__atetCopyProof)
+    const ports = await page.evaluate(() => window.__slopcameraCopyProof)
     assertCopyPorts(ports, command)
     const controls: string[] = []
     if (negative) {

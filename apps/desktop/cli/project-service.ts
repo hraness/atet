@@ -110,7 +110,7 @@ export async function openProject(projectRoot: string, reference: string): Promi
     await assertProjectStateTransactionSettled(fileSystem);
     const authority: unknown = JSON.parse(await fileSystem.readText("project.json"));
     if (typeof authority === "object" && authority !== null && "schemaVersion" in authority && authority.schemaVersion === 2) {
-      throw new CliError("unsupported-plan", "This project uses spatial V2 authority. Use atet scene project commands to inspect or edit its immutable revision.");
+      throw new CliError("unsupported-plan", "This project uses spatial V2 authority. Use slopcamera scene project commands to inspect or edit its immutable revision.");
     }
     const project = await loadVideoProject(fileSystem);
     if (project.projectId !== directory.id) {
@@ -278,7 +278,7 @@ export async function createProjectFromRecording(options: CreateProjectOptions):
     assets: [asset],
     createdAt: timestamp,
     currentEditPlanPath: CURRENT_PROJECT_EDIT_PLAN_PATH,
-    kind: "atet.video-project",
+    kind: "slopcamera.video-project",
     name: options.name?.trim() || `Recording ${options.recording.manifest.recordingId}`,
     placements: [placement],
     projectId,

@@ -90,7 +90,7 @@ export function projectPreviewArtifacts(value: unknown, expected: Readonly<{
   assert.equal(complete.kind, "hraness-stylex-complete-generation")
   assert.equal(complete.state, "complete")
   assert.equal(complete.schemaVersion, 2)
-  assert.equal(complete.generationId, "atet-preview")
+  assert.equal(complete.generationId, "slopcamera-preview")
   for (const key of ["compilerSha256", "unionPolicySha256", "planSha256"] as const) assert.equal(complete[key], digest(expected[key]))
   assert.ok(Array.isArray(complete.graphs) && complete.graphs.length === 2)
   assert.deepEqual(complete.graphs.map(value => {

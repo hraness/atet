@@ -47,9 +47,9 @@ async function fixture(options: {
   signal?: AbortSignal;
   beforePublication?: () => Promise<void>;
 } = {}): Promise<{ root: string; context: OperationExecutionContext; calls: readonly string[][] }> {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-spatial-render-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-spatial-render-")));
   directories.push(root);
-  const privateRoot = join(root, "artifacts", "atet", "private");
+  const privateRoot = join(root, "artifacts", "slopcamera", "private");
   await mkdir(privateRoot, { recursive: true });
   const bin = join(root, "bin"); await mkdir(bin);
   for (const name of ["ffmpeg", "ffprobe", "html-browser"]) await writeFile(join(bin, name), `fixture-${name}\n`, { mode: 0o700 });
@@ -69,7 +69,7 @@ async function fixture(options: {
     },
   };
   const application: ApplicationContext = {
-    paths: { repositoryRoot: root, privateRoot, artifactRoot: join(root, "artifacts", "atet", "recordings"), desktopRoot: root, projectRoot: join(root, "artifacts", "atet", "projects") },
+    paths: { repositoryRoot: root, privateRoot, artifactRoot: join(root, "artifacts", "slopcamera", "recordings"), desktopRoot: root, projectRoot: join(root, "artifacts", "slopcamera", "projects") },
     clock: { now: () => new Date("2026-09-08T00:00:00Z"), timestampMilliseconds: () => 0 },
     capability: async name => ({ name, available: true, command: join(bin, name), version: "test fixture 1" }),
     capabilities: () => Promise.resolve([]),
@@ -87,7 +87,7 @@ async function fixture(options: {
   } };
 }
 async function generatedFiles(root: string): Promise<string[]> {
-  return await readdir(join(root, "artifacts", "atet", "generated", "media-operations", "outputs")).catch(() => []);
+  return await readdir(join(root, "artifacts", "slopcamera", "generated", "media-operations", "outputs")).catch(() => []);
 }
 
 describe("spatial render planning", () => {

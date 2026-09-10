@@ -41,11 +41,11 @@ import {
 import {
   CommitProjectEditsInputV3Schema,
   BindCandidateRenderOutputInputSchema,
-  ATET_PROJECT_RENDERER_ABI,
+  SLOPCAMERA_PROJECT_RENDERER_ABI,
   deriveProjectEditBatchV2,
   deriveProjectEditBatchV3,
 } from "../application/operations";
-import { createAtetPortableOperationDefinitions } from "../application/operations/atet-portable";
+import { createSlopcameraPortableOperationDefinitions } from "../application/operations/slopcamera-portable";
 import { OperationRegistry } from "../application/registry";
 import {
   VideoProjectV1Schema,
@@ -243,7 +243,7 @@ describe("application node planner", () => {
   test("routes captioned render plans through the exact v2 host binder", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-node-planner-caption-binding-",
+      "slopcamera-node-planner-caption-binding-",
     ));
     try {
       const projectId = "project_captionbinder";
@@ -260,7 +260,7 @@ describe("application node planner", () => {
           generationSha256: "5".repeat(64),
           projectSha256,
         },
-        kind: "atet.project-edit-revision-reference",
+        kind: "slopcamera.project-edit-revision-reference",
         outputGeometrySha256: hashProjectEditRevisionOutputGeometry({
           pixelHeight: 1_920,
           pixelWidth: 1_080,
@@ -315,7 +315,7 @@ describe("application node planner", () => {
               planSha256: revision.baseGeneration.currentPlanSha256,
               projectSha256,
             }],
-            version: "atet-static-bindings-v1",
+            version: "slopcamera-static-bindings-v1",
           },
         },
         node,
@@ -335,7 +335,7 @@ describe("application node planner", () => {
   test("binds every visual file input and changes diagram cache identity when bytes change", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-node-planner-visual-binding-",
+      "slopcamera-node-planner-visual-binding-",
     ));
     try {
       const fixtureDirectory = join(repositoryRoot, "fixtures");
@@ -352,9 +352,9 @@ describe("application node planner", () => {
       );
       const plan = async (
         kind:
-          | "atet.diagram.check"
-          | "atet.diagram.render"
-          | "atet.image.vectorize",
+          | "slopcamera.diagram.check"
+          | "slopcamera.diagram.render"
+          | "slopcamera.image.vectorize",
         input: Readonly<Record<string, unknown>>,
         path: string,
       ) => {
@@ -381,7 +381,7 @@ describe("application node planner", () => {
                 kind: "file",
               })],
               initialSubjects: [],
-              version: "atet-static-bindings-v1",
+              version: "slopcamera-static-bindings-v1",
             },
           },
           node,
@@ -393,17 +393,17 @@ describe("application node planner", () => {
       };
 
       const checkedV1 = await plan(
-        "atet.diagram.check",
+        "slopcamera.diagram.check",
         { path: diagramPath },
         diagramPath,
       );
       const rendered = await plan(
-        "atet.diagram.render",
+        "slopcamera.diagram.render",
         { path: diagramPath, scale: 2 },
         diagramPath,
       );
       const vectorized = await plan(
-        "atet.image.vectorize",
+        "slopcamera.image.vectorize",
         { inputPath: rasterPath },
         rasterPath,
       );
@@ -432,7 +432,7 @@ describe("application node planner", () => {
 
       await writeFile(join(repositoryRoot, diagramPath), "diagram-v2");
       const checkedV2 = await plan(
-        "atet.diagram.check",
+        "slopcamera.diagram.check",
         { path: diagramPath },
         diagramPath,
       );
@@ -455,11 +455,11 @@ describe("application node planner", () => {
   test("pins portable v2 sources and serializes their exact output targets", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-node-planner-portable-binding-",
+      "slopcamera-node-planner-portable-binding-",
     ));
     const externalRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-node-planner-portable-external-",
+      "slopcamera-node-planner-portable-external-",
     ));
     try {
       const fixtureDirectory = join(repositoryRoot, "fixtures");
@@ -475,10 +475,10 @@ describe("application node planner", () => {
       const planner = createApplicationNodePlanner(boundApplication);
       const plan = async (
         kind:
-          | "atet.diagram.check"
-          | "atet.diagram.render"
-          | "atet.image.generate"
-          | "atet.image.vectorize",
+          | "slopcamera.diagram.check"
+          | "slopcamera.diagram.render"
+          | "slopcamera.image.generate"
+          | "slopcamera.image.vectorize",
         input: Readonly<Record<string, unknown>>,
         sourcePath?: string,
       ) => {
@@ -507,7 +507,7 @@ describe("application node planner", () => {
                     kind: "file",
                   })],
               initialSubjects: [],
-              version: "atet-static-bindings-v1",
+              version: "slopcamera-static-bindings-v1",
             },
           },
           node,
@@ -519,7 +519,7 @@ describe("application node planner", () => {
       };
 
       const checkedV1 = await plan(
-        "atet.diagram.check",
+        "slopcamera.diagram.check",
         { path: diagramPath },
         diagramPath,
       );
@@ -539,7 +539,7 @@ describe("application node planner", () => {
       const externalPath = join(externalRoot, "external.diagram.json");
       await writeFile(externalPath, "external-diagram");
       const checkedExternal = await plan(
-        "atet.diagram.check",
+        "slopcamera.diagram.check",
         { path: externalPath },
         externalPath,
       );
@@ -554,13 +554,13 @@ describe("application node planner", () => {
       await symlink(externalRoot, join(fixtureDirectory, "external-alias"));
       const escapedRelativeSource = "fixtures/external-alias/external.diagram.json";
       expect(plan(
-        "atet.diagram.check",
+        "slopcamera.diagram.check",
         { path: escapedRelativeSource },
         escapedRelativeSource,
       )).rejects.toBeInstanceOf(Error);
 
       const rendered = await plan(
-        "atet.diagram.render",
+        "slopcamera.diagram.render",
         { path: diagramPath, scale: 2 },
         diagramPath,
       );
@@ -573,7 +573,7 @@ describe("application node planner", () => {
 
       const vectorOutput = "generated/sketch.svg";
       const vectorized = await plan(
-        "atet.image.vectorize",
+        "slopcamera.image.vectorize",
         { inputPath: rasterPath, outputPath: vectorOutput },
         rasterPath,
       );
@@ -591,12 +591,12 @@ describe("application node planner", () => {
       ));
       expect(vectorized.publicationKeys).toHaveLength(1);
       expect((await plan(
-        "atet.image.vectorize",
+        "slopcamera.image.vectorize",
         { inputPath: rasterPath, outputPath: vectorOutput },
         rasterPath,
       )).publicationKeys).toEqual(vectorized.publicationKeys);
       const lexicalAliasOutput = await plan(
-        "atet.image.vectorize",
+        "slopcamera.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: join(repositoryRoot, "generated/platform-alias.svg"),
@@ -604,7 +604,7 @@ describe("application node planner", () => {
         rasterPath,
       );
       const physicalAliasOutput = await plan(
-        "atet.image.vectorize",
+        "slopcamera.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: join(
@@ -621,7 +621,7 @@ describe("application node planner", () => {
         physicalAliasOutput.publicationKeys,
       );
 
-      const generated = await plan("atet.image.generate", {
+      const generated = await plan("slopcamera.image.generate", {
         model: "openai/gpt-image-1.5",
         outputPath: "generated/example.webp",
         prompt: "A deterministic fixture",
@@ -636,7 +636,7 @@ describe("application node planner", () => {
       expect(generated.publicationKeys).toEqual(vectorized.publicationKeys);
 
       const renderCollision = await plan(
-        "atet.image.vectorize",
+        "slopcamera.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: "fixtures/system.light.svg",
@@ -652,7 +652,7 @@ describe("application node planner", () => {
         join(repositoryRoot, "aliased-output"),
       );
       const aliasedOutput = await plan(
-        "atet.image.vectorize",
+        "slopcamera.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: "aliased-output/sketch.svg",
@@ -666,7 +666,7 @@ describe("application node planner", () => {
         ),
       });
       const physicalOutput = await plan(
-        "atet.image.vectorize",
+        "slopcamera.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: join(physicalOutputDirectory, "sketch.svg"),
@@ -681,7 +681,7 @@ describe("application node planner", () => {
       await writeFile(externalOutputPath, "old-output");
       await symlink(externalRoot, join(repositoryRoot, "external-output-alias"));
       expect(plan(
-        "atet.image.vectorize",
+        "slopcamera.image.vectorize",
         {
           inputPath: rasterPath,
           outputPath: "external-output-alias/escaped.svg",
@@ -691,7 +691,7 @@ describe("application node planner", () => {
 
       await writeFile(join(repositoryRoot, diagramPath), "diagram-v2");
       const checkedV2 = await plan(
-        "atet.diagram.check",
+        "slopcamera.diagram.check",
         { path: diagramPath },
         diagramPath,
       );
@@ -708,14 +708,14 @@ describe("application node planner", () => {
       const symlinkPath = "fixtures/symlink.diagram.json";
       await symlink(join(repositoryRoot, diagramPath), join(repositoryRoot, symlinkPath));
       expect(plan(
-        "atet.diagram.check",
+        "slopcamera.diagram.check",
         { path: symlinkPath },
         symlinkPath,
       )).rejects.toBeInstanceOf(Error);
 
       let pinnedExecutions = 0;
       const pinnedRegistry = new OperationRegistry();
-      for (const definition of createAtetPortableOperationDefinitions({
+      for (const definition of createSlopcameraPortableOperationDefinitions({
         execute: async (_kind, input, dependencies) => {
           pinnedExecutions += 1;
           const pinnedPath = (input as Readonly<{ path: string }>).path;
@@ -733,16 +733,16 @@ describe("application node planner", () => {
         application: boundApplication,
       }, {
         input: checkedV1.exactInput,
-        kind: "atet.diagram.check",
+        kind: "slopcamera.diagram.check",
         version: 2,
       });
       expect(pinnedExecutions).toBe(1);
 
       let vectorPinObserved = false;
       const vectorPinRegistry = new OperationRegistry();
-      for (const definition of createAtetPortableOperationDefinitions({
+      for (const definition of createSlopcameraPortableOperationDefinitions({
         execute: async (kind, input, dependencies) => {
-          if (kind !== "atet.image.vectorize") {
+          if (kind !== "slopcamera.image.vectorize") {
             throw new Error("Unexpected portable operation.");
           }
           vectorPinObserved = true;
@@ -761,7 +761,7 @@ describe("application node planner", () => {
         application: boundApplication,
       }, {
         input: vectorized.exactInput,
-        kind: "atet.image.vectorize",
+        kind: "slopcamera.image.vectorize",
         version: 2,
       })).rejects.toThrow("vector-pin-observed");
       expect(vectorPinObserved).toBe(true);
@@ -783,7 +783,7 @@ describe("application node planner", () => {
         );
         let rootSwapExecutions = 0;
         const rootSwapRegistry = new OperationRegistry();
-        for (const definition of createAtetPortableOperationDefinitions({
+        for (const definition of createSlopcameraPortableOperationDefinitions({
           execute: () => {
             rootSwapExecutions += 1;
             return Promise.resolve({ configPath: null, findings: [] });
@@ -797,7 +797,7 @@ describe("application node planner", () => {
             application: boundApplication,
           }, {
             input: checkedV1.exactInput,
-            kind: "atet.diagram.check",
+            kind: "slopcamera.diagram.check",
             version: 2,
           });
         } catch (error) {
@@ -812,7 +812,7 @@ describe("application node planner", () => {
 
       const replacedSnapshotPath = `${checkedV2Input.path}.moved`;
       const replacementRegistry = new OperationRegistry();
-      for (const definition of createAtetPortableOperationDefinitions({
+      for (const definition of createSlopcameraPortableOperationDefinitions({
         execute: async (_kind, input) => {
           const pinnedPath = (input as Readonly<{ path: string }>).path;
           await rename(checkedV2Input.path, replacedSnapshotPath);
@@ -827,7 +827,7 @@ describe("application node planner", () => {
         application: boundApplication,
       }, {
         input: checkedV2.exactInput,
-        kind: "atet.diagram.check",
+        kind: "slopcamera.diagram.check",
         version: 2,
       })).rejects.toMatchObject({ code: "ambiguous" });
 
@@ -838,7 +838,7 @@ describe("application node planner", () => {
       await writeFile(checkedV1Input.path, "tampered");
       let delegatedExecutions = 0;
       const executionRegistry = new OperationRegistry();
-      for (const definition of createAtetPortableOperationDefinitions({
+      for (const definition of createSlopcameraPortableOperationDefinitions({
         execute: () => {
           delegatedExecutions += 1;
           return Promise.resolve({ configPath: null, findings: [] });
@@ -850,12 +850,12 @@ describe("application node planner", () => {
         application: boundApplication,
       }, {
         input: checkedV1.exactInput,
-        kind: "atet.diagram.check",
+        kind: "slopcamera.diagram.check",
         version: 2,
       })).rejects.toMatchObject({ code: "conflict" });
       expect(delegatedExecutions).toBe(0);
       expect(plan(
-        "atet.diagram.check",
+        "slopcamera.diagram.check",
         { path: diagramPath },
         diagramPath,
       )).rejects.toThrow("destination contains different bytes");
@@ -885,7 +885,7 @@ describe("application node planner", () => {
             planSha256: currentPlanSha256,
             projectSha256,
           }],
-          version: "atet-static-bindings-v1",
+          version: "slopcamera-static-bindings-v1",
         },
       },
       node: {
@@ -895,9 +895,9 @@ describe("application node planner", () => {
           operation: { kind: "project.snapshot", version: 1 },
         },
         input: { project: "project_example" },
-        inputSchemaId: "atet.operation.project.snapshot.input/v1",
+        inputSchemaId: "slopcamera.operation.project.snapshot.input/v1",
         key: "project",
-        outputSchemaId: "atet.operation.project.snapshot.output/v1",
+        outputSchemaId: "slopcamera.operation.project.snapshot.output/v1",
       },
       operation: {
         kind: "project.snapshot",
@@ -921,7 +921,7 @@ describe("application node planner", () => {
   test("binds creative candidates to exactly one host-owned frozen snapshot", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-node-planner-creative-base-",
+      "slopcamera-node-planner-creative-base-",
     ));
     try {
       const fixtureProject = await createOperationProjectFixture(repositoryRoot);
@@ -994,7 +994,7 @@ describe("application node planner", () => {
               planSha256: snapshot.generation.currentPlanSha256,
               projectSha256: snapshot.generation.projectSha256,
             }],
-            version: "atet-static-bindings-v1",
+            version: "slopcamera-static-bindings-v1",
           },
         },
         node: candidateNode,
@@ -1049,7 +1049,7 @@ describe("application node planner", () => {
   test("binds candidate render derivations to the exact host toolchain", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-node-planner-candidate-render-",
+      "slopcamera-node-planner-candidate-render-",
     ));
     try {
       const projectFixture = await createOperationProjectFixture(repositoryRoot);
@@ -1074,7 +1074,7 @@ describe("application node planner", () => {
         bindingsSha256: "d".repeat(64),
         candidate,
         derivationSha256: "e".repeat(64),
-        kind: "atet.creative-candidate-revision-reference",
+        kind: "slopcamera.creative-candidate-revision-reference",
         planId: projectFixture.plan.planId,
         projectEditPlanSha256: base.generation.currentPlanSha256,
         projectId: projectFixture.project.projectId,
@@ -1087,7 +1087,7 @@ describe("application node planner", () => {
       const revision = RenderableProjectEditRevisionReferenceSchema.parse({
         artifact: candidateRevision.artifact,
         baseGeneration: base.generation,
-        kind: "atet.project-edit-revision-reference",
+        kind: "slopcamera.project-edit-revision-reference",
         outputGeometrySha256: hashProjectEditRevisionOutputGeometry({
           pixelHeight: 540,
           pixelWidth: 960,
@@ -1110,7 +1110,7 @@ describe("application node planner", () => {
           path: `renders/plans/${planArtifactSha256}.json`,
           sha256: planArtifactSha256,
         },
-        kind: "atet.project-render-plan-reference",
+        kind: "slopcamera.project-render-plan-reference",
         outputGeometrySha256: revision.outputGeometrySha256,
         planSha256: canonicalJsonSha256({ kind: "planner-plan" }),
         projectEditPlanSha256: revision.projectEditPlanSha256,
@@ -1173,7 +1173,7 @@ describe("application node planner", () => {
                 planSha256: base.generation.currentPlanSha256,
                 projectSha256: base.generation.projectSha256,
               }],
-              version: "atet-static-bindings-v1",
+              version: "slopcamera-static-bindings-v1",
             },
           },
           node,
@@ -1190,7 +1190,7 @@ describe("application node planner", () => {
         .toBe(FIXTURE_EXECUTABLE);
       expect(exact.binding.ffmpeg.executableSha256)
         .toBe(exact.binding.ffprobe.executableSha256);
-      expect(exact.rendererAbi).toBe(ATET_PROJECT_RENDERER_ABI);
+      expect(exact.rendererAbi).toBe(SLOPCAMERA_PROJECT_RENDERER_ABI);
       expect(planned.expectedProjectGeneration).toBeUndefined();
       expect(planned.publicationKeys).toEqual([]);
     } finally {
@@ -1201,7 +1201,7 @@ describe("application node planner", () => {
   test("binds v2 metadata commits to the exact recording manifest before hashing the node plan", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-node-planner-v2-binding-",
+      "slopcamera-node-planner-v2-binding-",
     ));
     try {
       const fixtureProject = await createOperationRecordingProjectFixture(
@@ -1294,7 +1294,7 @@ describe("application node planner", () => {
               planSha256: snapshot.generation.currentPlanSha256,
               projectSha256: snapshot.generation.projectSha256,
             }],
-            version: "atet-static-bindings-v1",
+            version: "slopcamera-static-bindings-v1",
           },
         },
         node: commitNode,
@@ -1352,7 +1352,7 @@ describe("application node planner", () => {
   test("binds v3 manual zoom selectors before hashing the node plan", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-node-planner-v3-zoom-binding-",
+      "slopcamera-node-planner-v3-zoom-binding-",
     ));
     try {
       const fixtureProject = await createOperationRecordingProjectFixture(
@@ -1436,7 +1436,7 @@ describe("application node planner", () => {
               planSha256: snapshot.generation.currentPlanSha256,
               projectSha256: snapshot.generation.projectSha256,
             }],
-            version: "atet-static-bindings-v1",
+            version: "slopcamera-static-bindings-v1",
           },
         },
         node: commitNode,
@@ -1523,7 +1523,7 @@ describe("application node planner", () => {
   test("reconciles interrupted v2 project commits with the matching exact schema", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-node-planner-v2-commit-",
+      "slopcamera-node-planner-v2-commit-",
     ));
     try {
       const fixtureProject = await createOperationProjectFixture(
@@ -1604,7 +1604,7 @@ describe("application node planner", () => {
   });
 
   test("binds deterministic analysis IDs into exact execution inputs", async () => {
-    const repositoryRoot = await mkdtemp(join(tmpdir(), "atet-node-planner-"));
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "slopcamera-node-planner-"));
     try {
       const project = await createOperationProjectFixture(repositoryRoot);
       const boundApplication = operationApplicationContext(repositoryRoot, {
@@ -1641,7 +1641,7 @@ describe("application node planner", () => {
               planSha256: "4".repeat(64),
               projectSha256: "5".repeat(64),
             }],
-            version: "atet-static-bindings-v1",
+            version: "slopcamera-static-bindings-v1",
           },
         },
         preparationPlan: {},
@@ -1675,7 +1675,7 @@ describe("application node planner", () => {
   test("does not inject an analysis ID into project auto-zoom input", async () => {
     const repositoryRoot = await mkdtemp(join(
       tmpdir(),
-      "atet-node-planner-auto-zoom-",
+      "slopcamera-node-planner-auto-zoom-",
     ));
     try {
       const project = await createOperationRecordingProjectFixture(
@@ -1704,7 +1704,7 @@ describe("application node planner", () => {
               planSha256: "4".repeat(64),
               projectSha256: "5".repeat(64),
             }],
-            version: "atet-static-bindings-v1",
+            version: "slopcamera-static-bindings-v1",
           },
         },
         node: {
@@ -1775,12 +1775,12 @@ describe("application node planner", () => {
             outputs: [{
               bytes: 5,
               mediaType: "audio/mpeg",
-              path: "artifacts/atet/generated/speech.mp3",
+              path: "artifacts/slopcamera/generated/speech.mp3",
               sha256: "b".repeat(64),
             }],
             receipt: {
               bytes: 100,
-              path: "artifacts/atet/generated/receipt.json",
+              path: "artifacts/slopcamera/generated/receipt.json",
               sha256: "c".repeat(64),
             },
             requestId: input.requestId,
@@ -1827,12 +1827,12 @@ describe("application node planner", () => {
     });
     expect(await planner.reconcile!(reconciliationRequest)).toMatchObject({
       kind: "completed",
-      receiptReference: "artifacts/atet/generated/receipt.json",
+      receiptReference: "artifacts/slopcamera/generated/receipt.json",
       summary: {
         bytes: 5,
         model: SPEECH_MODEL,
         outputs: 1,
-        receipt: "artifacts/atet/generated/receipt.json",
+        receipt: "artifacts/slopcamera/generated/receipt.json",
       },
     });
     expect(reconciliations).toHaveLength(1);

@@ -100,10 +100,10 @@ export {
   type WorkflowDefinitionOptions,
 } from "./define-workflow.js"
 export {
-  AtetCodeError,
-  asAtetCodeError,
-  atetCodeErrorMessage,
-  type AtetCodeErrorCode,
+  SlopcameraCodeError,
+  asSlopcameraCodeError,
+  slopcameraCodeErrorMessage,
+  type SlopcameraCodeErrorCode,
 } from "./errors.js"
 export type { OperationNodeOptions } from "./graph-builder.js"
 export {
@@ -112,7 +112,7 @@ export {
   type PortableWorkflowFragment,
 } from "./portable-builder.js"
 export {
-  PUBLIC_ATET_WORKFLOW_PROJECTION,
+  PUBLIC_SLOPCAMERA_WORKFLOW_PROJECTION,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
   createPublicWorkflowRegistryProjection,

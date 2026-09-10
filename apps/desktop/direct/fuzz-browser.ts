@@ -8,11 +8,11 @@ const directRoot = fileURLToPath(new URL(".", import.meta.url));
 const repositoryRoot = resolve(directRoot, "../../..");
 
 await runDirectBombadilFuzz({
-  artifactName: "atet",
+  artifactName: "slopcamera",
   baseUrl: "http://127.0.0.1:5174",
   entryPath: "/",
   expectedRoute: "/",
-  label: "Atet Direct Bombadil fuzzing",
+  label: "Slopcamera Direct Bombadil fuzzing",
   repositoryRoot,
   scenario: "idle-ready",
   specificationPath: resolve(directRoot, "bombadil-campaign.ts"),

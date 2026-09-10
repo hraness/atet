@@ -1,6 +1,6 @@
 import { lstat, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
-import { publishedArchiveUrl, publishedRelease } from "../apps/web/src/published-release";
+import { sourceInstall } from "../apps/web/src/published-release";
 import {
   compareLegacyIdentityInventory,
   duplicateIdentityAlternatives,
@@ -54,6 +54,7 @@ const SCANNED_ROOT_FILES = [
   "CONTRIBUTING.md",
   "LICENSE",
   "NOTICE.md",
+  "PRIVACY.md",
   "README.md",
   "SECURITY.md",
   "bun.lock",
@@ -101,39 +102,39 @@ const TEXT_EXTENSIONS = new Set([
 const CANONICAL_TEXT_SENTINELS = [
   {
     path: "src/version.ts",
-    values: ['export const ATET_VERSION = "3.2.3" as const'],
+    values: ['export const SLOPCAMERA_VERSION = "3.2.3" as const'],
   },
   {
     path: "src/operations.ts",
     values: [
-      '"atet.diagram.check"',
-      '"atet.diagram.render"',
-      '"atet.image.generate"',
-      '"atet.image.vectorize"',
+      '"slopcamera.diagram.check"',
+      '"slopcamera.diagram.render"',
+      '"slopcamera.image.generate"',
+      '"slopcamera.image.vectorize"',
     ],
   },
   {
     path: "apps/desktop/core/storage.ts",
-    values: ["canonicalAtetPersistenceDocument"],
+    values: ["canonicalSlopcameraPersistenceDocument"],
   },
   {
     path: "apps/desktop/cli/project-state-transaction.ts",
-    values: ['kind: "atet.project-state-transaction"'],
+    values: ['kind: "slopcamera.project-state-transaction"'],
   },
   {
     path: "apps/desktop/dist/cli/main.js",
     values: [
       '"3.2.3"',
-      '"atet.diagram.check"',
-      '"atet.edit-plan"',
-      '"atet.video-project"',
+      '"slopcamera.diagram.check"',
+      '"slopcamera.edit-plan"',
+      '"slopcamera.video-project"',
     ],
   },
 ] as const;
 
 const FORBIDDEN_SOURCE = [
   { label: "private Jungle package", pattern: /@jungle\//u },
-  { label: "private Jungle source path", pattern: /projects\/atet/u },
+  { label: "private Jungle source path", pattern: /projects\/slopcamera/u },
   { label: "private Jungle fixture path", pattern: /\/(?:tmp|work)\/jungle\//u },
   { label: "Convex runtime", pattern: /(?:^|[^a-z])convex(?:[^a-z]|$)/iu },
   { label: "Better Auth runtime", pattern: /better-auth/iu },
@@ -142,15 +143,15 @@ const FORBIDDEN_SOURCE = [
   { label: "legacy Graphics runtime", pattern: /graphics-compat/iu },
   {
     label: "duplicate compatibility schema alternative",
-    pattern: /z\.literal\("((?:atet|studio)(?:\.[^"]+)?)"\),\s*z\.literal\("\1"\)/u,
+    pattern: /z\.literal\("((?:slopcamera|studio)(?:\.[^"]+)?)"\),\s*z\.literal\("\1"\)/u,
   },
   {
     label: "duplicate compatibility type alternative",
-    pattern: /"((?:atet|studio)(?:\.[^"]+)?)"\s*\|\s*"\1"/u,
+    pattern: /"((?:slopcamera|studio)(?:\.[^"]+)?)"\s*\|\s*"\1"/u,
   },
   {
     label: "duplicate compatibility reader branch",
-    pattern: /!==\s*"((?:atet|studio)(?:\.[^"]+)?)"[^;\n]{0,200}!==\s*"\1"/u,
+    pattern: /!==\s*"((?:slopcamera|studio)(?:\.[^"]+)?)"[^;\n]{0,200}!==\s*"\1"/u,
   },
 ];
 
@@ -261,7 +262,7 @@ const legacyIdentitySnapshots: LegacyIdentitySnapshot[] = [];
 for (const file of files) {
   const rootRelative = relative(ROOT, file).split(sep).join("/");
   if (LEGACY_IDENTITY.test(rootRelative) && !isNativeFilmStudioPath(rootRelative)) {
-    sourceProblems.push(`${rootRelative} retains a pre-Atet source path`);
+    sourceProblems.push(`${rootRelative} retains a pre-Slopcamera source path`);
   }
   if (
     !TEXT_EXTENSIONS.has(extension(file))
@@ -292,7 +293,7 @@ for (const file of files) {
     && LEGACY_IDENTITY.test(text)
   ) {
     sourceProblems.push(
-      `${rootRelative} contains an unreviewed pre-Atet identity outside serialized or CLI compatibility`,
+      `${rootRelative} contains an unreviewed pre-Slopcamera identity outside serialized or CLI compatibility`,
     );
   }
 }
@@ -322,7 +323,7 @@ const problems = [
   ...inventoryUpdate.problems,
 ];
 const rootPackage = await readJson(join(ROOT, "package.json"));
-const expectedDescription = "Local-first AI media generation and video editing toolkit for coding agents, with a Bun CLI, TypeScript SDK, MCP server, and Agent Skill.";
+const expectedDescription = "A local visual studio for coding agents: author scenes, combine generated and recorded media, and export images, diagrams, animation, and video from retained sources.";
 const expectedKeywords = [
   "ai-media-generation",
   "ai-video-generation",
@@ -344,51 +345,51 @@ const expectedKeywords = [
   "bun",
   "local-first",
 ] as const;
-if (rootPackage.name !== "@hraness/atet") {
-  problems.push("package.json name must be @hraness/atet");
+if (rootPackage.name !== "@hraness/slopcamera") {
+  problems.push("package.json name must be @hraness/slopcamera");
 }
 if (rootPackage.description !== expectedDescription) {
-  problems.push("package.json description does not match the canonical Atet description");
+  problems.push("package.json description does not match the canonical Slopcamera description");
 }
 if (JSON.stringify(rootPackage.keywords) !== JSON.stringify(expectedKeywords)) {
-  problems.push("package.json keywords do not match the focused Atet discovery vocabulary");
+  problems.push("package.json keywords do not match the focused Slopcamera discovery vocabulary");
 }
-if (rootPackage.homepage !== "https://atet.sh/") {
-  problems.push("package.json homepage must be https://atet.sh/");
+if (rootPackage.homepage !== "https://slop.camera/") {
+  problems.push("package.json homepage must be https://slop.camera/");
 }
 const repository = rootPackage.repository;
 if (
   repository === null
   || typeof repository !== "object"
   || Array.isArray(repository)
-  || Reflect.get(repository, "url") !== "git+https://github.com/hraness/atet.git"
+  || Reflect.get(repository, "url") !== "git+https://github.com/hraness/slopcamera.git"
 ) {
-  problems.push("package.json repository must be hraness/atet");
+  problems.push("package.json repository must be hraness/slopcamera");
 }
 const bugs = rootPackage.bugs;
 if (
   bugs === null
   || typeof bugs !== "object"
   || Array.isArray(bugs)
-  || Reflect.get(bugs, "url") !== "https://github.com/hraness/atet/issues"
+  || Reflect.get(bugs, "url") !== "https://github.com/hraness/slopcamera/issues"
 ) {
-  problems.push("package.json bugs URL must be the hraness/atet issue tracker");
+  problems.push("package.json bugs URL must be the hraness/slopcamera issue tracker");
 }
 const bins = rootPackage.bin;
 if (
   bins === null
   || typeof bins !== "object"
   || Array.isArray(bins)
-  || Object.keys(bins).join(",") !== "atet"
-  || Reflect.get(bins, "atet") !== "./apps/desktop/dist/cli/main.js"
+  || Object.keys(bins).join(",") !== "slopcamera"
+  || Reflect.get(bins, "slopcamera") !== "./apps/desktop/dist/cli/main.js"
 ) {
-  problems.push("package.json must expose only the canonical atet CLI bin");
+  problems.push("package.json must expose only the canonical slopcamera CLI bin");
 }
 const packageVersion = rootPackage.version;
 if (typeof packageVersion !== "string") {
   problems.push("package.json version must be a string");
 } else if (packageVersion !== "3.2.3") {
-  problems.push("package.json version must be 3.2.3 for the current release");
+  problems.push("package.json version must be 3.2.3 for this source candidate; it does not identify a published Slopcamera release");
 } else {
   const versionContracts = [
     ["apps/desktop/app.zon", `.version = ${JSON.stringify(packageVersion)}`],
@@ -396,7 +397,7 @@ if (typeof packageVersion !== "string") {
     ["apps/desktop/build.zig.zon", `.version = ${JSON.stringify(packageVersion)}`],
     [
       "apps/desktop/application/operation.ts",
-      `ATET_APPLICATION_TOOL_VERSION = ${JSON.stringify(`atet-${packageVersion}`)}`,
+      `SLOPCAMERA_APPLICATION_TOOL_VERSION = ${JSON.stringify(`slopcamera-${packageVersion}`)}`,
     ],
     [
       "apps/desktop/capture/Info.plist",
@@ -404,7 +405,7 @@ if (typeof packageVersion !== "string") {
     ],
     [
       "apps/desktop/cli/commands.ts",
-      `export const ATET_VERSION = ${JSON.stringify(packageVersion)}`,
+      `export const SLOPCAMERA_VERSION = ${JSON.stringify(packageVersion)}`,
     ],
     [
       "apps/desktop/cli/recording-controller.ts",
@@ -412,13 +413,13 @@ if (typeof packageVersion !== "string") {
     ],
     [
       "apps/desktop/runtime/package-macos.ts",
-      `atet-${packageVersion}-macos-ReleaseFast.app`,
+      `slopcamera-${packageVersion}-macos-ReleaseFast.app`,
     ],
     [
       "schema/diagram.schema.json",
-      `/hraness/atet/v${packageVersion}/schema/diagram.schema.json`,
+      "/hraness/slopcamera/main/schema/diagram.schema.json",
     ],
-    ["src/version.ts", `ATET_VERSION = ${JSON.stringify(packageVersion)}`],
+    ["src/version.ts", `SLOPCAMERA_VERSION = ${JSON.stringify(packageVersion)}`],
   ] as const;
   for (const [path, expected] of versionContracts) {
     if (!(await readFile(join(ROOT, path), "utf8")).includes(expected)) {
@@ -426,20 +427,26 @@ if (typeof packageVersion !== "string") {
     }
   }
 }
-const publicVersion = publishedRelease.version;
-const publicVersionContracts = [
-  ["apps/web/src/index.html", '"softwareVersion": "{{PUBLISHED_VERSION}}"'],
-  ["apps/web/src/index.html", '"version": "{{PUBLISHED_VERSION}}"'],
-  ["README.md", `bun add --global ${publishedArchiveUrl}`],
-  ["README.md", `bun add ${publishedArchiveUrl}`],
-  ["README.md", `github:hraness/atet#v${publicVersion}`],
-  ["README.md", `npx skills add https://github.com/hraness/atet/tree/v${publicVersion} --skill atet`],
-  ["README.md", `bunx skills add https://github.com/hraness/atet/tree/v${publicVersion} --skill atet`],
-  ["skills/atet/references/install.md", `bun add --global ${publishedArchiveUrl}`],
+const sourceInstallContracts = [
+  ["apps/web/src/index.html", "{{SOURCE_CHECKOUT_COMMAND}}"],
+  ["apps/web/src/index.html", "{{SOURCE_ENTER_COMMAND}}"],
+  ["README.md", sourceInstall.checkoutCommand],
+  ["README.md", "bun install --frozen-lockfile --ignore-scripts"],
+  ["README.md", "bun run build:sdk"],
+  ["README.md", "bun run build:desktop:cli"],
+  ["docs/how-to/use-current-source.md", sourceInstall.checkoutCommand],
+  ["skills/slopcamera/references/install.md", sourceInstall.checkoutCommand],
+  ["skills/slopcamera/references/install.md", "bun install --frozen-lockfile --ignore-scripts"],
 ] as const;
-for (const [path, expected] of publicVersionContracts) {
+for (const [path, expected] of sourceInstallContracts) {
   if (!(await readFile(join(ROOT, path), "utf8")).includes(expected)) {
-    problems.push(`${path} does not match verified public release ${publicVersion}`);
+    problems.push(`${path} does not document the actual Slopcamera source-install contract`);
+  }
+}
+for (const path of ["README.md", "apps/web/src/index.html", "skills/slopcamera/references/install.md"]) {
+  const source = await readFile(join(ROOT, path), "utf8");
+  if (/hraness-slopcamera-3\.2\.3\.tgz|\{\{PUBLISHED_VERSION\}\}/u.test(source)) {
+    problems.push(`${path} presents an uncreated Slopcamera archive as a published release`);
   }
 }
 for (const sentinel of CANONICAL_TEXT_SENTINELS) {
@@ -447,7 +454,7 @@ for (const sentinel of CANONICAL_TEXT_SENTINELS) {
   for (const value of sentinel.values) {
     if (!text.includes(value)) {
       problems.push(
-        `${sentinel.path} is missing canonical Atet sentinel ${JSON.stringify(value)}`,
+        `${sentinel.path} is missing canonical Slopcamera sentinel ${JSON.stringify(value)}`,
       );
     }
   }

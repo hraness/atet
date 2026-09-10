@@ -33,12 +33,12 @@ import {
 } from "@hraness/direct/tooling/browser-verification";
 import { z } from "zod";
 
-import { atetDirect, atetScenarioCatalog } from "./scenarios";
+import { slopcameraDirect, slopcameraScenarioCatalog } from "./scenarios";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:5174";
-const ATET_DIRECT_DOCUMENT_MARKERS = Object.freeze([
-  'data-atet-surface="product"',
-  "<title>Atet Direct</title>",
+const SLOPCAMERA_DIRECT_DOCUMENT_MARKERS = Object.freeze([
+  'data-slopcamera-surface="product"',
+  "<title>Slopcamera Direct</title>",
 ]);
 const SERVER_PROBE_TIMEOUT_MS = 1_500;
 const SERVER_START_TIMEOUT_MS = 30_000;
@@ -50,7 +50,7 @@ const STABLE_PROBE_EXPRESSION = `(() => {
     && snapshot.activity.active === 0
     && Object.values(snapshot.pending).every((value) => value === 0);
   if (!quiet) {
-    window.__atetDirectVerifierQuiet = undefined;
+    window.__slopcameraDirectVerifierQuiet = undefined;
     return false;
   }
   const key = [
@@ -63,9 +63,9 @@ const STABLE_PROBE_EXPRESSION = `(() => {
     JSON.stringify(snapshot.violations),
     JSON.stringify(snapshot.remainingWork),
   ].join(":");
-  const previous = window.__atetDirectVerifierQuiet;
+  const previous = window.__slopcameraDirectVerifierQuiet;
   if (previous?.key !== key) {
-    window.__atetDirectVerifierQuiet = { key, since: Date.now() };
+    window.__slopcameraDirectVerifierQuiet = { key, since: Date.now() };
     return false;
   }
   return Date.now() - previous.since >= 150;
@@ -145,7 +145,7 @@ interface ScenarioVerification {
 const scenarios = [
   {
     action: "start",
-    expectedText: ["Ready to record", "Start recording", "artifacts/atet/recordings/"],
+    expectedText: ["Ready to record", "Start recording", "artifacts/slopcamera/recordings/"],
     id: "idle-ready",
     viewport: { height: 720, width: 480 },
   },
@@ -158,8 +158,8 @@ const scenarios = [
   {
     action: "lifecycle",
     expectedText: [
-      "Built-in display · Atet Display",
-      "Mac system audio · Atet microphone",
+      "Built-in display · Slopcamera Display",
+      "Mac system audio · Slopcamera microphone",
       "FaceTime HD Camera",
       "freeze",
       "silence",
@@ -174,7 +174,7 @@ const scenarios = [
   },
   {
     action: "none",
-    expectedText: ["2 displays", "Built-in display · Atet Display", "window", "zoom"],
+    expectedText: ["2 displays", "Built-in display · Slopcamera Display", "window", "zoom"],
     id: "multiple-displays",
     viewport: { height: 720, width: 480 },
   },
@@ -197,7 +197,7 @@ const scenarios = [
   },
   {
     action: "none",
-    expectedText: ["Recording saved", "artifacts/atet/recordings/rec_demo0001", "00:42"],
+    expectedText: ["Recording saved", "artifacts/slopcamera/recordings/rec_demo0001", "00:42"],
     id: "stop-finalized",
     viewport: { height: 720, width: 480 },
   },
@@ -270,12 +270,12 @@ const scenarios = [
       "Exact-node replay completed",
       "Exact recovery grant",
       "one-attempt",
-      "atet runs resume run_direct_workflow --replay-ambiguous-code curate",
+      "slopcamera runs resume run_direct_workflow --replay-ambiguous-code curate",
       "Durable run files",
       "exact graph and output digests",
-      "artifacts/atet/private/workflow-runs/run_direct_workflow/graph-plan.json",
-      "artifacts/atet/private/workflow-runs/run_direct_workflow/summary.json",
-      "artifacts/atet/private/workflow-runs/run_direct_workflow/outputs.json",
+      "artifacts/slopcamera/private/workflow-runs/run_direct_workflow/graph-plan.json",
+      "artifacts/slopcamera/private/workflow-runs/run_direct_workflow/summary.json",
+      "artifacts/slopcamera/private/workflow-runs/run_direct_workflow/outputs.json",
     ],
     id: "code-mode-workflow",
     viewport: { height: 900, width: 1_120 },
@@ -297,7 +297,7 @@ const scenarios = [
   },
 ] as const satisfies readonly BrowserScenario[];
 
-export const atetBrowserScenarioIds = Object.freeze(
+export const slopcameraBrowserScenarioIds = Object.freeze(
   scenarios.map(({ id }) => id),
 );
 
@@ -418,7 +418,7 @@ function parseData<Value>(schema: z.ZodType<Value>, input: unknown, label: strin
 type Browser = AgentBrowser;
 
 async function joinStableProbe(browser: Browser): Promise<void> {
-  await browser.evaluate("window.__atetDirectVerifierQuiet = undefined");
+  await browser.evaluate("window.__slopcameraDirectVerifierQuiet = undefined");
   await browser.run(["wait", "--fn", STABLE_PROBE_EXPRESSION]);
 }
 
@@ -467,13 +467,13 @@ async function readProbe(browser: Browser): Promise<ProbeSnapshot> {
     remainingWork: parseData(
       remainingWorkSchema,
       parsed.value.remainingWork,
-      "Atet remaining work",
+      "Slopcamera remaining work",
     ),
   });
 }
 
-export function parseAtetDefinitionCoverage(input: unknown) {
-  return parseDefinitionCoverageSnapshot(input, atetDirect);
+export function parseSlopcameraDefinitionCoverage(input: unknown) {
+  return parseDefinitionCoverageSnapshot(input, slopcameraDirect);
 }
 
 async function bodyText(browser: Browser): Promise<string> {
@@ -622,7 +622,7 @@ async function verifyScenario(options: {
   await browser.run(["network", "requests", "--clear"]);
   await browser.run(["open", url]);
   await waitForDirectBridge(browser, definition.id);
-  const authoredScenario = atetScenarioCatalog.resolve(definition.id);
+  const authoredScenario = slopcameraScenarioCatalog.resolve(definition.id);
   if (!authoredScenario.ok) throw new Error(authoredScenario.error.message);
   const contract = await readDirectBrowserContract(browser, {
     source: "scenario",
@@ -715,11 +715,11 @@ async function verifyScenario(options: {
   };
 }
 
-export type AtetDirectServerProbe = "other" | "atet" | "unreachable";
+export type SlopcameraDirectServerProbe = "other" | "slopcamera" | "unreachable";
 
-export async function probeAtetDirectServer(
+export async function probeSlopcameraDirectServer(
   baseUrl: string,
-): Promise<AtetDirectServerProbe> {
+): Promise<SlopcameraDirectServerProbe> {
   try {
     const response = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(SERVER_PROBE_TIMEOUT_MS) });
     if (!response.ok) {
@@ -727,8 +727,8 @@ export async function probeAtetDirectServer(
       return "other";
     }
     const document = await response.text();
-    return ATET_DIRECT_DOCUMENT_MARKERS.every(marker => document.includes(marker))
-      ? "atet"
+    return SLOPCAMERA_DIRECT_DOCUMENT_MARKERS.every(marker => document.includes(marker))
+      ? "slopcamera"
       : "other";
   } catch {
     return "unreachable";
@@ -768,7 +768,7 @@ export async function availableLocalBaseUrl(baseUrl: string): Promise<string> {
     }
   }
   throw new Error(
-    `Could not find a free local Atet Direct port after ${String(startingPort)}.`,
+    `Could not find a free local Slopcamera Direct port after ${String(startingPort)}.`,
   );
 }
 
@@ -794,14 +794,14 @@ async function acquireServer(
   repositoryRoot: string,
   requestedBaseUrl: string,
 ): Promise<AcquiredServer> {
-  const initialProbe = await probeAtetDirectServer(requestedBaseUrl);
+  const initialProbe = await probeSlopcameraDirectServer(requestedBaseUrl);
   const canStartLocally = canAutomaticallyStartServer(requestedBaseUrl);
   if (!canStartLocally) {
-    if (initialProbe === "atet") {
+    if (initialProbe === "slopcamera") {
       return { baseUrl: requestedBaseUrl, server: null, source: "reused" };
     }
     const reason = initialProbe === "other"
-      ? "the reachable server is not Atet Direct"
+      ? "the reachable server is not Slopcamera Direct"
       : "no server is reachable";
     throw new Error(
       `${reason} at ${requestedBaseUrl}; automatic startup is local HTTP only.`,
@@ -812,8 +812,8 @@ async function acquireServer(
     : await availableLocalBaseUrl(requestedBaseUrl);
   const lease = await acquireVerificationServer({
     baseUrl,
-    isReachable: async (candidate) => await probeAtetDirectServer(candidate) === "atet",
-    label: "Atet Direct server",
+    isReachable: async (candidate) => await probeSlopcameraDirectServer(candidate) === "slopcamera",
+    label: "Slopcamera Direct server",
     reuseExistingLocalServer: false,
     startServer: () => startServer(repositoryRoot, baseUrl),
     startupTimeoutMs: SERVER_START_TIMEOUT_MS,
@@ -824,12 +824,12 @@ async function acquireServer(
 }
 
 async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<string> {
-  const artifactRoot = join(repositoryRoot, "artifacts/atet/direct");
+  const artifactRoot = join(repositoryRoot, "artifacts/slopcamera/direct");
   const artifactRun = await createArtifactRun({ artifactRoot });
   const { generatedAt, manifestPath, runDirectory } = artifactRun;
   const acquiredServer = await acquireServer(repositoryRoot, requestedBaseUrl);
   const { baseUrl, server } = acquiredServer;
-  const browser = createAgentBrowser({ repositoryRoot, sessionPrefix: "atet" });
+  const browser = createAgentBrowser({ repositoryRoot, sessionPrefix: "slopcamera" });
   const evidence: ScenarioEvidence[] = [];
   const sessionManifests: DirectBrowserContract["manifest"][] = [];
   let failure: unknown = null;
@@ -847,7 +847,7 @@ async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<st
       evidence.push(verified.evidence);
       sessionManifests.push(verified.manifest);
     }
-    const parsedCoverage = parseAtetDefinitionCoverage(
+    const parsedCoverage = parseSlopcameraDefinitionCoverage(
       bindDirectScenarioCatalog(sessionManifests),
     );
     if (!parsedCoverage.ok) {
@@ -855,8 +855,8 @@ async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<st
     }
     coverage = parsedCoverage.value.entries;
     const auditFailures = scenarioAuditFailures(
-      atetScenarioCatalog.list().map(({ id }) => id),
-      atetBrowserScenarioIds,
+      slopcameraScenarioCatalog.list().map(({ id }) => id),
+      slopcameraBrowserScenarioIds,
       evidence.map(({ id }) => id),
       coverage,
     );
@@ -884,7 +884,7 @@ async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<st
   if (failure !== null || cleanupFailures.length > 0) {
     throw new AggregateError(
       failure === null ? cleanupFailures : [failure, ...cleanupFailures],
-      `Atet browser verification failed: ${renderUnknown(failure ?? cleanupFailures[0])}`,
+      `Slopcamera browser verification failed: ${renderUnknown(failure ?? cleanupFailures[0])}`,
     );
   }
 
@@ -900,7 +900,7 @@ async function run(repositoryRoot: string, requestedBaseUrl: string): Promise<st
       scenarios: entry.scenarios,
     })),
     generatedAt,
-    product: "atet",
+    product: "slopcamera",
     scenarios: evidence,
     server: acquiredServer.source,
   });
@@ -912,7 +912,7 @@ function usage(): string {
     "Usage: bun run direct/verify-browser.ts [--base-url URL]",
     "",
     `Default URL: ${DEFAULT_BASE_URL}`,
-    "Reuses a reachable server or starts and stops Atet's isolated Vite lab.",
+    "Reuses a reachable server or starts and stops Slopcamera's isolated Vite lab.",
   ].join("\n");
 }
 
@@ -924,7 +924,7 @@ async function main(): Promise<void> {
   }
   const repositoryRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
   const manifest = await run(repositoryRoot, arguments_.baseUrl);
-  console.log(`Atet Direct browser verification passed. Manifest: ${manifest}`);
+  console.log(`Slopcamera Direct browser verification passed. Manifest: ${manifest}`);
 }
 
 if (import.meta.main) await main();

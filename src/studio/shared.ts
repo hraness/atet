@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { boundedCanonicalJsonSha256, compareUtf16Strings } from "../code/canonical-json.js"
-import { AtetCodeError } from "../code/errors.js"
+import { SlopcameraCodeError } from "../code/errors.js"
 import { createBoundedJsonValueSnapshot, deepFreezeJson } from "../code/json-snapshot.js"
 
 export const STUDIO_LIMITS = Object.freeze({
@@ -18,8 +18,8 @@ export function studioDocument<Schema extends z.ZodType>(schema: Schema, name: s
 export function parseStudioValue<Schema extends z.ZodType>(schema: Schema, input: unknown): StudioReadonly<z.infer<Schema>> {
   try { return deepFreezeJson(schema.parse(input)) as StudioReadonly<z.infer<Schema>> }
   catch (error) {
-    if (error instanceof AtetCodeError) throw error
-    throw new AtetCodeError("invalid-data", error instanceof z.ZodError ? error.issues[0]?.message ?? "Invalid studio document." : "Invalid studio document.")
+    if (error instanceof SlopcameraCodeError) throw error
+    throw new SlopcameraCodeError("invalid-data", error instanceof z.ZodError ? error.issues[0]?.message ?? "Invalid studio document." : "Invalid studio document.")
   }
 }
 export function studioHash(domain: string, value: unknown): string {
@@ -27,7 +27,7 @@ export function studioHash(domain: string, value: unknown): string {
 }
 export const studioCompare = compareUtf16Strings
 export function studioRequire(condition: unknown, message: string): asserts condition {
-  if (!condition) throw new AtetCodeError("invalid-data", message)
+  if (!condition) throw new SlopcameraCodeError("invalid-data", message)
 }
 export function pathKey(path: string): string { return path.toLowerCase() }
 export function assertDistinctPaths(paths: readonly string[]): void {

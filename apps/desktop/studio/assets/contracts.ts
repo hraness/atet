@@ -3,7 +3,7 @@ import { canonicalJson, boundedCanonicalJsonSha256 } from "../../../../src/code/
 import { createBoundedJsonValueSnapshot, deepFreezeJson } from "../../../../src/code/json-snapshot";
 import { StudioPathSchema } from "../../../../src/studio";
 
-export const POLY_HAVEN = Object.freeze({ provider: "poly-haven" as const, api: "https://api.polyhaven.com", download: "https://dl.polyhaven.org", credit: "Powered by Poly Haven", homepage: "https://polyhaven.com", license: "CC0-1.0", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/", termsUrl: "https://github.com/Poly-Haven/Public-API/blob/master/ToS.md", userAgent: "ATET/StudioAssets (+https://atet.sh)" });
+export const POLY_HAVEN = Object.freeze({ provider: "poly-haven" as const, api: "https://api.polyhaven.com", download: "https://dl.polyhaven.org", credit: "Powered by Poly Haven", homepage: "https://polyhaven.com", license: "CC0-1.0", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/", termsUrl: "https://github.com/Poly-Haven/Public-API/blob/master/ToS.md", userAgent: "SLOPCAMERA/StudioAssets (+https://slop.camera)" });
 export const ASSET_LIMITS = Object.freeze({ jsonBytes: 4 * 1024 * 1024, fileBytes: 128 * 1024 * 1024, totalBytes: 512 * 1024 * 1024, files: 64, requestMs: 120_000 });
 export const AssetIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,127}$/u);
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -84,7 +84,7 @@ function selectedFile(value: unknown, role: AssetPlannedFile["role"], pathInput?
   return { file: { path, url, bytes: source.size, md5: source.md5, role, ...(map === undefined ? {} : { map }) }, includes: source.include ?? {} };
 }
 export interface PolyHavenAssetPlan {
-  readonly kind: "atet.studio-asset-plan"; readonly schemaVersion: 1; readonly provider: "poly-haven"; readonly selection: AssetSelection;
+  readonly kind: "slopcamera.studio-asset-plan"; readonly schemaVersion: 1; readonly provider: "poly-haven"; readonly selection: AssetSelection;
   readonly asset: PolyHavenAsset; readonly license: { readonly spdx: "CC0-1.0"; readonly url: string; readonly scope: "asset-files" };
   readonly credit: string; readonly apiTermsUrl: string; readonly snapshots: { readonly info: unknown; readonly files: unknown };
   readonly files: readonly AssetPlannedFile[]; readonly totalBytes: number; readonly planSha256: string;
@@ -116,7 +116,7 @@ export function planPolyHavenAsset(selectionInput: unknown, snapshotsInput: { re
   for (const path of paths) for (let offset = path.indexOf("/"); offset !== -1; offset = path.indexOf("/", offset + 1)) if (paths.has(path.slice(0, offset))) throw new Error("Selected asset uses a file as a directory.");
   const totalBytes = files.reduce((total, file) => total + file.bytes, 0);
   if (files.length > ASSET_LIMITS.files || totalBytes > selection.maximumTotalBytes) throw new Error("Selected complete asset exceeds its explicit file or byte budget.");
-  const body = { kind: "atet.studio-asset-plan" as const, schemaVersion: 1 as const, provider: "poly-haven" as const, selection, asset, license: { spdx: "CC0-1.0" as const, url: POLY_HAVEN.licenseUrl, scope: "asset-files" as const }, credit: POLY_HAVEN.credit, apiTermsUrl: POLY_HAVEN.termsUrl, snapshots, files: files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0), totalBytes };
+  const body = { kind: "slopcamera.studio-asset-plan" as const, schemaVersion: 1 as const, provider: "poly-haven" as const, selection, asset, license: { spdx: "CC0-1.0" as const, url: POLY_HAVEN.licenseUrl, scope: "asset-files" as const }, credit: POLY_HAVEN.credit, apiTermsUrl: POLY_HAVEN.termsUrl, snapshots, files: files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0), totalBytes };
   return deepFreezeJson({ ...body, planSha256: assetHash(body) });
 }
 export function parsePolyHavenAssetPlan(input: unknown): PolyHavenAssetPlan {

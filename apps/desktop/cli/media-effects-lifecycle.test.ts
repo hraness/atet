@@ -13,13 +13,13 @@ import { LocalMediaEffectsService, type ExpectedLocalMediaInput } from "./media-
 const transform = {
   audioStreamIndex: 0,
   effects: [{ kind: "volume", gainDb: -3 }],
-  kind: "atet.audio-effects-transform",
+  kind: "slopcamera.audio-effects-transform",
   output: { kind: "audio-only", profile: "wav-pcm-s16le" },
   schemaVersion: 1,
 } as const;
 
 async function fixture() {
-  const root = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "atet-transform-pin-")));
+  const root = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "slopcamera-transform-pin-")));
   const inputPath = join(root, "source.wav");
   const input = Buffer.from("immutable native fixture");
   await fs.writeFile(inputPath, input, { mode: 0o600 });

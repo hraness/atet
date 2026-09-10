@@ -5,7 +5,7 @@ import { canonicalJsonSha256 } from "./canonical-json";
 import { assertProjectRenderPlanComposition } from "./project-render-plan";
 
 export function spatialCompositorCadenceSha256(cadence: SpatialCompositorCadenceBindingV1["cadence"]): string {
-  return canonicalJsonSha256({ domain: "atet.spatial-compositor-cadence/v1", cadence });
+  return canonicalJsonSha256({ domain: "slopcamera.spatial-compositor-cadence/v1", cadence });
 }
 
 /** Recheck at the native boundary even when the caller previously bound a projection. */

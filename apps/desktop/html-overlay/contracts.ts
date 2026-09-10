@@ -292,11 +292,11 @@ export const HtmlOverlayAuthoringInputSchema = z.strictObject({
   canvas: HtmlOverlayCanvasSchema,
   html: HtmlDocumentSchema,
   // Studio v1 authoring inputs remain readable, but every parsed/new value is
-  // normalized to the canonical Atet identity before hashing or render.
+  // normalized to the canonical Slopcamera identity before hashing or render.
   kind: z.union([
-    z.literal("atet.html-overlay"),
+    z.literal("slopcamera.html-overlay"),
     z.literal("studio.html-overlay"),
-  ]).overwrite(() => "atet.html-overlay" as const),
+  ]).overwrite(() => "slopcamera.html-overlay" as const),
   libraries: HtmlOverlayLibrarySelectionSchema.default([]),
   parameters: HtmlOverlayParametersSchema.default({}),
   resources: HtmlOverlayDeclaredResourcesSchema.default([]),

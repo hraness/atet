@@ -50,7 +50,7 @@ export interface AtomicRenderPlatformService {
   cleanup(staging: AtomicRenderStaging): Effect.Effect<void, OperationEffectFailure>;
 }
 
-export class AtomicRenderPlatform extends Context.Tag("@atet/local/AtomicRenderPlatform")<
+export class AtomicRenderPlatform extends Context.Tag("@slopcamera/local/AtomicRenderPlatform")<
   AtomicRenderPlatform, AtomicRenderPlatformService
 >() { }
 

@@ -46,7 +46,7 @@ const OperationCompletionCheckpointSchema = z.strictObject({
     runId: z.string().min(1).max(256),
     version: z.number().int().safe().positive(),
   }),
-  kind: z.literal("atet.workflow-operation-completion"),
+  kind: z.literal("slopcamera.workflow-operation-completion"),
   output: z.unknown(),
   outputSha256: Sha256Schema,
   schemaVersion: z.literal(1),
@@ -155,7 +155,7 @@ function checkpointFor(
 ): OperationCompletionCheckpoint {
   return OperationCompletionCheckpointSchema.parse({
     identity,
-    kind: "atet.workflow-operation-completion",
+    kind: "slopcamera.workflow-operation-completion",
     output,
     outputSha256: operationCheckpointOutputSha256(output),
     schemaVersion: 1,

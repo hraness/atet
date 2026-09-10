@@ -13,7 +13,7 @@ function fixture() {
   const snapshot = evaluateSpatialScene(scene, { timeUs: 0, cameraId: "camera_main" });
   const prepared = { kind: "splat", assetId: "asset_splat", entityId: "entity_box", assetManifestSha256: spatialAssetClosureDigests(scene.assets).asset_splat,
     resource: { name: "world", urlPath: "world.spz", sha256: "a".repeat(64), bytes: 100, mediaType: "application/octet-stream" },
-    facts: { kind: "atet.spz-admission", schemaVersion: 1, version: 3, splats: 2, shDegree: 0, fractionalBits: 12, antialiased: false, decompressedBytes: 56, ...spatialSpzAllocationBounds(2, 100, 56) } };
+    facts: { kind: "slopcamera.spz-admission", schemaVersion: 1, version: 3, splats: 2, shDegree: 0, fractionalBits: 12, antialiased: false, decompressedBytes: 56, ...spatialSpzAllocationBounds(2, 100, 56) } };
   return { snapshots: [snapshot], preparedAssets: [prepared], frameRate: { numerator: 30, denominator: 1 }, mode: { kind: "beauty" }, executionProfile: "three-spark-webgl2-hardware-v1" };
 }
 describe("closed Three/Spark lowering", () => {
@@ -56,7 +56,7 @@ describe("closed Three/Spark lowering", () => {
   });
   test("metadata is retained in asset closure but cannot become visible geometry", () => {
     const source = fixtureScene();
-    const asset = { assetId: "asset_metadata", payload: { path: "world.json", sha256: "a".repeat(64), bytes: 100 }, interpretation: { kind: "metadata", format: "json", schema: "atet.spatial-world-import" }, dependencies: [], provenance: { source: "imported", description: "Original metadata" } };
+    const asset = { assetId: "asset_metadata", payload: { path: "world.json", sha256: "a".repeat(64), bytes: 100 }, interpretation: { kind: "metadata", format: "json", schema: "slopcamera.spatial-world-import" }, dependencies: [], provenance: { source: "imported", description: "Original metadata" } };
     expect(parseSpatialScene({ ...source, assets: [asset] }).assets).toHaveLength(1);
     const base = fixtureEntity();
     expect(() => parseSpatialScene({ ...source, assets: [asset], entities: [{ ...base, geometry: { kind: "asset", assetId: "asset_metadata" } }] })).toThrow("requires a gltf");

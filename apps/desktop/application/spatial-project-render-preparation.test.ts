@@ -38,7 +38,7 @@ async function put(root: string, path: string, contents: string | Uint8Array) {
   const destination = join(root, path); await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, contents); return destination;
 }
 async function fixture(options: { shotCount?: number; durationUs?: number; width?: number; secondWidth?: number; overlap?: boolean; baseSpeed?: number; legacyLayoutWidth?: number; effect?: "clicks" | "cursor" | "keystrokes" | "typedText"; onRender?: () => Promise<void> } = {}) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-spatial-project-preparation-"))); directories.push(root);
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-spatial-project-preparation-"))); directories.push(root);
   const legacy = syncedProject(), media = "synthetic legacy media fixture", mediaSha = sha256Hex(media);
   const project = VideoProjectV1Schema.parse({ ...legacy,
     placements: options.legacyLayoutWidth === undefined ? legacy.placements : legacy.placements.map(placement => ({ ...placement,
@@ -55,7 +55,7 @@ async function fixture(options: { shotCount?: number; durationUs?: number; width
   };
   const projectEditPlan = ProjectEditPlanV1Schema.parse({ ...originalPlan, baseSpeed: options.baseSpeed ?? originalPlan.baseSpeed,
     effects: options.effect === undefined ? originalPlan.effects : { ...originalPlan.effects, [options.effect]: effects[options.effect] } });
-  const projectRoot = join(root, "artifacts", "atet", "projects"), projectDirectory = join(projectRoot, project.projectId);
+  const projectRoot = join(root, "artifacts", "slopcamera", "projects"), projectDirectory = join(projectRoot, project.projectId);
   const camera = fixtureCamera();
   const scene = { ...fixtureScene(), durationUs: 10_000_000, cameras: [{ ...camera, projection: { ...camera.projection, width: options.width ?? 8, height: 4 } },
     ...(options.secondWidth === undefined ? [] : [{ ...camera, cameraId: "camera_second", projection: { ...camera.projection, width: options.secondWidth, height: 4 } }])] };
@@ -63,20 +63,20 @@ async function fixture(options: { shotCount?: number; durationUs?: number; width
   const durationUs = options.durationUs ?? 100_000;
   const shots = Array.from({ length: options.shotCount ?? 1 }, (_, index) => SpatialShotV1Schema.parse({ shotId: `shot_${index}`, sceneSha256, cameraId: index > 0 && options.secondWidth !== undefined ? "camera_second" : "camera_main",
     range: { startUs: options.overlap === true ? 0 : index * durationUs, endUs: options.overlap === true ? durationUs : (index + 1) * durationUs }, sceneStartUs: 0, playback: "loop", overrides: [] }));
-  const revision = SpatialProjectRevisionV2Schema.parse({ kind: "atet.spatial-project-revision", schemaVersion: 2, projectId: project.projectId,
+  const revision = SpatialProjectRevisionV2Schema.parse({ kind: "slopcamera.spatial-project-revision", schemaVersion: 2, projectId: project.projectId,
     parent: { version: 1, sha256: "a".repeat(64) }, transactionId: `transaction_${"0".repeat(32)}`, legacy: { project, projectEditPlan },
     scenes: [{ sceneSha256, artifact: sceneArtifact }], shots, candidates: [], selections: [] });
-  const head = SpatialProjectHeadV2Schema.parse({ kind: "atet.spatial-project-head", schemaVersion: 2, projectId: project.projectId, projectRevisionSha256: spatialProjectRevisionSha256(revision),
+  const head = SpatialProjectHeadV2Schema.parse({ kind: "slopcamera.spatial-project-head", schemaVersion: 2, projectId: project.projectId, projectRevisionSha256: spatialProjectRevisionSha256(revision),
     revision: spatialProjectArtifact("revisions", spatialProjectDocumentText(revision)), transactionId: revision.transactionId });
   await put(projectDirectory, head.revision.path, spatialProjectDocumentText(revision));
   await put(projectDirectory, sceneArtifact.path, spatialProjectDocumentText(scene));
   const headText = spatialProjectDocumentText(head); await put(projectDirectory, "project.json", headText);
   for (const path of ["fixtures/reference.mov", "fixtures/camera.mov"]) await put(root, path, media);
-  const privateRoot = join(root, "artifacts", "atet", "private"); await mkdir(privateRoot, { recursive: true });
+  const privateRoot = join(root, "artifacts", "slopcamera", "private"); await mkdir(privateRoot, { recursive: true });
   for (const name of ["ffmpeg", "ffprobe", "html-browser"]) { const path = await put(root, `bin/${name}`, "test capability"); await chmod(path, 0o700); }
   let held = true, renderCalls = 0, capabilityCalls = 0;
   const application: ApplicationContext = {
-    paths: { repositoryRoot: root, projectRoot, privateRoot, desktopRoot: root, artifactRoot: join(root, "artifacts", "atet", "recordings") },
+    paths: { repositoryRoot: root, projectRoot, privateRoot, desktopRoot: root, artifactRoot: join(root, "artifacts", "slopcamera", "recordings") },
     spatialProjectCustody: { projectDirectory, projectId: project.projectId, async assertHeld() { if (!held) throw new Error("revoked project custody"); }, async assertLegacyTransactionSettled() {} },
     clock: { now: () => new Date("2026-09-08T00:00:00Z"), timestampMilliseconds: () => 0 }, capabilities: () => Promise.resolve([]),
     capability: async name => { capabilityCalls++; return name === "rsvg-convert" ? { name, available: false } : { name, available: true, command: join(root, "bin", name), version: "test fixture1" }; },
@@ -154,7 +154,7 @@ test("V4 rejects a self-consistent physical receipt and projection whose request
   const text = spatialProjectDocumentText(altered), digest = sha256Hex(text);
   await put(value.projectDirectory, `spatial/receipts/${digest}.json`, text);
   const projection = structuredClone(result.projection); projection.shots[0]!.materialized.receiptSha256 = digest;
-  const projectionSha256 = canonicalJsonSha256({ domain: "atet.scene-render-projection/v1", projection });
+  const projectionSha256 = canonicalJsonSha256({ domain: "slopcamera.scene-render-projection/v1", projection });
   const planDocument = ProjectRenderPlanDocumentSchema.parse(JSON.parse(await readFile(join(value.projectDirectory, result.plan.artifact.path), "utf8")));
   const spatial = { projection, projectionSha256, cadence: createSpatialCompositorCadence({ projection, projectionSha256, plan: planDocument.plan }) };
   await expect(bindProjectRenderInputV4(value.context.application, { ...requested(result), spatial })).rejects.toThrow("different camera, overrides or exact source clock");

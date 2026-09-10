@@ -114,9 +114,9 @@ const PROJECT_RENDER_PRECOMMIT_MAXIMUM_BYTES = 256 * 1_024;
 const PROJECT_RENDER_PRECOMMIT_DOMAIN =
   "studio.project-render-publication-precommit/v1";
 const CANDIDATE_RENDER_REUSE_RECORD_DOMAIN =
-  "atet.candidate-render-reuse-record/v1";
+  "slopcamera.candidate-render-reuse-record/v1";
 
-class ProjectRenderServices extends Context.Tag("@atet/local/ProjectRenderServices")<
+class ProjectRenderServices extends Context.Tag("@slopcamera/local/ProjectRenderServices")<
   ProjectRenderServices, ApplicationContext
 >() { }
 
@@ -170,7 +170,7 @@ const ProjectRenderExecutionIdentitySchema = z.strictObject({
 
 const ProjectRenderPublicationPrecommitBodySchema = z.strictObject({
   kind: z.union([
-    z.literal("atet.project-render-publication-precommit"),
+    z.literal("slopcamera.project-render-publication-precommit"),
     z.literal("studio.project-render-publication-precommit"),
   ]),
   receipt: ProjectRenderReceiptV2Schema,
@@ -218,7 +218,7 @@ const CandidateRenderReuseRecordBodyV1Schema = z.strictObject({
   derivationSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   inputSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   kind: z.union([
-    z.literal("atet.candidate-render-reuse-record"),
+    z.literal("slopcamera.candidate-render-reuse-record"),
   ]),
   output: ProjectRenderOutputReferenceSchema,
   rendererAbi: CandidateProjectRendererAbiSchema,
@@ -618,7 +618,7 @@ function createPublicationPrecommit(
 ): ProjectRenderPublicationPrecommit {
   const receiptContentsSha256 = sha256Hex(`${canonicalJson(receipt)}\n`);
   const body = ProjectRenderPublicationPrecommitBodySchema.parse({
-    kind: "atet.project-render-publication-precommit",
+    kind: "slopcamera.project-render-publication-precommit",
     receipt,
     receiptContentsSha256,
     schemaVersion: 1,
@@ -788,7 +788,7 @@ function receiptReference(
 ): ProjectRenderReceiptReference {
   return ProjectRenderReceiptReferenceSchema.parse({
     bytes: new TextEncoder().encode(contents).byteLength,
-    kind: "atet.project-render-receipt-reference",
+    kind: "slopcamera.project-render-receipt-reference",
     nodePlanSha256,
     outputSha256: output.sha256,
     path,
@@ -972,7 +972,7 @@ function createCandidateRenderReuseRecord(options: {
   const body = CandidateRenderReuseRecordBodyV1Schema.parse({
     derivationSha256: options.input.derivation.derivationSha256,
     inputSha256: canonicalJsonSha256(options.input),
-    kind: "atet.candidate-render-reuse-record",
+    kind: "slopcamera.candidate-render-reuse-record",
     output: options.receipt.output,
     rendererAbi: options.input.derivation.rendererAbi,
     schemaVersion: 1,
@@ -1483,7 +1483,7 @@ function projectRenderProgram(
           const candidate = yield* renderValidation(() => {
             const output = ProjectRenderOutputReferenceSchema.parse({
               ...outputIntegrity,
-              kind: "atet.project-render-output-reference",
+              kind: "slopcamera.project-render-output-reference",
               path: input.output.path,
               planArtifactSha256: input.plan.artifact.sha256,
               projectId: input.plan.projectId,
@@ -1565,11 +1565,11 @@ const projectRenderLifecycle = {
 
 export const projectRenderOperationDefinition = {
   inputSchema: ProjectRenderInputSchema,
-  inputSchemaId: "atet.operation.render.project.input/v1",
+  inputSchemaId: "slopcamera.operation.render.project.input/v1",
   kind: "render.project",
   lifecycle: projectRenderLifecycle,
   outputSchema: ProjectRenderOutputSchema,
-  outputSchemaId: "atet.operation.render.project.output/v1",
+  outputSchemaId: "slopcamera.operation.render.project.output/v1",
   policy: {
     cache: "exact-run",
     cancellable: true,
@@ -1609,9 +1609,9 @@ export const projectRenderOperationDefinition = {
 export const projectRenderOperationDefinitionV2 = {
   ...projectRenderOperationDefinition,
   inputSchema: ProjectRenderInputSchemaV2,
-  inputSchemaId: "atet.operation.render.project.input/v2",
+  inputSchemaId: "slopcamera.operation.render.project.input/v2",
   lifecycle: projectRenderLifecycle,
-  outputSchemaId: "atet.operation.render.project.output/v2",
+  outputSchemaId: "slopcamera.operation.render.project.output/v2",
   policy: {
     ...projectRenderOperationDefinition.policy,
     resources: [
@@ -1637,9 +1637,9 @@ export const projectRenderOperationDefinitionV2 = {
 export const projectRenderOperationDefinitionV3 = {
   ...projectRenderOperationDefinitionV2,
   inputSchema: ProjectRenderInputSchemaV3,
-  inputSchemaId: "atet.operation.render.project.input/v3",
+  inputSchemaId: "slopcamera.operation.render.project.input/v3",
   lifecycle: projectRenderLifecycle,
-  outputSchemaId: "atet.operation.render.project.output/v3",
+  outputSchemaId: "slopcamera.operation.render.project.output/v3",
   version: 3,
 } satisfies OperationDefinition<
   "render.project",
@@ -1769,7 +1769,7 @@ function spatialReceiptPath(nodePlanSha256: string): string { return `renders/re
 function spatialProjectRenderOutput(receipt: ProjectSpatialRenderReceiptV1): ProjectRenderOutputV4 {
   const text = `${canonicalJson(receipt)}\n`, execution = receipt.execution;
   return ProjectRenderOutputSchemaV4.parse({ output: execution.output, receipt: {
-    kind: "atet.spatial-project-render-receipt-reference", schemaVersion: 1,
+    kind: "slopcamera.spatial-project-render-receipt-reference", schemaVersion: 1,
     bytes: Buffer.byteLength(text), sha256: sha256Hex(text), receiptSha256: receipt.receiptSha256,
     path: spatialReceiptPath(execution.run.nodePlanSha256), projectId: execution.projectId, revisionSha256: execution.revisionSha256,
     projectRevisionSha256: receipt.spatial.projection.source.projectRevisionSha256, projectionSha256: receipt.spatial.projectionSha256,
@@ -1850,7 +1850,7 @@ function projectRenderProgramV4(context: OperationExecutionContext, value: unkno
           yield* renderBoundary("publication", publicationFence);
           const receipt = yield* renderValidation(() => createProjectSpatialRenderReceipt({
             execution: createProjectRenderReceiptV2({ createdAt: application.clock.now().toISOString(), inputSha256: canonicalJsonSha256(input), invocation: built.invocation,
-              output: ProjectRenderOutputReferenceSchema.parse({ ...integrity, kind: "atet.project-render-output-reference", schemaVersion: 1, path: input.output.path,
+              output: ProjectRenderOutputReferenceSchema.parse({ ...integrity, kind: "slopcamera.project-render-output-reference", schemaVersion: 1, path: input.output.path,
                 planArtifactSha256: input.plan.artifact.sha256, projectId: input.plan.projectId, revisionSha256: input.plan.revisionSha256 }),
               plan: input.plan, run: execution, syncPolicy: input.syncPolicy, toolchain: input.binding }), spatial: input.spatial, timing,
           }));
@@ -1878,8 +1878,8 @@ export function projectRenderEffectV4(context: OperationExecutionContext, input:
 }
 export const projectRenderOperationDefinitionV4 = {
   ...projectRenderOperationDefinitionV2, version: 4,
-  inputSchema: ProjectRenderInputSchemaV4, inputSchemaId: "atet.operation.render.project.input/v4",
-  outputSchema: ProjectRenderOutputSchemaV4, outputSchemaId: "atet.operation.render.project.output/v4",
+  inputSchema: ProjectRenderInputSchemaV4, inputSchemaId: "slopcamera.operation.render.project.input/v4",
+  outputSchema: ProjectRenderOutputSchemaV4, outputSchemaId: "slopcamera.operation.render.project.output/v4",
   lifecycle: { kind: "local-artifact", execute: async (context, input) => await runStandaloneOperation(projectRenderEffectV4(context, input)), executeEffect: projectRenderEffectV4 },
   policy: { ...projectRenderOperationDefinitionV2.policy, maxInputBytes: 16 * 1024 * 1024, maxOutputBytes: 32 * 1024 },
   receiptReference: output => output.receipt.path,

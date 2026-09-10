@@ -14,17 +14,17 @@ import {
   canonicalJsonSha256Prefixed,
 } from "./canonical-json.js"
 import { parseCodeBoundary } from "./boundary.js"
-import { AtetCodeError } from "./errors.js"
+import { SlopcameraCodeError } from "./errors.js"
 import { createBoundedJsonValueSnapshot } from "./json-snapshot.js"
 import {
-  PORTABLE_ATET_OPERATION_CONTRACTS,
-  PORTABLE_ATET_OPERATION_KINDS,
+  PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS,
+  PORTABLE_SLOPCAMERA_OPERATION_KINDS,
 } from "./public-operations.js"
 
 export const WORKFLOW_REGISTRY_PROJECTION_HASH_DOMAIN =
-  "atet.workflow.registry-projection/v1" as const
+  "slopcamera.workflow.registry-projection/v1" as const
 export const PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID =
-  "atet.workflow.registry.public/v1" as const
+  "slopcamera.workflow.registry.public/v1" as const
 
 export type WorkflowRegistryProjectionSource =
   | OperationDiscoverySource
@@ -62,11 +62,11 @@ export function boundedOperationDiscoveryList(
   name = "operation discovery list",
 ): readonly unknown[] {
   if (!Array.isArray(input)) {
-    throw new AtetCodeError("invalid-data", `${name} must be an array.`)
+    throw new SlopcameraCodeError("invalid-data", `${name} must be an array.`)
   }
   const length = input.length
   if (length > MAX_OPERATION_DISCOVERY_ENTRIES) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
       `${name} cannot exceed ${String(MAX_OPERATION_DISCOVERY_ENTRIES)} entries.`,
     )
@@ -76,7 +76,7 @@ export function boundedOperationDiscoveryList(
     symbol => (Reflect.get(descriptors, symbol) as PropertyDescriptor | undefined)
       ?.enumerable === true,
   )) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
       `${name} cannot contain enumerable symbol properties.`,
     )
@@ -87,7 +87,7 @@ export function boundedOperationDiscoveryList(
     keys.length !== length
     || keys.some((key, index) => key !== String(index))
   ) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
       `${name} must be dense and cannot have named properties.`,
     )
@@ -103,14 +103,14 @@ export function boundedOperationDiscoveryList(
       || descriptor.get !== undefined
       || descriptor.set !== undefined
     ) {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "invalid-data",
         `${name} must contain plain data elements.`,
       )
     }
     const remainingBytes = MAX_OPERATION_DISCOVERY_LIST_BYTES - bytes
     if (remainingBytes < 1) {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "invalid-data",
         `${name} contains more than ${String(MAX_OPERATION_DISCOVERY_LIST_BYTES)} bytes.`,
       )
@@ -127,7 +127,7 @@ export function boundedOperationDiscoveryList(
     bytes += snapshot.bytes
     values += snapshot.values
     if (values > MAX_OPERATION_DISCOVERY_LIST_VALUES) {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "invalid-data",
         `${name} contains more than ${String(MAX_OPERATION_DISCOVERY_LIST_VALUES)} JSON values.`,
       )
@@ -147,9 +147,9 @@ function uniqueSorted<Value extends string>(
   return [...new Set(values)].sort((left, right) => left.localeCompare(right))
 }
 
-function canonicalAtetIdentity(value: string): string {
-  if (value === "studio") return "atet"
-  return value.replace(/^studio\./u, "atet.")
+function canonicalSlopcameraIdentity(value: string): string {
+  if (value === "studio") return "slopcamera"
+  return value.replace(/^studio\./u, "slopcamera.")
 }
 
 function normalizeOperationDiscoveryPreservingIdentity(
@@ -163,7 +163,7 @@ function normalizeOperationDiscoveryPreservingIdentity(
     )
     const preparation = uniqueSorted(parsed.policy.preparation)
     if (preparation.length !== parsed.policy.preparation.length) {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "invalid-data",
         `Duplicate preparation requirement for ${operationKey(parsed.kind, parsed.version)}.`,
         { kind: parsed.kind, version: parsed.version },
@@ -174,7 +174,7 @@ function normalizeOperationDiscoveryPreservingIdentity(
         left.resource.localeCompare(right.resource)
       ))
     if (new Set(resources.map(resource => resource.resource)).size !== resources.length) {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "invalid-data",
         `Duplicate resource claim for ${operationKey(parsed.kind, parsed.version)}.`,
         { kind: parsed.kind, version: parsed.version },
@@ -191,7 +191,7 @@ function normalizeOperationDiscoveryPreservingIdentity(
   for (const operation of normalized) {
     const key = operationKey(operation.kind, operation.version)
     if (seen.has(key)) {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "conflict",
         `Duplicate operation discovery entry: ${key}`,
         { kind: operation.kind, version: operation.version },
@@ -208,9 +208,9 @@ export function normalizeOperationDiscovery(
   return normalizeOperationDiscoveryPreservingIdentity(input).map(operation => (
     parseCodeBoundary(OperationDiscoverySchema, {
       ...operation,
-      inputSchemaId: canonicalAtetIdentity(operation.inputSchemaId),
-      kind: canonicalAtetIdentity(operation.kind),
-      outputSchemaId: canonicalAtetIdentity(operation.outputSchemaId),
+      inputSchemaId: canonicalSlopcameraIdentity(operation.inputSchemaId),
+      kind: canonicalSlopcameraIdentity(operation.kind),
+      outputSchemaId: canonicalSlopcameraIdentity(operation.outputSchemaId),
     }, "canonical operation discovery entry")
   ))
 }
@@ -235,7 +235,7 @@ export function createWorkflowRegistryProjectionHash(input: {
   readonly id: string
   readonly trustedCompute?: boolean
 }): string {
-  const id = canonicalAtetIdentity(
+  const id = canonicalSlopcameraIdentity(
     parseCodeBoundary(SchemaIdSchema, input.id, "registry projection id"),
   )
   const discovery = normalizeOperationDiscovery(input.discovery)
@@ -267,7 +267,7 @@ export function createWorkflowRegistryProjection(
   source: WorkflowRegistryProjectionSource,
   options: CreateWorkflowRegistryProjectionOptions = {},
 ): WorkflowRegistryProjection {
-  const id = canonicalAtetIdentity(
+  const id = canonicalSlopcameraIdentity(
     parseCodeBoundary(SchemaIdSchema, idInput, "registry projection id"),
   )
   const discovery = normalizeOperationDiscovery(discoveryList(source))
@@ -325,7 +325,7 @@ export function parseWorkflowRegistryProjection(
   const expectedProjectionSha256 =
     workflowRegistryProjectionHashFromNormalized(exactIdentity)
   if (parsed.projectionSha256 !== expectedProjectionSha256) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
       "Workflow registry projection hash does not match its contents.",
       {
@@ -336,7 +336,7 @@ export function parseWorkflowRegistryProjection(
     )
   }
   if (canonicalJsonSha256(parsed.discovery) !== canonicalJsonSha256(exactDiscovery)) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
       "Workflow registry projection discovery is not normalized.",
       { projectionId: parsed.id },
@@ -350,8 +350,8 @@ export function parseWorkflowRegistryProjection(
 }
 
 function publicDiscovery(): readonly OperationDiscovery[] {
-  return PORTABLE_ATET_OPERATION_KINDS.map((kind) => {
-    const contract = PORTABLE_ATET_OPERATION_CONTRACTS[kind]
+  return PORTABLE_SLOPCAMERA_OPERATION_KINDS.map((kind) => {
+    const contract = PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS[kind]
     return {
       inputSchemaId: contract.inputSchemaId,
       kind: contract.kind,
@@ -374,5 +374,5 @@ export function createPublicWorkflowRegistryProjection(): WorkflowRegistryProjec
 export const PUBLIC_WORKFLOW_REGISTRY_PROJECTION =
   createPublicWorkflowRegistryProjection()
 
-export const PUBLIC_ATET_WORKFLOW_PROJECTION =
+export const PUBLIC_SLOPCAMERA_WORKFLOW_PROJECTION =
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION

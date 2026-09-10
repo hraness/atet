@@ -27,7 +27,7 @@ function fixture() {
   const clones: Array<{ value: string; readOnly: boolean; className: string; removed: boolean; select(): void; setSelectionRange(start: number, end: number): void; remove(): void }> = []
   const selection: Array<readonly [number, number]> = []
   const status = { textContent: "" }
-  const command = { textContent: "npx skills add https://github.com/hraness/atet/tree/v0.6.0 --skill atet" }
+  const command = { textContent: "bun apps/desktop/dist/cli/main.js skill install --target agents" }
   const dataset: Record<string, string | undefined> = {
     copyIdleClass: "copy-command__button xIdle",
     copyCopiedClass: "copy-command__button xCopied",

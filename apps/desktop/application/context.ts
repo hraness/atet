@@ -1,4 +1,4 @@
-import type { HostResourceLease } from "@hraness/atet/host-resources";
+import type { HostResourceLease } from "@hraness/slopcamera/host-resources";
 
 import type { ApplicationStudioAuthorization, ApplicationStudioPort } from "./studio-port";
 import type { ApplicationGatewayPort } from "./gateway-port";

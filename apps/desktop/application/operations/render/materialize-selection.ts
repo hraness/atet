@@ -144,7 +144,7 @@ async function loadExistingMaterialization(input: {
 
 export const materializeVariantSelectionOperationDefinition = {
   inputSchema: MaterializeVariantSelectionInputSchema,
-  inputSchemaId: "atet.operation.render.materialize-selection.input/v1",
+  inputSchemaId: "slopcamera.operation.render.materialize-selection.input/v1",
   kind: "render.materialize-selection",
   lifecycle: {
     kind: "local-artifact",
@@ -288,7 +288,7 @@ export const materializeVariantSelectionOperationDefinition = {
     },
   },
   outputSchema: MaterializeVariantSelectionOutputSchema,
-  outputSchemaId: "atet.operation.render.materialize-selection.output/v1",
+  outputSchemaId: "slopcamera.operation.render.materialize-selection.output/v1",
   policy: {
     cache: "none",
     cancellable: true,

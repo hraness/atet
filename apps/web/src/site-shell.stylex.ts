@@ -78,8 +78,9 @@ const shell = stylex.create({
     alignItems: "center",
     rowGap: "0.25rem",
     columnGap: { default: "1.35rem", [tablet]: "1rem", [phone]: "0.85rem" },
-    order: { default: 0, [tablet]: 3, [phone]: 0 },
-    width: { default: "auto", [tablet]: "100%", [phone]: "auto" },
+    // Keep the wordmark and appearance trigger together above navigation.
+    order: { default: 0, [tablet]: 3 },
+    width: { default: "auto", [tablet]: "100%" },
     marginLeft: { default: 0, [phone]: "auto" },
   },
   navigationLink: {
@@ -145,7 +146,7 @@ const shell = stylex.create({
     paddingLeft: "0.9rem",
     color: { default: "var(--gold-ink)", ":hover": "var(--ink)" },
     fontSize: "0.9rem",
-    marginLeft: { default: 0, [tablet]: "auto", [phone]: 0 },
+    marginLeft: { default: 0, [tablet]: "auto" },
   },
   recovery: {
     display: "grid",

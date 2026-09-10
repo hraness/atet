@@ -5,28 +5,28 @@ import {
 } from "@hraness/direct/testing";
 
 import {
-  atetDirect,
-  type AtetDirectRoute,
+  slopcameraDirect,
+  type SlopcameraDirectRoute,
 } from "./scenarios";
 import {
-  createAtetDirectTransport,
-  type AtetDirectTransportHarness,
+  createSlopcameraDirectTransport,
+  type SlopcameraDirectTransportHarness,
 } from "./transport";
-import type { AtetDirectWorld } from "./world";
+import type { SlopcameraDirectWorld } from "./world";
 
-export type AtetDirectSession = DirectSession<
-  AtetDirectWorld,
-  AtetDirectRoute,
-  AtetDirectTransportHarness
+export type SlopcameraDirectSession = DirectSession<
+  SlopcameraDirectWorld,
+  SlopcameraDirectRoute,
+  SlopcameraDirectTransportHarness
 >;
 
 /** Open the definition-owned deterministic session used by the recorder workbench. */
-export function createAtetDirectSession(activation: DirectSessionActivation) {
+export function createSlopcameraDirectSession(activation: DirectSessionActivation) {
   return createDirectSession({
-    definition: atetDirect,
+    definition: slopcameraDirect,
     activation,
-    create: (context): AtetDirectTransportHarness => {
-      const harness = createAtetDirectTransport(context.world, {
+    create: (context): SlopcameraDirectTransportHarness => {
+      const harness = createSlopcameraDirectTransport(context.world, {
         activity: context.activity,
         signal: context.signal,
       });

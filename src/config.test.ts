@@ -4,17 +4,17 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { loadDiagramConfig } from "./config.ts"
 
-describe("Atet config discovery", () => {
+describe("Slopcamera config discovery", () => {
   it("rejects a legacy-only config with exact rename guidance", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "atet-config-legacy-"))
+    const directory = await mkdtemp(join(tmpdir(), "slopcamera-config-legacy-"))
     const legacy = join(directory, "diagram.config.json")
-    const replacement = join(directory, "atet.config.json")
+    const replacement = join(directory, "slopcamera.config.json")
     try {
       await writeFile(legacy, JSON.stringify({ font: { family: "Legacy" } }))
       await expect(
         loadDiagramConfig({ searchDirectory: directory }),
       ).rejects.toThrow(
-        `Legacy Atet config found at ${legacy}. Rename it to ${replacement}; Atet does not auto-load diagram.config.*.`,
+        `Legacy Slopcamera config found at ${legacy}. Rename it to ${replacement}; Slopcamera does not auto-load diagram.config.*.`,
       )
     } finally {
       await rm(directory, { recursive: true, force: true })
@@ -22,13 +22,13 @@ describe("Atet config discovery", () => {
   })
 
   it("prefers a new config when a legacy sibling also exists", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "atet-config-precedence-"))
-    const current = join(directory, "atet.config.json")
+    const directory = await mkdtemp(join(tmpdir(), "slopcamera-config-precedence-"))
+    const current = join(directory, "slopcamera.config.json")
     try {
       await Promise.all([
         writeFile(
           current,
-          JSON.stringify({ font: { family: "Atet", monoFamily: "Atet Mono, monospace" } }),
+          JSON.stringify({ font: { family: "Slopcamera", monoFamily: "Slopcamera Mono, monospace" } }),
         ),
         writeFile(
           join(directory, "diagram.config.json"),
@@ -37,18 +37,18 @@ describe("Atet config discovery", () => {
       ])
       const loaded = await loadDiagramConfig({ searchDirectory: directory })
       expect(loaded.filePath).toBe(current)
-      expect(loaded.value.font?.family).toBe("Atet")
-      expect(loaded.value.font?.monoFamily).toBe("Atet Mono, monospace")
+      expect(loaded.value.font?.family).toBe("Slopcamera")
+      expect(loaded.value.font?.monoFamily).toBe("Slopcamera Mono, monospace")
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
   })
 
   it("rejects an empty mono font family", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "atet-config-mono-family-"))
-    const current = join(directory, "atet.config.json")
+    const directory = await mkdtemp(join(tmpdir(), "slopcamera-config-mono-family-"))
+    const current = join(directory, "slopcamera.config.json")
     try {
-      await writeFile(current, JSON.stringify({ font: { family: "Atet", monoFamily: " " } }))
+      await writeFile(current, JSON.stringify({ font: { family: "Slopcamera", monoFamily: " " } }))
       await expect(loadDiagramConfig({ searchDirectory: directory })).rejects.toThrow(
         "font.monoFamily must be a non-empty string when present",
       )

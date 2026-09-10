@@ -11,7 +11,7 @@ from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
 
 driver_path = Path(__file__).with_name("blender_driver.py")
-spec = importlib.util.spec_from_file_location("atet_fixed_blender_driver", driver_path)
+spec = importlib.util.spec_from_file_location("slopcamera_fixed_blender_driver", driver_path)
 driver = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(driver)
 source, destination = [Path(value) for value in sys.argv[sys.argv.index("--") + 1:]]
@@ -34,11 +34,11 @@ for case in cases:
     data = camera.data
     bpy.data.objects.remove(camera, do_unlink=True)
     bpy.data.cameras.remove(data)
-receipt = {"kind": "atet.spatial-camera-native-qualification", "schemaVersion": 1,
+receipt = {"kind": "slopcamera.spatial-camera-native-qualification", "schemaVersion": 1,
            "blenderVersion": bpy.app.version_string, "buildHash": bpy.app.build_hash.decode(),
            "driverSha256": hashlib.sha256(driver_path.read_bytes()).hexdigest(),
            "casesSha256": hashlib.sha256(source.read_bytes()).hexdigest(),
            "projection": "bpy_extras.object_utils.world_to_camera_view", "results": results}
 with destination.open("x") as stream:
     json.dump(receipt, stream, indent=2)
-print("ATET_CAMERA_QUALIFIED=" + json.dumps({"cases": len(results), "maximumPixelError": max(result["maximumPixelError"] for result in results)}))
+print("SLOPCAMERA_CAMERA_QUALIFIED=" + json.dumps({"cases": len(results), "maximumPixelError": max(result["maximumPixelError"] for result in results)}))

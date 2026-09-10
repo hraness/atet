@@ -28,7 +28,7 @@ export async function inspectSpatialSpz(input: Uint8Array, signal: AbortSignal):
         if (view.getUint32(0, true) !== 0x5053474e || (version !== 2 && version !== 3) || flags > 1 || header[15] !== 0) throw new RangeError("SPZ requires v2/v3 without LoD, extensions, or reserved flags.");
         if (flags === 1) throw new RangeError("Antialiased-training SPZ is not supported by the initial qualified Spark profile.");
         const decompressedBytes = 16 + splats * (9 + 1 + 3 + 3 + (version === 3 ? 4 : 3) + 3 * ((shDegree + 1) ** 2 - 1));
-        facts = SpatialSpzFactsSchema.parse({ kind: "atet.spz-admission", schemaVersion: 1, version, splats, shDegree, fractionalBits, antialiased: flags === 1, decompressedBytes, ...spatialSpzAllocationBounds(splats, input.byteLength, decompressedBytes) });
+        facts = SpatialSpzFactsSchema.parse({ kind: "slopcamera.spz-admission", schemaVersion: 1, version, splats, shDegree, fractionalBits, antialiased: flags === 1, decompressedBytes, ...spatialSpzAllocationBounds(splats, input.byteLength, decompressedBytes) });
       }
       if (facts !== undefined && count > facts.decompressedBytes) throw new RangeError("SPZ body exceeds the exact admitted attribute layout.");
     }

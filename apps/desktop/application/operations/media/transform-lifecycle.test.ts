@@ -21,10 +21,10 @@ import { createMediaTransformPlatform, MediaTransformPlatform, type MediaTransfo
 const roots: string[] = [];
 const audio = {
   audioStreamIndex: 0, effects: [{ kind: "volume", gainDb: -3 }],
-  kind: "atet.audio-effects-transform", output: { kind: "audio-only", profile: "wav-pcm-s16le" }, schemaVersion: 1,
+  kind: "slopcamera.audio-effects-transform", output: { kind: "audio-only", profile: "wav-pcm-s16le" }, schemaVersion: 1,
 } satisfies AudioEffectsTransformV1;
 const color = {
-  grade: { kind: "preset", preset: "clean" }, kind: "atet.color-grade-transform",
+  grade: { kind: "preset", preset: "clean" }, kind: "slopcamera.color-grade-transform",
   outputProfile: "h264-mp4", schemaVersion: 1, videoStreamIndex: 0,
 } satisfies ColorGradeTransformV1;
 const outputBytes = Buffer.from("derived media fixture");
@@ -47,11 +47,11 @@ function probe(kind: "audio" | "color"): ProbedMedia {
 }
 
 async function fixture(workflow = false) {
-  const root = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "atet-transform-owner-")));
+  const root = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "slopcamera-transform-owner-")));
   roots.push(root);
-  const source = "artifacts/atet/recordings/source.media";
+  const source = "artifacts/slopcamera/recordings/source.media";
   const sourcePath = join(root, source);
-  await fs.mkdir(join(root, "artifacts/atet/recordings"), { recursive: true });
+  await fs.mkdir(join(root, "artifacts/slopcamera/recordings"), { recursive: true });
   await fs.writeFile(sourcePath, "immutable input", { mode: 0o600 });
   const controller = new AbortController();
   const application = operationApplicationContext(root, {

@@ -206,7 +206,7 @@ export function prepareProjectCaptionPlan(
     }
     const path = `renders/caption-assets/${sha256}.svg`;
     const overlayId = `overlay_caption_${canonicalJsonSha256({
-      domain: "atet.social-caption-sprite/v1",
+      domain: "slopcamera.social-caption-sprite/v1",
       sha256,
       sourceSha256,
       spriteIndex,
@@ -218,8 +218,8 @@ export function prepareProjectCaptionPlan(
         mediaType: "image/svg+xml" as const,
         path,
         provenance: {
-          command: ["atet", "caption", style],
-          generator: "atet-social-caption-sprite",
+          command: ["slopcamera", "caption", style],
+          generator: "slopcamera-social-caption-sprite",
           generatorVersion: "1",
           kind: "generated" as const,
           sourceSha256,

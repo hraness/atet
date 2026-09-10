@@ -200,11 +200,11 @@ describe("headless rendering", () => {
       }[]
     }
     const evidenceLabel = parsed.records.find(
-      ({ id }) => id === "shape:atet:box-label:evidence:1",
+      ({ id }) => id === "shape:slopcamera:box-label:evidence:1",
     )
     const review = parsed.records.find(({ id }) => id === "shape:review")
     const reviewLabel = parsed.records.find(
-      ({ id }) => id === "shape:atet:box-label:review:1",
+      ({ id }) => id === "shape:slopcamera:box-label:review:1",
     )
 
     expect(evidenceLabel?.props?.size).toBe("s")
@@ -254,10 +254,10 @@ describe("headless rendering", () => {
       }[]
     }
     const kind = serialized.records.find(
-      ({ id }) => id === "shape:atet:box-label:source:1",
+      ({ id }) => id === "shape:slopcamera:box-label:source:1",
     )
     const relation = serialized.records.find(
-      ({ id }) => id === "shape:atet:edge-label:source-target",
+      ({ id }) => id === "shape:slopcamera:edge-label:source-target",
     )
     const arrow = serialized.records.find(({ id }) => id === "shape:source-target")
     const startBinding = serialized.records.find(({ id }) => id === "binding:source-target-start")
@@ -392,11 +392,11 @@ describe("headless rendering", () => {
     )
     expect(serialized.records.some(({ id }) => id === "shape:a-label")).toBe(true)
     expect(
-      serialized.records.some(({ id }) => id === "shape:atet:box-label:a:1"),
+      serialized.records.some(({ id }) => id === "shape:slopcamera:box-label:a:1"),
     ).toBe(true)
     expect(serialized.records.some(({ id }) => id === "shape:edge-label")).toBe(true)
     expect(
-      serialized.records.some(({ id }) => id === "shape:atet:edge-label:edge"),
+      serialized.records.some(({ id }) => id === "shape:slopcamera:edge-label:edge"),
     ).toBe(true)
 
     const result = parseTldrawJsonFile({ json, schema: createTLSchema() })

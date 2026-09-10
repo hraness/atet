@@ -7,4 +7,4 @@ export {
   type OperationNodeOptions,
   type UntypedOperationRequest,
   type WorkflowFragment,
-} from "@hraness/atet/code/advanced";
+} from "@hraness/slopcamera/code/advanced";

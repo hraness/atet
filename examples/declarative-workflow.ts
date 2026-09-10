@@ -1,12 +1,12 @@
 import {
   buildWorkflow,
   compileWorkflowGraph,
-  createAtetCodeHost,
+  createSlopcameraCodeHost,
   defineWorkflow,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
   runBuiltWorkflow,
-} from "@hraness/atet/code"
-import { executeAtetOperation } from "@hraness/atet/operations"
+} from "@hraness/slopcamera/code"
+import { executeSlopcameraOperation } from "@hraness/slopcamera/operations"
 import { z } from "zod"
 
 const DeclarativeWorkflowInputSchema = z.strictObject({
@@ -17,7 +17,7 @@ const DeclarativeWorkflowInputSchema = z.strictObject({
 export const declarativeCheckedRenderWorkflow = defineWorkflow({
   id: "declarative-checked-render",
   inputSchema: DeclarativeWorkflowInputSchema,
-  inputSchemaId: "atet.example.declarative-checked-render.input/v1",
+  inputSchemaId: "slopcamera.example.declarative-checked-render.input/v1",
   version: 1,
   build(builder, input) {
     const checked = builder.diagram.check("check-source", {
@@ -58,8 +58,8 @@ if (import.meta.main) {
   const planned = compileWorkflowGraph({
     graph: built.graph,
   })
-  const host = createAtetCodeHost({
-    execute: async request => await executeAtetOperation(
+  const host = createSlopcameraCodeHost({
+    execute: async request => await executeSlopcameraOperation(
       request.kind,
       request.input,
     ),

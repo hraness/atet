@@ -9,7 +9,7 @@ import { acquireMutationLease, MUTATION_LOCK_FILE, MUTATION_LOCK_TEMP_PREFIX } f
 const stamp = new Date("2026-01-01T00:00:00Z");
 
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "atet-mutation-custody-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-mutation-custody-"));
   const path = join(root, MUTATION_LOCK_FILE);
   const nativeOpen = fs.open;
   let held: FileHandle | undefined;

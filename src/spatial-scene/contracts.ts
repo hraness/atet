@@ -98,7 +98,7 @@ export const SpatialAssetInterpretationSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("gltf"), format: z.enum(["glb", "gltf"]), metersPerUnit: positiveDimension, sourceUp: z.enum(["x", "y", "z"]) }),
   z.strictObject({ kind: z.literal("font"), format: z.enum(["otf", "woff2"]), family: z.string().min(1).max(128) }),
   z.strictObject({ kind: z.literal("splat"), format: z.enum(["spz", "ply"]), metersPerUnit: positiveDimension, sourceUp: z.enum(["x", "y", "z"]) }),
-  z.strictObject({ kind: z.literal("metadata"), format: z.literal("json"), schema: z.enum(["atet.spatial-world-import", "atet.world-labs-provenance"]) }),
+  z.strictObject({ kind: z.literal("metadata"), format: z.literal("json"), schema: z.enum(["slopcamera.spatial-world-import", "slopcamera.world-labs-provenance"]) }),
 ])
 export const SpatialAssetManifestSchema = z.strictObject({
   assetId: SpatialAssetIdSchema,
@@ -187,7 +187,7 @@ export const SpatialGeneratorSchema = z.strictObject({
   editableKeys: z.array(z.strictObject({ key: z.string().min(1).max(256), properties: z.array(z.enum(["color", "opacity", "transform"])).min(1).max(3) })).max(SPATIAL_SCENE_LIMITS.entities),
 })
 export const SpatialSceneV1Schema = z.strictObject({
-  kind: z.literal("atet.spatial-scene"),
+  kind: z.literal("slopcamera.spatial-scene"),
   schemaVersion: z.literal(1),
   sceneId: SpatialSceneIdSchema,
   coordinates: z.literal("right-handed-y-up-meters"),
@@ -219,7 +219,7 @@ export const SpatialPatchOperationSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("replace-generator-output"), generator: SpatialGeneratorSchema, entities: z.array(SpatialEntitySchema).max(SPATIAL_SCENE_LIMITS.entities) }),
 ])
 export const SpatialScenePatchV1Schema = z.strictObject({
-  kind: z.literal("atet.spatial-scene-patch"),
+  kind: z.literal("slopcamera.spatial-scene-patch"),
   schemaVersion: z.literal(1),
   expectedSceneSha256: SpatialDigestSchema,
   operations: z.array(SpatialPatchOperationSchema).min(1).max(SPATIAL_SCENE_LIMITS.patchOperations),
@@ -243,7 +243,7 @@ export const SpatialMatrixSchema = z.tuple([
   matrixNumber, matrixNumber, matrixNumber, matrixNumber,
 ])
 export const EvaluatedSpatialSceneSchema = z.strictObject({
-  kind: z.literal("atet.spatial-snapshot"),
+  kind: z.literal("slopcamera.spatial-snapshot"),
   schemaVersion: z.literal(1),
   sceneSha256: SpatialDigestSchema,
   stateSha256: SpatialDigestSchema,

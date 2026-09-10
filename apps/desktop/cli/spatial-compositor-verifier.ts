@@ -74,7 +74,7 @@ export function verifySpatialCompositorProbe(input: { readonly cadence: unknown;
   if (sound.codec_type !== "audio" || sound.codec_name !== "aac" || sound.sample_rate !== "48000"
     || sound.time_base !== "1/48000" || sound.start_pts !== 0 || audioDelta < -1_000_000n || audioDelta > 1_000_000n) throw new Error("Encoded compositor audio was truncated or changed from the authored duration.");
   return deepFreezeJson(SpatialCompositorTimingVerificationV1Schema.parse({
-    kind: "atet.spatial-compositor-timing-verification", schemaVersion: 1, cadenceSha256: binding.cadenceSha256,
+    kind: "slopcamera.spatial-compositor-timing-verification", schemaVersion: 1, cadenceSha256: binding.cadenceSha256,
     profile: "mp4-h264-cfr-integer-pts-v1", video: measuredVideo, frameRate: rate, frameCount: binding.cadence.frameCount,
     timeBase: { numerator: String(tn), denominator: String(td) }, firstPts: "0", lastPts: String((count - 1n) * step),
     stepPts: String(step), durationTs: String(stream.duration_ts), authoredDurationUs: binding.cadence.durationUs,

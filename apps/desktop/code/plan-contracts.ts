@@ -11,7 +11,7 @@ import {
   OperationDiscoverySchema as PortableOperationDiscoverySchema,
   RequirementEnvelopeSchema,
   Sha256Schema,
-} from "@hraness/atet/code/advanced";
+} from "@hraness/slopcamera/code/advanced";
 
 import { OPERATION_KINDS } from "../application/operation";
 
@@ -28,11 +28,11 @@ export const OperationDiscoverySchema = PortableOperationDiscoverySchema.extend(
 
 export type GraphOperationDiscovery = z.infer<typeof OperationDiscoverySchema>;
 
-export const GRAPH_PLAN_VERSION = "atet-graph-plan-v2" as const;
-export const GRAPH_COMPILER_ABI = "atet-workflow-compiler-v2" as const;
-export const GRAPH_SCHEDULER_ABI = "atet-workflow-scheduler-v2" as const;
-export const CODE_WORKER_ABI = "atet-code-worker-abi-v4" as const;
-export const STATIC_BINDINGS_VERSION = "atet-static-bindings-v1" as const;
+export const GRAPH_PLAN_VERSION = "slopcamera-graph-plan-v2" as const;
+export const GRAPH_COMPILER_ABI = "slopcamera-workflow-compiler-v2" as const;
+export const GRAPH_SCHEDULER_ABI = "slopcamera-workflow-scheduler-v2" as const;
+export const CODE_WORKER_ABI = "slopcamera-code-worker-abi-v4" as const;
+export const STATIC_BINDINGS_VERSION = "slopcamera-static-bindings-v1" as const;
 
 export const OPERATION_FAMILIES = [
   "analysis",
@@ -45,7 +45,7 @@ export const OPERATION_FAMILIES = [
   "project",
   "recording",
   "render",
-  "atet",
+  "slopcamera",
   "scene",
   "spatial",
 ] as const;

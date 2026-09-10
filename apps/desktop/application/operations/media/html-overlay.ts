@@ -45,7 +45,7 @@ import {
   createHtmlOverlayExecutionBundle,
 } from "../../html-overlay-integrity";
 import {
-  ATET_APPLICATION_TOOL_VERSION,
+  SLOPCAMERA_APPLICATION_TOOL_VERSION,
   type OperationDefinition,
 } from "../../operation";
 import { writeOperationCompletionCheckpoint } from "../../operation-completion-checkpoint";
@@ -138,15 +138,15 @@ export const HtmlOverlayReceiptSchema = z.strictObject({
   artifact: MediaArtifactReferenceSchema,
   browserVersion: z.string().min(1).max(512),
   createdAt: z.string().datetime({ offset: true }),
-  // Optional only so persisted v1 Atet receipts remain readable after the
-  // product rename. Every new Atet render publishes this evidence.
+  // Optional only so persisted v1 Slopcamera receipts remain readable after the
+  // product rename. Every new Slopcamera render publishes this evidence.
   executionIntegrity: HtmlOverlayExecutionIntegritySchema.optional(),
   exactInputSha256: Sha256Schema,
   ffmpegVersion: z.string().min(1).max(512),
   ffprobeVersion: z.string().min(1).max(512),
   frameCount: z.number().int().safe().positive(),
   kind: z.union([
-    z.literal("atet.html-overlay-preparation-receipt"),
+    z.literal("slopcamera.html-overlay-preparation-receipt"),
     z.literal("studio.html-overlay-preparation-receipt"),
   ]),
   libraryLocks: HtmlOverlayLibraryLocksSchema,
@@ -420,10 +420,10 @@ export function createHtmlOverlayOperationDefinition(
   const probe = dependencies.probe ?? probeVisualMediaSummary;
   const bindBrowserRuntime = dependencies.bindBrowserRuntime
     ?? bindHtmlOverlayBrowserRuntime;
-  const toolVersion = dependencies.toolVersion ?? ATET_APPLICATION_TOOL_VERSION;
+  const toolVersion = dependencies.toolVersion ?? SLOPCAMERA_APPLICATION_TOOL_VERSION;
   return {
     inputSchema: HtmlOverlayInputSchema,
-    inputSchemaId: "atet.operation.media.html-overlay.input/v1",
+    inputSchemaId: "slopcamera.operation.media.html-overlay.input/v1",
     kind: "media.html-overlay",
     lifecycle: {
       kind: "local-artifact",
@@ -449,7 +449,7 @@ export function createHtmlOverlayOperationDefinition(
         if (renderer === undefined) {
           throw new ApplicationError(
             "unavailable",
-            "This Atet host does not provide an HTML-overlay browser renderer.",
+            "This Slopcamera host does not provide an HTML-overlay browser renderer.",
           );
         }
         const snapshot = await openLeasedProjectSnapshot(
@@ -510,7 +510,7 @@ export function createHtmlOverlayOperationDefinition(
         const authoring = HtmlOverlayAuthoringInputSchema.parse({
           canvas: boundInput.canvas,
           html,
-          kind: "atet.html-overlay",
+          kind: "slopcamera.html-overlay",
           libraries: boundInput.libraries,
           parameters: boundInput.parameters,
           resources: resources.map(resource => ({
@@ -633,7 +633,7 @@ export function createHtmlOverlayOperationDefinition(
             snapshot.openProject.directory.path,
             {
               command: ffmpegCommand,
-              generator: "atet-html-overlay",
+              generator: "slopcamera-html-overlay",
               generatorVersion: toolVersion,
               path: outputPath,
               sourceSha256,
@@ -728,7 +728,7 @@ export function createHtmlOverlayOperationDefinition(
             ffmpegVersion: mediaCapabilityVersion(bindings, "ffmpeg"),
             ffprobeVersion: mediaCapabilityVersion(bindings, "ffprobe"),
             frameCount: rendered.frameCount,
-            kind: "atet.html-overlay-preparation-receipt",
+            kind: "slopcamera.html-overlay-preparation-receipt",
             libraryLocks,
             libraryLocksSha256: canonicalJsonSha256(libraryLocks),
             operationSha256: canonicalJsonSha256(operation),
@@ -749,9 +749,9 @@ export function createHtmlOverlayOperationDefinition(
             receipt,
           });
           await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId: "atet.operation.media.html-overlay.input/v1",
+            inputSchemaId: "slopcamera.operation.media.html-overlay.input/v1",
             kind: "media.html-overlay",
-            outputSchemaId: "atet.operation.media.html-overlay.output/v1",
+            outputSchemaId: "slopcamera.operation.media.html-overlay.output/v1",
             version: 1,
           }, output);
           return output;
@@ -762,7 +762,7 @@ export function createHtmlOverlayOperationDefinition(
       },
     },
     outputSchema: MediaOverlayOutputSchema,
-    outputSchemaId: "atet.operation.media.html-overlay.output/v1",
+    outputSchemaId: "slopcamera.operation.media.html-overlay.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

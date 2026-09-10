@@ -29,7 +29,7 @@ const EtagSchema = z.string().min(1).max(256).regex(/^[\x21-\x7e]+$/u);
 const SourceSchema = GatewayMediaSourceReferenceSchema.refine(source => ["image/png", "image/jpeg", "image/webp"].includes(source.mediaType) && source.bytes <= LIMITS.imageBytes, "Hosted directing references must be PNG, JPEG, or WebP images at most 30 MiB.");
 const EntrySchema = z.strictObject({
   source: SourceSchema,
-  pathname: z.string().regex(/^atet\/directing\/[a-f0-9]{32}\/[01]-[a-f0-9]{64}\.(?:png|jpg|webp)$/u),
+  pathname: z.string().regex(/^slopcamera\/directing\/[a-f0-9]{32}\/[01]-[a-f0-9]{64}\.(?:png|jpg|webp)$/u),
   putStartedAt: TimeSchema,
   putCompletedAt: TimeSchema.optional(),
   etag: EtagSchema.optional(),
@@ -44,7 +44,7 @@ const EntrySchema = z.strictObject({
   if ((entry.cleanup === "deleted") !== (entry.deletedAt !== undefined)) context.addIssue({ code: "custom", message: "Deleted references require retained cleanup completion." });
 });
 export const DirectingBlobReceiptSchema = z.strictObject({
-  kind: z.literal("atet.directing-blob"), schemaVersion: z.literal(1),
+  kind: z.literal("slopcamera.directing-blob"), schemaVersion: z.literal(1),
   directingId: IdSchema, attemptId: TakeSchema,
   namespace: z.string().regex(/^[a-f0-9]{32}$/u),
   storeId: StoreSchema, createdAt: TimeSchema, closedAt: TimeSchema.optional(),
@@ -53,7 +53,7 @@ export const DirectingBlobReceiptSchema = z.strictObject({
 }).superRefine((receipt, context) => {
   for (const [index, entry] of receipt.entries.entries()) {
     const extension = entry.source.mediaType === "image/jpeg" ? "jpg" : entry.source.mediaType.slice(6);
-    if (entry.pathname !== `atet/directing/${receipt.namespace}/${index}-${entry.source.sha256}.${extension}`) context.addIssue({ code: "custom", message: "A hosted object must bind this session's exact private namespace and source bytes." });
+    if (entry.pathname !== `slopcamera/directing/${receipt.namespace}/${index}-${entry.source.sha256}.${extension}`) context.addIssue({ code: "custom", message: "A hosted object must bind this session's exact private namespace and source bytes." });
   }
 });
 export type DirectingBlobReceipt = z.infer<typeof DirectingBlobReceiptSchema>;
@@ -150,7 +150,7 @@ export async function createDirectingBlobSession(options: DirectingBlobOptions):
     catch (error) {
       if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
       const auth = credentials(options.environment);
-      const receipt = DirectingBlobReceiptSchema.parse({ kind: "atet.directing-blob", schemaVersion: 1, directingId, attemptId, namespace: randomUUID().replaceAll("-", ""), storeId: auth.storeId, createdAt: now(), access: "private", notice: NOTICE, entries: [] });
+      const receipt = DirectingBlobReceiptSchema.parse({ kind: "slopcamera.directing-blob", schemaVersion: 1, directingId, attemptId, namespace: randomUUID().replaceAll("-", ""), storeId: auth.storeId, createdAt: now(), access: "private", notice: NOTICE, entries: [] });
       await fs.writeTextNoReplace!(RECEIPT, `${canonicalJson(receipt)}\n`, lease.assertOwned);
     }
   });
@@ -224,7 +224,7 @@ export async function createDirectingBlobSession(options: DirectingBlobOptions):
         if (entry === undefined) {
           if (receipt.entries.length >= LIMITS.entries) failure("One directing take may host at most two exact image references.", "invalid-data");
           const extension = source.mediaType === "image/jpeg" ? "jpg" : source.mediaType.slice(6);
-          entry = { source, pathname: `atet/directing/${receipt.namespace}/${receipt.entries.length}-${source.sha256}.${extension}`, putStartedAt: now(), cleanup: "pending", failures: [] };
+          entry = { source, pathname: `slopcamera/directing/${receipt.namespace}/${receipt.entries.length}-${source.sha256}.${extension}`, putStartedAt: now(), cleanup: "pending", failures: [] };
           receipt.entries.push(entry);
           await save(); // Durable exact upload intent precedes the only PUT.
           try {

@@ -31,11 +31,7 @@ import {
   inspectPngIntrinsicSize,
   inspectSvgIntrinsicSize,
 } from "../../../cli/asset-ingest";
-import {
-  resolveEmojiAsset,
-  type EmojiAssetProvider,
-  type EmojiVariant,
-} from "../../../cli/emoji-assets";
+import { resolveEmojiAsset } from "../../../cli/emoji-assets";
 import { resolveAnimatedPlaybackWindow } from "../../../cli/overlay-playback";
 import { GatewayOutputArtifactReferenceSchema } from "../../gateway-port";
 import type { ApplicationContext } from "../../context";
@@ -197,7 +193,7 @@ export const MediaOverlayReceiptSchema = z.strictObject({
   exactInputSha256: Sha256Schema,
   ffprobeVersion: z.string().min(1).max(256).nullable(),
   kind: z.union([
-    z.literal("atet.local-overlay-preparation-receipt"),
+    z.literal("slopcamera.local-overlay-preparation-receipt"),
     z.literal("studio.local-overlay-preparation-receipt"),
   ]),
   operationSha256: Sha256Schema,
@@ -258,13 +254,6 @@ function capabilityNames(
     : [];
 }
 
-function defaultEmojiVariant(
-  provider: EmojiAssetProvider | "auto",
-  variant: EmojiVariant | undefined,
-): EmojiVariant {
-  return variant ?? (provider === "brand-catalog" ? "duotone" : "color");
-}
-
 async function bindEmojiSource(
   application: ApplicationContext,
   source: Extract<
@@ -277,7 +266,7 @@ async function bindEmojiSource(
   const resolved = await resolveEmoji(
     application.paths.repositoryRoot,
     source.query,
-    defaultEmojiVariant(source.provider, source.variant),
+    source.variant,
     source.provider,
   );
   const path = relative(application.paths.repositoryRoot, resolved.path);
@@ -416,7 +405,7 @@ export function createMediaOverlayOperationDefinition(
   const resolveEmoji = dependencies.resolveEmoji ?? resolveEmojiAsset;
   return {
     inputSchema: MediaOverlayInputSchema,
-    inputSchemaId: "atet.operation.media.overlay.input/v1",
+    inputSchemaId: "slopcamera.operation.media.overlay.input/v1",
     kind: "media.overlay",
     lifecycle: {
       kind: "local-artifact",
@@ -481,10 +470,7 @@ export function createMediaOverlayOperationDefinition(
           : await resolveEmoji(
               context.application.paths.repositoryRoot,
               emojiSource.query,
-              defaultEmojiVariant(
-                emojiSource.provider,
-                emojiSource.variant,
-              ),
+              emojiSource.variant,
               emojiSource.provider,
             );
         if (
@@ -675,7 +661,7 @@ export function createMediaOverlayOperationDefinition(
             ffprobeVersion: names.length === 0
               ? null
               : mediaCapabilityVersion(bindings, "ffprobe"),
-            kind: "atet.local-overlay-preparation-receipt",
+            kind: "slopcamera.local-overlay-preparation-receipt",
             operationSha256: canonicalJsonSha256(operation),
             overlayId: operation.overlayId,
             projectGenerationSha256: snapshot.generation.generationSha256,
@@ -694,9 +680,9 @@ export function createMediaOverlayOperationDefinition(
             receipt,
           });
           await writeOperationCompletionCheckpoint(context, {
-            inputSchemaId: "atet.operation.media.overlay.input/v1",
+            inputSchemaId: "slopcamera.operation.media.overlay.input/v1",
             kind: "media.overlay",
-            outputSchemaId: "atet.operation.media.overlay.output/v1",
+            outputSchemaId: "slopcamera.operation.media.overlay.output/v1",
             version: 1,
           }, output);
           return output;
@@ -706,7 +692,7 @@ export function createMediaOverlayOperationDefinition(
       },
     },
     outputSchema: MediaOverlayOutputSchema,
-    outputSchemaId: "atet.operation.media.overlay.output/v1",
+    outputSchemaId: "slopcamera.operation.media.overlay.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

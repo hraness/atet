@@ -52,7 +52,7 @@ export const MediaIngestReceiptSchema = z.strictObject({
   ffprobeVersion: z.string().min(1).max(256),
   input: MediaArtifactReferenceSchema,
   kind: z.union([
-    z.literal("atet.local-media-ingest-receipt"),
+    z.literal("slopcamera.local-media-ingest-receipt"),
     z.literal("studio.local-media-ingest-receipt"),
   ]),
   operation: z.literal("media.ingest"),
@@ -144,7 +144,7 @@ function importedArtifact(asset: ProjectAssetV1): MediaArtifactReference {
   });
 }
 
-class MediaIngestServices extends Context.Tag("@atet/local/MediaIngestServices")<
+class MediaIngestServices extends Context.Tag("@slopcamera/local/MediaIngestServices")<
   MediaIngestServices,
   Readonly<{ context: OperationExecutionContext; ingest: (options: IngestProjectMediaOptions) => Effect.Effect<IngestedProjectMedia, OperationEffectFailure> }>
 >() { }
@@ -217,7 +217,7 @@ function ingestProgram(input: MediaIngestInput): Effect.Effect<
         createdAt: context.application.clock.now().toISOString(),
         ffprobeVersion: mediaCapabilityVersion(capabilityBindings, "ffprobe"),
         input: boundInput.source,
-        kind: "atet.local-media-ingest-receipt",
+        kind: "slopcamera.local-media-ingest-receipt",
         operation: "media.ingest",
         output: verifiedArtifact.artifact,
         projectGenerationSha256: snapshot.generation.generationSha256,
@@ -231,9 +231,9 @@ function ingestProgram(input: MediaIngestInput): Effect.Effect<
         artifact: verifiedArtifact.artifact, asset: ingested.asset, created: ingested.created, receipt,
       }));
       yield* operationBoundary("checkpoint", () => writeOperationCompletionCheckpoint(context, {
-        inputSchemaId: "atet.operation.media.ingest.input/v1",
+        inputSchemaId: "slopcamera.operation.media.ingest.input/v1",
         kind: "media.ingest",
-        outputSchemaId: "atet.operation.media.ingest.output/v1",
+        outputSchemaId: "slopcamera.operation.media.ingest.output/v1",
         version: 1,
       }, output));
       return output;
@@ -259,7 +259,7 @@ export function createMediaIngestOperationDefinition(
     })));
   return {
     inputSchema: MediaIngestInputSchema,
-    inputSchemaId: "atet.operation.media.ingest.input/v1",
+    inputSchemaId: "slopcamera.operation.media.ingest.input/v1",
     kind: "media.ingest",
     lifecycle: {
       kind: "local-artifact",
@@ -267,7 +267,7 @@ export function createMediaIngestOperationDefinition(
       executeEffect,
     },
     outputSchema: MediaIngestOutputSchema,
-    outputSchemaId: "atet.operation.media.ingest.output/v1",
+    outputSchemaId: "slopcamera.operation.media.ingest.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

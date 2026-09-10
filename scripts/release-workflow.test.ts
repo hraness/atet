@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url"
 import { gzipSync } from "node:zlib"
 
 import { verifyNpmPackageIdentity } from "./npm-package-identity"
-import { publishedArchiveUrl, publishedRelease } from "../apps/web/src/published-release"
+import { publishedArchiveUrl, publishedRelease, sourceInstall } from "../apps/web/src/published-release"
 import { homeMarkdown } from "../apps/web/src/agent-pages"
 import { verifyNpmPublishAuthority } from "./npm-publish-authority"
 import { verifyNpmPublishConfig, verifyNpmPublishManifest } from "./npm-publish-policy"
@@ -103,16 +103,16 @@ async function runWorkflowScript(
   return Object.freeze({ exitCode, stderr, stdout })
 }
 
-test("public CI routes independent Atet SDK, local-runtime, site, and native proofs", async () => {
+test("public CI routes independent Slopcamera SDK, local-runtime, site, and native proofs", async () => {
   const workflow = await readWorkflow("public-ci.yml", "ci.yml")
 
   expect(workflow).toContain("plan:\n    name: Plan")
-  expect(workflow).toContain("boundary:\n    name: Atet standalone boundary")
-  expect(workflow).toContain("sdk:\n    name: Atet SDK")
-  expect(workflow).toContain("desktop:\n    name: Atet local runtime")
-  expect(workflow).toContain("site:\n    name: Atet site")
-  expect(workflow).toContain("package:\n    name: Atet packed consumer")
-  expect(workflow).toContain("native:\n    name: Atet macOS shell")
+  expect(workflow).toContain("boundary:\n    name: Slopcamera standalone boundary")
+  expect(workflow).toContain("sdk:\n    name: Slopcamera SDK")
+  expect(workflow).toContain("desktop:\n    name: Slopcamera local runtime")
+  expect(workflow).toContain("site:\n    name: Slopcamera site")
+  expect(workflow).toContain("package:\n    name: Slopcamera packed consumer")
+  expect(workflow).toContain("native:\n    name: Slopcamera macOS shell")
   expect(workflow).toContain("if: needs.plan.outputs.sdk == 'true'")
   expect(workflow).toContain("if: needs.plan.outputs.desktop == 'true'")
   expect(workflow).toContain("if: needs.plan.outputs.site == 'true'")
@@ -135,7 +135,7 @@ test("public CI routes independent Atet SDK, local-runtime, site, and native pro
   expect(workflow).toContain("needs: [plan, boundary, sdk, desktop, site, package, native]")
   expect(workflow).toContain('[[ "$result" == success || "$result" == skipped ]]')
   expect(workflow).not.toContain(`@${"jungle"}/`)
-  expect(workflow).not.toContain(["projects", "atet"].join("/"))
+  expect(workflow).not.toContain(["projects", "slopcamera"].join("/"))
 })
 
 function requireCompleteSourceCoverage(workflow: string): void {
@@ -156,7 +156,7 @@ function requireCompleteSourceCoverage(workflow: string): void {
   // This additive comparison preserves every prior job, condition, command,
   // deadline and failure boundary. A future update needs a coverage review.
   const priorDigest = createHash("sha256").update(priorWorkflow).digest("hex")
-  if (priorDigest !== "4b010ecc6370d783e20545f92e8a1efff7ef6f8d6569f3581daa69e708fbfce5") {
+  if (priorDigest !== "32f2de3515f5873abff676c478045898af79d51e7ccc91d5c1b4137893825de8") {
     throw new Error("CI differs from the independently reviewed prior coverage")
   }
 }
@@ -212,13 +212,13 @@ test("site CI installs app-pinned Chromium in runner temp before the unchanged n
   expect(script.trim().split("\n")).toEqual([
     "set -euo pipefail",
     'NODE_EXECUTABLE_PATH="$(command -v node)"',
-    'PLAYWRIGHT_BROWSERS_PATH="$(mktemp -d "$RUNNER_TEMP/atet-playwright.XXXXXX")"',
+    'PLAYWRIGHT_BROWSERS_PATH="$(mktemp -d "$RUNNER_TEMP/slopcamera-playwright.XXXXXX")"',
     "export NODE_EXECUTABLE_PATH PLAYWRIGHT_BROWSERS_PATH",
     'playwright_cli="$("$NODE_EXECUTABLE_PATH" -e \'const { createRequire } = require("node:module"); const { dirname, resolve } = require("node:path"); const appRequire = createRequire(resolve("apps/web/package.json")); const manifest = appRequire.resolve("playwright-core/package.json"); console.log(resolve(dirname(manifest), appRequire(manifest).bin["playwright-core"]))\')"',
     '"$NODE_EXECUTABLE_PATH" "$playwright_cli" install --no-shell chromium',
-    'ATET_CHROME_PATH="$("$NODE_EXECUTABLE_PATH" -e \'const { createRequire } = require("node:module"); const { resolve } = require("node:path"); console.log(createRequire(resolve("apps/web/package.json"))("playwright-core").chromium.executablePath())\')"',
-    'test -x "$ATET_CHROME_PATH"',
-    "export ATET_CHROME_PATH",
+    'SLOPCAMERA_CHROME_PATH="$("$NODE_EXECUTABLE_PATH" -e \'const { createRequire } = require("node:module"); const { resolve } = require("node:path"); console.log(createRequire(resolve("apps/web/package.json"))("playwright-core").chromium.executablePath())\')"',
+    'test -x "$SLOPCAMERA_CHROME_PATH"',
+    "export SLOPCAMERA_CHROME_PATH",
     "bun run check:web",
   ])
 })
@@ -313,11 +313,11 @@ function npmPackFixture(
   return [{
     bundled: [],
     entryCount: files.length,
-    filename: "hraness-atet-3.2.0.tgz",
+    filename: "hraness-slopcamera-3.2.0.tgz",
     files,
-    id: "@hraness/atet@3.2.0",
+    id: "@hraness/slopcamera@3.2.0",
     integrity: `sha512-${createHash("sha512").update(archive).digest("base64")}`,
-    name: "@hraness/atet",
+    name: "@hraness/slopcamera",
     shasum: createHash("sha1").update(archive).digest("hex"),
     size: archive.length,
     unpackedSize: files.reduce((total, file) => total + file.size, 0),
@@ -326,7 +326,7 @@ function npmPackFixture(
 }
 
 const stageRequiredPaths = [
-  "DISCLOSURE",
+  "PRIVACY.md",
   "LICENSE",
   "NOTICE.md",
   "README.md",
@@ -341,7 +341,7 @@ const stageRequiredPaths = [
   "dist/NebulaSans-Book-5ax05zvn.woff2",
   "dist/NebulaSans-Book-8cenzchw.otf",
   "package.json",
-  "skills/atet/SKILL.md",
+  "skills/slopcamera/SKILL.md",
   "src/assets/fonts/nebula-sans/LICENSE.txt",
   "src/assets/fonts/nebula-sans/NebulaSans-Bold.otf",
   "src/assets/fonts/nebula-sans/NebulaSans-Bold.woff2",
@@ -418,13 +418,12 @@ async function writeStageArtifactFixture(
   root: string,
   mutation?: StageTarMutation,
 ): Promise<Readonly<{ metadata: string; registryView: string; tarball: string }>> {
-  const artifactDirectory = join(root, "atet-npm-stage")
-  const tarballName = "hraness-atet-3.2.0.tgz"
+  const artifactDirectory = join(root, "slopcamera-npm-stage")
+  const tarballName = "hraness-slopcamera-3.2.0.tgz"
   const manifest = `${JSON.stringify({
-    name: "@hraness/atet",
+    name: "@hraness/slopcamera",
     version: "3.2.0",
     type: "module",
-    contentPolicy: { class: "dual-use" },
     publishConfig: { access: "public", registry: "https://registry.npmjs.org" },
   })}\n`
   const entries: PackageFixtureEntry[] = stageRequiredPaths.map(path => ({
@@ -448,10 +447,10 @@ async function writeStageArtifactFixture(
         fileCount: packResult.entryCount,
         integrity: packResult.integrity,
         shasum: packResult.shasum,
-        tarball: "https://registry.npmjs.org/@hraness/atet/-/atet-3.2.0.tgz",
+        tarball: "https://registry.npmjs.org/@hraness/slopcamera/-/slopcamera-3.2.0.tgz",
         unpackedSize: packResult.unpackedSize,
       },
-      name: "@hraness/atet",
+      name: "@hraness/slopcamera",
       version: "3.2.0",
     })),
     writeFile(
@@ -489,17 +488,17 @@ async function writePackageIdentityFixture(
       fileCount: registryResult.entryCount,
       integrity: registryResult.integrity,
       shasum: registryResult.shasum,
-      tarball: "https://registry.npmjs.org/@hraness/atet/-/atet-3.2.0.tgz",
+      tarball: "https://registry.npmjs.org/@hraness/slopcamera/-/slopcamera-3.2.0.tgz",
       unpackedSize: registryResult.unpackedSize,
     },
-    name: "@hraness/atet",
+    name: "@hraness/slopcamera",
     version: "3.2.0",
   }
   const paths = {
-    registryArchive: join(root, "registry", "hraness-atet-3.2.0.tgz"),
+    registryArchive: join(root, "registry", "hraness-slopcamera-3.2.0.tgz"),
     registryMetadata: join(root, "registry", "npm-pack.json"),
     registryView: join(root, "registry", "npm-view.json"),
-    sourceArchive: join(root, "source", "hraness-atet-3.2.0.tgz"),
+    sourceArchive: join(root, "source", "hraness-slopcamera-3.2.0.tgz"),
     sourceMetadata: join(root, "source", "npm-pack.json"),
   }
   await Promise.all([
@@ -514,18 +513,18 @@ async function writePackageIdentityFixture(
     Bun.write(paths.registryView, JSON.stringify(registryView)),
   ])
   return {
-    expectedFilename: "hraness-atet-3.2.0.tgz",
-    expectedName: "@hraness/atet",
+    expectedFilename: "hraness-slopcamera-3.2.0.tgz",
+    expectedName: "@hraness/slopcamera",
     expectedVersion: "3.2.0",
     ...paths,
   }
 }
 
 test("npm release identity ignores transport metadata but binds contents, modes, and entry types", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-npm-identity-"))
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-npm-identity-"))
   const ordinary = [
     { body: "read me\n", mode: 0o644, path: "README.md" },
-    { body: '{"name":"@hraness/atet","version":"3.2.0"}\n', mode: 0o644, path: "package.json" },
+    { body: '{"name":"@hraness/slopcamera","version":"3.2.0"}\n', mode: 0o644, path: "package.json" },
   ] as const
   try {
     const transportDifference = await writePackageIdentityFixture(
@@ -608,10 +607,10 @@ function auditAttestation(
 }
 
 test("npm publication authority binds latest, registry signatures, signed provenance, and stage invocation", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-npm-authority-"))
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-npm-authority-"))
   const entries = [
     { body: "read me\n", mode: 0o644, path: "README.md" },
-    { body: '{"name":"@hraness/atet","version":"3.2.0"}\n', mode: 0o644, path: "package.json" },
+    { body: '{"name":"@hraness/slopcamera","version":"3.2.0"}\n', mode: 0o644, path: "package.json" },
   ] as const
   const sourceSha = "a".repeat(40)
   const publishPredicate = "https://github.com/npm/attestation/tree/main/specs/publish/v0.1"
@@ -622,7 +621,7 @@ test("npm publication authority binds latest, registry signatures, signed proven
     const integrity = `sha512-${createHash("sha512").update(archive).digest("base64")}`
     const sha512 = createHash("sha512").update(archive).digest("hex")
     const subject = [{
-      name: "pkg:npm/%40hraness/atet@3.2.0",
+      name: "pkg:npm/%40hraness/slopcamera@3.2.0",
       digest: { sha512 },
     }]
     const publishStatement = {
@@ -630,7 +629,7 @@ test("npm publication authority binds latest, registry signatures, signed proven
       subject,
       predicateType: publishPredicate,
       predicate: {
-        name: "@hraness/atet",
+        name: "@hraness/slopcamera",
         version: "3.2.0",
         registry: "https://registry.npmjs.org",
       },
@@ -644,7 +643,7 @@ test("npm publication authority binds latest, registry signatures, signed proven
           buildType: "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1",
           externalParameters: {
             workflow: {
-              repository: "https://github.com/hraness/atet",
+              repository: "https://github.com/hraness/slopcamera",
               ref: "refs/heads/main",
               path: ".github/workflows/npm-stage.yml",
             },
@@ -657,19 +656,19 @@ test("npm publication authority binds latest, registry signatures, signed proven
             },
           },
           resolvedDependencies: [{
-            uri: "git+https://github.com/hraness/atet@refs/heads/main",
+            uri: "git+https://github.com/hraness/slopcamera@refs/heads/main",
             digest: { gitCommit: sourceSha },
           }],
         },
         runDetails: {
           builder: { id: "https://github.com/actions/runner/github-hosted" },
           metadata: {
-            invocationId: "https://github.com/hraness/atet/actions/runs/45678/attempts/2",
+            invocationId: "https://github.com/hraness/slopcamera/actions/runs/45678/attempts/2",
           },
         },
       },
     }
-    const attestationUrl = "https://registry.npmjs.org/-/npm/v1/attestations/@hraness%2fatet@3.2.0"
+    const attestationUrl = "https://registry.npmjs.org/-/npm/v1/attestations/@hraness%2fslopcamera@3.2.0"
     const attestations = {
       url: attestationUrl,
       provenance: { predicateType: slsaPredicate },
@@ -686,9 +685,9 @@ test("npm publication authority binds latest, registry signatures, signed proven
       invalid: [],
       missing: [],
       verified: [{
-        name: "@hraness/atet",
+        name: "@hraness/slopcamera",
         version: "3.2.0",
-        location: "node_modules/@hraness/atet",
+        location: "node_modules/@hraness/slopcamera",
         registry: "https://registry.npmjs.org",
         attestations,
         attestationBundles: [
@@ -700,7 +699,7 @@ test("npm publication authority binds latest, registry signatures, signed proven
     await Bun.write(auditPath, JSON.stringify(audit))
     const input = {
       auditJson: auditPath,
-      expectedName: "@hraness/atet",
+      expectedName: "@hraness/slopcamera",
       expectedSourceSha: sourceSha,
       expectedVersion: "3.2.0",
       registryArchive: identity.registryArchive,
@@ -731,7 +730,7 @@ test("npm publication authority binds latest, registry signatures, signed proven
         buildDefinition: {
           ...slsaStatement.predicate.buildDefinition,
           resolvedDependencies: [{
-            uri: "git+https://github.com/hraness/atet@refs/heads/main",
+            uri: "git+https://github.com/hraness/slopcamera@refs/heads/main",
             digest: { gitCommit: "b".repeat(40) },
           }],
         },
@@ -772,7 +771,7 @@ test("packed npm publishing configuration rejects every credential-boundary over
     })).toThrow("must contain exactly access and registry")
   }
   expect(() => verifyNpmPublishManifest({
-    name: "@hraness/atet",
+    name: "@hraness/slopcamera",
     version: "3.2.0",
     publishConfig: {
       access: "public",
@@ -780,7 +779,7 @@ test("packed npm publishing configuration rejects every credential-boundary over
     },
   })).not.toThrow()
   expect(() => verifyNpmPublishManifest({
-    name: "@hraness/atet",
+    name: "@hraness/slopcamera",
     version: "3.2.0",
     tag: "beta",
     publishConfig: {
@@ -910,8 +909,8 @@ test("only an owner dispatch mirrors the exact canonical GitHub artifact through
   expect(stageJob).toContain("name: ${{ needs.verify.outputs.artifact_name }}")
   expect(stageJob).toContain("Downloaded npm artifact must contain exactly the tarball, npm-pack.json, and npm-package.sha256")
   expect(stageJob).toContain('if [[ ! -f "$required_file" || -L "$required_file" ]]')
-  expect(stageJob).toContain('expected_tarball_name="hraness-atet-$EXPECTED_VERSION.tgz"')
-  expect(stageJob).toContain('const expectedName = "@hraness/atet"')
+  expect(stageJob).toContain('expected_tarball_name="hraness-slopcamera-$EXPECTED_VERSION.tgz"')
+  expect(stageJob).toContain('const expectedName = "@hraness/slopcamera"')
   expect(stageJob).toContain("const maximumFiles = 450")
   expect(stageJob).toContain("const maximumPackedBytes = 4_300_000")
   expect(stageJob).toContain("const maximumUnpackedBytes = 11_300_000")
@@ -936,7 +935,7 @@ test("only an owner dispatch mirrors the exact canonical GitHub artifact through
   expect(stageJob).toContain("Canonical immutable GitHub mirror authority changed immediately before npm staging")
   expect(stageJob).toContain("name: Record exclusive stable-stage intent")
   expect(stageJob).toContain("name: Record cleared stable-stage intent v${{ inputs.resolved_stage_version }}")
-  expect(stageJob).not.toContain("npm stage list @hraness/atet --json")
+  expect(stageJob).not.toContain("npm stage list @hraness/slopcamera --json")
   expect(stageJob).toContain("Pinned npm's clean default publication tag is not latest")
   expect(stageJob).toContain('name.toLowerCase() === "npm_config_tag"')
 
@@ -982,7 +981,7 @@ test("the earliest OIDC job step rejects collaborator dispatches and reruns", as
   expect(authorizationIndex).toBeLessThan(setupIndex)
 
   const script = workflowStepScript(workflow, "Reauthorize exact staging attempt")
-  const directory = await mkdtemp(join(tmpdir(), "atet-stage-attempt-"))
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-stage-attempt-"))
   const binaryDirectory = join(directory, "bin")
   const attemptPath = join(directory, "attempt.json")
   const workflowPath = join(directory, "workflow.json")
@@ -1001,7 +1000,7 @@ test("the earliest OIDC job step rejects collaborator dispatches and reruns", as
     conclusion: null,
     actor: { id: 894119, type: "User" },
     triggering_actor: { id: 894119, type: "User" },
-    repository: { id: 1310516748, full_name: "hraness/atet", private: false },
+    repository: { id: 1310516748, full_name: "hraness/slopcamera", private: false },
   }
   try {
     await mkdir(binaryDirectory, { recursive: true })
@@ -1013,7 +1012,7 @@ test("the earliest OIDC job step rejects collaborator dispatches and reruns", as
       'case "$endpoint" in',
       '  */actions/runs/*) cat "$MOCK_ATTEMPT_JSON" ;;',
       '  */actions/workflows/*) cat "$MOCK_WORKFLOW_JSON" ;;',
-      '  /repos/hraness/atet) cat "$MOCK_REPOSITORY_JSON" ;;',
+      '  /repos/hraness/slopcamera) cat "$MOCK_REPOSITORY_JSON" ;;',
       '  *) exit 2 ;;',
       "esac",
     ].join("\n"))
@@ -1028,7 +1027,7 @@ test("the earliest OIDC job step rejects collaborator dispatches and reruns", as
       })),
       writeFile(repositoryPath, JSON.stringify({
         id: 1310516748,
-        full_name: "hraness/atet",
+        full_name: "hraness/slopcamera",
         visibility: "public",
         private: false,
         default_branch: "main",
@@ -1043,7 +1042,7 @@ test("the earliest OIDC job step rejects collaborator dispatches and reruns", as
       PUBLISH_TO_NPM: "true",
       REF_PROTECTED: "true",
       EXPECTED_ACTOR_ID: "894119",
-      EXPECTED_REPOSITORY: "hraness/atet",
+      EXPECTED_REPOSITORY: "hraness/slopcamera",
       EXPECTED_REPOSITORY_ID: "1310516748",
       EXPECTED_SOURCE_SHA: sourceSha,
       EXPECTED_WORKFLOW_ID: "344208600",
@@ -1052,7 +1051,7 @@ test("the earliest OIDC job step rejects collaborator dispatches and reruns", as
       GITHUB_ACTOR_ID: "894119",
       GITHUB_EVENT_NAME: "workflow_dispatch",
       GITHUB_REF: "refs/heads/main",
-      GITHUB_REPOSITORY: "hraness/atet",
+      GITHUB_REPOSITORY: "hraness/slopcamera",
       GITHUB_REPOSITORY_ID: "1310516748",
       GITHUB_RUN_ATTEMPT: "2",
       GITHUB_RUN_ID: "45678",
@@ -1092,7 +1091,7 @@ test("optional npm mirror rejects automatic events and admits explicit current-m
     workflow,
     "Verify default-branch package identity",
   )
-  const directory = await mkdtemp(join(tmpdir(), "atet-stage-identity-"))
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-stage-identity-"))
   const binaryDirectory = join(directory, "bin")
   const gitLog = join(directory, "git.log")
   const npmLog = join(directory, "npm.log")
@@ -1109,7 +1108,7 @@ printf 'git %s\\n' "$*" >> "$GIT_COMMAND_LOG"
 case "\${1-}" in
   fetch|cat-file|merge-base) exit 0 ;;
   show)
-    printf '{"name":"@hraness/atet","version":"%s"}\\n' "$MOCK_PREVIOUS_VERSION"
+    printf '{"name":"@hraness/slopcamera","version":"%s"}\\n' "$MOCK_PREVIOUS_VERSION"
     exit 0
     ;;
   rev-parse)
@@ -1126,11 +1125,11 @@ exit 64
 set -euo pipefail
 printf 'npm %s\\n' "$*" >> "$NPM_COMMAND_LOG"
 case "$*" in
-  "view @hraness/atet name --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
-    printf '"@hraness/atet"\\n'
+  "view @hraness/slopcamera name --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
+    printf '"@hraness/slopcamera"\\n'
     exit 0
     ;;
-  "view @hraness/atet@3.2.3 version --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
+  "view @hraness/slopcamera@3.2.3 version --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
     echo 'npm error code E404' >&2
     exit 1
     ;;
@@ -1184,7 +1183,7 @@ exit 64
     const dispatched = await runIdentity("workflow_dispatch", "3.2.3")
     expect(dispatched.exitCode).toBe(0)
     expect(dispatched.outputs).toBe(`stage_required=true\nsource_sha=${sourceSha}\npackage_version=3.2.3\n`)
-    expect(dispatched.npmCommands).toContain("npm view @hraness/atet@3.2.3 version --json")
+    expect(dispatched.npmCommands).toContain("npm view @hraness/slopcamera@3.2.3 version --json")
 
   } finally {
     await rm(directory, { force: true, recursive: true })
@@ -1200,11 +1199,11 @@ test("both tar consumers reject hostile USTAR headers and packed dist-tag overri
   )
   expect(identitySource).toContain("header.subarray(257, 265).equals(ustarSignature)")
   expect(identitySource).toContain("header[475] === 0 ? 130 : 155")
-  const root = await mkdtemp(join(tmpdir(), "atet-stage-archive-"))
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-stage-archive-"))
   const output = join(root, "github-output.txt")
   const environment = {
     EXPECTED_SOURCE_SHA: "a".repeat(40),
-    EXPECTED_TARBALL_NAME: "hraness-atet-3.2.0.tgz",
+    EXPECTED_TARBALL_NAME: "hraness-slopcamera-3.2.0.tgz",
     EXPECTED_VERSION: "3.2.0",
     GITHUB_OUTPUT: output,
     RUNNER_TEMP: root,
@@ -1216,14 +1215,14 @@ test("both tar consumers reject hostile USTAR headers and packed dist-tag overri
     stage: Awaited<ReturnType<typeof runWorkflowScript>>
   }>> => {
     await Promise.all([
-      rm(join(root, "atet-npm-stage"), { force: true, recursive: true }),
+      rm(join(root, "slopcamera-npm-stage"), { force: true, recursive: true }),
       rm(output, { force: true }),
     ])
     const artifact = await writeStageArtifactFixture(root, mutation)
     return {
       identity: {
-        expectedFilename: "hraness-atet-3.2.0.tgz",
-        expectedName: "@hraness/atet",
+        expectedFilename: "hraness-slopcamera-3.2.0.tgz",
+        expectedName: "@hraness/slopcamera",
         expectedVersion: "3.2.0",
         registryArchive: artifact.tarball,
         registryMetadata: artifact.metadata,
@@ -1322,7 +1321,7 @@ test("both tar consumers reject hostile USTAR headers and packed dist-tag overri
 test("the retained stage-intent lock survives a failed job and same-run rerun", async () => {
   const workflow = await readWorkflow("public-npm-stage.yml", "npm-stage.yml")
   const script = workflowStepScript(workflow, "Reject unresolved stable-stage intent")
-  const root = await mkdtemp(join(tmpdir(), "atet-stage-history-"))
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-stage-history-"))
   const binaryDirectory = join(root, "bin")
   const currentJobsPath = join(root, "current-jobs.json")
   const runsPath = join(root, "runs.json")
@@ -1355,7 +1354,7 @@ esac
       EXPECTED_VERSION: "3.3.0",
       EXPECTED_WORKFLOW_ID: "344208600",
       CURRENT_JOBS_JSON: currentJobsPath,
-      GITHUB_REPOSITORY: "hraness/atet",
+      GITHUB_REPOSITORY: "hraness/slopcamera",
       GITHUB_RUN_ID: "999",
       JOBS_JSON: jobsPath,
       PATH: `${binaryDirectory}:${process.env.PATH ?? ""}`,
@@ -1503,19 +1502,19 @@ esac
   }
 })
 
-test("source 3.2.3 and verified-public installs preserve one Atet identity", async () => {
+test("Slopcamera source installs stay distinct from historical Atet archives", async () => {
   const packageRoot = join(import.meta.dir, "..")
   const manifest = JSON.parse(
     await readFile(join(packageRoot, "package.json"), "utf8"),
   ) as { readonly bin?: unknown; readonly version?: unknown }
-  const [disclosure, publishing, readme, security, skillInstall, siteBuild, siteProducer,
+  const [privacy, publishing, readme, security, skillInstall, siteBuild, siteProducer,
     siteContent, siteRenderer, siteMarkdown, siteTemplate] =
     await Promise.all([
-      readFile(join(packageRoot, "DISCLOSURE"), "utf8"),
+      readFile(join(packageRoot, "PRIVACY.md"), "utf8"),
       readFile(join(packageRoot, "docs", "publishing.md"), "utf8"),
       readFile(join(packageRoot, "README.md"), "utf8"),
       readFile(join(packageRoot, "SECURITY.md"), "utf8"),
-      readFile(join(packageRoot, "skills", "atet", "references", "install.md"), "utf8"),
+      readFile(join(packageRoot, "skills", "slopcamera", "references", "install.md"), "utf8"),
       readFile(join(packageRoot, "apps", "web", "scripts", "build.ts"), "utf8"),
       readFile(join(packageRoot, "apps", "web", "scripts", "build-site.ts"), "utf8"),
       readFile(join(packageRoot, "apps", "web", "src", "site-content.ts"), "utf8"),
@@ -1526,30 +1525,26 @@ test("source 3.2.3 and verified-public installs preserve one Atet identity", asy
 
   expect(manifest.version).toBe("3.2.3")
   expect(manifest.bin).toEqual({
-    atet: "./apps/desktop/dist/cli/main.js",
+    slopcamera: "./apps/desktop/dist/cli/main.js",
   })
-  expect((manifest as { readonly contentPolicy?: unknown }).contentPolicy).toEqual({
-    class: "dual-use",
-  })
-
-  const canonicalCliInstall = `bun add --global ${publishedArchiveUrl}`
-  const immutableSkillInstall =
-    `https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`
+  expect(Object.prototype.hasOwnProperty.call(manifest, "contentPolicy")).toBe(false)
+  expect(publishedRelease.version).toBe("3.2.3")
+  expect(publishedArchiveUrl).toBe("https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz")
   for (const source of [readme, skillInstall, homeMarkdown]) {
-    expect(source).toContain(canonicalCliInstall)
+    expect(source).toContain(sourceInstall.checkoutCommand)
+    expect(source).not.toContain("hraness-slopcamera-3.2.3.tgz")
   }
-  for (const source of [readme, homeMarkdown]) {
-    expect(source).toContain(immutableSkillInstall)
+  for (const source of [readme, skillInstall]) {
+    expect(source).toContain("bun install --frozen-lockfile --ignore-scripts")
+    expect(source).toContain("bun run build:sdk")
+    expect(source).toContain("bun run build:desktop:cli")
   }
-  expect(siteContent).toContain('import { publishedArchiveUrl, publishedRelease } from "./published-release"')
-  expect(siteContent).toContain('["{{PUBLISHED_VERSION}}", publishedRelease.version, 6]')
-  expect(siteContent).toContain('["{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1]')
-  expect(siteContent).toContain('["{{PUBLISHED_RELEASE_URL}}", publishedRelease.releaseUrl, 1]')
-  expect(siteTemplate.match(/\{\{PUBLISHED_VERSION\}\}/gu)).toHaveLength(6)
-  expect(siteTemplate.match(/\{\{PUBLISHED_ARCHIVE_URL\}\}/gu)).toHaveLength(1)
-  expect(siteTemplate.match(/\{\{PUBLISHED_RELEASE_URL\}\}/gu)).toHaveLength(1)
-  expect(siteContent).toContain('alternateCommand: `bunx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`')
-  expect(siteContent).toContain('command: `npx skills add https://github.com/hraness/atet/tree/v${publishedRelease.version} --skill atet`')
+  expect(siteContent).toContain('import { sourceInstall } from "./published-release"')
+  for (const slot of ["SOURCE_CHECKOUT_COMMAND", "SOURCE_ENTER_COMMAND", "SOURCE_INSTALL_URL"]) {
+    expect(siteTemplate.match(new RegExp(`\\{\\{${slot}\\}\\}`, "gu"))).toHaveLength(1)
+  }
+  expect(siteContent).toContain("sourceInstall.alternateSkillCommand")
+  expect(siteContent).toContain("sourceInstall.skillCommand")
   expect(siteRenderer).toContain('import { siteContentSlots, type SiteAssets, type SiteDocument } from "./site-content"')
   expect(siteRenderer).toContain("for (const [placeholder, value, count] of siteContentSlots(document, assets))")
   expect(siteRenderer).toContain("rendered = replaceSiteSlot(rendered, placeholder, value, count)")
@@ -1564,12 +1559,10 @@ test("source 3.2.3 and verified-public installs preserve one Atet identity", asy
   expect(produce).toBeGreaterThan(-1)
   expect(seal).toBeGreaterThan(produce)
   expect(finalize).toBeGreaterThan(seal)
-  expect(siteMarkdown).toContain('import { publishedArchiveUrl, publishedRelease } from "./published-release"')
-  expect(siteTemplate).toContain('"softwareVersion": "{{PUBLISHED_VERSION}}"')
-  expect(siteTemplate).toContain('"version": "{{PUBLISHED_VERSION}}"')
-  expect(siteTemplate).toContain("bun add --global {{PUBLISHED_ARCHIVE_URL}}")
-  expect(siteContent).toContain('["{{PUBLISHED_ARCHIVE_URL}}", publishedArchiveUrl, 1]')
-  expect(readme).toContain(`github:hraness/atet#v${publishedRelease.version}`)
+  expect(siteMarkdown).toContain('import { sourceInstall } from "./published-release"')
+  expect(siteTemplate).not.toContain("{{PUBLISHED_VERSION}}")
+  expect(siteTemplate).not.toContain('"softwareVersion"')
+  expect(siteTemplate).not.toContain("{{PUBLISHED_ARCHIVE_URL}}")
   for (const capability of [
     "screen",
     "camera",
@@ -1577,16 +1570,16 @@ test("source 3.2.3 and verified-public installs preserve one Atet identity", asy
     "system audio",
     "typed text",
   ]) {
-    expect(disclosure.toLowerCase()).toContain(capability)
+    expect(privacy.toLowerCase()).toContain(capability)
   }
-  expect(readme).toContain("[`DISCLOSURE`](DISCLOSURE)")
-  expect(security).toContain("[`DISCLOSURE`](DISCLOSURE)")
+  expect(readme).toContain("(PRIVACY.md)")
+  expect(security).toContain("(PRIVACY.md)")
   expect(publishing).toContain("GitHub Releases are canonical")
   expect(publishing).toContain("npm stage publish <reviewed-tarball>")
   expect(publishing).toContain("resolved_stage_version")
   expect(publishing).toContain("npm-package-identity.ts")
   expect(publishing).toContain("different gzip or tar bytes")
-  expect(publishing).toContain("GitHub publication does not wait for npm")
+  expect(publishing).toContain("npm is an optional downstream mirror")
 
   for (const source of [readme, skillInstall, siteBuild, siteMarkdown, siteTemplate]) {
     expect(source).not.toContain("v3.1.0")
@@ -1601,8 +1594,8 @@ test("the package smoke proves metadata and bounded import side effects", async 
   const smoke = await readFile(join(packageRoot, "scripts", "package-smoke.ts"), "utf8")
 
   for (const required of [
-    '"DISCLOSURE"',
-    "contentPolicy.class=dual-use",
+    '"PRIVACY.md"',
+    'Object.prototype.hasOwnProperty.call(manifest, "contentPolicy")',
     "--pack-json",
     "npm pack SHA-512 integrity does not match the exact archive bytes",
     "npm pack SHA-1 shasum does not match the exact archive bytes",
@@ -1654,11 +1647,11 @@ test("CI FFmpeg setup bounds Ubuntu mirror failures without weakening runtime ch
   expect(script).toContain("ffprobe -version")
 })
 
-test("public Atet VTracer workflow verifies every reviewed platform without write permissions", async () => {
+test("public Slopcamera VTracer workflow verifies every reviewed platform without write permissions", async () => {
   const workflow = await readWorkflow("public-vectorizer.yml", "vectorizer.yml")
 
   expect(workflow).toContain("permissions:\n  contents: read")
-  expect(workflow).toContain("name: Atet VTracer")
+  expect(workflow).toContain("name: Slopcamera VTracer")
   expect(workflow).toContain("pull_request:")
   expect(workflow).toContain("branches: [main]")
   for (const target of [

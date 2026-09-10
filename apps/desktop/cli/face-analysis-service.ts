@@ -19,7 +19,7 @@ import {
 } from "../contracts";
 import {
   associateFaceDetections,
-  canonicalAtetPersistenceDocument,
+  canonicalSlopcameraPersistenceDocument,
   canonicalJson,
   canonicalJsonSha256,
   saveAnalysisArtifact,
@@ -526,14 +526,14 @@ export async function analyzeProjectFaces(
     inputDigest: canonicalJsonSha256({
       analyzer: {
         helperVersion: firstRun.backend.helperVersion,
-        protocolKind: "atet.face-analysis",
+        protocolKind: "slopcamera.face-analysis",
         schemaVersion: 1,
       },
       backend: mappedBackend,
       config,
       subject: selected.subject,
     }),
-    kind: "atet.face-analysis",
+    kind: "slopcamera.face-analysis",
     privacy: {
       biometricIdentification: "not-performed",
       execution: "local-only",
@@ -544,7 +544,7 @@ export async function analyzeProjectFaces(
     schemaVersion: 1,
     subject: selected.subject,
     tool: AnalysisToolSchema.parse({
-      name: "atet-face-analyzer",
+      name: "slopcamera-face-analyzer",
       profile: "apple-vision-face-rectangles-v1",
       version: firstRun.backend.helperVersion,
     }),
@@ -691,7 +691,7 @@ export async function analyzeAndPersistProjectFaces(
     project: options.project.project,
     updatedAt: analyzed.analysis.createdAt,
   });
-  const project = canonicalAtetPersistenceDocument(update.project);
+  const project = canonicalSlopcameraPersistenceDocument(update.project);
   await saveVideoProject(options.project.fileSystem, project);
   return {
     ...analyzed,

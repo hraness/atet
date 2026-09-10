@@ -1,20 +1,5 @@
 // @bun
 import {
-  AtetDiagramCheckInputSchema,
-  AtetDiagramCheckOutputSchema,
-  AtetDiagramRenderInputSchema,
-  AtetDiagramRenderOutputSchema,
-  AtetImageGenerateInputSchema,
-  AtetImageGenerateOutputSchema,
-  AtetImageModelSchema,
-  AtetImageVectorizeInputSchema,
-  AtetImageVectorizeOutputSchema,
-  AtetLintFindingSchema,
-  AtetRenderArtifactsSchema,
-  AtetVectorizeProvenanceSchema,
-  AtetVectorizeQualityReceiptSchema,
-  AtetVectorizeReceiptSchema,
-  AtetWorkflowRunError,
   AuthoredGraphNodeV1Schema,
   AuthoredWorkflowGraphV1Schema,
   CompiledWorkflowGraphSchema,
@@ -28,15 +13,30 @@ import {
   OperationDiscoverySchema,
   OperationKindSchema,
   OperationPolicySchema,
-  PORTABLE_ATET_OPERATION_CONTRACTS,
-  PORTABLE_ATET_OPERATION_KINDS,
-  PUBLIC_ATET_WORKFLOW_PROJECTION,
+  PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS,
+  PORTABLE_SLOPCAMERA_OPERATION_KINDS,
+  PUBLIC_SLOPCAMERA_WORKFLOW_PROJECTION,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
   PortableWorkflowBuilder,
   REQUIREMENT_ENVELOPE_VERSION,
   RequirementEnvelopeSchema,
   SerializedRefV1Schema,
+  SlopcameraDiagramCheckInputSchema,
+  SlopcameraDiagramCheckOutputSchema,
+  SlopcameraDiagramRenderInputSchema,
+  SlopcameraDiagramRenderOutputSchema,
+  SlopcameraImageGenerateInputSchema,
+  SlopcameraImageGenerateOutputSchema,
+  SlopcameraImageModelSchema,
+  SlopcameraImageVectorizeInputSchema,
+  SlopcameraImageVectorizeOutputSchema,
+  SlopcameraLintFindingSchema,
+  SlopcameraRenderArtifactsSchema,
+  SlopcameraVectorizeProvenanceSchema,
+  SlopcameraVectorizeQualityReceiptSchema,
+  SlopcameraVectorizeReceiptSchema,
+  SlopcameraWorkflowRunError,
   WORKFLOW_COMPILATION_HASH_DOMAIN,
   WORKFLOW_COMPILATION_VERSION,
   WORKFLOW_GRAPH_HASH_DOMAIN,
@@ -48,22 +48,21 @@ import {
   buildWorkflow,
   buildWorkflowGraph,
   compileWorkflowGraph,
-  createAtetCodeHost,
   createGraphHash,
   createPublicWorkflowRegistryProjection,
+  createSlopcameraCodeHost,
   createWorkflowCompilationHash,
   createWorkflowGraphHash,
   definePortableWorkflowFragment,
   defineWorkflow,
-  isPortableAtetOperationKind,
+  isPortableSlopcameraOperationKind,
   runBuiltWorkflow,
   runWorkflow,
   seconds
-} from "../index-s2k1wajz.js";
+} from "../index-42zsesc1.js";
 import {
-  AtetCodeError,
-  asAtetCodeError,
-  atetCodeErrorMessage,
+  SlopcameraCodeError,
+  asSlopcameraCodeError,
   boundedCanonicalJson,
   boundedCanonicalJsonSha256,
   canonicalJson,
@@ -71,8 +70,9 @@ import {
   createBoundedJsonSnapshot,
   createBoundedJsonValueSnapshot,
   deepFreezeJson,
-  sha256Hex
-} from "../index-dttxgnv5.js";
+  sha256Hex,
+  slopcameraCodeErrorMessage
+} from "../index-8txs6fkn.js";
 import"../index-z1w83f81.js";
 
 // src/spatial-scene/contracts.ts
@@ -179,7 +179,7 @@ var SpatialAssetInterpretationSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("gltf"), format: z.enum(["glb", "gltf"]), metersPerUnit: positiveDimension, sourceUp: z.enum(["x", "y", "z"]) }),
   z.strictObject({ kind: z.literal("font"), format: z.enum(["otf", "woff2"]), family: z.string().min(1).max(128) }),
   z.strictObject({ kind: z.literal("splat"), format: z.enum(["spz", "ply"]), metersPerUnit: positiveDimension, sourceUp: z.enum(["x", "y", "z"]) }),
-  z.strictObject({ kind: z.literal("metadata"), format: z.literal("json"), schema: z.enum(["atet.spatial-world-import", "atet.world-labs-provenance"]) })
+  z.strictObject({ kind: z.literal("metadata"), format: z.literal("json"), schema: z.enum(["slopcamera.spatial-world-import", "slopcamera.world-labs-provenance"]) })
 ]);
 var SpatialAssetManifestSchema = z.strictObject({
   assetId: SpatialAssetIdSchema,
@@ -271,7 +271,7 @@ var SpatialGeneratorSchema = z.strictObject({
   editableKeys: z.array(z.strictObject({ key: z.string().min(1).max(256), properties: z.array(z.enum(["color", "opacity", "transform"])).min(1).max(3) })).max(SPATIAL_SCENE_LIMITS.entities)
 });
 var SpatialSceneV1Schema = z.strictObject({
-  kind: z.literal("atet.spatial-scene"),
+  kind: z.literal("slopcamera.spatial-scene"),
   schemaVersion: z.literal(1),
   sceneId: SpatialSceneIdSchema,
   coordinates: z.literal("right-handed-y-up-meters"),
@@ -302,7 +302,7 @@ var SpatialPatchOperationSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("replace-generator-output"), generator: SpatialGeneratorSchema, entities: z.array(SpatialEntitySchema).max(SPATIAL_SCENE_LIMITS.entities) })
 ]);
 var SpatialScenePatchV1Schema = z.strictObject({
-  kind: z.literal("atet.spatial-scene-patch"),
+  kind: z.literal("slopcamera.spatial-scene-patch"),
   schemaVersion: z.literal(1),
   expectedSceneSha256: SpatialDigestSchema,
   operations: z.array(SpatialPatchOperationSchema).min(1).max(SPATIAL_SCENE_LIMITS.patchOperations)
@@ -337,7 +337,7 @@ var SpatialMatrixSchema = z.tuple([
   matrixNumber
 ]);
 var EvaluatedSpatialSceneSchema = z.strictObject({
-  kind: z.literal("atet.spatial-snapshot"),
+  kind: z.literal("slopcamera.spatial-snapshot"),
   schemaVersion: z.literal(1),
   sceneSha256: SpatialDigestSchema,
   stateSha256: SpatialDigestSchema,
@@ -354,7 +354,7 @@ var EvaluatedSpatialSceneSchema = z.strictObject({
 });
 
 // src/spatial-scene/identity.ts
-class SpatialSceneError extends AtetCodeError {
+class SpatialSceneError extends SlopcameraCodeError {
   path;
   constructor(code, message, path = "scene") {
     super(code, message, { path });
@@ -440,7 +440,7 @@ function generatedSpatialEntityId(generatorId, key2) {
   SpatialGeneratorIdSchema.parse(generatorId);
   if (typeof key2 !== "string" || key2.length < 1 || key2.length > 256)
     throw new SpatialSceneError("invalid-data", "Generator keys must contain 1\u2013256 characters.");
-  return `entity_${spatialValueSha256({ domain: "atet.generated-entity.v1", generatorId, key: key2 })}`;
+  return `entity_${spatialValueSha256({ domain: "slopcamera.generated-entity.v1", generatorId, key: key2 })}`;
 }
 function normalizeEntity(entity) {
   if (entity.kind === "mesh")
@@ -464,7 +464,7 @@ function normalizeAsset(asset) {
 function spatialGeneratorOutputSha256(input) {
   const entities = parseSpatialValue(SpatialEntitySchema.array().max(SPATIAL_SCENE_LIMITS.entities), input, "generator output");
   unique(entities, (item) => item.entityId, "generator output");
-  return spatialValueSha256({ domain: "atet.generator-output.v1", entities: sortSpatialBy(entities.map(normalizeEntity), (item) => item.entityId) });
+  return spatialValueSha256({ domain: "slopcamera.generator-output.v1", entities: sortSpatialBy(entities.map(normalizeEntity), (item) => item.entityId) });
 }
 function spatialAssetManifestSha256(input, dependencyDigests = {}) {
   const asset = normalizeAsset(parseSpatialValue(SpatialAssetManifestSchema, input, "asset manifest"));
@@ -478,7 +478,7 @@ function spatialAssetManifestSha256(input, dependencyDigests = {}) {
       throw new SpatialSceneError("invalid-data", `Missing dependency digest for ${assetId}.`);
     return { assetId, sha256 };
   });
-  return spatialValueSha256({ domain: "atet.asset-manifest.v1", payload: { sha256: asset.payload.sha256, bytes: asset.payload.bytes }, interpretation: asset.interpretation, dependencies });
+  return spatialValueSha256({ domain: "slopcamera.asset-manifest.v1", payload: { sha256: asset.payload.sha256, bytes: asset.payload.bytes }, interpretation: asset.interpretation, dependencies });
 }
 function spatialAssetClosureDigests(assets) {
   const map = unique(assets, (asset) => asset.assetId, "assets");
@@ -1003,10 +1003,10 @@ function evaluateSpatialScene(sceneInput, options) {
     selectionId: index + 1
   }));
   const assetDigests = spatialAssetClosureDigests(scene.assets);
-  const stateSha256 = spatialStateValueSha256({ domain: "atet.spatial-state.v1", timeUs, entities: evaluated, assetDigests });
-  const viewSha256 = spatialValueSha256({ domain: "atet.spatial-view.v1", stateSha256, camera: camera2 });
+  const stateSha256 = spatialStateValueSha256({ domain: "slopcamera.spatial-state.v1", timeUs, entities: evaluated, assetDigests });
+  const viewSha256 = spatialValueSha256({ domain: "slopcamera.spatial-view.v1", stateSha256, camera: camera2 });
   const result = EvaluatedSpatialSceneSchema.parse({
-    kind: "atet.spatial-snapshot",
+    kind: "slopcamera.spatial-snapshot",
     schemaVersion: 1,
     sceneSha256: spatialValueSha256(scene),
     stateSha256,
@@ -1267,7 +1267,7 @@ function createSpatialSceneStarter() {
   const transform = { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] };
   const common = { parentId: null, placement: { kind: "world" }, origin: { kind: "authored" }, visible: true };
   return parseSpatialScene({
-    kind: "atet.spatial-scene",
+    kind: "slopcamera.spatial-scene",
     schemaVersion: 1,
     sceneId: "scene_starter",
     coordinates: "right-handed-y-up-meters",
@@ -1333,7 +1333,7 @@ function createSpatialSceneStarter() {
 
 // src/spatial-scene/gltf.ts
 import { z as z3 } from "zod";
-var SPATIAL_GLB_PROFILE = "atet.glb-triangles-trs-pbr-basecolor-v1";
+var SPATIAL_GLB_PROFILE = "slopcamera.glb-triangles-trs-pbr-basecolor-v1";
 var SPATIAL_GLB_LIMITS = Object.freeze({
   bytes: 134217728,
   jsonBytes: 2097152,
@@ -2011,7 +2011,7 @@ var rationalSchema = z4.strictObject({
   denominator: z4.string().regex(/^[1-9][0-9]{0,6}$/u)
 });
 var SpatialCameraTrackSchema = z4.strictObject({
-  kind: z4.literal("atet.spatial-camera-track"),
+  kind: z4.literal("slopcamera.spatial-camera-track"),
   schemaVersion: z4.literal(1),
   sceneSha256: SpatialDigestSchema,
   cameraId: SpatialCameraIdSchema,
@@ -2067,7 +2067,7 @@ function sampleSpatialCameraTrack(sceneInput, optionsInput) {
     animations: scene.animations.filter((channel) => channel.targetId === cameraId)
   };
   return parseSpatialCameraTrack({
-    kind: "atet.spatial-camera-track",
+    kind: "slopcamera.spatial-camera-track",
     schemaVersion: 1,
     sceneSha256: spatialValueSha256(scene),
     cameraId,
@@ -2105,6 +2105,7 @@ export {
   spatialAssetManifestSha256,
   spatialAssetClosureDigests,
   sortSpatialBy,
+  slopcameraCodeErrorMessage,
   slerpQuaternion,
   sha256Hex,
   seconds,
@@ -2121,7 +2122,7 @@ export {
   normalizeQuaternion,
   multiplyTransforms,
   mergeSpatialOverrides,
-  isPortableAtetOperationKind,
+  isPortableSlopcameraOperationKind,
   invertTransform,
   inspectSpatialScene,
   generatedSpatialEntityId,
@@ -2132,9 +2133,9 @@ export {
   createWorkflowGraphHash,
   createWorkflowCompilationHash,
   createSpatialSceneStarter,
+  createSlopcameraCodeHost,
   createPublicWorkflowRegistryProjection,
   createGraphHash,
-  createAtetCodeHost,
   composeTransform,
   compileWorkflowGraph2 as compileWorkflowGraph,
   canonicalJsonSha256,
@@ -2144,8 +2145,7 @@ export {
   buildWorkflow,
   boundedCanonicalJsonSha256,
   boundedCanonicalJson,
-  atetCodeErrorMessage,
-  asAtetCodeError,
+  asSlopcameraCodeError,
   applySpatialScenePatch,
   applySpatialEntityOverride,
   WORKFLOW_REF_VERSION,
@@ -2191,6 +2191,22 @@ export {
   SpatialAssetInterpretationSchema,
   SpatialAssetIdSchema,
   SpatialAnimationSchema,
+  SlopcameraWorkflowRunError,
+  SlopcameraVectorizeReceiptSchema,
+  SlopcameraVectorizeQualityReceiptSchema,
+  SlopcameraVectorizeProvenanceSchema,
+  SlopcameraRenderArtifactsSchema,
+  SlopcameraLintFindingSchema,
+  SlopcameraImageVectorizeOutputSchema,
+  SlopcameraImageVectorizeInputSchema,
+  SlopcameraImageModelSchema,
+  SlopcameraImageGenerateOutputSchema,
+  SlopcameraImageGenerateInputSchema,
+  SlopcameraDiagramRenderOutputSchema,
+  SlopcameraDiagramRenderInputSchema,
+  SlopcameraDiagramCheckOutputSchema,
+  SlopcameraDiagramCheckInputSchema,
+  SlopcameraCodeError,
   SerializedRefV1Schema,
   SPATIAL_SCENE_LIMITS,
   SPATIAL_GLB_PROFILE,
@@ -2201,9 +2217,9 @@ export {
   PortableWorkflowBuilder,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION_ID,
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
-  PUBLIC_ATET_WORKFLOW_PROJECTION,
-  PORTABLE_ATET_OPERATION_KINDS,
-  PORTABLE_ATET_OPERATION_CONTRACTS,
+  PUBLIC_SLOPCAMERA_WORKFLOW_PROJECTION,
+  PORTABLE_SLOPCAMERA_OPERATION_KINDS,
+  PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS,
   OperationPolicySchema,
   OperationKindSchema,
   OperationDiscoverySchema,
@@ -2220,21 +2236,5 @@ export {
   DEFAULT_GRAPH_COMPILER_LIMITS,
   CompiledWorkflowGraphSchema,
   AuthoredWorkflowGraphV1Schema,
-  AuthoredGraphNodeV1Schema,
-  AtetWorkflowRunError,
-  AtetVectorizeReceiptSchema,
-  AtetVectorizeQualityReceiptSchema,
-  AtetVectorizeProvenanceSchema,
-  AtetRenderArtifactsSchema,
-  AtetLintFindingSchema,
-  AtetImageVectorizeOutputSchema,
-  AtetImageVectorizeInputSchema,
-  AtetImageModelSchema,
-  AtetImageGenerateOutputSchema,
-  AtetImageGenerateInputSchema,
-  AtetDiagramRenderOutputSchema,
-  AtetDiagramRenderInputSchema,
-  AtetDiagramCheckOutputSchema,
-  AtetDiagramCheckInputSchema,
-  AtetCodeError
+  AuthoredGraphNodeV1Schema
 };

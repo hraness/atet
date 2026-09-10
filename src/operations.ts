@@ -8,11 +8,11 @@ import { renderPng, renderSvg } from "./render.js"
 import { serializeTldr } from "./tldr.js"
 import type { DiagramConfig, LintFinding, RenderArtifacts } from "./types.js"
 import {
-  generateAtetImageFile,
-  atetMaximumPromptBytes,
-  type GeneratedAtetImageFile,
-  type AtetGenerateDependencies,
-  type AtetImageModel,
+  generateSlopcameraImageFile,
+  slopcameraMaximumPromptBytes,
+  type GeneratedSlopcameraImageFile,
+  type SlopcameraGenerateDependencies,
+  type SlopcameraImageModel,
 } from "./generate.js"
 import {
   vectorizeImage,
@@ -25,17 +25,17 @@ import {
   type HostResourceLease,
 } from "./host-resources.js"
 
-export const atetOperationCodes = [
-  "atet.diagram.check",
-  "atet.diagram.render",
-  "atet.image.vectorize",
-  "atet.image.generate",
+export const slopcameraOperationCodes = [
+  "slopcamera.diagram.check",
+  "slopcamera.diagram.render",
+  "slopcamera.image.vectorize",
+  "slopcamera.image.generate",
 ] as const
 
-export type AtetOperationCode = (typeof atetOperationCodes)[number]
+export type SlopcameraOperationCode = (typeof slopcameraOperationCodes)[number]
 
-export interface AtetOperationDescriptor {
-  readonly code: AtetOperationCode
+export interface SlopcameraOperationDescriptor {
+  readonly code: SlopcameraOperationCode
   readonly title: string
   readonly description: string
   readonly execution: "gateway" | "local"
@@ -53,18 +53,18 @@ export interface AtetOperationDescriptor {
   }
 }
 
-export class AtetOperationError extends Error {
+export class SlopcameraOperationError extends Error {
   readonly code:
     | "INVALID_OPERATION"
     | "INVALID_OPERATION_INPUT"
     | "INVALID_SEARCH"
 
   constructor(
-    code: AtetOperationError["code"],
+    code: SlopcameraOperationError["code"],
     message: string,
   ) {
     super(`[${code}] ${message}`)
-    this.name = "AtetOperationError"
+    this.name = "SlopcameraOperationError"
     this.code = code
   }
 }
@@ -90,13 +90,13 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value)
 }
 
-export const atetOperationRegistry: readonly AtetOperationDescriptor[] =
+export const slopcameraOperationRegistry: readonly SlopcameraOperationDescriptor[] =
   deepFreeze([
     {
-      code: "atet.diagram.check",
+      code: "slopcamera.diagram.check",
       title: "Check diagram",
       description:
-        "Parse and lint a checked Atet diagram source without changing its files.",
+        "Parse and lint a checked Slopcamera diagram source without changing its files.",
       execution: "local",
       authentication: "none",
       destructive: false,
@@ -113,10 +113,10 @@ export const atetOperationRegistry: readonly AtetOperationDescriptor[] =
       ],
     },
     {
-      code: "atet.diagram.render",
+      code: "slopcamera.diagram.render",
       title: "Render diagram",
       description:
-        "Render a checked Atet diagram source to its replaceable light, dark, PNG, SVG, and tldraw artifacts.",
+        "Render a checked Slopcamera diagram source to its replaceable light, dark, PNG, SVG, and tldraw artifacts.",
       execution: "local",
       authentication: "none",
       destructive: true,
@@ -141,7 +141,7 @@ export const atetOperationRegistry: readonly AtetOperationDescriptor[] =
       ],
     },
     {
-      code: "atet.image.vectorize",
+      code: "slopcamera.image.vectorize",
       title: "Vectorize image",
       description:
         "Convert a local caller-owned raster into a bounded inert SVG without authentication or network access.",
@@ -175,7 +175,7 @@ export const atetOperationRegistry: readonly AtetOperationDescriptor[] =
       ],
     },
     {
-      code: "atet.image.generate",
+      code: "slopcamera.image.generate",
       title: "Generate image",
       description:
         "Generate one bounded image directly through Vercel AI Gateway with an environment credential and no client retry.",
@@ -192,7 +192,7 @@ export const atetOperationRegistry: readonly AtetOperationDescriptor[] =
           prompt: {
             type: "string",
             minLength: 1,
-            maxLength: atetMaximumPromptBytes,
+            maxLength: slopcameraMaximumPromptBytes,
           },
           outputPath: pathSchema,
         },
@@ -209,18 +209,18 @@ export const atetOperationRegistry: readonly AtetOperationDescriptor[] =
         retry: "never",
       },
     },
-  ] satisfies readonly AtetOperationDescriptor[])
+  ] satisfies readonly SlopcameraOperationDescriptor[])
 
-export interface CheckAtetOperationInput {
+export interface CheckSlopcameraOperationInput {
   readonly path: string
 }
 
-export interface RenderAtetOperationInput extends CheckAtetOperationInput {
+export interface RenderSlopcameraOperationInput extends CheckSlopcameraOperationInput {
   readonly outDirectory?: string
   readonly scale?: number
 }
 
-export interface VectorizeAtetOperationInput {
+export interface VectorizeSlopcameraOperationInput {
   readonly inputPath: string
   readonly outputPath: string
   readonly duotone?: readonly [string, string]
@@ -228,38 +228,38 @@ export interface VectorizeAtetOperationInput {
   readonly timeoutMs?: number
 }
 
-export interface GenerateAtetOperationInput {
-  readonly model: AtetImageModel
+export interface GenerateSlopcameraOperationInput {
+  readonly model: SlopcameraImageModel
   readonly prompt: string
   readonly outputPath: string
 }
 
-export interface AtetOperationInputMap {
-  readonly "atet.diagram.check": CheckAtetOperationInput
-  readonly "atet.diagram.render": RenderAtetOperationInput
-  readonly "atet.image.vectorize": VectorizeAtetOperationInput
-  readonly "atet.image.generate": GenerateAtetOperationInput
+export interface SlopcameraOperationInputMap {
+  readonly "slopcamera.diagram.check": CheckSlopcameraOperationInput
+  readonly "slopcamera.diagram.render": RenderSlopcameraOperationInput
+  readonly "slopcamera.image.vectorize": VectorizeSlopcameraOperationInput
+  readonly "slopcamera.image.generate": GenerateSlopcameraOperationInput
 }
 
-export interface AtetOperationResultMap {
-  readonly "atet.diagram.check": {
+export interface SlopcameraOperationResultMap {
+  readonly "slopcamera.diagram.check": {
     readonly findings: readonly LintFinding[]
     readonly configPath: null
   }
-  readonly "atet.diagram.render": {
+  readonly "slopcamera.diagram.render": {
     readonly artifacts: RenderArtifacts
     readonly findings: readonly LintFinding[]
     readonly configPath: null
   }
-  readonly "atet.image.vectorize": {
+  readonly "slopcamera.image.vectorize": {
     readonly outputPath: string
     readonly receipt: VectorizeReceipt
   }
-  readonly "atet.image.generate": GeneratedAtetImageFile
+  readonly "slopcamera.image.generate": GeneratedSlopcameraImageFile
 }
 
 function operationFailure(message: string): never {
-  throw new AtetOperationError("INVALID_OPERATION_INPUT", message)
+  throw new SlopcameraOperationError("INVALID_OPERATION_INPUT", message)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -290,12 +290,12 @@ function pathValue(value: unknown, name: string): string {
   return value
 }
 
-function parseCheck(value: unknown): CheckAtetOperationInput {
+function parseCheck(value: unknown): CheckSlopcameraOperationInput {
   const input = record(value, ["path"])
   return { path: pathValue(input.path, "path") }
 }
 
-function parseRender(value: unknown): RenderAtetOperationInput {
+function parseRender(value: unknown): RenderSlopcameraOperationInput {
   const input = record(value, ["path", "outDirectory", "scale"])
   const scale = input.scale
   if (
@@ -316,7 +316,7 @@ function parseRender(value: unknown): RenderAtetOperationInput {
   }
 }
 
-function parseVectorize(value: unknown): VectorizeAtetOperationInput {
+function parseVectorize(value: unknown): VectorizeSlopcameraOperationInput {
   const input = record(value, [
     "inputPath",
     "outputPath",
@@ -371,7 +371,7 @@ function parseVectorize(value: unknown): VectorizeAtetOperationInput {
   }
 }
 
-function parseGenerate(value: unknown): GenerateAtetOperationInput {
+function parseGenerate(value: unknown): GenerateSlopcameraOperationInput {
   const input = record(value, ["model", "prompt", "outputPath"])
   if (
     typeof input.model !== "string" ||
@@ -384,10 +384,10 @@ function parseGenerate(value: unknown): GenerateAtetOperationInput {
     typeof input.prompt !== "string" ||
     input.prompt.trim().length < 1 ||
     /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(input.prompt) ||
-    Buffer.byteLength(input.prompt, "utf8") > atetMaximumPromptBytes
+    Buffer.byteLength(input.prompt, "utf8") > slopcameraMaximumPromptBytes
   ) {
     operationFailure(
-      `prompt must be non-empty and no more than ${atetMaximumPromptBytes} UTF-8 bytes.`,
+      `prompt must be non-empty and no more than ${slopcameraMaximumPromptBytes} UTF-8 bytes.`,
     )
   }
   const outputPath = pathValue(input.outputPath, "outputPath")
@@ -395,58 +395,58 @@ function parseGenerate(value: unknown): GenerateAtetOperationInput {
     operationFailure("outputPath must end in .png, .jpg, .jpeg, or .webp.")
   }
   return {
-    model: input.model as AtetImageModel,
+    model: input.model as SlopcameraImageModel,
     prompt: input.prompt,
     outputPath,
   }
 }
 
-export function parseAtetOperationInput<C extends AtetOperationCode>(
+export function parseSlopcameraOperationInput<C extends SlopcameraOperationCode>(
   code: C,
   input: unknown,
-): AtetOperationInputMap[C] {
+): SlopcameraOperationInputMap[C] {
   switch (code) {
-    case "atet.diagram.check":
-      return parseCheck(input) as AtetOperationInputMap[C]
-    case "atet.diagram.render":
-      return parseRender(input) as AtetOperationInputMap[C]
-    case "atet.image.vectorize":
-      return parseVectorize(input) as AtetOperationInputMap[C]
-    case "atet.image.generate":
-      return parseGenerate(input) as AtetOperationInputMap[C]
+    case "slopcamera.diagram.check":
+      return parseCheck(input) as SlopcameraOperationInputMap[C]
+    case "slopcamera.diagram.render":
+      return parseRender(input) as SlopcameraOperationInputMap[C]
+    case "slopcamera.image.vectorize":
+      return parseVectorize(input) as SlopcameraOperationInputMap[C]
+    case "slopcamera.image.generate":
+      return parseGenerate(input) as SlopcameraOperationInputMap[C]
     default:
-      throw new AtetOperationError(
+      throw new SlopcameraOperationError(
         "INVALID_OPERATION",
-        "Unknown Atet operation code.",
+        "Unknown Slopcamera operation code.",
       )
   }
 }
 
-export function isAtetOperationCode(
+export function isSlopcameraOperationCode(
   value: string,
-): value is AtetOperationCode {
-  return atetOperationCodes.includes(value as AtetOperationCode)
+): value is SlopcameraOperationCode {
+  return slopcameraOperationCodes.includes(value as SlopcameraOperationCode)
 }
 
-export function atetOperationHostResourceClaims(
-  code: AtetOperationCode,
+export function slopcameraOperationHostResourceClaims(
+  code: SlopcameraOperationCode,
 ): readonly HostResourceClaim[] {
-  const descriptor = atetOperationRegistry.find(
+  const descriptor = slopcameraOperationRegistry.find(
     (candidate) => candidate.code === code,
   )
   if (descriptor === undefined) {
-    throw new AtetOperationError(
+    throw new SlopcameraOperationError(
       "INVALID_OPERATION",
-      "Unknown Atet operation code.",
+      "Unknown Slopcamera operation code.",
     )
   }
   return descriptor.resources
 }
 
-export function searchAtetOperations(
+export function searchSlopcameraOperations(
   query = "",
-  limit = atetOperationRegistry.length,
-): readonly AtetOperationDescriptor[] {
+  limit = slopcameraOperationRegistry.length,
+): readonly SlopcameraOperationDescriptor[] {
   if (
     typeof query !== "string" ||
     query.length > 200 ||
@@ -455,7 +455,7 @@ export function searchAtetOperations(
     limit < 1 ||
     limit > 20
   ) {
-    throw new AtetOperationError(
+    throw new SlopcameraOperationError(
       "INVALID_SEARCH",
       "Search requires a bounded query and a limit from 1 through 20.",
     )
@@ -464,7 +464,7 @@ export function searchAtetOperations(
     .toLowerCase()
     .split(/\s+/u)
     .filter((term) => term.length > 0)
-  return atetOperationRegistry
+  return slopcameraOperationRegistry
     .filter((operation) => {
       const haystack =
         `${operation.code} ${operation.title} ${operation.description}`.toLowerCase()
@@ -473,7 +473,7 @@ export function searchAtetOperations(
     .slice(0, limit)
 }
 
-export interface AtetOperationDependencies extends AtetGenerateDependencies {
+export interface SlopcameraOperationDependencies extends SlopcameraGenerateDependencies {
   /** Callback-scoped host authority inherited by operation subprocesses. */
   readonly inheritedFileDescriptors?: readonly number[]
   /** Optional coordinator override for deterministic hosts and tests. */
@@ -482,16 +482,16 @@ export interface AtetOperationDependencies extends AtetGenerateDependencies {
   readonly waitTimeoutMilliseconds?: number
 }
 
-export interface AtetOperationHostAdmissionOptions {
+export interface SlopcameraOperationHostAdmissionOptions {
   readonly hostResourceCoordinator?: HostResourceCoordinator
   readonly signal?: AbortSignal
   readonly waitTimeoutMilliseconds?: number
 }
 
 function operationDependenciesWithLease(
-  dependencies: AtetOperationDependencies,
+  dependencies: SlopcameraOperationDependencies,
   lease: HostResourceLease,
-): AtetOperationDependencies {
+): SlopcameraOperationDependencies {
   const inheritedFileDescriptors = [
     ...(dependencies.inheritedFileDescriptors ?? []),
     lease.inheritedFileDescriptor,
@@ -506,7 +506,7 @@ function operationDependenciesWithLease(
       || descriptor > 2_147_483_647
     ))
   ) {
-    throw new AtetOperationError(
+    throw new SlopcameraOperationError(
       "INVALID_OPERATION_INPUT",
       "Operation host-resource inheritance exceeds its descriptor bound.",
     )
@@ -523,15 +523,15 @@ function operationDependenciesWithLease(
   }
 }
 
-export async function withAtetOperationHostAdmission<T>(
-  code: AtetOperationCode,
+export async function withSlopcameraOperationHostAdmission<T>(
+  code: SlopcameraOperationCode,
   callback: (lease: HostResourceLease) => T | Promise<T>,
-  options: AtetOperationHostAdmissionOptions = {},
+  options: SlopcameraOperationHostAdmissionOptions = {},
 ): Promise<T> {
   const coordinator = options.hostResourceCoordinator
     ?? createDefaultHostResourceCoordinator()
   return await coordinator.withLease(
-    atetOperationHostResourceClaims(code),
+    slopcameraOperationHostResourceClaims(code),
     async (lease) => {
       await lease.assertOwned()
       return await callback(lease)
@@ -555,7 +555,7 @@ async function readOperationDiagram(path: string) {
   try {
     value = JSON.parse(await readFile(absolutePath, "utf8"))
   } catch (cause) {
-    throw new AtetOperationError(
+    throw new SlopcameraOperationError(
       "INVALID_OPERATION_INPUT",
       "Diagram source could not be read as JSON.",
     )
@@ -567,7 +567,7 @@ async function readOperationDiagram(path: string) {
       shape.icon !== undefined &&
       !Object.hasOwn(builtInIcons, shape.icon)
     ) {
-      throw new AtetOperationError(
+      throw new SlopcameraOperationError(
         "INVALID_OPERATION_INPUT",
         "Diagram requests an unavailable built-in icon.",
       )
@@ -582,7 +582,7 @@ async function atomicOperationWrite(
 ): Promise<void> {
   const temporaryPath = join(
     dirname(path),
-    `.${randomUUID()}.atet-operation.tmp`,
+    `.${randomUUID()}.slopcamera-operation.tmp`,
   )
   try {
     await writeFile(temporaryPath, value, { flag: "wx" })
@@ -601,7 +601,7 @@ async function checkOperationDiagram(path: string) {
 }
 
 async function renderOperationDiagram(
-  input: RenderAtetOperationInput,
+  input: RenderSlopcameraOperationInput,
 ) {
   const { absolutePath, spec } = await readOperationDiagram(input.path)
   const outputDirectory = resolve(input.outDirectory ?? dirname(absolutePath))
@@ -640,25 +640,25 @@ async function renderOperationDiagram(
   } as const
 }
 
-async function executeAtetOperationUncoordinated<
-  C extends AtetOperationCode,
+async function executeSlopcameraOperationUncoordinated<
+  C extends SlopcameraOperationCode,
 >(
   code: C,
   value: unknown,
-  dependencies: AtetOperationDependencies = {},
-): Promise<AtetOperationResultMap[C]> {
-  const input = parseAtetOperationInput(code, value)
+  dependencies: SlopcameraOperationDependencies = {},
+): Promise<SlopcameraOperationResultMap[C]> {
+  const input = parseSlopcameraOperationInput(code, value)
   switch (code) {
-    case "atet.diagram.check": {
-      const options = input as CheckAtetOperationInput
-      return (await checkOperationDiagram(options.path)) as AtetOperationResultMap[C]
+    case "slopcamera.diagram.check": {
+      const options = input as CheckSlopcameraOperationInput
+      return (await checkOperationDiagram(options.path)) as SlopcameraOperationResultMap[C]
     }
-    case "atet.diagram.render": {
-      const options = input as RenderAtetOperationInput
-      return (await renderOperationDiagram(options)) as AtetOperationResultMap[C]
+    case "slopcamera.diagram.render": {
+      const options = input as RenderSlopcameraOperationInput
+      return (await renderOperationDiagram(options)) as SlopcameraOperationResultMap[C]
     }
-    case "atet.image.vectorize": {
-      const options = input as VectorizeAtetOperationInput
+    case "slopcamera.image.vectorize": {
+      const options = input as VectorizeSlopcameraOperationInput
       const result = await vectorizeImage(options.inputPath, {
         outputPath: options.outputPath,
         ...(options.duotone === undefined ? {} : { duotone: options.duotone }),
@@ -676,7 +676,7 @@ async function executeAtetOperationUncoordinated<
             }),
       })
       if (result.outputPath === null) {
-        throw new AtetOperationError(
+        throw new SlopcameraOperationError(
           "INVALID_OPERATION_INPUT",
           "Vectorization did not publish its required output.",
         )
@@ -684,11 +684,11 @@ async function executeAtetOperationUncoordinated<
       return {
         outputPath: result.outputPath,
         receipt: result.receipt,
-      } as AtetOperationResultMap[C]
+      } as SlopcameraOperationResultMap[C]
     }
-    case "atet.image.generate": {
-      const options = input as GenerateAtetOperationInput
-      return (await generateAtetImageFile(
+    case "slopcamera.image.generate": {
+      const options = input as GenerateSlopcameraOperationInput
+      return (await generateSlopcameraImageFile(
         {
           ...options,
           ...(dependencies.signal === undefined
@@ -696,25 +696,25 @@ async function executeAtetOperationUncoordinated<
             : { signal: dependencies.signal }),
         },
         dependencies,
-      )) as AtetOperationResultMap[C]
+      )) as SlopcameraOperationResultMap[C]
     }
     default:
-      throw new AtetOperationError(
+      throw new SlopcameraOperationError(
         "INVALID_OPERATION",
-        "Unknown Atet operation code.",
+        "Unknown Slopcamera operation code.",
       )
   }
 }
 
 /** Execute one operation under authority already held by a workflow node. */
-export async function executeAtetOperationWithLease<
-  C extends AtetOperationCode,
+export async function executeSlopcameraOperationWithLease<
+  C extends SlopcameraOperationCode,
 >(
   code: C,
   value: unknown,
   lease: HostResourceLease,
-  dependencies: AtetOperationDependencies = {},
-): Promise<AtetOperationResultMap[C]> {
+  dependencies: SlopcameraOperationDependencies = {},
+): Promise<SlopcameraOperationResultMap[C]> {
   await lease.assertOwned()
   const available = new Map<string, number>()
   for (const claim of lease.claims) {
@@ -724,32 +724,32 @@ export async function executeAtetOperationWithLease<
       || !Number.isSafeInteger(claim.amount)
       || claim.amount < 1
     ) {
-      throw new AtetOperationError(
+      throw new SlopcameraOperationError(
         "INVALID_OPERATION",
         "The active host-resource lease contains invalid claims.",
       )
     }
     const total = (available.get(claim.resource) ?? 0) + claim.amount
     if (!Number.isSafeInteger(total)) {
-      throw new AtetOperationError(
+      throw new SlopcameraOperationError(
         "INVALID_OPERATION",
         "The active host-resource lease contains invalid claims.",
       )
     }
     available.set(claim.resource, total)
   }
-  const missing = atetOperationHostResourceClaims(code).filter(
+  const missing = slopcameraOperationHostResourceClaims(code).filter(
     claim => (available.get(claim.resource) ?? 0) < claim.amount,
   )
   if (missing.length > 0) {
-    throw new AtetOperationError(
+    throw new SlopcameraOperationError(
       "INVALID_OPERATION",
       `The active host-resource lease does not cover ${missing
         .map(claim => `${claim.resource}:${String(claim.amount)}`)
         .join(", ")}.`,
     )
   }
-  return await executeAtetOperationUncoordinated(
+  return await executeSlopcameraOperationUncoordinated(
     code,
     value,
     operationDependenciesWithLease(dependencies, lease),
@@ -757,15 +757,15 @@ export async function executeAtetOperationWithLease<
 }
 
 /** Execute one direct SDK operation under machine-wide resource admission. */
-export async function executeAtetOperation<C extends AtetOperationCode>(
+export async function executeSlopcameraOperation<C extends SlopcameraOperationCode>(
   code: C,
   value: unknown,
-  dependencies: AtetOperationDependencies = {},
-): Promise<AtetOperationResultMap[C]> {
-  const input = parseAtetOperationInput(code, value)
-  return await withAtetOperationHostAdmission(
+  dependencies: SlopcameraOperationDependencies = {},
+): Promise<SlopcameraOperationResultMap[C]> {
+  const input = parseSlopcameraOperationInput(code, value)
+  return await withSlopcameraOperationHostAdmission(
     code,
-    async (lease) => await executeAtetOperationUncoordinated(
+    async (lease) => await executeSlopcameraOperationUncoordinated(
       code,
       input,
       operationDependenciesWithLease(dependencies, lease),

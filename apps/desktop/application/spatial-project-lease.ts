@@ -18,7 +18,7 @@ export interface SpatialProjectLeaseDependencies {
 function spatialMarker(authority: unknown): boolean {
   return typeof authority === "object" && authority !== null && !Array.isArray(authority)
     && (("schemaVersion" in authority && authority.schemaVersion === 2)
-      || ("kind" in authority && authority.kind === "atet.spatial-project-head"));
+      || ("kind" in authority && authority.kind === "slopcamera.spatial-project-head"));
 }
 
 function completionEvidence(value: unknown): Readonly<Record<string, unknown>> {

@@ -2,7 +2,7 @@
 const legacyObjectUrls = `  if (typeof globalThis.URL?.createObjectURL === "function") {
     const rejectObjectUrl = () => {
       throw new DOMException(
-        "Blob object URLs are unavailable; declare the overlay asset with AtetOverlay.asset().",
+        "Blob object URLs are unavailable; declare the overlay asset with SlopcameraOverlay.asset().",
         "NotSupportedError",
       );
     };
@@ -46,7 +46,7 @@ const boundedSparkWorkers = `  let sparkWorkerFailure = null;
       return url;
     });
     replaceRuntimeValue(globalThis.URL, "revokeObjectURL", revoke);
-    function AtetSparkWorker(url, options) {
+    function SlopcameraSparkWorker(url, options) {
       if (!new.target) throw new TypeError("Spark Worker requires construction.");
       const name = options?.name, type = options?.type;
       if (typeof url !== "string" || !urls.has(url) || workers.size >= 4 || createdWorkers >= 64
@@ -64,9 +64,9 @@ const boundedSparkWorkers = `  let sparkWorkerFailure = null;
       apply(nativeAddListener, worker, ["messageerror", () => { sparkWorkerFailure = new Error("Spark worker message failed."); }]);
       return worker;
     }
-    Object.defineProperty(AtetSparkWorker, "prototype", { value: NativeWorker.prototype, writable: false });
-    Object.defineProperty(NativeWorker.prototype, "constructor", { configurable: false, writable: false, value: AtetSparkWorker });
-    replaceRuntimeValue(globalThis, "Worker", AtetSparkWorker);
+    Object.defineProperty(SlopcameraSparkWorker, "prototype", { value: NativeWorker.prototype, writable: false });
+    Object.defineProperty(NativeWorker.prototype, "constructor", { configurable: false, writable: false, value: SlopcameraSparkWorker });
+    replaceRuntimeValue(globalThis, "Worker", SlopcameraSparkWorker);
     replaceRuntimeValue(globalThis, "SharedWorker", function () { throw new Error("Shared workers are unavailable in a spatial render."); });
     apply(nativeAddListener, globalThis, ["pagehide", () => {
       for (const worker of workers) apply(nativeTerminate, worker, []);

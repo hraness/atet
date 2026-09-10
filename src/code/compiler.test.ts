@@ -21,13 +21,13 @@ import {
   createWorkflowGraphHash,
   parseCompiledWorkflowGraph,
 } from "./compiler.js"
-import { AtetCodeError } from "./errors.js"
+import { SlopcameraCodeError } from "./errors.js"
 import { defineCompute } from "./define-workflow.js"
 import { WorkflowGraphBuilder } from "./graph-builder.js"
 import { PortableWorkflowBuilder } from "./portable-builder.js"
 import {
-  PORTABLE_ATET_OPERATION_CONTRACTS,
-  AtetImageGenerateInputSchema,
+  PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS,
+  SlopcameraImageGenerateInputSchema,
 } from "./public-operations.js"
 import {
   PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
@@ -38,10 +38,10 @@ import {
 } from "./projection.js"
 
 const desktopOnlyDiscovery = {
-  inputSchemaId: "atet.operation.recording.start.input/v1",
+  inputSchemaId: "slopcamera.operation.recording.start.input/v1",
   kind: "recording.start",
   lifecycle: "live-control",
-  outputSchemaId: "atet.operation.recording.start.output/v1",
+  outputSchemaId: "slopcamera.operation.recording.start.output/v1",
   policy: {
     cache: "none",
     cancellable: false,
@@ -67,7 +67,7 @@ function graphFixture(): AuthoredWorkflowGraphV1 {
   )
   return builder.build({
     id: "checked-render",
-    inputSchemaId: "atet.workflow.checked-render.input/v1",
+    inputSchemaId: "slopcamera.workflow.checked-render.input/v1",
     version: 1,
   }, {
     artifacts: rendered.select("artifacts"),
@@ -75,49 +75,49 @@ function graphFixture(): AuthoredWorkflowGraphV1 {
   })
 }
 
-function captureCode(callback: () => unknown): AtetCodeError {
+function captureCode(callback: () => unknown): SlopcameraCodeError {
   try {
     callback()
   } catch (error) {
-    if (error instanceof AtetCodeError) return error
+    if (error instanceof SlopcameraCodeError) return error
     throw error
   }
-  throw new Error("Expected AtetCodeError")
+  throw new Error("Expected SlopcameraCodeError")
 }
 
 describe("portable workflow compiler", () => {
   test("keeps public policy claims aligned with the closed semantic executor", () => {
-    expect(Object.fromEntries(Object.entries(PORTABLE_ATET_OPERATION_CONTRACTS)
+    expect(Object.fromEntries(Object.entries(PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS)
       .map(([kind, contract]) => [kind, contract.policy.resources])))
       .toEqual({
-        "atet.diagram.check": [
+        "slopcamera.diagram.check": [
           { amount: 1, resource: "cpu" },
           { amount: 1, resource: "local-io" },
         ],
-        "atet.diagram.render": [
+        "slopcamera.diagram.render": [
           { amount: 1, resource: "cpu" },
           { amount: 1, resource: "local-io" },
         ],
-        "atet.image.generate": [
+        "slopcamera.image.generate": [
           { amount: 1, resource: "local-io" },
           { amount: 1, resource: "network" },
           { amount: 1, resource: "paid-call" },
         ],
-        "atet.image.vectorize": [
+        "slopcamera.image.vectorize": [
           { amount: 1, resource: "cpu" },
           { amount: 1, resource: "local-io" },
         ],
       })
-    expect(PORTABLE_ATET_OPERATION_CONTRACTS["atet.diagram.render"].policy)
+    expect(PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS["slopcamera.diagram.render"].policy)
       .toMatchObject({ cache: "none", resume: "ambiguous-after-dispatch" })
-    expect(PORTABLE_ATET_OPERATION_CONTRACTS["atet.image.vectorize"].policy)
+    expect(PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS["slopcamera.image.vectorize"].policy)
       .toMatchObject({ cache: "none", resume: "ambiguous-after-dispatch" })
-    for (const contract of Object.values(PORTABLE_ATET_OPERATION_CONTRACTS)) {
+    for (const contract of Object.values(PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS)) {
       expect(() => z.toJSONSchema(contract.inputSchema)).not.toThrow()
       expect(() => z.toJSONSchema(contract.outputSchema)).not.toThrow()
     }
 
-    const oversizedBlankPrompt = AtetImageGenerateInputSchema.safeParse({
+    const oversizedBlankPrompt = SlopcameraImageGenerateInputSchema.safeParse({
       model: "openai/gpt-image-1.5",
       outputPath: "render.webp",
       prompt: " ".repeat(32 * 1024 + 1),
@@ -129,29 +129,29 @@ describe("portable workflow compiler", () => {
     ])
   })
 
-  test("preserves the graph/ref ABI and locks canonical graph identity", () => {
+  test("locks the Slopcamera graph/ref layout and canonical identity", () => {
     const graph = graphFixture()
-    expect(GRAPH_ABI).toBe("atet-workflow-graph-abi-v2")
+    expect(GRAPH_ABI).toBe("slopcamera-workflow-graph-abi-v2")
     expect(graph.version).toBe(WORKFLOW_GRAPH_VERSION)
     expect(graph.outputs).toEqual({
       artifacts: {
         $ref: {
           nodeKey: "render",
           path: ["artifacts"],
-          schemaId: "atet.operation.diagram.render.output/v2",
+          schemaId: "slopcamera.operation.diagram.render.output/v2",
         },
         version: WORKFLOW_REF_VERSION,
       },
       checked: {
         $ref: {
           nodeKey: "check",
-          schemaId: "atet.operation.diagram.check.output/v2",
+          schemaId: "slopcamera.operation.diagram.check.output/v2",
         },
         version: WORKFLOW_REF_VERSION,
       },
     })
     expect(createWorkflowGraphHash(graph)).toBe(
-      "55ae25dd7f815dab84f354c01fa13826bce34dd8cc3bc97acb15533a85be32e5",
+      "e107bdf9246c723132067f6b8aa5198e662453ab1d4808d54450bef80763c0d0",
     )
 
     const reversed = { ...graph, nodes: [...graph.nodes].reverse() }
@@ -169,7 +169,7 @@ describe("portable workflow compiler", () => {
     )
     const graph = builder.build({
       id: "released-locale-order",
-      inputSchemaId: "atet.workflow.released-locale-order.input/v1",
+      inputSchemaId: "slopcamera.workflow.released-locale-order.input/v1",
       version: 1,
     }, { rendered })
     const compiled = compileWorkflowGraph({ graph })
@@ -179,7 +179,7 @@ describe("portable workflow compiler", () => {
     expect(graph.nodes.at(-1)?.dependencies).toEqual(["a_b", "a-b"])
     expect(compiled.topologicalWaves).toEqual([["a_b", "a-b"], ["z"]])
     expect(createWorkflowGraphHash(graph)).toBe(
-      "7d58cc33d729df17adade0ad97c9042fd30f41c0092ecf1acbb4b9987cd19e91",
+      "f19d3b30d9cf99f5442bed0b22cc1fbd4a6a559f6449931bc6f2d0e84b23bb0c",
     )
   })
 
@@ -188,12 +188,12 @@ describe("portable workflow compiler", () => {
     const publicCompilation = compileWorkflowGraph({ graph })
     expect(publicCompilation.graph.nodes.every(node => (
       node.executor.kind !== "operation"
-      || node.executor.operation.kind.startsWith("atet.")
+      || node.executor.operation.kind.startsWith("slopcamera.")
     ))).toBe(true)
     expect(PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery.every(operation => (
-      operation.kind.startsWith("atet.")
-      && operation.inputSchemaId.startsWith("atet.")
-      && operation.outputSchemaId.startsWith("atet.")
+      operation.kind.startsWith("slopcamera.")
+      && operation.inputSchemaId.startsWith("slopcamera.")
+      && operation.outputSchemaId.startsWith("slopcamera.")
     ))).toBe(true)
     expect(parseWorkflowRegistryProjection(PUBLIC_WORKFLOW_REGISTRY_PROJECTION))
       .toEqual(PUBLIC_WORKFLOW_REGISTRY_PROJECTION)
@@ -207,7 +207,7 @@ describe("portable workflow compiler", () => {
       discovery: PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery.slice(1),
     })).toThrow("hash does not match")
     const desktopProjection = createWorkflowRegistryProjection(
-      "atet.workflow.registry.desktop-test/v1",
+      "slopcamera.workflow.registry.desktop-test/v1",
       [...PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery, desktopOnlyDiscovery],
       { trustedCompute: true },
     )
@@ -239,7 +239,7 @@ describe("portable workflow compiler", () => {
       },
     )
     expect(() => createWorkflowRegistryProjection(
-      "atet.workflow.registry.oversized-test/v1",
+      "slopcamera.workflow.registry.oversized-test/v1",
       oversizedDiscovery,
     )).toThrow("cannot exceed")
     expect(enumeratedDiscovery).toBe(false)
@@ -252,7 +252,7 @@ describe("portable workflow compiler", () => {
       },
     })
     expect(() => createWorkflowRegistryProjection(
-      "atet.workflow.registry.resource-bound-test/v1",
+      "slopcamera.workflow.registry.resource-bound-test/v1",
       [{
         ...desktopOnlyDiscovery,
         kind: "test.resource-bound",
@@ -275,7 +275,7 @@ describe("portable workflow compiler", () => {
 
   test("rejects a local-host-only operation at the public compile boundary", () => {
     const projection = createWorkflowRegistryProjection(
-      "atet.workflow.registry.desktop-test/v1",
+      "slopcamera.workflow.registry.desktop-test/v1",
       [...PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery, desktopOnlyDiscovery],
     )
     const builder = WorkflowGraphBuilder.create(projection)
@@ -286,7 +286,7 @@ describe("portable workflow compiler", () => {
     })
     const graph = builder.build({
       id: "desktop-only",
-      inputSchemaId: "atet.workflow.desktop-only.input/v1",
+      inputSchemaId: "slopcamera.workflow.desktop-only.input/v1",
       version: 1,
     }, { started })
     const error = captureCode(() => compileWorkflowGraph({ graph }))
@@ -325,7 +325,7 @@ describe("portable workflow compiler", () => {
     })
 
     const trusted = createWorkflowRegistryProjection(
-      "atet.workflow.registry.trusted-test/v1",
+      "slopcamera.workflow.registry.trusted-test/v1",
       PUBLIC_WORKFLOW_REGISTRY_PROJECTION.discovery,
       { trustedCompute: true },
     )
@@ -336,8 +336,8 @@ describe("portable workflow compiler", () => {
     expect(compiled.envelope.effects).toEqual(["trusted-code"])
 
     expect(Symbol.keyFor(TRUSTED_COMPUTE_BRAND))
-      .toBe("atet.trusted-compute-definition")
-    expect(Symbol.keyFor(WORKFLOW_REF_BRAND)).toBe("atet.workflow-ref")
+      .toBe("slopcamera.trusted-compute-definition")
+    expect(Symbol.keyFor(WORKFLOW_REF_BRAND)).toBe("slopcamera.workflow-ref")
     const legacyCompute = {
       [LEGACY_TRUSTED_COMPUTE_BRAND]: true as const,
       bounds: compute.bounds,
@@ -369,7 +369,7 @@ describe("portable workflow compiler", () => {
     })
     expect(normalizedLegacyCompilation.graph.nodes.every(node => (
       node.executor.kind !== "operation"
-      || node.executor.operation.kind.startsWith("atet.")
+      || node.executor.operation.kind.startsWith("slopcamera.")
     ))).toBe(true)
   })
 
@@ -380,18 +380,18 @@ describe("portable workflow compiler", () => {
         path: {
           $ref: {
             nodeKey: "forged",
-            schemaId: "atet.operation.diagram.check.output/v2",
+            schemaId: "slopcamera.operation.diagram.check.output/v2",
           },
           version: WORKFLOW_REF_VERSION,
         },
       }])
-    }).toThrow(AtetCodeError)
+    }).toThrow(SlopcameraCodeError)
 
     const cyclic: { path?: unknown } = {}
     cyclic.path = cyclic
     expect(() => {
       Reflect.apply(builder.diagram.check, undefined, ["cyclic", cyclic])
-    }).toThrow(AtetCodeError)
+    }).toThrow(SlopcameraCodeError)
 
     let enumeratedWideInput = false
     const wideInput = new Proxy(new Array<unknown>(1_000_001), {
@@ -429,7 +429,7 @@ describe("portable workflow compiler", () => {
     Object.defineProperty(outputs, symbol, { enumerable: true, value: checked })
     expect(() => builder.build({
       id: "symbol-output",
-      inputSchemaId: "atet.workflow.symbol-output.input/v1",
+      inputSchemaId: "slopcamera.workflow.symbol-output.input/v1",
       version: 1,
     }, outputs)).toThrow("enumerable symbol")
   })
@@ -487,7 +487,7 @@ describe("portable workflow compiler", () => {
               path: {
                 $ref: {
                   nodeKey: "render",
-                  schemaId: "atet.operation.diagram.render.output/v2",
+                  schemaId: "slopcamera.operation.diagram.render.output/v2",
                 },
                 version: WORKFLOW_REF_VERSION,
               },
@@ -596,15 +596,15 @@ describe("portable workflow compiler", () => {
     expect(() => parseCompiledWorkflowGraph({
       ...compilation,
       unexpected: true,
-    })).toThrow(AtetCodeError)
+    })).toThrow(SlopcameraCodeError)
     expect(() => createWorkflowCompilationHash({
       ...compilation,
       unexpected: true,
-    })).toThrow(AtetCodeError)
+    })).toThrow(SlopcameraCodeError)
     const missingEnvelope: Record<string, unknown> = { ...compilation }
     Reflect.deleteProperty(missingEnvelope, "envelope")
     expect(() => parseCompiledWorkflowGraph(missingEnvelope))
-      .toThrow(AtetCodeError)
+      .toThrow(SlopcameraCodeError)
 
     const inconsistentUnsigned = {
       envelope: { ...compilation.envelope, effects: [] },

@@ -38,7 +38,7 @@ export interface StudioExecutionControl {
 }
 
 const completionSchema = z.strictObject({
-  kind: z.literal("atet.studio-completion"), schemaVersion: z.literal(1), attemptId: z.string(), planSha256: z.string(),
+  kind: z.literal("slopcamera.studio-completion"), schemaVersion: z.literal(1), attemptId: z.string(), planSha256: z.string(),
   startedAt: z.iso.datetime({ offset: true }), finishedAt: z.iso.datetime({ offset: true }),
   exitCode: z.number().int().nullable(), custody: z.enum(["closed", "unknown"]),
   failure: z.enum(["cancelled", "timeout", "output-limit", "spawn", "descendants"]).optional(),
@@ -76,7 +76,7 @@ export function createStudioService(options: StudioServiceOptions) {
   const withCustody = async <T>(signal: AbortSignal, fence: () => Promise<void>, execute: (process: StudioProcessPort) => Promise<T>): Promise<T> => {
     if (application.machineStateRoot === undefined) throw new CliError("unavailable", "Native studio execution requires machine-wide custody storage.");
     await ensurePrivateDirectory(application.machineStateRoot);
-    return await withStudioProcessCustody({ machineStateRoot: application.machineStateRoot, process: native, label: "ATET native studio", signal, fence }, execute);
+    return await withStudioProcessCustody({ machineStateRoot: application.machineStateRoot, process: native, label: "SLOPCAMERA native studio", signal, fence }, execute);
   };
 
   const plan = async (jobInput: unknown): Promise<StudioPlan> => {
@@ -155,7 +155,7 @@ export function createStudioService(options: StudioServiceOptions) {
         if (planned.readiness !== "authorization-required") throw new CliError("unavailable", "The installed native runtime has not reported every capability required by this job.", { checks: planned.capabilityChecks });
         const attemptId = `attempt_${randomUUID()}`, startedAt = application.clock.now().toISOString();
         await immutableJson(fs, "plan.json", planned, fence);
-        await immutableJson(fs, "intent.json", { kind: "atet.studio-intent", schemaVersion: 1, attemptId, startedAt, planSha256: planned.planSha256,
+        await immutableJson(fs, "intent.json", { kind: "slopcamera.studio-intent", schemaVersion: 1, attemptId, startedAt, planSha256: planned.planSha256,
           ...(control.workflow === undefined ? {} : { workflow: control.workflow }) }, fence);
         await immutableJson(fs, "working/request.json", { bundle: retained.bundle, job, sourceRoot, outputRoot, workingRoot }, fence);
         let budgetFailure: { readonly stage: string; readonly code: string } | undefined;
@@ -182,12 +182,12 @@ export function createStudioService(options: StudioServiceOptions) {
           onSpawn: async pid => await immutableJson(fs, "process.json", { attemptId, processGroup: pid, planSha256: planned.planSha256 }, fence),
         });
         const finishedAt = application.clock.now().toISOString();
-        await immutableJson(fs, "completion.json", { kind: "atet.studio-completion", schemaVersion: 1, attemptId, planSha256: planned.planSha256, startedAt, finishedAt,
+        await immutableJson(fs, "completion.json", { kind: "slopcamera.studio-completion", schemaVersion: 1, attemptId, planSha256: planned.planSha256, startedAt, finishedAt,
           exitCode: result.exitCode, custody: result.custody, ...(result.failure === undefined ? {} : { failure: result.failure }) }, terminalFence);
         await fs.writeTextNoReplace!("stdout.log", result.stdout, terminalFence);
         await fs.writeTextNoReplace!("stderr.log", result.stderr, terminalFence);
         if (budgetFailure !== undefined) await immutableJson(fs, "budget-failure.json", {
-          kind: "atet.studio-budget-failure", schemaVersion: 1, planSha256: planned.planSha256, ...budgetFailure,
+          kind: "slopcamera.studio-budget-failure", schemaVersion: 1, planSha256: planned.planSha256, ...budgetFailure,
         }, terminalFence);
         let outputs: StudioReceipt["outputs"] = [], validationFailure = false;
         let validationStage = "output-inventory";
@@ -210,19 +210,19 @@ export function createStudioService(options: StudioServiceOptions) {
             const rechecked = await inspectStudioOutputs(outputRoot, job);
             if (studioJson(outputs) !== studioJson(rechecked)) throw new Error("Studio outputs changed during validation.");
             validationStage = "validation-publication";
-            await immutableJson(fs, "validation.json", { kind: "atet.studio-output-validation", schemaVersion: 1, planSha256: planned.planSha256, runtimeSha256: planned.runtimeSha256, artifacts: outputs, outputs: verified }, fence);
+            await immutableJson(fs, "validation.json", { kind: "slopcamera.studio-output-validation", schemaVersion: 1, planSha256: planned.planSha256, runtimeSha256: planned.runtimeSha256, artifacts: outputs, outputs: verified }, fence);
           }
         } catch {
           validationFailure = true;
           // A closed set of host stages records the failed check without persisting foreign exceptions or native output.
-          await immutableJson(fs, "validation-failure.json", { kind: "atet.studio-validation-failure", schemaVersion: 1,
+          await immutableJson(fs, "validation-failure.json", { kind: "slopcamera.studio-validation-failure", schemaVersion: 1,
             planSha256: planned.planSha256, stage: validationStage, custody: unknownCustody ? "unknown" : "closed",
             cancelled: control.signal.aborted }, terminalFence);
         }
         const state = unknownCustody ? "unknown-custody" : result.exitCode === 0 && result.failure === undefined && !validationFailure && !control.signal.aborted ? "succeeded" : "failed";
         const failureCode = unknownCustody ? "custody" : (control.deadlineAt ?? Infinity) <= performance.now() || result.failure === "timeout" ? "deadline" : control.signal.aborted || result.failure === "cancelled" ? "cancelled" : validationFailure ? "validation" : "subprocess";
         const receiptInput = {
-          kind: "atet.studio-receipt", schemaVersion: 1, jobId: job.jobId, attemptId, planSha256: planned.planSha256,
+          kind: "slopcamera.studio-receipt", schemaVersion: 1, jobId: job.jobId, attemptId, planSha256: planned.planSha256,
           bundleSha256: planned.bundleSha256, jobSha256: planned.jobSha256, runtime: runtime.identity, runtimeSha256: planned.runtimeSha256,
           startedAt, finishedAt: application.clock.now().toISOString(), outputs, state, custody: unknownCustody ? "unknown" : "closed",
           exitCode: result.exitCode, ...(state === "succeeded" ? {} : { failure: { code: failureCode, message: "Native studio execution did not qualify for successful publication. Retain its private diagnostics and partial evidence." } }),
@@ -264,14 +264,14 @@ export function createStudioService(options: StudioServiceOptions) {
       if (expectedPlanSha256 !== undefined && planned.planSha256 !== expectedPlanSha256) throw new CliError("conflict", "Retained studio plan differs from the requested recovery identity.");
       if (await optionalJson(fs, "receipt.json") !== undefined) { await guard(); return await inspect(jobId); }
       const completion = completionSchema.parse(await optionalJson(fs, "completion.json"));
-      const validation = z.object({ kind: z.literal("atet.studio-output-validation"), schemaVersion: z.literal(1), planSha256: z.string(), runtimeSha256: z.string(), artifacts: z.array(z.unknown()).max(25_000) }).parse(await optionalJson(fs, "validation.json"));
+      const validation = z.object({ kind: z.literal("slopcamera.studio-output-validation"), schemaVersion: z.literal(1), planSha256: z.string(), runtimeSha256: z.string(), artifacts: z.array(z.unknown()).max(25_000) }).parse(await optionalJson(fs, "validation.json"));
       if (completion.planSha256 !== planned.planSha256 || completion.custody !== "closed" || completion.exitCode !== 0 || completion.failure !== undefined
         || validation.planSha256 !== planned.planSha256 || validation.runtimeSha256 !== planned.runtimeSha256) throw new CliError("ambiguous", "Studio execution lacks a matching closed successful completion and validation checkpoint.");
       await verifyStudioSource(join(directory, "source"), planned.bundle);
       const outputs = await inspectStudioOutputs(join(directory, "outputs"), planned.job);
       if (studioJson(outputs) !== studioJson(validation.artifacts)) throw new CliError("conflict", "Studio outputs changed after the retained validation checkpoint.");
       const receipt = validateStudioReceipt({ plan: planned, receipt: {
-        kind: "atet.studio-receipt", schemaVersion: 1, jobId, attemptId: completion.attemptId, planSha256: planned.planSha256,
+        kind: "slopcamera.studio-receipt", schemaVersion: 1, jobId, attemptId: completion.attemptId, planSha256: planned.planSha256,
         bundleSha256: planned.bundleSha256, jobSha256: planned.jobSha256, runtime: planned.runtime, runtimeSha256: planned.runtimeSha256,
         startedAt: completion.startedAt, finishedAt: application.clock.now().toISOString(), outputs, state: "succeeded", custody: "closed", exitCode: 0,
       } });

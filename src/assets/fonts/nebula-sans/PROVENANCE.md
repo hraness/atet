@@ -13,7 +13,7 @@ The WOFF2 and OTF files are vendored unchanged from the official archive. Nebula
 Entertainment & Broadcasting LLC reserves the font name `Nebula`; this package
 distributes the unmodified original files under that name.
 
-Atet carries the unchanged Book and Bold WOFF2 and OTF files from the canonical
+Slopcamera carries the unchanged Book and Bold WOFF2 and OTF files from the canonical
 `@hraness/design-kit` v0.2.1 release. Resvg loads Bold OTF directly for caption
 sprites with system font discovery disabled. Diagram PNG rendering loads Book
 plus Bold OTF for the ordinary proportional default while retaining system font

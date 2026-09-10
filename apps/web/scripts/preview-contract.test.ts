@@ -36,7 +36,7 @@ function completeFixture() {
       ...foundation.artifacts.map(item => ({ ...item, path: `graphs/preview-foundation/${item.path}` })),
       artifact("graphs/preview-renderer/entries/preview-renderer-fixture.js", "export function renderPreviewDocument(){}"),
     ],
-    compilerSha256: digest, finalCss, generationId: "atet-preview",
+    compilerSha256: digest, finalCss, generationId: "slopcamera-preview",
     graphs: ["preview-foundation", "preview-renderer"].map(id => ({ id, receiptSha256: digest })),
     kind: "hraness-stylex-complete-generation", packages: [{ manifestSha256: digest, name: "@hraness/ui", version: "0.5.7" }],
     planSha256: digest, schemaVersion: 2, state: "complete", unionPolicySha256: digest,

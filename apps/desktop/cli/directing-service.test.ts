@@ -20,7 +20,7 @@ afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { rec
 const now = new Date("2026-09-09T12:00:00.000Z");
 const hash = canonicalJsonSha256;
 const shot = { id: "opening", prompt: "A brass mechanism in warm window light.", model: "minimax/minimax-h3-max", durationSeconds: 5, resolution: "480p", aspectRatio: "16:9", fps: 24 };
-const recipe = () => parseDirectingRecipe({ kind: "atet.directing-recipe", schemaVersion: 1, id: "direct_fixture", title: "Fixture", shots: [shot] });
+const recipe = () => parseDirectingRecipe({ kind: "slopcamera.directing-recipe", schemaVersion: 1, id: "direct_fixture", title: "Fixture", shots: [shot] });
 function catalog(): GatewayMediaCatalogView {
   return { source: "network", status: "fresh", snapshot: parseGatewayMediaCatalog({ data: [{
     id: shot.model, name: "H3 Max", description: "Fixture", owned_by: "minimax", type: "video", modalities: { input: ["text", "image"], output: ["video"] },
@@ -29,7 +29,7 @@ function catalog(): GatewayMediaCatalogView {
   }] }, { fetchedAt: now.toISOString() }) };
 }
 async function harness() {
-  const root = await mkdtemp(join(tmpdir(), "atet-directing-test-")); roots.push(root);
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-directing-test-")); roots.push(root);
   const source = recipe(); await writeFile(join(root, "recipe.json"), JSON.stringify(source));
   const calls = { paid: 0, endpoint: 0, assembled: 0, mode: "complete" as "complete" | "before" | "after" | "lost-completion", corruptEndpoint: false, failEndpoint: false, urlOnly: false, cleanup: 0, cleanupFails: false };
   const journal = new Map<string, { request: GatewayPortRequest; result?: GatewayVideoOperationResult }>();
@@ -41,8 +41,8 @@ async function harness() {
       journal.set(input.requestId, { request: input.request }); calls.paid++;
       if (calls.mode === "after") throw new Error("connection interrupted");
       const result: GatewayVideoOperationResult = { operation: "video", model: input.request.request.model, requestId: input.requestId,
-        outputs: [{ path: `artifacts/atet/generated/${input.requestId}.mp4`, bytes: 100, sha256: hash(input.requestId), mediaType: "video/mp4" }],
-        receipt: { path: `artifacts/atet/generated/${input.requestId}.json`, bytes: 50, sha256: hash({ id: input.requestId }) } };
+        outputs: [{ path: `artifacts/slopcamera/generated/${input.requestId}.mp4`, bytes: 100, sha256: hash(input.requestId), mediaType: "video/mp4" }],
+        receipt: { path: `artifacts/slopcamera/generated/${input.requestId}.json`, bytes: 50, sha256: hash({ id: input.requestId }) } };
       await input.beforePublication(); journal.set(input.requestId, { request: input.request, result });
       if (calls.mode === "lost-completion") throw new Error("local completion lost");
       return result;
@@ -62,13 +62,13 @@ async function harness() {
     anchor: async () => { throw new Error("unused anchor"); },
     endpoint: async (_app, video) => { calls.endpoint++; if (calls.failEndpoint) throw new Error("unsupported color metadata"); return {
       source: { ...video, facts: { durationSeconds: 5, width: 848, height: 480 } },
-      image: { path: "artifacts/atet/generated/last.png", sha256: hash(calls.corruptEndpoint ? "other" : video.sha256), bytes: 50, mediaType: "image/png" },
+      image: { path: "artifacts/slopcamera/generated/last.png", sha256: hash(calls.corruptEndpoint ? "other" : video.sha256), bytes: 50, mediaType: "image/png" },
       frameIndex: 119, pts: { value: "119", timeBaseNumerator: 1, timeBaseDenominator: 24 }, timeUs: 4_958_333,
     }; },
     assemble: async (_app, input) => {
       calls.assembled++;
       expect(Object.keys(input.clips[0]!).sort()).toEqual(["attemptId", "durationUs", "shotId", "source"]);
-      return { projectId: "project_direct_fixture", projectPath: "artifacts/atet/projects/project_direct_fixture/project.json", receipt: { path: "artifacts/atet/generated/assembly.json", bytes: 1, sha256: hash(input) } };
+      return { projectId: "project_direct_fixture", projectPath: "artifacts/slopcamera/projects/project_direct_fixture/project.json", receipt: { path: "artifacts/slopcamera/generated/assembly.json", bytes: 1, sha256: hash(input) } };
     },
   } };
   const execute = async (...argv: string[]) => {
@@ -177,13 +177,13 @@ test("a paid completed take can be rejected even when endpoint extraction is uns
 
 test("URL-only preflight requires hosting consent and ambiguous paid jobs keep their references", async () => {
   const h = await harness(); h.calls.urlOnly = true;
-  h.source.shots[0]!.firstFrame = { kind: "image", source: { path: "artifacts/atet/generated/input.png", bytes: 50, sha256: hash("input"), mediaType: "image/png" } };
+  h.source.shots[0]!.firstFrame = { kind: "image", source: { path: "artifacts/slopcamera/generated/input.png", bytes: 50, sha256: hash("input"), mediaType: "image/png" } };
   await writeFile(join(h.root, "recipe.json"), JSON.stringify(h.source));
   await h.execute("start", "recipe.json", "--budget-usd", "1");
   const args = ["generate", h.source.id, "--shot", "opening", "--attempt", "take_hosted", "--allow-paid-generation", "--allow-cloud-upload"];
   await expect(h.execute(...args)).rejects.toThrow("allow-reference-hosting"); expect(h.calls.paid).toBe(0);
   const adapters: DirectingServiceAdapters = { ...h.adapters, createReferenceHosting: async () => ({
-    receiptPath: "artifacts/atet/private/hosting.json",
+    receiptPath: "artifacts/slopcamera/private/hosting.json",
     resolveSourceUrl: async () => "https://fixture.private.blob.vercel-storage.com/frame.png?signature=ephemeral",
     cleanup: async () => { h.calls.cleanup++; throw new Error("fixture cleanup must not run for a live ambiguous job"); },
     inspect: async () => { throw new Error("unused"); },
@@ -197,7 +197,7 @@ test("URL-only preflight requires hosting consent and ambiguous paid jobs keep t
 
 test("a failed hosting factory releases only a proven undispatched model reservation", async () => {
   const h = await harness(); h.calls.urlOnly = true;
-  h.source.shots[0]!.firstFrame = { kind: "image", source: { path: "artifacts/atet/generated/input.png", bytes: 50, sha256: hash("input"), mediaType: "image/png" } };
+  h.source.shots[0]!.firstFrame = { kind: "image", source: { path: "artifacts/slopcamera/generated/input.png", bytes: 50, sha256: hash("input"), mediaType: "image/png" } };
   await writeFile(join(h.root, "recipe.json"), JSON.stringify(h.source));
   await h.execute("start", "recipe.json", "--budget-usd", "1");
   const command = parseCliArgs(["direct", "generate", h.source.id, "--shot", "opening", "--attempt", "take_hosted", "--allow-paid-generation", "--allow-cloud-upload", "--allow-reference-hosting"]);
@@ -224,17 +224,17 @@ test("successor spending reverifies its accepted predecessor endpoint", async ()
 
 test("cleanup uncertainty and endpoint failures retain private hosting recovery evidence", async () => {
   const h = await harness(); h.calls.urlOnly = true;
-  const source = { path: "artifacts/atet/generated/input.png", bytes: 50, sha256: hash("input"), mediaType: "image/png" };
+  const source = { path: "artifacts/slopcamera/generated/input.png", bytes: 50, sha256: hash("input"), mediaType: "image/png" };
   h.source.shots[0]!.firstFrame = { kind: "image", source };
   await writeFile(join(h.root, "recipe.json"), JSON.stringify(h.source));
   await h.execute("start", "recipe.json", "--budget-usd", "1");
   const receipt: DirectingBlobReceipt = {
-    kind: "atet.directing-blob", schemaVersion: 1, directingId: h.source.id, attemptId: "take_hosted", namespace: "a".repeat(32), storeId: "fixture", createdAt: now.getTime(), access: "private",
+    kind: "slopcamera.directing-blob", schemaVersion: 1, directingId: h.source.id, attemptId: "take_hosted", namespace: "a".repeat(32), storeId: "fixture", createdAt: now.getTime(), access: "private",
     notice: "Private reference hosting uses Vercel Blob operations, storage, and transfer billed separately from the Gateway generation budget. Expiring model access does not delete the stored object.",
-    entries: [{ source, pathname: `atet/directing/${"a".repeat(32)}/0-${source.sha256}.png`, putStartedAt: now.getTime(), cleanup: "uncertain", failures: [] }],
+    entries: [{ source, pathname: `slopcamera/directing/${"a".repeat(32)}/0-${source.sha256}.png`, putStartedAt: now.getTime(), cleanup: "uncertain", failures: [] }],
   };
   const adapters: DirectingServiceAdapters = { ...h.adapters, createReferenceHosting: async () => ({
-    receiptPath: "artifacts/atet/private/hosting.json", resolveSourceUrl: async () => { throw new Error("unused transport"); },
+    receiptPath: "artifacts/slopcamera/private/hosting.json", resolveSourceUrl: async () => { throw new Error("unused transport"); },
     cleanup: async () => { h.calls.cleanup++; return receipt; }, inspect: async () => receipt,
   }) };
   const command = (attempt: string) => {
@@ -243,11 +243,11 @@ test("cleanup uncertainty and endpoint failures retain private hosting recovery 
   };
   const result = await executeDirectingCommand(h.application, command("take_hosted"), adapters) as { referenceHosting: { cleanupRequired: boolean; receiptPath: string } };
   expect(result.referenceHosting.cleanupRequired).toBe(true);
-  expect(result.referenceHosting.receiptPath).toBe("artifacts/atet/private/hosting.json");
+  expect(result.referenceHosting.receiptPath).toBe("artifacts/slopcamera/private/hosting.json");
   h.calls.failEndpoint = true;
   const error = await executeDirectingCommand(h.application, command("take_hosted_two"), adapters).catch((value: unknown) => value);
   expect(error).toBeInstanceOf(CliError);
-  expect((error as CliError).details).toMatchObject({ referenceHosting: { cleanupRequired: true, cleanupCommand: `atet direct cleanup ${h.source.id} --attempt take_hosted_two --json` } });
+  expect((error as CliError).details).toMatchObject({ referenceHosting: { cleanupRequired: true, cleanupCommand: `slopcamera direct cleanup ${h.source.id} --attempt take_hosted_two --json` } });
   expect(h.calls.cleanup).toBe(2); expect(h.calls.paid).toBe(2);
   expect((await h.state()).attempts.every(attempt => attempt.state === "completed")).toBe(true);
 });

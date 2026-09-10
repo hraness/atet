@@ -38,7 +38,7 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
 }
 
 test.skipIf(process.platform === "win32")("commits through a private temp file without mutating a hard-linked target", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-render-"));
   try {
     const protectedPath = join(directory, "protected.txt");
     const finalPath = join(directory, "output.mp4");
@@ -66,7 +66,7 @@ test.skipIf(process.platform === "win32")("commits through a private temp file w
 });
 
 test("preserves the previous render and removes partial output after a failed process", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-failure-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-render-failure-"));
   try {
     const finalPath = join(directory, "output.mp4");
     const companionPath = join(directory, "output.mp4.plan.json");
@@ -97,14 +97,14 @@ test("preserves the previous render and removes partial output after a failed pr
     expect(await readFile(finalPath, "utf8")).toBe("prior good render");
     expect(await readFile(companionPath, "utf8")).toBe("prior plan");
     expect(published).toBe(false);
-    expect((await readdir(directory)).filter(name => name.startsWith(".atet-render-"))).toEqual([]);
+    expect((await readdir(directory)).filter(name => name.startsWith(".slopcamera-render-"))).toEqual([]);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
 });
 
 test.each([undefined, null, false, new Error("final fence failure")])("a failed final publication fence preserves its exact rejection (%p) and the previous output", async failure => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-fence-failure-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-fence-failure-"));
   try {
     const finalPath = join(directory, "output.mp4");
     const companionPath = join(directory, "output.plan.json");
@@ -130,14 +130,14 @@ test.each([undefined, null, false, new Error("final fence failure")])("a failed 
     if (result.status === "rejected") expect(Object.is(result.reason, failure)).toBe(true);
     expect(await readFile(finalPath, "utf8")).toBe("prior output");
     expect(await readFile(companionPath, "utf8")).toBe("prior receipt");
-    expect((await readdir(directory)).filter(name => name.startsWith(".atet-render-"))).toEqual([]);
+    expect((await readdir(directory)).filter(name => name.startsWith(".slopcamera-render-"))).toEqual([]);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
 });
 
 test("removes a stale companion if publication fails after the new render commits", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-companion-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-render-companion-"));
   try {
     const finalPath = join(directory, "output.mp4");
     const companionPath = join(directory, "output.mp4.plan.json");
@@ -170,7 +170,7 @@ test("removes a stale companion if publication fails after the new render commit
 });
 
 test("durably removes the old companion before exposing newly committed render bytes", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-gated-companion-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-render-gated-companion-"));
   try {
     const finalPath = join(directory, "output.mp4");
     const companionPath = join(directory, "output.mp4.plan.json");
@@ -217,7 +217,7 @@ test("durably removes the old companion before exposing newly committed render b
 });
 
 test.skipIf(process.platform === "win32")("uses no-overwrite mode so a prepositioned temp link fails closed", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-race-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-render-race-"));
   try {
     const protectedPath = join(directory, "protected.txt");
     const finalPath = join(directory, "output.mp4");
@@ -243,7 +243,7 @@ test.skipIf(process.platform === "win32")("uses no-overwrite mode so a prepositi
 });
 
 test("treats the configured maximum output size as an inclusive bound", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-bound-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-render-bound-"));
   try {
     const finalPath = join(directory, "output.mp4");
     const runner: ProcessRunner = {
@@ -273,7 +273,7 @@ test("treats the configured maximum output size as an inclusive bound", async ()
 });
 
 test("aborts and reaps an encoder as soon as private staging exceeds its byte ceiling", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-growth-bound-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-render-growth-bound-"));
   try {
     const finalPath = join(directory, "output.mp4");
     let reaped = false;
@@ -311,7 +311,7 @@ test("aborts and reaps an encoder as soon as private staging exceeds its byte ce
     expect(String(failure)).toContain("while encoding (9 bytes observed)");
     expect(reaped).toBe(true);
     expect(await readFile(finalPath).catch(() => null)).toBeNull();
-    expect((await readdir(directory)).filter(name => name.startsWith(".atet-render-")))
+    expect((await readdir(directory)).filter(name => name.startsWith(".slopcamera-render-")))
       .toEqual([]);
   } finally {
     await rm(directory, { force: true, recursive: true });
@@ -319,7 +319,7 @@ test("aborts and reaps an encoder as soon as private staging exceeds its byte ce
 }, 5_000);
 
 test("rejects an invalid output bound before starting the renderer", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-invalid-bound-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-render-invalid-bound-"));
   try {
     const finalPath = join(directory, "output.mp4");
     let started = false;
@@ -343,7 +343,7 @@ test("rejects an invalid output bound before starting the renderer", async () =>
 });
 
 test("passes cancellation to the renderer and publishes no output", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-cancel-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-render-cancel-"));
   try {
     const finalPath = join(directory, "output.mp4");
     const controller = new AbortController();
@@ -376,7 +376,7 @@ test("passes cancellation to the renderer and publishes no output", async () => 
     controller.abort();
     expect(await rejection(execution)).toMatchObject({ code: "cancelled" });
     expect(await readFile(finalPath).catch(() => null)).toBeNull();
-    expect((await readdir(directory)).filter(name => name.startsWith(".atet-render-")))
+    expect((await readdir(directory)).filter(name => name.startsWith(".slopcamera-render-")))
       .toEqual([]);
   } finally {
     await rm(directory, { force: true, recursive: true });
@@ -384,7 +384,7 @@ test("passes cancellation to the renderer and publishes no output", async () => 
 });
 
 test.skipIf(process.platform === "win32")("encodes in an explicit private workflow staging directory", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "atet-atomic-render-workspace-"));
+  const directory = await mkdtemp(join(tmpdir(), "slopcamera-atomic-render-workspace-"));
   const stagingDirectory = await mkdtemp(join(directory, "node-plan-"));
   try {
     const finalPath = join(directory, "public.mp4");

@@ -108,10 +108,10 @@ function sha256(bytes: Uint8Array): string {
 
 function fixturePaths(root: string): RepositoryPaths {
   return {
-    artifactRoot: join(root, "artifacts", "atet", "recordings"),
-    desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
-    privateRoot: join(root, "artifacts", "atet", "private"),
-    projectRoot: join(root, "artifacts", "atet", "projects"),
+    artifactRoot: join(root, "artifacts", "slopcamera", "recordings"),
+    desktopRoot: join(root, "projects", "slopcamera", "apps", "desktop"),
+    privateRoot: join(root, "artifacts", "slopcamera", "private"),
+    projectRoot: join(root, "artifacts", "slopcamera", "projects"),
     repositoryRoot: root,
   };
 }
@@ -128,7 +128,7 @@ async function runRequired(
 
 async function createFixture(): Promise<MediaFixture> {
   if (FFMPEG === undefined) throw new Error("FFmpeg unexpectedly unavailable.");
-  const root = await mkdtemp(join(tmpdir(), "atet-media-effects-command-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-media-effects-command-"));
   const inputs = join(root, "fixtures");
   const audioPath = join(inputs, "two-audio-streams.mkv");
   const videoPath = join(inputs, "two-video-streams.mkv");
@@ -203,7 +203,7 @@ async function probe(path: string): Promise<StreamProbe> {
 function absoluteRepositoryPath(root: string, displayedPath: string): string {
   expect(isAbsolute(displayedPath)).toBe(false);
   const absolute = join(root, displayedPath);
-  const generatedRoot = join(root, "artifacts", "atet", "generated");
+  const generatedRoot = join(root, "artifacts", "slopcamera", "generated");
   expect(relative(generatedRoot, absolute).startsWith("..")).toBe(false);
   return absolute;
 }
@@ -255,7 +255,7 @@ test.skipIf(MEDIA_TOOLS_UNAVAILABLE)(
       });
       const audioReceipt = JSON.parse(audioResult.stdout) as TransformReceipt;
       expect(audioReceipt).toMatchObject({
-        kind: "atet.local-media-transform-receipt",
+        kind: "slopcamera.local-media-transform-receipt",
         operation: "audio-effects",
         transform: {
           audioStreamIndex: 1,
@@ -276,7 +276,7 @@ test.skipIf(MEDIA_TOOLS_UNAVAILABLE)(
       expect(audioReceipt.output).toEqual({
         bytes: audioOutput.byteLength,
         durationUs: 653_000,
-        path: "artifacts/atet/generated/tests/audio/full-chain.wav",
+        path: "artifacts/slopcamera/generated/tests/audio/full-chain.wav",
         sha256: sha256(audioOutput),
       });
       expect(audioReceipt.input).toEqual({
@@ -309,7 +309,7 @@ test.skipIf(MEDIA_TOOLS_UNAVAILABLE)(
       });
       const colorReceipt = JSON.parse(colorResult.stdout) as TransformReceipt;
       expect(colorReceipt).toMatchObject({
-        kind: "atet.local-media-transform-receipt",
+        kind: "slopcamera.local-media-transform-receipt",
         operation: "color-grade",
         transform: {
           grade: {
@@ -336,7 +336,7 @@ test.skipIf(MEDIA_TOOLS_UNAVAILABLE)(
       expect(colorReceipt.output).toEqual({
         bytes: colorOutput.byteLength,
         durationUs: 333_333,
-        path: "artifacts/atet/generated/tests/color/cinematic-overrides.mp4",
+        path: "artifacts/slopcamera/generated/tests/color/cinematic-overrides.mp4",
         sha256: sha256(colorOutput),
       });
       expect(colorReceipt.input).toEqual({
@@ -408,10 +408,10 @@ test.skipIf(MEDIA_TOOLS_UNAVAILABLE)(
       const collisionInput = join(
         fixture.root,
         "artifacts",
-        "atet",
+        "slopcamera",
         "generated",
         "tests",
-        "collision.wav.atet.json",
+        "collision.wav.slopcamera.json",
       );
       await mkdir(join(collisionInput, ".."), { recursive: true });
       await writeFile(collisionInput, audioBefore);
@@ -449,7 +449,7 @@ test.skipIf(MEDIA_TOOLS_UNAVAILABLE)(
         {
           argv: [
             "media", "audio",
-            "artifacts/atet/generated/tests/collision.wav.atet.json",
+            "artifacts/slopcamera/generated/tests/collision.wav.slopcamera.json",
             "--volume-db", "-1",
             "--output", "tests/collision.wav",
             "--json",
@@ -475,7 +475,7 @@ test.skipIf(MEDIA_TOOLS_UNAVAILABLE)(
       }
 
       expect(runner.calls.some(argv => argv.includes("-filter_complex"))).toBe(false);
-      expect(await readFile(join(fixture.root, "artifacts", "atet", "escaped.wav")).catch(() => null)).toBeNull();
+      expect(await readFile(join(fixture.root, "artifacts", "slopcamera", "escaped.wav")).catch(() => null)).toBeNull();
       expect(await readFile(join(fixture.root, "absolute-output.mp4")).catch(() => null)).toBeNull();
       expect(await readFile(fixture.audioPath)).toEqual(audioBefore);
       expect(await readFile(fixture.videoPath)).toEqual(videoBefore);
@@ -483,7 +483,7 @@ test.skipIf(MEDIA_TOOLS_UNAVAILABLE)(
       expect(await readFile(join(
         fixture.root,
         "artifacts",
-        "atet",
+        "slopcamera",
         "generated",
         "tests",
         "collision.wav",

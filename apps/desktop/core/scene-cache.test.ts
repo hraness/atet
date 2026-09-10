@@ -16,7 +16,7 @@ const identity: SceneBatchCacheIdentity = {
     promptSha256: "b".repeat(64),
     promptVersion: "scene-description-v1",
     requestedModel: "google/gemini-2.5-flash",
-    samplingVersion: "atet-scene-sampling-v1",
+    samplingVersion: "slopcamera-scene-sampling-v1",
   },
   samples: [
     { actualAssetTimeUs: 20, sampleId: "sample_bbbbbbbb", sha256: "d".repeat(64) },

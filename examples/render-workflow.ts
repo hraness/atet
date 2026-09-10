@@ -1,7 +1,7 @@
 import {
-  defineAtetWorkflow,
-  runAtetWorkflow,
-} from "@hraness/atet/workflow"
+  defineSlopcameraWorkflow,
+  runSlopcameraWorkflow,
+} from "@hraness/slopcamera/workflow"
 
 interface RenderWorkflowInput {
   readonly path: string
@@ -26,14 +26,14 @@ function parseInput(value: unknown): RenderWorkflowInput {
   }
 }
 
-export const checkedRenderWorkflow = defineAtetWorkflow({
+export const checkedRenderWorkflow = defineSlopcameraWorkflow({
   id: "checked-render",
   version: 1,
   parseInput,
   async run(workflow, input) {
     const checked = await workflow.operation(
       "check-source",
-      "atet.diagram.check",
+      "slopcamera.diagram.check",
       { path: input.path },
     )
     if (checked.findings.length > 0) {
@@ -41,7 +41,7 @@ export const checkedRenderWorkflow = defineAtetWorkflow({
     }
     const rendered = await workflow.operation(
       "render-assets",
-      "atet.diagram.render",
+      "slopcamera.diagram.render",
       {
         path: input.path,
         ...(input.outDirectory === undefined
@@ -61,7 +61,7 @@ if (import.meta.main) {
   if (path === undefined) {
     throw new Error("Usage: bun run examples/render-workflow.ts <diagram> [out-dir]")
   }
-  const result = await runAtetWorkflow(checkedRenderWorkflow, {
+  const result = await runSlopcameraWorkflow(checkedRenderWorkflow, {
     path,
     ...(Bun.argv[3] === undefined ? {} : { outDirectory: Bun.argv[3] }),
   })

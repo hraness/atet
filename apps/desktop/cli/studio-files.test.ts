@@ -6,7 +6,7 @@ import { captureStudioSource, inventoryStudioFiles, verifyStudioSource } from ".
 
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
-async function fixture() { const root = await realpath(await mkdtemp(join(tmpdir(), "atet-studio-files-"))); roots.push(root); await writeFile(join(root, "scene.py"), "pass\n"); return root; }
+async function fixture() { const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-studio-files-"))); roots.push(root); await writeFile(join(root, "scene.py"), "pass\n"); return root; }
 test("source capture reads only explicit files and rejects a linked leaf", async () => {
   const root = await fixture(); await writeFile(join(root, "private.txt"), "not selected");
   const bundle = await captureStudioSource({ sourceRoot: root, engine: "manim", entrypoint: { kind: "python", path: "scene.py" }, files: ["scene.py"] });

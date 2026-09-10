@@ -10,7 +10,7 @@ test("studio authoring creates a closed operation with ordinary output reference
   const { input } = studioOperationFixture();
   const produced = workflow.studio.run("native", { bundle: input.bundle, job: input.job });
   const graph = workflow.build({ id: "studio-graph", inputSchemaId: "test.studio.input/v1", version: 1 }, { outputs: produced.select("outputs"), receipt: produced.select("receipt") });
-  expect(graph.nodes[0]).toMatchObject({ executor: { kind: "operation", operation: { kind: "atet.studio.run", version: 1 } }, outputSchemaId: "atet.operation.studio.run.output/v1" });
+  expect(graph.nodes[0]).toMatchObject({ executor: { kind: "operation", operation: { kind: "slopcamera.studio.run", version: 1 } }, outputSchemaId: "slopcamera.operation.studio.run.output/v1" });
   expect(graph.outputs).toMatchObject({ receipt: { $ref: { nodeKey: "native", path: ["receipt"] } } });
   expect(graph.nodes[0]?.input).not.toHaveProperty("allowTrustedCode");
   expect(graph.nodes[0]?.input).not.toHaveProperty("runtimePath");
@@ -18,8 +18,8 @@ test("studio authoring creates a closed operation with ordinary output reference
 
 test("studio file authority includes only its retained explicit bundle manifest", () => {
   const { input } = studioOperationFixture();
-  const claims = operationFileClaims("atet.studio.run", JsonValueSchema.parse(input));
+  const claims = operationFileClaims("slopcamera.studio.run", JsonValueSchema.parse(input));
   expect(claims).toHaveLength(1);
   expect(claims[0]).toMatchObject(input.bundle);
-  expect(operationFileClaims("atet.studio.run", { job: { parameters: { path: "unrelated/private.txt" } }, outputs: [{ path: "future.step" }] })).toEqual([]);
+  expect(operationFileClaims("slopcamera.studio.run", { job: { parameters: { path: "unrelated/private.txt" } }, outputs: [{ path: "future.step" }] })).toEqual([]);
 });

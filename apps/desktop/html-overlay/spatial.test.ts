@@ -21,7 +21,7 @@ function mesh(): SpatialEntity {
     geometry: { kind: "box", size: [1, 1, 1] }, material: { kind: "unlit", color: "#123456", opacity: 1 } };
 }
 function snapshot(entity: SpatialEntity = mesh()): EvaluatedSpatialScene {
-  return EvaluatedSpatialSceneSchema.parse({ kind: "atet.spatial-snapshot", schemaVersion: 1,
+  return EvaluatedSpatialSceneSchema.parse({ kind: "slopcamera.spatial-snapshot", schemaVersion: 1,
     sceneSha256: digest, stateSha256: digest, viewSha256: digest, timeUs: 0,
     camera: { cameraId: "camera_main", name: "Main", pose: { position: [1, 2, 3], rotation: [0, 0, 0, 1] },
       projection: { kind: "perspective", width: 320, height: 180, fx: 260, fy: 240, cx: 143, cy: 81, near: 0.1, far: 100 } },
@@ -70,7 +70,7 @@ describe("immutable spatial snapshot lowering", () => {
     expect(result.authoring.timing).toEqual({ fps: 1, durationUs: 3_000_000 });
     expect(htmlOverlayFrameCount(result.authoring.timing)).toBe(3);
     expect(result.authoring.libraries).toEqual(["three"]);
-    expect(result.authoring.html).toContain("AtetOverlay.onFrame(({frame:index})");
+    expect(result.authoring.html).toContain("SlopcameraOverlay.onFrame(({frame:index})");
     expect(result.authoring.html).not.toContain("timeMs");
     expect(result.authoring.html).not.toContain("requestAnimationFrame(");
     expect(result.metadata.frames[0]?.camera.pose.position).toEqual([1, 2, 3]);
@@ -161,7 +161,7 @@ describe("prepared surface and geometry boundary", () => {
     const { frame, prepared } = rasterFixture();
     const result = createSpatialOverlayBatch({ ...request([frame]), preparedAssets: [prepared] });
     expect(result.authoring.resources).toEqual([prepared.resource]);
-    expect(result.authoring.html).toContain(`/.atet-overlay/assets/${digest}/surface.png`);
+    expect(result.authoring.html).toContain(`/.slopcamera-overlay/assets/${digest}/surface.png`);
     expect(result.metadata.frames[0]?.objects[0]?.representation).toBe("prepared-image-raster");
     expect(() => createSpatialOverlayBatch({ ...request([frame]), preparedAssets: [{ ...prepared, assetManifestSha256: "b".repeat(64) }] })).toThrow("stale");
     expect(() => createSpatialOverlayBatch({ ...request([frame]), preparedAssets: [{ ...prepared, resource: { ...prepared.resource, mediaType: "image/svg+xml" } }] })).toThrow("PNG or JPEG");

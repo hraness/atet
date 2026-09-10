@@ -132,15 +132,15 @@ describe("recording bundle manifest", () => {
 
     const canonical = RecordingManifestSchema.parse({
       ...legacy,
-      kind: "atet.recording-bundle",
-      tool: { ...legacy.tool, name: "atet" },
+      kind: "slopcamera.recording-bundle",
+      tool: { ...legacy.tool, name: "slopcamera" },
     });
-    expect(canonical.kind).toBe("atet.recording-bundle");
-    expect(canonical.tool.name).toBe("atet");
+    expect(canonical.kind).toBe("slopcamera.recording-bundle");
+    expect(canonical.tool.name).toBe("slopcamera");
 
     expect(() => RecordingManifestSchema.parse({
       ...legacy,
-      kind: "atet.recording-bundle",
+      kind: "slopcamera.recording-bundle",
     })).toThrow(/same product identity/u);
   });
 

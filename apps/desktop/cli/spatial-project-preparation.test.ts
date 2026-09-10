@@ -21,7 +21,7 @@ afterEach(async () => { for (const directory of directories.splice(0)) await rm(
 const runCli = createCliTestRunner(import.meta.url);
 async function put(root: string, path: string, contents: string) { const destination = join(root, path); await mkdir(dirname(destination), { recursive: true }); await writeFile(destination, contents); }
 async function fixture(unverified = false) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-spatial-cli-preparation-"))); directories.push(root);
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-spatial-cli-preparation-"))); directories.push(root);
   const base = syncedProject();
   const project = VideoProjectV1Schema.parse({ ...base, placements: base.placements.map((placement, index) => index !== 1 || !unverified ? placement : {
     ...placement, sync: { ...placement.sync, provenance: { kind: "unverified", reason: "insufficient-evidence" } },
@@ -30,14 +30,14 @@ async function fixture(unverified = false) {
   const sceneArtifact = spatialProjectArtifact("scenes", spatialProjectDocumentText(scene));
   const shot = SpatialShotV1Schema.parse({ shotId: "shot_hero", sceneSha256, cameraId: scene.cameras[0]!.cameraId,
     range: { startUs: 0, endUs: 100_000 }, sceneStartUs: 0, playback: "once", overrides: [] });
-  const revision = SpatialProjectRevisionV2Schema.parse({ kind: "atet.spatial-project-revision", schemaVersion: 2, projectId: project.projectId,
+  const revision = SpatialProjectRevisionV2Schema.parse({ kind: "slopcamera.spatial-project-revision", schemaVersion: 2, projectId: project.projectId,
     parent: { version: 1, sha256: "a".repeat(64) }, transactionId: `transaction_${"0".repeat(32)}`, legacy: { project, projectEditPlan },
     scenes: [{ sceneSha256, artifact: sceneArtifact }], shots: [shot], candidates: [], selections: [] });
-  const head = SpatialProjectHeadV2Schema.parse({ kind: "atet.spatial-project-head", schemaVersion: 2, projectId: project.projectId,
+  const head = SpatialProjectHeadV2Schema.parse({ kind: "slopcamera.spatial-project-head", schemaVersion: 2, projectId: project.projectId,
     projectRevisionSha256: spatialProjectRevisionSha256(revision), transactionId: revision.transactionId,
     revision: spatialProjectArtifact("revisions", spatialProjectDocumentText(revision)) });
-  const paths: RepositoryPaths = { repositoryRoot: root, projectRoot: join(root, "artifacts", "atet", "projects"),
-    artifactRoot: join(root, "artifacts", "atet", "recordings"), privateRoot: join(root, "artifacts", "atet", "private"), desktopRoot: root };
+  const paths: RepositoryPaths = { repositoryRoot: root, projectRoot: join(root, "artifacts", "slopcamera", "projects"),
+    artifactRoot: join(root, "artifacts", "slopcamera", "recordings"), privateRoot: join(root, "artifacts", "slopcamera", "private"), desktopRoot: root };
   const projectDirectory = join(paths.projectRoot, project.projectId), headText = spatialProjectDocumentText(head);
   await put(projectDirectory, "project.json", headText);
   await put(projectDirectory, head.revision.path, spatialProjectDocumentText(revision));

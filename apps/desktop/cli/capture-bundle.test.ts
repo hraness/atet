@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { expect, test } from "bun:test";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   CAPTURE_HELPER_VERSION,
   CAPTURE_PROTOCOL_VERSION,
@@ -29,7 +29,7 @@ import type { ProcessRunner, RunOptions, RunResult } from "./io";
 const CAPTURE_OPTIONS: CaptureOptions = {
   camera: { kind: "default" },
   displays: { kind: "all" },
-  excludedBundleIdentifiers: ["com.hraness.atet"],
+  excludedBundleIdentifiers: ["com.hraness.slopcamera"],
   interactionEventProcessIdentifier: null,
   metadata: true,
   microphone: { kind: "default" },
@@ -97,8 +97,11 @@ class ProbeRunner implements ProcessRunner {
   }
 
   run(argv: readonly [string, ...string[]]): Promise<RunResult> {
-    const path = argv.at(-1) ?? "";
-    const streams = path.includes("primary") || path.includes(HOT_PLUGGED_PRIMARY.displayId)
+    const fileName = basename(argv.at(-1) ?? "");
+    if (!["display-primary.mp4", `${HOT_PLUGGED_PRIMARY.displayId}.mp4`, "display-left.mp4", "microphone.m4a", "camera.mov"].includes(fileName)) {
+      throw new Error(`Unexpected capture probe fixture: ${fileName}`);
+    }
+    const streams = fileName === "display-primary.mp4" || fileName === `${HOT_PLUGGED_PRIMARY.displayId}.mp4`
       ? [
           {
             codec_name: "h264",
@@ -128,7 +131,7 @@ class ProbeRunner implements ProcessRunner {
             time_base: "1/1000000",
           },
         ]
-      : path.includes("microphone")
+      : fileName === "microphone.m4a"
         ? [{
             codec_name: "aac",
             codec_type: "audio",
@@ -138,7 +141,7 @@ class ProbeRunner implements ProcessRunner {
             start_pts: "1024",
             time_base: "1/48000",
           }]
-        : path.includes("camera")
+        : fileName === "camera.mov"
           ? [{
               codec_name: "h264",
               codec_type: "video",
@@ -168,7 +171,7 @@ class ProbeRunner implements ProcessRunner {
 
 class RejectLeftDisplayProbeRunner extends ProbeRunner {
   override run(argv: readonly [string, ...string[]]): Promise<RunResult> {
-    if ((argv.at(-1) ?? "").includes("display-left")) {
+    if (basename(argv.at(-1) ?? "") === "display-left.mp4") {
       return Promise.reject(new Error("injected second-display verification failure"));
     }
     return super.run(argv);
@@ -377,7 +380,7 @@ async function assertCaptureSyncPublicationRejected(
     readonly segment: ReturnType<typeof segment>;
   },
 ): Promise<void> {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-sync-rejection-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-bundle-sync-rejection-test-"));
   const recordingRoot = join(temporary, "rec_sync_rejection");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,
@@ -498,6 +501,21 @@ test("bounds finalized timing probes and rejects helper/file span mismatches", a
   });
 });
 
+test.each(["slopcamera-bundle-test", "primary/microphone/camera/display-left"])(
+  "capture timing fixture keeps display and camera clocks distinct below %s",
+  async (directory) => {
+    const capture = segment(0);
+    if (capture.camera.availability !== "recorded") throw new Error("Expected recorded camera fixture.");
+    const verifier = new CaptureMediaVerifier({ ffprobe: "ffprobe-test", runner: new ProbeRunner() });
+    const display = await verifier.verify(join("/tmp", directory, "display-left.mp4"), capture.displays[1]!.streams);
+    const camera = await verifier.verify(join("/tmp", directory, "camera.mov"), capture.camera.streams);
+    expect(display.streams[0]?.filePresentation).toMatchObject({ firstPtsUs: -250_000, endPtsUs: 750_000 });
+    expect(camera.streams[0]?.filePresentation).toMatchObject({ firstPtsUs: 2_000_000, endPtsUs: 2_950_000 });
+    expect(display.streams[0]?.containerTrackIdentity.kind).toBe("verified");
+    expect(camera.streams[0]?.containerTrackIdentity.kind).toBe("verified");
+  },
+);
+
 test("rejects stopped publication while preserving measured onset-skew evidence", async () => {
   await assertCaptureSyncPublicationRejected({
     diagnosticCode: "capture-track-onset-skew",
@@ -515,7 +533,7 @@ test("rejects stopped publication while preserving measured duration-drift evide
 });
 
 test("replaces preflight permissions and selected sources with post-request evidence", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-environment-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-bundle-environment-test-"));
   const recordingRoot = join(temporary, "rec_environment001");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,
@@ -554,8 +572,8 @@ test("replaces preflight permissions and selected sources with post-request evid
     await writer.setCaptureEnvironment(freshPermissions, selectedSources);
 
     const manifest = await loadRecordingManifest(createNodeBundleFileSystem(recordingRoot));
-    expect(manifest.kind).toBe("atet.recording-bundle");
-    expect(manifest.tool.name).toBe("atet");
+    expect(manifest.kind).toBe("slopcamera.recording-bundle");
+    expect(manifest.tool.name).toBe("slopcamera");
     expect(manifest.permissions).toEqual(freshPermissions);
     expect(manifest.sources).toEqual(selectedSources);
   } finally {
@@ -564,7 +582,7 @@ test("replaces preflight permissions and selected sources with post-request evid
 });
 
 test("persists completion interruption evidence without leaking available inventory", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-interruption-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-bundle-interruption-test-"));
   const recordingRoot = join(temporary, "rec_interruption001");
   const availableSources = {
     ...SOURCES,
@@ -639,7 +657,7 @@ test("persists completion interruption evidence without leaking available invent
 });
 
 test("preserves an interrupted completion frontier without admitting partially verified media", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-rejected-segment-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-bundle-rejected-segment-test-"));
   const recordingRoot = join(temporary, "rec_rejected_segment001");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,
@@ -740,7 +758,7 @@ test("preserves an interrupted completion frontier without admitting partially v
 });
 
 test("records one failed prepared-start interruption before fatal settlement", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-failure-interruption-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-bundle-failure-interruption-test-"));
   const recordingRoot = join(temporary, "rec_failure_interruption001");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,
@@ -799,7 +817,7 @@ test("records one failed prepared-start interruption before fatal settlement", a
 });
 
 test("resume preserves historical displays and one stable primary across hot-plugging", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-resume-sources-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-bundle-resume-sources-test-"));
   const recordingRoot = join(temporary, "rec_resume_sources001");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,
@@ -878,7 +896,7 @@ test("resume preserves historical displays and one stable primary across hot-plu
 });
 
 test("finalizes two displays, shared audio, camera, metadata, and pause/resume segments", async () => {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-bundle-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-bundle-test-"));
   const recordingRoot = join(temporary, "rec_bundle001");
   const configured = parseCaptureEvent({
     availableSources: SOURCES,

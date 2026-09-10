@@ -76,7 +76,7 @@ export function operationTestProject(): VideoProjectV1 {
     }],
     createdAt: OPERATION_TEST_NOW.toISOString(),
     currentEditPlanPath: "edits/current.json",
-    kind: "atet.video-project",
+    kind: "slopcamera.video-project",
     name: "Operation fixture",
     placements: [{
       assetId: "asset_operation01",
@@ -127,7 +127,7 @@ export function operationTestProject(): VideoProjectV1 {
 
 export async function createOperationProjectFixture(repositoryRoot: string) {
   const project = operationTestProject();
-  const projectRoot = join(repositoryRoot, "artifacts", "atet", "projects");
+  const projectRoot = join(repositoryRoot, "artifacts", "slopcamera", "projects");
   const projectDirectory = join(projectRoot, project.projectId);
   await mkdir(projectDirectory, { recursive: true });
   const fileSystem = createNodeBundleFileSystem(projectDirectory);
@@ -178,12 +178,12 @@ export async function createOperationRecordingProjectFixture(
   const project = VideoProjectV1Schema.parse(
     options.project?.(recordingProject) ?? recordingProject,
   );
-  const projectRoot = join(repositoryRoot, "artifacts", "atet", "projects");
+  const projectRoot = join(repositoryRoot, "artifacts", "slopcamera", "projects");
   const projectDirectory = join(projectRoot, project.projectId);
   const recordingRoot = join(
     repositoryRoot,
     "artifacts",
-    "atet",
+    "slopcamera",
     "recordings",
   );
   const recordingDirectory = join(recordingRoot, manifest.recordingId);
@@ -241,10 +241,10 @@ export function operationApplicationContext(
       ).getTime(),
     },
     paths: {
-      artifactRoot: join(repositoryRoot, "artifacts", "atet", "recordings"),
-      desktopRoot: join(repositoryRoot, "projects", "atet", "apps", "desktop"),
-      privateRoot: join(repositoryRoot, "artifacts", "atet", "private"),
-      projectRoot: join(repositoryRoot, "artifacts", "atet", "projects"),
+      artifactRoot: join(repositoryRoot, "artifacts", "slopcamera", "recordings"),
+      desktopRoot: join(repositoryRoot, "projects", "slopcamera", "apps", "desktop"),
+      privateRoot: join(repositoryRoot, "artifacts", "slopcamera", "private"),
+      projectRoot: join(repositoryRoot, "artifacts", "slopcamera", "projects"),
       repositoryRoot,
     },
     runner: {

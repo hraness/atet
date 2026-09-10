@@ -9,7 +9,7 @@
 
 # Guidelines
 
-- Keep examples explicit, bounded and independently revisable. Use declared source dependencies and output paths supplied through `ATET_CONTEXT`.
+- Keep examples explicit, bounded and independently revisable. Use declared source dependencies and output paths supplied through `SLOPCAMERA_CONTEXT`.
 - Separate builds, simulation bakes and renders. Preserve native scenes and caches before publishing derivatives.
 - Record real qualification separately from intended behavior. Keep failed native observations until repaired, and do not replace actual simulation with a visually similar keyframed fixture.
 - Use original example assets or clearly retained third-party provenance. Never commit generated media, native binaries, caches or credentials.

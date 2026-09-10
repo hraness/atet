@@ -23,7 +23,7 @@ export async function executeStudioCommand(application: ApplicationContext, comm
   const fence = async () => { await application.hostResourceLease?.assertOwned(); };
   if (signal.aborted) throw new CliError("cancelled", "Studio command cancelled.");
   if (command.action === "assets") {
-    const storageRoot = await ensurePhysicalPrivateDirectoryWithin(application.paths.repositoryRoot, "artifacts/atet/generated/studio-assets/poly-haven");
+    const storageRoot = await ensurePhysicalPrivateDirectoryWithin(application.paths.repositoryRoot, "artifacts/slopcamera/generated/studio-assets/poly-haven");
     const service = createPolyHavenAssetService({ storageRoot, signal, beforePublication: fence });
     if (command.operation === "describe") return await service.describe(command.path);
     const input = await readSpatialJson(resolve(application.paths.repositoryRoot, command.path), 16 * 1024 * 1024);

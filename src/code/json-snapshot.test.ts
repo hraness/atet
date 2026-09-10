@@ -5,7 +5,7 @@ import {
   canonicalJsonSha256,
   sha256Hex,
 } from "./canonical-json.js"
-import { AtetCodeError } from "./errors.js"
+import { SlopcameraCodeError } from "./errors.js"
 import {
   createBoundedJsonSnapshot,
   createBoundedJsonValueSnapshot,
@@ -91,7 +91,7 @@ describe("JSON snapshots", () => {
 
     const cyclic: Record<string, unknown> = {}
     cyclic.self = cyclic
-    expect(() => deepFreezeJson(cyclic)).toThrow(AtetCodeError)
+    expect(() => deepFreezeJson(cyclic)).toThrow(SlopcameraCodeError)
   })
 
   test("rejects a snapshot before returning values over its byte limit", () => {
@@ -124,7 +124,7 @@ describe("JSON snapshots", () => {
       nested,
       16_384,
       "deep fixture",
-    )).toThrow(AtetCodeError)
+    )).toThrow(SlopcameraCodeError)
 
     const cyclic: Record<string, unknown> = {}
     cyclic.self = cyclic
@@ -132,7 +132,7 @@ describe("JSON snapshots", () => {
       cyclic,
       1_024,
       "cyclic fixture",
-    )).toThrow(AtetCodeError)
+    )).toThrow(SlopcameraCodeError)
 
     let getterExecuted = false
     const accessor: Record<string, unknown> = {}

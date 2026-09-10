@@ -8,7 +8,7 @@ import {
   forwardVectorizeWorkerTermination,
   vectorizeImageInProcess,
   withInheritedCommandFileDescriptors
-} from "../index-zhffnaj1.js";
+} from "../index-p63wavx0.js";
 import"../index-z1w83f81.js";
 
 // src/vectorize/worker.ts
@@ -121,7 +121,7 @@ async function validateTemporaryRoot(path) {
     realRoot = resolved[0];
     realTemporaryDirectory = resolved[1];
     const metadata = await lstat(path);
-    if (!metadata.isDirectory() || metadata.isSymbolicLink() || dirname(realRoot) !== realTemporaryDirectory || !/^atet-vectorize-[A-Za-z0-9_-]{6,}$/u.test(basename(realRoot))) {
+    if (!metadata.isDirectory() || metadata.isSymbolicLink() || dirname(realRoot) !== realTemporaryDirectory || !/^slopcamera-vectorize-[A-Za-z0-9_-]{6,}$/u.test(basename(realRoot))) {
       throw new VectorizeError("invalid_input", "The supervisor temporary directory is invalid.");
     }
   } catch (error) {

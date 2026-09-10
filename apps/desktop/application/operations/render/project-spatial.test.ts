@@ -27,18 +27,18 @@ async function put(root: string, path: string, value: string | Uint8Array) {
   const absolute = join(root, path); await mkdir(dirname(absolute), { recursive: true }); await writeFile(absolute, value); return absolute;
 }
 async function fixture(options: { badTiming?: boolean; failFence?: boolean; revokeAfterPrecommit?: boolean; badGeometry?: boolean; badPixelFormat?: boolean } = {}) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-project-spatial-"))); directories.push(root);
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-project-spatial-"))); directories.push(root);
   const sourceMedia = Buffer.from("retained source media fixture\n"), sourceSha = sha256Hex(sourceMedia.toString());
   const original = syncedProject();
   const project = VideoProjectV1Schema.parse({ ...original, assets: original.assets.map(asset => ({ ...asset,
     streams: asset.streams.map(stream => ({ ...stream, segments: stream.segments.map(segment => ({ ...segment, sha256: sourceSha, bytes: sourceMedia.length })) })),
   })) });
-  const projectEditPlan = editedPlan(project), projectRoot = join(root, "artifacts", "atet", "projects"), projectDirectory = join(projectRoot, project.projectId);
+  const projectEditPlan = editedPlan(project), projectRoot = join(root, "artifacts", "slopcamera", "projects"), projectDirectory = join(projectRoot, project.projectId);
   await mkdir(projectDirectory, { recursive: true });
   for (const name of ["reference.mov", "camera.mov"]) await put(root, `fixtures/${name}`, sourceMedia);
-  const revision = SpatialProjectRevisionV2Schema.parse({ kind: "atet.spatial-project-revision", schemaVersion: 2, projectId: project.projectId,
+  const revision = SpatialProjectRevisionV2Schema.parse({ kind: "slopcamera.spatial-project-revision", schemaVersion: 2, projectId: project.projectId,
     parent: { version: 1, sha256: "a".repeat(64) }, transactionId: `transaction_${"0".repeat(32)}`, legacy: { project, projectEditPlan }, scenes: [], shots: [], candidates: [], selections: [] });
-  const head = SpatialProjectHeadV2Schema.parse({ kind: "atet.spatial-project-head", schemaVersion: 2, projectId: project.projectId,
+  const head = SpatialProjectHeadV2Schema.parse({ kind: "slopcamera.spatial-project-head", schemaVersion: 2, projectId: project.projectId,
     projectRevisionSha256: spatialProjectRevisionSha256(revision), revision: spatialProjectArtifact("revisions", spatialProjectDocumentText(revision)), transactionId: revision.transactionId });
   const projected = createSpatialRenderProjection({ snapshot: { version: 2, head, revision, headText: spatialProjectDocumentText(head), basis: { version: 2, sha256: head.projectRevisionSha256 },
     contents: spatialProjectContents(revision, []) }, materializedShots: [], policy: { kind: "full-frame-above-legacy-video-below-overlays", alpha: "straight" },
@@ -46,22 +46,22 @@ async function fixture(options: { badTiming?: boolean; failFence?: boolean; revo
   await put(projectDirectory, head.revision.path, spatialProjectDocumentText(revision));
   await put(projectDirectory, projected.projection.derivedV1Revision.path, spatialProjectDocumentText(projected.revision));
   const outputGeometrySha256 = hashProjectEditRevisionOutputGeometry({ pixelWidth: 640, pixelHeight: 480, revisionSha256: projected.revision.revisionSha256 });
-  const document = ProjectRenderPlanDocumentSchema.parse({ kind: "atet.project-render-plan-document", schemaVersion: 1, plan: projected.renderPlan, outputGeometrySha256,
+  const document = ProjectRenderPlanDocumentSchema.parse({ kind: "slopcamera.project-render-plan-document", schemaVersion: 1, plan: projected.renderPlan, outputGeometrySha256,
     projectEditPlanSha256: projected.revision.projectEditPlanSha256, projectSha256: projected.revision.projectSha256, revisionSha256: projected.revision.revisionSha256, renderPlanSha256: canonicalJsonSha256(projected.renderPlan) });
   const planText = `${canonicalJson(document)}\n`, artifact = { path: `renders/plans/${sha256Hex(planText)}.json`, sha256: sha256Hex(planText), bytes: Buffer.byteLength(planText) };
   await put(projectDirectory, artifact.path, planText);
-  const plan = ProjectRenderPlanReferenceSchema.parse({ kind: "atet.project-render-plan-reference", schemaVersion: 1, artifact, projectId: project.projectId, outputGeometrySha256,
+  const plan = ProjectRenderPlanReferenceSchema.parse({ kind: "slopcamera.project-render-plan-reference", schemaVersion: 1, artifact, projectId: project.projectId, outputGeometrySha256,
     revisionSha256: projected.revision.revisionSha256, projectSha256: projected.revision.projectSha256, projectEditPlanSha256: projected.revision.projectEditPlanSha256,
     planSha256: projected.renderPlan.planSha256, renderPlanSha256: canonicalJsonSha256(projected.renderPlan) });
   const cadence = createSpatialCompositorCadence({ ...projected, plan: projected.renderPlan });
-  const privateRoot = join(root, "artifacts", "atet", "private"); await mkdir(privateRoot, { recursive: true, mode: 0o700 });
+  const privateRoot = join(root, "artifacts", "slopcamera", "private"); await mkdir(privateRoot, { recursive: true, mode: 0o700 });
   const workspace = join(privateRoot, "workflow-runs", execution.runId, "staging", sha256Hex(execution.nodeKey), execution.nodePlanSha256);
   await mkdir(workspace, { recursive: true, mode: 0o700 });
   const command = await put(root, "bin/native-fixture", "native fixture\n");
   await chmod(command, 0o700);
   const calls: string[][] = [];
   const application: ApplicationContext = {
-    paths: { repositoryRoot: root, privateRoot, projectRoot, artifactRoot: join(root, "artifacts", "atet", "recordings"), desktopRoot: root },
+    paths: { repositoryRoot: root, privateRoot, projectRoot, artifactRoot: join(root, "artifacts", "slopcamera", "recordings"), desktopRoot: root },
     clock: { now: () => new Date("2026-09-08T00:00:00Z"), timestampMilliseconds: () => 0 }, capabilities: () => Promise.resolve([]),
     capability: async name => name === "rsvg-convert" ? { name, available: false } : { name, available: true, command, version: "fixture1" },
     runner: { async run(argv) {
@@ -104,7 +104,7 @@ test("V4 preserves getters, stale projection, stale derivation and mismatched ta
   expect(() => ProjectRenderInputSchemaV4.parse({ ...value.input, target: { ...value.input.target, canvas: { kind: "custom", pixelWidth: 640, pixelHeight: 480, frameRate: 30 } } })).toThrow();
   const forged = structuredClone(value.input);
   forged.spatial.projection.source.projectRevisionSha256 = "f".repeat(64);
-  forged.spatial.projectionSha256 = canonicalJsonSha256({ domain: "atet.scene-render-projection/v1", projection: forged.spatial.projection });
+  forged.spatial.projectionSha256 = canonicalJsonSha256({ domain: "slopcamera.scene-render-projection/v1", projection: forged.spatial.projection });
   forged.spatial.cadence = createSpatialCompositorCadence({ projection: forged.spatial.projection, projectionSha256: forged.spatial.projectionSha256, plan: value.projected.renderPlan });
   await expect(bindProjectRenderInputV4(value.application, forged)).rejects.toThrow("authority");
   expect(value.calls).toEqual([]);

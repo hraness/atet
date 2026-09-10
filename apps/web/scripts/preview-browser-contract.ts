@@ -12,7 +12,7 @@ export const expectedPreviewHeaders = Object.freeze({
   "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
   vary: "Accept, Accept-Encoding",
   "x-robots-tag": "noindex, nofollow, noarchive, nosnippet",
-  link: '<https://atet.sh/>; rel="canonical"',
+  link: '<https://slop.camera/>; rel="canonical"',
 })
 
 export interface PreviewCase {

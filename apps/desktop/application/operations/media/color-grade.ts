@@ -43,7 +43,7 @@ export const MediaColorGradeReceiptSchema = z.strictObject({
   filterGraph: z.string().min(1).max(256 * 1024),
   input: MediaArtifactReferenceSchema,
   kind: z.union([
-    z.literal("atet.local-media-transform-receipt"),
+    z.literal("slopcamera.local-media-transform-receipt"),
     z.literal("studio.local-media-transform-receipt"),
   ]),
   operation: z.literal("color-grade"),
@@ -252,7 +252,7 @@ export function mediaColorGradeProgram(input: MediaColorGradeInput): Effect.Effe
             ffprobeVersion: mediaCapabilityVersion(capabilityBindings, "ffprobe"),
             filterGraph: rendered.filterGraph,
             input: boundInput.input,
-            kind: "atet.local-media-transform-receipt",
+            kind: "slopcamera.local-media-transform-receipt",
             operation: "color-grade",
             output: { ...published.artifact, durationUs },
             schemaVersion: 1,
@@ -269,9 +269,9 @@ export function mediaColorGradeProgram(input: MediaColorGradeInput): Effect.Effe
             transform: rendered.transform,
           }));
           yield* platform.checkpoint({
-            inputSchemaId: "atet.operation.media.color-grade.input/v1",
+            inputSchemaId: "slopcamera.operation.media.color-grade.input/v1",
             kind: "media.color-grade",
-            outputSchemaId: "atet.operation.media.color-grade.output/v1",
+            outputSchemaId: "slopcamera.operation.media.color-grade.output/v1",
             version: 1,
           }, output);
           return output;
@@ -296,7 +296,7 @@ export function createMediaColorGradeOperationDefinition(
     })));
   return {
     inputSchema: MediaColorGradeInputSchema,
-    inputSchemaId: "atet.operation.media.color-grade.input/v1",
+    inputSchemaId: "slopcamera.operation.media.color-grade.input/v1",
     kind: "media.color-grade",
     lifecycle: {
       kind: "local-artifact",
@@ -304,7 +304,7 @@ export function createMediaColorGradeOperationDefinition(
       executeEffect,
     },
     outputSchema: MediaColorGradeOutputSchema,
-    outputSchemaId: "atet.operation.media.color-grade.output/v1",
+    outputSchemaId: "slopcamera.operation.media.color-grade.output/v1",
     policy: {
       cache: "exact-run",
       cancellable: true,

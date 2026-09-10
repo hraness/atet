@@ -42,6 +42,7 @@ interface EmojiManifest {
 }
 
 interface BrandEmojiItem {
+  readonly variant: EmojiVariant;
   readonly bytes: number;
   readonly codePointId: string;
   readonly domain: string;
@@ -192,6 +193,10 @@ async function readBrandItems(repositoryRoot: string): Promise<{
     const path = stringField(item, "path");
     const sha256 = stringField(item, "sha256");
     const codePointId = stringField(item, "codePointID");
+    const variant = stringField(item, "variant");
+    if (variant !== "color" && variant !== "duotone") {
+      throw new CliError("invalid-data", `Brand emoji variant is invalid for ${domain}.`);
+    }
     if (!/^[a-z0-9.-]+\.svg$/u.test(path) || path !== `${domain}.svg`) {
       throw new CliError("invalid-data", `Brand emoji asset path is invalid for ${domain}.`);
     }
@@ -199,6 +204,7 @@ async function readBrandItems(repositoryRoot: string): Promise<{
       throw new CliError("invalid-data", `Brand emoji hashes or code points are invalid for ${domain}.`);
     }
     return {
+      variant,
       bytes: integerField(item, "bytes"),
       codePointId,
       domain,
@@ -320,7 +326,7 @@ function result(
 
 function brandResult(item: BrandEmojiItem): EmojiSearchResult {
   return {
-    available: { color: false, duotone: true },
+    available: { color: item.variant === "color", duotone: item.variant === "duotone" },
     emoji: item.emoji,
     group: "Bundled brands",
     id: item.codePointId,
@@ -328,6 +334,10 @@ function brandResult(item: BrandEmojiItem): EmojiSearchResult {
     provider: "brand-catalog",
     subgroup: item.domain,
   };
+}
+
+function matchesBrandDomain(domain: string, folded: string): boolean {
+  return domain === folded || domain.replace(/\.com$/u, "") === folded || domain.replaceAll(".", "") === folded;
 }
 
 function matchingBrandItems(items: readonly BrandEmojiItem[], query: string): readonly BrandEmojiItem[] {
@@ -338,8 +348,7 @@ function matchingBrandItems(items: readonly BrandEmojiItem[], query: string): re
   const exact = items.filter((item) =>
     item.emoji === trimmed
     || item.codePointId === normalizedHex
-    || item.domain === folded
-    || item.domain.replace(/\.com$/u, "") === folded
+    || matchesBrandDomain(item.domain, folded)
   );
   return exact.length > 0 ? exact : items.filter((item) => item.domain.includes(folded));
 }
@@ -467,11 +476,8 @@ async function resolveAppleEmojiAsset(
 async function resolveBrandEmojiAsset(
   repositoryRoot: string,
   query: string,
-  variant: EmojiVariant = "duotone",
+  variant?: EmojiVariant,
 ): Promise<ResolvedEmojiAsset> {
-  if (variant !== "duotone") {
-    throw new CliError("unavailable", "Brand-catalog emoji overlays provide the checked duotone variant only.");
-  }
   const metadata = await readBrandItems(repositoryRoot);
   const matches = matchingBrandItems(metadata.items, query);
   if (matches.length === 0) throw new CliError("not-found", `No brand emoji matches ${query}.`);
@@ -482,6 +488,10 @@ async function resolveBrandEmojiAsset(
     );
   }
   const item = matches[0]!;
+  const selectedVariant = variant ?? item.variant;
+  if (selectedVariant !== item.variant) {
+    throw new CliError("unavailable", `Brand emoji ${item.domain} provides the checked ${item.variant} variant only.`);
+  }
   const [assetRootReal, assetReal] = await Promise.all([
     realpath(metadata.assetRoot),
     realpath(join(metadata.assetRoot, item.path)),
@@ -499,7 +509,7 @@ async function resolveBrandEmojiAsset(
     ...brandResult(item),
     path: assetReal,
     sha256: actualSha256,
-    variant,
+    variant: selectedVariant,
   };
 }
 
@@ -514,7 +524,7 @@ export async function resolveEmojiAsset(
   const brand = await readBrandItems(repositoryRoot);
   const folded = query.trim().toLocaleLowerCase();
   const explicitlyBrand = folded.startsWith("brand:") || brand.items.some((item) =>
-    item.domain === folded || item.domain.replace(/\.com$/u, "") === folded
+    matchesBrandDomain(item.domain, folded)
   );
   if (explicitlyBrand) return await resolveBrandEmojiAsset(repositoryRoot, query, variant);
   try {

@@ -13,7 +13,7 @@ import { executeSpatialProjectCommand } from "./spatial-project-service";
 import { bindSpatialCliExecutionProfile, executeSpatialSceneCommand, readSpatialJson } from "./spatial-scene-service";
 
 async function fixture<T>(run: (root: string) => Promise<T>): Promise<T> {
-  const root = await mkdtemp(join(tmpdir(), "atet-scene-cli-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-scene-cli-"));
   try { return await run(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
@@ -53,7 +53,7 @@ test("CLI scene source workflow retains the old source and prevents accidental o
   const inspect = parseCliArgs(["scene", "inspect", "source.json", "--json"]);
   if (inspect.kind !== "spatial-scene") throw new Error("Wrong command");
   const report = await executeSpatialSceneCommand(application, inspect) as { readonly sceneSha256: string };
-  await writeFile(join(root, "patch.json"), JSON.stringify({ kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: report.sceneSha256, operations: [{ kind: "rename-entity", entityId: "entity_product", name: "New name" }] }));
+  await writeFile(join(root, "patch.json"), JSON.stringify({ kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: report.sceneSha256, operations: [{ kind: "rename-entity", entityId: "entity_product", name: "New name" }] }));
   const patch = parseCliArgs(["scene", "patch", "source.json", "--patch", "patch.json", "--output", "edited.json"]);
   if (patch.kind !== "spatial-scene") throw new Error("Wrong command");
   await executeSpatialSceneCommand(application, patch);

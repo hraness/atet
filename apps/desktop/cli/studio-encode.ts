@@ -22,7 +22,7 @@ type Render = NonNullable<StudioPlan["job"]["render"]>;
 type Profile = "rgb8-lossless-h264-v1" | "rgba8-lossless-qtrle-v1";
 
 interface EncodeRequest {
-  readonly kind: "atet.studio-encode-request"; readonly schemaVersion: 1;
+  readonly kind: "slopcamera.studio-encode-request"; readonly schemaVersion: 1;
   readonly planSha256: string; readonly nativeReceipt: MediaArtifactReference;
   readonly jobId: string; readonly outputId: string; readonly render: Render;
   readonly frames: readonly { readonly path: string; readonly frame: number; readonly sha256: string; readonly bytes: number }[];
@@ -33,7 +33,7 @@ interface EncodeRequest {
   readonly limits: { readonly timeoutMs: number; readonly maximumOutputBytes: number };
 }
 export interface StudioEncodeReceipt {
-  readonly kind: "atet.studio-encode-receipt"; readonly schemaVersion: 1;
+  readonly kind: "slopcamera.studio-encode-receipt"; readonly schemaVersion: 1;
   readonly requestSha256: string; readonly request: EncodeRequest;
   readonly artifact: MediaArtifactReference;
   readonly verification: {
@@ -139,7 +139,7 @@ export async function encodeStudioSequence(input: StudioEncodeInput): Promise<{ 
   await verifySource();
   const tools = await bindExactCapabilities(application, ["ffmpeg", "ffprobe"]);
   const request: EncodeRequest = {
-    kind: "atet.studio-encode-request", schemaVersion: 1, planSha256: plan.planSha256, nativeReceipt: native.receipt,
+    kind: "slopcamera.studio-encode-request", schemaVersion: 1, planSha256: plan.planSha256, nativeReceipt: native.receipt,
     jobId: input.jobId, outputId: input.outputId, render, frames,
     profile: alpha ? "rgba8-lossless-qtrle-v1" : "rgb8-lossless-h264-v1",
     conversion: raster.dataType === "uint16" ? "ffmpeg-no-dither-uint16-to-uint8-v1" : "identity-uint8", colorSpace: "srgb", alpha: alpha ? "straight" : "opaque", tools,
@@ -152,7 +152,7 @@ export async function encodeStudioSequence(input: StudioEncodeInput): Promise<{ 
     const fence = async () => { await initialFence(); await lease.assertOwned(); if (performance.now() >= deadline) throw new CliError("cancelled", "Studio encode aggregate deadline exceeded."); };
     const fs = createNodeBundleFileSystem(directory);
     const optional = async (path: string) => { try { return await fs.readText(path, DOCUMENT_BYTES); } catch (error) { if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined; throw error; } };
-    const intent = studioJson({ kind: "atet.studio-encode-intent", schemaVersion: 1, requestSha256, request });
+    const intent = studioJson({ kind: "slopcamera.studio-encode-intent", schemaVersion: 1, requestSha256, request });
     const previous = await optional("intent.json");
     if (previous !== undefined && previous !== intent) throw new CliError("conflict", "Retained studio encode intent differs from verified source and settings.");
     const video = alpha ? "video.mov" : "video.mp4";
@@ -205,7 +205,7 @@ export async function encodeStudioSequence(input: StudioEncodeInput): Promise<{ 
       await verifySource();
       for (const tool of tools) await assertExactCapabilityExecutable(tool);
       if (studioJson(before) !== studioJson(await artifact(video, request.limits.maximumOutputBytes))) throw new CliError("conflict", "Studio video changed during verification.");
-      const document: StudioEncodeReceipt = { kind: "atet.studio-encode-receipt", schemaVersion: 1, requestSha256, request, artifact: before,
+      const document: StudioEncodeReceipt = { kind: "slopcamera.studio-encode-receipt", schemaVersion: 1, requestSha256, request, artifact: before,
         verification: { frameCount: count, canonicalFrameSha256, sourceFramehash, videoFramehash: await retainText("video.framehash", videoText), probe } };
       await assertBudget();
       const receipt = await retainText("receipt.json", studioJson(document));

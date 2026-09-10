@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { createAtetDirectSession } from "./session";
+import { createSlopcameraDirectSession } from "./session";
 
-describe("Atet Direct session", () => {
+describe("Slopcamera Direct session", () => {
   test("binds activation, coverage, observation, and transport teardown", () => {
-    const created = createAtetDirectSession({ kind: "query", source: "" });
+    const created = createSlopcameraDirectSession({ kind: "query", source: "" });
     if (!created.ok) throw new Error(created.error.message);
     const session = created.value;
 

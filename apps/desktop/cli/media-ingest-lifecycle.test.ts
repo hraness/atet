@@ -18,7 +18,7 @@ const probe: RunResult = { exitCode: 0, stderr: "", stdout: JSON.stringify({
 }) };
 
 async function fixture() {
-  const root = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "atet-import-owner-")));
+  const root = await fs.realpath(await fs.mkdtemp(join(tmpdir(), "slopcamera-import-owner-")));
   const projectDirectory = join(root, "project");
   const imports = join(projectDirectory, "imports");
   await fs.mkdir(imports, { recursive: true, mode: 0o700 });

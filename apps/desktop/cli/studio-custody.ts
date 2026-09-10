@@ -29,7 +29,7 @@ export async function withStudioProcessCustody<T>(input: {
         const attempt = randomUUID(), startedAt = new Date().toISOString();
         let pid: number | undefined;
         const marker = (state: "starting" | "running" | "closed" | "unknown", result?: StudioProcessResult) => studioJson({
-          kind: "atet.studio-native-activity", schemaVersion: 1, attempt, label: input.label, startedAt, state,
+          kind: "slopcamera.studio-native-activity", schemaVersion: 1, attempt, label: input.label, startedAt, state,
           ...(pid === undefined ? {} : { processGroup: pid }),
           ...(result === undefined ? {} : { exitCode: result.exitCode, failure: result.failure ?? null, finishedAt: new Date().toISOString() }),
         });

@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  ATET_DESKTOP_PROTOCOL,
-  ATET_DESKTOP_PROTOCOL_VERSION,
+  SLOPCAMERA_DESKTOP_PROTOCOL,
+  SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
 } from "../contracts";
 import { createRuntimeBridge } from "../frontend/src/runtime-bridge";
-import { createAtetDirectSession } from "./session";
+import { createSlopcameraDirectSession } from "./session";
 
 function idleSession() {
-  const created = createAtetDirectSession({ kind: "scenario", scenario: "idle-ready" });
+  const created = createSlopcameraDirectSession({ kind: "scenario", scenario: "idle-ready" });
   if (!created.ok) throw new Error(created.error.message);
   return created.value;
 }
@@ -55,7 +55,7 @@ describe("deterministic recorder transport", () => {
         camera: { kind: "default" },
         displays: { kind: "all" },
         microphone: { kind: "default" },
-        recordingDirectory: "artifacts/atet/recordings",
+        recordingDirectory: "artifacts/slopcamera/recordings",
         systemAudio: true,
         typedText: "disabled",
         windowMetadata: "titles-and-bounds",
@@ -86,10 +86,10 @@ describe("deterministic recorder transport", () => {
   test("rejects a command/request-kind mismatch without mutating state", async () => {
     const session = idleSession();
     const harness = session.harness;
-    const response = await harness.transport.invoke("atet.runtime.dispatch", {
+    const response = await harness.transport.invoke("slopcamera.runtime.dispatch", {
       payload: { kind: "snapshot" },
-      protocol: ATET_DESKTOP_PROTOCOL,
-      protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+      protocol: SLOPCAMERA_DESKTOP_PROTOCOL,
+      protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
       requestId: "request_mismatch01",
     });
 
@@ -103,7 +103,7 @@ describe("deterministic recorder transport", () => {
   });
 
   test("pushes a live recording into an interrupted pause before explicit resume and stop", async () => {
-    const created = createAtetDirectSession({
+    const created = createSlopcameraDirectSession({
       kind: "scenario",
       scenario: "partial-source-failure",
     });

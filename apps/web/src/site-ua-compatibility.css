@@ -1,5 +1,5 @@
 /* The ordinary pages predate the compiler reset. Restore its additional UA
-   defaults before applying Atet's retained explicit global styles. This is a
+   defaults before applying Slopcamera's retained explicit global styles. This is a
    finite reset bridge, not product component presentation or a blanket reset. */
 * {
   margin: revert;
@@ -66,4 +66,4 @@ button:not(:disabled):not(.hraness-design-theme-toggle__trigger) {
 }
 
 /* Shared reduced-motion and forced-colors protections remain in the captured
-   foundation. Atet's later explicit focus and reduced-scroll rules remain. */
+   foundation. Slopcamera's later explicit focus and reduced-scroll rules remain. */

@@ -6,7 +6,7 @@ export function createSpatialSceneStarter(): SpatialSceneV1 {
   const transform = { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] }
   const common = { parentId: null, placement: { kind: "world" }, origin: { kind: "authored" }, visible: true }
   return parseSpatialScene({
-    kind: "atet.spatial-scene", schemaVersion: 1, sceneId: "scene_starter",
+    kind: "slopcamera.spatial-scene", schemaVersion: 1, sceneId: "scene_starter",
     coordinates: "right-handed-y-up-meters", durationUs: 4_000_000,
     entities: [
       { ...common, entityId: "entity_product", name: "Product", kind: "mesh", transform,

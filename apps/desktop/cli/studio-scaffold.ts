@@ -25,7 +25,7 @@ export function studioStarter(template: StudioTemplate) {
     ...(template === "blender-shaded-street" ? { "character.py": blenderCharacter } : {}),
   } : engine === "cadquery" ? { "scene.py": cadqueryBracket } : { "scene.py": educationScene, "lesson.json": studioJson(educationLesson), "lesson.py": educationValidation, "toolkit.py": educationToolkit };
   const source = { engine, entrypoint: { kind: "python", path: "scene.py" }, files: Object.keys(files).sort() };
-  const bundle = parseStudioSourceBundle({ kind: "atet.studio-source-bundle", schemaVersion: 1, engine, entrypoint: source.entrypoint,
+  const bundle = parseStudioSourceBundle({ kind: "slopcamera.studio-source-bundle", schemaVersion: 1, engine, entrypoint: source.entrypoint,
     files: Object.entries(files).map(([path, text]) => ({ path, bytes: Buffer.byteLength(text), sha256: studioBytesSha256(text) })) });
   const raster = { kind: "raster", colorSpace: "srgb", alpha: "opaque", dataType: "uint8", channels: ["R", "G", "B"], semantic: "color", unit: "unitless" };
   const simulation = template === "blender-cloth" || template === "blender-fluid";
@@ -41,7 +41,7 @@ export function studioStarter(template: StudioTemplate) {
     ...(engine === "manim" ? [{ id: "movie", kind: "file", role: "beauty", format: "mp4", path: "lesson.mp4", interpretation: raster }]
       : [{ id: "native", kind: "file", role: "native-source", format: "blend", path: "native/scene.blend", interpretation: { kind: "native-source" } }]),
   ];
-  const job = parseStudioJob({ kind: "atet.studio-job", schemaVersion: 1, jobId: `studio_${template.replaceAll("-", "_")}_${randomUUID()}`, bundleSha256: studioSourceBundleSha256(bundle),
+  const job = parseStudioJob({ kind: "slopcamera.studio-job", schemaVersion: 1, jobId: `studio_${template.replaceAll("-", "_")}_${randomUUID()}`, bundleSha256: studioSourceBundleSha256(bundle),
     stage: engine === "cadquery" ? "build" : simulation ? "bake" : "render",
     parameters: engine === "manim" ? { lessonFile: "lesson.json" } : portraitCity ? { shot: "establish", motion: "approach" } : {},
     engine: engine === "blender" ? { engine, renderer: "cycles", device: "gpu", samples: portraitCity ? 16 : 32, transparent: false, viewTransform: portraitCity ? "Standard" : "AgX", denoise: true, seed: 0 }
@@ -66,5 +66,5 @@ export async function createStudioScaffold(directoryInput: string, template: Stu
   await fs.writeTextNoReplace!("job.json", studioJson(starter.job), fence);
   return { directory, template, jobId: starter.job.jobId, bundleSha256: starter.job.bundleSha256, executed: false,
     source: join(directory, "source.json"), job: join(directory, "job.json"),
-    next: ["Edit the retained source and job as needed.", `atet studio bundle ${JSON.stringify(join(directory, "source.json"))} --json`, "After editing source, bind the returned bundleSha256 into a new job ID before running."] };
+    next: ["Edit the retained source and job as needed.", `slopcamera studio bundle ${JSON.stringify(join(directory, "source.json"))} --json`, "After editing source, bind the returned bundleSha256 into a new job ID before running."] };
 }

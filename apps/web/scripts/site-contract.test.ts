@@ -38,11 +38,11 @@ function completeFixture() {
     { manifestSha256: "a".repeat(64), name: "@hraness/ui", version: "0.5.7" },
   ]
   const complete = {
-    artifacts: [artifact("404.html", "<!doctype html><title>404</title>"), artifact("index.html", "<!doctype html><title>Atet</title>"),
+    artifacts: [artifact("404.html", "<!doctype html><title>404</title>"), artifact("index.html", "<!doctype html><title>Slopcamera</title>"),
       ...foundation.artifacts.map(item => ({ ...item, path: `graphs/site-foundation/${item.path}` })),
       artifact("graphs/site-renderer/entries/site-renderer-fixture.js", "export function renderSiteDocument(){}"),
     ],
-    compilerSha256: digest, finalCss, generationId: "atet-site-shell",
+    compilerSha256: digest, finalCss, generationId: "slopcamera-site-shell",
     graphs: ["site-foundation", "site-renderer"].map(id => ({ id, receiptSha256: digest })),
     kind: "hraness-stylex-complete-generation", packages: structuredClone([packages[0]!, packages[2]!, packages[1]!]),
     planSha256: digest, schemaVersion: 2, state: "complete", unionPolicySha256: digest,
@@ -226,7 +226,7 @@ describe("site shell artifact publication (pure synthetic controls)", () => {
     ["union", (value: any) => { value.unionPolicySha256 = otherDigest }],
     ["plan", (value: any) => { value.planSha256 = otherDigest }],
     ["state", (value: any) => { value.state = "building" }],
-    ["generation", (value: any) => { value.generationId = "atet-preview" }],
+    ["generation", (value: any) => { value.generationId = "slopcamera-preview" }],
     ["kind", (value: any) => { value.kind = "other" }],
     ["schema", (value: any) => { value.schemaVersion = 1 }],
     ["unknown metadata", (value: any) => { value.absoluteSource = "/private/source" }],

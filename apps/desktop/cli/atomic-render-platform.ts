@@ -42,7 +42,7 @@ async function stagePath(request: AtomicRenderRequest, companionPath?: string): 
     }
     directory = await realpath(request.stagingDirectory);
   }
-  const path = join(directory, `.atet-render-${randomUUID()}.tmp${extension}`);
+  const path = join(directory, `.slopcamera-render-${randomUUID()}.tmp${extension}`);
   const argv: [string, ...string[]] = [...request.argv];
   const overwriteIndex = argv.indexOf("-y");
   if (overwriteIndex < 0) {

@@ -4,7 +4,7 @@ import { cloneJson } from "@hraness/direct/core";
 import {
   type CaptureRuntimeStateSchema,
   CaptureRuntimeSnapshotSchema,
-  ATET_DESKTOP_PROTOCOL_VERSION,
+  SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
 } from "../contracts";
 import {
   createProjectEvidence,
@@ -17,11 +17,11 @@ import {
   type WorkflowEvidence,
 } from "./workflow-fixtures";
 
-export const ATET_DIRECT_WORLD_VERSION = 6 as const;
-export const ATET_DIRECT_TIME_MS = Date.UTC(2026, 6, 22, 16, 0, 0);
-export const ATET_DIRECT_TIMESTAMP = new Date(ATET_DIRECT_TIME_MS).toISOString();
-export const ATET_FIXTURE_RECORDING_ID = "rec_demo0001";
-export const ATET_FIXTURE_RECORDING_PATH = "artifacts/atet/recordings/rec_demo0001";
+export const SLOPCAMERA_DIRECT_WORLD_VERSION = 6 as const;
+export const SLOPCAMERA_DIRECT_TIME_MS = Date.UTC(2026, 6, 22, 16, 0, 0);
+export const SLOPCAMERA_DIRECT_TIMESTAMP = new Date(SLOPCAMERA_DIRECT_TIME_MS).toISOString();
+export const SLOPCAMERA_FIXTURE_RECORDING_ID = "rec_demo0001";
+export const SLOPCAMERA_FIXTURE_RECORDING_PATH = "artifacts/slopcamera/recordings/rec_demo0001";
 
 const TIME_RANGE_SHAPE = {
   endUs: z.number().int().safe().positive(),
@@ -112,7 +112,7 @@ const RuntimePushSchema = z.strictObject({
   snapshot: CaptureRuntimeSnapshotSchema,
 });
 
-export const AtetDirectWorldSchema = z.strictObject({
+export const SlopcameraDirectWorldSchema = z.strictObject({
   editEvidence: z.strictObject({
     analyzer: z.array(AnalyzerEvidenceSchema).max(64),
     edits: z.array(EditEvidenceSchema).max(64),
@@ -125,7 +125,7 @@ export const AtetDirectWorldSchema = z.strictObject({
     transitions: z.array(RuntimeTransitionSchema).max(32),
   }),
   projectEvidence: ProjectEvidenceSchema,
-  version: z.literal(ATET_DIRECT_WORLD_VERSION),
+  version: z.literal(SLOPCAMERA_DIRECT_WORLD_VERSION),
   workflowEvidence: WorkflowEvidenceSchema,
 });
 
@@ -137,8 +137,8 @@ type JsonWorldValue<Value> = Value extends boolean | null | number | string
       ? { [Key in keyof Value]: JsonWorldValue<Value[Key]> }
       : never;
 
-export type AtetDirectWorld = JsonWorldValue<z.infer<typeof AtetDirectWorldSchema>>;
-export type AtetDirectWorldInput = z.input<typeof AtetDirectWorldSchema>;
+export type SlopcameraDirectWorld = JsonWorldValue<z.infer<typeof SlopcameraDirectWorldSchema>>;
+export type SlopcameraDirectWorldInput = z.input<typeof SlopcameraDirectWorldSchema>;
 
 export const AUTHORIZED_PERMISSIONS = Object.freeze({
   accessibility: "authorized",
@@ -153,12 +153,12 @@ export const AUTHORIZED_PERMISSIONS = Object.freeze({
 export const ALL_INPUT_SOURCES = Object.freeze({
   audioSources: [
     { id: "audio_system01", kind: "system", label: "Mac system audio" },
-    { id: "audio_microphone01", kind: "microphone", label: "Atet microphone" },
+    { id: "audio_microphone01", kind: "microphone", label: "Slopcamera microphone" },
   ],
   cameras: [{ id: "camera_facetime01", label: "FaceTime HD Camera" }],
   displays: [
     { id: "display_builtin01", isPrimary: true, label: "Built-in display" },
-    { id: "display_atet01", isPrimary: false, label: "Atet Display" },
+    { id: "display_slopcamera01", isPrimary: false, label: "Slopcamera Display" },
   ],
 } as const);
 
@@ -184,12 +184,12 @@ export function runtimeSnapshot(
     availableSources: overrides.availableSources ?? ALL_INPUT_SOURCES,
     lastInterruption: overrides.lastInterruption ?? null,
     permissions: overrides.permissions ?? AUTHORIZED_PERMISSIONS,
-    protocolVersion: ATET_DESKTOP_PROTOCOL_VERSION,
+    protocolVersion: SLOPCAMERA_DESKTOP_PROTOCOL_VERSION,
     sources: overrides.sources ?? (
       hasSelectedSources ? ALL_INPUT_SOURCES : EMPTY_INPUT_SOURCES
     ),
     state,
-    updatedAt: overrides.updatedAt ?? ATET_DIRECT_TIMESTAMP,
+    updatedAt: overrides.updatedAt ?? SLOPCAMERA_DIRECT_TIMESTAMP,
   });
 }
 
@@ -198,8 +198,8 @@ export function fixtureIdleSnapshot(lastRecording: boolean) {
     lastRecording: lastRecording
       ? {
           durationUs: 42_000_000,
-          recordingId: ATET_FIXTURE_RECORDING_ID,
-          recordingPath: ATET_FIXTURE_RECORDING_PATH,
+          recordingId: SLOPCAMERA_FIXTURE_RECORDING_ID,
+          recordingPath: SLOPCAMERA_FIXTURE_RECORDING_PATH,
         }
       : null,
     state: "idle",
@@ -208,8 +208,8 @@ export function fixtureIdleSnapshot(lastRecording: boolean) {
 
 export function fixtureRecordingSnapshot(sourceTimeUs = 12_500_000) {
   return runtimeSnapshot({
-    recordingId: ATET_FIXTURE_RECORDING_ID,
-    recordingPath: ATET_FIXTURE_RECORDING_PATH,
+    recordingId: SLOPCAMERA_FIXTURE_RECORDING_ID,
+    recordingPath: SLOPCAMERA_FIXTURE_RECORDING_PATH,
     sourceTimeUs,
     state: "recording",
   });
@@ -217,14 +217,14 @@ export function fixtureRecordingSnapshot(sourceTimeUs = 12_500_000) {
 
 export function fixturePausedSnapshot(sourceTimeUs = 18_000_000) {
   return runtimeSnapshot({
-    recordingId: ATET_FIXTURE_RECORDING_ID,
-    recordingPath: ATET_FIXTURE_RECORDING_PATH,
+    recordingId: SLOPCAMERA_FIXTURE_RECORDING_ID,
+    recordingPath: SLOPCAMERA_FIXTURE_RECORDING_PATH,
     sourceTimeUs,
     state: "paused",
   });
 }
 
-export function fullEditEvidence(): AtetDirectWorld["editEvidence"] {
+export function fullEditEvidence(): SlopcameraDirectWorld["editEvidence"] {
   return {
     analyzer: [
       { confidence: 0.99, endUs: 9_000_000, kind: "freeze", startUs: 4_000_000 },
@@ -242,10 +242,10 @@ export function fullEditEvidence(): AtetDirectWorld["editEvidence"] {
       { capturedText: null, kind: "typing", phase: "stopped", secureField: false, timeUs: 14_400_000 },
       {
         bounds: { height: 760, width: 1160, x: -1500, y: 90 },
-        displayId: "display_atet01",
+        displayId: "display_slopcamera01",
         kind: "window",
         timeUs: 11_000_000,
-        title: "Terminal — atet edit",
+        title: "Terminal — slopcamera edit",
         windowId: "window_terminal01",
       },
     ],
@@ -259,17 +259,17 @@ export function fullEditEvidence(): AtetDirectWorld["editEvidence"] {
   };
 }
 
-export function createAtetDirectWorld(
-  runtime: AtetDirectWorldInput["runtime"],
-  editEvidence: AtetDirectWorldInput["editEvidence"] = fullEditEvidence(),
+export function createSlopcameraDirectWorld(
+  runtime: SlopcameraDirectWorldInput["runtime"],
+  editEvidence: SlopcameraDirectWorldInput["editEvidence"] = fullEditEvidence(),
   projectEvidence: ProjectEvidence = fullProjectEvidence(),
   workflowEvidence: WorkflowEvidence = fullWorkflowEvidence(),
-): AtetDirectWorld {
-  return parseAtetDirectWorld({
+): SlopcameraDirectWorld {
+  return parseSlopcameraDirectWorld({
     editEvidence,
     projectEvidence,
     runtime,
-    version: ATET_DIRECT_WORLD_VERSION,
+    version: SLOPCAMERA_DIRECT_WORLD_VERSION,
     workflowEvidence,
   });
 }
@@ -285,8 +285,8 @@ export function fullWorkflowEvidence(): WorkflowEvidence {
   return structuredClone(WORKFLOW_EVIDENCE);
 }
 
-export function parseAtetDirectWorld(input: unknown): AtetDirectWorld {
-  const world = AtetDirectWorldSchema.parse(input);
+export function parseSlopcameraDirectWorld(input: unknown): SlopcameraDirectWorld {
+  const world = SlopcameraDirectWorldSchema.parse(input);
   const ranges = [
     ...world.editEvidence.analyzer,
     ...world.editEvidence.edits,
@@ -303,5 +303,5 @@ export function parseAtetDirectWorld(input: unknown): AtetDirectWorld {
   if (!cloned.ok) throw new Error(`Direct world must remain exact JSON: ${cloned.error.message}`);
   // Zod validates the rich production contracts above; cloneJson proves and rebuilds the
   // same value at Direct's narrower recursive JSON boundary.
-  return cloned.value as AtetDirectWorld;
+  return cloned.value as SlopcameraDirectWorld;
 }

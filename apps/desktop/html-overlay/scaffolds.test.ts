@@ -23,7 +23,7 @@ describe("HTML overlay scaffolds", () => {
 
   test("plain DOM uses only the absolute frame callback", () => {
     const html = createHtmlOverlayScaffold("plain");
-    expect(html).toContain("AtetOverlay.onFrame");
+    expect(html).toContain("SlopcameraOverlay.onFrame");
     expect(html).not.toContain('type="importmap"');
   });
 
@@ -52,8 +52,8 @@ describe("HTML overlay scaffolds", () => {
   test("Motion uses the locked bare import and tracked controls", () => {
     const html = createHtmlOverlayScaffold("motion");
     expect(html).toContain('from "motion"');
-    expect(html).toContain("AtetOverlay.trackAnimation");
-    expect(html).toContain("/.atet-overlay/libraries/");
+    expect(html).toContain("SlopcameraOverlay.trackAnimation");
+    expect(html).toContain("/.slopcamera-overlay/libraries/");
     expect(html).not.toContain("motion/mini");
   });
 
@@ -65,7 +65,7 @@ describe("HTML overlay scaffolds", () => {
     expect(html).toContain("premultipliedAlpha: false");
   });
 
-  test("p5 uses instance-mode P2D with one awaited redraw per Atet frame", () => {
+  test("p5 uses instance-mode P2D with one awaited redraw per Slopcamera frame", () => {
     const html = createHtmlOverlayScaffold("p5");
     expect(html).toContain('import p5 from "p5"');
     expect(html).toContain("p.P2D");
@@ -73,7 +73,7 @@ describe("HTML overlay scaffolds", () => {
     expect(html).toContain("desynchronized: false");
     expect(html).toContain("p.pixelDensity(devicePixelRatio)");
     expect(html).toContain("p.noLoop()");
-    expect(html).toContain("AtetOverlay.randomFor");
+    expect(html).toContain("SlopcameraOverlay.randomFor");
     expect(html).toContain("p.clear()");
     expect(html).toContain("const redraw = p.redraw.bind(p)");
     expect(html).toContain("await redraw(...args)");
@@ -95,9 +95,9 @@ describe("HTML overlay scaffolds", () => {
     expect(html).toContain("preserveDrawingBuffer: true");
     expect(html).toContain("ratio: devicePixelRatio");
     expect(html).toContain("clearColor(0, 0, 0, 0)");
-    expect(html).not.toContain("AtetOverlay.ready(");
+    expect(html).not.toContain("SlopcameraOverlay.ready(");
     expect(html).not.toContain("Promise.resolve");
-    expect(html).toContain("AtetOverlay.randomFor");
+    expect(html).toContain("SlopcameraOverlay.randomFor");
     expect(html).toContain("two.render()");
     expect(html).toContain("two.release()");
     expect(html).toContain(
@@ -132,7 +132,7 @@ describe("HTML overlay scaffolds", () => {
     expect(html).not.toContain("requestAnimationFrame(");
   });
 
-  test("vgpu submits one prepared WebGPU pass from absolute Atet time", () => {
+  test("vgpu submits one prepared WebGPU pass from absolute Slopcamera time", () => {
     const html = createHtmlOverlayScaffold("vgpu");
     expect(html).toContain('from "vgpu"');
     expect(html).toContain("navigator.gpu === undefined");

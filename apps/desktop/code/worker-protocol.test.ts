@@ -52,14 +52,14 @@ describe("code worker framed protocol", () => {
 
   test("rejects truncated, wrong-version, and unknown-field messages", () => {
     const frame = encodeWorkerFrame(request);
-    expect(request.protocol).toBe("atet.code-worker/v5");
+    expect(request.protocol).toBe("slopcamera.code-worker/v5");
     const decoder = new WorkerFrameDecoder();
     decoder.push(frame.subarray(0, frame.byteLength - 1));
     expect(() => decoder.finish()).toThrow("truncated");
 
     expect(() => encodeWorkerFrame({
       ...request,
-      protocol: "atet.code-worker/v999",
+      protocol: "slopcamera.code-worker/v999",
     })).toThrow();
     expect(() => encodeWorkerFrame({ ...request, secret: "no" })).toThrow();
   });

@@ -5,7 +5,7 @@ import {
   compileWorkflowGraph,
   normalizeAuthoredWorkflowGraph,
   type ValidatedGraphTopology,
-} from "@hraness/atet/code/advanced";
+} from "@hraness/slopcamera/code/advanced";
 
 import { ApplicationError } from "../application/errors";
 import type { OperationRegistry } from "../application/registry";
@@ -40,7 +40,7 @@ export const GRAPH_PLAN_HASH_DOMAIN = "studio.workflow.graph-plan/v2" as const;
 export const REGISTRY_DISCOVERY_HASH_DOMAIN =
   "studio.workflow.registry-discovery/v1" as const;
 export const DESKTOP_WORKFLOW_REGISTRY_PROJECTION_ID =
-  "atet.workflow.registry.desktop/v1" as const;
+  "slopcamera.workflow.registry.desktop/v1" as const;
 
 const MAX_GRAPH_PLAN_CANONICAL_BYTES = 256 * 1024 * 1024;
 const MAX_GRAPH_PLAN_CANONICAL_DEPTH = 384;
@@ -89,9 +89,9 @@ function uniqueSorted<Value extends string>(
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
-function canonicalAtetIdentity(value: string): string {
-  if (value === "studio") return "atet";
-  return value.replace(/^studio\./u, "atet.");
+function canonicalSlopcameraIdentity(value: string): string {
+  if (value === "studio") return "slopcamera";
+  return value.replace(/^studio\./u, "slopcamera.");
 }
 
 function normalizeRuntime(input: unknown): WorkflowRuntimeIdentity {
@@ -117,7 +117,7 @@ function normalizeRuntime(input: unknown): WorkflowRuntimeIdentity {
     ...parsed,
     applicationBuild: parsed.applicationBuild.replace(
       /^studio([/-])/u,
-      "atet$1",
+      "slopcamera$1",
     ),
     codeWorkerAbi: CODE_WORKER_ABI,
     compilerAbi: GRAPH_COMPILER_ABI,
@@ -262,9 +262,9 @@ function canonicalizeAuthenticatedGraphPlan(
     bundle: parsed.bundle,
     envelope: {
       ...parsed.envelope,
-      computeKeys: parsed.envelope.computeKeys.map(canonicalAtetIdentity),
-      operationFamilies: parsed.envelope.operationFamilies.map(canonicalAtetIdentity),
-      operationKinds: parsed.envelope.operationKinds.map(canonicalAtetIdentity),
+      computeKeys: parsed.envelope.computeKeys.map(canonicalSlopcameraIdentity),
+      operationFamilies: parsed.envelope.operationFamilies.map(canonicalSlopcameraIdentity),
+      operationKinds: parsed.envelope.operationKinds.map(canonicalSlopcameraIdentity),
       version: REQUIREMENT_ENVELOPE_VERSION,
     },
     graph: normalizeAuthoredWorkflowGraph(parsed.graph),
@@ -272,16 +272,16 @@ function canonicalizeAuthenticatedGraphPlan(
     registry: {
       discovery: parsed.registry.discovery.map(discovery => ({
         ...discovery,
-        inputSchemaId: canonicalAtetIdentity(discovery.inputSchemaId),
-        kind: canonicalAtetIdentity(discovery.kind),
-        outputSchemaId: canonicalAtetIdentity(discovery.outputSchemaId),
+        inputSchemaId: canonicalSlopcameraIdentity(discovery.inputSchemaId),
+        kind: canonicalSlopcameraIdentity(discovery.kind),
+        outputSchemaId: canonicalSlopcameraIdentity(discovery.outputSchemaId),
       })),
     },
     runtime: {
       ...parsed.runtime,
       applicationBuild: parsed.runtime.applicationBuild.replace(
         /^studio([/-])/u,
-        "atet$1",
+        "slopcamera$1",
       ),
       codeWorkerAbi: CODE_WORKER_ABI,
       compilerAbi: GRAPH_COMPILER_ABI,

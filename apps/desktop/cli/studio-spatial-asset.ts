@@ -28,16 +28,16 @@ export const StudioSpatialAssetSelectionSchema = z.strictObject({
 }).refine(value => value.representation !== "encoded-video" || value.frame === undefined, "Encoded videos select the complete sequence, not one frame.");
 export type StudioSpatialAssetSelection = z.infer<typeof StudioSpatialAssetSelectionSchema>;
 export const StudioSpatialAssetReceiptSchema = z.strictObject({
-  kind: z.literal("atet.studio-spatial-asset-receipt"), schemaVersion: z.literal(1),
+  kind: z.literal("slopcamera.studio-spatial-asset-receipt"), schemaVersion: z.literal(1),
   selection: StudioSpatialAssetSelectionSchema, assetId: SpatialAssetIdSchema,
   nativeReceipt: MediaArtifactReferenceSchema, planSha256: SpatialDigestSchema, bundleSha256: SpatialDigestSchema,
   nativeOutputsSha256: SpatialDigestSchema, encodeReceipt: MediaArtifactReferenceSchema.optional(),
   artifact: MediaArtifactReferenceSchema, payload: SpatialPayloadSchema, interpretation: SpatialAssetInterpretationSchema,
-  compatibility: z.enum([SPATIAL_GLB_PROFILE, "atet.spatial-png-srgb8-v1", "atet.spatial-studio-rgb-video-v1"]),
+  compatibility: z.enum([SPATIAL_GLB_PROFILE, "slopcamera.spatial-png-srgb8-v1", "slopcamera.spatial-studio-rgb-video-v1"]),
 }).superRefine((value, context) => {
-  const image = value.compatibility === "atet.spatial-png-srgb8-v1" && value.interpretation.kind === "image" && value.interpretation.mimeType === "image/png";
+  const image = value.compatibility === "slopcamera.spatial-png-srgb8-v1" && value.interpretation.kind === "image" && value.interpretation.mimeType === "image/png";
   const model = value.compatibility === SPATIAL_GLB_PROFILE && value.interpretation.kind === "gltf" && value.interpretation.format === "glb";
-  const video = value.compatibility === "atet.spatial-studio-rgb-video-v1" && value.interpretation.kind === "video";
+  const video = value.compatibility === "slopcamera.spatial-studio-rgb-video-v1" && value.interpretation.kind === "video";
   const extension = model ? "glb" : image ? "png" : video && value.interpretation.kind === "video" && value.interpretation.alpha === "straight" ? "mov" : "mp4";
   if ((!image && !model && !video) || video !== (value.selection.representation === "encoded-video") || video !== (value.encodeReceipt !== undefined)
     || value.payload.sha256 !== value.artifact.sha256 || value.payload.bytes !== value.artifact.bytes || value.payload.path !== `studio/${value.artifact.sha256}.${extension}`) {
@@ -60,7 +60,7 @@ export interface StudioSpatialAssetAdmission {
 // This is the retained encoder's closed v1 evidence shape. Admission rederives
 // source/settings identity and verifies its files; it does not bind or run tools.
 const encodeRequestSchema = z.strictObject({
-  kind: z.literal("atet.studio-encode-request"), schemaVersion: z.literal(1), planSha256: SpatialDigestSchema, nativeReceipt: MediaArtifactReferenceSchema,
+  kind: z.literal("slopcamera.studio-encode-request"), schemaVersion: z.literal(1), planSha256: SpatialDigestSchema, nativeReceipt: MediaArtifactReferenceSchema,
   jobId: z.string(), outputId: z.string(), render: StudioRenderSchema,
   frames: z.array(z.strictObject({ path: StudioPathSchema, frame: z.number().int().nonnegative(), sha256: SpatialDigestSchema, bytes: z.number().int().safe().positive() })).min(1).max(216_000),
   profile: z.enum(["rgb8-lossless-h264-v1", "rgba8-lossless-qtrle-v1"]), conversion: z.enum(["identity-uint8", "ffmpeg-no-dither-uint16-to-uint8-v1"]),
@@ -68,7 +68,7 @@ const encodeRequestSchema = z.strictObject({
   limits: z.strictObject({ timeoutMs: z.number().int().positive().max(300_000), maximumOutputBytes: z.number().int().positive().max(512 * 1024 * 1024) }),
 });
 const encodeReceiptSchema = z.strictObject({
-  kind: z.literal("atet.studio-encode-receipt"), schemaVersion: z.literal(1), requestSha256: SpatialDigestSchema, request: encodeRequestSchema,
+  kind: z.literal("slopcamera.studio-encode-receipt"), schemaVersion: z.literal(1), requestSha256: SpatialDigestSchema, request: encodeRequestSchema,
   artifact: MediaArtifactReferenceSchema, verification: z.strictObject({ frameCount: z.number().int().positive(), canonicalFrameSha256: SpatialDigestSchema,
     sourceFramehash: MediaArtifactReferenceSchema, videoFramehash: MediaArtifactReferenceSchema, probe: MediaArtifactReferenceSchema }),
 });
@@ -160,7 +160,7 @@ export async function admitStudioSpatialAsset(input: StudioSpatialAssetAdmission
         || metadata.width !== render.width || metadata.height !== render.height || metadata.width > 8192 || metadata.height > 8192 || metadata.channels !== info.channels.length || Boolean(metadata.hasAlpha) !== (info.alpha === "straight")) unsupported("PNG pixels, dimensions or color metadata differ from the supported scene interpretation.");
       await image.raw().toBuffer();
       interpretation = { kind: "image", mimeType: "image/png", width: render.width, height: render.height, colorSpace: "srgb", alpha: info.alpha === "straight" ? "straight" : "opaque" };
-      compatibility = "atet.spatial-png-srgb8-v1"; extension = "png";
+      compatibility = "slopcamera.spatial-png-srgb8-v1"; extension = "png";
     } else unsupported("Native scene admission currently supports GLB and color PNG. Use explicit studio encode before admitting a PNG sequence as video.");
   } else {
     const raster = spec.interpretation, render = plan.job.render;
@@ -199,7 +199,7 @@ export async function admitStudioSpatialAsset(input: StudioSpatialAssetAdmission
     if (hash(expected) !== encoded.requestSha256 || request.tools.length !== 2 || !request.tools.some(tool => tool.name === "ffmpeg") || !request.tools.some(tool => tool.name === "ffprobe")) conflict("Encoded video no longer matches its native sources, settings or tool evidence.");
     const directory = join(jobRoot, "derivatives", encoded.requestSha256), fs = createNodeBundleFileSystem(directory);
     const intent = { path: relative(application.paths.repositoryRoot, join(directory, "intent.json")), ...await fs.inspectFile!("intent.json", DOCUMENT_BYTES) };
-    if (studioJson(await json(intent)) !== studioJson({ kind: "atet.studio-encode-intent", schemaVersion: 1, requestSha256: encoded.requestSha256, request })) conflict("Encode receipt differs from its retained immutable intent.");
+    if (studioJson(await json(intent)) !== studioJson({ kind: "slopcamera.studio-encode-intent", schemaVersion: 1, requestSha256: encoded.requestSha256, request })) conflict("Encode receipt differs from its retained immutable intent.");
     extension = alpha ? "mov" : "mp4";
     const files = [[encoded.artifact, `video.${extension}`], [encoded.verification.sourceFramehash, "source.framehash"], [encoded.verification.videoFramehash, "video.framehash"], [encoded.verification.probe, "probe.json"]] as const;
     for (const [reference, name] of files) if (reference.path !== relative(application.paths.repositoryRoot, join(directory, name))) conflict("Encode evidence is outside its exact derivative directory.");
@@ -223,9 +223,9 @@ export async function admitStudioSpatialAsset(input: StudioSpatialAssetAdmission
       || BigInt(stream.duration_ts) * BigInt(base[1]!) * BigInt(render.frameRate.numerator) !== BigInt(frames.length) * BigInt(render.frameRate.denominator) * BigInt(base[2]!)) conflict("Encoded probe evidence differs from the source's exact video clock and pixel profile.");
     const n = BigInt(frames.length) * BigInt(render.frameRate.denominator) * 1_000_000n, d = BigInt(render.frameRate.numerator);
     interpretation = { kind: "video", width: render.width, height: render.height, colorSpace: "srgb", alpha: alpha ? "straight" : "opaque", durationUs: Number((2n * n + d) / (2n * d)), frameRate: render.frameRate };
-    compatibility = "atet.spatial-studio-rgb-video-v1";
+    compatibility = "slopcamera.spatial-studio-rgb-video-v1";
   }
-  const document = StudioSpatialAssetReceiptSchema.parse({ kind: "atet.studio-spatial-asset-receipt", schemaVersion: 1, selection, assetId,
+  const document = StudioSpatialAssetReceiptSchema.parse({ kind: "slopcamera.studio-spatial-asset-receipt", schemaVersion: 1, selection, assetId,
     nativeReceipt: native.receipt, planSha256: plan.planSha256, bundleSha256: plan.bundleSha256, nativeOutputsSha256: hash(selected),
     ...(encodeReceipt === undefined ? {} : { encodeReceipt }), artifact, payload: { path: `studio/${artifact.sha256}.${extension}`, sha256: artifact.sha256, bytes: artifact.bytes }, interpretation, compatibility });
   const verify = async () => {

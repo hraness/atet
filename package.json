@@ -1,11 +1,8 @@
 {
-  "name": "@hraness/atet",
+  "name": "@hraness/slopcamera",
   "version": "3.2.3",
-  "description": "Local-first AI media generation and video editing toolkit for coding agents, with a Bun CLI, TypeScript SDK, MCP server, and Agent Skill.",
+  "description": "A local visual studio for coding agents: author scenes, combine generated and recorded media, and export images, diagrams, animation, and video from retained sources.",
   "license": "MIT",
-  "contentPolicy": {
-    "class": "dual-use"
-  },
   "type": "module",
   "sideEffects": [
     "./src/cli.ts",
@@ -56,11 +53,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hraness/atet.git"
+    "url": "git+https://github.com/hraness/slopcamera.git"
   },
-  "homepage": "https://atet.sh/",
+  "homepage": "https://slop.camera/",
   "bugs": {
-    "url": "https://github.com/hraness/atet/issues"
+    "url": "https://github.com/hraness/slopcamera/issues"
   },
   "keywords": [
     "ai-media-generation",
@@ -138,7 +135,7 @@
     }
   },
   "bin": {
-    "atet": "./apps/desktop/dist/cli/main.js"
+    "slopcamera": "./apps/desktop/dist/cli/main.js"
   },
   "main": "./dist/index.js",
   "types": "./src/index.ts",
@@ -193,7 +190,7 @@
     "schema",
     "skills",
     "README.md",
-    "DISCLOSURE",
+    "PRIVACY.md",
     "SECURITY.md",
     "LICENSE"
   ],
@@ -201,9 +198,9 @@
     "build": "bun run build:sdk && bun run build:desktop && bun run build:web",
     "build:sdk": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./dist\", { recursive: true, force: true })' && bun build ./src/index.ts ./src/cli.ts ./src/code/index.ts ./src/code/advanced.ts ./src/generate.ts ./src/host-resources.ts ./src/operations.ts ./src/workflow.ts ./src/vectorize/worker.ts --outdir ./dist --root ./src --target bun --format esm --splitting --packages external",
     "build:desktop": "bun run build:desktop:cli && bun run build:desktop:frontend && bun run build:desktop:runtime",
-    "build:desktop:cli": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./apps/desktop/dist/cli\", { recursive: true, force: true })' && bun build --target=bun --minify --sourcemap=none --packages external --external @hraness/atet/cli apps/desktop/cli/main.ts --outdir apps/desktop/dist/cli",
+    "build:desktop:cli": "bun -e 'await (await import(\"node:fs/promises\")).rm(\"./apps/desktop/dist/cli\", { recursive: true, force: true })' && bun build --target=bun --minify --sourcemap=none --packages external --external @hraness/slopcamera/cli apps/desktop/cli/main.ts --outdir apps/desktop/dist/cli",
     "build:desktop:frontend": "vite build --config apps/desktop/frontend/vite.config.ts && bun run check:desktop:direct-boundary",
-    "build:desktop:runtime": "bun build --compile --minify --sourcemap=none apps/desktop/runtime/src/main.ts --outfile apps/desktop/runtime/dist/atet-gateway && bun run check:desktop:direct-boundary",
+    "build:desktop:runtime": "bun build --compile --minify --sourcemap=none apps/desktop/runtime/src/main.ts --outfile apps/desktop/runtime/dist/slopcamera-gateway && bun run check:desktop:direct-boundary",
     "build:web": "bun run --cwd apps/web build",
     "dev:frontend": "vite --config apps/desktop/frontend/vite.config.ts",
     "dev:direct": "vite --config apps/desktop/direct/vite.config.ts",
@@ -225,16 +222,16 @@
     "start:desktop:macos": "bun run build:desktop:capture:macos && bun run build:desktop:analysis:macos && bun run build:desktop:runtime && bun run ./apps/desktop/runtime/run-native.ts run",
     "package:desktop:macos": "bun run build:desktop:capture:macos && bun run build:desktop:analysis:macos && bun run build:desktop:frontend && bun run build:desktop:runtime && bun run ./apps/desktop/runtime/run-zig.ts build package -Dplatform=macos -Dpackage-target=macos && bun run ./apps/desktop/runtime/package-macos.ts",
     "build:cli:macos": "bun run ./apps/desktop/cli/build-compiled.ts",
-    "test:cli:compiled:macos": "bun run build:cli:macos && ATET_RUN_COMPILED_CLI_SMOKE=1 bun test ./apps/desktop/cli/compiled-portable-surface.macos.test.ts",
+    "test:cli:compiled:macos": "bun run build:cli:macos && SLOPCAMERA_RUN_COMPILED_CLI_SMOKE=1 bun test ./apps/desktop/cli/compiled-portable-surface.macos.test.ts",
     "test:html-overlay": "bun test ./apps/desktop/html-overlay ./apps/desktop/application/html-overlay-browser-runtime.test.ts ./apps/desktop/application/html-overlay-integrity.test.ts ./apps/desktop/application/operations/media/html-overlay.test.ts ./apps/desktop/cli/html-overlay-renderer.security.test.ts ./apps/desktop/cli/html-overlay-snapshot-scavenger.test.ts ./apps/desktop/cli/html-overlay-renderer.macos.test.ts",
     "qualify:spatial-scenes": "bun run ./apps/desktop/qualification/spatial-scenes.ts",
     "qualify:creative-scenes": "bun run ./apps/desktop/qualification/creative-render.ts",
     "qualify:saved-world": "bun run ./apps/desktop/qualification/world-render.ts",
     "qualify:spatial-project": "bun run ./apps/desktop/qualification/project.ts",
     "qualify:spatial-compositor": "bun run ./apps/desktop/qualification/spatial-compositor.ts",
-    "test:html-overlay:browser:macos": "ATET_RUN_HTML_OVERLAY_RENDERER_SMOKE=1 bun test ./apps/desktop/cli/html-overlay-renderer.macos.test.ts",
-    "test:html-overlay:libraries:macos": "ATET_RUN_HTML_OVERLAY_LIBRARY_SMOKE=1 bun test ./apps/desktop/cli/html-overlay-renderer.macos.test.ts",
-    "test:html-overlay:operation:macos": "ATET_RUN_HTML_OVERLAY_OPERATION_SMOKE=1 bun test ./apps/desktop/application/operations/media/html-overlay.test.ts",
+    "test:html-overlay:browser:macos": "SLOPCAMERA_RUN_HTML_OVERLAY_RENDERER_SMOKE=1 bun test ./apps/desktop/cli/html-overlay-renderer.macos.test.ts",
+    "test:html-overlay:libraries:macos": "SLOPCAMERA_RUN_HTML_OVERLAY_LIBRARY_SMOKE=1 bun test ./apps/desktop/cli/html-overlay-renderer.macos.test.ts",
+    "test:html-overlay:operation:macos": "SLOPCAMERA_RUN_HTML_OVERLAY_OPERATION_SMOKE=1 bun test ./apps/desktop/application/operations/media/html-overlay.test.ts",
     "verify:html-overlay:macos": "bun run test:html-overlay:browser:macos && bun run test:html-overlay:libraries:macos && bun run test:html-overlay:operation:macos",
     "test:capture:hardware:macos": "bun test ./apps/desktop/capture/hardware-smoke.macos.test.ts",
     "doctor:macos": "native doctor --manifest apps/desktop/app.zon --strict",

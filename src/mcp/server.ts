@@ -1,6 +1,6 @@
 import {
-  atetMcpTools,
-  AtetMcpToolRuntime,
+  slopcameraMcpTools,
+  SlopcameraMcpToolRuntime,
 } from "./tools.js"
 import type {
   JsonRpcId,
@@ -8,10 +8,10 @@ import type {
   JsonRpcResponseId,
   McpServerOptions,
 } from "./types.js"
-import { ATET_VERSION } from "../version.js"
+import { SLOPCAMERA_VERSION } from "../version.js"
 
-export const atetMcpProtocolVersion = "2025-11-25"
-export const atetMcpServerName = "hraness-atet"
+export const slopcameraMcpProtocolVersion = "2025-11-25"
+export const slopcameraMcpServerName = "hraness-slopcamera"
 
 const maximumMessageBytes = 1024 * 1024
 
@@ -100,12 +100,12 @@ function parseToolCall(
   }
 }
 
-class AtetMcpSession {
-  readonly runtime: AtetMcpToolRuntime
+class SlopcameraMcpSession {
+  readonly runtime: SlopcameraMcpToolRuntime
   readonly serverVersion: string
   state: LifecycleState = "new"
 
-  constructor(runtime: AtetMcpToolRuntime, serverVersion: string) {
+  constructor(runtime: SlopcameraMcpToolRuntime, serverVersion: string) {
     this.runtime = runtime
     this.serverVersion = serverVersion
   }
@@ -135,16 +135,16 @@ class AtetMcpSession {
       }
       this.state = "initializing"
       return success(id, {
-        protocolVersion: atetMcpProtocolVersion,
+        protocolVersion: slopcameraMcpProtocolVersion,
         capabilities: {
           tools: { listChanged: false },
         },
         serverInfo: {
-          name: atetMcpServerName,
+          name: slopcameraMcpServerName,
           version: this.serverVersion,
         },
         instructions:
-          "Use check_diagram/render_diagram or search_atet followed by execute_atet with an exact registry code and typed JSON. Local paths are root-relative; source code is never accepted or evaluated.",
+          "Use check_diagram/render_diagram or search_slopcamera followed by execute_slopcamera with an exact registry code and typed JSON. Local paths are root-relative; source code is never accepted or evaluated.",
       })
     }
 
@@ -159,12 +159,12 @@ class AtetMcpSession {
       ) {
         return failure(id, -32602, "Invalid tools/list parameters")
       }
-      return success(id, { tools: atetMcpTools })
+      return success(id, { tools: slopcameraMcpTools })
     }
     if (request.method === "tools/call") {
       try {
         const toolCall = parseToolCall(request.params)
-        if (!atetMcpTools.some((tool) => tool.name === toolCall.name)) {
+        if (!slopcameraMcpTools.some((tool) => tool.name === toolCall.name)) {
           return failure(id, -32602, "Unknown tool")
         }
         return success(
@@ -201,7 +201,7 @@ async function emitResponse(
 
 async function processLine(
   line: Uint8Array,
-  session: AtetMcpSession,
+  session: SlopcameraMcpSession,
   writeLine: (line: string) => void | Promise<void>,
 ): Promise<void> {
   if (line.byteLength === 0) return
@@ -229,13 +229,13 @@ async function processLine(
 export async function runMcpServer(
   options: McpServerOptions = {},
 ): Promise<void> {
-  const runtime = await AtetMcpToolRuntime.create(
+  const runtime = await SlopcameraMcpToolRuntime.create(
     options.rootDirectory ?? process.cwd(),
     options.generateDependencies,
   )
-  const session = new AtetMcpSession(
+  const session = new SlopcameraMcpSession(
     runtime,
-    options.serverVersion ?? ATET_VERSION,
+    options.serverVersion ?? SLOPCAMERA_VERSION,
   )
   const writeLine = options.writeLine ?? defaultWriteLine
   let buffered = Buffer.alloc(0)

@@ -64,7 +64,7 @@ export interface GatewayCatalogValidators {
 export interface GatewayMediaCatalogSnapshot {
   readonly fetchedAt: string;
   readonly kind:
-    | "atet.gateway-media-catalog"
+    | "slopcamera.gateway-media-catalog"
     | "studio.gateway-media-catalog";
   readonly models: readonly GatewayMediaModel[];
   readonly schemaVersion: 1;
@@ -370,7 +370,7 @@ export function parseGatewayMediaCatalog(
   const validators = parseValidators(timestamps.validators);
   return {
     fetchedAt,
-    kind: "atet.gateway-media-catalog",
+    kind: "slopcamera.gateway-media-catalog",
     models,
     schemaVersion: 1,
     snapshotId: snapshotDigest(models),
@@ -402,7 +402,7 @@ export function parseGatewayMediaCatalogSnapshot(
   if (
     !isRecord(value)
     || (
-      value.kind !== "atet.gateway-media-catalog"
+      value.kind !== "slopcamera.gateway-media-catalog"
       && value.kind !== "studio.gateway-media-catalog"
     )
     || value.schemaVersion !== 1
@@ -651,7 +651,7 @@ export function createGatewayMediaCatalogCache(options: Readonly<{
         );
         const snapshot: GatewayMediaCatalogSnapshot = {
           ...cached.snapshot,
-          kind: "atet.gateway-media-catalog",
+          kind: "slopcamera.gateway-media-catalog",
           validatedAt,
           ...(validators === undefined ? {} : { validators }),
         };

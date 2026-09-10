@@ -241,7 +241,7 @@ const commonSelectors = ["body", ".skip-link", ".topbar", ".wordmark", ".topbar-
   ".hraness-site-footer__links", ".hraness-site-footer__socials", ".hraness-site-footer__social-item",
   ".hraness-site-footer__social-link", ".hraness-site-footer__social-icon"]
 const homeSelectors = ["#page-title", ".hraness-marketing-hero", ".hraness-marketing-hero__summary", "#install", "#examples",
-  "#workflow", "#interfaces", "#design", "#questions", "#maker", "#closing", ".atet-ask-ai", ".atet-ask-ai *"]
+  "#workflow", "#interfaces", "#design", "#questions", "#maker", "#closing", ".slopcamera-ask-ai", ".slopcamera-ask-ai *"]
 const recoverySelectors = [".route-state", ".route-state h1", ".route-state p", ".route-state a"]
 const properties = ["display", "position", "box-sizing", "width", "height", "min-width", "max-width", "min-height", "max-height",
   "font-family", "font-size", "font-weight", "line-height", "letter-spacing", "text-align", "text-decoration-line", "text-decoration-color",
@@ -1138,7 +1138,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
     // Detailed native state comparisons at every declared breakpoint in both
     // explicit themes, plus System, forced colors, coarse pointer and reflow.
     for (const selector of ['.topbar nav[aria-label="Primary"] a', ".hraness-site-footer__social-link",
-      ...(scenario.route === "/" ? [".atet-ask-ai a"] : [".route-state a"])]) {
+      ...(scenario.route === "/" ? [".slopcamera-ask-ai a"] : [".route-state a"])]) {
       const targets = page.locator(selector)
       for (let index = 0; index < await targets.count(); index++) {
         const target = targets.nth(index)
@@ -1164,7 +1164,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
         if (!(active instanceof HTMLElement)) return null
         if (active.matches(".skip-link")) return "skip"
         const selectors = ['.topbar a', '[data-hraness-appearance-menu] button', '.hraness-site-footer__brand',
-          '.hraness-site-footer__social-link', '.atet-ask-ai a', '.route-state a']
+          '.hraness-site-footer__social-link', '.slopcamera-ask-ai a', '.route-state a']
         for (const selector of selectors) if (active.matches(selector)) return `${selector}|${[...document.querySelectorAll(selector)].indexOf(active)}`
         return null
       })
@@ -1188,7 +1188,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       "Appearance keyboard coverage incomplete")
     assert.equal(focus.filter(item => item.key.startsWith(".hraness-site-footer__brand[")).length, 1)
     assert.equal(focus.filter(item => item.key.startsWith(".hraness-site-footer__social-link[")).length, 5, "Footer keyboard coverage incomplete")
-    if (scenario.route === "/") assert.equal(focus.filter(item => item.key.startsWith(".atet-ask-ai a[")).length, 4)
+    if (scenario.route === "/") assert.equal(focus.filter(item => item.key.startsWith(".slopcamera-ask-ai a[")).length, 4)
     else assert.equal(focus.filter(item => item.key.startsWith(".route-state a[")).length, 5)
     await page.goto(`${payload.origin}${scenario.route}`, { waitUntil: "load" }); await settleCase()
     if (negative) {

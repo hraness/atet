@@ -24,7 +24,7 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
 
 test("HTML-browser discovery advertises only provenance-verifiable Chrome app candidates", () => {
   const candidates = capabilityCandidates("/desktop", {
-    ATET_HTML_BROWSER: "/Custom/Google Chrome.app/Contents/MacOS/Google Chrome",
+    SLOPCAMERA_HTML_BROWSER: "/Custom/Google Chrome.app/Contents/MacOS/Google Chrome",
   }).find(candidate => candidate.name === "html-browser")?.candidates;
   expect(candidates).toEqual([
     "/Custom/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -125,7 +125,7 @@ test("a targeted capability probe owns its caller's cancellation", async () => {
 });
 
 test("doctor remains the explicit exhaustive capability discovery boundary", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-doctor-capabilities-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-doctor-capabilities-"));
   const browser = join(
     root,
     "Fixture Google Chrome.app",
@@ -151,7 +151,7 @@ test("doctor remains the explicit exhaustive capability discovery boundary", asy
     let stdout = "";
     const io: CliIo = {
       cwd: () => root,
-      env: { ATET_HTML_BROWSER: browser },
+      env: { SLOPCAMERA_HTML_BROWSER: browser },
       now: () => new Date("2026-07-29T00:00:00.000Z"),
       platform: "linux",
       stderr: value => { stderr += value; },

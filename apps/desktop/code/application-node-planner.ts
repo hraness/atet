@@ -7,9 +7,9 @@ import { SpatialProjectBasisSchema } from "../contracts/spatial-project";
 import { SpatialProjectSnapshotOutputSchema, SpatialProjectMutationOutputSchema } from "../application/operations/spatial-project";
 import { bindProjectRenderInputV4, reconcileProjectRenderV4, reconcileProjectRenderEffect, type ProjectRenderReconciliation } from "../application/operations/render/project";
 import {
-  bindAtetPortableOperationInputV2,
-  atetPortableOutputPublicationParent,
-} from "../application/operations/atet-portable";
+  bindSlopcameraPortableOperationInputV2,
+  slopcameraPortableOutputPublicationParent,
+} from "../application/operations/slopcamera-portable";
 import {
   CreativeBaseV1Schema,
   createCreativeBaseV1,
@@ -34,7 +34,7 @@ import {
 } from "../application/project-store";
 import {
   bindMediaOperationInput,
-  bindAtetVisualOperationInput,
+  bindSlopcameraVisualOperationInput,
   bindAnalysisCapabilityInput,
   bindCreateCreativeCandidateInput,
   bindCreateCandidateRevisionInput,
@@ -185,7 +185,7 @@ async function exactOperationInput(
   request: NodeExecutionPlanningRequest,
 ): Promise<JsonValue> {
   let deterministic = deterministicAnalysisInput(request);
-  if (request.operation.kind === "atet.studio.run") return JsonValueSchema.parse(await bindStudioRunInput(request.application ?? application, deterministic, request.abortSignal, request.beforePublication));
+  if (request.operation.kind === "slopcamera.studio.run") return JsonValueSchema.parse(await bindStudioRunInput(request.application ?? application, deterministic, request.abortSignal, request.beforePublication));
   if (request.operation.kind === "scene.render") return JsonValueSchema.parse(await bindSpatialRenderInput(application, deterministic));
   if (request.operation.kind === "spatial.project.snapshot") {
     const project = projectReference(deterministic);
@@ -322,13 +322,13 @@ async function exactOperationInput(
   if (
     request.operation.version === 1
     && (
-      request.operation.kind === "atet.diagram.check"
-      || request.operation.kind === "atet.diagram.render"
-      || request.operation.kind === "atet.image.vectorize"
+      request.operation.kind === "slopcamera.diagram.check"
+      || request.operation.kind === "slopcamera.diagram.render"
+      || request.operation.kind === "slopcamera.image.vectorize"
     )
   ) {
     return JsonValueSchema.parse(
-      await bindAtetVisualOperationInput(
+      await bindSlopcameraVisualOperationInput(
         application,
         request.operation.kind,
         deterministic,
@@ -338,14 +338,14 @@ async function exactOperationInput(
   if (
     request.operation.version === 2
     && (
-      request.operation.kind === "atet.diagram.check"
-      || request.operation.kind === "atet.diagram.render"
-      || request.operation.kind === "atet.image.generate"
-      || request.operation.kind === "atet.image.vectorize"
+      request.operation.kind === "slopcamera.diagram.check"
+      || request.operation.kind === "slopcamera.diagram.render"
+      || request.operation.kind === "slopcamera.image.generate"
+      || request.operation.kind === "slopcamera.image.vectorize"
     )
   ) {
     return JsonValueSchema.parse(
-      await bindAtetPortableOperationInputV2(
+      await bindSlopcameraPortableOperationInputV2(
         application,
         request.operation.kind,
         deterministic,
@@ -413,22 +413,22 @@ function publicationKeys(
   input: JsonValue,
   project: string | undefined,
 ): readonly string[] {
-  if (request.operation.kind === "atet.studio.run" && jsonObject(input) && input.job !== undefined && jsonObject(input.job) && typeof input.job.jobId === "string") {
+  if (request.operation.kind === "slopcamera.studio.run" && jsonObject(input) && input.job !== undefined && jsonObject(input.job) && typeof input.job.jobId === "string") {
     return [`output:studio:${input.job.jobId}`];
   }
   if (request.operation.version === 2 && jsonObject(input)) {
     if (
-      request.operation.kind === "atet.diagram.render"
-      || request.operation.kind === "atet.image.generate"
-      || request.operation.kind === "atet.image.vectorize"
+      request.operation.kind === "slopcamera.diagram.render"
+      || request.operation.kind === "slopcamera.image.generate"
+      || request.operation.kind === "slopcamera.image.vectorize"
     ) {
-      const publicationParent = atetPortableOutputPublicationParent(
+      const publicationParent = slopcameraPortableOutputPublicationParent(
         request.operation.kind,
         input,
       );
       if (publicationParent === undefined) return [];
       return [
-        `output:atet:${sha256Hex(
+        `output:slopcamera:${sha256Hex(
           `studio.workflow.output-publication/v1\0${publicationParent}`,
         )}`,
       ];
@@ -1014,7 +1014,7 @@ async function reconcileGatewayNode(
       return {
         kind: "ambiguous",
         message:
-          "The durable Gateway journal records paid dispatch without a completed authoritative receipt; Atet will not resubmit it.",
+          "The durable Gateway journal records paid dispatch without a completed authoritative receipt; Slopcamera will not resubmit it.",
       };
     case "failed":
       return {

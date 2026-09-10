@@ -42,7 +42,7 @@ export const RECORDING_MANIFEST_PATH = "manifest.json";
 export const VIDEO_PROJECT_PATH = "project.json";
 export const CURRENT_PROJECT_EDIT_PLAN_PATH = "edits/current.json";
 const MAXIMUM_STRUCTURED_FILE_BYTES = 256 * 1024 * 1024;
-const IMMUTABLE_COPY_TEMP_PREFIX = ".atet-copy-";
+const IMMUTABLE_COPY_TEMP_PREFIX = ".slopcamera-copy-";
 
 export interface BundleFileSystem {
   /**
@@ -86,7 +86,7 @@ export interface BundleFileIntegrity {
   readonly sha256: string;
 }
 
-export type AtetPersistenceDocument =
+export type SlopcameraPersistenceDocument =
   | AnalysisArtifact
   | EditPlanV1
   | ProjectEditPlanV1
@@ -95,19 +95,19 @@ export type AtetPersistenceDocument =
 
 /**
  * Project a parsed mutable persistence document to the exact identity that a
- * current Atet writer will put on disk. Callers that authenticate immutable
+ * current Slopcamera writer will put on disk. Callers that authenticate immutable
  * predecessor bytes must do that before invoking this projection.
  */
-export function canonicalAtetPersistenceDocument<
-  Value extends AtetPersistenceDocument,
+export function canonicalSlopcameraPersistenceDocument<
+  Value extends SlopcameraPersistenceDocument,
 >(value: Value): Value {
-  const kind = value.kind.replace(/^studio\./u, "atet.");
+  const kind = value.kind.replace(/^studio\./u, "slopcamera.");
   if ("tool" in value && value.kind.endsWith(".recording-bundle")) {
-    if (kind === value.kind && value.tool.name === "atet") return value;
+    if (kind === value.kind && value.tool.name === "slopcamera") return value;
     return {
       ...value,
       kind,
-      tool: { ...value.tool, name: "atet" },
+      tool: { ...value.tool, name: "slopcamera" },
     } as Value;
   }
   return kind === value.kind ? value : { ...value, kind } as Value;
@@ -164,7 +164,7 @@ export async function saveRecordingManifest(
   path = RECORDING_MANIFEST_PATH,
 ): Promise<void> {
   RepositoryRelativePathSchema.parse(path);
-  const parsed = RecordingManifestV1Schema.parse(canonicalAtetPersistenceDocument(
+  const parsed = RecordingManifestV1Schema.parse(canonicalSlopcameraPersistenceDocument(
     RecordingManifestV1Schema.parse(manifest),
   ));
   await fileSystem.writeTextAtomic(path, `${canonicalJson(parsed)}\n`);
@@ -182,7 +182,7 @@ export async function saveEditPlan(
   path = editPlanPath(plan.planId),
 ): Promise<void> {
   RepositoryRelativePathSchema.parse(path);
-  const parsed = EditPlanV1Schema.parse(canonicalAtetPersistenceDocument(
+  const parsed = EditPlanV1Schema.parse(canonicalSlopcameraPersistenceDocument(
     EditPlanV1Schema.parse(plan),
   ));
   await fileSystem.writeTextAtomic(path, `${canonicalJson(parsed)}\n`);
@@ -203,7 +203,7 @@ export async function saveVideoProject(
   path = VIDEO_PROJECT_PATH,
 ): Promise<void> {
   RepositoryRelativePathSchema.parse(path);
-  const parsed = VideoProjectV1Schema.parse(canonicalAtetPersistenceDocument(
+  const parsed = VideoProjectV1Schema.parse(canonicalSlopcameraPersistenceDocument(
     VideoProjectV1Schema.parse(project),
   ));
   await fileSystem.writeTextAtomic(path, `${canonicalJson(parsed)}\n`);
@@ -224,7 +224,7 @@ export async function saveProjectEditPlan(
   path = CURRENT_PROJECT_EDIT_PLAN_PATH,
 ): Promise<void> {
   RepositoryRelativePathSchema.parse(path);
-  const parsed = ProjectEditPlanV1Schema.parse(canonicalAtetPersistenceDocument(
+  const parsed = ProjectEditPlanV1Schema.parse(canonicalSlopcameraPersistenceDocument(
     ProjectEditPlanV1Schema.parse(plan),
   ));
   await fileSystem.writeTextAtomic(path, `${canonicalJson(parsed)}\n`);
@@ -312,7 +312,7 @@ export async function saveAnalysisArtifact(
   }
   await fileSystem.writeTextAtomic(
     path,
-    `${canonicalJson(canonicalAtetPersistenceDocument(parsed.data))}\n`,
+    `${canonicalJson(canonicalSlopcameraPersistenceDocument(parsed.data))}\n`,
   );
 }
 

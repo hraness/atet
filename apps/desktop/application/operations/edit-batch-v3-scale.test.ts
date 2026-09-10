@@ -77,7 +77,7 @@ function maximumSyncRecordingProject(
 test("host-binds the maximum cached zoom batch and commits a coalesced sample", async () => {
   const repositoryRoot = await mkdtemp(join(
     tmpdir(),
-    "atet-edit-batch-v3-scale-",
+    "slopcamera-edit-batch-v3-scale-",
   ));
   try {
     const fixture = await createOperationRecordingProjectFixture(

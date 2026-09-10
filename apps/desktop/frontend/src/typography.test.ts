@@ -38,7 +38,7 @@ describe("desktop typography", () => {
   });
 
   test("emits the canonical WOFF2 payload from the production Vite path", async () => {
-    const temporaryRoot = await mkdtemp(join(tmpdir(), "atet-desktop-fonts-"));
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "slopcamera-desktop-fonts-"));
     try {
       await build({
         build: { emptyOutDir: true, outDir: temporaryRoot },

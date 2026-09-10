@@ -1,4 +1,5 @@
 node_modules/
+/apps/desktop/dist/slopcamera
 /apps/desktop/dist/atet
 /artifacts/
 .env

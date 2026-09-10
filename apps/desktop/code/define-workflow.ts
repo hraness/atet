@@ -3,7 +3,7 @@ import {
   defineCompute,
   seconds,
   type DefineComputeOptions,
-} from "@hraness/atet/code/advanced";
+} from "@hraness/slopcamera/code/advanced";
 
 import { ApplicationError } from "../application/errors";
 import {

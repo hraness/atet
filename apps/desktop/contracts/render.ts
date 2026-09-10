@@ -54,7 +54,7 @@ export const AnalyzerEvidenceV1Schema = z.strictObject({
     trackId: TrackIdSchema,
   })).min(1),
   kind: z.union([
-    z.literal("atet.analyzer-evidence"),
+    z.literal("slopcamera.analyzer-evidence"),
     z.literal("studio.analyzer-evidence"),
   ]),
   schemaVersion: z.literal(1),
@@ -227,7 +227,7 @@ export const RenderPlanV1Schema = z.strictObject({
   cameraKeyframes: z.array(CameraKeyframeSchema),
   effects: RenderEffectsSchema,
   kind: z.union([
-    z.literal("atet.render-plan"),
+    z.literal("slopcamera.render-plan"),
     z.literal("studio.render-plan"),
   ]),
   composition: z.strictObject({
@@ -285,7 +285,7 @@ export const RecordingRenderReceiptV1Schema = z.strictObject({
     trackId: TrackIdSchema,
   }),
   kind: z.union([
-    z.literal("atet.recording-render-receipt"),
+    z.literal("slopcamera.recording-render-receipt"),
     z.literal("studio.recording-render-receipt"),
   ]),
   output: z.strictObject({

@@ -27,16 +27,16 @@ import {
   type WorkflowDefinition,
 } from "./define-workflow.js"
 import {
-  AtetCodeError,
-  atetCodeErrorMessage,
-  type AtetCodeErrorCode,
+  SlopcameraCodeError,
+  slopcameraCodeErrorMessage,
+  type SlopcameraCodeErrorCode,
 } from "./errors.js"
 import {
-  PORTABLE_ATET_OPERATION_CONTRACTS,
-  isPortableAtetOperationKind,
-  type PortableAtetOperationInputMap,
-  type PortableAtetOperationKind,
-  type PortableAtetOperationResultMap,
+  PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS,
+  isPortableSlopcameraOperationKind,
+  type PortableSlopcameraOperationInputMap,
+  type PortableSlopcameraOperationKind,
+  type PortableSlopcameraOperationResultMap,
 } from "./public-operations.js"
 import { PUBLIC_WORKFLOW_REGISTRY_PROJECTION } from "./projection.js"
 import {
@@ -46,74 +46,74 @@ import {
 } from "./json-snapshot.js"
 
 export const WORKFLOW_NODE_RECEIPT_VERSION =
-  "atet-workflow-node-receipt-v1" as const
+  "slopcamera-workflow-node-receipt-v1" as const
 export const WORKFLOW_NODE_RECEIPT_HASH_DOMAIN =
-  "atet.workflow.node-receipt/v1" as const
+  "slopcamera.workflow.node-receipt/v1" as const
 export const MAX_WORKFLOW_RESULT_BYTES = 96 * 1024 * 1024
 // Output bindings and one resolved node output compose at this boundary.
 export const MAX_WORKFLOW_RESULT_DEPTH = 320
 export const MAX_WORKFLOW_RESULT_VALUES = 1_300_000
 
-export interface AtetCodeExecutionRequest<
-  Kind extends PortableAtetOperationKind = PortableAtetOperationKind,
+export interface SlopcameraCodeExecutionRequest<
+  Kind extends PortableSlopcameraOperationKind = PortableSlopcameraOperationKind,
 > {
-  readonly input: PortableAtetOperationInputMap[Kind]
+  readonly input: PortableSlopcameraOperationInputMap[Kind]
   readonly kind: Kind
   readonly nodeKey: string
   readonly version: 2
 }
 
-export interface AtetCodeExecutionContext {
+export interface SlopcameraCodeExecutionContext {
   readonly signal: AbortSignal
 }
 
-export type AtetCodeExecutor = <Kind extends PortableAtetOperationKind>(
-  request: AtetCodeExecutionRequest<Kind>,
-  context: AtetCodeExecutionContext,
-) => Promise<PortableAtetOperationResultMap[Kind]>
+export type SlopcameraCodeExecutor = <Kind extends PortableSlopcameraOperationKind>(
+  request: SlopcameraCodeExecutionRequest<Kind>,
+  context: SlopcameraCodeExecutionContext,
+) => Promise<PortableSlopcameraOperationResultMap[Kind]>
 
-export interface AtetCodeAdmissionRequest {
-  readonly kind: PortableAtetOperationKind
+export interface SlopcameraCodeAdmissionRequest {
+  readonly kind: PortableSlopcameraOperationKind
   readonly nodeKey: string
   readonly policy: OperationPolicy
   readonly version: 2
 }
 
-export type AtetCodeAdmission = <Result>(
-  request: AtetCodeAdmissionRequest,
+export type SlopcameraCodeAdmission = <Result>(
+  request: SlopcameraCodeAdmissionRequest,
   execute: () => Promise<Result>,
-  context: AtetCodeExecutionContext,
+  context: SlopcameraCodeExecutionContext,
 ) => Promise<Result>
 
-export interface AtetCodeHost {
-  readonly admit?: AtetCodeAdmission
-  readonly execute: AtetCodeExecutor
+export interface SlopcameraCodeHost {
+  readonly admit?: SlopcameraCodeAdmission
+  readonly execute: SlopcameraCodeExecutor
 }
 
-export interface CreateAtetCodeHostOptions {
-  readonly admit?: AtetCodeAdmission
-  readonly execute: AtetCodeExecutor
+export interface CreateSlopcameraCodeHostOptions {
+  readonly admit?: SlopcameraCodeAdmission
+  readonly execute: SlopcameraCodeExecutor
 }
 
-export function createAtetCodeHost(
-  options: CreateAtetCodeHostOptions,
-): AtetCodeHost {
+export function createSlopcameraCodeHost(
+  options: CreateSlopcameraCodeHostOptions,
+): SlopcameraCodeHost {
   if (typeof options !== "object" || options === null) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
-      "An Atet Code host must be an object.",
+      "An Slopcamera Code host must be an object.",
     )
   }
   if (typeof options.execute !== "function") {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
-      "An Atet Code host requires an execute function.",
+      "An Slopcamera Code host requires an execute function.",
     )
   }
   if (options.admit !== undefined && typeof options.admit !== "function") {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "invalid-data",
-      "An Atet Code host admit value must be a function when provided.",
+      "An Slopcamera Code host admit value must be a function when provided.",
     )
   }
   return Object.freeze({
@@ -125,7 +125,7 @@ export function createAtetCodeHost(
 export interface WorkflowNodeReceipt {
   readonly index: number
   readonly inputSha256: string
-  readonly kind: PortableAtetOperationKind
+  readonly kind: PortableSlopcameraOperationKind
   readonly nodeKey: string
   readonly outputSha256: string
   readonly receiptSha256: string
@@ -134,18 +134,18 @@ export interface WorkflowNodeReceipt {
 }
 
 export interface FailedWorkflowNode {
-  readonly kind: PortableAtetOperationKind
+  readonly kind: PortableSlopcameraOperationKind
   readonly nodeKey: string
   readonly version: 2
 }
 
-export class AtetWorkflowRunError extends AtetCodeError {
+export class SlopcameraWorkflowRunError extends SlopcameraCodeError {
   readonly completedReceipts: readonly WorkflowNodeReceipt[]
   readonly failedNode: FailedWorkflowNode | undefined
   readonly runCause: unknown
 
   constructor(
-    code: AtetCodeErrorCode,
+    code: SlopcameraCodeErrorCode,
     message: string,
     options: {
       readonly cause: unknown
@@ -161,7 +161,7 @@ export class AtetWorkflowRunError extends AtetCodeError {
       completedReceiptCount: completedReceipts.length,
       ...(failedNode === undefined ? {} : { failedNode }),
     })
-    this.name = "AtetWorkflowRunError"
+    this.name = "SlopcameraWorkflowRunError"
     this.completedReceipts = completedReceipts
     this.failedNode = failedNode
     this.runCause = options.cause
@@ -184,7 +184,7 @@ export interface WorkflowRunResult<Output = JsonValue> {
 }
 
 export interface RunBuiltWorkflowOptions {
-  readonly host: AtetCodeHost
+  readonly host: SlopcameraCodeHost
   readonly limits?: Partial<GraphCompilerLimits>
   readonly signal?: AbortSignal
 }
@@ -202,7 +202,7 @@ function projectedValue(
 ): JsonValue {
   let current = values.get(reference.$ref.nodeKey)
   if (current === undefined) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "internal",
       `Workflow reference producer ${reference.$ref.nodeKey} has not completed.`,
       { nodeKey: reference.$ref.nodeKey },
@@ -211,7 +211,7 @@ function projectedValue(
   for (const segment of reference.$ref.path ?? []) {
     if (typeof segment === "number") {
       if (!Array.isArray(current) || segment >= current.length) {
-        throw new AtetCodeError(
+        throw new SlopcameraCodeError(
           "invalid-data",
           `Workflow reference ${reference.$ref.nodeKey} has an invalid array projection.`,
           { nodeKey: reference.$ref.nodeKey, segment },
@@ -226,7 +226,7 @@ function projectedValue(
         || Array.isArray(current)
         || !Object.hasOwn(current, segment)
       ) {
-        throw new AtetCodeError(
+        throw new SlopcameraCodeError(
           "invalid-data",
           `Workflow reference ${reference.$ref.nodeKey} has an invalid object projection.`,
           { nodeKey: reference.$ref.nodeKey, segment },
@@ -235,7 +235,7 @@ function projectedValue(
       current = (current as Readonly<Record<string, JsonValue>>)[segment]
     }
     if (current === undefined) {
-      throw new AtetCodeError(
+      throw new SlopcameraCodeError(
         "invalid-data",
         `Workflow reference ${reference.$ref.nodeKey} projected an undefined value.`,
         { nodeKey: reference.$ref.nodeKey, segment },
@@ -260,7 +260,7 @@ function resolveValue(
     for (const key of Object.keys(record).sort()) {
       const item = record[key]
       if (item === undefined) {
-        throw new AtetCodeError(
+        throw new SlopcameraCodeError(
           "internal",
           `Compiled workflow value ${key} is undefined.`,
         )
@@ -275,7 +275,7 @@ function resolveValue(
 function createNodeReceipt(
   index: number,
   nodeKey: string,
-  kind: PortableAtetOperationKind,
+  kind: PortableSlopcameraOperationKind,
   inputSha256: string,
   outputSha256: string,
 ): WorkflowNodeReceipt {
@@ -303,13 +303,13 @@ function publicOperationNode(
   readonly executor: {
     readonly kind: "operation"
     readonly operation: {
-      readonly kind: PortableAtetOperationKind
+      readonly kind: PortableSlopcameraOperationKind
       readonly version: 2
     }
   }
 } {
   if (isComputeGraphNode(node)) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "unsupported-plan",
       `The public projection does not support trusted compute at node ${node.key}.`,
       {
@@ -320,7 +320,7 @@ function publicOperationNode(
     )
   }
   if (!isOperationGraphNode(node)) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "unsupported-plan",
       `The public projection does not support the executor at node ${node.key}.`,
       { nodeKey: node.key, projectionId: PUBLIC_WORKFLOW_REGISTRY_PROJECTION.id },
@@ -329,9 +329,9 @@ function publicOperationNode(
   const operation = node.executor.operation
   if (
     operation.version !== 2
-    || !isPortableAtetOperationKind(operation.kind)
+    || !isPortableSlopcameraOperationKind(operation.kind)
   ) {
-    throw new AtetCodeError(
+    throw new SlopcameraCodeError(
       "unsupported-plan",
       `Unsupported operation: ${operation.kind}@${String(operation.version)}`,
       {
@@ -346,7 +346,7 @@ function publicOperationNode(
 
 function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) {
-    throw new AtetCodeError("cancelled", "Workflow execution was cancelled.")
+    throw new SlopcameraCodeError("cancelled", "Workflow execution was cancelled.")
   }
 }
 
@@ -356,18 +356,18 @@ function workflowNodeFailure(
     readonly executor: {
       readonly kind: "operation"
       readonly operation: {
-        readonly kind: PortableAtetOperationKind
+        readonly kind: PortableSlopcameraOperationKind
         readonly version: 2
       }
     }
   },
   completedReceipts: readonly WorkflowNodeReceipt[],
-): AtetWorkflowRunError {
-  const code = error instanceof AtetCodeError ? error.code : "subprocess"
-  return new AtetWorkflowRunError(
+): SlopcameraWorkflowRunError {
+  const code = error instanceof SlopcameraCodeError ? error.code : "subprocess"
+  return new SlopcameraWorkflowRunError(
     code,
     `Workflow node ${node.key} (${node.executor.operation.kind}@2) failed: `
-      + atetCodeErrorMessage(error),
+      + slopcameraCodeErrorMessage(error),
     {
       cause: error,
       completedReceipts,
@@ -384,33 +384,33 @@ function workflowRunFailure(
   error: unknown,
   message: string,
   completedReceipts: readonly WorkflowNodeReceipt[],
-): AtetWorkflowRunError {
-  const code = error instanceof AtetCodeError ? error.code : "internal"
-  return new AtetWorkflowRunError(code, message, {
+): SlopcameraWorkflowRunError {
+  const code = error instanceof SlopcameraCodeError ? error.code : "internal"
+  return new SlopcameraWorkflowRunError(code, message, {
     cause: error,
     completedReceipts,
   })
 }
 
 async function executePublicNode(
-  host: AtetCodeHost,
+  host: SlopcameraCodeHost,
   node: AuthoredGraphNodeV1 & {
     readonly executor: {
       readonly kind: "operation"
       readonly operation: {
-        readonly kind: PortableAtetOperationKind
+        readonly kind: PortableSlopcameraOperationKind
         readonly version: 2
       }
     }
   },
   values: ReadonlyMap<string, JsonValue>,
-  context: AtetCodeExecutionContext,
+  context: SlopcameraCodeExecutionContext,
 ): Promise<{
   readonly input: BoundedJsonSnapshot
   readonly output: BoundedJsonSnapshot
 }> {
   const { kind } = node.executor.operation
-  const contract = PORTABLE_ATET_OPERATION_CONTRACTS[kind]
+  const contract = PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS[kind]
   const resolvedInput = resolveValue(node.input, values)
   const rawInput = createBoundedJsonValueSnapshot(
     resolvedInput,
@@ -421,14 +421,14 @@ async function executePublicNode(
     contract.inputSchema as z.ZodType<unknown>,
     rawInput.value,
     `${kind} input at node ${node.key}`,
-  ) as PortableAtetOperationInputMap[typeof kind]
+  ) as PortableSlopcameraOperationInputMap[typeof kind]
   const boundedInput = createBoundedJsonSnapshot(
     parsedInput,
     contract.policy.maxInputBytes,
     `${kind} input at node ${node.key}`,
   )
-  const request: AtetCodeExecutionRequest<typeof kind> = Object.freeze({
-    input: boundedInput.value as unknown as PortableAtetOperationInputMap[
+  const request: SlopcameraCodeExecutionRequest<typeof kind> = Object.freeze({
+    input: boundedInput.value as unknown as PortableSlopcameraOperationInputMap[
       typeof kind
     ],
     kind,
@@ -480,7 +480,7 @@ export async function runBuiltWorkflow<
     projection: PUBLIC_WORKFLOW_REGISTRY_PROJECTION,
   })
   for (const node of compilation.graph.nodes) publicOperationNode(node)
-  const host = createAtetCodeHost(options.host)
+  const host = createSlopcameraCodeHost(options.host)
   const context = Object.freeze({
     signal: options.signal ?? new AbortController().signal,
   })
@@ -493,7 +493,7 @@ export async function runBuiltWorkflow<
     const outcomes = await Promise.all(wave.map(async (nodeKey) => {
       const node = nodes.get(nodeKey)
       if (node === undefined) {
-        throw new AtetCodeError(
+        throw new SlopcameraCodeError(
           "internal",
           `Compiled workflow topology lost node ${nodeKey}.`,
           { nodeKey },
@@ -532,7 +532,7 @@ export async function runBuiltWorkflow<
       throw workflowNodeFailure(failure.error, failure.node, receipts)
     }
     if (context.signal.aborted) {
-      const cause = new AtetCodeError(
+      const cause = new SlopcameraCodeError(
         "cancelled",
         "Workflow execution was cancelled.",
       )
@@ -557,7 +557,7 @@ export async function runBuiltWorkflow<
   } catch (error) {
     throw workflowRunFailure(
       error,
-      `Workflow output resolution failed: ${atetCodeErrorMessage(error)}`,
+      `Workflow output resolution failed: ${slopcameraCodeErrorMessage(error)}`,
       receipts,
     )
   }

@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   parseSpatialScene, parseSpatialValue, SpatialAssetIdSchema, SpatialAssetManifestSchema, SpatialCameraSchema, SpatialPayloadSchema,
   type SpatialSceneV1,
-} from "@hraness/atet/code";
+} from "@hraness/slopcamera/code";
 
 /** Retained manifests and explicit host bindings; importing this authoring example is inert. */
 const boundAssetSchema = z.strictObject({
@@ -90,7 +90,7 @@ export function createHybridWorldScene(input: unknown): {
     { channelId: "channel_reveal_position", targetId: camera.cameraId, property: "position", interpolation: "linear", keys: times.map((timeUs,i) => ({ timeUs,value: poses[i]!.position })) },
     { channelId: "channel_reveal_rotation", targetId: camera.cameraId, property: "rotation", interpolation: "slerp", keys: times.map((timeUs,i) => ({ timeUs,value: poses[i]!.rotation })) },
   ];
-  const scene = parseSpatialScene({ kind: "atet.spatial-scene", schemaVersion: 1, sceneId: "scene_hybrid_world_explainer", coordinates: "right-handed-y-up-meters",
+  const scene = parseSpatialScene({ kind: "slopcamera.spatial-scene", schemaVersion: 1, sceneId: "scene_hybrid_world_explainer", coordinates: "right-handed-y-up-meters",
     durationUs: value.durationUs, cameras: [camera], assets: assets.map(item => item.asset), entities, animations, generators: [], overrides: [] });
   return { scene, bindings: assets.map(item => item.binding) };
 }

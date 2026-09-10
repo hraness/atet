@@ -32,7 +32,7 @@ const colorSchema = z.strictObject({
 });
 type ColorInterpretation = z.infer<typeof colorSchema>;
 const endpointReceiptSchema = z.strictObject({
-  kind: z.literal("atet.directing-endpoint"), schemaVersion: z.literal(1), requestSha256: Sha256Schema,
+  kind: z.literal("slopcamera.directing-endpoint"), schemaVersion: z.literal(1), requestSha256: Sha256Schema,
   position: z.enum(["first", "last"]), endpoint: endpointSchema,
   color: colorSchema,
   ffmpegVersion: z.string().min(1).max(512), ffprobeVersion: z.string().min(1).max(512),
@@ -62,14 +62,14 @@ const assemblyTimingSchema = z.strictObject({
   audio: z.array(z.strictObject({ streamIndex: z.number().int().nonnegative(), sourceAssetRange: timingRangeSchema, selectedAssetRange: timingRangeSchema.nullable(), trimmedBeforeUs: z.number().int().nonnegative(), trimmedAfterUs: z.number().int().nonnegative() })).max(7),
 });
 const assemblyIntentSchema = z.strictObject({
-  kind: z.literal("atet.directing-assembly-intent"), schemaVersion: z.literal(2), requestSha256: Sha256Schema,
+  kind: z.literal("slopcamera.directing-assembly-intent"), schemaVersion: z.literal(2), requestSha256: Sha256Schema,
   input: assemblyInputSchema, project: VideoProjectV1Schema, plan: ProjectEditPlanV1Schema,
   colors: z.array(z.strictObject({ shotId: z.string(), sourceSha256: Sha256Schema, interpretation: colorSchema })).min(1).max(128),
   normalizations: z.array(artifactSchema).max(128),
   timingPolicy: z.literal(ASSEMBLY_TIMING_POLICY), timing: z.array(assemblyTimingSchema).min(1).max(128),
 });
 const normalizationSchema = z.strictObject({
-  kind: z.literal("atet.directing-rgb-normalization"), schemaVersion: z.literal(1), requestSha256: Sha256Schema,
+  kind: z.literal("slopcamera.directing-rgb-normalization"), schemaVersion: z.literal(1), requestSha256: Sha256Schema,
   input: GatewayMediaSourceReferenceSchema, output: GatewayMediaSourceReferenceSchema, color: colorSchema,
   codec: z.literal("libx264rgb-lossless-v1"), ffmpegVersion: z.string(), frameCount: z.number().int().positive().max(LIMITS.frames),
 });
@@ -322,7 +322,7 @@ function assertNormalizedClock(original: ProbedVideo, normalized: ProbedVideo): 
 async function normalizeForAssembly(application: ApplicationContext, source: GatewayMediaSourceReference, original: ProbedVideo, signal: AbortSignal, requireRetainedReceipt = false): Promise<{ source: GatewayMediaSourceReference; probe: ProbedVideo; receipt?: z.infer<typeof artifactSchema> }> {
   if (original.color.policy === "rgb-srgb-v1") return { source, probe: original };
   const root = await mediaRoot(application), ffmpeg = await capability(application, "ffmpeg"), ffprobe = await capability(application, "ffprobe");
-  const requestSha256 = sha256Hex(canonicalJson({ kind: "atet.directing-rgb-normalization", schemaVersion: 1, source, color: original.color, ffmpegVersion: ffmpeg.version, codec: "libx264rgb-lossless-v1" }));
+  const requestSha256 = sha256Hex(canonicalJson({ kind: "slopcamera.directing-rgb-normalization", schemaVersion: 1, source, color: original.color, ffmpegVersion: ffmpeg.version, codec: "libx264rgb-lossless-v1" }));
   const receiptPath = join(root, `rgb-${requestSha256}.json`);
   return await withMutationLock(await directory(application, repoPath(application, join(root, `rgb-${requestSha256}`))), { command: "directing RGB normalization", label: "Directing RGB normalization" }, async lease => {
     const previous = await maybeJson(receiptPath);
@@ -350,7 +350,7 @@ async function normalizeForAssembly(application: ApplicationContext, source: Gat
       const probe = await probeVideo(application, output, ffprobe.command, signal);
       assertNormalizedClock(original, probe);
       const measured = GatewayMediaSourceReferenceSchema.parse({ ...output, facts: { durationSeconds: probe.media.durationUs / 1_000_000, width: probe.stream.width, height: probe.stream.height } });
-      const receipt = await publishJson(application, receiptPath, normalizationSchema.parse({ kind: "atet.directing-rgb-normalization", schemaVersion: 1, requestSha256, input: source, output: measured, color: original.color,
+      const receipt = await publishJson(application, receiptPath, normalizationSchema.parse({ kind: "slopcamera.directing-rgb-normalization", schemaVersion: 1, requestSha256, input: source, output: measured, color: original.color,
         codec: "libx264rgb-lossless-v1", ffmpegVersion: ffmpeg.version, frameCount: probe.frames.length }), signal, lease.assertOwned);
       return { source: measured, probe, receipt };
     });
@@ -362,7 +362,7 @@ export async function extractDirectingEndpoint(application: ApplicationContext, 
   const source = GatewayMediaSourceReferenceSchema.parse(input);
   const requestedPosition = z.enum(["first", "last"]).parse(position);
   await verifySource(application, source, signal);
-  const requestSha256 = sha256Hex(canonicalJson({ kind: "atet.directing-endpoint-request", schemaVersion: 1, colorPolicy: "sdr-video-color-v1", source: { path: source.path, bytes: source.bytes, sha256: source.sha256, mediaType: source.mediaType }, position: requestedPosition }));
+  const requestSha256 = sha256Hex(canonicalJson({ kind: "slopcamera.directing-endpoint-request", schemaVersion: 1, colorPolicy: "sdr-video-color-v1", source: { path: source.path, bytes: source.bytes, sha256: source.sha256, mediaType: source.mediaType }, position: requestedPosition }));
   const root = await mediaRoot(application), receiptPath = join(root, `endpoint-${requestSha256}.json`);
   return await withMutationLock(await directory(application, repoPath(application, join(root, `endpoint-${requestSha256}`))), { command: "directing endpoint", label: "Directing endpoint" }, async lease => {
     const previous = await maybeJson(receiptPath);
@@ -403,7 +403,7 @@ export async function extractDirectingEndpoint(application: ApplicationContext, 
         frameIndex, pts: { value: String(value), timeBaseNumerator: probe.numerator, timeBaseDenominator: probe.denominator },
         timeUs: directingPtsTimeUs({ value: String(value), timeBaseNumerator: probe.numerator, timeBaseDenominator: probe.denominator }),
       });
-      await publishJson(application, receiptPath, endpointReceiptSchema.parse({ kind: "atet.directing-endpoint", schemaVersion: 1, requestSha256, position: requestedPosition, endpoint, color: probe.color, ffmpegVersion: ffmpeg.version, ffprobeVersion: ffprobe.version }), signal, lease.assertOwned);
+      await publishJson(application, receiptPath, endpointReceiptSchema.parse({ kind: "slopcamera.directing-endpoint", schemaVersion: 1, requestSha256, position: requestedPosition, endpoint, color: probe.color, ffmpegVersion: ffmpeg.version, ffprobeVersion: ffprobe.version }), signal, lease.assertOwned);
       completed = endpoint;
     } catch (error) { failed = true; failure = error; }
     // Settle cleanup separately so it cannot discard the primary native failure.
@@ -432,7 +432,7 @@ function projectAsset(source: GatewayMediaSourceReference, probe: ProbedMedia, t
   };
   return ProjectAssetV1Schema.parse({
     assetId: `asset_${suffix}`, createdAt: timestamp, durationUs: probe.durationUs, label: `Directed clip ${suffix}`, role: "b-roll",
-    source: { kind: "generated", generator: "atet.directing", generatorVersion: "1", sourceSha256: source.sha256 },
+    source: { kind: "generated", generator: "slopcamera.directing", generatorVersion: "1", sourceSha256: source.sha256 },
     streams: probe.streams.map(stream => ({
       streamId: `stream_${suffix}_${stream.index}`, label: `${stream.codec_type} ${stream.index}`, kind: stream.codec_type,
       ...(stream.codec_type === "video" ? { role: "b-roll", pixelWidth: stream.width, pixelHeight: stream.height,
@@ -446,7 +446,7 @@ function projectAsset(source: GatewayMediaSourceReference, probe: ProbedMedia, t
 export async function assembleDirectingClips(application: ApplicationContext, request: DirectingAssemblyInput, signal: AbortSignal): Promise<DirectingAssemblyResult> {
   const input = assemblyInputSchema.parse(request);
   await active(application, signal);
-  const requestSha256 = sha256Hex(canonicalJson({ kind: "atet.directing-assembly", schemaVersion: 2, colorPolicy: "sdr-rgb-assembly-v1", timingPolicy: ASSEMBLY_TIMING_POLICY, input }));
+  const requestSha256 = sha256Hex(canonicalJson({ kind: "slopcamera.directing-assembly", schemaVersion: 2, colorPolicy: "sdr-rgb-assembly-v1", timingPolicy: ASSEMBLY_TIMING_POLICY, input }));
   const root = await mediaRoot(application), projectId = `project_directing_${requestSha256.slice(0, 40)}`;
   const projectDirectory = join(application.paths.projectRoot, projectId), intentPath = join(root, `assembly-${requestSha256}.intent.json`);
   return await withMutationLock(await directory(application, repoPath(application, join(root, `assembly-${requestSha256}`))), { command: "directing assembly", label: "Directing assembly" }, async lease => {
@@ -495,10 +495,10 @@ export async function assembleDirectingClips(application: ApplicationContext, re
         audio: asset.streams.filter(stream => stream.kind === "audio" && stream.segments.some(segment => segment.assetRange.startUs < videoAssetRange.endUs && segment.assetRange.endUs > videoAssetRange.startUs)).map(stream => ({ streamId: stream.streamId, presentation: { enabled: true, gainDb: 0, pan: 0 } })),
       });
     }
-    const project = VideoProjectV1Schema.parse({ kind: "atet.video-project", schemaVersion: 1, projectId, name: input.title, createdAt: timestamp, updatedAt: timestamp, analyses: [], assets, placements,
+    const project = VideoProjectV1Schema.parse({ kind: "slopcamera.video-project", schemaVersion: 1, projectId, name: input.title, createdAt: timestamp, updatedAt: timestamp, analyses: [], assets, placements,
       referencePlacementId: `placement_${requestSha256.slice(0, 24)}_0`, currentEditPlanPath: "edits/current.json", timeline: { durationUs: offset, timebase: "microseconds" } });
     const plan = createDefaultProjectEditPlan(project, ProjectEditPlanV1Schema.shape.planId.parse(`plan_${requestSha256.slice(0, 40)}`), timestamp);
-    const intent = assemblyIntentSchema.parse({ kind: "atet.directing-assembly-intent", schemaVersion: 2, requestSha256, input, project, plan, colors, normalizations, timingPolicy: ASSEMBLY_TIMING_POLICY, timing });
+    const intent = assemblyIntentSchema.parse({ kind: "slopcamera.directing-assembly-intent", schemaVersion: 2, requestSha256, input, project, plan, colors, normalizations, timingPolicy: ASSEMBLY_TIMING_POLICY, timing });
     if (priorIntent !== undefined && canonicalJson(priorIntent) !== canonicalJson(intent)) throw new CliError("conflict", "Retained directing assembly intent differs from the verified canonical derivation.");
     await publishJson(application, intentPath, intent, signal, lease.assertOwned);
     // Resume only these exact retained documents; edited or unknown generations conflict.
@@ -509,7 +509,7 @@ export async function assembleDirectingClips(application: ApplicationContext, re
     const publishedPlan = await publishJson(application, join(projectDirectory, "edits/current.json"), intent.plan, signal, lease.assertOwned);
     const publishedProject = await publishJson(application, join(projectDirectory, "project.json"), intent.project, signal, lease.assertOwned);
     const receipt = await publishJson(application, join(root, `assembly-${requestSha256}.json`), {
-      kind: "atet.directing-assembly-receipt", schemaVersion: 2, requestSha256, recipeSha256: input.recipeSha256,
+      kind: "slopcamera.directing-assembly-receipt", schemaVersion: 2, requestSha256, recipeSha256: input.recipeSha256,
       projectId, project: publishedProject, plan: publishedPlan, clips: input.clips, durationUs: intent.project.timeline.durationUs, colors: intent.colors, normalizations: intent.normalizations, timingPolicy: intent.timingPolicy, timing: intent.timing,
     }, signal, lease.assertOwned);
     return { projectId, projectPath: publishedProject.path, receipt };

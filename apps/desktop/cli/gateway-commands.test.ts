@@ -17,7 +17,7 @@ import {
   type HostResourceCoordinator,
   type HostResourceLease,
   type HostResourceLeaseOptions,
-} from "@hraness/atet/host-resources";
+} from "@hraness/slopcamera/host-resources";
 
 import { EXIT_CODE } from "./errors";
 import type { GatewayMediaCatalogTransport } from "./gateway-media-catalog";
@@ -444,15 +444,15 @@ function catalogPayload(): Readonly<Record<string, unknown>> {
 }
 
 async function createFixture(): Promise<GatewayCommandFixture> {
-  const root = await mkdtemp(join(tmpdir(), "atet-gateway-commands-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-gateway-commands-"));
   const paths: RepositoryPaths = {
-    artifactRoot: join(root, "artifacts", "atet", "recordings"),
+    artifactRoot: join(root, "artifacts", "slopcamera", "recordings"),
     desktopRoot: join(root, "apps", "desktop"),
-    privateRoot: join(root, "artifacts", "atet", "private"),
-    projectRoot: join(root, "artifacts", "atet", "projects"),
+    privateRoot: join(root, "artifacts", "slopcamera", "private"),
+    projectRoot: join(root, "artifacts", "slopcamera", "projects"),
     repositoryRoot: root,
   };
-  const stateRoot = join(root, ".atet-state");
+  const stateRoot = join(root, ".slopcamera-state");
   await mkdir(paths.privateRoot, { mode: 0o700, recursive: true });
   const processRunner = new BunProcessRunner();
   const ffmpeg = (await probeCapability(
@@ -614,12 +614,12 @@ function gatewayImageWorkflowSource(source: Readonly<{
   sha256: string;
 }>): string {
   return `import { z } from "zod";
-import { defineWorkflow } from "@hraness/atet/local/code";
+import { defineWorkflow } from "@hraness/slopcamera/local/code";
 
 export default defineWorkflow({
   id: "gateway-resource-phases",
   inputSchema: z.strictObject({}),
-  inputSchemaId: "atet.test.gateway-resource-phases.input/v1",
+  inputSchemaId: "slopcamera.test.gateway-resource-phases.input/v1",
   version: 1,
   build(workflow) {
     return {
@@ -636,15 +636,15 @@ export default defineWorkflow({
 
 describe("Gateway CLI commands", () => {
   test("releases local media capacity during provider waits and reacquires it for validation", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-gateway-resource-phases-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-gateway-resource-phases-"));
     const paths: RepositoryPaths = {
-      artifactRoot: join(root, "artifacts", "atet", "recordings"),
-      desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
-      privateRoot: join(root, "artifacts", "atet", "private"),
-      projectRoot: join(root, "artifacts", "atet", "projects"),
+      artifactRoot: join(root, "artifacts", "slopcamera", "recordings"),
+      desktopRoot: join(root, "projects", "slopcamera", "apps", "desktop"),
+      privateRoot: join(root, "artifacts", "slopcamera", "private"),
+      projectRoot: join(root, "artifacts", "slopcamera", "projects"),
       repositoryRoot: root,
     };
-    const stateRoot = join(root, ".atet-state");
+    const stateRoot = join(root, ".slopcamera-state");
     const providerStarted = deferred<void>();
     const releaseProvider = deferred<void>();
     const validationStarted = deferred<void>();
@@ -667,7 +667,7 @@ describe("Gateway CLI commands", () => {
             { limit: 1, resource: "network" },
             { limit: 1, resource: "paid-call" },
           ],
-          id: "atet.cli-test/gateway-resource-phases/v1",
+          id: "slopcamera.cli-test/gateway-resource-phases/v1",
         },
       }),
     );
@@ -817,16 +817,16 @@ describe("Gateway CLI commands", () => {
 
   test("phase-splits Code Mode Gateway preparation, provider wait, and validation", async () => {
     const root = await realpath(
-      await mkdtemp(join(tmpdir(), "atet-code-gateway-resource-phases-")),
+      await mkdtemp(join(tmpdir(), "slopcamera-code-gateway-resource-phases-")),
     );
     const paths: RepositoryPaths = {
-      artifactRoot: join(root, "artifacts", "atet", "recordings"),
-      desktopRoot: join(root, "projects", "atet", "apps", "desktop"),
-      privateRoot: join(root, "artifacts", "atet", "private"),
-      projectRoot: join(root, "artifacts", "atet", "projects"),
+      artifactRoot: join(root, "artifacts", "slopcamera", "recordings"),
+      desktopRoot: join(root, "projects", "slopcamera", "apps", "desktop"),
+      privateRoot: join(root, "artifacts", "slopcamera", "private"),
+      projectRoot: join(root, "artifacts", "slopcamera", "projects"),
       repositoryRoot: root,
     };
-    const stateRoot = join(root, ".atet-state");
+    const stateRoot = join(root, ".slopcamera-state");
     const providerStarted = deferred<void>();
     const releaseProvider = deferred<void>();
     const outputValidationStarted = deferred<void>();
@@ -853,7 +853,7 @@ describe("Gateway CLI commands", () => {
             { limit: 1, resource: "network" },
             { limit: 1, resource: "paid-call" },
           ],
-          id: "atet.cli-test/code-gateway-resource-phases/v1",
+          id: "slopcamera.cli-test/code-gateway-resource-phases/v1",
         },
       }),
     );
@@ -1271,7 +1271,7 @@ describe("Gateway CLI commands", () => {
       expect(parseJsonRecord(completedJobSource)).toMatchObject({
         chargeMayHaveOccurred: true,
         model: "bfl/flux-command",
-        noAtetRetry: true,
+        noSlopcameraRetry: true,
         operation: "image.generate",
         state: "completed",
       });
@@ -1640,7 +1640,7 @@ describe("Gateway CLI commands", () => {
       const details = asRecord(failure.details);
       expect(details).toMatchObject({
         jobState: "ambiguous",
-        noAtetRetry: true,
+        noSlopcameraRetry: true,
       });
       expect(fixture.sdk.videoCalls).toHaveLength(1);
       const jobSource = await readRelative(
@@ -1652,7 +1652,7 @@ describe("Gateway CLI commands", () => {
       expect(requiredString(job, "ambiguity"))
         .toContain("may have reached one or more paid providers");
       expect(requiredString(job, "interruptionSemantics"))
-        .toContain("must not be retried by Atet");
+        .toContain("must not be retried by Slopcamera");
       expect(job).toMatchObject({
         chargeMayHaveOccurred: true,
         failure: {
@@ -1660,7 +1660,7 @@ describe("Gateway CLI commands", () => {
           message: "The Gateway media provider request failed.",
         },
         model: "klingai/kling-command",
-        noAtetRetry: true,
+        noSlopcameraRetry: true,
         operation: "video.generate",
         state: "ambiguous",
       });
@@ -1724,7 +1724,7 @@ describe("Gateway CLI commands", () => {
           signatureOnlyOutputs: 0,
           status: "decode-failed",
         },
-        noAtetRetry: true,
+        noSlopcameraRetry: true,
       });
       const receipt = parseJsonRecord(await readRelative(
         fixture,

@@ -16,45 +16,45 @@ import {
   vectorizeImage,
 } from "./index.js"
 import {
-  generateAtetImageFile,
-  atetGatewayCredentialStatus,
-  atetImageModels,
-  type AtetImageModel,
+  generateSlopcameraImageFile,
+  slopcameraGatewayCredentialStatus,
+  slopcameraImageModels,
+  type SlopcameraImageModel,
 } from "./generate.js"
 import {
-  executeAtetOperation,
-  atetOperationCodes,
-  isAtetOperationCode,
-  searchAtetOperations,
-  withAtetOperationHostAdmission,
+  executeSlopcameraOperation,
+  slopcameraOperationCodes,
+  isSlopcameraOperationCode,
+  searchSlopcameraOperations,
+  withSlopcameraOperationHostAdmission,
 } from "./operations.js"
 import type { HostResourceCoordinator } from "./host-resources.js"
 import { installSkill, type SkillScope, type SkillTarget } from "./skill-install.js"
 import { pathExists } from "./fs.js"
-import { ATET_VERSION } from "./version.js"
+import { SLOPCAMERA_VERSION } from "./version.js"
 
-export const atetCliVersion = ATET_VERSION
+export const slopcameraCliVersion = SLOPCAMERA_VERSION
 
-const help = `atet ${atetCliVersion}
+const help = `slopcamera ${slopcameraCliVersion}
 
 Turn source material into deterministic diagrams, images, and canvas assets.
 
 Usage:
-  atet diagram init [file]
-  atet diagram check <file> [--config <file>] [--strict]
-  atet diagram render <file> [--out-dir <directory>] [--config <file>] [--scale <number>]
-  atet image vectorize <image> --output <file.svg> [--json] [--duotone <#rgb,#rgb>]
-  atet image generate <prompt> --output <file.png|jpg|webp> [--model <provider/model>] [--json]
-  atet code search [query] [--limit <number>]
-  atet code execute <operation> --input <JSON>
-  atet mcp --root <workspace>
-  atet canvas open <file.tldr|file.tldraw>
-  atet canvas status
-  atet canvas url
-  atet canvas install [--yes] [--download-only]
-  atet doctor
-  atet skill path
-  atet skill install [--target codex|claude|agents] [--scope user|project] [--force]
+  slopcamera diagram init [file]
+  slopcamera diagram check <file> [--config <file>] [--strict]
+  slopcamera diagram render <file> [--out-dir <directory>] [--config <file>] [--scale <number>]
+  slopcamera image vectorize <image> --output <file.svg> [--json] [--duotone <#rgb,#rgb>]
+  slopcamera image generate <prompt> --output <file.png|jpg|webp> [--model <provider/model>] [--json]
+  slopcamera code search [query] [--limit <number>]
+  slopcamera code execute <operation> --input <JSON>
+  slopcamera mcp --root <workspace>
+  slopcamera canvas open <file.tldr|file.tldraw>
+  slopcamera canvas status
+  slopcamera canvas url
+  slopcamera canvas install [--yes] [--download-only]
+  slopcamera doctor
+  slopcamera skill path
+  slopcamera skill install [--target codex|claude|agents] [--scope user|project] [--force]
 
 Render writes the same five replaceable artifacts on every run:
   <name>.tldr
@@ -74,14 +74,14 @@ It is fully local. No source path or bytes are sent to a network endpoint.
 
 Generate sends one bounded, non-retried request directly to Vercel AI Gateway.
 Set AI_GATEWAY_API_KEY, or run through \`vercel env run -- …\` so
-VERCEL_OIDC_TOKEN is available. Atet never stores or prints the token.
+VERCEL_OIDC_TOKEN is available. Slopcamera never stores or prints the token.
 PNG, JPEG, and WebP responses are signature-checked and published atomically.
 
 Code mode searches and executes a fixed semantic registry. Execute accepts
 typed JSON for one exact owned operation code; it never evaluates source text.
 
 MCP preserves root-relative check_diagram/render_diagram and adds closed
-search_atet/execute_atet registry tools. It uses built-in assets, never
+search_slopcamera/execute_slopcamera registry tools. It uses built-in assets, never
 executes workspace config or caller code, and writes protocol messages only to
 stdout.
 `
@@ -163,7 +163,7 @@ function printFindings(findings: Awaited<ReturnType<typeof checkDiagramFile>>["f
 }
 
 const starter = {
-  $schema: "https://raw.githubusercontent.com/hraness/atet/v3.2.3/schema/diagram.schema.json",
+  $schema: "https://raw.githubusercontent.com/hraness/slopcamera/main/schema/diagram.schema.json",
   version: 1,
   name: "example-flow",
   canvas: { width: 960, height: 540, padding: 64 },
@@ -206,15 +206,15 @@ async function confirmInstall(): Promise<boolean> {
   }
 }
 
-export interface AtetCliDependencies {
-  readonly generate?: typeof generateAtetImageFile
+export interface SlopcameraCliDependencies {
+  readonly generate?: typeof generateSlopcameraImageFile
   readonly hostResourceCoordinator?: HostResourceCoordinator
   readonly log?: (value: string) => void
   readonly vectorize?: typeof vectorizeImage
 }
 
 function hostAdmissionOptions(
-  dependencies: AtetCliDependencies,
+  dependencies: SlopcameraCliDependencies,
 ): { readonly hostResourceCoordinator?: HostResourceCoordinator } {
   return dependencies.hostResourceCoordinator === undefined
     ? {}
@@ -227,20 +227,20 @@ function canonicalArguments(args: readonly string[]): readonly string[] {
     if (subcommand === "init" || subcommand === "check" || subcommand === "render") {
       return [subcommand, ...rest]
     }
-    throw new Error("Use atet diagram init, check, or render")
+    throw new Error("Use slopcamera diagram init, check, or render")
   }
   if (surface === "image") {
     if (subcommand === "vectorize" || subcommand === "generate") {
       return [subcommand, ...rest]
     }
-    throw new Error("Use atet image vectorize or generate")
+    throw new Error("Use slopcamera image vectorize or generate")
   }
   if (surface === "canvas") {
     if (subcommand === "open") return ["open", ...rest]
     if (subcommand === "status" || subcommand === "url" || subcommand === "install") {
       return ["desktop", subcommand, ...rest]
     }
-    throw new Error("Use atet canvas open, status, url, or install")
+    throw new Error("Use slopcamera canvas open, status, url, or install")
   }
   if (
     surface === "init" ||
@@ -251,14 +251,14 @@ function canonicalArguments(args: readonly string[]): readonly string[] {
     surface === "open" ||
     surface === "desktop"
   ) {
-    throw new Error(`The flat \`${surface}\` command moved to a namespaced Atet surface.\n\n${help}`)
+    throw new Error(`The flat \`${surface}\` command moved to a namespaced Slopcamera surface.\n\n${help}`)
   }
   return args
 }
 
 export async function main(
   args: readonly string[],
-  dependencies: AtetCliDependencies = {},
+  dependencies: SlopcameraCliDependencies = {},
 ): Promise<void> {
   const [command, ...rest] = canonicalArguments(args)
   if (command === undefined || command === "help" || command === "--help" || command === "-h") {
@@ -266,7 +266,7 @@ export async function main(
     return
   }
   if (command === "version" || command === "--version" || command === "-v") {
-    console.log(atetCliVersion)
+    console.log(slopcameraCliVersion)
     return
   }
 
@@ -281,8 +281,8 @@ export async function main(
 
   if (command === "check") {
     const parsed = parseArguments(rest, new Set(["config"]))
-    const result = await withAtetOperationHostAdmission(
-      "atet.diagram.check",
+    const result = await withSlopcameraOperationHostAdmission(
+      "slopcamera.diagram.check",
       async () => await checkDiagramFile({
         filePath: requiredPositional(parsed, 0, "diagram file"),
         ...(parsed.options.config === undefined
@@ -301,8 +301,8 @@ export async function main(
     const parsed = parseArguments(rest, new Set(["out-dir", "config", "scale"]))
     const scale =
       parsed.options.scale === undefined ? undefined : Number.parseFloat(parsed.options.scale)
-    const result = await withAtetOperationHostAdmission(
-      "atet.diagram.render",
+    const result = await withSlopcameraOperationHostAdmission(
+      "slopcamera.diagram.render",
       async () => await renderDiagramFile({
         filePath: requiredPositional(parsed, 0, "diagram file"),
         ...(parsed.options["out-dir"] === undefined
@@ -330,7 +330,7 @@ export async function main(
       throw new Error(`Unknown vectorize option: --${unknownFlags[0]}`)
     }
     if (parsed.positionals.length > 1) {
-      throw new Error("atet image vectorize accepts exactly one raster input")
+      throw new Error("slopcamera image vectorize accepts exactly one raster input")
     }
     const output = requiredOption(parsed, "output")
     if (!output.toLowerCase().endsWith(".svg")) {
@@ -339,8 +339,8 @@ export async function main(
     const alphaCutoff = parsePositiveInteger(parsed.options["alpha-cutoff"], "alpha-cutoff")
     const timeoutMs = parsePositiveInteger(parsed.options["timeout-ms"], "timeout-ms")
     const duotone = parseDuotone(parsed.options.duotone)
-    const result = await withAtetOperationHostAdmission(
-      "atet.image.vectorize",
+    const result = await withSlopcameraOperationHostAdmission(
+      "slopcamera.image.vectorize",
       async (lease) => await (dependencies.vectorize ?? vectorizeImage)(
         requiredPositional(parsed, 0, "raster image"),
         {
@@ -378,9 +378,9 @@ export async function main(
       throw new Error(`Unknown generate option: --${unknownFlags[0]}`)
     }
     if (parsed.positionals.length !== 1) {
-      throw new Error("atet image generate accepts exactly one prompt")
+      throw new Error("slopcamera image generate accepts exactly one prompt")
     }
-    const model = parsed.options.model ?? atetImageModels[1]
+    const model = parsed.options.model ?? slopcameraImageModels[1]
     if (
       model.length > 256 ||
       !/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/iu.test(model)
@@ -389,10 +389,10 @@ export async function main(
         "--model must be a bounded Vercel AI Gateway provider/model id",
       )
     }
-    const result = await withAtetOperationHostAdmission(
-      "atet.image.generate",
-      async () => await (dependencies.generate ?? generateAtetImageFile)({
-        model: model as AtetImageModel,
+    const result = await withSlopcameraOperationHostAdmission(
+      "slopcamera.image.generate",
+      async () => await (dependencies.generate ?? generateSlopcameraImageFile)({
+        model: model as SlopcameraImageModel,
         prompt: requiredPositional(parsed, 0, "prompt"),
         outputPath: requiredOption(parsed, "output"),
       }),
@@ -414,13 +414,13 @@ export async function main(
       const parsed = parseArguments(subcommandArgs, new Set(["limit"]))
       if (parsed.flags.size > 0 || parsed.positionals.length > 1) {
         throw new Error(
-          "Use atet code search [query] [--limit <number>]",
+          "Use slopcamera code search [query] [--limit <number>]",
         )
       }
       const limit =
         parsePositiveInteger(parsed.options.limit, "limit") ??
-        atetOperationCodes.length
-      const operations = searchAtetOperations(
+        slopcameraOperationCodes.length
+      const operations = searchSlopcameraOperations(
         parsed.positionals[0] ?? "",
         limit,
       )
@@ -434,15 +434,15 @@ export async function main(
         parsed.positionals.length !== 1
       ) {
         throw new Error(
-          "Use atet code execute <operation> --input <JSON>",
+          "Use slopcamera code execute <operation> --input <JSON>",
         )
       }
       const requestedOperation = parsed.positionals[0]!
-      const operation = isAtetOperationCode(requestedOperation)
+      const operation = isSlopcameraOperationCode(requestedOperation)
         ? requestedOperation
         : undefined
       if (operation === undefined) {
-        throw new Error(`Unknown Atet operation code: ${requestedOperation}`)
+        throw new Error(`Unknown Slopcamera operation code: ${requestedOperation}`)
       }
       const inputText = requiredOption(parsed, "input")
       if (Buffer.byteLength(inputText, "utf8") > 64 * 1024) {
@@ -454,7 +454,7 @@ export async function main(
       } catch {
         throw new Error("--input must be valid JSON")
       }
-      const result = await executeAtetOperation(operation, input, {
+      const result = await executeSlopcameraOperation(operation, input, {
         ...hostAdmissionOptions(dependencies),
       })
       ;(dependencies.log ?? console.log)(
@@ -463,18 +463,18 @@ export async function main(
       return
     }
     throw new Error(
-      "Use atet code search [query] or atet code execute <operation> --input <JSON>",
+      "Use slopcamera code search [query] or slopcamera code execute <operation> --input <JSON>",
     )
   }
 
   if (command === "mcp") {
     const parsed = parseArguments(rest, new Set(["root"]))
     if (parsed.positionals.length > 0 || parsed.flags.size > 0) {
-      throw new Error("atet mcp accepts only --root <workspace>")
+      throw new Error("slopcamera mcp accepts only --root <workspace>")
     }
     await runMcpServer({
       rootDirectory: requiredOption(parsed, "root"),
-      serverVersion: atetCliVersion,
+      serverVersion: slopcameraCliVersion,
     })
     return
   }
@@ -488,7 +488,7 @@ export async function main(
 
   if (command === "doctor") {
     const status = await desktopStatus()
-    console.log(`atet ${atetCliVersion}`)
+    console.log(`slopcamera ${slopcameraCliVersion}`)
     console.log(`Bun ${process.versions.bun ?? "not detected"}`)
     console.log("Headless diagram SVG/PNG/tldraw renderer ready")
     console.log(
@@ -497,7 +497,7 @@ export async function main(
         : "Local raster-to-SVG vectorizer ready without authentication (VTracer downloads on first use)",
     )
     console.log("Root-relative MCP check/render server ready (trusted local workspace)")
-    const gateway = atetGatewayCredentialStatus()
+    const gateway = slopcameraGatewayCredentialStatus()
     console.log(
       gateway.available
         ? `Vercel AI Gateway ready via ${gateway.source}`
@@ -554,7 +554,7 @@ export async function main(
       )
       return
     }
-    throw new Error("Use atet canvas status, url, or install")
+    throw new Error("Use slopcamera canvas status, url, or install")
   }
 
   if (command === "skill") {
@@ -582,10 +582,10 @@ export async function main(
           : { projectDirectory: parsed.options.project }),
         force: parsed.flags.has("force"),
       })
-      console.log(`Installed atet skill at ${destination}`)
+      console.log(`Installed slopcamera skill at ${destination}`)
       return
     }
-    throw new Error("Use atet skill path or install")
+    throw new Error("Use slopcamera skill path or install")
   }
 
   throw new Error(`Unknown command: ${command}\n\n${help}`)

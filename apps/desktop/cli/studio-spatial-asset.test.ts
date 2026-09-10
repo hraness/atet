@@ -29,21 +29,21 @@ function glb(unsupported = false): Buffer {
   return result;
 }
 async function fixture(kind: "image" | "sequence" | "model" = "image", options: { alpha?: boolean; unsupportedGlb?: boolean; gamma?: number } = {}) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-studio-spatial-"))); roots.push(root);
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-studio-spatial-"))); roots.push(root);
   const privateRoot = await ensurePhysicalPrivateDirectoryWithin(root, "private"), jobId = "studio_asset_fixture";
   const jobRoot = await ensurePhysicalPrivateDirectoryWithin(privateRoot, `studio/jobs/${jobId}`), sourceRoot = await ensurePhysicalPrivateDirectoryWithin(jobRoot, "source"), outputRoot = await ensurePhysicalPrivateDirectoryWithin(jobRoot, "outputs");
   const authored = "raise RuntimeError('Admission must never execute source')\n";
   await writeFile(join(sourceRoot, "scene.py"), authored);
-  const bundle = { kind: "atet.studio-source-bundle", schemaVersion: 1, engine: "blender", entrypoint: { kind: "python", path: "scene.py" }, files: [{ path: "scene.py", sha256: studioBytesSha256(authored), bytes: Buffer.byteLength(authored) }] };
+  const bundle = { kind: "slopcamera.studio-source-bundle", schemaVersion: 1, engine: "blender", entrypoint: { kind: "python", path: "scene.py" }, files: [{ path: "scene.py", sha256: studioBytesSha256(authored), bytes: Buffer.byteLength(authored) }] };
   const alpha = options.alpha ?? false;
   const raster = { kind: "raster", colorSpace: "srgb", alpha: alpha ? "straight" : "opaque", dataType: "uint8", semantic: "color", unit: "unitless", channels: alpha ? ["R","G","B","A"] : ["R","G","B"] } as const;
   const output: StudioOutputSpec = kind === "model" ? { id: "model", kind: "file", role: "model", format: "glb", path: "city.glb", interpretation: { kind: "model", sourceSpace: { units: "millimeters", upAxis: "z", handedness: "right" } } }
     : kind === "sequence" ? { id: "beauty", kind: "sequence", role: "beauty", format: "png", pathPattern: "frame_%06d.png", interpretation: raster }
     : { id: "image", kind: "file", role: "beauty", format: "png", path: "image.png", interpretation: raster };
-  const job = { kind: "atet.studio-job", schemaVersion: 1, jobId, bundleSha256: studioSourceBundleSha256(bundle), stage: "build", parameters: {}, ...(kind === "model" ? {} : { render }),
+  const job = { kind: "slopcamera.studio-job", schemaVersion: 1, jobId, bundleSha256: studioSourceBundleSha256(bundle), stage: "build", parameters: {}, ...(kind === "model" ? {} : { render }),
     engine: { engine: "blender", renderer: "cycles", device: "cpu", samples: 1, transparent: alpha, viewTransform: "Standard", denoise: false, seed: 0 }, outputs: [output],
     limits: { timeoutSeconds: 30, maximumOutputBytes: 1_048_576, maximumOutputFiles: 2 }, execution: { trust: "trusted-current-user", isolation: "none", hermetic: false } };
-  const sha = "a".repeat(64), runtime = { kind: "atet.studio-runtime", schemaVersion: 1, engine: "blender", tool: { name: "Blender", version: "fixture", executableSha256: sha }, driverSha256: sha,
+  const sha = "a".repeat(64), runtime = { kind: "slopcamera.studio-runtime", schemaVersion: 1, engine: "blender", tool: { name: "Blender", version: "fixture", executableSha256: sha }, driverSha256: sha,
     environment: { fingerprintSha256: sha, evidence: "observed-package-environment", hermetic: false }, capabilities: ["python-authoring", "build", "image-sequence", "model-export"].map(name => ({ name, support: "available", evidence: "probe" })) };
   const plan = planStudioJob({ bundle, job, runtime });
   let bytes = kind === "model" ? glb(options.unsupportedGlb) : await sharp({ create: { width: render.width, height: render.height, channels: alpha ? 4 : 3, background: { r: 50, g: 100, b: 200, alpha: 0.5 } } }).png().toBuffer();
@@ -60,7 +60,7 @@ async function fixture(kind: "image" | "sequence" | "model" = "image", options: 
     await writeFile(join(outputRoot, path), bytes);
     outputs.push({ outputId: output.id, path, sha256: studioBytesSha256(bytes), bytes: bytes.length, role: output.role, format: output.format, ...(frame === undefined ? {} : { frame }) });
   }
-  const document = { kind: "atet.studio-receipt", schemaVersion: 1, jobId, attemptId: "attempt_fixture", planSha256: plan.planSha256, bundleSha256: plan.bundleSha256, jobSha256: plan.jobSha256, runtime: plan.runtime, runtimeSha256: plan.runtimeSha256,
+  const document = { kind: "slopcamera.studio-receipt", schemaVersion: 1, jobId, attemptId: "attempt_fixture", planSha256: plan.planSha256, bundleSha256: plan.bundleSha256, jobSha256: plan.jobSha256, runtime: plan.runtime, runtimeSha256: plan.runtimeSha256,
     startedAt: "2026-09-09T00:00:00Z", finishedAt: "2026-09-09T00:00:01Z", state: "succeeded", custody: "closed", exitCode: 0, outputs };
   await writeFile(join(jobRoot, "plan.json"), studioJson(plan)); await writeFile(join(jobRoot, "receipt.json"), studioJson(document));
   let calls = 0;
@@ -74,7 +74,7 @@ async function fixture(kind: "image" | "sequence" | "model" = "image", options: 
 }
 async function retainedEncode(f: Awaited<ReturnType<typeof fixture>>, toolVersion = "fixture") {
   const native = await f.input.service.inspect(f.input.selection.jobId), alpha = f.output.interpretation.kind === "raster" && f.output.interpretation.alpha === "straight";
-  const request = { kind: "atet.studio-encode-request", schemaVersion: 1, planSha256: f.plan.planSha256, nativeReceipt: native.receipt, jobId: f.plan.job.jobId, outputId: f.output.id, render,
+  const request = { kind: "slopcamera.studio-encode-request", schemaVersion: 1, planSha256: f.plan.planSha256, nativeReceipt: native.receipt, jobId: f.plan.job.jobId, outputId: f.output.id, render,
     frames: f.outputs.map(item => ({ path: item.path, frame: item.frame!, sha256: item.sha256, bytes: item.bytes })), profile: alpha ? "rgba8-lossless-qtrle-v1" : "rgb8-lossless-h264-v1", conversion: "identity-uint8", colorSpace: "srgb", alpha: alpha ? "straight" : "opaque",
     tools: ["ffmpeg", "ffprobe"].map(name => ({ name, command: `/unused/${name}`, executablePath: `/unused/${name}`, executableSha256: "c".repeat(64), version: toolVersion, bytes: 1 })), limits: { timeoutMs: 30_000, maximumOutputBytes: 1_048_576 } };
   const requestSha256 = hash(request), directory = await ensurePhysicalPrivateDirectoryWithin(f.jobRoot, `derivatives/${requestSha256}`);
@@ -82,9 +82,9 @@ async function retainedEncode(f: Awaited<ReturnType<typeof fixture>>, toolVersio
   const framehash = `#hash: SHA256\n#tb 0: 1001/24000\n#dimensions 0: 2x1\n0, 0, 0, 1, ${alpha ? 8 : 6}, ${"d".repeat(64)}\n0, 1, 1, 1, ${alpha ? 8 : 6}, ${"e".repeat(64)}\n`;
   const artifact = await save(alpha ? "video.mov" : "video.mp4", "0000ftypisom-fixture");
   const probe = await save("probe.json", studioJson({ streams: [{ codec_type: "video", codec_name: alpha ? "qtrle" : "h264", pix_fmt: alpha ? "argb" : "gbrp", width: 2, height: 1, avg_frame_rate: "24000/1001", time_base: "1/24000", start_pts: 0, duration_ts: 2002, nb_read_frames: "2", ...(alpha ? {} : { color_range: "pc", color_space: "gbr", color_transfer: "iec61966-2-1", color_primaries: "bt709" }) }] }));
-  const document = { kind: "atet.studio-encode-receipt", schemaVersion: 1, requestSha256, request, artifact,
+  const document = { kind: "slopcamera.studio-encode-receipt", schemaVersion: 1, requestSha256, request, artifact,
     verification: { frameCount: 2, canonicalFrameSha256: verifyStudioFramehash(framehash, render, alpha), sourceFramehash: await save("source.framehash", framehash), videoFramehash: await save("video.framehash", framehash), probe } };
-  await save("intent.json", studioJson({ kind: "atet.studio-encode-intent", schemaVersion: 1, requestSha256, request }));
+  await save("intent.json", studioJson({ kind: "slopcamera.studio-encode-intent", schemaVersion: 1, requestSha256, request }));
   const receipt = await save("receipt.json", studioJson(document));
   return { directory, document, receipt };
 }
@@ -105,7 +105,7 @@ describe("Studio spatial asset admission", () => {
     const f = await fixture("model");
     expect((await admitStudioSpatialAsset(f.input)).asset.interpretation).toEqual({ kind: "gltf", format: "glb", metersPerUnit: 0.001, sourceUp: "z" });
     const invalid = await fixture("model", { unsupportedGlb: true });
-    await expect(admitStudioSpatialAsset(invalid.input)).rejects.toThrow("outside atet.glb-triangles-trs-pbr-basecolor-v1");
+    await expect(admitStudioSpatialAsset(invalid.input)).rejects.toThrow("outside slopcamera.glb-triangles-trs-pbr-basecolor-v1");
     expect(invalid.calls()).toBe(0);
   });
   test("explicit contradictory PNG gamma rejects while the conventional sRGB tag remains supported", async () => {

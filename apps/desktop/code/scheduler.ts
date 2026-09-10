@@ -10,7 +10,7 @@ import {
   HostResourceError,
   type HostResourceCoordinator,
   type HostResourceLease,
-} from "@hraness/atet/host-resources";
+} from "@hraness/slopcamera/host-resources";
 
 import { ApplicationError, asApplicationError } from "../application/errors";
 import type { ApplicationContext } from "../application/context";
@@ -280,7 +280,7 @@ export interface DurableWorkflowSchedulerOptions {
   /**
    * One machine-scoped physical admission authority. Local scheduler limits
    * remain a fast conservative prefilter; this coordinator is authoritative
-   * across independent Atet processes.
+   * across independent Slopcamera processes.
    */
   readonly hostResourceCoordinator: HostResourceCoordinator;
   readonly hostLimits?: SchedulerHostLimits;
@@ -604,8 +604,8 @@ function normalizePolicy(policy: WorkflowNodePolicy): WorkflowNodePolicy {
 function normalizeDiscovery(discovery: OperationDiscovery): OperationDiscovery {
   return {
     ...discovery,
-    inputSchemaId: discovery.inputSchemaId.replace(/^studio\./u, "atet."),
-    outputSchemaId: discovery.outputSchemaId.replace(/^studio\./u, "atet."),
+    inputSchemaId: discovery.inputSchemaId.replace(/^studio\./u, "slopcamera."),
+    outputSchemaId: discovery.outputSchemaId.replace(/^studio\./u, "slopcamera."),
     policy: OperationPolicySchema.parse(normalizePolicy(discovery.policy)),
   };
 }
@@ -2167,7 +2167,7 @@ export class DurableWorkflowScheduler {
               fence,
               control,
               async () => {
-                if (context.operation.kind !== "atet.studio.run") return await this.#nodePlanner.plan({ ...context, preparationPlan });
+                if (context.operation.kind !== "slopcamera.studio.run") return await this.#nodePlanner.plan({ ...context, preparationPlan });
                 return await this.#hostResourceCoordinator.withLease(
                   physicalHostResourceClaims(context.operation.policy.resources, this.#hostResourceCoordinator),
                   async lease => {
@@ -2322,7 +2322,7 @@ export class DurableWorkflowScheduler {
     control: WorkflowRunControl,
   ): Promise<boolean> {
     // Native trust is ephemeral and exact-plan-bound; persisted generic grants never supply it.
-    if (executor.kind === "operation" && executor.operation.discovery.kind === "atet.studio.run") {
+    if (executor.kind === "operation" && executor.operation.discovery.kind === "slopcamera.studio.run") {
       const authorization = this.#application.studioAuthorization;
       if (authorization === undefined || !await this.#runControlledPort(fence, control, async () =>
         await authorization.authorize(studioAuthorizationRequest(executionPlan.exactInput)))) return false;

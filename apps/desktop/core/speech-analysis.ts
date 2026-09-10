@@ -308,7 +308,7 @@ export function analyzeSpeech(input: AnalyzeSpeechInput): SpeechAnalysisV1 {
     createdAt: input.createdAt,
     durationUs: input.durationUs,
     inputDigest: input.inputDigest,
-    kind: "atet.speech-analysis" as const,
+    kind: "slopcamera.speech-analysis" as const,
     schemaVersion: 1 as const,
     subject: input.subject,
     tool: input.tool,

@@ -3,7 +3,7 @@ import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import type { HostResourceCoordinator } from "@hraness/atet/host-resources";
+import type { HostResourceCoordinator } from "@hraness/slopcamera/host-resources";
 
 import { parseSpatialScene, spatialSceneSha256 } from "../../../src/spatial-scene/index";
 import { createApplicationOperationRegistry } from "../application/default-registry";
@@ -32,7 +32,7 @@ import { DurableWorkflowScheduler, type DurableWorkflowSchedulerOptions } from "
 setDefaultTimeout(20_000);
 const transaction = (n: number) => `transaction_${n.toString(16).padStart(32, "0")}`;
 const scene = {
-  kind: "atet.spatial-scene", schemaVersion: 1, sceneId: "scene_graph", coordinates: "right-handed-y-up-meters", durationUs: 1_000_000,
+  kind: "slopcamera.spatial-scene", schemaVersion: 1, sceneId: "scene_graph", coordinates: "right-handed-y-up-meters", durationUs: 1_000_000,
   entities: [{ kind: "mesh", entityId: "entity_box", name: "Box", parentId: null, transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] },
     placement: { kind: "world" }, origin: { kind: "authored" }, visible: true, geometry: { kind: "box", size: [1, 1, 1] }, material: { kind: "unlit", color: "#aa00ff", opacity: 1 } }],
   cameras: [{ cameraId: "camera_main", name: "Main", pose: { position: [0, 0, 5], rotation: [0, 0, 0, 1] }, projection: { kind: "perspective", width: 640, height: 480, fx: 500, fy: 500, cx: 320, cy: 240, near: 0.1, far: 100 } }],
@@ -51,7 +51,7 @@ function deferred() {
   return { promise, resolve };
 }
 async function fixture() {
-  const root = await mkdtemp(join(await realpath(tmpdir()), "atet-spatial-graph-"));
+  const root = await mkdtemp(join(await realpath(tmpdir()), "slopcamera-spatial-graph-"));
   const project = await createOperationProjectFixture(root);
   const application = operationApplicationContext(root);
   return { root, application, ...project };
@@ -95,7 +95,7 @@ test("typed spatial workflow snapshots, migrates, patches, and reads its complet
     const { before, migrated } = migration(builder, f.project.projectId);
     const patched = builder.spatialProject.patch("patch", {
       project: f.project.projectId, expected: { version: 2, sha256: migrated.select("projectRevisionSha256") }, transactionId: transaction(2),
-      patch: { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "set-color", entityId: "entity_box", color: "#00ff00" }] }, retarget: { kind: "all" },
+      patch: { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: sceneSha256, operations: [{ kind: "set-color", entityId: "entity_box", color: "#00ff00" }] }, retarget: { kind: "all" },
     });
     const after = builder.spatialProject.snapshot("after", { project: f.project.projectId, expected: { version: 2, sha256: patched.select("projectRevisionSha256") } });
     return { before, migrated, patched, after };

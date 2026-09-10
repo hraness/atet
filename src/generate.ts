@@ -1,59 +1,59 @@
 import { createHash, randomUUID } from "node:crypto"
 import { link, rm, writeFile } from "node:fs/promises"
 import { dirname, extname, resolve } from "node:path"
-import { AtetCloudError } from "./cloud-errors.js"
+import { SlopcameraCloudError } from "./cloud-errors.js"
 
-export const atetGatewayApiBaseUrl =
+export const slopcameraGatewayApiBaseUrl =
   "https://ai-gateway.vercel.sh/v4/ai" as const
 
-export const atetImageModels = Object.freeze([
+export const slopcameraImageModels = Object.freeze([
   "openai/gpt-image-1.5",
   "recraft/recraft-v4.1-utility",
 ] as const)
 
-export const atetResponseMediaTypes = Object.freeze([
+export const slopcameraResponseMediaTypes = Object.freeze([
   "image/png",
   "image/jpeg",
   "image/webp",
 ] as const)
 
-export const atetMaximumPromptBytes = 32 * 1024
-export const atetMaximumRawImageBytes = 64 * 1024 * 1024
+export const slopcameraMaximumPromptBytes = 32 * 1024
+export const slopcameraMaximumRawImageBytes = 64 * 1024 * 1024
 
-export type AtetImageModel = string
-export type AtetResponseMediaType =
-  (typeof atetResponseMediaTypes)[number]
-export type AtetGatewayCredentialSource =
+export type SlopcameraImageModel = string
+export type SlopcameraResponseMediaType =
+  (typeof slopcameraResponseMediaTypes)[number]
+export type SlopcameraGatewayCredentialSource =
   | "AI_GATEWAY_API_KEY"
   | "VERCEL_OIDC_TOKEN"
 
-export interface AtetGatewayCredentialStatus {
+export interface SlopcameraGatewayCredentialStatus {
   readonly available: boolean
-  readonly source: AtetGatewayCredentialSource | null
+  readonly source: SlopcameraGatewayCredentialSource | null
 }
 
-export interface GenerateAtetImageInput {
-  readonly model: AtetImageModel
+export interface GenerateSlopcameraImageInput {
+  readonly model: SlopcameraImageModel
   readonly prompt: string
   readonly signal?: AbortSignal
   readonly timeoutMs?: number
 }
 
-export interface GeneratedAtetImage {
+export interface GeneratedSlopcameraImage {
   readonly image: {
     readonly base64: string
-    readonly mediaType: AtetResponseMediaType
+    readonly mediaType: SlopcameraResponseMediaType
   }
-  readonly model: AtetImageModel
+  readonly model: SlopcameraImageModel
   readonly provider: "vercel-ai-gateway"
   readonly requestId: string
   readonly warnings: readonly string[]
 }
 
-export interface GeneratedAtetImageFile {
+export interface GeneratedSlopcameraImageFile {
   readonly bytes: number
-  readonly mediaType: AtetResponseMediaType
-  readonly model: AtetImageModel
+  readonly mediaType: SlopcameraResponseMediaType
+  readonly model: SlopcameraImageModel
   readonly outputPath: string
   readonly provider: "vercel-ai-gateway"
   readonly requestId: string
@@ -61,8 +61,8 @@ export interface GeneratedAtetImageFile {
   readonly warnings: readonly string[]
 }
 
-type AtetEnvironment = Readonly<Record<string, string | undefined>>
-type AtetGatewayFetch = (
+type SlopcameraEnvironment = Readonly<Record<string, string | undefined>>
+type SlopcameraGatewayFetch = (
   input: string | URL | Request,
   init?: RequestInit,
 ) => Promise<Response>
@@ -74,15 +74,15 @@ interface GatewayProvider {
 interface GatewayRuntime {
   createGateway(settings: Readonly<{
     apiKey: string
-    baseURL: typeof atetGatewayApiBaseUrl
-    fetch: AtetGatewayFetch
+    baseURL: typeof slopcameraGatewayApiBaseUrl
+    fetch: SlopcameraGatewayFetch
   }>): GatewayProvider
   generateImage(input: Readonly<Record<string, unknown>>): Promise<unknown>
 }
 
-export interface AtetGenerateDependencies {
-  readonly environment?: AtetEnvironment
-  readonly fetch?: AtetGatewayFetch
+export interface SlopcameraGenerateDependencies {
+  readonly environment?: SlopcameraEnvironment
+  readonly fetch?: SlopcameraGatewayFetch
   readonly loadRuntime?: () => Promise<GatewayRuntime>
   readonly maximumResponseBytes?: number
 }
@@ -92,7 +92,7 @@ const maximumGenerationTimeoutMs = 30 * 60_000
 const defaultMaximumGatewayResponseBytes = 96 * 1024 * 1024
 
 function invalidArgument(message: string): never {
-  throw new AtetCloudError("INVALID_ARGUMENT", message)
+  throw new SlopcameraCloudError("INVALID_ARGUMENT", message)
 }
 
 function credentialValue(value: string): string {
@@ -102,7 +102,7 @@ function credentialValue(value: string): string {
     value.trim() !== value ||
     /[^\x21-\x7e]/u.test(value)
   ) {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "AUTHENTICATION_REQUIRED",
       "The selected Vercel AI Gateway credential is invalid.",
     )
@@ -111,15 +111,15 @@ function credentialValue(value: string): string {
 }
 
 function environment(
-  injected: AtetEnvironment | undefined,
-): AtetEnvironment {
+  injected: SlopcameraEnvironment | undefined,
+): SlopcameraEnvironment {
   return injected ?? process.env
 }
 
 function resolveGatewayCredential(
-  injected: AtetEnvironment | undefined,
+  injected: SlopcameraEnvironment | undefined,
 ): Readonly<{
-  source: AtetGatewayCredentialSource
+  source: SlopcameraGatewayCredentialSource
   token: string
 }> {
   const values = environment(injected)
@@ -135,15 +135,15 @@ function resolveGatewayCredential(
       token: credentialValue(values.VERCEL_OIDC_TOKEN),
     }
   }
-  throw new AtetCloudError(
+  throw new SlopcameraCloudError(
     "AUTHENTICATION_REQUIRED",
-    "Set AI_GATEWAY_API_KEY or run Atet through `vercel env run -- …` with VERCEL_OIDC_TOKEN available.",
+    "Set AI_GATEWAY_API_KEY or run Slopcamera through `vercel env run -- …` with VERCEL_OIDC_TOKEN available.",
   )
 }
 
-export function atetGatewayCredentialStatus(
-  injected?: AtetEnvironment,
-): AtetGatewayCredentialStatus {
+export function slopcameraGatewayCredentialStatus(
+  injected?: SlopcameraEnvironment,
+): SlopcameraGatewayCredentialStatus {
   const values = environment(injected)
   if (values.AI_GATEWAY_API_KEY !== undefined) {
     credentialValue(values.AI_GATEWAY_API_KEY)
@@ -173,10 +173,10 @@ function validatePrompt(value: unknown): string {
     typeof value !== "string" ||
     value.trim().length === 0 ||
     /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value) ||
-    Buffer.byteLength(value, "utf8") > atetMaximumPromptBytes
+    Buffer.byteLength(value, "utf8") > slopcameraMaximumPromptBytes
   ) {
     invalidArgument(
-      `Prompt must be non-empty and no more than ${atetMaximumPromptBytes} UTF-8 bytes.`,
+      `Prompt must be non-empty and no more than ${slopcameraMaximumPromptBytes} UTF-8 bytes.`,
     )
   }
   return value
@@ -207,7 +207,7 @@ function parseFunction(
   value: unknown,
 ): (input: Readonly<Record<string, unknown>>) => Promise<unknown> {
   if (typeof value !== "function") {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_FAILED",
       "The Vercel AI Gateway runtime is unavailable.",
     )
@@ -227,7 +227,7 @@ function disableAiSdkWarningLogging(): void {
 
 function assertGenerationActive(signal: AbortSignal): void {
   if (signal.aborted) {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_FAILED",
       "Vercel AI Gateway image generation was cancelled or exceeded its deadline.",
     )
@@ -243,20 +243,20 @@ async function loadDefaultGatewayRuntime(): Promise<GatewayRuntime> {
       import("@ai-sdk/gateway-v4"),
     ])
   } catch {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_FAILED",
       "The Vercel AI Gateway runtime is unavailable.",
     )
   }
   if (!isObject(aiModule) || !isObject(gatewayModule)) {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_FAILED",
       "The Vercel AI Gateway runtime is unavailable.",
     )
   }
   const generateImage = parseFunction(aiModule.generateImage)
   if (typeof gatewayModule.createGateway !== "function") {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_FAILED",
       "The Vercel AI Gateway runtime is unavailable.",
     )
@@ -268,7 +268,7 @@ async function loadDefaultGatewayRuntime(): Promise<GatewayRuntime> {
     createGateway: settings => {
       const provider = createGateway(settings)
       if (!isObject(provider) || typeof provider.imageModel !== "function") {
-        throw new AtetCloudError(
+        throw new SlopcameraCloudError(
           "GENERATION_FAILED",
           "The Vercel AI Gateway runtime is unavailable.",
         )
@@ -284,9 +284,9 @@ function gatewayUrl(input: string | URL | Request): URL {
   try {
     if (input instanceof Request) return new URL(input.url)
     if (input instanceof URL) return new URL(input.href)
-    return new URL(input, atetGatewayApiBaseUrl)
+    return new URL(input, slopcameraGatewayApiBaseUrl)
   } catch {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_FAILED",
       "The Vercel AI Gateway request was rejected.",
     )
@@ -320,7 +320,7 @@ function boundedResponse(response: Response, maximumBytes: number): Response {
     const value = Number(declared)
     if (!Number.isSafeInteger(value) || value < 0 || value > maximumBytes) {
       void response.body?.cancel().catch(() => undefined)
-      throw new AtetCloudError(
+      throw new SlopcameraCloudError(
         "GENERATION_INVALID_RESPONSE",
         "Vercel AI Gateway returned an invalid bounded response.",
       )
@@ -343,7 +343,7 @@ function boundedResponse(response: Response, maximumBytes: number): Response {
         if (bytes > maximumBytes) {
           await reader.cancel().catch(() => undefined)
           controller.error(
-            new AtetCloudError(
+            new SlopcameraCloudError(
               "GENERATION_INVALID_RESPONSE",
               "Vercel AI Gateway returned an invalid bounded response.",
             ),
@@ -353,7 +353,7 @@ function boundedResponse(response: Response, maximumBytes: number): Response {
         controller.enqueue(next.value)
       } catch {
         controller.error(
-          new AtetCloudError(
+          new SlopcameraCloudError(
             "GENERATION_INVALID_RESPONSE",
             "Vercel AI Gateway returned an invalid bounded response.",
           ),
@@ -370,10 +370,10 @@ function boundedResponse(response: Response, maximumBytes: number): Response {
 
 export function createFixedGatewayFetch(
   options: Readonly<{
-    fetch?: AtetGatewayFetch
+    fetch?: SlopcameraGatewayFetch
     maximumResponseBytes?: number
   }> = {},
-): AtetGatewayFetch {
+): SlopcameraGatewayFetch {
   const fetchImplementation = options.fetch ?? globalThis.fetch
   const maximumResponseBytes =
     options.maximumResponseBytes ?? defaultMaximumGatewayResponseBytes
@@ -384,7 +384,7 @@ export function createFixedGatewayFetch(
   ) {
     invalidArgument("maximumResponseBytes is outside the supported range.")
   }
-  const fixed = new URL(atetGatewayApiBaseUrl)
+  const fixed = new URL(slopcameraGatewayApiBaseUrl)
   return async (input, init) => {
     const url = gatewayUrl(input)
     if (
@@ -394,7 +394,7 @@ export function createFixedGatewayFetch(
       url.username !== "" ||
       url.password !== ""
     ) {
-      throw new AtetCloudError(
+      throw new SlopcameraCloudError(
         "GENERATION_FAILED",
         "The Vercel AI Gateway request was rejected.",
       )
@@ -407,15 +407,15 @@ export function createFixedGatewayFetch(
         redirect: "error",
       })
     } catch (error) {
-      if (error instanceof AtetCloudError) throw error
-      throw new AtetCloudError(
+      if (error instanceof SlopcameraCloudError) throw error
+      throw new SlopcameraCloudError(
         "GENERATION_FAILED",
         "Vercel AI Gateway image generation failed; the request was not retried.",
       )
     }
     if (response.redirected || (response.status >= 300 && response.status < 400)) {
       await response.body?.cancel().catch(() => undefined)
-      throw new AtetCloudError(
+      throw new SlopcameraCloudError(
         "GENERATION_FAILED",
         "The Vercel AI Gateway request was rejected.",
       )
@@ -434,12 +434,12 @@ function combineSignals(
 }> {
   const controller = new AbortController()
   const abort = (): void => controller.abort(caller?.reason)
-  let rejectInterruption: ((error: AtetCloudError) => void) | undefined
+  let rejectInterruption: ((error: SlopcameraCloudError) => void) | undefined
   const interruption = new Promise<never>((_resolve, reject) => {
     rejectInterruption = reject
   })
   const rejectOnAbort = (): void => {
-    rejectInterruption?.(new AtetCloudError(
+    rejectInterruption?.(new SlopcameraCloudError(
       "GENERATION_FAILED",
       "Vercel AI Gateway image generation was cancelled or exceeded its deadline.",
     ))
@@ -460,26 +460,26 @@ function combineSignals(
   }
 }
 
-function mediaType(value: unknown): AtetResponseMediaType {
+function mediaType(value: unknown): SlopcameraResponseMediaType {
   if (
     typeof value !== "string" ||
-    !atetResponseMediaTypes.includes(value as AtetResponseMediaType)
+    !slopcameraResponseMediaTypes.includes(value as SlopcameraResponseMediaType)
   ) {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_INVALID_RESPONSE",
       "Vercel AI Gateway returned an unsupported image type.",
     )
   }
-  return value as AtetResponseMediaType
+  return value as SlopcameraResponseMediaType
 }
 
 function validImageBytes(
   bytes: Uint8Array,
-  type: AtetResponseMediaType,
+  type: SlopcameraResponseMediaType,
 ): boolean {
   if (
     bytes.byteLength < 12 ||
-    bytes.byteLength > atetMaximumRawImageBytes
+    bytes.byteLength > slopcameraMaximumRawImageBytes
   ) {
     return false
   }
@@ -525,23 +525,23 @@ function warningReceipt(value: unknown): string {
 function parseResult(
   value: unknown,
   model: string,
-): Readonly<{ bytes: Uint8Array; response: GeneratedAtetImage }> {
+): Readonly<{ bytes: Uint8Array; response: GeneratedSlopcameraImage }> {
   if (!isObject(value) || !Array.isArray(value.images) || value.images.length !== 1) {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_INVALID_RESPONSE",
       "Vercel AI Gateway did not return exactly one image.",
     )
   }
   const image = value.images[0]
   if (!isObject(image) || !(image.uint8Array instanceof Uint8Array)) {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_INVALID_RESPONSE",
       "Vercel AI Gateway returned an invalid bounded image.",
     )
   }
   const type = mediaType(image.mediaType)
   if (!validImageBytes(image.uint8Array, type)) {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_INVALID_RESPONSE",
       "Vercel AI Gateway returned an invalid bounded image.",
     )
@@ -558,7 +558,7 @@ function parseResult(
     ? gateway.generationId
     : randomUUID()
   const requestId = `sha256:${createHash("sha256")
-    .update("atet.gateway-generation-id/v1\0")
+    .update("slopcamera.gateway-generation-id/v1\0")
     .update(foreignGenerationId)
     .digest("hex")}`
   const warnings = Array.isArray(value.warnings)
@@ -580,11 +580,11 @@ function parseResult(
 }
 
 async function performGeneration(
-  input: GenerateAtetImageInput,
-  dependencies: AtetGenerateDependencies,
+  input: GenerateSlopcameraImageInput,
+  dependencies: SlopcameraGenerateDependencies,
 ): Promise<Readonly<{
   bytes: Uint8Array
-  response: GeneratedAtetImage
+  response: GeneratedSlopcameraImage
 }>> {
   const model = validateModel(input.model)
   const prompt = validatePrompt(input.prompt)
@@ -593,14 +593,14 @@ async function performGeneration(
   try {
     const generation = (async () => {
       assertGenerationActive(timeout.signal)
-      // Raw AI SDK warnings may contain provider-controlled details. Atet
+      // Raw AI SDK warnings may contain provider-controlled details. Slopcamera
       // emits only allowlisted warning kinds and message hashes.
       disableAiSdkWarningLogging()
       const runtime = await (dependencies.loadRuntime ?? loadDefaultGatewayRuntime)()
       assertGenerationActive(timeout.signal)
       const provider = runtime.createGateway({
         apiKey: credential.token,
-        baseURL: atetGatewayApiBaseUrl,
+        baseURL: slopcameraGatewayApiBaseUrl,
         fetch: createFixedGatewayFetch({
           ...(dependencies.fetch === undefined ? {} : { fetch: dependencies.fetch }),
           ...(dependencies.maximumResponseBytes === undefined
@@ -620,8 +620,8 @@ async function performGeneration(
     })()
     return await Promise.race([generation, timeout.interruption])
   } catch (error) {
-    if (error instanceof AtetCloudError) throw error
-    throw new AtetCloudError(
+    if (error instanceof SlopcameraCloudError) throw error
+    throw new SlopcameraCloudError(
       "GENERATION_FAILED",
       "Vercel AI Gateway image generation failed; the request was not retried.",
     )
@@ -630,14 +630,14 @@ async function performGeneration(
   }
 }
 
-export async function generateAtetImage(
-  input: GenerateAtetImageInput,
-  dependencies: AtetGenerateDependencies = {},
-): Promise<GeneratedAtetImage> {
+export async function generateSlopcameraImage(
+  input: GenerateSlopcameraImageInput,
+  dependencies: SlopcameraGenerateDependencies = {},
+): Promise<GeneratedSlopcameraImage> {
   return (await performGeneration(input, dependencies)).response
 }
 
-function expectedMediaType(outputPath: string): AtetResponseMediaType {
+function expectedMediaType(outputPath: string): SlopcameraResponseMediaType {
   const extension = extname(outputPath).toLocaleLowerCase("en-US")
   if (extension === ".png") return "image/png"
   if (extension === ".jpg" || extension === ".jpeg") return "image/jpeg"
@@ -652,7 +652,7 @@ async function atomicImageWrite(
   const absolutePath = resolve(outputPath)
   const temporaryPath = resolve(
     dirname(absolutePath),
-    `.${randomUUID()}.atet-generate.tmp`,
+    `.${randomUUID()}.slopcamera-generate.tmp`,
   )
   try {
     await writeFile(temporaryPath, bytes, { flag: "wx" })
@@ -661,19 +661,19 @@ async function atomicImageWrite(
     await link(temporaryPath, absolutePath)
     return absolutePath
   } catch {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "OUTPUT_WRITE_FAILED",
-      "Atet could not atomically write the generated image.",
+      "Slopcamera could not atomically write the generated image.",
     )
   } finally {
     await rm(temporaryPath, { force: true }).catch(() => undefined)
   }
 }
 
-export async function generateAtetImageFile(
-  input: GenerateAtetImageInput & { readonly outputPath: string },
-  dependencies: AtetGenerateDependencies = {},
-): Promise<GeneratedAtetImageFile> {
+export async function generateSlopcameraImageFile(
+  input: GenerateSlopcameraImageInput & { readonly outputPath: string },
+  dependencies: SlopcameraGenerateDependencies = {},
+): Promise<GeneratedSlopcameraImageFile> {
   if (
     typeof input.outputPath !== "string" ||
     input.outputPath.length < 1 ||
@@ -685,7 +685,7 @@ export async function generateAtetImageFile(
   const expected = expectedMediaType(input.outputPath)
   const generated = await performGeneration(input, dependencies)
   if (generated.response.image.mediaType !== expected) {
-    throw new AtetCloudError(
+    throw new SlopcameraCloudError(
       "GENERATION_INVALID_RESPONSE",
       `Generated ${generated.response.image.mediaType} does not match the requested ${expected} output path.`,
     )

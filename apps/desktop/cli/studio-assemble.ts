@@ -12,7 +12,7 @@ import { studioStorageRoot } from "./studio-service";
 
 export interface StudioAssemblyInput extends StudioEncodeInput { readonly title?: string; }
 export interface StudioAssemblyResult extends DirectingAssemblyResult {
-  readonly kind: "atet.studio-assembly"; readonly schemaVersion: 1;
+  readonly kind: "slopcamera.studio-assembly"; readonly schemaVersion: 1;
   readonly jobId: string; readonly outputId: string;
   readonly clip: GatewayMediaSourceReference;
   readonly encoded: Awaited<ReturnType<typeof encodeStudioSequence>>;
@@ -49,10 +49,10 @@ export async function assembleStudioJob(input: StudioAssemblyInput): Promise<Stu
   const source = GatewayMediaSourceReferenceSchema.parse({ ...encoded.artifact, mediaType: "video/mp4" });
   const measuredDurationUs = await inspectDirectingClipDuration(application, source, input.signal);
   const clip = GatewayMediaSourceReferenceSchema.parse({ ...source, facts: { width: render.width, height: render.height, durationSeconds: measuredDurationUs / 1_000_000 } });
-  const recipeSha256 = boundedCanonicalJsonSha256({ kind: "atet.studio-assembly-selection", schemaVersion: 1, title, jobId: input.jobId, outputId: input.outputId, planSha256: plan.planSha256, nativeReceipt: native.receipt, encodeReceipt: encoded.receipt, clip }, { maximumBytes: 1_048_576 });
+  const recipeSha256 = boundedCanonicalJsonSha256({ kind: "slopcamera.studio-assembly-selection", schemaVersion: 1, title, jobId: input.jobId, outputId: input.outputId, planSha256: plan.planSha256, nativeReceipt: native.receipt, encodeReceipt: encoded.receipt, clip }, { maximumBytes: 1_048_576 });
   await fence();
   const assembled = await assembleDirectingClips(application, { id: `studio_${recipeSha256.slice(0, 40)}`, title, recipeSha256,
     clips: [{ shotId: input.outputId, attemptId: input.jobId, source: clip, durationUs: measuredDurationUs }] }, input.signal);
   await fence();
-  return { kind: "atet.studio-assembly", schemaVersion: 1, jobId: input.jobId, outputId: input.outputId, clip, encoded, ...assembled };
+  return { kind: "slopcamera.studio-assembly", schemaVersion: 1, jobId: input.jobId, outputId: input.outputId, clip, encoded, ...assembled };
 }

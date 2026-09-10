@@ -25,13 +25,13 @@ function manifest(bytes: Uint8Array, kind: "image" | "video" = "image"): Spatial
       : { kind, width: 2, height: 1, colorSpace: "srgb", alpha: "straight", durationUs: 1_000_000, frameRate: { numerator: 3, denominator: 1 } } };
 }
 function snapshot(assets: readonly SpatialAssetManifest[], entity = imageEntity(), timeUs = 0) {
-  return EvaluatedSpatialSceneSchema.parse({ kind: "atet.spatial-snapshot", schemaVersion: 1, sceneSha256: "a".repeat(64), stateSha256: "b".repeat(64), viewSha256: "c".repeat(64), timeUs,
+  return EvaluatedSpatialSceneSchema.parse({ kind: "slopcamera.spatial-snapshot", schemaVersion: 1, sceneSha256: "a".repeat(64), stateSha256: "b".repeat(64), viewSha256: "c".repeat(64), timeUs,
     assets, camera: { cameraId: "camera_main", name: "Main", pose: { position: [0, 0, 0], rotation: [0, 0, 0, 1] },
       projection: { kind: "perspective", width: 320, height: 180, near: 0.1, far: 10, fx: 160, fy: 170, cx: 160, cy: 90 } },
     entities: [{ entity, worldMatrix: composeTransform(transform), visible: true, selectionId: 1 }] });
 }
 async function workspace<Result>(use: (root: string, parent: string) => Promise<Result>): Promise<Result> {
-  const temporary = await mkdtemp(join(tmpdir(), "atet-spatial-assets-test-"));
+  const temporary = await mkdtemp(join(tmpdir(), "slopcamera-spatial-assets-test-"));
   // /var aliases /private/var on macOS; the production boundary requires physical roots.
   const { realpath } = await import("node:fs/promises");
   const path = await realpath(temporary), root = join(path, "assets"), parent = join(path, "work");

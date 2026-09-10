@@ -282,7 +282,7 @@ export function compileProjectRenderPlan(
     cameraKeyframes: metadata.cameraKeyframes,
     cameraSegments,
     effects: metadata.effects,
-    kind: "atet.project-render-plan" as const,
+    kind: "slopcamera.project-render-plan" as const,
     output: {
       background: settings.background ?? "#000000ff",
       durationUs: outputMap.durationUs,

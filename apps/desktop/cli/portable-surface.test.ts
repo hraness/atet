@@ -7,7 +7,7 @@ import {
   runPortableSurface,
 } from "./portable-surface";
 
-describe("unified portable Atet CLI surface", () => {
+describe("unified portable Slopcamera CLI surface", () => {
   test("delegates the complete headless diagram and explicit-file image grammar", async () => {
     const delegated: readonly string[][] = [];
     const runHeadless = (argv: readonly string[]): Promise<void> => {
@@ -123,7 +123,7 @@ describe("unified portable Atet CLI surface", () => {
     expect(writes).toHaveLength(1);
     expect(writes[0]?.path).toBe("/workspace/overlays/title.html");
     expect(writes[0]?.html).toContain('from "@paper-design/shaders"');
-    expect(writes[0]?.html).toContain("AtetOverlay.onFrame");
+    expect(writes[0]?.html).toContain("SlopcameraOverlay.onFrame");
     expect(logs).toEqual(["Created /workspace/overlays/title.html"]);
   });
 
@@ -231,14 +231,14 @@ describe("unified portable Atet CLI surface", () => {
     "rejects HTML catalog grammar outside the optional exact JSON flag: %j",
     async (argv) => {
       await expect(runPortableSurface(argv)).rejects.toThrow(
-        "Use atet html catalog [--json].",
+        "Use slopcamera html catalog [--json].",
       );
     },
   );
 
   test("documents catalog discovery and every supported scaffold kind", () => {
     expect(commandHelp([])).toContain("html catalog|scaffold");
-    expect(commandHelp(["html"])).toContain("atet html catalog [--json]");
+    expect(commandHelp(["html"])).toContain("slopcamera html catalog [--json]");
     expect(commandHelp(["html"])).toContain(
       "<plain|motion|p5|two|paper-shaders|three|vgpu>",
     );

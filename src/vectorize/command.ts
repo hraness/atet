@@ -168,7 +168,7 @@ export async function runBoundedPathOutputCommand(
   let failure: unknown | typeof noCommandFailure = noCommandFailure
   try {
     outputDirectory = await mkdtemp(
-      join(options.temporaryRoot, "atet-command-output-"),
+      join(options.temporaryRoot, "slopcamera-command-output-"),
     )
     directoryHandle = await open(
       outputDirectory,

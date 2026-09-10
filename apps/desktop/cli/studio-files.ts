@@ -67,7 +67,7 @@ export async function captureStudioSource(input: {
     bytes += integrity.bytes;
     files.push({ path, ...integrity });
   }
-  return parseStudioSourceBundle({ kind: "atet.studio-source-bundle", schemaVersion: 1, engine: input.engine, entrypoint: input.entrypoint, files });
+  return parseStudioSourceBundle({ kind: "slopcamera.studio-source-bundle", schemaVersion: 1, engine: input.engine, entrypoint: input.entrypoint, files });
 }
 
 export async function verifyStudioSource(sourceRoot: string, bundle: StudioSourceBundle): Promise<void> {

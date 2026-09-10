@@ -15,7 +15,7 @@ const hash = (algorithm: "md5" | "sha256", bytes: Uint8Array): string => createH
 const absent = (error: unknown): boolean => error instanceof Error && "code" in error && error.code === "ENOENT";
 export interface ImportedAssetFile extends AssetPlannedFile { readonly sha256: string }
 export interface PolyHavenAssetReceipt {
-  readonly kind: "atet.studio-asset-import"; readonly schemaVersion: 1; readonly provider: "poly-haven"; readonly planSha256: string;
+  readonly kind: "slopcamera.studio-asset-import"; readonly schemaVersion: 1; readonly provider: "poly-haven"; readonly planSha256: string;
   readonly asset: PolyHavenAssetPlan["asset"]; readonly license: PolyHavenAssetPlan["license"]; readonly credit: string; readonly apiTermsUrl: string;
   readonly files: readonly ImportedAssetFile[]; readonly totalBytes: number; readonly sourceDirectory: "source"; readonly verification: "catalog-md5-and-local-sha256";
 }
@@ -81,7 +81,7 @@ export function createPolyHavenAssetService(options: { readonly storageRoot: str
       if (file.role === "model") validateGltfAssetClosure(bytes, plan);
       files.push({ ...file, sha256: integrity.sha256 });
     }
-    const receipt: PolyHavenAssetReceipt = { kind: "atet.studio-asset-import", schemaVersion: 1, provider: "poly-haven", planSha256: plan.planSha256, asset: plan.asset, license: plan.license, credit: plan.credit, apiTermsUrl: plan.apiTermsUrl, files, totalBytes: plan.totalBytes, sourceDirectory: "source", verification: "catalog-md5-and-local-sha256" };
+    const receipt: PolyHavenAssetReceipt = { kind: "slopcamera.studio-asset-import", schemaVersion: 1, provider: "poly-haven", planSha256: plan.planSha256, asset: plan.asset, license: plan.license, credit: plan.credit, apiTermsUrl: plan.apiTermsUrl, files, totalBytes: plan.totalBytes, sourceDirectory: "source", verification: "catalog-md5-and-local-sha256" };
     if (receiptInput !== undefined && assetJson(captureAssetJson(receiptInput)) !== assetJson(receipt)) throw new Error("Retained asset receipt conflicts with its verified source files.");
     await fence();
     return deepFreezeJson(receipt);

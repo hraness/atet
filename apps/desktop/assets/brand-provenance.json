@@ -1,0 +1,30 @@
+{
+  "kind": "slopcamera.original-vector-brand",
+  "schemaVersion": 1,
+  "authorship": "Original repository-authored SVG camera artwork; no model generation or external image source.",
+  "source": {
+    "path": "brand-emoji/slop.camera.svg",
+    "sha256": "0c2d950c2f1d38ef109c2532fd2b34b069278f78962a0d04277c252ce3c0bf9f"
+  },
+  "renderer": {
+    "name": "@resvg/resvg-js",
+    "version": "2.6.2",
+    "systemFonts": false
+  },
+  "outputs": [
+    {
+      "path": "icon.png",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 94932,
+      "sha256": "0473d2434f0487f97e51c9e7fb378107c67fd4e6ab4f744863245c6af86487ce"
+    },
+    {
+      "path": "../../web/src/apple-touch-icon.png",
+      "width": 180,
+      "height": 180,
+      "bytes": 10537,
+      "sha256": "1d37be5c25e4a5ac113ea51eeb30ade8d2ecd05d38b6584ac5a7040ce7e5930c"
+    }
+  ]
+}

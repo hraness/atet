@@ -28,7 +28,7 @@ const world = z.strictObject({
 
 /** Validate retained evidence without a provider client, credential, or request. */
 export const WorldLabsProvenanceSchema = z.strictObject({
-  kind: z.literal("atet.world-labs-provenance"), schemaVersion: z.literal(1),
+  kind: z.literal("slopcamera.world-labs-provenance"), schemaVersion: z.literal(1),
   attemptId: worldLabsId, operationId: worldLabsId,
   operationBinding: z.enum(["dispatch", "operator-recovery"]),
   request, requestSha256: Sha256Schema, responseSha256: Sha256Schema,

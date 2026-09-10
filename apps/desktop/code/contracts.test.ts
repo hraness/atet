@@ -102,7 +102,7 @@ describe("workflow graph contracts", () => {
     })).toThrow();
     expect(() => SerializedRefV1Schema.parse({
       ...validReference,
-      version: "atet-workflow-ref-v2",
+      version: "slopcamera-workflow-ref-v2",
     })).toThrow();
 
     const malformedReference = structuredClone(validGraph()) as {
@@ -116,7 +116,7 @@ describe("workflow graph contracts", () => {
 
     expect(() => AuthoredWorkflowGraphV1Schema.parse({
       ...(validGraph() as Record<string, unknown>),
-      version: "atet-workflow-graph-v999",
+      version: "slopcamera-workflow-graph-v999",
     })).toThrow();
   });
 

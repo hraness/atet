@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  atetCoverageCatalog,
-  atetScenarioCatalog,
-  atetScenarioMetadata,
+  slopcameraCoverageCatalog,
+  slopcameraScenarioCatalog,
+  slopcameraScenarioMetadata,
 } from "./scenarios";
 
 const expectedScenarios = [
@@ -22,16 +22,16 @@ const expectedScenarios = [
   "stop-finalized",
 ] as const;
 
-describe("Atet Direct catalogs", () => {
+describe("Slopcamera Direct catalogs", () => {
   test("keeps the required recorder lifecycle scenarios exact", () => {
-    const ids = atetScenarioCatalog.list().map(({ id }) => String(id)).toSorted();
+    const ids = slopcameraScenarioCatalog.list().map(({ id }) => String(id)).toSorted();
     expect(ids).toEqual([...expectedScenarios]);
-    expect(Object.keys(atetScenarioMetadata).toSorted()).toEqual(ids);
-    expect(new Set(atetScenarioCatalog.list().map(({ route }) => route))).toEqual(new Set(["/"]));
+    expect(Object.keys(slopcameraScenarioMetadata).toSorted()).toEqual(ids);
+    expect(new Set(slopcameraScenarioCatalog.list().map(({ route }) => route))).toEqual(new Set(["/"]));
   });
 
   test("keeps fixture claims distinct from direct native proof", () => {
-    const entries = atetCoverageCatalog.list();
+    const entries = slopcameraCoverageCatalog.list();
     expect(entries.some(({ key }) => key === "overlays.all-kinds")).toBe(true);
     expect(entries.some(({ key }) => key === "alignment.candidates-accepted")).toBe(true);
     expect(entries.some(({ key }) => key === "analysis.scene-local-boundary")).toBe(true);
@@ -51,7 +51,7 @@ describe("Atet Direct catalogs", () => {
   });
 
   test("fails closed for unknown activation", () => {
-    const result = atetScenarioCatalog.resolve("missing-recorder-world");
+    const result = slopcameraScenarioCatalog.resolve("missing-recorder-world");
     expect(result).toMatchObject({ ok: false, error: { code: "unknown-scenario" } });
   });
 });

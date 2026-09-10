@@ -1,4 +1,4 @@
-export type AtetCodeErrorCode =
+export type SlopcameraCodeErrorCode =
   | "usage"
   | "not-found"
   | "conflict"
@@ -13,17 +13,17 @@ export type AtetCodeErrorCode =
   | "incompatible"
   | "internal"
 
-export class AtetCodeError extends Error {
-  readonly code: AtetCodeErrorCode
+export class SlopcameraCodeError extends Error {
+  readonly code: SlopcameraCodeErrorCode
   readonly details: Readonly<Record<string, unknown>> | undefined
 
   constructor(
-    code: AtetCodeErrorCode,
+    code: SlopcameraCodeErrorCode,
     message: string,
     details?: Readonly<Record<string, unknown>>,
   ) {
     super(message)
-    this.name = "AtetCodeError"
+    this.name = "SlopcameraCodeError"
     this.code = code
     this.details = details === undefined
       ? undefined
@@ -31,11 +31,11 @@ export class AtetCodeError extends Error {
   }
 }
 
-export function atetCodeErrorMessage(error: unknown): string {
+export function slopcameraCodeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-export function asAtetCodeError(error: unknown): AtetCodeError {
-  if (error instanceof AtetCodeError) return error
-  return new AtetCodeError("internal", atetCodeErrorMessage(error))
+export function asSlopcameraCodeError(error: unknown): SlopcameraCodeError {
+  if (error instanceof SlopcameraCodeError) return error
+  return new SlopcameraCodeError("internal", slopcameraCodeErrorMessage(error))
 }

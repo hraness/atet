@@ -8,7 +8,7 @@ import {
 } from "../contracts";
 import { canonicalJson } from "../core/canonical-json";
 import {
-  canonicalAtetPersistenceDocument,
+  canonicalSlopcameraPersistenceDocument,
   createNodeBundleFileSystem,
   saveVideoProject,
 } from "../core/storage";
@@ -218,7 +218,7 @@ export async function mergeProjectAnalysisReference(
         >= Date.parse(publicationSnapshot.project.updatedAt)
         ? reference.createdAt
         : publicationSnapshot.project.updatedAt;
-      const project = canonicalAtetPersistenceDocument(VideoProjectV1Schema.parse({
+      const project = canonicalSlopcameraPersistenceDocument(VideoProjectV1Schema.parse({
         ...publicationSnapshot.project,
         analyses: [...publicationSnapshot.project.analyses, reference],
         updatedAt,

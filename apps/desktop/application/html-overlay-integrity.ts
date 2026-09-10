@@ -79,17 +79,17 @@ export const HTML_OVERLAY_RENDERER_CONTRACT = Object.freeze({
     "default-src 'none'",
     "base-uri 'none'",
     "connect-src 'none'",
-    "font-src https://atet-overlay.invalid data:",
+    "font-src https://slopcamera-overlay.invalid data:",
     "form-action 'none'",
     "frame-src 'none'",
-    "img-src https://atet-overlay.invalid data:",
-    "media-src https://atet-overlay.invalid data:",
+    "img-src https://slopcamera-overlay.invalid data:",
+    "media-src https://slopcamera-overlay.invalid data:",
     "object-src 'none'",
-    "script-src 'unsafe-inline' https://atet-overlay.invalid",
+    "script-src 'unsafe-inline' https://slopcamera-overlay.invalid",
     "style-src 'unsafe-inline'",
     "worker-src 'none'",
   ]),
-  documentUrl: "https://atet-overlay.invalid/atet-overlay/document",
+  documentUrl: "https://slopcamera-overlay.invalid/slopcamera-overlay/document",
   environment: Object.freeze({
     fixed: Object.freeze({
       LANG: "en_US.UTF-8",
@@ -129,7 +129,7 @@ export const HTML_OVERLAY_RENDERER_CONTRACT = Object.freeze({
     }),
   }),
   routing: Object.freeze({
-    allowedOrigin: "https://atet-overlay.invalid",
+    allowedOrigin: "https://slopcamera-overlay.invalid",
     declaredResourcesOnly: true,
     remoteNetworkDenied: true,
   }),
@@ -167,7 +167,7 @@ function legacyHtmlOverlayRendererContract(profileInput?: HtmlOverlayExecutionPr
     contentSecurityPolicy: executionProfile === "three-spark-webgl2-hardware-v1"
       ? Object.freeze(HTML_OVERLAY_RENDERER_CONTRACT.contentSecurityPolicy.map(directive => {
         if (directive === "worker-src 'none'") return "worker-src blob:";
-        if (directive === "connect-src 'none'") return "connect-src https://atet-overlay.invalid data:";
+        if (directive === "connect-src 'none'") return "connect-src https://slopcamera-overlay.invalid data:";
         if (directive.startsWith("script-src ")) return `${directive} 'wasm-unsafe-eval'`;
         return directive;
       })) : HTML_OVERLAY_RENDERER_CONTRACT.contentSecurityPolicy,
@@ -219,7 +219,7 @@ function sha256(value: string | Uint8Array): string {
 
 function leafSha256(key: string, value: unknown): string {
   return sha256(canonicalJson({
-    domain: "atet.html-overlay-integrity-leaf/v1",
+    domain: "slopcamera.html-overlay-integrity-leaf/v1",
     key,
     value,
   }));
@@ -227,7 +227,7 @@ function leafSha256(key: string, value: unknown): string {
 
 function merkleRoot(leaves: readonly Readonly<{ key: string; sha256: string }>[]): string {
   let level = leaves.map(leaf => sha256([
-    "atet.html-overlay-integrity-node/v1",
+    "slopcamera.html-overlay-integrity-node/v1",
     "leaf",
     leaf.key,
     leaf.sha256,
@@ -238,7 +238,7 @@ function merkleRoot(leaves: readonly Readonly<{ key: string; sha256: string }>[]
       const left = level[index]!;
       const right = level[index + 1] ?? left;
       next.push(sha256([
-        "atet.html-overlay-integrity-node/v1",
+        "slopcamera.html-overlay-integrity-node/v1",
         "branch",
         left,
         right,

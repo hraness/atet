@@ -90,7 +90,7 @@ export function createHtmlOverlayGpuEvidence(
   browserGpu: unknown,
 ): HtmlOverlayGpuEvidence {
   return parseHtmlOverlayGpuEvidence({
-    kind: "atet.html-overlay-gpu-evidence", schemaVersion: 1, executionProfile,
+    kind: "slopcamera.html-overlay-gpu-evidence", schemaVersion: 1, executionProfile,
     api: "webgl2", backend: "angle-metal", platform: process.platform,
     architecture: process.arch, osRelease: release(), context, browserGpu,
   });

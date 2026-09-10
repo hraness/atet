@@ -28,7 +28,7 @@ function randomSeed(seed: number, namespace: string): number {
 
 /**
  * Creates the page-lifetime deterministic sequence exposed as
- * `AtetOverlay.random`. The sequence is intentionally stateful.
+ * `SlopcameraOverlay.random`. The sequence is intentionally stateful.
  */
 export function createHtmlOverlayRandom(seed: number): () => number {
   let state = randomSeed(seed, "sequence");

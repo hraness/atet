@@ -7,10 +7,10 @@ import "./index.css";
 import { detectRuntimeBridge } from "./runtime-bridge";
 
 const root = document.querySelector<HTMLDivElement>("#root");
-if (root === null) throw new Error("Atet root element is missing.");
+if (root === null) throw new Error("Slopcamera root element is missing.");
 
-document.documentElement.setAttribute("data-atet-surface", "product");
-document.body.setAttribute("data-atet-surface", "product");
+document.documentElement.setAttribute("data-slopcamera-surface", "product");
+document.body.setAttribute("data-slopcamera-surface", "product");
 
 createRoot(root).render(
   <StrictMode>

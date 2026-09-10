@@ -15,13 +15,13 @@ import { BunProcessRunner } from "./io";
 
 function fixture(durationUs = 1_000_000, numerator = 30_000, denominator = 1_001) {
   const hash = "a".repeat(64);
-  const plan = ProjectRenderPlanV1Schema.parse({ kind: "atet.project-render-plan", schemaVersion: 1,
+  const plan = ProjectRenderPlanV1Schema.parse({ kind: "slopcamera.project-render-plan", schemaVersion: 1,
     planSha256: hash, projectEditPlanSha256: hash, projectStructureSha256: hash, projectId: "project_cadence01",
     output: { background: "#000000ff", durationUs, frameRate: numerator / denominator, pixelWidth: 16, pixelHeight: 16 },
     videoSlices: [], audioSlices: [], overlays: [], cameraKeyframes: [], cameraSegments: [], warnings: [],
     effects: { clickCues: [], clicks: { enabled: false }, cursor: { enabled: false }, cursorSamples: [], keystrokeCues: [], keystrokes: { enabled: false }, typedText: { enabled: false }, typingSpans: [] } });
   plan.planSha256 = hashProjectRenderPlanComposition(plan);
-  const cadence = { kind: "atet.spatial-compositor-cadence" as const, schemaVersion: 1 as const,
+  const cadence = { kind: "slopcamera.spatial-compositor-cadence" as const, schemaVersion: 1 as const,
     projectionSha256: hash, compositionPlanSha256: plan.planSha256, frameRate: { numerator, denominator }, durationUs,
     frameCount: spatialFrameCount(durationUs, { numerator, denominator }) };
   return { plan, binding: assertSpatialCompositorCadence({ cadence, cadenceSha256: spatialCompositorCadenceSha256(cadence) }, plan) };
@@ -37,7 +37,7 @@ function probes(durationUs = 1_000_000, numerator = 30_000, denominator = 1_001)
 }
 
 test("rational emitters and endpoint trim are explicit while V1 invocation bytes stay stable", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-spatial-cadence-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-spatial-cadence-")));
   try {
     await mkdir(join(root, "renders"));
     const { plan, binding } = fixture();
@@ -111,7 +111,7 @@ test("metadata sprites preserve exact cadence and reject a conflicting planning 
 });
 
 test("spatial cadence resolves digest-named shot videos in project storage and retains legacy repository roots", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-spatial-input-root-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-spatial-input-root-")));
   try {
     const project = join(root, "project"); await mkdir(join(project, "renders"), { recursive: true }); await mkdir(join(project, "spatial", "outputs"), { recursive: true });
     const bytes = Buffer.from("original media bytes"), hash = createHash("sha256").update(bytes).digest("hex");
@@ -137,7 +137,7 @@ test("spatial cadence resolves digest-named shot videos in project storage and r
 });
 
 test("failed timing probe waits for its sibling before returning to workspace cleanup", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-spatial-probe-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-spatial-probe-")));
   try {
     const outputPath = join(root, "out.mp4"); await writeFile(outputPath, "verified-private-fixture");
     const input = probes();
@@ -161,7 +161,7 @@ test("failed timing probe waits for its sibling before returning to workspace cl
 
 const ffmpeg = Bun.which("ffmpeg"), ffprobe = Bun.which("ffprobe");
 test.skipIf(ffmpeg === null || ffprobe === null)("native rational endpoints preserve the last video sample and sub-millisecond AAC tail", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-spatial-native-cadence-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-spatial-native-cadence-")));
   try {
     await mkdir(join(root, "renders"));
     const runner = new BunProcessRunner();

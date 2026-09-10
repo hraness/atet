@@ -17,7 +17,7 @@ const savedImport = {
   normalization: { metersPerUnit: 1, sourceUp: "y", sourceHandedness: "right", transform: { position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1] } },
   provenance: { kind: "saved", description: "Explicit saved world" },
 };
-const importArgv = ["scene", "world", "import", "--input", "import.json", "--source-root", ".", "--output-root", "artifacts/atet/generated/import-test", "--json"];
+const importArgv = ["scene", "world", "import", "--input", "import.json", "--source-root", ".", "--output-root", "artifacts/slopcamera/generated/import-test", "--json"];
 
 test("world CLI exposes only local import and rejects retired provider actions", () => {
   expect(parseCliArgs(importArgv)).toMatchObject({ kind: "spatial-world", action: "import", sourceRoot: "." });
@@ -30,13 +30,13 @@ test("world CLI exposes only local import and rejects retired provider actions",
 });
 
 test("canonical saved import needs no credential or network and preserves historical attempts", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-world-cli-import-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-world-cli-import-")));
   try {
     const bytes = originalSpz().compressed;
     const input = { ...savedImport, splat: { path: "saved.spz", bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") } };
     await writeFile(join(root, "saved.spz"), bytes);
     await writeFile(join(root, "import.json"), JSON.stringify(input));
-    const retainedDirectory = join(root, "artifacts/atet/generated/worlds/attempts/historical_attempt");
+    const retainedDirectory = join(root, "artifacts/slopcamera/generated/worlds/attempts/historical_attempt");
     await mkdir(retainedDirectory, { recursive: true });
     const historicalBytes = '{"preserve":"historical provider evidence"}';
     await writeFile(join(retainedDirectory, "request.json"), historicalBytes);
@@ -51,7 +51,7 @@ test("canonical saved import needs no credential or network and preserves histor
     const imported = JSON.parse(output.at(-1)!);
     expect(imported.manifest.capabilities.physics).toBe("unavailable");
     expect(imported.assets).toHaveLength(2);
-    expect(await readFile(join(root, "artifacts/atet/generated/import-test", imported.manifest.splat.payload.path))).toEqual(bytes);
+    expect(await readFile(join(root, "artifacts/slopcamera/generated/import-test", imported.manifest.splat.payload.path))).toEqual(bytes);
     expect(await readFile(join(retainedDirectory, "request.json"), "utf8")).toBe(historicalBytes);
     expect(networkCalls).toBe(0);
     expect(errors).toEqual([]);
@@ -63,7 +63,7 @@ test("canonical saved import needs no credential or network and preserves histor
 });
 
 test("world import requires a dedicated generated destination", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-world-cli-destination-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-world-cli-destination-")));
   try {
     await writeFile(join(root, "import.json"), JSON.stringify(savedImport));
     await expect(executeSpatialWorldCommand(operationApplicationContext(root), {
@@ -73,7 +73,7 @@ test("world import requires a dedicated generated destination", async () => {
 });
 
 test("canonical world CLI reports malformed saved imports as invalid input without network access", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-world-cli-invalid-import-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-world-cli-invalid-import-")));
   try {
     const errors: string[] = [], output: string[] = [];
     let networkCalls = 0;

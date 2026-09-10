@@ -12,7 +12,7 @@ import type { ApplicationHostResourceLease } from "./context";
 import { ApplicationError } from "./errors";
 
 test("read-only spatial leases never recover a valid interrupted V1 journal", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-spatial-read-lease-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-spatial-read-lease-"));
   try {
     const f = await createOperationProjectFixture(root);
     const application = operationApplicationContext(root);
@@ -30,7 +30,7 @@ test("read-only spatial leases never recover a valid interrupted V1 journal", as
 });
 
 test("a valid migrated bundle cannot acquire authority through a different project directory", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-spatial-directory-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-spatial-directory-"));
   try {
     const f = await createOperationProjectFixture(root);
     const application = operationApplicationContext(root);
@@ -65,12 +65,12 @@ const fixtureHostLease = (assertOwned: () => Promise<void>): ApplicationHostReso
 
 for (const loss of ["host", "cancellation", "v2"] as const) {
   test(`legacy recovery refuses ${loss} loss after staging and before its first authority replacement`, async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-spatial-recovery-fence-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-spatial-recovery-fence-"));
     try {
       const f = await interruptedLegacyFixture(root), paths = ["project.json", "edits/current.json", "state/project-transaction.json"];
       const original = await Promise.all(paths.map(path => f.fileSystem.readText(path)));
       let held = true, cancelled = false, executed = false;
-      const marker = JSON.stringify({ kind: "atet.spatial-project-head", schemaVersion: 2, projectId: f.project.projectId });
+      const marker = JSON.stringify({ kind: "slopcamera.spatial-project-head", schemaVersion: 2, projectId: f.project.projectId });
       const application = { ...operationApplicationContext(root), hostResourceLease: fixtureHostLease(async () => {
         if (!held) throw new ApplicationError("conflict", "Host custody lost.");
       }) };
@@ -91,7 +91,7 @@ for (const loss of ["host", "cancellation", "v2"] as const) {
 }
 
 test("each replacement in multi-file legacy recovery rechecks custody", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-spatial-recovery-late-fence-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-spatial-recovery-late-fence-"));
   try {
     const f = await interruptedLegacyFixture(root), originalHead = await f.fileSystem.readText("project.json");
     const published: string[] = [];
@@ -112,7 +112,7 @@ test("each replacement in multi-file legacy recovery rechecks custody", async ()
 });
 
 test("legacy immutable settlement publication retains the final custody fence", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-spatial-settlement-fence-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-spatial-settlement-fence-"));
   try {
     const f = await interruptedLegacyFixture(root), settlement = projectStateTransactionSettlementPath(f.transactionId);
     await unlink(join(f.projectDirectory, settlement));
@@ -130,7 +130,7 @@ test("legacy immutable settlement publication retains the final custody fence", 
 });
 
 test("lease cleanup retains the frozen completion and both cleanup errors", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-spatial-lease-completion-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-spatial-lease-completion-"));
   try {
     const f = await createOperationProjectFixture(root), application = operationApplicationContext(root);
     const output = { kind: "completed", projectId: f.project.projectId, attempt: { path: "spatial/attempts/a.json" }, settlement: { path: "spatial/receipts/b.json" } };
@@ -156,7 +156,7 @@ test("lease cleanup retains the frozen completion and both cleanup errors", asyn
 });
 
 test("lease cleanup preserves the original publication failure and releases after all cleanup attempts", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-spatial-lease-failure-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-spatial-lease-failure-"));
   try {
     const f = await createOperationProjectFixture(root), application = operationApplicationContext(root);
     const proof = { kind: "ambiguous", attempt: { path: "spatial/attempts/a.json" } };

@@ -13,7 +13,7 @@ export function spatialSpzAllocationBounds(splats: number, sourceBytes: number, 
   return { gpuBytesBound: rounded * 256, hostBytesBound: 128 * 1024 * 1024 + rounded * 512 + sourceBytes * 3 + decompressedBytes * 2 };
 }
 export const SpatialSpzFactsSchema = z.strictObject({
-  kind: z.literal("atet.spz-admission"), schemaVersion: z.literal(1), version: z.union([z.literal(2), z.literal(3)]),
+  kind: z.literal("slopcamera.spz-admission"), schemaVersion: z.literal(1), version: z.union([z.literal(2), z.literal(3)]),
   splats: z.number().int().min(1).max(SPATIAL_SPLAT_LIMITS.splats), shDegree: z.number().int().min(0).max(3), fractionalBits: z.number().int().min(0).max(24),
   antialiased: z.literal(false), decompressedBytes: z.number().int().min(16).max(SPATIAL_SPLAT_LIMITS.decompressedBytes),
   gpuBytesBound: z.number().int().min(1).max(SPATIAL_SPLAT_LIMITS.gpuBytes), hostBytesBound: z.number().int().min(1).max(SPATIAL_SPLAT_LIMITS.hostBytes),
@@ -37,7 +37,7 @@ const importSchema = z.strictObject({ splat: SpatialPayloadSchema, collider: Spa
 export const SavedSpatialWorldImportInputSchema = z.preprocess(value => createBoundedJsonSnapshot(value, SPATIAL_SPLAT_LIMITS.metadataBytes, "Saved world import", { maximumDepth: 16, maximumValues: 4096 }).value, importSchema);
 export type SavedSpatialWorldImportInput = Readonly<z.infer<typeof SavedSpatialWorldImportInputSchema>>;
 export const SpatialWorldImportManifestSchema = z.strictObject({
-  kind: z.literal("atet.spatial-world-import"), schemaVersion: z.literal(1),
+  kind: z.literal("slopcamera.spatial-world-import"), schemaVersion: z.literal(1),
   splat: z.strictObject({ payload: SpatialPayloadSchema, facts: SpatialSpzFactsSchema }),
   collider: z.strictObject({ payload: SpatialPayloadSchema, role: z.literal("approximate-collider"), validation: z.literal("bounded-glb-structure-only") }).nullable(),
   identities: identitiesSchema, normalization: normalizationSchema, provenance: provenanceSchema,

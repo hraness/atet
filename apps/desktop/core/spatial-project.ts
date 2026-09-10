@@ -51,10 +51,10 @@ export function spatialProjectArtifact(area: "scenes" | "revisions" | "attempts"
   return SpatialProjectArtifactSchema.parse({ path: `spatial/${area}/${sha256}.json`, sha256, bytes: new TextEncoder().encode(text).byteLength });
 }
 export function spatialProjectRevisionSha256(input: unknown): string {
-  return canonicalJsonSha256({ domain: "atet.spatial-project-revision/v2", revision: SpatialProjectRevisionV2Schema.parse(capture(input)) });
+  return canonicalJsonSha256({ domain: "slopcamera.spatial-project-revision/v2", revision: SpatialProjectRevisionV2Schema.parse(capture(input)) });
 }
 export function spatialShotSha256(input: unknown): string {
-  return canonicalJsonSha256({ domain: "atet.spatial-shot/v1", shot: SpatialShotV1Schema.parse(capture(input)) });
+  return canonicalJsonSha256({ domain: "slopcamera.spatial-shot/v1", shot: SpatialShotV1Schema.parse(capture(input)) });
 }
 export function validateSpatialProjectContents(input: SpatialProjectContents): SpatialProjectContents {
   const captured = SpatialProjectContentsSchema.parse(capture(input, SPATIAL_PROJECT_LIMITS.documentBytes + SPATIAL_PROJECT_LIMITS.totalSceneBytes));

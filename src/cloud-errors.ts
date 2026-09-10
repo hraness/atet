@@ -1,4 +1,4 @@
-export type AtetCloudErrorCode =
+export type SlopcameraCloudErrorCode =
   | "AUTHENTICATION_REQUIRED"
   | "GENERATION_FAILED"
   | "GENERATION_INVALID_RESPONSE"
@@ -11,16 +11,16 @@ export type AtetCloudErrorCode =
  * `cause` is retained for local diagnostics but is deliberately not included
  * in the public message or CLI output.
  */
-export class AtetCloudError extends Error {
-  readonly code: AtetCloudErrorCode
+export class SlopcameraCloudError extends Error {
+  readonly code: SlopcameraCloudErrorCode
 
   constructor(
-    code: AtetCloudErrorCode,
+    code: SlopcameraCloudErrorCode,
     message: string,
     options?: ErrorOptions,
   ) {
     super(`[${code}] ${message}`, options)
-    this.name = "AtetCloudError"
+    this.name = "SlopcameraCloudError"
     this.code = code
   }
 }

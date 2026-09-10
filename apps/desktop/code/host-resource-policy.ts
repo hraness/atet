@@ -1,7 +1,7 @@
 import type {
   HostResourceClaim,
   HostResourceCoordinator,
-} from "@hraness/atet/host-resources";
+} from "@hraness/slopcamera/host-resources";
 
 import type {
   OperationResourceClaim,

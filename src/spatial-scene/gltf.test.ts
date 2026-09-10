@@ -18,7 +18,7 @@ function triangleFixture() {
   return {
     binary: binary.slice(0, 104),
     document: {
-      asset: { version: "2.0", generator: "ATET original GLB parser fixture" },
+      asset: { version: "2.0", generator: "SLOPCAMERA original GLB parser fixture" },
       buffers: [{ byteLength: 104 }], bufferViews: [
         { buffer: 0, byteOffset: 0, byteLength: 36 }, { buffer: 0, byteOffset: 36, byteLength: 36 },
         { buffer: 0, byteOffset: 72, byteLength: 24 }, { buffer: 0, byteOffset: 96, byteLength: 6 },
@@ -109,7 +109,7 @@ describe("closed GLB triangle profile", () => {
       return { assetId: "asset_product", payload: { path: `assets/${digest}.glb`, sha256: digest, bytes: bytes.length },
         interpretation: { kind: "gltf", format: "glb", metersPerUnit: 1, sourceUp: "y" }, dependencies: [], provenance: { source: "authored", description: "Original programmatic triangle" } }
     }
-    const apply = (scene: unknown, operations: unknown[]) => applySpatialScenePatch(scene, { kind: "atet.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: spatialSceneSha256(scene), operations })
+    const apply = (scene: unknown, operations: unknown[]) => applySpatialScenePatch(scene, { kind: "slopcamera.spatial-scene-patch", schemaVersion: 1, expectedSceneSha256: spatialSceneSha256(scene), operations })
     const imported = apply(source, [{ kind: "add-asset", asset: manifest(first) }, { kind: "set-mesh-geometry", entityId: "entity_box", geometry: { kind: "asset", assetId: "asset_product", nodeIndex: 0 } }])
     const replace = { kind: "replace-asset", asset: manifest(second) }
     expect(() => apply(imported.scene, [replace])).toThrow("internal correspondence is not inferred")

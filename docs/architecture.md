@@ -1,102 +1,41 @@
-# Architecture
+# How Slopcamera connects sources, scenes and films
 
-Atet turns source material into visual assets. Its public model has three
-primitives:
+Slopcamera keeps authored source available while turning it into inspectable visual artifacts. A diagram, a native Blender scene, an AI-generated clip and a recorded screen can all contribute to a film, but they retain different editing capabilities and provenance. A finished image or video is a useful common boundary between renderers; it does not preserve every property of the source that produced it.
 
-- a still frame;
-- a structured scene that can be inspected and edited;
-- a time-based composition.
+## One local host, several authoring representations
 
-Images, diagrams, animated loops, and videos are the four common outputs built
-from those primitives. HTML, SVG, tldraw, Three.js, shaders, captions, audio,
-and recorded screens are composition inputs or rendering techniques rather
-than separate project types.
+The portable SDK owns diagram, graph, spatial-scene and native-job contracts. The local host adds durable jobs, media import, rendering, project storage and resource admission. The CLI and desktop shell use that host; the shell adds native capture, operating-system permissions and UI. The [SDK reference](reference/sdk.md) distinguishes the portable four-operation projection from the complete local registry.
 
-## One engine
+Structured spatial scenes give agents named entities, calibrated cameras and typed patches. Three renders the supported mesh and media-surface profile; Spark adds bounded saved splat environments. These sources expose a deliberately bounded editing contract.
 
-`@hraness/atet` contains the portable graph, workflow, diagram, render,
-vectorization, and operation contracts. `@hraness/atet/local/*` adds the
-durable project store, media pipeline, renderer, scheduler, and native capture
-adapters. The command-line interface uses both layers.
+Native studio bundles retain explicit Blender, Manim or CadQuery source and its declared files. They preserve detailed engine features such as rigs, bakes, mathematical animation or solid geometry without reimplementing those tools as a large JSON scene language. Executing them is explicitly trusted current-user code. The host observes tools and output identities; it does not promise an OS sandbox or complete dependency closure.
 
-The desktop application is a shell over that same local engine. It supplies a
-preview window, operating-system permissions, screen and camera capture, and
-native packaging. It does not define a second project model or a separate SDK.
-A Bun script, the CLI, and the desktop application can therefore open and
-render the same project.
+Native jobs are production assets, not a third timeline system. Their verified frames or videos enter the ordinary project compositor. A compatible static GLB can enter a spatial scene, while the original rig remains native. A rendered diagram or shader can become a world-space surface, with its original authored source retained for later edits. Shared camera samples transfer calibrated poses and intrinsics; they do not make different lighting engines pixel-identical.
 
-## Project state and variants
+## Source identity and editorial state
 
-A project commit is immutable. It identifies source assets, the composition
-graph, timing, styling, and every input needed to reproduce an output. Export
-requests refer to that commit and add a render profile:
+Source bundles, completed receipts and addressed artifacts retain exact identities. Ordinary projects keep the current edit plan alongside original media, analysis and derived outputs. A frozen basis lets creative candidates and delivery variants refer to the same inputs; subsequent edits produce a different basis. This is more specific than treating every project as a universally reproducible immutable commit.
 
-```ts
-type RenderProfile = {
-  aspectRatio: "16:9" | "9:16" | "1:1" | "4:5";
-  captions: "none" | "burned-in" | "sidecar";
-  quality: "preview" | "final";
-};
-```
+The V2 spatial project aggregate adds explicit scene revisions, shot bindings and candidate lineage. Migration snapshots the ordinary media basis and then rejects ordinary editing commands on that V2 head. Finish timeline and audio edits before migration. Its current compositor does not automatically substitute selected generated candidate footage; the [spatial guide](spatial-scenes.md) describes the supported path.
 
-One frozen commit can fan out into independent YouTube, Instagram, TikTok,
-square, captioned, and clean variants. Variants never rewrite their parent.
-Expensive encodes are admitted under a resource ceiling so concurrent jobs do
-not make one another slower.
+Short-clip directing retains recipes, takes, accepted selections and reference lineage, then assembles current selections into an ordinary project. First/last-frame conditioning can support continuity, but it is not a neural checkpoint or a recovered editable world. Changing an upstream accepted take invalidates dependent selections while preserving older attempts.
 
-Creative alternatives use the same rule. Each candidate starts from an exact
-base commit and records its own result. Selection promotes one candidate into
-a new explicit commit. Conflicting editorial changes fail closed instead of
-being merged silently.
+## Time, color and renderer boundaries
 
-## Cached work
+Every offline frame has an explicit clock. Spatial scenes use microsecond selections and rational frame rates; native jobs use half-open frame intervals. The renderer evaluates requested time rather than relying on a second live animation loop. Media assembly uses verified video spans so container audio padding does not introduce a black frame at a cut.
 
-Every deterministic stage derives a cache key from:
+A derivative states its color and alpha interpretation. Native linear or data passes remain distinct from display-ready sRGB imagery. Studio encoding retains original PNG masters and records any 16-to-8-bit conversion. Rendered scene video and native RGB masters become ordinary delivery video through the project compositor. GPU receipts identify observed hardware; cross-driver regeneration need not be pixel-identical.
 
-1. the operation and its version;
-2. canonical parameters;
-3. hashes of the input assets;
-4. the renderer and toolchain identity;
-5. the render profile where it affects pixels or timing.
+A preview exercises the complete authored timeline at lower cost. It helps assess pacing, cuts, overlays and framing, but final dimensions, frame count, color, sound and first/last frames still need inspection. A successful process or schema check alone is not creative acceptance.
 
-Artifacts are immutable and content-addressed. A changed caption style can
-reuse transcription, scene analysis, and decoded media. A different aspect
-ratio can reuse source normalization and audio analysis. Failed or interrupted
-work never publishes a complete cache entry.
+## Durable work and recovery
 
-The scheduler prepares each ready node once, reuses an exact cached result,
-and bounds CPU, memory, local I/O, and heavyweight encodes. Independent nodes
-may run in parallel; overlapping resource claims remain serialized.
+Plans bind declared inputs before effects. Completed work is reused only when its input, tool and receipt identities still match. The local scheduler bounds ready work through physical resource admission and retains custody until processes settle. Revisions and explicit selections prevent unrelated editorial changes from being silently merged.
 
-## Preview and final rendering
+A failed or interrupted attempt can leave useful outputs and uncertain effects. Recovery inspects that exact attempt rather than assuming a timeout means nothing happened. Native reconciliation does not rerun source, and directing resume does not resubmit a provider call. Paid reservations remain when dispatch cannot be disproved. [Workflow recovery](how-to/run-workflows.md) and [directing recovery](directing-video.md) explain those operational choices.
 
-Preview is a complete, lower-cost render rather than a partial simulation. It
-uses the full timeline at reduced resolution, bitrate, sampling density, and
-effect quality. That makes pacing, caption timing, cuts, and audio alignment
-truthful throughout the project.
+## Local and network responsibilities
 
-Final rendering resolves the same composition with the final profile. Cached
-analysis and source preparation carry forward. A final artifact is published
-only after its complete output and receipt have been written atomically.
+Project state lives locally; Slopcamera has no product account or hosted project database. Local rendering consumes admitted assets, while explicit acquisition and provider operations cross separate boundaries. Gateway sends authorized prompts and references to models; private Blob hosting grants temporary reference access; Poly Haven imports selected assets. Initial browser libraries or VTracer provisioning may download verified tool dependencies before local execution.
 
-## Network boundary
-
-Local files, project state, recordings, and rendered assets remain local.
-Model-backed operations call Vercel AI Gateway directly. Atet reads an
-`AI_GATEWAY_API_KEY` supplied to the process, or a short-lived
-`VERCEL_OIDC_TOKEN` when it runs in a linked Vercel environment. It has no user
-database, account service, hosted session, subscription system, or remote state
-deployment.
-
-The key is never accepted in command arguments or project files. A convenient
-local invocation is:
-
-```sh
-vercel link
-vercel env run -- atet image generate "a polished metallic monogram" \
-  --output monogram.webp
-```
-
-The same credential boundary serves image, video, speech, transcription, and
-scene-description operations. Deterministic rendering and vectorization stay
-network-silent.
+Credentials belong to the invocation environment and are not project data. A model request's local estimate is not a provider-enforced spending cap. Downloading a public asset, uploading private references and rendering retained bytes are distinct operations with distinct receipts. The [capability reference](reference/capabilities.md) records current platform and trust limits; [generation](how-to/generate-media.md) and [native production](studio.md) explain the corresponding tasks.

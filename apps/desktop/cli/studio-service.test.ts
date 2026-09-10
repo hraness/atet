@@ -16,7 +16,7 @@ const fence = async () => {};
 const finished = (stdout = ""): StudioProcessResult => ({ custody: "closed", exitCode: 0, stdout, stderr: "" });
 
 async function fixture() {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-studio-service-"))); roots.push(root);
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-studio-service-"))); roots.push(root);
   const inputRoot = await ensurePhysicalPrivateDirectoryWithin(root, "authored");
   await writeFile(join(inputRoot, "scene.py"), "model = None\n");
   const application: ApplicationContext = {
@@ -28,7 +28,7 @@ async function fixture() {
   };
   const bundle = await captureStudioSource({ sourceRoot: inputRoot, engine: "cadquery", entrypoint: { kind: "python", path: "scene.py" }, files: ["scene.py"] });
   const studioRoot = await studioStorageRoot(application), retained = await retainStudioSource({ studioRoot, sourceRoot: inputRoot, bundle, fence });
-  const job = parseStudioJob({ kind: "atet.studio-job", schemaVersion: 1, jobId: "studio_fixture", bundleSha256: retained.bundleSha256,
+  const job = parseStudioJob({ kind: "slopcamera.studio-job", schemaVersion: 1, jobId: "studio_fixture", bundleSha256: retained.bundleSha256,
     stage: "build", parameters: {}, engine: { engine: "cadquery", exportVariable: "model", tolerance: 0.05, angularTolerance: 0.1 },
     outputs: [{ kind: "file", id: "solid", role: "model", format: "step", path: "model.step", interpretation: { kind: "model", sourceSpace: { units: "millimeters", upAxis: "z", handedness: "right" } } }],
     limits: { timeoutSeconds: 30, maximumOutputBytes: 1024 * 1024, maximumOutputFiles: 10 }, execution: { trust: "trusted-current-user", isolation: "none", hermetic: false } });
@@ -38,7 +38,7 @@ async function fixture() {
   const process: StudioProcessPort = { run: async (argv, options) => {
     calls.push([...argv]);
     await options.onSpawn?.(12345);
-    if (argv.includes("--probe")) return probeResult ?? finished(`ATET_STUDIO_PROBE=${JSON.stringify({ name: "CadQuery", version, packages: { cadquery: version }, capabilities: ["python-authoring", "build", "model-export"] })}\n`);
+    if (argv.includes("--probe")) return probeResult ?? finished(`SLOPCAMERA_STUDIO_PROBE=${JSON.stringify({ name: "CadQuery", version, packages: { cadquery: version }, capabilities: ["python-authoring", "build", "model-export"] })}\n`);
     const request = JSON.parse(await readFile(argv[argv.indexOf("--request") + 1]!, "utf8")) as { outputRoot: string; sourceRoot: string };
     await onRun(request);
     return result;

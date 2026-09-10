@@ -10,15 +10,15 @@ import {
   type OperationNodeOptions,
 } from "./graph-builder.js"
 import {
-  PORTABLE_ATET_OPERATION_CONTRACTS,
-  type AtetDiagramCheckInput,
-  type AtetDiagramCheckOutput,
-  type AtetDiagramRenderInput,
-  type AtetDiagramRenderOutput,
-  type AtetImageGenerateInput,
-  type AtetImageGenerateOutput,
-  type AtetImageVectorizeInput,
-  type AtetImageVectorizeOutput,
+  PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS,
+  type SlopcameraDiagramCheckInput,
+  type SlopcameraDiagramCheckOutput,
+  type SlopcameraDiagramRenderInput,
+  type SlopcameraDiagramRenderOutput,
+  type SlopcameraImageGenerateInput,
+  type SlopcameraImageGenerateOutput,
+  type SlopcameraImageVectorizeInput,
+  type SlopcameraImageVectorizeOutput,
 } from "./public-operations.js"
 import { PUBLIC_WORKFLOW_REGISTRY_PROJECTION } from "./projection.js"
 
@@ -38,27 +38,27 @@ export class PortableWorkflowBuilder {
   readonly diagram: Readonly<{
     check: (
       key: string,
-      input: OperationInputValue<AtetDiagramCheckInput>,
+      input: OperationInputValue<SlopcameraDiagramCheckInput>,
       options?: OperationNodeOptions,
-    ) => Ref<AtetDiagramCheckOutput>
+    ) => Ref<SlopcameraDiagramCheckOutput>
     render: (
       key: string,
-      input: OperationInputValue<AtetDiagramRenderInput>,
+      input: OperationInputValue<SlopcameraDiagramRenderInput>,
       options?: OperationNodeOptions,
-    ) => Ref<AtetDiagramRenderOutput>
+    ) => Ref<SlopcameraDiagramRenderOutput>
   }>
 
   readonly image: Readonly<{
     generate: (
       key: string,
-      input: OperationInputValue<AtetImageGenerateInput>,
+      input: OperationInputValue<SlopcameraImageGenerateInput>,
       options?: OperationNodeOptions,
-    ) => Ref<AtetImageGenerateOutput>
+    ) => Ref<SlopcameraImageGenerateOutput>
     vectorize: (
       key: string,
-      input: OperationInputValue<AtetImageVectorizeInput>,
+      input: OperationInputValue<SlopcameraImageVectorizeInput>,
       options?: OperationNodeOptions,
-    ) => Ref<AtetImageVectorizeOutput>
+    ) => Ref<SlopcameraImageVectorizeOutput>
   }>
 
   private constructor(builder: WorkflowGraphBuilder) {
@@ -66,21 +66,21 @@ export class PortableWorkflowBuilder {
     this.diagram = Object.freeze({
       check: (
         key: string,
-        input: OperationInputValue<AtetDiagramCheckInput>,
+        input: OperationInputValue<SlopcameraDiagramCheckInput>,
         options: OperationNodeOptions = {},
       ) => this.#builder.operation(
         key,
-        PORTABLE_ATET_OPERATION_CONTRACTS["atet.diagram.check"],
+        PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS["slopcamera.diagram.check"],
         input,
         options,
       ),
       render: (
         key: string,
-        input: OperationInputValue<AtetDiagramRenderInput>,
+        input: OperationInputValue<SlopcameraDiagramRenderInput>,
         options: OperationNodeOptions = {},
       ) => this.#builder.operation(
         key,
-        PORTABLE_ATET_OPERATION_CONTRACTS["atet.diagram.render"],
+        PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS["slopcamera.diagram.render"],
         input,
         options,
       ),
@@ -88,21 +88,21 @@ export class PortableWorkflowBuilder {
     this.image = Object.freeze({
       generate: (
         key: string,
-        input: OperationInputValue<AtetImageGenerateInput>,
+        input: OperationInputValue<SlopcameraImageGenerateInput>,
         options: OperationNodeOptions = {},
       ) => this.#builder.operation(
         key,
-        PORTABLE_ATET_OPERATION_CONTRACTS["atet.image.generate"],
+        PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS["slopcamera.image.generate"],
         input,
         options,
       ),
       vectorize: (
         key: string,
-        input: OperationInputValue<AtetImageVectorizeInput>,
+        input: OperationInputValue<SlopcameraImageVectorizeInput>,
         options: OperationNodeOptions = {},
       ) => this.#builder.operation(
         key,
-        PORTABLE_ATET_OPERATION_CONTRACTS["atet.image.vectorize"],
+        PORTABLE_SLOPCAMERA_OPERATION_CONTRACTS["slopcamera.image.vectorize"],
         input,
         options,
       ),

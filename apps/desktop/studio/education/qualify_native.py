@@ -46,15 +46,15 @@ def prepare(root, name, scene, width, height, start, end, numerator, denominator
     else:
         (run/"source/scene.py").write_text(FIXTURE)
     files = [{"path": path.name, "sha256": digest(path), "bytes": path.stat().st_size} for path in sorted((run/"source").iterdir())]
-    bundle = {"kind": "atet.studio-source-bundle", "schemaVersion": 1, "engine": "manim", "entrypoint": {"kind": "python", "path": "scene.py"}, "files": files}
-    canonical = json.dumps({"domain": "atet.studio-source-bundle/v1", "value": bundle}, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    bundle = {"kind": "slopcamera.studio-source-bundle", "schemaVersion": 1, "engine": "manim", "entrypoint": {"kind": "python", "path": "scene.py"}, "files": files}
+    canonical = json.dumps({"domain": "slopcamera.studio-source-bundle/v1", "value": bundle}, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     interpretation = {"kind": "raster", "colorSpace": "srgb", "alpha": "straight" if transparent else "opaque", "dataType": "uint8", "channels": ["R", "G", "B", "A"] if transparent else ["R", "G", "B"], "semantic": "color", "unit": "unitless"}
     outputs = [{"id": "frames", "kind": "sequence", "role": "beauty", "format": "png", "pathPattern": "frames/%06d.png", "interpretation": interpretation}]
     if not transparent:
         outputs.append({"id": "film", "kind": "file", "role": "beauty", "format": "mp4", "path": "lesson.mp4", "interpretation": interpretation})
     if not sample:
         outputs.append({"id": "still", "kind": "file", "role": "beauty", "format": "png", "path": "last.png", "interpretation": interpretation})
-    job = {"kind": "atet.studio-job", "schemaVersion": 1, "jobId": "studio_"+name, "bundleSha256": hashlib.sha256(canonical.encode()).hexdigest(),
+    job = {"kind": "slopcamera.studio-job", "schemaVersion": 1, "jobId": "studio_"+name, "bundleSha256": hashlib.sha256(canonical.encode()).hexdigest(),
            "stage": "render", "parameters": {"lessonFile": "lesson.json"} if sample else {},
            "engine": {"engine": "manim", "scene": scene, "renderer": "cairo", "transparent": transparent},
            "render": {"width": width, "height": height, "frameRate": {"numerator": numerator, "denominator": denominator}, "startFrame": start, "endFrameExclusive": end},
@@ -152,7 +152,7 @@ def main():
         with Image.open(run/f"output/frames/{frame:06d}.png") as image:
             contact.paste(image, (column*480, 0))
     contact.save(root/"contact.png")
-    write_json(root/"qualification.json", {"kind": "atet.studio-native-qualification-observation", "authoritativeStudioReceipt": False, "probe": probe.stdout.decode().strip(), "checks": ["nonzero-native-indices", "static-frame-repeats", "rational-decoded-PTS", "lossless-movie-pixels", "transparent-PNG", "short-scene-fails", "byte-budget-fails", "portrait-Manim-render"], "renders": evidence})
+    write_json(root/"qualification.json", {"kind": "slopcamera.studio-native-qualification-observation", "authoritativeStudioReceipt": False, "probe": probe.stdout.decode().strip(), "checks": ["nonzero-native-indices", "static-frame-repeats", "rational-decoded-PTS", "lossless-movie-pixels", "transparent-PNG", "short-scene-fails", "byte-budget-fails", "portrait-Manim-render"], "renders": evidence})
     print("Native education qualification passed", flush=True)
 
 

@@ -31,7 +31,7 @@ for (const blendMode of ["normal", "multiply"] as const) {
     for (const camera of sparse ? [false] : [false, true]) {
       test.skipIf(ffmpeg === null || ffprobe === null)(`ordinary ${blendMode} slices${camera ? " with camera" : ""} preserve ${sparse ? "sparse VFR" : "coarse CFR"} frames and stop at the next cut`, async () => {
         if (ffmpeg === null || ffprobe === null) return;
-        const root = await realpath(await mkdtemp(join(tmpdir(), "atet-project-slice-clock-")));
+        const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-project-slice-clock-")));
         try {
           await mkdir(join(root, "renders"));
           for (const [index, color] of [colors.red, colors.green, colors.blue].entries()) {
@@ -55,7 +55,7 @@ for (const blendMode of ["normal", "multiply"] as const) {
               layout: { kind: "normalized", x: 0, y: 0, width: 1, height: 1 }, opacity: 1 },
           });
           const plan = ProjectRenderPlanV1Schema.parse({
-            kind: "atet.project-render-plan", schemaVersion: 1, projectId: "project_sliceclock1", planSha256: hash, projectEditPlanSha256: hash, projectStructureSha256: hash,
+            kind: "slopcamera.project-render-plan", schemaVersion: 1, projectId: "project_sliceclock1", planSha256: hash, projectEditPlanSha256: hash, projectStructureSha256: hash,
             output: { background: "#ffffffff", durationUs: 500_000, frameRate: 24, pixelWidth: 32, pixelHeight: 24 },
             // Put the following shot underneath the tested slice so an inclusive
             // ending gate visibly spills over that next shot at an exact cut.

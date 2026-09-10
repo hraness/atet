@@ -3,11 +3,11 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { checkAtetProductionBoundary } from "./check-production-boundary";
+import { checkSlopcameraProductionBoundary } from "./check-production-boundary";
 
 async function boundaryFailure(desktop: string): Promise<string> {
   try {
-    await checkAtetProductionBoundary(desktop, join(desktop, "package.json"));
+    await checkSlopcameraProductionBoundary(desktop, join(desktop, "package.json"));
   } catch (reason: unknown) {
     return reason instanceof Error ? reason.message : String(reason);
   }
@@ -15,7 +15,7 @@ async function boundaryFailure(desktop: string): Promise<string> {
 }
 
 test("Direct stays outside every production source and emitted graph", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "atet-boundary-clean-"));
+  const desktop = await mkdtemp(join(tmpdir(), "slopcamera-boundary-clean-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -23,7 +23,7 @@ test("Direct stays outside every production source and emitted graph", async () 
     await writeFile(join(desktop, "frontend", "src", "main.ts"), "export const product = true;\n");
     await writeFile(join(desktop, "frontend", "dist", "app.js"), "export const product = true;\n");
 
-    const result = await checkAtetProductionBoundary(desktop, join(desktop, "package.json"));
+    const result = await checkSlopcameraProductionBoundary(desktop, join(desktop, "package.json"));
     expect(result.source.scanned.length).toBeGreaterThan(0);
     expect(result.emitted.scanned.length).toBeGreaterThan(0);
     expect(result.source.violations).toEqual([]);
@@ -36,12 +36,12 @@ test("Direct stays outside every production source and emitted graph", async () 
 test("the browser workbench opts into the production surface contract", async () => {
   const document = await Bun.file(new URL("./index.html", import.meta.url)).text();
 
-  expect(document).toContain('<html lang="en" data-atet-surface="product"');
-  expect(document).toContain('<body data-atet-surface="product">');
+  expect(document).toContain('<html lang="en" data-slopcamera-surface="product"');
+  expect(document).toContain('<body data-slopcamera-surface="product">');
 });
 
 test("rejects a relative import that reaches the Direct workspace package", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "atet-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "slopcamera-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -58,7 +58,7 @@ test("rejects a relative import that reaches the Direct workspace package", asyn
 });
 
 test("relative Direct markers require a module segment or suffix boundary", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "atet-relative-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "slopcamera-relative-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -89,7 +89,7 @@ test("relative Direct markers require a module segment or suffix boundary", asyn
       "./directory", "../director", "./direct-helper", "../direct_helpers", "./direct2",
     ]) {
       await writeFile(source, `import ${JSON.stringify(specifier)};\n`);
-      const result = await checkAtetProductionBoundary(desktop, join(desktop, "package.json"));
+      const result = await checkSlopcameraProductionBoundary(desktop, join(desktop, "package.json"));
       expect(result.source.scanned).toContain(source);
       expect(result.source.violations).toEqual([]);
     }
@@ -105,7 +105,7 @@ test("relative Direct markers require a module segment or suffix boundary", asyn
 });
 
 test("a legitimate directing module cannot bypass package or emitted Direct exclusions", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "atet-directing-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "slopcamera-directing-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -123,7 +123,7 @@ test("a legitimate directing module cannot bypass package or emitted Direct excl
 });
 
 test("rejects future Direct probe schemas from production output", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "atet-probe-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "slopcamera-probe-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -137,7 +137,7 @@ test("rejects future Direct probe schemas from production output", async () => {
 });
 
 test("rejects future Direct coverage schemas from production output", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "atet-coverage-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "slopcamera-coverage-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -151,7 +151,7 @@ test("rejects future Direct coverage schemas from production output", async () =
 });
 
 test("rejects future Direct session manifests from production output", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "atet-manifest-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "slopcamera-manifest-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await mkdir(join(desktop, "frontend", "dist"), { recursive: true });
@@ -168,7 +168,7 @@ test("rejects future Direct session manifests from production output", async () 
 });
 
 test("scans the packaged capture helper at its runtime resource path", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "atet-packaged-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "slopcamera-packaged-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await writeFile(join(desktop, "package.json"), '{"dependencies":{}}\n');
@@ -177,22 +177,22 @@ test("scans the packaged capture helper at its runtime resource path", async () 
       desktop,
       "zig-out",
       "package",
-      "Atet.app",
+      "Slopcamera.app",
       "Contents",
       "Resources",
       "runtime",
       "bin",
     );
     await mkdir(packagedRuntime, { recursive: true });
-    await writeFile(join(packagedRuntime, "atet-capture"), "jungle.direct\n");
-    expect(await boundaryFailure(desktop)).toContain("atet-capture");
+    await writeFile(join(packagedRuntime, "slopcamera-capture"), "jungle.direct\n");
+    expect(await boundaryFailure(desktop)).toContain("slopcamera-capture");
   } finally {
     await rm(desktop, { force: true, recursive: true });
   }
 });
 
 test("scans the packaged face analyzer at its runtime resource path", async () => {
-  const desktop = await mkdtemp(join(tmpdir(), "atet-packaged-face-boundary-"));
+  const desktop = await mkdtemp(join(tmpdir(), "slopcamera-packaged-face-boundary-"));
   try {
     await mkdir(join(desktop, "frontend", "src"), { recursive: true });
     await writeFile(join(desktop, "package.json"), '{"dependencies":{}}\n');
@@ -201,15 +201,15 @@ test("scans the packaged face analyzer at its runtime resource path", async () =
       desktop,
       "zig-out",
       "package",
-      "Atet.app",
+      "Slopcamera.app",
       "Contents",
       "Resources",
       "runtime",
       "bin",
     );
     await mkdir(packagedRuntime, { recursive: true });
-    await writeFile(join(packagedRuntime, "atet-face-analyzer"), "jungle.direct\n");
-    expect(await boundaryFailure(desktop)).toContain("atet-face-analyzer");
+    await writeFile(join(packagedRuntime, "slopcamera-face-analyzer"), "jungle.direct\n");
+    expect(await boundaryFailure(desktop)).toContain("slopcamera-face-analyzer");
   } finally {
     await rm(desktop, { force: true, recursive: true });
   }

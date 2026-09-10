@@ -884,7 +884,7 @@ export class WorkflowBuilder {
     ): ProjectSnapshotHandle => persistedSnapshotHandle(snapshot),
     baseline: (): CandidateProjectEditBatchV3 => {
       const body = {
-        kind: "atet.project-edit-batch" as const,
+        kind: "slopcamera.project-edit-batch" as const,
         ordered: [],
         schemaVersion: 3 as const,
       };
@@ -1031,7 +1031,7 @@ export class WorkflowBuilder {
 
   readonly studio = Object.freeze({
     run: (key: string, input: StudioRunInput | OperationInputValue<StudioRunInput>, options?: OperationNodeOptions): Ref<StudioRunOutput> =>
-      this.#graph.operationByKind(key, { input, kind: "atet.studio.run", version: 1 }, options),
+      this.#graph.operationByKind(key, { input, kind: "slopcamera.studio.run", version: 1 }, options),
   });
 
   readonly scene = Object.freeze({

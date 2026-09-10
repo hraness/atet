@@ -159,7 +159,7 @@ export function hashProjectCaptionSource(input: {
 }): string {
   return canonicalJsonSha256({
     ...input,
-    domain: "atet.social-caption-source/v1",
+    domain: "slopcamera.social-caption-source/v1",
   });
 }
 
@@ -343,7 +343,7 @@ async function projectMetadata(
     if (asset?.source.kind !== "recording") {
       throw new ApplicationError(
         "conflict",
-        `Placement ${placement.placementId} is not backed by an Atet recording with window and input metadata.`,
+        `Placement ${placement.placementId} is not backed by a Slopcamera recording with window and input metadata.`,
       );
     }
     const recording = await openRecording(artifactRoot, asset.source.recordingId);
@@ -547,7 +547,7 @@ function projectRenderPlanDocument(
   reference: RenderableProjectEditRevisionReference,
 ): ProjectRenderPlanDocument {
   return ProjectRenderPlanDocumentSchema.parse({
-    kind: "atet.project-render-plan-document",
+    kind: "slopcamera.project-render-plan-document",
     outputGeometrySha256: reference.outputGeometrySha256,
     plan: assertProjectRenderPlanComposition(plan),
     projectEditPlanSha256: revision.projectEditPlanSha256,
@@ -634,7 +634,7 @@ async function publishProjectRenderPlan(
       ...artifact,
       path: `renders/plans/${artifact.sha256}.json`,
     },
-    kind: "atet.project-render-plan-reference",
+    kind: "slopcamera.project-render-plan-reference",
     outputGeometrySha256: revision.reference.outputGeometrySha256,
     planSha256: plan.planSha256,
     projectEditPlanSha256: revision.document.projectEditPlanSha256,
@@ -702,7 +702,7 @@ async function publishProjectCaptionArtifacts(
 
 export const projectRenderPlanOperationDefinition = {
   inputSchema: ProjectRenderPlanInputSchema,
-  inputSchemaId: "atet.operation.render.project-plan.input/v1",
+  inputSchemaId: "slopcamera.operation.render.project-plan.input/v1",
   kind: "render.project-plan",
   lifecycle: {
     kind: "local-artifact",
@@ -761,7 +761,7 @@ export const projectRenderPlanOperationDefinition = {
     },
   },
   outputSchema: ProjectRenderPlanOutputSchema,
-  outputSchemaId: "atet.operation.render.project-plan.output/v1",
+  outputSchemaId: "slopcamera.operation.render.project-plan.output/v1",
   policy: {
     cache: "content-addressed",
     cancellable: true,
@@ -796,7 +796,7 @@ export const projectRenderPlanOperationDefinition = {
 
 export const projectRenderPlanOperationDefinitionV2 = {
   inputSchema: ProjectRenderPlanInputV2Schema,
-  inputSchemaId: "atet.operation.render.project-plan.input/v2",
+  inputSchemaId: "slopcamera.operation.render.project-plan.input/v2",
   kind: "render.project-plan",
   lifecycle: {
     kind: "local-artifact",
@@ -905,7 +905,7 @@ export const projectRenderPlanOperationDefinitionV2 = {
     },
   },
   outputSchema: ProjectRenderPlanOutputSchema,
-  outputSchemaId: "atet.operation.render.project-plan.output/v2",
+  outputSchemaId: "slopcamera.operation.render.project-plan.output/v2",
   policy: {
     cache: "content-addressed",
     cancellable: true,

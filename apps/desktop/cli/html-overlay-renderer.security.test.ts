@@ -40,7 +40,7 @@ afterEach(async () => {
 });
 
 async function setup() {
-  const root = await mkdtemp(join(tmpdir(), "atet-browser-snapshot-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-browser-snapshot-"));
   roots.push(root);
   const source = join(root, "fixture-browser");
   const original = Buffer.from("#!/bin/sh\nexit 0\n");
@@ -56,7 +56,7 @@ async function setup() {
     authoring: HtmlOverlayAuthoringInputSchema.parse({
       canvas: { deviceScaleFactor: 1, height: 18, width: 32 },
       html: createHtmlOverlayScaffold("plain"),
-      kind: "atet.html-overlay",
+      kind: "slopcamera.html-overlay",
       libraries: [],
       parameters: {},
       resources: [],
@@ -101,7 +101,7 @@ describe("private HTML-overlay browser runtime launch", () => {
     expect(error.details.runtimeSnapshot).toBe(snapshot);
     expect(error.cause).toBeInstanceOf(HtmlOverlayBrowserCleanupError);
     expect(error.cause.message).toContain("launch late settlement");
-    expect(JSON.parse(await readFile(join(snapshot, ".atet-runtime-lease.json"), "utf8")).state).toBe("active");
+    expect(JSON.parse(await readFile(join(snapshot, ".slopcamera-runtime-lease.json"), "utf8")).state).toBe("active");
     expect(await readdir(item.frames)).toEqual([]);
   });
 
@@ -131,7 +131,7 @@ describe("private HTML-overlay browser runtime launch", () => {
     expect(error.cause.cause).toBeInstanceOf(AggregateError);
     if (cancelled) expect(error.cause.cause.errors[0]).toBe(cancellation);
     else expect(error.cause.cause.errors[0].details.cause).toBe("fixture context lost");
-    expect(JSON.parse(await readFile(join(snapshot, ".atet-runtime-lease.json"), "utf8")).state).toBe("active");
+    expect(JSON.parse(await readFile(join(snapshot, ".slopcamera-runtime-lease.json"), "utf8")).state).toBe("active");
     expect(await readdir(item.frames)).toEqual([]);
   });
 
@@ -154,9 +154,9 @@ describe("private HTML-overlay browser runtime launch", () => {
     let launched: LaunchOptions | undefined;
     let launchedBytes: Buffer | undefined;
     let closeCalls = 0;
-    const previousSecret = process.env.ATET_BROWSER_SENTINEL_SECRET;
+    const previousSecret = process.env.SLOPCAMERA_BROWSER_SENTINEL_SECRET;
     const previousProxy = process.env.HTTPS_PROXY;
-    process.env.ATET_BROWSER_SENTINEL_SECRET = "must-not-enter-browser";
+    process.env.SLOPCAMERA_BROWSER_SENTINEL_SECRET = "must-not-enter-browser";
     process.env.HTTPS_PROXY = "https://ambient-proxy.invalid";
     const renderer = new PlaywrightHtmlOverlayRenderer({
       cacheRoot: item.cache,
@@ -164,7 +164,7 @@ describe("private HTML-overlay browser runtime launch", () => {
         launched = options;
         expect(options.args).not.toContain("--enable-unsafe-webgpu");
         expect(options.args).not.toContain("--use-webgpu-adapter=swiftshader");
-        expect(options.env?.ATET_BROWSER_SENTINEL_SECRET).toBeUndefined();
+        expect(options.env?.SLOPCAMERA_BROWSER_SENTINEL_SECRET).toBeUndefined();
         expect(options.env?.HTTPS_PROXY).toBeUndefined();
         expect(Object.keys(options.env ?? {}).sort()).toEqual([
           "HOME",
@@ -198,9 +198,9 @@ describe("private HTML-overlay browser runtime launch", () => {
       }, new AbortController().signal)).rejects.toThrow(/browser rendering failed/u);
     } finally {
       if (previousSecret === undefined) {
-        delete process.env.ATET_BROWSER_SENTINEL_SECRET;
+        delete process.env.SLOPCAMERA_BROWSER_SENTINEL_SECRET;
       } else {
-        process.env.ATET_BROWSER_SENTINEL_SECRET = previousSecret;
+        process.env.SLOPCAMERA_BROWSER_SENTINEL_SECRET = previousSecret;
       }
       if (previousProxy === undefined) {
         delete process.env.HTTPS_PROXY;
@@ -280,7 +280,7 @@ describe("private HTML-overlay browser runtime launch", () => {
   });
 
   test("restored bundle resource and symlink substitutions remain detectable", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-browser-bundle-snapshot-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-browser-bundle-snapshot-"));
     roots.push(root);
     const bundle = join(root, "Fixture.app");
     const executable = join(bundle, "Contents", "MacOS", "Fixture");
@@ -340,7 +340,7 @@ describe("private HTML-overlay browser runtime launch", () => {
   });
 
   test("whole app-root swap and restore cannot erase container pathname evidence", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-browser-root-snapshot-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-browser-root-snapshot-"));
     roots.push(root);
     const bundle = join(root, "Fixture.app");
     const executable = join(bundle, "Contents", "MacOS", "Fixture");
@@ -458,7 +458,7 @@ describe("private HTML-overlay browser runtime launch", () => {
       }, new AbortController().signal);
       expect(rendering).rejects.toThrow(/browser rendering failed/u);
       await rendering.catch(() => undefined);
-      expect(launchedPath.startsWith("/private/tmp/.atet-browser-runtime-"))
+      expect(launchedPath.startsWith("/private/tmp/.slopcamera-browser-runtime-"))
         .toBe(true);
       expect(observedMaliciousExecutable).toBe(false);
       expect(newContextCalls).toBe(0);
@@ -466,7 +466,7 @@ describe("private HTML-overlay browser runtime launch", () => {
   );
 
   test("cancellation during snapshot copying stops before launch and removes the private tree", async () => {
-    const root = await mkdtemp(join(tmpdir(), "atet-browser-cancel-snapshot-"));
+    const root = await mkdtemp(join(tmpdir(), "slopcamera-browser-cancel-snapshot-"));
     roots.push(root);
     const bundle = join(root, "Fixture.app");
     const executable = join(bundle, "Contents", "MacOS", "Fixture");
@@ -495,7 +495,7 @@ describe("private HTML-overlay browser runtime launch", () => {
     const frames = join(root, "frames");
     const cache = join(root, "cache");
     const snapshotAnchor = process.platform === "darwin" ? "/private/tmp" : cache;
-    const snapshotPrefix = ".atet-browser-runtime-";
+    const snapshotPrefix = ".slopcamera-browser-runtime-";
     const beforeSnapshots = new Set(
       (await readdir(snapshotAnchor).catch(() => [] as string[]))
         .filter(name => name.startsWith(snapshotPrefix)),
@@ -557,7 +557,7 @@ function itemAuthoring() {
   return HtmlOverlayAuthoringInputSchema.parse({
     canvas: { deviceScaleFactor: 1, height: 18, width: 32 },
     html: createHtmlOverlayScaffold("plain"),
-    kind: "atet.html-overlay",
+    kind: "slopcamera.html-overlay",
     libraries: [],
     parameters: {},
     resources: [],

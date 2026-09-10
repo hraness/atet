@@ -232,7 +232,7 @@ describe("Gateway media catalog", () => {
     expect(cache.get()).rejects.toThrow("catalog is unavailable");
   });
 
-  test("rewrites a predecessor disk snapshot to Atet after 304 revalidation", async () => {
+  test("rewrites a predecessor disk snapshot to Slopcamera after 304 revalidation", async () => {
     const snapshot = parseGatewayMediaCatalog(catalogFixture(), {
       fetchedAt: FETCHED_AT,
       validators: { etag: "\"catalog-v1\"" },
@@ -260,9 +260,9 @@ describe("Gateway media catalog", () => {
     });
 
     const view = await cache.get({ forceRefresh: true });
-    expect(view.snapshot.kind).toBe("atet.gateway-media-catalog");
+    expect(view.snapshot.kind).toBe("slopcamera.gateway-media-catalog");
     expect(written).toMatchObject({
-      kind: "atet.gateway-media-catalog",
+      kind: "slopcamera.gateway-media-catalog",
       snapshotId: predecessor.snapshotId,
     });
   });
@@ -432,7 +432,7 @@ describe("Gateway media catalog", () => {
   });
 
   test("persists and reloads a validated snapshot without trusting a corrupt file", async () => {
-    const temporary = await mkdtemp(join(tmpdir(), "atet-gateway-catalog-"));
+    const temporary = await mkdtemp(join(tmpdir(), "slopcamera-gateway-catalog-"));
     try {
       const store = createFileGatewayMediaCatalogSnapshotStore(
         join(temporary, "private", "catalog.json"),
@@ -440,7 +440,7 @@ describe("Gateway media catalog", () => {
       const snapshot = parseGatewayMediaCatalog(catalogFixture(), {
         fetchedAt: FETCHED_AT,
       });
-      expect(snapshot.kind).toBe("atet.gateway-media-catalog");
+      expect(snapshot.kind).toBe("slopcamera.gateway-media-catalog");
       await store.write(snapshot);
       expect(parseGatewayMediaCatalogSnapshot(await store.read())).toEqual(snapshot);
       const legacy = parseGatewayMediaCatalogSnapshot({

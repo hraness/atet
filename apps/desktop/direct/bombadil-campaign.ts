@@ -12,14 +12,14 @@ import {
 
 export * from "@antithesishq/bombadil/browser/defaults/properties";
 
-interface AtetBombadilObservation {
+interface SlopcameraBombadilObservation {
   readonly [key: string | number | symbol]: BombadilJson;
   readonly controlsPresent: boolean;
   readonly heading: string;
   readonly scenario: string;
 }
 
-const atet = extract<BombadilBrowserState, AtetBombadilObservation>((state) => ({
+const slopcamera = extract<BombadilBrowserState, SlopcameraBombadilObservation>((state) => ({
   controlsPresent: state.document.querySelector(
     'main.recorder-shell [aria-label="Recording controls"]',
   ) !== null,
@@ -29,12 +29,12 @@ const atet = extract<BombadilBrowserState, AtetBombadilObservation>((state) => (
 }));
 const direct = createDirectBombadilProperties();
 
-export const atet_safe_actions = createDirectBombadilActions();
-export const atet_recorder_surface_persists = always(
+export const slopcamera_safe_actions = createDirectBombadilActions();
+export const slopcamera_recorder_surface_persists = always(
   eventually(() =>
-    atet.current.scenario === "idle-ready"
-    && atet.current.heading === "Raw capture"
-    && atet.current.controlsPresent
+    slopcamera.current.scenario === "idle-ready"
+    && slopcamera.current.heading === "Raw capture"
+    && slopcamera.current.controlsPresent
   ).within(10, "seconds"),
 );
 export const direct_exact_contract = direct.exactContract;

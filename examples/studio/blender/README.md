@@ -1,6 +1,6 @@
 # Authored Blender studio examples
 
-These examples use Blender's native Python APIs through ATET's explicitly trusted source-bundle workflow. Include the selected entrypoint and `studio_scene.py` as declared bundle files. Imported assets and their dependencies must also be declared. The scripts do not download anything or use a provider.
+These examples use Blender's native Python APIs through SLOPCAMERA's explicitly trusted source-bundle workflow. Include the selected entrypoint and `studio_scene.py` as declared bundle files. Imported assets and their dependencies must also be declared. The scripts do not download anything or use a provider.
 
 | Entrypoint | Features | Initial qualification job |
 | --- | --- | --- |
@@ -17,10 +17,10 @@ For native-source render jobs, make a new source bundle containing the retained 
 
 For `.blend` entrypoints, unpacked `FILE` images must resolve to exact physical files declared inside the source bundle; otherwise the driver fails before rendering. Packing image bytes avoids ambient original paths. The import example packs all imported file images, including HDR environments that Blender has not yet decoded. Broader native dependencies, such as linked libraries, sequences, volumes and arbitrary authored handlers, still require explicit source management and feature-specific qualification; this check does not claim a complete hermetic Blender dependency graph.
 
-The driver supports automatic beauty PNG/EXR files or frame sequences and GLB/USD model exports. An image sequence uses exactly one `%06d` token and the job's half-open frame interval. A beauty file requires one frame. Use ATET's ordinary retained media pipeline for video encoding. Authored Python may use Blender's full compositor API to write separately declared auxiliary outputs.
+The driver supports automatic beauty PNG/EXR files or frame sequences and GLB/USD model exports. An image sequence uses exactly one `%06d` token and the job's half-open frame interval. A beauty file requires one frame. Use SLOPCAMERA's ordinary retained media pipeline for video encoding. Authored Python may use Blender's full compositor API to write separately declared auxiliary outputs.
 
 Automatic PNG beauty declares sRGB, RGB/opaque or RGBA/straight alpha, uint8 or uint16, color semantic and unitless units. Automatic EXR beauty declares linear Rec.709, float16 or float32, RGB/opaque or RGBA/premultiplied alpha. The driver sets output conversion explicitly and reports the source working space. GLB output declares meters, right-handed Y-up; USD output requires a meter-scale scene and declares right-handed Z-up.
 
-`ATET_CONTEXT` contains `parameters`, `stage`, `render`, `sourceRoot`, `outputRoot`, and `workingRoot`. Paths are absolute retained roots. The object is detached from the driver's admitted job. The driver and source run as the current user; hashes and declared outputs provide identity and verification, not an operating-system sandbox or hermetic execution.
+`SLOPCAMERA_CONTEXT` contains `parameters`, `stage`, `render`, `sourceRoot`, `outputRoot`, and `workingRoot`. Paths are absolute retained roots. The object is detached from the driver's admitted job. The driver and source run as the current user; hashes and declared outputs provide identity and verification, not an operating-system sandbox or hermetic execution.
 
 Capability qualification should record native Blender build/device logs, exact source and output hashes, full pixel decoding, selected-frame contact sheets, and observed runtime/storage. A configured feature is not yet a qualified feature. GPU selection uses native Cycles discovery and rejects an unavailable requested GPU instead of silently selecting CPU. EEVEE requires an explicit GPU request.

@@ -167,7 +167,7 @@ function serve(snapshot: ShellSnapshot) {
 function browserPayload(snapshot: ShellSnapshot, origin: string): ShellPayload {
   return { origin, resources: [...snapshot.files.keys()].sort(), stylesheets: snapshot.stylesheets, finalCss: snapshot.stylesheets.at(-1)! }
 }
-async function executable(name: "NODE_EXECUTABLE_PATH" | "ATET_CHROME_PATH"): Promise<string> {
+async function executable(name: "NODE_EXECUTABLE_PATH" | "SLOPCAMERA_CHROME_PATH"): Promise<string> {
   const path = process.env[name]
   assert.ok(path !== undefined && isAbsolute(path), `${name} must name the explicit pinned executable`)
   await access(path, constants.X_OK)
@@ -286,7 +286,7 @@ export async function verifySiteShell(args: readonly string[], scope: "shell" | 
       baseline = await step(() => readShellSnapshot(options.baseline, baselineProfile !== undefined))
       manifestBefore = Uint8Array.from(await step(() => readPreviewFile(options.manifest, 128 * 1024)))
       assertShellBaselineManifest(JSON.parse(Buffer.from(manifestBefore).toString()), baseline, baselineProfile)
-      const node = await step(() => executable("NODE_EXECUTABLE_PATH")), browserPath = await step(() => executable("ATET_CHROME_PATH"))
+      const node = await step(() => executable("NODE_EXECUTABLE_PATH")), browserPath = await step(() => executable("SLOPCAMERA_CHROME_PATH"))
       assert.ok(process.env.PLAYWRIGHT_BROWSERS_PATH !== undefined && isAbsolute(process.env.PLAYWRIGHT_BROWSERS_PATH),
         "PLAYWRIGHT_BROWSERS_PATH must select the explicit task-owned pinned Chrome for Testing installation")
       const require = createRequire(join(actualApp, "package.json"))
@@ -298,7 +298,7 @@ export async function verifySiteShell(args: readonly string[], scope: "shell" | 
         packageInputs.push(await readWorkerInput(path, workerDriverLimit))
       }
       executableInputs = await Promise.all([node, browserPath].map(async path => ({ path, identity: await executableIdentity(path) })))
-      profile = await mkdtemp(join(await realpath(tmpdir()), "atet-site-shell-"))
+      profile = await mkdtemp(join(await realpath(tmpdir()), "slopcamera-site-shell-"))
       signal.throwIfAborted()
       const driver = await step(() => buildDriver(profile!))
       const currentServer = serve(current); servers.push(currentServer)
@@ -328,7 +328,7 @@ export async function verifySiteShell(args: readonly string[], scope: "shell" | 
       signal.throwIfAborted()
       worker = spawnVerificationServer({ cwd: actualApp, detachedProcessGroup: true, logLimit: 12_000,
         omitEnvironment: ["NODE_OPTIONS", "NODE_PATH"], command: [node, driver.path, actualApp, requestPath] })
-      console.error(`atet-site-shell: verifying ${(scope === "install-copy" ? siteCopyCases : siteShellCases).length} mandatory ${scope} current/baseline cases`)
+      console.error(`slopcamera-site-shell: verifying ${(scope === "install-copy" ? siteCopyCases : siteShellCases).length} mandatory ${scope} current/baseline cases`)
       observation = await observe(protocolDirectory, request, signal, worker.exited, deadline)
       await step(() => bounded(worker!.exited, "Shell worker successful exit", 5_000))
       assert.equal(worker.exitCode(), 0)
@@ -385,7 +385,7 @@ export async function verifySiteShell(args: readonly string[], scope: "shell" | 
           endpointEvidence, timeoutEvidence, caseFailure, workerOutput, chromeOutput, failures: failures.map(error => previewFailureSummary(error)) })}\n`
         assert.ok(Buffer.byteLength(receipt) <= 1024 * 1024)
         await writeFile(join(profile!, "site-shell-failure.json"), receipt, { flag: "wx", mode: 0o600 })
-        console.error(`atet-site-shell: retained failure evidence at ${profile}`)
+        console.error(`slopcamera-site-shell: retained failure evidence at ${profile}`)
       })
       if (failures.length > 0) throw new AggregateError(failures, "Shell resource collection failed")
     })
@@ -397,6 +397,6 @@ export async function verifySiteShell(args: readonly string[], scope: "shell" | 
 if (import.meta.main) {
   try { await verifySiteShell(process.argv.slice(2)) } catch (error) {
     process.exitCode = 1
-    console.error(previewFailureSummary(error).replace("atet-preview:", "atet-site-shell:"))
+    console.error(previewFailureSummary(error).replace("slopcamera-preview:", "slopcamera-site-shell:"))
   }
 }

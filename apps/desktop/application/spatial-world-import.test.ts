@@ -16,13 +16,13 @@ import { originalSpz, originalWorldCollider } from "./spatial-world-fixture.test
 const temporary: string[] = [];
 afterEach(async () => { for (const path of temporary.splice(0)) await rm(path, { recursive: true, force: true }); });
 async function setup(collider = true, provider = false) {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "atet-world-import-test-"))); temporary.push(root);
+  const root = await realpath(await mkdtemp(join(tmpdir(), "slopcamera-world-import-test-"))); temporary.push(root);
   const sourceRoot = join(root, "source"), destinationRoot = join(root, "destination"); await mkdir(sourceRoot); await mkdir(destinationRoot);
   const put = async (path: string, bytes: Uint8Array) => { await writeFile(join(sourceRoot, path), bytes); return { path, bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") }; };
   const splat = await put("world.spz", originalSpz().compressed);
   const proxy = collider ? await put("collider.glb", originalWorldCollider()) : undefined;
   const request = { display_name: "Original fixture", model: "marble-1.1", permission: { public: false }, world_prompt: { text_prompt: "Original synthetic world fixture", type: "text" } };
-  const providerValue = { kind: "atet.world-labs-provenance", schemaVersion: 1, attemptId: "attempt-original", operationId: "operation-original", operationBinding: "dispatch", request, requestSha256: canonicalJsonSha256(request), responseSha256: "a".repeat(64), reservedCredits: 1580, settledCredits: 1580,
+  const providerValue = { kind: "slopcamera.world-labs-provenance", schemaVersion: 1, attemptId: "attempt-original", operationId: "operation-original", operationBinding: "dispatch", request, requestSha256: canonicalJsonSha256(request), responseSha256: "a".repeat(64), reservedCredits: 1580, settledCredits: 1580,
     world: { worldId: "saved-world", model: "marble-1.1", displayName: "Original fixture", semanticsMetadata: { groundPlaneOffset: null, metricScaleFactor: null } }, quality: "100k", assets: { splat: { ...splat, sourceUrlSha256: "b".repeat(64) }, collider: { ...proxy, sourceUrlSha256: "c".repeat(64) } }, reproducibility: "retained-assets-only", normalization: "caller-must-declare-and-verify", assetValidation: "retained-bytes-unvalidated", clientGenerationAttempts: 1, capabilityLosses: ["static-radiance-field", "no-object-semantics", "no-material-editability", "collider-is-approximate"] };
   const receipt = provider ? await put("provider.json", new TextEncoder().encode(JSON.stringify(providerValue))) : undefined;
   const input = { splat, ...(proxy === undefined ? {} : { collider: proxy }), identities: { assetId: "asset_world", ...(proxy === undefined ? {} : { colliderAssetId: "asset_collider" }), entityId: "entity_world", name: "Saved world" }, normalization: { metersPerUnit: 0.5, sourceUp: "z", sourceHandedness: "right", transform: { position: [2, 3, 4], rotation: [0, 0, 0, 1], scale: [1, 1, 1] } }, provenance: { kind: provider ? "worldlabs-marble" : "saved", description: "Original synthetic world fixture", ...(receipt === undefined ? {} : { receipt, worldId: "saved-world" }) } };
@@ -62,7 +62,7 @@ describe("saved world import and exact source closure", () => {
       await writeFile(join(fixture.sourceRoot, receipt.path), bytes);
       fixture.input.provenance.receipt = { ...receipt, bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") };
       const output = await importSavedSpatialWorld(fixture);
-      const metadata = output.assets.find(asset => asset.interpretation.kind === "metadata" && asset.interpretation.schema === "atet.world-labs-provenance")!;
+      const metadata = output.assets.find(asset => asset.interpretation.kind === "metadata" && asset.interpretation.schema === "slopcamera.world-labs-provenance")!;
       expect(await readFile(join(fixture.destinationRoot, metadata.payload.path))).toEqual(bytes);
       expect(metadata.payload.sha256).toBe(fixture.input.provenance.receipt.sha256);
       expect(output.manifest.provenance.kind).toBe("worldlabs-marble");
@@ -79,7 +79,7 @@ describe("saved world import and exact source closure", () => {
   });
   test("retained provider metadata must still satisfy its complete schema and request digest before rendering", async () => {
     const fixture = await setup(true, true), output = await importSavedSpatialWorld(fixture);
-    const metadata = output.assets.find(asset => asset.interpretation.kind === "metadata" && asset.interpretation.schema === "atet.world-labs-provenance")!;
+    const metadata = output.assets.find(asset => asset.interpretation.kind === "metadata" && asset.interpretation.schema === "slopcamera.world-labs-provenance")!;
     const value = JSON.parse(await readFile(join(fixture.destinationRoot, metadata.payload.path), "utf8")); value.request.world_prompt.text_prompt = "tampered retained request";
     const bytes = Buffer.from(JSON.stringify(value)); await writeFile(join(fixture.destinationRoot, metadata.payload.path), bytes);
     const assets = output.assets.map(asset => asset.assetId === metadata.assetId ? { ...asset, payload: { ...asset.payload, bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") } } : asset);
@@ -123,6 +123,6 @@ describe("saved world import and exact source closure", () => {
       const retained = (error as SpatialWorldImportError).published; expect(retained).toHaveLength(1);
       expect(await readFile(join(fixture.destinationRoot, retained[0]!.path))).toEqual(originalSpz().compressed);
     }
-    expect((await readdir(fixture.destinationRoot)).some(name => name.startsWith(".atet-world-import"))).toBe(false);
+    expect((await readdir(fixture.destinationRoot)).some(name => name.startsWith(".slopcamera-world-import"))).toBe(false);
   });
 });

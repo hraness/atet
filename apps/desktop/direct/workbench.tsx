@@ -14,17 +14,17 @@ import {
 import App from "../frontend/src/App";
 import { createRuntimeBridge } from "../frontend/src/runtime-bridge";
 import {
-  ATET_DIRECT_NOW_MS,
-  atetScenarioCatalog,
-  atetScenarioMetadata,
-  type AtetDirectRoute,
-  type AtetDirectViewport,
+  SLOPCAMERA_DIRECT_NOW_MS,
+  slopcameraScenarioCatalog,
+  slopcameraScenarioMetadata,
+  type SlopcameraDirectRoute,
+  type SlopcameraDirectViewport,
 } from "./scenarios";
-import type { MountedAtetDirect } from "./mount";
-import type { AtetDirectTransportHarness } from "./transport";
-import type { AtetDirectWorld } from "./world";
+import type { MountedSlopcameraDirect } from "./mount";
+import type { SlopcameraDirectTransportHarness } from "./transport";
+import type { SlopcameraDirectWorld } from "./world";
 
-type Activation = ActiveDirect<AtetDirectWorld, AtetDirectRoute>;
+type Activation = ActiveDirect<SlopcameraDirectWorld, SlopcameraDirectRoute>;
 
 function frameOnly(): boolean {
   return typeof globalThis.location !== "undefined"
@@ -43,11 +43,11 @@ function formatRange(startUs: number, endUs: number): string {
   return `${(startUs / 1_000_000).toFixed(1)}–${(endUs / 1_000_000).toFixed(1)}s`;
 }
 
-function projectAssetLabel(world: AtetDirectWorld, assetId: string): string {
+function projectAssetLabel(world: SlopcameraDirectWorld, assetId: string): string {
   return world.projectEvidence.project.assets.find((asset) => asset.assetId === assetId)?.label ?? assetId;
 }
 
-function syncLabel(placement: AtetDirectWorld["projectEvidence"]["project"]["placements"][number]): string {
+function syncLabel(placement: SlopcameraDirectWorld["projectEvidence"]["project"]["placements"][number]): string {
   const provenance = placement.sync.provenance;
   if (provenance.kind === "audio-alignment") {
     return `accepted audio · ${Math.round(provenance.confidence * 100)}% · ${String(provenance.maxResidualUs)}µs residual`;
@@ -55,7 +55,7 @@ function syncLabel(placement: AtetDirectWorld["projectEvidence"]["project"]["pla
   return provenance.kind;
 }
 
-function ProjectEvidence({ world }: { readonly world: AtetDirectWorld }) {
+function ProjectEvidence({ world }: { readonly world: SlopcameraDirectWorld }) {
   const {
     acceptedAlignments,
     alignments,
@@ -187,7 +187,7 @@ function ProjectEvidence({ world }: { readonly world: AtetDirectWorld }) {
 
 const PITCH_CLASSES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"] as const;
 
-function AnalysisEvidence({ world }: { readonly world: AtetDirectWorld }) {
+function AnalysisEvidence({ world }: { readonly world: SlopcameraDirectWorld }) {
   const { fillerDecisions, music, provenance, scenes, speech } = world.projectEvidence;
   const fillers = speech.result.status === "transcribed" ? speech.result.fillers : [];
   return (
@@ -243,7 +243,7 @@ function AnalysisEvidence({ world }: { readonly world: AtetDirectWorld }) {
   );
 }
 
-function overlaySourceDetails(overlay: AtetDirectWorld["projectEvidence"]["editPlan"]["overlays"][number]): string {
+function overlaySourceDetails(overlay: SlopcameraDirectWorld["projectEvidence"]["editPlan"]["overlays"][number]): string {
   const source = overlay.source;
   if (source.kind === "gif") return `${source.playback.playbackRate}× · ${source.playback.endBehavior} · muted`;
   if (source.kind === "video") {
@@ -258,7 +258,7 @@ function overlaySourceDetails(overlay: AtetDirectWorld["projectEvidence"]["editP
   return source.asset.mediaType;
 }
 
-function OverlayEvidence({ world }: { readonly world: AtetDirectWorld }) {
+function OverlayEvidence({ world }: { readonly world: SlopcameraDirectWorld }) {
   const overlays = world.projectEvidence.editPlan.overlays;
   return (
     <section aria-labelledby="overlay-evidence-heading" className="evidence-panel evidence-panel--wide">
@@ -291,7 +291,7 @@ function OverlayEvidence({ world }: { readonly world: AtetDirectWorld }) {
   );
 }
 
-function WorkflowEvidence({ world }: { readonly world: AtetDirectWorld }) {
+function WorkflowEvidence({ world }: { readonly world: SlopcameraDirectWorld }) {
   const evidence = world.workflowEvidence;
   const recovered = evidence.runs.at(-1)!;
   return (
@@ -389,7 +389,7 @@ function WorkflowEvidence({ world }: { readonly world: AtetDirectWorld }) {
   );
 }
 
-function EditEvidence({ world }: { readonly world: AtetDirectWorld }) {
+function EditEvidence({ world }: { readonly world: SlopcameraDirectWorld }) {
   return (
     <section aria-labelledby="evidence-heading" className="evidence-panel">
       <header>
@@ -451,7 +451,7 @@ function RecorderFixture({
   harness,
 }: {
   readonly activation: Activation;
-  readonly harness: AtetDirectTransportHarness;
+  readonly harness: SlopcameraDirectTransportHarness;
 }) {
   const bridge = useMemo(() => {
     let sequence = 0;
@@ -459,10 +459,10 @@ function RecorderFixture({
       createRequestId: () => `request_direct${String(++sequence).padStart(4, "0")}`,
     });
   }, [harness]);
-  const focus = atetScenarioMetadata[activation.scenario]?.focus ?? "capture";
+  const focus = slopcameraScenarioMetadata[activation.scenario]?.focus ?? "capture";
   return (
     <div className="fixture-content">
-      <App bridge={bridge} now={() => ATET_DIRECT_NOW_MS} />
+      <App bridge={bridge} now={() => SLOPCAMERA_DIRECT_NOW_MS} />
       {focus === "capture" ? <EditEvidence world={activation.world} /> : null}
       {focus === "project" ? <ProjectEvidence world={activation.world} /> : null}
       {focus === "analysis" ? <AnalysisEvidence world={activation.world} /> : null}
@@ -479,8 +479,8 @@ function Frame({
   readonly activation: Activation;
   readonly children: ReactNode;
 }) {
-  const [viewport, setViewport] = useState<AtetDirectViewport>(
-    atetScenarioMetadata[activation.scenario]?.viewport ?? "wide",
+  const [viewport, setViewport] = useState<SlopcameraDirectViewport>(
+    slopcameraScenarioMetadata[activation.scenario]?.viewport ?? "wide",
   );
   const [query, setQuery] = useState("");
   if (frameOnly()) {
@@ -496,7 +496,7 @@ function Frame({
   }
 
   const normalized = query.trim().toLowerCase();
-  const scenarios = atetScenarioCatalog.list().filter((scenario) => (
+  const scenarios = slopcameraScenarioCatalog.list().filter((scenario) => (
     normalized.length === 0
     || scenario.id.includes(normalized)
     || scenario.title.toLowerCase().includes(normalized)
@@ -505,7 +505,7 @@ function Frame({
   const dimensions = viewport === "wide"
     ? { height: 900, width: 1_120 }
     : { height: 820, width: 560 };
-  const selected = atetScenarioCatalog.get(activation.scenario);
+  const selected = slopcameraScenarioCatalog.get(activation.scenario);
 
   return (
     <div
@@ -515,8 +515,8 @@ function Frame({
     >
       <aside className="direct-sidebar">
         <header>
-          <p>Atet · Direct</p>
-          <h1>Atet lab</h1>
+          <p>Slopcamera · Direct</p>
+          <h1>Slopcamera lab</h1>
           <span>Real UI · deterministic recorder · no devices</span>
         </header>
         <SearchField
@@ -536,7 +536,7 @@ function Frame({
               href={scenarioUrl(scenario.id)}
               key={scenario.id}
             >
-              <small>{atetScenarioMetadata[scenario.id]?.group ?? "Capture"}</small>
+              <small>{slopcameraScenarioMetadata[scenario.id]?.group ?? "Capture"}</small>
               <strong>{scenario.title}</strong>
             </a>
           ))}
@@ -574,10 +574,10 @@ function Frame({
   );
 }
 
-export function AtetDirectWorkbench({
+export function SlopcameraDirectWorkbench({
   mounted,
 }: {
-  readonly mounted: MountedAtetDirect;
+  readonly mounted: MountedSlopcameraDirect;
 }) {
   const { activation, harness } = mounted.session;
   const mounts = useRef(0);
@@ -598,10 +598,10 @@ export function AtetDirectWorkbench({
   );
 }
 
-export function AtetDirectError({ message }: { readonly message: string }) {
+export function SlopcameraDirectError({ message }: { readonly message: string }) {
   return (
     <main className="direct-error" role="alert">
-      <p>Atet · Direct</p>
+      <p>Slopcamera · Direct</p>
       <h1>Activation failed</h1>
       <code>{message}</code>
     </main>

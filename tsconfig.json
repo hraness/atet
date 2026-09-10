@@ -9,43 +9,43 @@
     "moduleResolution": "Bundler",
     "moduleDetection": "force",
     "paths": {
-      "@hraness/atet": [
+      "@hraness/slopcamera": [
         "./src/index.ts"
       ],
-      "@hraness/atet/cli": [
+      "@hraness/slopcamera/cli": [
         "./src/cli.ts"
       ],
-      "@hraness/atet/code": [
+      "@hraness/slopcamera/code": [
         "./src/code/index.ts"
       ],
-      "@hraness/atet/code/advanced": [
+      "@hraness/slopcamera/code/advanced": [
         "./src/code/advanced.ts"
       ],
-      "@hraness/atet/generate": [
+      "@hraness/slopcamera/generate": [
         "./src/generate.ts"
       ],
-      "@hraness/atet/host-resources": [
+      "@hraness/slopcamera/host-resources": [
         "./src/host-resources.ts"
       ],
-      "@hraness/atet/operations": [
+      "@hraness/slopcamera/operations": [
         "./src/operations.ts"
       ],
-      "@hraness/atet/workflow": [
+      "@hraness/slopcamera/workflow": [
         "./src/workflow.ts"
       ],
-      "@hraness/atet/scene": [
+      "@hraness/slopcamera/scene": [
         "./packages/scene/src/index.ts"
       ],
-      "@hraness/atet/local/code": [
+      "@hraness/slopcamera/local/code": [
         "./apps/desktop/code/public.ts"
       ],
-      "@hraness/atet/local/code/advanced": [
+      "@hraness/slopcamera/local/code/advanced": [
         "./apps/desktop/code/advanced.ts"
       ],
-      "@hraness/atet/local/code/workflows": [
+      "@hraness/slopcamera/local/code/workflows": [
         "./apps/desktop/workflows/index.ts"
       ],
-      "@hraness/atet/local/html-overlay": [
+      "@hraness/slopcamera/local/html-overlay": [
         "./apps/desktop/html-overlay/index.ts"
       ]
     },

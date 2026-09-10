@@ -77,8 +77,8 @@ export async function main(
     return await runCli(unifiedArgv, { io: processIo });
   }
   const paths = await resolveRepositoryPaths(processIo.cwd(), processIo.env);
-  const helperExecutable = renamedEnvironmentValue(processIo.env, "ATET_CAPTURE_HELPER")
-    ?? join(paths.desktopRoot, "capture", "dist", "atet-capture");
+  const helperExecutable = renamedEnvironmentValue(processIo.env, "SLOPCAMERA_CAPTURE_HELPER")
+    ?? join(paths.desktopRoot, "capture", "dist", "slopcamera-capture");
   const recordingController = new RecordingDaemonClient({
     artifactRoot: paths.artifactRoot,
     daemonCommand: daemonCommand(),
@@ -113,7 +113,7 @@ export async function runMainEntrypoint(
     process.exitCode = await main(process.argv.slice(2), portableDependencies);
   } catch (error) {
     const failure = asCliError(error);
-    process.stderr.write(`atet: ${failure.message}\n`);
+    process.stderr.write(`slopcamera: ${failure.message}\n`);
     process.exitCode = EXIT_CODE[failure.code];
   }
 }

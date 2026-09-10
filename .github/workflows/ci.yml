@@ -60,7 +60,7 @@ jobs:
                   sdk=true
                   package=true
                   ;;
-                AGENTS.md|CONTRIBUTING.md|NOTICE.md|README.md|SECURITY.md|docs/*)
+                AGENTS.md|CONTRIBUTING.md|NOTICE.md|PRIVACY.md|README.md|SECURITY.md|docs/*)
                   sdk=true
                   package=true
                   ;;
@@ -81,7 +81,7 @@ jobs:
             "$sdk" "$desktop" "$native" "$package" "$site" | tee -a "$GITHUB_OUTPUT"
 
   boundary:
-    name: Atet standalone boundary
+    name: Slopcamera standalone boundary
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -94,7 +94,7 @@ jobs:
       - run: bun run check:standalone
 
   sdk:
-    name: Atet SDK
+    name: Slopcamera SDK
     needs: plan
     if: needs.plan.outputs.sdk == 'true'
     runs-on: ubuntu-latest
@@ -122,7 +122,7 @@ jobs:
       - run: node --input-type=module -e 'await Promise.all(["./dist/index.js","./dist/cli.js","./dist/code/index.js","./dist/code/advanced.js","./dist/generate.js","./dist/host-resources.js","./dist/operations.js","./dist/workflow.js"].map(path => import(path)))'
 
   desktop:
-    name: Atet local runtime
+    name: Slopcamera local runtime
     needs: plan
     if: needs.plan.outputs.desktop == 'true'
     runs-on: ubuntu-latest
@@ -149,7 +149,7 @@ jobs:
           fi
 
   site:
-    name: Atet site
+    name: Slopcamera site
     needs: plan
     if: needs.plan.outputs.site == 'true'
     runs-on: ubuntu-latest
@@ -170,19 +170,19 @@ jobs:
         run: |
           set -euo pipefail
           NODE_EXECUTABLE_PATH="$(command -v node)"
-          PLAYWRIGHT_BROWSERS_PATH="$(mktemp -d "$RUNNER_TEMP/atet-playwright.XXXXXX")"
+          PLAYWRIGHT_BROWSERS_PATH="$(mktemp -d "$RUNNER_TEMP/slopcamera-playwright.XXXXXX")"
           export NODE_EXECUTABLE_PATH PLAYWRIGHT_BROWSERS_PATH
           playwright_cli="$("$NODE_EXECUTABLE_PATH" -e 'const { createRequire } = require("node:module"); const { dirname, resolve } = require("node:path"); const appRequire = createRequire(resolve("apps/web/package.json")); const manifest = appRequire.resolve("playwright-core/package.json"); console.log(resolve(dirname(manifest), appRequire(manifest).bin["playwright-core"]))')"
           "$NODE_EXECUTABLE_PATH" "$playwright_cli" install --no-shell chromium
-          ATET_CHROME_PATH="$("$NODE_EXECUTABLE_PATH" -e 'const { createRequire } = require("node:module"); const { resolve } = require("node:path"); console.log(createRequire(resolve("apps/web/package.json"))("playwright-core").chromium.executablePath())')"
-          test -x "$ATET_CHROME_PATH"
-          export ATET_CHROME_PATH
+          SLOPCAMERA_CHROME_PATH="$("$NODE_EXECUTABLE_PATH" -e 'const { createRequire } = require("node:module"); const { resolve } = require("node:path"); console.log(createRequire(resolve("apps/web/package.json"))("playwright-core").chromium.executablePath())')"
+          test -x "$SLOPCAMERA_CHROME_PATH"
+          export SLOPCAMERA_CHROME_PATH
           bun run check:web
       - name: Check generated site standalone boundary
         run: bun run check:standalone
 
   package:
-    name: Atet packed consumer
+    name: Slopcamera packed consumer
     needs: plan
     if: needs.plan.outputs.package == 'true'
     runs-on: ubuntu-latest
@@ -203,7 +203,7 @@ jobs:
       - run: bun run test:package
 
   native:
-    name: Atet macOS shell
+    name: Slopcamera macOS shell
     needs: plan
     if: needs.plan.outputs.native == 'true'
     runs-on: macos-15

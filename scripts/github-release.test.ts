@@ -8,10 +8,10 @@ import { admitPublishedGitHubRelease } from "./push-release-tag";
 
 const archive = Buffer.from("exact canonical bytes");
 function manifest() {
-  return parseManifest({ schema: "hraness-github-release-v1", repository: "hraness/atet", repositoryId: 1310516748,
-    package: "@hraness/atet", version: "3.2.3", tag: "v3.2.3", sourceSha: "a".repeat(40),
+  return parseManifest({ schema: "hraness-github-release-v1", repository: "hraness/slopcamera", repositoryId: 1310516748,
+    package: "@hraness/slopcamera", version: "3.2.3", tag: "v3.2.3", sourceSha: "a".repeat(40),
     workflow: ".github/workflows/release.yml", workflowSha: "a".repeat(40), runId: 123, runAttempt: 1,
-    archive: { name: "hraness-atet-3.2.3.tgz", bytes: archive.length, sha256: hash(archive), sha512: hash(archive, "sha512") } });
+    archive: { name: "hraness-slopcamera-3.2.3.tgz", bytes: archive.length, sha256: hash(archive), sha512: hash(archive, "sha512") } });
 }
 function files() {
   const m = manifest();
@@ -26,13 +26,13 @@ function attempt() {
   return { id: m.runId, run_attempt: m.runAttempt, head_sha: m.sourceSha, head_branch: m.tag,
     workflow_id: 320001524, name: "Release", path: m.workflow, event: "push", status: "in_progress", conclusion: null,
     actor: { id: 894119, type: "User" }, triggering_actor: { id: 894119, type: "User" },
-    repository: { id: 1310516748, full_name: "hraness/atet", private: false } };
+    repository: { id: 1310516748, full_name: "hraness/slopcamera", private: false } };
 }
 test("mirror binds an older canonical source to the current protected workflow without conflating them", () => {
   const m = manifest();
   const current = "b".repeat(40);
   const environment = { GITHUB_SHA: current, GITHUB_REF: "refs/heads/main", GITHUB_EVENT_NAME: "workflow_dispatch",
-    GITHUB_REPOSITORY: "hraness/atet", GITHUB_REPOSITORY_ID: "1310516748" };
+    GITHUB_REPOSITORY: "hraness/slopcamera", GITHUB_REPOSITORY_ID: "1310516748" };
   const ref = { object: { type: "commit", sha: current } };
   const branch = { protected: true, commit: { sha: current } };
   const comparison = { status: "ahead" };
@@ -57,7 +57,7 @@ test("final npm admission binds immutable canonical source and exact complete as
     EXPECTED_ARCHIVE_SHA256: "1".repeat(64), EXPECTED_METADATA_SHA256: "2".repeat(64) };
   const release = { id: 1, tag_name: "v3.2.3", target_commitish: source, draft: false, prerelease: false, immutable: true,
     author: { id: 41898282, login: "github-actions[bot]", type: "Bot" },
-    assets: ["hraness-atet-3.2.3.tgz", "npm-pack.json", "release-manifest.json", "SHA256SUMS", "provenance.jsonl"]
+    assets: ["hraness-slopcamera-3.2.3.tgz", "npm-pack.json", "release-manifest.json", "SHA256SUMS", "provenance.jsonl"]
       .map((name, index) => ({ id: index + 1, name, state: "uploaded", digest: `sha256:${String(index + 1).repeat(64)}` })) };
   const run = (value: unknown) => Bun.spawnSync([process.execPath, "-e", script], {
     env: { ...values, RELEASE_JSON: JSON.stringify(value) }, timeout: 1_000, stdout: "pipe", stderr: "pipe",
@@ -75,7 +75,7 @@ test("final npm admission binds immutable canonical source and exact complete as
 test("canonical manifest rejects identity, bounds, override and path drift", () => {
   const m = manifest();
   expect(parseManifest(m)).toEqual(m);
-  for (const change of [{ unexpected: true }, { repository: "other/atet" }, { repositoryId: 1 }, { package: "atet" }, { version: "3.2.3-beta.1" },
+  for (const change of [{ unexpected: true }, { repository: "other/slopcamera" }, { repositoryId: 1 }, { package: "slopcamera" }, { version: "3.2.3-beta.1" },
     { tag: "v3.2.4" }, { sourceSha: "main" }, { workflowSha: "main" }, { runId: 0 }, { runAttempt: 1.5 }, { workflow: ".github/workflows/npm-stage.yml" },
     { archive: { ...m.archive, name: "../package.tgz" } }, { archive: { ...m.archive, bytes: 4_300_001 } }, { archive: { ...m.archive, sha256: "0" } }]) {
     expect(() => parseManifest({ ...m, ...change })).toThrow();
@@ -84,7 +84,7 @@ test("canonical manifest rejects identity, bounds, override and path drift", () 
   expect(() => compareVersions("9007199254740992.0.0", "3.2.2")).toThrow();
 });
 test("artifact admission binds exact files, bytes, metadata, source and trusted outputs", async () => {
-  const root = await mkdtemp(join(tmpdir(), "atet-canonical-handoff-"));
+  const root = await mkdtemp(join(tmpdir(), "slopcamera-canonical-handoff-"));
   try {
     const inputs = files();
     for (const [name, bytes] of inputs) await writeFile(join(root, name), bytes);
@@ -111,7 +111,7 @@ test("release authorization rejects collaborator reruns and stale source or atte
   expect(() => admitAttempt(attempt(), m)).not.toThrow();
   for (const change of [{ triggering_actor: { id: 99, type: "User" } }, { actor: { id: 894119, type: "Bot" } }, { head_sha: "b".repeat(40) },
     { run_attempt: 2 }, { head_branch: "main" }, { workflow_id: 1 }, { event: "workflow_dispatch" }, { status: "completed", conclusion: "failure" },
-    { repository: { id: 1310516748, full_name: "other/atet", private: false } }]) {
+    { repository: { id: 1310516748, full_name: "other/slopcamera", private: false } }]) {
     expect(() => admitAttempt({ ...attempt(), ...change }, m)).toThrow("exact authorized");
   }
   expect(() => admitAttempt({ ...attempt(), status: "completed", conclusion: "success" }, m, true)).not.toThrow();
@@ -122,20 +122,20 @@ function verified() {
   const m = manifest();
   return [{ verificationResult: { signature: { certificate: {
     issuer: "https://token.actions.githubusercontent.com", runnerEnvironment: "github-hosted",
-    sourceRepositoryURI: "https://github.com/hraness/atet", sourceRepositoryIdentifier: "1310516748",
+    sourceRepositoryURI: "https://github.com/hraness/slopcamera", sourceRepositoryIdentifier: "1310516748",
     sourceRepositoryDigest: m.sourceSha, sourceRepositoryRef: `refs/tags/${m.tag}`,
     buildSignerDigest: m.sourceSha, buildConfigDigest: m.sourceSha, buildTrigger: "push",
-    buildSignerURI: `https://github.com/hraness/atet/${m.workflow}@refs/tags/${m.tag}`,
-    buildConfigURI: `https://github.com/hraness/atet/${m.workflow}@refs/tags/${m.tag}`,
-    runInvocationURI: `https://github.com/hraness/atet/actions/runs/${m.runId}/attempts/${m.runAttempt}`,
+    buildSignerURI: `https://github.com/hraness/slopcamera/${m.workflow}@refs/tags/${m.tag}`,
+    buildConfigURI: `https://github.com/hraness/slopcamera/${m.workflow}@refs/tags/${m.tag}`,
+    runInvocationURI: `https://github.com/hraness/slopcamera/actions/runs/${m.runId}/attempts/${m.runAttempt}`,
   } }, statement: { _type: "https://in-toto.io/Statement/v1", predicateType: "https://slsa.dev/provenance/v1",
     subject: [...files()].map(([name, bytes]) => ({ name, digest: { sha256: hash(bytes) } })),
     predicate: { buildDefinition: { buildType: "https://actions.github.io/buildtypes/workflow/v1",
-      externalParameters: { workflow: { repository: "https://github.com/hraness/atet", path: m.workflow, ref: `refs/tags/${m.tag}` } },
+      externalParameters: { workflow: { repository: "https://github.com/hraness/slopcamera", path: m.workflow, ref: `refs/tags/${m.tag}` } },
       internalParameters: { github: { event_name: "push", repository_id: "1310516748", repository_owner_id: "307125679", runner_environment: "github-hosted" } },
-      resolvedDependencies: [{ uri: `git+https://github.com/hraness/atet@refs/tags/${m.tag}`, digest: { gitCommit: m.sourceSha } }] },
-    runDetails: { builder: { id: `https://github.com/hraness/atet/${m.workflow}@refs/tags/${m.tag}` },
-      metadata: { invocationId: `https://github.com/hraness/atet/actions/runs/${m.runId}/attempts/${m.runAttempt}` } } } } } }];
+      resolvedDependencies: [{ uri: `git+https://github.com/hraness/slopcamera@refs/tags/${m.tag}`, digest: { gitCommit: m.sourceSha } }] },
+    runDetails: { builder: { id: `https://github.com/hraness/slopcamera/${m.workflow}@refs/tags/${m.tag}` },
+      metadata: { invocationId: `https://github.com/hraness/slopcamera/actions/runs/${m.runId}/attempts/${m.runAttempt}` } } } } } }];
 }
 test("verified provenance binds every subject and exact hosted workflow/source/attempt", () => {
   const m = manifest();
@@ -148,10 +148,10 @@ test("verified provenance binds every subject and exact hosted workflow/source/a
   selfHosted[0]!.verificationResult.statement.predicate.buildDefinition.internalParameters.github.runner_environment = "self-hosted";
   expect(() => admitVerifiedProvenance(selfHosted, m, subjects)).toThrow();
   const wrongBuilder = verified();
-  wrongBuilder[0]!.verificationResult.statement.predicate.runDetails.builder.id = "https://github.com/hraness/atet/.github/workflows/other.yml@main";
+  wrongBuilder[0]!.verificationResult.statement.predicate.runDetails.builder.id = "https://github.com/hraness/slopcamera/.github/workflows/other.yml@main";
   expect(() => admitVerifiedProvenance(wrongBuilder, m, subjects)).toThrow();
   const relabeledAttempt = verified();
-  relabeledAttempt[0]!.verificationResult.signature.certificate.runInvocationURI = "https://github.com/hraness/atet/actions/runs/123/attempts/2";
+  relabeledAttempt[0]!.verificationResult.signature.certificate.runInvocationURI = "https://github.com/hraness/slopcamera/actions/runs/123/attempts/2";
   expect(() => admitVerifiedProvenance(relabeledAttempt, m, subjects)).toThrow("certificate");
   const duplicate = verified();
   duplicate[0]!.verificationResult.statement.subject[1] = duplicate[0]!.verificationResult.statement.subject[0]!;
@@ -161,7 +161,7 @@ test("verified provenance binds every subject and exact hosted workflow/source/a
 test("draft reconciliation admits only matching state and never substitutes historical provenance", () => {
   const m = manifest();
   const inputs = files(); inputs.set("provenance.jsonl", Buffer.from("signed bundle"));
-  const draft = { id: 5, tag_name: m.tag, name: `Atet ${m.tag}`, target_commitish: m.sourceSha, draft: true,
+  const draft = { id: 5, tag_name: m.tag, name: `Slopcamera ${m.tag}`, target_commitish: m.sourceSha, draft: true,
     prerelease: false, immutable: false, body: releaseBody(m), author: { id: 41898282, login: "github-actions[bot]", type: "Bot" },
     assets: [...inputs].map(([name, bytes], index) => ({ id: index + 1, name, state: "uploaded", size: bytes.length, digest: `sha256:${hash(bytes)}` })) };
   expect(admitRelease({ ...draft, assets: draft.assets.slice(0, 1) }, m, inputs, true).present.size).toBe(1);
@@ -191,15 +191,15 @@ test("draft discovery uses the complete authenticated list and exact ID when tag
     const path = new URL(typeof input === "string" || input instanceof URL ? input : input.url).pathname
       + new URL(typeof input === "string" || input instanceof URL ? input : input.url).search;
     paths.push(path);
-    if (path === "/repos/hraness/atet/releases/tags/v3.2.3") return new Response("Not Found", { status: 404 });
-    if (path === "/repos/hraness/atet/releases?per_page=100&page=1") return Response.json(firstPage);
-    if (path === "/repos/hraness/atet/releases?per_page=100&page=2") return Response.json(secondPage);
-    if (path === "/repos/hraness/atet/releases/501") return Response.json(readback);
+    if (path === "/repos/hraness/slopcamera/releases/tags/v3.2.3") return new Response("Not Found", { status: 404 });
+    if (path === "/repos/hraness/slopcamera/releases?per_page=100&page=1") return Response.json(firstPage);
+    if (path === "/repos/hraness/slopcamera/releases?per_page=100&page=2") return Response.json(secondPage);
+    if (path === "/repos/hraness/slopcamera/releases/501") return Response.json(readback);
     throw new Error(`Unexpected draft fixture request: ${path}`);
   }) as typeof fetch;
   try {
     expect(await findReleaseForTag("v3.2.3")).toEqual(draft);
-    expect(paths).toEqual(["/repos/hraness/atet/releases?per_page=100&page=1", "/repos/hraness/atet/releases?per_page=100&page=2", "/repos/hraness/atet/releases/501"]);
+    expect(paths).toEqual(["/repos/hraness/slopcamera/releases?per_page=100&page=1", "/repos/hraness/slopcamera/releases?per_page=100&page=2", "/repos/hraness/slopcamera/releases/501"]);
     secondPage = [draft, { ...draft, id: 502 }];
     await expect(findReleaseForTag("v3.2.3")).rejects.toThrow("Multiple releases");
     secondPage = [draft];
@@ -231,7 +231,7 @@ test("live admission rejects drift anywhere in the transitive release helper clo
     expect(url.origin).toBe("https://api.github.com");
     const path = url.pathname;
     let value: unknown;
-    if (path === "/repos/hraness/atet") value = { id: 1310516748, full_name: "hraness/atet", private: false, visibility: "public", default_branch: "main" };
+    if (path === "/repos/hraness/slopcamera") value = { id: 1310516748, full_name: "hraness/slopcamera", private: false, visibility: "public", default_branch: "main" };
     else if (path.endsWith("/actions/workflows/320001524")) value = { id: 320001524, path: m.workflow, name: "Release", state: "active" };
     else if (path.endsWith("/actions/runs/123/attempts/1")) value = attempt();
     else if (path.endsWith("/git/ref/heads/main")) value = { object: { type: "commit", sha: current } };
@@ -247,8 +247,8 @@ test("live admission rejects drift anywhere in the transitive release helper clo
     return Response.json(value);
   }) as typeof fetch;
   const environment = { GITHUB_SHA: m.sourceSha, GITHUB_REF_NAME: m.tag, GITHUB_REF: `refs/tags/${m.tag}`, GITHUB_RUN_ID: "123",
-    GITHUB_RUN_ATTEMPT: "1", GITHUB_EVENT_NAME: "push", GITHUB_ACTOR_ID: "894119", GITHUB_REPOSITORY: "hraness/atet",
-    GITHUB_REPOSITORY_ID: "1310516748", GITHUB_WORKFLOW_REF: `hraness/atet/${m.workflow}@refs/tags/${m.tag}` };
+    GITHUB_RUN_ATTEMPT: "1", GITHUB_EVENT_NAME: "push", GITHUB_ACTOR_ID: "894119", GITHUB_REPOSITORY: "hraness/slopcamera",
+    GITHUB_REPOSITORY_ID: "1310516748", GITHUB_WORKFLOW_REF: `hraness/slopcamera/${m.workflow}@refs/tags/${m.tag}` };
   try {
     expect(await authorizeRelease(environment)).toBe(current);
     expect([...reads].sort()).toEqual([...authorityPaths].sort());

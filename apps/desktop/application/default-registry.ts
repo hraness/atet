@@ -44,9 +44,9 @@ import {
   recordingStartOperationDefinition,
   recordingStartOperationDefinitionV1,
   recordingStopOperationDefinition,
-  atetDiagramCheckOperationDefinition,
-  atetDiagramRenderOperationDefinition,
-  atetImageVectorizeOperationDefinition,
+  slopcameraDiagramCheckOperationDefinition,
+  slopcameraDiagramRenderOperationDefinition,
+  slopcameraImageVectorizeOperationDefinition,
   spatialInspectOperationDefinition,
   spatialPatchOperationDefinition,
   spatialEvaluateOperationDefinition,
@@ -61,8 +61,8 @@ import {
   spatialProjectSelectCandidateOperationDefinition,
   spatialProjectReconcileOperationDefinition,
 } from "./operations";
-import { atetPortableOperationDefinitions } from "./operations/atet-portable";
-import { ATET_APPLICATION_TOOL_VERSION } from "./operation";
+import { slopcameraPortableOperationDefinitions } from "./operations/slopcamera-portable";
+import { SLOPCAMERA_APPLICATION_TOOL_VERSION } from "./operation";
 import { OperationRegistry } from "./registry";
 
 export interface CreateApplicationOperationRegistryOptions {
@@ -75,7 +75,7 @@ export function createApplicationOperationRegistry(
 ): OperationRegistry {
   const nextAnalysisId = options.nextAnalysisId
     ?? (() => `analysis_${randomUUID().replaceAll("-", "")}`);
-  const toolVersion = options.toolVersion ?? ATET_APPLICATION_TOOL_VERSION;
+  const toolVersion = options.toolVersion ?? SLOPCAMERA_APPLICATION_TOOL_VERSION;
   const registry = new OperationRegistry();
   registry.register(spatialInspectOperationDefinition);
   registry.register(spatialPatchOperationDefinition);
@@ -136,10 +136,10 @@ export function createApplicationOperationRegistry(
   registry.register(recordingPauseOperationDefinition);
   registry.register(recordingResumeOperationDefinition);
   registry.register(recordingStopOperationDefinition);
-  registry.register(atetDiagramCheckOperationDefinition);
-  registry.register(atetDiagramRenderOperationDefinition);
-  registry.register(atetImageVectorizeOperationDefinition);
-  for (const definition of atetPortableOperationDefinitions) {
+  registry.register(slopcameraDiagramCheckOperationDefinition);
+  registry.register(slopcameraDiagramRenderOperationDefinition);
+  registry.register(slopcameraImageVectorizeOperationDefinition);
+  for (const definition of slopcameraPortableOperationDefinitions) {
     registry.register(definition);
   }
   return registry;

@@ -10,8 +10,8 @@ const HASH = "a".repeat(64);
 
 function nextCommands(cameraMoveId = "camera_receipt01") {
   return {
-    remove: `atet project edit project_receipt01 camera remove ${cameraMoveId} --json`,
-    show: "atet project edit project_receipt01 camera show --json",
+    remove: `slopcamera project edit project_receipt01 camera remove ${cameraMoveId} --json`,
+    show: "slopcamera project edit project_receipt01 camera show --json",
   };
 }
 
@@ -65,7 +65,7 @@ describe("project camera mutation receipts", () => {
       cameraMoves: 0,
       keyframeCount: 2,
       nextCommands: {
-        show: "atet project edit project_receipt01 camera show --json",
+        show: "slopcamera project edit project_receipt01 camera show --json",
       },
       operation: "remove",
       planHash: HASH,
@@ -103,14 +103,14 @@ describe("project camera mutation receipts", () => {
       ...manual,
       nextCommands: {
         ...manual.nextCommands,
-        remove: "atet project edit project_receipt01 camera remove camera_other0001 --json",
+        remove: "slopcamera project edit project_receipt01 camera remove camera_other0001 --json",
       },
     })).toThrow(/exactly match/u);
     expect(() => ProjectCameraCreateReceiptSchema.parse({
       ...manual,
       nextCommands: {
         ...manual.nextCommands,
-        show: "atet project edit project_other0001 camera show --json",
+        show: "slopcamera project edit project_other0001 camera show --json",
       },
     })).toThrow(/exactly match/u);
     expect(() => ProjectCameraRemoveReceiptSchema.parse({
@@ -118,7 +118,7 @@ describe("project camera mutation receipts", () => {
       cameraMoves: 0,
       keyframeCount: 2,
       nextCommands: {
-        show: "atet project edit project_other0001 camera show --json",
+        show: "slopcamera project edit project_other0001 camera show --json",
       },
       operation: "remove",
       planHash: HASH,

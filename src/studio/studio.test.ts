@@ -6,24 +6,24 @@ import {
 } from "./index.js"
 
 const sha = (letter = "a") => letter.repeat(64)
-const source = () => ({ kind: "atet.studio-source-bundle", schemaVersion: 1, engine: "blender", entrypoint: { kind: "python", path: "main.py" }, files: [{ path: "main.py", sha256: sha(), bytes: 128 }] })
+const source = () => ({ kind: "slopcamera.studio-source-bundle", schemaVersion: 1, engine: "blender", entrypoint: { kind: "python", path: "main.py" }, files: [{ path: "main.py", sha256: sha(), bytes: 128 }] })
 const raster = () => ({ kind: "raster", colorSpace: "srgb", alpha: "opaque", dataType: "uint8", channels: ["R", "G", "B"], semantic: "color", unit: "unitless" })
 const job = () => ({
-  kind: "atet.studio-job", schemaVersion: 1, jobId: "studio_fixture", bundleSha256: studioSourceBundleSha256(source()), stage: "render", parameters: { title: "Native scene", radius: 2 },
+  kind: "slopcamera.studio-job", schemaVersion: 1, jobId: "studio_fixture", bundleSha256: studioSourceBundleSha256(source()), stage: "render", parameters: { title: "Native scene", radius: 2 },
   engine: { engine: "blender", renderer: "cycles", device: "cpu", samples: 16, transparent: false, viewTransform: "AgX", denoise: true, seed: 42 },
   render: { width: 960, height: 540, frameRate: { numerator: 24, denominator: 1 }, startFrame: 1, endFrameExclusive: 4 },
   outputs: [{ kind: "sequence", id: "beauty", pathPattern: "beauty/%06d.png", format: "png", role: "beauty", interpretation: raster() }],
   limits: { timeoutSeconds: 120, maximumOutputBytes: 1024 ** 2, maximumOutputFiles: 10 }, execution: { trust: "trusted-current-user", isolation: "none", hermetic: false },
 })
 const runtime = () => ({
-  kind: "atet.studio-runtime", schemaVersion: 1, engine: "blender", tool: { name: "Blender", version: "fixture", executableSha256: sha("b") }, driverSha256: sha("c"),
+  kind: "slopcamera.studio-runtime", schemaVersion: 1, engine: "blender", tool: { name: "Blender", version: "fixture", executableSha256: sha("b") }, driverSha256: sha("c"),
   environment: { fingerprintSha256: sha("d"), evidence: "observed-package-environment", hermetic: false },
   capabilities: ["python-authoring", "blend-authoring", "render", "build", "bake", "image-sequence", "native-cache", "gpu-render", "model-export", "beauty-video", "auxiliary-passes", "audio-output"].map(name => ({ name, support: "available", evidence: "probe" })),
 })
 const plan = () => planStudioJob({ bundle: source(), job: job(), runtime: runtime() })
 const receipt = () => {
   const expected = plan()
-  return { kind: "atet.studio-receipt", schemaVersion: 1, jobId: expected.job.jobId, attemptId: "attempt_fixture", planSha256: expected.planSha256, bundleSha256: expected.bundleSha256,
+  return { kind: "slopcamera.studio-receipt", schemaVersion: 1, jobId: expected.job.jobId, attemptId: "attempt_fixture", planSha256: expected.planSha256, bundleSha256: expected.bundleSha256,
     jobSha256: expected.jobSha256, runtime: expected.runtime, runtimeSha256: expected.runtimeSha256, startedAt: "2026-09-09T00:00:00Z", finishedAt: "2026-09-09T00:00:01Z",
     state: "succeeded", custody: "closed", exitCode: 0,
     outputs: [1, 2, 3].map(frame => ({ outputId: "beauty", path: `beauty/${String(frame).padStart(6, "0")}.png`, sha256: sha(), bytes: 100, role: "beauty", format: "png", frame })),

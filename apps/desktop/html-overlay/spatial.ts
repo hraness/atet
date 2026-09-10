@@ -151,14 +151,14 @@ type Texture = DeepReadonly<z.infer<typeof primitiveSchema>["texture"]>;
 
 /** Text preparation draws white glyphs; final color is applied by the scene material. */
 export function spatialTextRasterContentSha256(entity: Extract<SpatialEntity, { kind: "text" }>): string {
-  return canonicalJsonSha256({ domain: "atet.spatial-text-raster.v1", text: entity.text, fontAssetId: entity.fontAssetId,
+  return canonicalJsonSha256({ domain: "slopcamera.spatial-text-raster.v1", text: entity.text, fontAssetId: entity.fontAssetId,
     fontSize: entity.fontSize, width: entity.width, align: entity.align });
 }
 export function spatialGeometryContentSha256(entity: Extract<SpatialEntity, { kind: "mesh" }>): string {
-  return canonicalJsonSha256({ domain: "atet.spatial-geometry-binding.v1", geometry: entity.geometry });
+  return canonicalJsonSha256({ domain: "slopcamera.spatial-geometry-binding.v1", geometry: entity.geometry });
 }
 export function spatialVideoRasterContentSha256(entity: Extract<SpatialEntity, { kind: "video" }>): string {
-  return canonicalJsonSha256({ domain: "atet.spatial-video-binding.v1", assetId: entity.assetId, sourceOffsetUs: entity.sourceOffsetUs, playback: entity.playback });
+  return canonicalJsonSha256({ domain: "slopcamera.spatial-video-binding.v1", assetId: entity.assetId, sourceOffsetUs: entity.sourceOffsetUs, playback: entity.playback });
 }
 
 export class SpatialOverlayCapabilityError extends Error {
@@ -526,12 +526,12 @@ export function createSpatialOverlayBatch(input: unknown) {
   let html = spatialDocument(escapeEmbeddedJson(payload));
   if (sparkProfile) html = addSpatialSplatRuntime(html.replace(serializeHtmlOverlayImportMap(["three"]), serializeHtmlOverlayImportMap(libraries)));
   const authoring = HtmlOverlayAuthoringInputSchema.parse({
-    kind: "atet.html-overlay", schemaVersion: 1, canvas: { width, height, deviceScaleFactor: 1 },
+    kind: "slopcamera.html-overlay", schemaVersion: 1, canvas: { width, height, deviceScaleFactor: 1 },
     html, libraries, parameters: {}, resources: declaredResources, seed: 0,
     timing: { fps: 1, durationUs: frames.length * 1_000_000 },
   });
   const metadataValue = {
-    kind: "atet.spatial-overlay-batch", schemaVersion: 1,
+    kind: "slopcamera.spatial-overlay-batch", schemaVersion: 1,
     renderer: "three-webgl2-snapshot-v1", mode: request.mode,
     ...(request.executionProfile === undefined ? {} : { executionProfile: request.executionProfile }),
     ...(sparkProfile ? { splatProfile: { adapter: "spark-2.1.0-spz-v2-v3-ext-v1", kernel: splatKernel, lod: false, sorting: "await-explicit-camera-update", readback: "synchronous-exact-MRT-buffer-before-worker-sort", color: "srgb-radiance-to-linear", depth: "unsupported", objectId: "unsupported", collider: "approximate-retained-only", splats: totalSplats } } : {}),
@@ -577,13 +577,13 @@ import * as THREE from "three";
 const input=${payload};
 const canvas=document.querySelector("canvas");
 const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:false,premultipliedAlpha:true,preserveDrawingBuffer:true});
-renderer.setPixelRatio(1);renderer.setSize(AtetOverlay.width,AtetOverlay.height,false);
+renderer.setPixelRatio(1);renderer.setSize(SlopcameraOverlay.width,SlopcameraOverlay.height,false);
 renderer.setClearColor(0x000000,0);renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.toneMapping=THREE.NoToneMapping;renderer.autoClear=false;
 let beautyTarget=null,outputScene=null,outputCamera=null,outputGeometry=null,outputMaterial=null;
 if(input.mode.kind==="beauty"){
   if(!renderer.extensions.has("EXT_color_buffer_float"))throw new Error("Spatial SDR beauty requires renderable half-float linear color for correct alpha compositing.");
-  beautyTarget=new THREE.WebGLRenderTarget(AtetOverlay.width,AtetOverlay.height,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,colorSpace:THREE.LinearSRGBColorSpace,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:true,stencilBuffer:false});
+  beautyTarget=new THREE.WebGLRenderTarget(SlopcameraOverlay.width,SlopcameraOverlay.height,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,colorSpace:THREE.LinearSRGBColorSpace,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:true,stencilBuffer:false});
   outputGeometry=new THREE.PlaneGeometry(2,2);
   outputMaterial=new THREE.RawShaderMaterial({depthTest:false,depthWrite:false,blending:THREE.NoBlending,transparent:false,toneMapped:false,dithering:false,
     uniforms:{linearPremultiplied:{value:beautyTarget.texture}},
@@ -622,7 +622,7 @@ const initialization=(async()=>{
     textures.set(item.name,texture);
   }
 })().catch(error=>{for(const texture of textures.values())texture.dispose();textures.clear();throw error;});
-AtetOverlay.ready(initialization);
+SlopcameraOverlay.ready(initialization);
 const vertexShader=\`precision highp float;
 uniform mat4 projectionMatrix;uniform mat4 modelViewMatrix;
 attribute vec3 position;attribute vec2 uv;
@@ -688,13 +688,13 @@ function makeCamera(data){
   camera.projectionMatrix.fromArray(data.projection);camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
   camera.updateMatrixWorld(true);return camera;
 }
-AtetOverlay.onFrame(({frame:index})=>{
+SlopcameraOverlay.onFrame(({frame:index})=>{
   if(disposed)throw new Error("Spatial renderer is disposed.");if(contextFailure)throw contextFailure;
   const frame=input.frames[index];if(!frame)throw new Error("Spatial frame index is outside the immutable batch.");
   const disposable=[];const track=value=>(disposable.push(value),value);
   try{
     const world=new THREE.Scene();const view=new THREE.Scene();const camera=makeCamera(frame.camera);
-    const viewCamera=new THREE.OrthographicCamera(0,AtetOverlay.width,0,AtetOverlay.height,0.01,2000002);viewCamera.position.z=1000001;viewCamera.updateMatrixWorld(true);
+    const viewCamera=new THREE.OrthographicCamera(0,SlopcameraOverlay.width,0,SlopcameraOverlay.height,0.01,2000002);viewCamera.position.z=1000001;viewCamera.updateMatrixWorld(true);
     for(const object of frame.objects){
       if(object.kind==="light"){
         const light=object.light==="ambient"?new THREE.AmbientLight(object.color,object.intensity):object.light==="point"?new THREE.PointLight(object.color,object.intensity):new THREE.DirectionalLight(object.color,object.intensity);
@@ -706,7 +706,7 @@ AtetOverlay.onFrame(({frame:index})=>{
       mesh.matrixAutoUpdate=false;mesh.matrix.fromArray(object.matrix);
       if(object.geometry.kind==="prepared")mesh.matrix.multiply(new THREE.Matrix4().fromArray(input.geometry[object.geometry.key][object.geometry.primitive].matrix));
       if(object.placement.kind==="view"){
-        if(object.placement.units==="normalized")mesh.matrix.premultiply(new THREE.Matrix4().makeScale(AtetOverlay.width,AtetOverlay.height,1));
+        if(object.placement.units==="normalized")mesh.matrix.premultiply(new THREE.Matrix4().makeScale(SlopcameraOverlay.width,SlopcameraOverlay.height,1));
         mesh.renderOrder=object.placement.order;mesh.frustumCulled=false;view.add(mesh);
       }else world.add(mesh);
     }

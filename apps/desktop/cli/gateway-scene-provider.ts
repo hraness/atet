@@ -10,7 +10,7 @@ import {
   type SceneProviderRequest,
   type SceneProviderResult,
   validateSceneProviderRequest,
-} from "@hraness/atet/scene";
+} from "@hraness/slopcamera/scene";
 
 import type { ActiveGatewayCredential } from "./gateway-credential";
 
@@ -345,7 +345,7 @@ export function createGatewaySceneProvider(
             });
             const output = ai.Output.object({
               description: "One bounded, observable description for every supplied scene identifier.",
-              name: "atet_scene_descriptions",
+              name: "slopcamera_scene_descriptions",
               schema: GeneratedSceneBatchSchema,
             });
             assertSceneDispatchActive(controller.signal);
@@ -360,7 +360,7 @@ export function createGatewaySceneProvider(
               providerOptions: {
                 gateway: {
                   disallowPromptTraining: true,
-                  tags: ["atet", "scene-analysis", "v1"],
+                  tags: ["slopcamera", "scene-analysis", "v1"],
                   zeroDataRetention: true,
                 },
               },

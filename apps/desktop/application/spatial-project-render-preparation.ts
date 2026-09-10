@@ -184,7 +184,7 @@ export async function prepareSpatialProjectRender(context: OperationExecutionCon
     await repositoryFileSystem.writeTextNoReplace(revisionArtifact.path, revisionText, publicationFence);
     await durability.syncExactFile(revisionArtifact.path, revisionArtifact);
     published.push(revisionArtifact); uncertainPublication = undefined;
-    const revisionReference = RenderableProjectEditRevisionReferenceSchema.parse({ kind: "atet.project-edit-revision-reference", schemaVersion: 1,
+    const revisionReference = RenderableProjectEditRevisionReferenceSchema.parse({ kind: "slopcamera.project-edit-revision-reference", schemaVersion: 1,
       artifact: derived.projection.derivedV1Revision, baseGeneration: hashProjectGeneration(derived.revision.project, derived.revision.projectEditPlan),
       outputGeometrySha256: hashProjectEditRevisionOutputGeometry({ ...profile, revisionSha256: derived.revision.revisionSha256 }),
       pixelWidth: profile.pixelWidth, pixelHeight: profile.pixelHeight, planId: derived.revision.projectEditPlan.planId, projectId: request.project,
@@ -193,12 +193,12 @@ export async function prepareSpatialProjectRender(context: OperationExecutionCon
     const planInput = await bindProjectRenderPlanInput(context.application, { revision: revisionReference, settings: { background: profile.background, frameRate: profile.frameRate.numerator / profile.frameRate.denominator } });
     checked(planInput.metadataBindings?.length === 0, "Spatial projection cannot depend on mutable recording metadata.");
     // Preserve the prospective immutable plan address across publication/readback failures.
-    const planDocument = ProjectRenderPlanDocumentSchema.parse({ kind: "atet.project-render-plan-document", schemaVersion: 1, plan: derived.renderPlan,
+    const planDocument = ProjectRenderPlanDocumentSchema.parse({ kind: "slopcamera.project-render-plan-document", schemaVersion: 1, plan: derived.renderPlan,
       outputGeometrySha256: revisionReference.outputGeometrySha256, projectEditPlanSha256: derived.revision.projectEditPlanSha256,
       projectSha256: derived.revision.projectSha256, revisionSha256: derived.revision.revisionSha256, renderPlanSha256: canonicalJsonSha256(derived.renderPlan) });
     const planText = spatialProjectDocumentText(planDocument), planSha = sha256Hex(planText);
     await publicationFence(); uncertainPublication = { path: repositoryPath(`renders/plans/${planSha}.json`), sha256: planSha, bytes: Buffer.byteLength(planText) };
-    const plan = ProjectRenderPlanReferenceSchema.parse({ kind: "atet.project-render-plan-reference", schemaVersion: 1,
+    const plan = ProjectRenderPlanReferenceSchema.parse({ kind: "slopcamera.project-render-plan-reference", schemaVersion: 1,
       artifact: { path: `renders/plans/${planSha}.json`, sha256: planSha, bytes: Buffer.byteLength(planText) },
       projectId: request.project, outputGeometrySha256: revisionReference.outputGeometrySha256, planSha256: derived.renderPlan.planSha256,
       projectEditPlanSha256: derived.revision.projectEditPlanSha256, projectSha256: derived.revision.projectSha256,

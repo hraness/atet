@@ -13,7 +13,7 @@ const identifier = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/u)
 const stableId = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/u)
 const sourceFile = z.strictObject({ path: StudioPathSchema, sha256: StudioDigestSchema, bytes: z.number().int().safe().nonnegative().max(STUDIO_LIMITS.sourceBytes) })
 const sourceBundleShape = z.strictObject({
-  kind: z.literal("atet.studio-source-bundle"), schemaVersion: z.literal(1), engine: StudioEngineSchema,
+  kind: z.literal("slopcamera.studio-source-bundle"), schemaVersion: z.literal(1), engine: StudioEngineSchema,
   entrypoint: z.discriminatedUnion("kind", [z.strictObject({ kind: z.literal("python"), path: StudioPathSchema.refine(path => path.endsWith(".py")) }), z.strictObject({ kind: z.literal("blend"), path: StudioPathSchema.refine(path => path.endsWith(".blend")) })]),
   files: z.array(sourceFile).min(1).max(STUDIO_LIMITS.sourceFiles),
 }).superRefine((value, context) => {
@@ -92,7 +92,7 @@ export const StudioEngineOptionsSchema = z.discriminatedUnion("engine", [
 const parameters = z.preprocess(value => value === undefined ? undefined : createBoundedJsonValueSnapshot(value, STUDIO_LIMITS.parameterBytes, "studio parameters", { maximumDepth: STUDIO_LIMITS.parameterDepth, maximumValues: STUDIO_LIMITS.parameterValues }).value, z.record(z.string(), z.unknown()))
 export const StudioExecutionProfileSchema = z.strictObject({ trust: z.literal("trusted-current-user"), isolation: z.literal("none"), hermetic: z.literal(false) })
 const jobShape = z.strictObject({
-  kind: z.literal("atet.studio-job"), schemaVersion: z.literal(1), jobId: z.string().regex(/^studio_[a-zA-Z0-9][a-zA-Z0-9_-]{0,120}$/u), bundleSha256: StudioDigestSchema,
+  kind: z.literal("slopcamera.studio-job"), schemaVersion: z.literal(1), jobId: z.string().regex(/^studio_[a-zA-Z0-9][a-zA-Z0-9_-]{0,120}$/u), bundleSha256: StudioDigestSchema,
   stage: z.enum(["build", "bake", "render"]), parameters, engine: StudioEngineOptionsSchema, render: StudioRenderSchema.optional(),
   outputs: z.array(StudioOutputSpecSchema).min(1).max(STUDIO_LIMITS.outputSpecifications),
   limits: z.strictObject({ timeoutSeconds: z.number().int().min(1).max(STUDIO_LIMITS.timeoutSeconds), maximumOutputBytes: z.number().int().safe().min(1).max(STUDIO_LIMITS.outputBytes), maximumOutputFiles: z.number().int().min(1).max(STUDIO_LIMITS.outputFiles) }),
@@ -112,7 +112,7 @@ export const StudioCapabilityNameSchema = z.enum(["python-authoring", "blend-aut
 const capability = z.strictObject({ name: StudioCapabilityNameSchema, support: z.enum(["available", "unavailable", "unverified"]), evidence: z.enum(["probe", "qualification"]), receiptSha256: StudioDigestSchema.optional() })
   .refine(value => value.evidence !== "qualification" || value.receiptSha256 !== undefined, "Qualification evidence requires a retained receipt digest.")
 const runtimeShape = z.strictObject({
-  kind: z.literal("atet.studio-runtime"), schemaVersion: z.literal(1), engine: StudioEngineSchema,
+  kind: z.literal("slopcamera.studio-runtime"), schemaVersion: z.literal(1), engine: StudioEngineSchema,
   tool: z.strictObject({ name: z.string().min(1).max(128), version: z.string().min(1).max(512), executableSha256: StudioDigestSchema }), driverSha256: StudioDigestSchema,
   environment: z.strictObject({ fingerprintSha256: StudioDigestSchema, evidence: z.literal("observed-package-environment"), hermetic: z.literal(false) }),
   capabilities: z.array(capability).max(12),
