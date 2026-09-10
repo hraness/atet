@@ -21,7 +21,7 @@ describe("visual studio public copy (pure, process-free)", () => {
       expect(positions).toEqual([...positions].sort((a, b) => a - b))
     }
     expect(readme).toContain("Historical Atet release evidence")
-    expect(publishedArchiveUrl).toBe("https://github.com/hraness/slopcamera/releases/download/v3.2.4/hraness-slopcamera-3.2.4.tgz")
+    expect(publishedArchiveUrl).toBe("https://github.com/hraness/slopcamera/releases/download/v3.2.5/hraness-slopcamera-3.2.5.tgz")
     expect(html).toContain("{{ARCHIVE_INSTALL_COMMAND}}")
     const graph = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/u)![1]!)["@graph"] as Record<string, unknown>[]
     for (const item of graph) {
