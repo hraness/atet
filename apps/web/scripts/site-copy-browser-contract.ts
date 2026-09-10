@@ -181,7 +181,7 @@ export function parseCopyPhase(value: unknown, sequence: 0 | 1 | 2, request: She
       assert.equal(observation.name, siteCopyCases[index]?.name); assert.deepEqual(observation.steps, copySteps)
       assert.equal(observation.elementsPerSample, copyElementKeys.length)
       assert.ok(typeof observation.command === "string")
-      assert.match(observation.command, /^npx skills add https:\/\/github\.com\/hraness\/slopcamera\/tree\/v\d+\.\d+\.\d+ --skill slopcamera$/u)
+      assert.equal(observation.command, "bun apps/desktop/dist/cli/main.js skill install --target agents")
       assertCopyPorts(observation.current as CopyPorts, observation.command)
       assertCopyPorts(observation.baseline as CopyPorts, observation.command)
     }
@@ -325,7 +325,7 @@ export async function checkCopyCase(browser: Browser, payload: ShellPayload, sce
     await chooseAppearance(page, scenario.theme, scenario.system)
     await copyState(page, "idle")
     const command = await page.locator("[data-copy-command-value]").innerText()
-    assert.match(command, /^npx skills add https:\/\/github\.com\/hraness\/slopcamera\/tree\/v\d+\.\d+\.\d+ --skill slopcamera$/u)
+    assert.equal(command, "bun apps/desktop/dist/cli/main.js skill install --target agents")
     assert.deepEqual(await page.evaluate(() => ({ width: innerWidth, forced: matchMedia("(forced-colors: active)").matches,
       theme: document.documentElement.dataset.theme })), { width: scenario.width, forced: scenario.forced === "active", theme: scenario.theme })
     const button = page.locator(buttonSelector), steps: { name: string; elements: ShellElement[] }[] = []

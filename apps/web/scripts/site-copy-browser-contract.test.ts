@@ -45,7 +45,20 @@ test("copy partial evidence certifies only the exact preceding paired prefix", (
     }
   }
 })
-const command = "npx skills add https://github.com/hraness/slopcamera/tree/v1.2.3 --skill slopcamera"
+const command = "bun apps/desktop/dist/cli/main.js skill install --target agents"
+test("copy observations require the exact current source-install command even when every port agrees", () => {
+  for (const changedCommand of [
+    "npx skills add https://github.com/hraness/slopcamera/tree/v1.2.3 --skill slopcamera",
+    command.replace("--target agents", "--target codex"), `${command} `,
+  ]) {
+    const changedPorts = { ...ports, writes: ports.writes.map(() => changedCommand),
+      fallbacks: ports.fallbacks.map(value => ({ ...value, value: changedCommand, end: changedCommand.length })) }
+    expect(() => assertCopyPorts(changedPorts, changedCommand)).not.toThrow()
+    const changed = { ...phase, observations: phase.observations.map(value => ({ ...value,
+      command: changedCommand, current: changedPorts, baseline: changedPorts })) }
+    expect(() => parseCopyPhase(changed, 2, request)).toThrow()
+  }
+})
 test("actual copy sampler passes every authored clipping, list and border-image reset to the native observer", async () => {
   let properties: readonly string[] = []
   const page = { evaluate: async (_callback: unknown, input: { properties: readonly string[] }) => { properties = input.properties; return [] } } as unknown as Page
@@ -247,6 +260,7 @@ test("every declared native step compares the complete authored descendants and 
   const evidence: CopyEvidence = { command, ports, negativeControls: [], steps: copySteps.map(name => ({ name,
     elements: copyElementKeys.map(key => ({ key, rect: [1, 2, 3, 4], text: key, semantics: { role: null }, styles: { color: "gold", opacity: "1" } })) })) }
   expect(() => compareCopyEvidence(evidence, structuredClone(evidence), "same")).not.toThrow()
+  expect(() => compareCopyEvidence(evidence, { ...evidence, command: "historical install command" }, "changed command")).toThrow()
   for (let step = 0; step < copySteps.length; step++) for (let element = 0; element < copyElementKeys.length; element++) {
     const changed = structuredClone(evidence)
     const item = changed.steps[step]?.elements[element]
