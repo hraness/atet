@@ -14,4 +14,4 @@
 - Detach author-visible context from admitted job data. Keep narration and sound-effect resolution in the ordinary SLOPCAMERA project audio layer.
 - Distinguish authored timing from measured caption or Rhubarb timing. Do not infer word alignment from mouth cues or claim lip-sync quality without reviewing actual retained narration.
 - Keep mathematical values, tile counts, and destinations derived from validated data. The integer-triangle example is not a proof for arbitrary triangles.
-- Coordinate native qualification through the integration owner's HRA lane. Retain failed attempts and exact source/driver identities; a backend observation does not replace a host studio receipt.
+- Coordinate native qualification through the integration owner's Oompa lane. Retain failed attempts and exact source/driver identities; a backend observation does not replace a host studio receipt.
