@@ -7,7 +7,7 @@ const maximumAuditEntries = 2_000;
 const npmPublishPredicate = "https://github.com/npm/attestation/tree/main/specs/publish/v0.1";
 const slsaPredicate = "https://slsa.dev/provenance/v1";
 const workflowBuildType = "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1";
-const workflowPath = ".github/workflows/npm-stage.yml";
+const workflowPath = ".github/workflows/release.yml";
 const repository = "hraness/slopcamera";
 const repositoryId = "1310516748";
 const repositoryOwnerId = "307125679";
@@ -141,7 +141,9 @@ function verifyPublishStatement(
 function verifySlsaStatement(
   statement: Record<string, unknown>,
   expectedSourceSha: string,
+  expectedVersion: string,
 ): Readonly<{ runAttempt: number; runId: number }> {
+  const expectedRef = `refs/tags/v${expectedVersion}`;
   const predicate = record(statement.predicate, "SLSA predicate");
   const buildDefinition = record(predicate.buildDefinition, "SLSA build definition");
   const externalParameters = record(
@@ -172,16 +174,16 @@ function verifySlsaStatement(
     statement._type !== "https://in-toto.io/Statement/v1"
     || buildDefinition.buildType !== workflowBuildType
     || workflow.repository !== `https://github.com/${repository}`
-    || workflow.ref !== "refs/heads/main"
+    || workflow.ref !== expectedRef
     || workflow.path !== workflowPath
-    || github.event_name !== "workflow_dispatch"
+    || github.event_name !== "push"
     || github.repository_id !== repositoryId
     || github.repository_owner_id !== repositoryOwnerId
-    || dependency.uri !== `git+https://github.com/${repository}@refs/heads/main`
+    || dependency.uri !== `git+https://github.com/${repository}@${expectedRef}`
     || dependencyDigest.gitCommit !== expectedSourceSha
     || Object.keys(dependencyDigest).length !== 1
     || builder.id !== "https://github.com/actions/runner/github-hosted"
-  ) throw new Error("SLSA provenance does not bind the exact npm staging workflow and source.");
+  ) throw new Error("SLSA provenance does not bind the exact tag release workflow and source.");
   const match = /^https:\/\/github\.com\/hraness\/slopcamera\/actions\/runs\/([1-9][0-9]*)\/attempts\/([1-9][0-9]*)$/u.exec(invocation);
   if (match === null || match[1] === undefined || match[2] === undefined) {
     throw new Error("SLSA invocation ID is not an exact Slopcamera GitHub Actions run attempt.");
@@ -305,6 +307,7 @@ export async function verifyNpmPublishAuthority(
   const invocation = verifySlsaStatement(
     slsaStatements[0]!.statement,
     input.expectedSourceSha,
+    input.expectedVersion,
   );
   return Object.freeze({ attestationUrl, integrity, ...invocation });
 }

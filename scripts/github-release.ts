@@ -114,6 +114,10 @@ export function admitExpectedHandoff(handoff: Handoff, expected: NodeJS.ProcessE
   const m = handoff.manifest;
   if (m.sourceSha !== expected.GITHUB_SHA || m.tag !== expected.GITHUB_REF_NAME
     || m.runId !== Number(expected.GITHUB_RUN_ID) || m.runAttempt !== Number(expected.GITHUB_RUN_ATTEMPT)) throw new Error("Release handoff is not from this exact run and source.");
+  admitExpectedHandoffDigests(handoff, expected);
+}
+export function admitExpectedHandoffDigests(handoff: Handoff, expected: NodeJS.ProcessEnv): void {
+  const m = handoff.manifest;
   for (const [name, variable] of [[m.archive.name, "EXPECTED_ARCHIVE_SHA256"], ["npm-pack.json", "EXPECTED_PACK_SHA256"], ["release-manifest.json", "EXPECTED_MANIFEST_SHA256"], ["SHA256SUMS", "EXPECTED_SUMS_SHA256"]] as const) {
     if (!expected[variable] || hash(handoff.files.get(name)!) !== expected[variable]) throw new Error(`Release handoff differs from trusted ${variable}.`);
   }
@@ -385,53 +389,40 @@ async function publish(directory: string): Promise<void> {
   if (final.draft || final.id !== state.id || latest.id !== final.id || latest.tag_name !== m.tag) throw new Error("Published release is not immutable Latest.");
   console.log(`Verified immutable Latest ${m.tag}, exact archive ${m.archive.sha256}.`);
 }
-export function admitMirrorAuthority(manifest: ReleaseManifest, expectedWorkflow: string, environment: NodeJS.ProcessEnv,
-  refValue: unknown, branchValue: unknown, comparisonValue: unknown): void {
-  const main = record(record(refValue, "Mirror current main").object, "Mirror main object");
-  const branch = record(branchValue, "Mirror protected main");
-  const comparison = record(comparisonValue, "Mirror source ancestry");
-  if (!sha.test(expectedWorkflow) || main.type !== "commit" || main.sha !== expectedWorkflow
-    || record(branch.commit, "Mirror main commit").sha !== expectedWorkflow || branch.protected !== true
-    || environment.GITHUB_SHA !== expectedWorkflow || environment.GITHUB_REF !== "refs/heads/main"
-    || environment.GITHUB_EVENT_NAME !== "workflow_dispatch"
-    || environment.GITHUB_REPOSITORY !== repository || environment.GITHUB_REPOSITORY_ID !== String(repositoryId)
-    || !sha.test(manifest.sourceSha) || (comparison.status !== "ahead" && comparison.status !== "identical")) {
-    throw new Error("Canonical source is not an ancestor of this exact current protected mirror workflow.");
-  }
+export function admitNpmHandoffRun(manifest: ReleaseManifest, environment: NodeJS.ProcessEnv): void {
+  // An npm rerun of only the failed publication job keeps the attested artifact
+  // from an earlier attempt of the same run; a different run or source rejects.
+  const attempt = positive(Number(environment.GITHUB_RUN_ATTEMPT), "Run attempt");
+  if (manifest.sourceSha !== environment.GITHUB_SHA || manifest.tag !== environment.GITHUB_REF_NAME
+    || environment.GITHUB_REF !== `refs/tags/${manifest.tag}` || manifest.runId !== Number(environment.GITHUB_RUN_ID)
+    || manifest.runAttempt > attempt) throw new Error("npm handoff is not from this exact run and source.");
 }
-export async function downloadMirror(directory: string, version: string, expectedWorkflow: string): Promise<Handoff> {
-  stableVersion(version);
-  if (!sha.test(expectedWorkflow)) throw new Error("Mirror requires the exact current workflow SHA.");
-  const tag = `v${version}`;
-  const download = spawnSync("gh", ["release", "download", tag, "--repo", repository, "--dir", directory,
-    "--pattern", `hraness-slopcamera-${version}.tgz`, "--pattern", "npm-pack.json", "--pattern", "release-manifest.json",
-    "--pattern", "SHA256SUMS", "--pattern", "provenance.jsonl"],
-  { timeout: 60_000, killSignal: "SIGKILL", encoding: "utf8", maxBuffer: maximumFileBytes, stdio: ["ignore", "pipe", "pipe"] });
-  if (download.error || download.status !== 0) throw new Error(`Canonical mirror download failed: ${download.error?.message ?? download.stderr}`);
-  return verifyMirror(directory, version, expectedWorkflow);
+export function admitPublishedRelease(value: unknown, manifest: ReleaseManifest, files: ReadonlyMap<string, Buffer>): number {
+  const state = admitRelease(value, manifest, files, false);
+  if (state.draft) throw new Error("npm may publish only an already published immutable release.");
+  return state.id;
 }
-export async function verifyMirror(directory: string, version: string, expectedWorkflow: string): Promise<Handoff> {
-  stableVersion(version);
-  const tag = `v${version}`;
+async function npmAdmit(directory: string): Promise<void> {
+  await authorizeRelease();
   const handoff = await verifyHandoff(directory, true);
-  const m = handoff.manifest;
-  if (m.version !== version) throw new Error("Canonical mirror version differs from the requested candidate.");
+  admitNpmHandoffRun(handoff.manifest, process.env);
+  admitExpectedHandoffDigests(handoff, process.env);
   verifyAttestations(directory, handoff);
-  const release = admitRelease(await request(`/repos/${repository}/releases/tags/${tag}`), m, handoff.files, false);
-  if (release.draft) throw new Error("npm may mirror only an already published immutable release.");
-  admitAttempt(await request(`/repos/${repository}/actions/runs/${m.runId}/attempts/${m.runAttempt}`), m, true);
-  const tagRef = record(record(await request(`/repos/${repository}/git/ref/tags/${tag}`), "Mirror tag ref").object, "Mirror tag object");
-  if (tagRef.type !== "tag" || typeof tagRef.sha !== "string" || !sha.test(tagRef.sha)) throw new Error("Mirror tag is not annotated.");
-  const target = record(record(await request(`/repos/${repository}/git/tags/${tagRef.sha}`), "Mirror annotated tag").object, "Mirror target");
-  if (target.type !== "commit" || target.sha !== m.sourceSha) throw new Error("Canonical mirror tag moved.");
-  admitMirrorAuthority(m, expectedWorkflow, process.env,
-    await request(`/repos/${repository}/git/ref/heads/main`), await request(`/repos/${repository}/branches/main`),
-    await request(`/repos/${repository}/compare/${m.sourceSha}...${expectedWorkflow}`));
-  return handoff;
+  const m = handoff.manifest;
+  const release = await request(`/repos/${repository}/releases/tags/${m.tag}`);
+  const id = admitPublishedRelease(release, m, handoff.files);
+  verifyRemoteBytes(release, handoff.files);
+  const latest = record(await request(`/repos/${repository}/releases/latest`), "Latest release");
+  if (latest.id !== id || latest.tag_name !== m.tag) throw new Error("Canonical release is not immutable Latest before npm publication.");
+  await authorizeRelease();
+  const archive = handoff.files.get(m.archive.name)!;
+  if (process.env.GITHUB_OUTPUT) await writeFile(process.env.GITHUB_OUTPUT,
+    `package_version=${m.version}\narchive_name=${m.archive.name}\narchive_sha256=${m.archive.sha256}\narchive_integrity=sha512-${createHash("sha512").update(archive).digest("base64")}\nrelease_id=${id}\n`, { flag: "a" });
+  console.log(`Admitted immutable Latest ${m.tag} release ${id} for npm publication of ${m.archive.sha256}.`);
 }
 async function main(): Promise<void> {
   const [mode, directory, ...extra] = process.argv.slice(2);
-  if (!directory || extra.length !== 0) throw new Error("Usage: node scripts/github-release.ts authorize|verify|publish|mirror|mirror-verify <directory>");
+  if (!directory || extra.length !== 0) throw new Error("Usage: node scripts/github-release.ts authorize|verify|publish|npm-admit <directory>");
   if (mode === "authorize") {
     const authority = await authorizeRelease();
     if (process.env.GITHUB_OUTPUT) await writeFile(process.env.GITHUB_OUTPUT, `authority_sha=${authority}\n`, { flag: "a" });
@@ -445,13 +436,7 @@ async function main(): Promise<void> {
     return;
   }
   if (mode === "publish") { await publish(resolve(directory)); return; }
-  if (mode === "mirror" || mode === "mirror-verify") {
-    const operation = mode === "mirror" ? downloadMirror : verifyMirror;
-    const handoff = await operation(resolve(directory), process.env.EXPECTED_VERSION ?? "", process.env.GITHUB_SHA ?? "");
-    if (process.env.GITHUB_OUTPUT) await writeFile(process.env.GITHUB_OUTPUT,
-      `canonical_source_sha=${handoff.manifest.sourceSha}\npackage_version=${handoff.manifest.version}\n`, { flag: "a" });
-    return;
-  }
+  if (mode === "npm-admit") { await npmAdmit(resolve(directory)); return; }
   throw new Error("Unsupported release authority operation.");
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

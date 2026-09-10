@@ -366,3 +366,614 @@ jobs:
           path: ${{ runner.temp }}/slopcamera-release
       - name: Publish verified immutable GitHub Release
         run: node "$RUNNER_TEMP/github-release.ts" publish "$RUNNER_TEMP/slopcamera-release"
+
+  publish_npm:
+    name: Publish exact npm package
+    needs: [verify, official_vtracer, native_macos, attest, publish]
+    environment: npm-release
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      npm_state: ${{ steps.npm.outputs.npm_state }}
+      published_identity: ${{ steps.npm.outputs.published_identity }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_ARCHIVE_SHA256: ${{ needs.verify.outputs.archive_sha256 }}
+      EXPECTED_PACK_SHA256: ${{ needs.verify.outputs.pack_sha256 }}
+      EXPECTED_MANIFEST_SHA256: ${{ needs.verify.outputs.manifest_sha256 }}
+      EXPECTED_SUMS_SHA256: ${{ needs.verify.outputs.sums_sha256 }}
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.18.1"
+          package-manager-cache: false
+          registry-url: "https://registry.npmjs.org"
+      - name: Load current release authority
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { writeFileSync } from 'node:fs';
+          const e = process.env;
+          if (e.GITHUB_REPOSITORY !== 'hraness/slopcamera' || e.GITHUB_REPOSITORY_ID !== '1310516748'
+            || e.GITHUB_ACTOR_ID !== '894119' || e.GITHUB_EVENT_NAME !== 'push'
+            || !/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u.test(e.GITHUB_REF_NAME ?? '')
+            || e.GITHUB_REF !== `refs/tags/${e.GITHUB_REF_NAME}` || !/^[a-f0-9]{40}$/u.test(e.GITHUB_SHA ?? '')) throw new Error('Unexpected release request');
+          const api = path => JSON.parse(execFileSync('gh', ['api', `repos/hraness/slopcamera/${path}`],
+            { encoding: 'utf8', timeout: 30000, killSignal: 'SIGKILL', maxBuffer: 1000000, stdio: ['ignore', 'pipe', 'pipe'] }));
+          const run = api(`actions/runs/${e.GITHUB_RUN_ID}/attempts/${e.GITHUB_RUN_ATTEMPT}`);
+          if (run.id !== Number(e.GITHUB_RUN_ID) || run.run_attempt !== Number(e.GITHUB_RUN_ATTEMPT)
+            || run.head_sha !== e.GITHUB_SHA || run.head_branch !== e.GITHUB_REF_NAME || run.event !== 'push'
+            || run.workflow_id !== 320001524 || run.path !== '.github/workflows/release.yml'
+            || run.actor?.id !== 894119 || run.actor?.type !== 'User' || run.triggering_actor?.id !== 894119 || run.triggering_actor?.type !== 'User'
+            || run.repository?.id !== 1310516748 || run.repository?.full_name !== 'hraness/slopcamera' || run.repository?.private !== false
+            || run.status !== 'in_progress' || run.conclusion !== null) throw new Error('Untrusted release attempt');
+          const main = api('git/ref/heads/main').object;
+          if (main?.type !== 'commit' || !/^[a-f0-9]{40}$/u.test(main.sha ?? '')) throw new Error('Invalid current main');
+          for (const path of ['.github/workflows/release.yml', 'scripts/github-release.ts', 'scripts/prepare-github-release.ts', 'scripts/package-smoke.ts', 'scripts/npm-package-identity.ts', 'scripts/npm-publish-policy.ts', 'package.json', 'bun.lock']) {
+            const decode = ref => {
+              const file = api(`contents/${path}?ref=${ref}`);
+              if (file.type !== 'file' || file.encoding !== 'base64' || typeof file.content !== 'string' || file.content.length > 300000) throw new Error('Unsafe authority file');
+              return Buffer.from(file.content, 'base64');
+            };
+            const current = decode(main.sha);
+            if (!current.equals(decode(e.GITHUB_SHA))) throw new Error(`Current authority changed: ${path}`);
+            if (path === 'scripts/github-release.ts') writeFileSync(`${e.RUNNER_TEMP}/github-release.ts`, current, { flag: 'wx', mode: 0o600 });
+          }
+          NODE
+          node "$RUNNER_TEMP/github-release.ts" authorize "$RUNNER_TEMP"
+      - name: Install npm 11.19.0
+        run: |
+          set -euo pipefail
+          npm install --global --ignore-scripts npm@11.19.0 \
+            --registry=https://registry.npmjs.org
+          [[ "$(npm --version)" == "11.19.0" ]]
+          [[ "$(node --version)" == v24.* ]]
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          artifact-ids: ${{ needs.attest.outputs.artifact_id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/slopcamera-release
+      - name: Admit the immutable Latest release bytes before OIDC
+        id: canonical
+        run: node "$RUNNER_TEMP/github-release.ts" npm-admit "$RUNNER_TEMP/slopcamera-release"
+      - name: Rebind attested package before OIDC
+        id: artifact
+        env:
+          EXPECTED_ARCHIVE_NAME: ${{ steps.canonical.outputs.archive_name }}
+          EXPECTED_VERSION: ${{ steps.canonical.outputs.package_version }}
+        run: |
+          set -euo pipefail
+          artifact_directory="$RUNNER_TEMP/slopcamera-release"
+          metadata="$artifact_directory/npm-pack.json"
+          if [[ ! "$EXPECTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::Admitted package version is not stable semver"
+            exit 1
+          fi
+          expected_tarball_name="hraness-slopcamera-$EXPECTED_VERSION.tgz"
+          if [[ "$EXPECTED_ARCHIVE_NAME" != "$expected_tarball_name" ]]; then
+            echo "::error::Admitted archive name is unsafe or inconsistent"
+            exit 1
+          fi
+          tarball="$artifact_directory/$expected_tarball_name"
+          if [[ ! -d "$artifact_directory" || -L "$artifact_directory" ]]; then
+            echo "::error::Downloaded release artifact directory is unsafe"
+            exit 1
+          fi
+          for required_file in "$tarball" "$metadata"; do
+            if [[ ! -f "$required_file" || -L "$required_file" ]]; then
+              echo "::error::Downloaded release artifact contains an unsafe or unexpected entry"
+              exit 1
+            fi
+          done
+          rebound_output="$(mktemp "$RUNNER_TEMP/slopcamera-rebound-digests.XXXXXX")"
+          EXPECTED_TARBALL_NAME="$expected_tarball_name" \
+            EXPECTED_VERSION="$EXPECTED_VERSION" \
+            METADATA="$metadata" \
+            TARBALL="$tarball" node > "$rebound_output" <<'NODE'
+          const { createHash } = require("node:crypto");
+          const { readFileSync, statSync } = require("node:fs");
+          const { posix } = require("node:path");
+          const { gunzipSync } = require("node:zlib");
+
+          const maximumFiles = 450;
+          const maximumMetadataBytes = 1_000_000;
+          const maximumPackedBytes = 4_300_000;
+          const maximumUnpackedBytes = 11_300_000;
+          const expectedName = "@hraness/slopcamera";
+          const expectedVersion = process.env.EXPECTED_VERSION;
+          const expectedFilename = process.env.EXPECTED_TARBALL_NAME;
+          const tarball = process.env.TARBALL;
+          const metadata = process.env.METADATA;
+          if (!expectedVersion || !expectedFilename || !tarball || !metadata) {
+            throw new Error("Downloaded artifact environment is incomplete");
+          }
+
+          const archiveInfo = statSync(tarball);
+          const metadataInfo = statSync(metadata);
+          if (archiveInfo.size <= 0 || archiveInfo.size > maximumPackedBytes) {
+            throw new Error("Downloaded tarball exceeds the reviewed packed-size bound");
+          }
+          if (metadataInfo.size <= 0 || metadataInfo.size > maximumMetadataBytes) {
+            throw new Error("Downloaded npm-pack.json exceeds its reviewed size bound");
+          }
+
+          const archiveBytes = readFileSync(tarball);
+          const metadataBytes = readFileSync(metadata);
+          const archiveSha256 = createHash("sha256").update(archiveBytes).digest("hex");
+          const metadataSha256 = createHash("sha256").update(metadataBytes).digest("hex");
+          if (archiveSha256 !== process.env.EXPECTED_ARCHIVE_SHA256 || metadataSha256 !== process.env.EXPECTED_PACK_SHA256) {
+            throw new Error("Downloaded files differ from the trusted verification digests");
+          }
+
+          const input = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(metadataBytes));
+          if (!Array.isArray(input) || input.length !== 1) {
+            throw new Error("npm-pack.json must contain exactly one package");
+          }
+          const record = input[0];
+          if (!record || typeof record !== "object" || Array.isArray(record)) {
+            throw new Error("npm-pack.json package record is invalid");
+          }
+          if (record.name !== expectedName || record.id !== `${expectedName}@${expectedVersion}`) {
+            throw new Error("npm-pack.json has the wrong package identity");
+          }
+          if (record.version !== expectedVersion || record.filename !== expectedFilename) {
+            throw new Error("npm-pack.json has the wrong version or tarball filename");
+          }
+          if (!/^hraness-slopcamera-(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.tgz$/u.test(record.filename)) {
+            throw new Error("npm-pack.json has an unsafe tarball filename");
+          }
+          for (const [field, maximum] of [
+            ["entryCount", maximumFiles],
+            ["size", maximumPackedBytes],
+            ["unpackedSize", maximumUnpackedBytes],
+          ]) {
+            if (!Number.isSafeInteger(record[field]) || record[field] <= 0 || record[field] > maximum) {
+              throw new Error(`npm-pack.json has an invalid or excessive ${field}`);
+            }
+          }
+          if (record.size !== archiveBytes.byteLength) {
+            throw new Error("Downloaded tarball byte size differs from npm-pack.json");
+          }
+          if (!Array.isArray(record.files) || record.files.length !== record.entryCount) {
+            throw new Error("npm-pack.json has an invalid file inventory count");
+          }
+          const paths = new Set();
+          let unpackedSize = 0;
+          for (const file of record.files) {
+            if (!file || typeof file !== "object" || Array.isArray(file)) {
+              throw new Error("npm-pack.json file inventory contains a non-object");
+            }
+            if (
+              typeof file.path !== "string" ||
+              file.path.length === 0 ||
+              Buffer.byteLength(file.path, "utf8") > 1_024 ||
+              file.path.includes("\\") ||
+              file.path.includes("\0") ||
+              file.path.startsWith("/") ||
+              file.path.split("/").some((part) => part === "" || part === "." || part === "..") ||
+              paths.has(file.path)
+            ) {
+              throw new Error("npm-pack.json file inventory contains an unsafe or duplicate path");
+            }
+            if (!Number.isSafeInteger(file.size) || file.size < 0) {
+              throw new Error("npm-pack.json file inventory contains an invalid size");
+            }
+            if (file.mode !== 0o644 && file.mode !== 0o755) {
+              throw new Error("npm-pack.json file inventory contains an invalid mode");
+            }
+            paths.add(file.path);
+            unpackedSize += file.size;
+            if (!Number.isSafeInteger(unpackedSize) || unpackedSize > maximumUnpackedBytes) {
+              throw new Error("npm-pack.json file inventory exceeds the reviewed unpacked-size bound");
+            }
+          }
+          if (unpackedSize !== record.unpackedSize) {
+            throw new Error("npm-pack.json unpacked size differs from its file inventory");
+          }
+          for (const requiredPath of [
+            "PRIVACY.md",
+            "LICENSE",
+            "NOTICE.md",
+            "README.md",
+            "SECURITY.md",
+            "apps/desktop/dist/cli/main.js",
+            "apps/desktop/dist/cli/NebulaSans-Bold-26se8aek.otf",
+            "apps/desktop/dist/cli/NebulaSans-Bold-bcz7y08t.woff2",
+            "apps/desktop/dist/cli/NebulaSans-Book-5ax05zvn.woff2",
+            "apps/desktop/dist/cli/NebulaSans-Book-8cenzchw.otf",
+            "dist/NebulaSans-Bold-26se8aek.otf",
+            "dist/NebulaSans-Bold-bcz7y08t.woff2",
+            "dist/NebulaSans-Book-5ax05zvn.woff2",
+            "dist/NebulaSans-Book-8cenzchw.otf",
+            "package.json",
+            "skills/slopcamera/SKILL.md",
+            "src/assets/fonts/nebula-sans/LICENSE.txt",
+            "src/assets/fonts/nebula-sans/NebulaSans-Bold.otf",
+            "src/assets/fonts/nebula-sans/NebulaSans-Bold.woff2",
+            "src/assets/fonts/nebula-sans/NebulaSans-Book.otf",
+            "src/assets/fonts/nebula-sans/NebulaSans-Book.woff2",
+            "src/assets/fonts/nebula-sans/PROVENANCE.md",
+          ]) {
+            if (!paths.has(requiredPath)) {
+              throw new Error(`npm-pack.json is missing required package path ${requiredPath}`);
+            }
+          }
+          const integrity = `sha512-${createHash("sha512").update(archiveBytes).digest("base64")}`;
+          const shasum = createHash("sha1").update(archiveBytes).digest("hex");
+          if (record.integrity !== integrity || record.shasum !== shasum) {
+            throw new Error("Downloaded tarball differs from npm-pack.json SHA-1 or SHA-512");
+          }
+
+          // npm 11.19.0 reads a tarball package through pacote and node-tar,
+          // whose USTAR header decoder recognizes the exact eight-byte
+          // `ustar\0` + `00` signature before joining prefix and name. Keep
+          // this source-free boundary on the same path interpretation and
+          // reject every extension format instead of accepting a second
+          // archive dialect that could identify a different package.json.
+          const tar = gunzipSync(archiveBytes, {
+            maxOutputLength: maximumUnpackedBytes + maximumFiles * 1_024 + 1_024,
+          });
+          const tarText = (header, start, length, label) => {
+            const field = header.subarray(start, start + length);
+            const zero = field.indexOf(0);
+            const selected = zero < 0 ? field : field.subarray(0, zero);
+            if (zero >= 0 && field.subarray(zero).some(byte => byte !== 0)) {
+              throw new Error(`Packed npm tar ${label} has data after its terminator`);
+            }
+            return new TextDecoder("utf-8", { fatal: true }).decode(selected);
+          };
+          const tarOctal = (header, start, length, label) => {
+            const field = header.subarray(start, start + length);
+            if (field.some(byte => byte > 0x7f)) {
+              throw new Error(`Packed npm tar has a non-ASCII ${label}`);
+            }
+            const zero = field.indexOf(0);
+            const selected = zero < 0 ? field : field.subarray(0, zero);
+            if (
+              zero >= 0
+              && field.subarray(zero).some(byte => byte !== 0 && byte !== 0x20)
+            ) {
+              throw new Error(`Packed npm tar ${label} has invalid trailing data`);
+            }
+            const text = selected.toString("ascii").trim();
+            if (!/^[0-7]+$/u.test(text)) {
+              throw new Error(`Packed npm tar has an invalid ${label}`);
+            }
+            const value = Number.parseInt(text, 8);
+            if (!Number.isSafeInteger(value) || value < 0) {
+              throw new Error(`Packed npm tar has an unsafe ${label}`);
+            }
+            return value;
+          };
+          const ustarSignature = Buffer.from([
+            0x75, 0x73, 0x74, 0x61, 0x72, 0x00, 0x30, 0x30,
+          ]);
+          const archiveFiles = new Map();
+          let manifestBytes;
+          let offset = 0;
+          let zeroBlocks = 0;
+          let entries = 0;
+          while (offset < tar.length) {
+            if (tar.length - offset < 512) {
+              throw new Error("Packed npm tar header is truncated");
+            }
+            const header = tar.subarray(offset, offset + 512);
+            offset += 512;
+            if (header.every(byte => byte === 0)) {
+              zeroBlocks += 1;
+              if (zeroBlocks === 2) {
+                if (tar.subarray(offset).some(byte => byte !== 0)) {
+                  throw new Error("Packed npm tar has trailing data");
+                }
+                break;
+              }
+              continue;
+            }
+            if (zeroBlocks !== 0) {
+              throw new Error("Packed npm tar terminator is invalid");
+            }
+            const expectedChecksum = tarOctal(header, 148, 8, "checksum");
+            let checksum = 0;
+            for (let index = 0; index < header.length; index += 1) {
+              checksum += index >= 148 && index < 156 ? 0x20 : header[index];
+            }
+            if (
+              checksum !== expectedChecksum
+              || !header.subarray(257, 265).equals(ustarSignature)
+            ) {
+              throw new Error("Packed npm tar header is invalid");
+            }
+            const name = tarText(header, 0, 100, "name");
+            const prefixLength = header[475] === 0 ? 130 : 155;
+            const prefix = tarText(header, 345, prefixLength, "prefix");
+            const rawPath = prefix === "" ? name : `${prefix}/${name}`;
+            const normalizedPath = posix.normalize(rawPath);
+            const pathParts = normalizedPath.split("/");
+            if (
+              rawPath !== normalizedPath
+              || rawPath.startsWith("/")
+              || rawPath.includes("\\")
+              || rawPath.includes("\0")
+              || pathParts[0] !== "package"
+              || pathParts.length < 2
+              || pathParts.some(part => part === "" || part === "." || part === "..")
+            ) {
+              throw new Error("Packed npm tar path is unsafe or non-canonical");
+            }
+            const packagePath = pathParts.slice(1).join("/");
+            const size = tarOctal(header, 124, 12, "size");
+            const mode = tarOctal(header, 100, 8, "mode") & 0o777;
+            const type = header[156];
+            if (type !== 0 && type !== 0x30) {
+              throw new Error("Packed npm tar contains a non-regular entry");
+            }
+            if (size > tar.length - offset) {
+              throw new Error("Packed npm tar entry is truncated");
+            }
+            const padded = Math.ceil(size / 512) * 512;
+            if (
+              padded > tar.length - offset
+              || tar.subarray(offset + size, offset + padded).some(byte => byte !== 0)
+            ) {
+              throw new Error("Packed npm tar padding is invalid");
+            }
+            if (archiveFiles.has(packagePath)) {
+              throw new Error(`Packed npm tar duplicates normalized path ${packagePath}`);
+            }
+            archiveFiles.set(packagePath, { mode, size });
+            if (packagePath === "package.json") {
+              if (manifestBytes !== undefined || size < 1 || size > 256 * 1024) {
+                throw new Error("Packed package.json is missing, duplicated, or unsafe");
+              }
+              manifestBytes = Buffer.from(tar.subarray(offset, offset + size));
+            }
+            offset += padded;
+            entries += 1;
+            if (entries > maximumFiles) {
+              throw new Error("Packed npm tar contains too many entries");
+            }
+          }
+          if (zeroBlocks !== 2 || manifestBytes === undefined) {
+            throw new Error("Packed package.json is missing");
+          }
+          if (archiveFiles.size !== paths.size) {
+            throw new Error("Packed npm tar inventory differs from npm-pack.json");
+          }
+          for (const file of record.files) {
+            const archiveFile = archiveFiles.get(file.path);
+            if (
+              archiveFile === undefined
+              || archiveFile.size !== file.size
+              || archiveFile.mode !== file.mode
+            ) {
+              throw new Error(`Packed npm tar metadata differs at ${file.path}`);
+            }
+          }
+          const manifest = JSON.parse(
+            new TextDecoder("utf-8", { fatal: true }).decode(manifestBytes),
+          );
+          const publishConfig = manifest?.publishConfig;
+          const publishKeys = publishConfig !== null
+            && typeof publishConfig === "object"
+            && !Array.isArray(publishConfig)
+              ? Object.keys(publishConfig).sort()
+              : [];
+          if (
+            manifest === null
+            || typeof manifest !== "object"
+            || Array.isArray(manifest)
+            || manifest.name !== expectedName
+            || manifest.version !== expectedVersion
+            || manifest.private === true
+            || Object.prototype.hasOwnProperty.call(manifest, "contentPolicy")
+            || Object.prototype.hasOwnProperty.call(manifest, "tag")
+            || JSON.stringify(publishKeys) !== JSON.stringify(["access", "registry"])
+            || publishConfig.access !== "public"
+            || publishConfig.registry !== "https://registry.npmjs.org"
+          ) {
+            throw new Error("Packed package manifest can override the canonical npm publication boundary");
+          }
+          process.stdout.write(`${archiveSha256} ${metadataSha256}\n`);
+          NODE
+          read -r rebound_archive_sha256 rebound_metadata_sha256 < "$rebound_output"
+          if [[ ! "$rebound_archive_sha256" =~ ^[a-f0-9]{64}$ || \
+                ! "$rebound_metadata_sha256" =~ ^[a-f0-9]{64}$ || \
+                "$rebound_archive_sha256" != "$EXPECTED_ARCHIVE_SHA256" || \
+                "$rebound_metadata_sha256" != "$EXPECTED_PACK_SHA256" ]]; then
+            echo "::error::Could not preserve rebound package digests"
+            exit 1
+          fi
+          printf 'archive_sha256=%s\nmetadata_sha256=%s\ntarball=%s\n' \
+            "$rebound_archive_sha256" "$rebound_metadata_sha256" "$tarball" \
+            >> "$GITHUB_OUTPUT"
+      - name: Publish the exact canonical archive through npm trusted publishing
+        id: npm
+        env:
+          EXPECTED_ARCHIVE_INTEGRITY: ${{ steps.canonical.outputs.archive_integrity }}
+          EXPECTED_ARCHIVE_SHA256: ${{ steps.artifact.outputs.archive_sha256 }}
+          EXPECTED_VERSION: ${{ steps.canonical.outputs.package_version }}
+          TARBALL: ${{ steps.artifact.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          node -e '
+            const conflicting = Object.keys(process.env)
+              .filter(name => name.toLowerCase() === "npm_config_tag");
+            if (conflicting.length !== 0) {
+              throw new Error(`Ambient npm tag configuration is forbidden: ${conflicting.join(", ")}`);
+            }
+          '
+          if [[ ! "$EXPECTED_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ || \
+                ! "$EXPECTED_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ || \
+                ! "$EXPECTED_ARCHIVE_INTEGRITY" =~ ^sha512-[A-Za-z0-9+/]{86}==$ || \
+                "$GITHUB_REF" != "refs/tags/v$EXPECTED_VERSION" ]]; then
+            echo "::error::npm publication identity is invalid"
+            exit 1
+          fi
+          clean_npm_directory="$(mktemp -d "$RUNNER_TEMP/slopcamera-npm-clean.XXXXXX")"
+          clean_user_config="$(mktemp "$RUNNER_TEMP/slopcamera-npm-user.XXXXXX")"
+          clean_global_config="$(mktemp "$RUNNER_TEMP/slopcamera-npm-global.XXXXXX")"
+          chmod 700 "$clean_npm_directory"
+          chmod 600 "$clean_user_config" "$clean_global_config"
+          if [[ "$(cd "$clean_npm_directory" && npm config get tag \
+                --userconfig="$clean_user_config" \
+                --globalconfig="$clean_global_config")" != latest ]]; then
+            echo "::error::Pinned npm's clean default publication tag is not latest"
+            exit 1
+          fi
+          current_archive_sha256="$(sha256sum "$TARBALL" | cut -d ' ' -f 1)"
+          if [[ "$current_archive_sha256" != "$EXPECTED_ARCHIVE_SHA256" ]]; then
+            echo "::error::Admitted archive changed before npm publication"
+            exit 1
+          fi
+          registry_state="$(EXPECTED_VERSION="$EXPECTED_VERSION" EXPECTED_ARCHIVE_INTEGRITY="$EXPECTED_ARCHIVE_INTEGRITY" node --input-type=module <<'NODE'
+          const name = "@hraness/slopcamera";
+          const version = process.env.EXPECTED_VERSION ?? "";
+          const expectedIntegrity = process.env.EXPECTED_ARCHIVE_INTEGRITY ?? "";
+          const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}/${encodeURIComponent(version)}`, {
+            cache: "no-store", redirect: "error", signal: AbortSignal.timeout(30_000),
+            headers: { Accept: "application/json", "Cache-Control": "no-cache", "User-Agent": "slopcamera-release" },
+          });
+          const text = await response.text();
+          if (text.length > 1_000_000) throw new Error("npm registry version response exceeds its bound");
+          if (response.status === 404) { process.stdout.write("absent"); }
+          else if (response.status === 200) {
+            const payload = JSON.parse(text);
+            if (payload?.name !== name || payload?.version !== version || typeof payload?.dist?.integrity !== "string") {
+              throw new Error("npm registry returned an invalid published version");
+            }
+            if (payload.dist.integrity !== expectedIntegrity) {
+              throw new Error(`npm already publishes ${name}@${version} with different bytes; never overwrite it`);
+            }
+            process.stdout.write("published");
+          } else throw new Error(`npm registry returned HTTP ${response.status} for ${name}@${version}`);
+          NODE
+          )"
+          if [[ "$registry_state" == published ]]; then
+            echo "@hraness/slopcamera@$EXPECTED_VERSION already publishes the exact canonical bytes; nothing to publish"
+            printf 'npm_state=published\npublished_identity=%s\n' "@hraness/slopcamera@$EXPECTED_VERSION $EXPECTED_ARCHIVE_INTEGRITY" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$registry_state" != absent ]]; then
+            echo "::error::npm registry state is ambiguous"
+            exit 1
+          fi
+          latest_json="$(npm view @hraness/slopcamera dist-tags.latest --json \
+            --@hraness:registry=https://registry.npmjs.org \
+            --globalconfig="$clean_global_config" \
+            --registry=https://registry.npmjs.org \
+            --userconfig="$clean_user_config")"
+          LATEST_JSON="$latest_json" EXPECTED_VERSION="$EXPECTED_VERSION" node <<'NODE'
+          const maximum = 9007199254740991n;
+          const pattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
+          const parse = (value, label) => {
+            const match = pattern.exec(value);
+            if (match === null) throw new Error(`${label} is not stable SemVer`);
+            const components = match.slice(1).map(BigInt);
+            if (components.some(component => component > maximum)) {
+              throw new Error(`${label} exceeds npm 11's safe SemVer component bound`);
+            }
+            return components;
+          };
+          const latestValue = JSON.parse(process.env.LATEST_JSON ?? "null");
+          if (typeof latestValue !== "string") throw new Error("npm latest is not one exact version");
+          const latest = parse(latestValue, "npm latest");
+          const candidate = parse(process.env.EXPECTED_VERSION ?? "", "release candidate");
+          const comparison = candidate[0] === latest[0]
+            ? candidate[1] === latest[1]
+              ? candidate[2] === latest[2] ? 0 : candidate[2] > latest[2] ? 1 : -1
+              : candidate[1] > latest[1] ? 1 : -1
+            : candidate[0] > latest[0] ? 1 : -1;
+          if (comparison <= 0) throw new Error("Release candidate must be newer than current npm latest");
+          NODE
+          publish_result="$(mktemp "$RUNNER_TEMP/slopcamera-publish-result.XXXXXX")"
+          cd "$clean_npm_directory"
+          npm publish "$TARBALL" \
+            --@hraness:registry=https://registry.npmjs.org \
+            --access public \
+            --globalconfig="$clean_global_config" \
+            --ignore-scripts \
+            --json \
+            --provenance \
+            --registry=https://registry.npmjs.org \
+            --userconfig="$clean_user_config" \
+            > "$publish_result"
+          published_identity="$(PUBLISH_RESULT="$publish_result" EXPECTED_VERSION="$EXPECTED_VERSION" EXPECTED_ARCHIVE_INTEGRITY="$EXPECTED_ARCHIVE_INTEGRITY" node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const output = JSON.parse(readFileSync(process.env.PUBLISH_RESULT, "utf8"));
+          const expectedName = "@hraness/slopcamera";
+          if (
+            output === null
+            || typeof output !== "object"
+            || Array.isArray(output)
+            || output.name !== expectedName
+            || output.version !== process.env.EXPECTED_VERSION
+            || output.id !== `${expectedName}@${process.env.EXPECTED_VERSION}`
+            || output.integrity !== process.env.EXPECTED_ARCHIVE_INTEGRITY
+          ) throw new Error("npm did not return the exact published Slopcamera identity");
+          process.stdout.write(`${output.id} ${output.integrity}`);
+          NODE
+          )"
+          printf 'npm_state=published\npublished_identity=%s\n' "$published_identity" >> "$GITHUB_OUTPUT"
+
+  admit_npm:
+    name: Admit the public npm package
+    needs: [verify, publish_npm]
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_ARCHIVE_SHA256: ${{ needs.verify.outputs.archive_sha256 }}
+      EXPECTED_ARCHIVE_NAME: ${{ needs.verify.outputs.archive_name }}
+      PUBLISHED_IDENTITY: ${{ needs.publish_npm.outputs.published_identity }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          fetch-tags: false
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.18.1"
+          package-manager-cache: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.3.14"
+      - run: npm install --global --ignore-scripts npm@11.19.0 --registry=https://registry.npmjs.org
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Verify the public registry archive, signatures and provenance against the canonical asset
+        run: |
+          set -euo pipefail
+          package_version="$(node -p 'require("./package.json").version')"
+          [[ "$GITHUB_REF_NAME" == "v$package_version" ]]
+          [[ "$EXPECTED_ARCHIVE_NAME" == "hraness-slopcamera-$package_version.tgz" ]]
+          [[ "$PUBLISHED_IDENTITY" == "@hraness/slopcamera@$package_version sha512-"* ]]
+          work="$(mktemp -d "$RUNNER_TEMP/slopcamera-npm-admit.XXXXXX")"
+          mkdir "$work/canonical" "$work/registry" "$work/consumer"
+          curl --fail --silent --show-error --location --proto '=https' --max-time 120 \
+            --output "$work/canonical/$EXPECTED_ARCHIVE_NAME" \
+            "https://github.com/hraness/slopcamera/releases/download/v$package_version/$EXPECTED_ARCHIVE_NAME"
+          curl --fail --silent --show-error --location --proto '=https' --max-time 120 \
+            --output "$work/canonical/npm-pack.json" \
+            "https://github.com/hraness/slopcamera/releases/download/v$package_version/npm-pack.json"
+          [[ "$(sha256sum "$work/canonical/$EXPECTED_ARCHIVE_NAME" | cut -d ' ' -f 1)" == "$EXPECTED_ARCHIVE_SHA256" ]]
+          npm view "@hraness/slopcamera@$package_version" --json --registry=https://registry.npmjs.org > "$work/registry/npm-view.json"
+          (cd "$work/registry" && npm pack "@hraness/slopcamera@$package_version" --ignore-scripts --json --registry=https://registry.npmjs.org > "$work/registry/npm-pack.json")
+          registry_archive="$(node -e 'const r = require(process.argv[1]); if (!Array.isArray(r) || r.length !== 1 || typeof r[0].filename !== "string" || !/^hraness-slopcamera-[0-9.]+\.tgz$/u.test(r[0].filename)) process.exit(1); process.stdout.write(r[0].filename)' "$work/registry/npm-pack.json")"
+          bun run scripts/npm-package-identity.ts \
+            "$work/canonical/npm-pack.json" "$work/canonical/$EXPECTED_ARCHIVE_NAME" \
+            "$work/registry/npm-pack.json" "$work/registry/$registry_archive" "$work/registry/npm-view.json" \
+            @hraness/slopcamera "$package_version" "$EXPECTED_ARCHIVE_NAME"
+          (cd "$work/consumer" \
+            && npm init --yes >/dev/null \
+            && npm install "@hraness/slopcamera@$package_version" --ignore-scripts --omit=dev --no-audit --no-fund --registry=https://registry.npmjs.org \
+            && npm audit signatures --json --include-attestations --omit=dev --registry=https://registry.npmjs.org > "$work/audit.json")
+          bun run scripts/npm-publish-authority.ts "$work/audit.json" "$work/registry/npm-view.json" \
+            "$work/registry/$registry_archive" @hraness/slopcamera "$package_version" "$GITHUB_SHA"
+          bun run scripts/package-smoke.ts --archive "$work/registry/$registry_archive" --pack-json "$work/registry/npm-pack.json"
