@@ -290,6 +290,6 @@ test("canonical workflow preserves all source/native gates before scoped signing
   expect(stage).toContain('bun run "$GITHUB_WORKSPACE/scripts/package-smoke.ts"');
   expect(stage).toContain('bun run check');
   expect(stage).toContain("Canonical immutable GitHub mirror authority changed immediately before npm staging");
-  expect(stage).toContain("npm stage publish");
+  expect(stage).toContain("npm publish");
   expect(stage).toContain("cd \"$clean_npm_directory\"");
 });

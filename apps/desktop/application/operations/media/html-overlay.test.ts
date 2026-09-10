@@ -580,7 +580,7 @@ describe("media.html-overlay application operation", () => {
       version: 1,
     });
     const output = HtmlOverlayOutputSchema.parse(result.output);
-    expect(observedGeneratorVersion).toBe("slopcamera-3.2.3");
+    expect(observedGeneratorVersion).toBe("slopcamera-3.2.4");
     expect(result.receiptReference).toBe(output.receipt.path);
     const receipt = HtmlOverlayReceiptSchema.parse(JSON.parse(
       await readFile(join(root, output.receipt.path), "utf8"),

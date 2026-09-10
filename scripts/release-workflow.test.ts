@@ -946,7 +946,7 @@ test("only an owner dispatch mirrors the exact canonical GitHub artifact through
   const tagIndex = stageJob.lastIndexOf("Canonical immutable GitHub mirror authority changed immediately before npm staging")
   const intentIndex = stageJob.lastIndexOf("Record exclusive stable-stage intent")
   const rehashIndex = stageJob.lastIndexOf('current_archive_sha256="$(sha256sum "$TARBALL"')
-  const stageIndex = stageJob.indexOf('npm stage publish "$TARBALL"')
+  const stageIndex = stageJob.indexOf('npm publish "$TARBALL"')
   expect(artifactReferenceIndex).toBeLessThan(downloadIndex)
   expect(downloadIndex).toBeLessThan(rebindIndex)
   expect(rebindIndex).toBeLessThan(fetchIndex)
@@ -968,7 +968,8 @@ test("only an owner dispatch mirrors the exact canonical GitHub artifact through
   expect(stageJob.match(/--provenance/gu)).toHaveLength(1)
   expect(workflow.match(/--registry=https:\/\/registry\.npmjs\.org/gu)?.length).toBeGreaterThanOrEqual(5)
   expect(workflow).not.toContain("NPM_TOKEN")
-  expect(workflow).not.toMatch(/npm publish(?:\s|$)/u)
+  expect(workflow.match(/npm publish "\$TARBALL"/gu)).toHaveLength(1)
+  expect(workflow).not.toContain("npm stage publish")
   expect(workflow.slice(0, workflow.indexOf("permissions:"))).not.toContain("tags:")
 })
 
@@ -1114,7 +1115,7 @@ case "\${1-}" in
   rev-parse)
     case "$*" in
       "rev-parse origin/main"|"rev-parse HEAD") printf '%s\\n' "$GITHUB_SHA"; exit 0 ;;
-      "rev-parse --verify --quiet refs/tags/v3.2.3") exit 1 ;;
+      "rev-parse --verify --quiet refs/tags/v3.2.4") exit 1 ;;
     esac
     ;;
 esac
@@ -1129,7 +1130,7 @@ case "$*" in
     printf '"@hraness/slopcamera"\\n'
     exit 0
     ;;
-  "view @hraness/slopcamera@3.2.3 version --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
+  "view @hraness/slopcamera@3.2.4 version --json --@hraness:registry=https://registry.npmjs.org --registry=https://registry.npmjs.org")
     echo 'npm error code E404' >&2
     exit 1
     ;;
@@ -1176,14 +1177,14 @@ exit 64
       })
     }
 
-    const automatic = await runIdentity("push", "3.2.3")
+    const automatic = await runIdentity("push", "3.2.4")
     expect(automatic.exitCode).not.toBe(0)
     expect(automatic.npmCommands).toBe("")
     expect(`${automatic.stdout}${automatic.stderr}`).toContain("explicit workflow dispatch")
-    const dispatched = await runIdentity("workflow_dispatch", "3.2.3")
+    const dispatched = await runIdentity("workflow_dispatch", "3.2.4")
     expect(dispatched.exitCode).toBe(0)
-    expect(dispatched.outputs).toBe(`stage_required=true\nsource_sha=${sourceSha}\npackage_version=3.2.3\n`)
-    expect(dispatched.npmCommands).toContain("npm view @hraness/slopcamera@3.2.3 version --json")
+    expect(dispatched.outputs).toBe(`stage_required=true\nsource_sha=${sourceSha}\npackage_version=3.2.4\n`)
+    expect(dispatched.npmCommands).toContain("npm view @hraness/slopcamera@3.2.4 version --json")
 
   } finally {
     await rm(directory, { force: true, recursive: true })
@@ -1523,7 +1524,7 @@ test("Slopcamera source installs stay distinct from historical Atet archives", a
       readFile(join(packageRoot, "apps", "web", "src", "index.html"), "utf8"),
     ])
 
-  expect(manifest.version).toBe("3.2.3")
+  expect(manifest.version).toBe("3.2.4")
   expect(manifest.bin).toEqual({
     slopcamera: "./apps/desktop/dist/cli/main.js",
   })
@@ -1532,7 +1533,7 @@ test("Slopcamera source installs stay distinct from historical Atet archives", a
   expect(publishedArchiveUrl).toBe("https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz")
   for (const source of [readme, skillInstall, homeMarkdown]) {
     expect(source).toContain(sourceInstall.checkoutCommand)
-    expect(source).not.toContain("hraness-slopcamera-3.2.3.tgz")
+    expect(source).not.toContain("hraness-slopcamera-3.2.4.tgz")
   }
   for (const source of [readme, skillInstall]) {
     expect(source).toContain("bun install --frozen-lockfile --ignore-scripts")
@@ -1575,7 +1576,7 @@ test("Slopcamera source installs stay distinct from historical Atet archives", a
   expect(readme).toContain("(PRIVACY.md)")
   expect(security).toContain("(PRIVACY.md)")
   expect(publishing).toContain("GitHub Releases are canonical")
-  expect(publishing).toContain("npm stage publish <reviewed-tarball>")
+  expect(publishing).toContain("npm publish <reviewed-tarball>")
   expect(publishing).toContain("resolved_stage_version")
   expect(publishing).toContain("npm-package-identity.ts")
   expect(publishing).toContain("different gzip or tar bytes")
