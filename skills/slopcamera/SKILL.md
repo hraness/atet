@@ -11,7 +11,7 @@ Start from the requested result and existing source. Use the installed `slopcame
 
 Run `slopcamera --help` and use `slopcamera doctor --json` for the selected local tools. If installation or a version mismatch blocks the task, read [installation and readiness](references/install.md). A skill installation does not install the CLI or native engines.
 
-Slopcamera currently installs from source. Historical Atet archives contain the old package and executable, not these renamed commands. Discover IDs and options through help, `operations`, `workflows`, `ai models` and `html catalog`; never invent them or silently switch to historical paid-world commands.
+Slopcamera installs from its verified release archive or from source. Historical Atet archives contain the old package and executable, not these renamed commands. Discover IDs and options through help, `operations`, `workflows`, `ai models` and `html catalog`; never invent them or silently switch to historical paid-world commands.
 
 ## Choose the workflow
 

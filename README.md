@@ -33,8 +33,16 @@ project database.
 
 ## Install Slopcamera
 
-Slopcamera currently installs from source. No renamed release archive has been
-published. Install [Bun 1.3.14 or newer](https://bun.sh) and Git, then use a new
+Install [Bun 1.3.14 or newer](https://bun.sh), then install the verified
+[Slopcamera v3.2.4 release](https://github.com/hraness/slopcamera/releases/tag/v3.2.4)
+from its canonical archive:
+
+```sh
+bun add --global https://github.com/hraness/slopcamera/releases/download/v3.2.4/hraness-slopcamera-3.2.4.tgz
+slopcamera skill install --target agents
+```
+
+Contributors can build from source instead. Install Git as well, then use a new
 checkout:
 
 ```sh

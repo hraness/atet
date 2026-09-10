@@ -1,6 +1,6 @@
 # Run commands from current source
 
-Slopcamera currently installs from source; no renamed release archive has been published. Historical Atet releases retain their original package and command. Use this guide for the Slopcamera CLI, SDK and matching Agent Skill. The [capability reference](../reference/capabilities.md) names each workflow’s additional runtime requirements.
+Slopcamera installs from its verified release archive (see the README); this guide is the contributor path from source. Historical Atet releases retain their original package and command. Use this guide for the Slopcamera CLI, SDK and matching Agent Skill. The [capability reference](../reference/capabilities.md) names each workflow’s additional runtime requirements.
 
 You need Git and Bun 1.3.14. Clone into a new directory, record the exact source commit and install its locked dependencies:
 

@@ -19,11 +19,10 @@ describe("visual studio public copy (pure, process-free)", () => {
       const positions = steps.map(step => source.indexOf(step))
       expect(positions.every(position => position >= 0)).toBe(true)
       expect(positions).toEqual([...positions].sort((a, b) => a - b))
-      expect(source).not.toContain("hraness-slopcamera-3.2.3.tgz")
     }
     expect(readme).toContain("Historical Atet release evidence")
-    expect(publishedArchiveUrl).toBe("https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz")
-    expect(html).toContain("No Slopcamera release archive has been published.")
+    expect(publishedArchiveUrl).toBe("https://github.com/hraness/slopcamera/releases/download/v3.2.4/hraness-slopcamera-3.2.4.tgz")
+    expect(html).toContain("{{ARCHIVE_INSTALL_COMMAND}}")
     const graph = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/u)![1]!)["@graph"] as Record<string, unknown>[]
     for (const item of graph) {
       expect(item).not.toHaveProperty("softwareVersion")
@@ -81,7 +80,7 @@ describe("visual studio public copy (pure, process-free)", () => {
       for (const source of [readme, homeMarkdown]) expect(source).toContain(`example-flow.${suffix}`)
     }
     expect(readme).toContain(publishedArchiveUrl)
-    expect(homeMarkdown).not.toContain(publishedArchiveUrl)
+    expect(homeMarkdown).toContain(publishedArchiveUrl)
     expect(homeMarkdown).toContain(sourceInstall.guideUrl)
     expect(readme).toContain(sourceInstall.checkoutCommand)
   })

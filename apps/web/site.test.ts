@@ -36,7 +36,7 @@ import {
 import middleware, { config as middlewareConfig } from "./middleware"
 import { buildWebsite, renderAskAiAboutThis, renderSitemapXml } from "./scripts/build"
 import { renderSlopcameraSocialImage } from "./scripts/generate-og"
-import { parsePublishedRelease, publishedArchiveUrl, publishedRelease, sourceInstall } from "./src/published-release"
+import { archiveInstall, parsePublishedRelease, publishedArchiveUrl, publishedRelease, sourceInstall } from "./src/published-release"
 import { replaceSiteSlot } from "./src/site-template"
 const appDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryDirectory = join(appDirectory, "..", "..")
@@ -129,7 +129,8 @@ async function readBuilt(path: string): Promise<string> {
 }
 
 function assertAuthoredShellBudget(template: string): number {
-  let authored = replaceSiteSlot(template, "{{SOURCE_CHECKOUT_COMMAND}}", sourceInstall.checkoutCommand, 1)
+  let authored = replaceSiteSlot(template, "{{ARCHIVE_INSTALL_COMMAND}}", archiveInstall.command, 1)
+  authored = replaceSiteSlot(authored, "{{SOURCE_CHECKOUT_COMMAND}}", sourceInstall.checkoutCommand, 1)
   authored = replaceSiteSlot(authored, "{{SOURCE_ENTER_COMMAND}}", sourceInstall.enterCommand, 1)
   authored = replaceSiteSlot(authored, "{{SOURCE_INSTALL_URL}}", sourceInstall.guideUrl, 1)
   // Discount only the finite compiler-slot spelling, never authored classes or HTML.
@@ -167,7 +168,7 @@ test("authored shell budget rejects content growth and unapproved slot discounts
   }
   expect(() => assertAuthoredShellBudget(`${template}{{SITE_SKIP_CLASS}}`))
     .toThrow("Site document must contain 1 instance(s) of {{SITE_SKIP_CLASS}}")
-  for (const slot of ["SOURCE_CHECKOUT_COMMAND", "SOURCE_ENTER_COMMAND", "SOURCE_INSTALL_URL"]) {
+  for (const slot of ["ARCHIVE_INSTALL_COMMAND", "SOURCE_CHECKOUT_COMMAND", "SOURCE_ENTER_COMMAND", "SOURCE_INSTALL_URL"]) {
     expect(() => assertAuthoredShellBudget(`${template}{{${slot}}}`))
       .toThrow(`Site document must contain 1 instance(s) of {{${slot}}}`)
   }
@@ -209,7 +210,7 @@ test("ships agent instructions for video editing and Gateway media generation", 
 
 test("published release validates exact fields and safe stable versions before rendering", () => {
   for (const version of ["0.0.0", "3.2.1", "9007199254740991.0.0"]) {
-    const value = { version, releaseUrl: `https://github.com/hraness/atet/releases/tag/v${version}` }
+    const value = { version, releaseUrl: `https://github.com/hraness/slopcamera/releases/tag/v${version}` }
     expect(parsePublishedRelease(value)).toEqual(value)
   }
   for (const value of [null, [], "3.2.0", {}, { version: "3.2.0" },
@@ -220,16 +221,16 @@ test("published release validates exact fields and safe stable versions before r
     "3.2.0 ", " 3.2.0", "3.2.-1", "3.2.0<script>", "9007199254740992.0.0", "1".repeat(51),
   ]) {
     expect(() => parsePublishedRelease({
-      version, releaseUrl: `https://github.com/hraness/atet/releases/tag/v${version}`,
+      version, releaseUrl: `https://github.com/hraness/slopcamera/releases/tag/v${version}`,
     })).toThrow("canonical stable SemVer")
   }
   for (const releaseUrl of [
-    "https://github.com/hraness/atet/releases/tag/v3.2.1",
+    "https://github.com/hraness/slopcamera/releases/tag/v3.2.1",
     `${publishedRelease.releaseUrl}?source=main`, `${publishedRelease.releaseUrl}#proof`,
     `${publishedRelease.releaseUrl}/`, "http://github.com/hraness/atet/releases/tag/v3.2.0",
-    "https://github.com.evil.test/hraness/atet/releases/tag/v3.2.0",
-    "https://github.com/another/atet/releases/tag/v3.2.0", 42, null,
-  ]) expect(() => parsePublishedRelease({ version: "3.2.0", releaseUrl })).toThrow("historical Atet tag")
+    "https://github.com.evil.test/hraness/slopcamera/releases/tag/v3.2.0",
+    "https://github.com/another/slopcamera/releases/tag/v3.2.0", 42, null,
+  ]) expect(() => parsePublishedRelease({ version: "3.2.0", releaseUrl })).toThrow("exact Slopcamera tag")
 })
 
 describe("compilation fixture ownership (controlled promises, no compiler)", () => {
@@ -325,14 +326,16 @@ describe("static Slopcamera site", () => {
     }
   }, compilationTimeoutMs)
 
-  test("source installation never advertises renamed historical archive bytes", async () => {
-    expect(publishedRelease).toEqual({ version: "3.2.3", releaseUrl: "https://github.com/hraness/atet/releases/tag/v3.2.3" })
+  test("release installation advertises the exact canonical archive beside the source path", async () => {
+    expect(publishedRelease).toEqual({ version: "3.2.4", releaseUrl: "https://github.com/hraness/slopcamera/releases/tag/v3.2.4" })
     expect(Object.isFrozen(publishedRelease)).toBe(true)
-    expect(publishedArchiveUrl).toBe("https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz")
+    expect(publishedArchiveUrl).toBe("https://github.com/hraness/slopcamera/releases/download/v3.2.4/hraness-slopcamera-3.2.4.tgz")
+    expect(archiveInstall.command).toBe(`bun add --global ${publishedArchiveUrl}`)
     const html = await readBuilt("index.html")
     for (const publicText of [html, homeMarkdown, llmsTxt]) {
-      expect(publicText).toContain("No Slopcamera release archive has been published.")
-      expect(publicText).not.toContain("hraness-slopcamera-3.2.3.tgz")
+      expect(publicText).toContain(archiveInstall.command)
+      expect(publicText).not.toContain("No Slopcamera release archive has been published.")
+      expect(publicText).not.toContain("hraness-atet-")
       expect(publicText).not.toContain("tree/v3.2.3")
     }
     for (const command of [sourceInstall.checkoutCommand, sourceInstall.enterCommand, sourceInstall.skillCommand]) expect(html).toContain(command)
@@ -446,7 +449,7 @@ describe("static Slopcamera site", () => {
     expect(readme).toContain("bun run build:desktop:cli")
     expect(readme).toContain("slopcamera skill install --target agents")
     expect(readme).toContain(publishedArchiveUrl)
-    expect(readme).not.toContain(`bun add --global ${publishedArchiveUrl}`)
+    expect(readme).toContain(`bun add --global ${publishedArchiveUrl}`)
     expect(readme).toContain("slopcamera operations list --json")
     expect(readme).toContain("docs/how-to/generate-media.md")
     expect(readme).toContain("slopcamera workflows show social-variants --json")
@@ -741,7 +744,7 @@ describe("static Slopcamera site", () => {
     expect(installHtml).toContain("install locked dependencies, build the SDK and CLI")
     expect(installHtml).toContain(sourceInstall.guideUrl)
     expect(installHtml).toContain(sourceInstall.alternateSkillCommand)
-    expect(installHtml).not.toContain("bun add --global")
+    expect(installHtml).toContain(archiveInstall.command)
     expect(html).not.toContain("{{SITE")
   })
 

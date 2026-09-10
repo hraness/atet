@@ -1529,18 +1529,17 @@ test("Slopcamera source installs stay distinct from historical Atet archives", a
     slopcamera: "./apps/desktop/dist/cli/main.js",
   })
   expect(Object.prototype.hasOwnProperty.call(manifest, "contentPolicy")).toBe(false)
-  expect(publishedRelease.version).toBe("3.2.3")
-  expect(publishedArchiveUrl).toBe("https://github.com/hraness/atet/releases/download/v3.2.3/hraness-atet-3.2.3.tgz")
+  expect(publishedRelease.version).toBe("3.2.4")
+  expect(publishedArchiveUrl).toBe("https://github.com/hraness/slopcamera/releases/download/v3.2.4/hraness-slopcamera-3.2.4.tgz")
   for (const source of [readme, skillInstall, homeMarkdown]) {
     expect(source).toContain(sourceInstall.checkoutCommand)
-    expect(source).not.toContain("hraness-slopcamera-3.2.4.tgz")
   }
   for (const source of [readme, skillInstall]) {
     expect(source).toContain("bun install --frozen-lockfile --ignore-scripts")
     expect(source).toContain("bun run build:sdk")
     expect(source).toContain("bun run build:desktop:cli")
   }
-  expect(siteContent).toContain('import { sourceInstall } from "./published-release"')
+  expect(siteContent).toContain('import { archiveInstall, sourceInstall } from "./published-release"')
   for (const slot of ["SOURCE_CHECKOUT_COMMAND", "SOURCE_ENTER_COMMAND", "SOURCE_INSTALL_URL"]) {
     expect(siteTemplate.match(new RegExp(`\\{\\{${slot}\\}\\}`, "gu"))).toHaveLength(1)
   }
@@ -1560,7 +1559,7 @@ test("Slopcamera source installs stay distinct from historical Atet archives", a
   expect(produce).toBeGreaterThan(-1)
   expect(seal).toBeGreaterThan(produce)
   expect(finalize).toBeGreaterThan(seal)
-  expect(siteMarkdown).toContain('import { sourceInstall } from "./published-release"')
+  expect(siteMarkdown).toContain('import { archiveInstall, publishedRelease, sourceInstall } from "./published-release"')
   expect(siteTemplate).not.toContain("{{PUBLISHED_VERSION}}")
   expect(siteTemplate).not.toContain('"softwareVersion"')
   expect(siteTemplate).not.toContain("{{PUBLISHED_ARCHIVE_URL}}")
