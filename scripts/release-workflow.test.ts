@@ -710,6 +710,16 @@ test("npm publication authority binds latest, registry signatures, signed proven
       runId: 45678,
     })
 
+    const slashedRegistryAudit = structuredClone(audit)
+    slashedRegistryAudit.verified[0]!.registry = "https://registry.npmjs.org/"
+    await Bun.write(auditPath, JSON.stringify(slashedRegistryAudit))
+    await expect(verifyNpmPublishAuthority(input)).resolves.toMatchObject({ runAttempt: 2, runId: 45678 })
+    const foreignRegistryAudit = structuredClone(audit)
+    foreignRegistryAudit.verified[0]!.registry = "https://registry.npmjs.org.evil.test/"
+    await Bun.write(auditPath, JSON.stringify(foreignRegistryAudit))
+    await expect(verifyNpmPublishAuthority(input)).rejects.toThrow("exactly one direct Slopcamera package")
+    await Bun.write(auditPath, JSON.stringify(audit))
+
     registryView["dist-tags"] = { latest: "3.1.1" }
     await Bun.write(identity.registryView, JSON.stringify(registryView))
     await expect(verifyNpmPublishAuthority(input)).rejects.toThrow(
@@ -897,6 +907,7 @@ test("the tag workflow publishes the exact immutable release bytes to npm throug
   expect(publishCommand).toContain('--userconfig="$clean_user_config"')
   expect(publishCommand).toContain("--@hraness:registry=https://registry.npmjs.org")
   expect(publishCommand).toContain("--registry=https://registry.npmjs.org")
+  expect(publishCommand).toContain("const output = result[expectedName]")
   expect(publishCommand).toContain("output.integrity !== process.env.EXPECTED_ARCHIVE_INTEGRITY")
   expect(workflow.match(/npm publish "\$TARBALL"/gu)).toHaveLength(1)
   expect(workflow.match(/--provenance/gu)).toHaveLength(1)

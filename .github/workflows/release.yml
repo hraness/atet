@@ -904,8 +904,16 @@ jobs:
             > "$publish_result"
           published_identity="$(PUBLISH_RESULT="$publish_result" EXPECTED_VERSION="$EXPECTED_VERSION" EXPECTED_ARCHIVE_INTEGRITY="$EXPECTED_ARCHIVE_INTEGRITY" node <<'NODE'
           const { readFileSync } = require("node:fs");
-          const output = JSON.parse(readFileSync(process.env.PUBLISH_RESULT, "utf8"));
+          // npm 11.19.0 `publish --json` prints one object keyed by package name.
+          const result = JSON.parse(readFileSync(process.env.PUBLISH_RESULT, "utf8"));
           const expectedName = "@hraness/slopcamera";
+          if (
+            result === null
+            || typeof result !== "object"
+            || Array.isArray(result)
+            || Object.keys(result).length !== 1
+          ) throw new Error("npm did not return one published package record");
+          const output = result[expectedName];
           if (
             output === null
             || typeof output !== "object"

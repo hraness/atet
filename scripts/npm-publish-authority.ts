@@ -274,11 +274,14 @@ export async function verifyNpmPublishAuthority(
     || array(audit.missing, "npm audit missing results", maximumAuditEntries).length !== 0
   ) throw new Error("npm audit signatures reported missing or invalid authority.");
   const verified = array(audit.verified, "npm audit verified attestations", maximumAuditEntries);
+  // npm 11.19.0 reports the audited registry with a trailing slash.
+  const canonicalRegistryForms = new Set([canonicalRegistry, `${canonicalRegistry}/`]);
   const candidates = verified.map(value => record(value, "npm audit verified package")).filter(value => (
     value.name === input.expectedName
     && value.version === input.expectedVersion
     && value.location === "node_modules/@hraness/slopcamera"
-    && value.registry === canonicalRegistry
+    && typeof value.registry === "string"
+    && canonicalRegistryForms.has(value.registry)
   ));
   if (candidates.length !== 1) {
     throw new Error("npm audit signatures did not verify exactly one direct Slopcamera package.");
