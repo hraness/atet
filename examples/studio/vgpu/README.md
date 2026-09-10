@@ -39,7 +39,7 @@ node /absolute/slopcamera/examples/studio/vgpu/heat-field.mjs \
   --output /absolute/retained-media/new-energy-panel
 ```
 
-On Hraness hosts, wrap this native command with the installed `hra-host-run` in the `mac-native` lane. The default output is 96 frames at 24 fps, 768×432. Optional `--frames`, `--start-frame`, `--width` and `--height` values remain within a 16:9, 1024 px, 240-frame profile. A frame's shader time is its absolute frame number divided by 24; a selected nonzero interval retains that time while filenames begin at zero.
+On Hraness hosts, wrap this native command with the installed `oompa-host-run` in the `mac-native` lane. The default output is 96 frames at 24 fps, 768×432. Optional `--frames`, `--start-frame`, `--width` and `--height` values remain within a 16:9, 1024 px, 240-frame profile. A frame's shader time is its absolute frame number divided by 24; a selected nonzero interval retains that time while filenames begin at zero.
 
 Unset ambient `VGPU_*`, `NODE_OPTIONS` and `NODE_PATH` settings before invocation. The example rejects these overrides, explicitly requests Metal hardware, checks the observed hardware adapter and loaded native module, and records their identities. It permits no automatic CPU fallback as successful evidence.
 
