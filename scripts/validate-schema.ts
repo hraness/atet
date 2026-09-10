@@ -50,7 +50,7 @@ for (const relativePath of [
     await readFile(join(repository, relativePath), "utf8"),
   )
   if (!isRecord(instance) || instance.$schema !== schemaId) {
-    throw new Error(`${relativePath} must reference the Slopcamera v3.2.3 schema.`)
+    throw new Error(`${relativePath} must reference the current Slopcamera source schema.`)
   }
   if (!validate(instance)) {
     throw new Error(

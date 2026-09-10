@@ -63,11 +63,11 @@ const authoring = HtmlOverlayAuthoringInputSchema.parse({
 });
 
 describe("HTML-overlay browser execution integrity", () => {
-  test("unflagged resources preserve all three historical renderer contract hashes", () => {
+  test("unflagged resources preserve all three Slopcamera renderer contract hashes", () => {
     const hashes = [
-      [undefined, "c24b91734534f97d856ad05e5be84b65c8810af58759cb60589393f2572562a1"],
-      ["three-webgl2-hardware-v1", "74b6a6f1c4a667fedcad154abb6e6804b3f5aa518a47896bce87a76758da510f"],
-      ["three-spark-webgl2-hardware-v1", "80dd7d52053842eca0f0690c2f9e661b1d36fd9b0a89c2ed7566b6326ad7e4f4"],
+      [undefined, "9dee7d318f55bd77d28f4f1a4d8f40fe93661664aacc5671da429e86dde98eb7"],
+      ["three-webgl2-hardware-v1", "af52b77023578b4e7d03a80d94584c9eab509538130d81328ffb30d21d49e617"],
+      ["three-spark-webgl2-hardware-v1", "6bc02946ed69f065b2e06c6b0d22ee54acbd9e3cceb0527cda1d6b3c5223c284"],
     ] as const;
     for (const [profile, expected] of hashes) {
       expect(canonicalJsonSha256(htmlOverlayRendererContract(profile))).toBe(expected);

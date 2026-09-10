@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { expect, test } from "bun:test";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   CAPTURE_HELPER_VERSION,
   CAPTURE_PROTOCOL_VERSION,
@@ -97,8 +97,11 @@ class ProbeRunner implements ProcessRunner {
   }
 
   run(argv: readonly [string, ...string[]]): Promise<RunResult> {
-    const path = argv.at(-1) ?? "";
-    const streams = path.includes("primary") || path.includes(HOT_PLUGGED_PRIMARY.displayId)
+    const fileName = basename(argv.at(-1) ?? "");
+    if (!["display-primary.mp4", `${HOT_PLUGGED_PRIMARY.displayId}.mp4`, "display-left.mp4", "microphone.m4a", "camera.mov"].includes(fileName)) {
+      throw new Error(`Unexpected capture probe fixture: ${fileName}`);
+    }
+    const streams = fileName === "display-primary.mp4" || fileName === `${HOT_PLUGGED_PRIMARY.displayId}.mp4`
       ? [
           {
             codec_name: "h264",
@@ -128,7 +131,7 @@ class ProbeRunner implements ProcessRunner {
             time_base: "1/1000000",
           },
         ]
-      : path.includes("microphone")
+      : fileName === "microphone.m4a"
         ? [{
             codec_name: "aac",
             codec_type: "audio",
@@ -138,7 +141,7 @@ class ProbeRunner implements ProcessRunner {
             start_pts: "1024",
             time_base: "1/48000",
           }]
-        : path.includes("camera")
+        : fileName === "camera.mov"
           ? [{
               codec_name: "h264",
               codec_type: "video",
@@ -168,7 +171,7 @@ class ProbeRunner implements ProcessRunner {
 
 class RejectLeftDisplayProbeRunner extends ProbeRunner {
   override run(argv: readonly [string, ...string[]]): Promise<RunResult> {
-    if ((argv.at(-1) ?? "").includes("display-left")) {
+    if (basename(argv.at(-1) ?? "") === "display-left.mp4") {
       return Promise.reject(new Error("injected second-display verification failure"));
     }
     return super.run(argv);
@@ -497,6 +500,21 @@ test("bounds finalized timing probes and rejects helper/file span mismatches", a
     details: { diagnosticCode: "timing-evidence-mismatch" },
   });
 });
+
+test.each(["slopcamera-bundle-test", "primary/microphone/camera/display-left"])(
+  "capture timing fixture keeps display and camera clocks distinct below %s",
+  async (directory) => {
+    const capture = segment(0);
+    if (capture.camera.availability !== "recorded") throw new Error("Expected recorded camera fixture.");
+    const verifier = new CaptureMediaVerifier({ ffprobe: "ffprobe-test", runner: new ProbeRunner() });
+    const display = await verifier.verify(join("/tmp", directory, "display-left.mp4"), capture.displays[1]!.streams);
+    const camera = await verifier.verify(join("/tmp", directory, "camera.mov"), capture.camera.streams);
+    expect(display.streams[0]?.filePresentation).toMatchObject({ firstPtsUs: -250_000, endPtsUs: 750_000 });
+    expect(camera.streams[0]?.filePresentation).toMatchObject({ firstPtsUs: 2_000_000, endPtsUs: 2_950_000 });
+    expect(display.streams[0]?.containerTrackIdentity.kind).toBe("verified");
+    expect(camera.streams[0]?.containerTrackIdentity.kind).toBe("verified");
+  },
+);
 
 test("rejects stopped publication while preserving measured onset-skew evidence", async () => {
   await assertCaptureSyncPublicationRejected({

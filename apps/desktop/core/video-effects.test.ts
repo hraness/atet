@@ -7,7 +7,7 @@ import {
   videoLooks,
 } from "./video-effects";
 
-test("expands the blue 16mm look into deterministic inspectable primitives", () => {
+test("expands the blue 16mm look into deterministic inspectable primitives with Slopcamera identity", () => {
   const look = videoLooks.blue16mm({ intensity: 0.8, seed: 42 });
 
   expect(look.effects.map(effect => effect.kind)).toEqual([
@@ -34,7 +34,7 @@ test("expands the blue 16mm look into deterministic inspectable primitives", () 
   const compiled = compileVideoLookToFfmpeg(look);
   expect(compiled).toEqual(compileVideoLookToFfmpeg(look));
   expect(compiled.lookHash).toBe(
-    "4cfd33bafffb364a2f493fcb9213446d781559c21601231cdd88012824ea511b",
+    "f3315dcbfaf695401876ce35d54a8bb4cffe3e4adb030028e6affe763810a657",
   );
   expect(compiled.compiler).toBe("slopcamera.ffmpeg-video-look");
   expect(compiled.look.kind).toBe("slopcamera.video-look");

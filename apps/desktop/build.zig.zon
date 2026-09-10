@@ -1,6 +1,6 @@
 .{
     .name = .slopcamera,
-    .fingerprint = 0xbec4a53120ac8933,
+    .fingerprint = 0x2bde09c7305cd630,
     .version = "3.2.3",
     .minimum_zig_version = "0.16.0",
     .dependencies = .{},
