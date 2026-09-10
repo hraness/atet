@@ -2,7 +2,7 @@
     .id = "com.hraness.slopcamera",
     .name = "slopcamera",
     .display_name = "Slopcamera",
-    .version = "3.2.3",
+    .version = "3.2.4",
     .icons = .{"assets/icon.png"},
     .platforms = .{"macos"},
     .permissions = .{},

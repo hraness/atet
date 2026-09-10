@@ -42,26 +42,22 @@ gh workflow run npm-stage.yml --ref main -f publish_to_npm=true
 
 The current-main dispatch must be newer than npm's public `latest`. The checkout-free OIDC job retains its exact owner/triggering-actor, workflow, repository, environment and source guards. It recognizes every attempted terminal npm mutation before considering a stage-job display name. Every attempted write requires exactly one successful durable intent at the immediately preceding safe positive Actions step number. It revalidates the three-file staging handoff (`.tgz`, `npm-pack.json`, `npm-package.sha256`), independently parses the bounded archive/configuration, rechecks protected source and the immutable GitHub asset digest immediately before mutation, and captures npm's returned stage ID.
 
-Leave `resolved_stage_version` empty normally. Resolve an ambiguous or rejected exact provider attempt before an owner dispatch clears that version's retained intent. Public npm promotion advances `latest` and releases the intent automatically. Keep the stage-only publisher as the sole staging authority; a newer GitHub release does not clear an unresolved npm intent.
+Leave `resolved_stage_version` empty normally. Resolve an ambiguous or rejected exact provider attempt before an owner dispatch clears that version's retained intent. A completed publication advances `latest` and releases the intent automatically. Keep the stage-only publisher as the sole staging authority; a newer GitHub release does not clear an unresolved npm intent.
 
-Inspect the exact stage with `npm stage view <stage-id>` and, when needed, `npm stage download <stage-id>`. Promote the selected stage with `npm stage approve <stage-id>`, completing the registry's required authentication. This workflow's staging boundary affects only the optional mirror and does not classify Slopcamera as dual-use. Preserve account two-factor authentication and the exact configured publisher; do not substitute a long-lived publishing token.
+Publication is direct: the trusted publisher's `npm publish` makes the exact
+canonical bytes public as `latest` in one step, with npm provenance. No staged
+approval or two-factor promotion step follows; Slopcamera is ordinary software
+and carries no content-policy classification. Preserve account two-factor
+authentication and the exact configured publisher; do not substitute a
+long-lived publishing token.
 
-After promotion, download the registry archive and use `npm-package-identity.ts` plus isolated package smoke to compare the complete canonical content inventory, entry types, modes, sizes and hashes against the GitHub artifact. npm may re-encode transport bytes; preserve both archives and their own metadata rather than claim different gzip or tar bytes are identical. Verify registry signatures and the npm-publish/SLSA attestations using `npm audit signatures --json --include-attestations --omit=dev` and `npm-publish-authority.ts`. Those npm proofs remain mirror acceptance; they are no longer GitHub release authority. An npm write can succeed before its runner reports failure, so reconcile the cryptographically verified provider state before retrying.
+After publication, download the registry archive and use `npm-package-identity.ts` plus isolated package smoke to compare the complete canonical content inventory, entry types, modes, sizes and hashes against the GitHub artifact. npm may re-encode transport bytes; preserve both archives and their own metadata rather than claim different gzip or tar bytes are identical. Verify registry signatures and the npm-publish/SLSA attestations using `npm audit signatures --json --include-attestations --omit=dev` and `npm-publish-authority.ts`. Those npm proofs remain mirror acceptance; they are no longer GitHub release authority. An npm write can succeed before its runner reports failure, so reconcile the cryptographically verified provider state before retrying.
 
-Never stage the next stable version while another stage awaits approval. npm
-11.19.0 deliberately permits multiple pending versions and exposes no atomic
-single-pending constraint. Its local implementation performs OIDC exchange only
-inside publish, and its documentation says trusted short-lived tokens cannot
-run other `npm stage` subcommands, so the stage-only workflow cannot truthfully
-use `npm stage list` as a provider read. Slopcamera therefore keeps this workflow as
-the sole staging authority, serializes its dispatches, and records a
-version-bound successful intent immediately before mutation. Every later run
-scans that intent across all retained attempts, including earlier attempts of a
-rerun, and fails closed until public `latest` advances or the owner explicitly
-names the resolved intent. This durably serializes canonical workflow attempts
-while Actions retains their history; it does not prove that npm forbids or that
-OIDC can observe an out-of-band concurrent stage. Any such stage is a release
-incident to promote or reject before continuing. Human approval order controls
+Never dispatch the next stable version while a previous dispatch's mutation
+is unresolved. The workflow records a version-bound successful intent
+immediately before mutation and scans that intent across all retained attempts,
+failing closed until public `latest` advances or the owner explicitly names the
+resolved intent through `resolved_stage_version`. Human dispatch order controls
 `latest`; workflow concurrency alone cannot serialize an external mutation.
 
 ## Protect release tags without a sudo prompt
@@ -88,7 +84,7 @@ the npm package settings with this exact identity:
 - organization or owner: `hraness`
 - repository: `slopcamera`
 - workflow filename: `npm-stage.yml`
-- allowed action: `npm stage publish` only
+- allowed action: `npm publish`
 - environment: `npm-stage`
 
 Create a GitHub environment named `npm-stage`. Disable administrator bypass.
@@ -100,7 +96,7 @@ re-reads that exact run attempt and requires both the original actor and the
 attempt's triggering actor to be immutable owner `User` ID `894119` before it
 sets up npm or requests an OIDC token. This GitHub environment binds
 the trusted-publisher identity and branch without adding a separate human gate;
-staging does not make the package public. Only the minimal staging job may
+publication makes the package public as `latest`. Only the minimal staging job may
 reference this environment or request an OIDC token. The npm trusted-publisher
 environment must match `npm-stage` exactly.
 
@@ -112,7 +108,7 @@ or its disclosure requirement into the new package.
 The trusted workflow's only registry mutation is equivalent to:
 
 ```sh
-npm stage publish <reviewed-tarball> \
+npm publish <reviewed-tarball> \
   --@hraness:registry=https://registry.npmjs.org \
   --access public \
   --ignore-scripts \

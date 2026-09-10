@@ -1127,7 +1127,7 @@ jobs:
           [[ "$source_ancestry" == ahead || "$source_ancestry" == identical ]]
           stage_result="$(mktemp "$RUNNER_TEMP/slopcamera-stage-result.XXXXXX")"
           cd "$clean_npm_directory"
-          npm stage publish "$TARBALL" \
+          npm publish "$TARBALL" \
             --@hraness:registry=https://registry.npmjs.org \
             --access public \
             --globalconfig="$clean_global_config" \
@@ -1137,26 +1137,21 @@ jobs:
             --registry=https://registry.npmjs.org \
             --userconfig="$clean_user_config" \
             > "$stage_result"
-          stage_id="$(STAGE_RESULT="$stage_result" EXPECTED_VERSION="$EXPECTED_VERSION" node <<'NODE'
+          published_identity="$(STAGE_RESULT="$stage_result" EXPECTED_VERSION="$EXPECTED_VERSION" node <<'NODE'
           const { readFileSync } = require("node:fs");
           const output = JSON.parse(readFileSync(process.env.STAGE_RESULT, "utf8"));
           const expectedName = "@hraness/slopcamera";
-          const keys = output !== null && typeof output === "object" && !Array.isArray(output)
-            ? Object.keys(output)
-            : [];
-          const result = keys.length === 1 && keys[0] === expectedName
-            ? output[expectedName]
-            : null;
           if (
-            result === null
-            || typeof result !== "object"
-            || Array.isArray(result)
-            || result.name !== expectedName
-            || result.version !== process.env.EXPECTED_VERSION
-            || typeof result.stageId !== "string"
-            || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(result.stageId)
-          ) throw new Error("npm did not return one exact staged Slopcamera identity");
-          process.stdout.write(result.stageId);
+            output === null
+            || typeof output !== "object"
+            || Array.isArray(output)
+            || output.name !== expectedName
+            || output.version !== process.env.EXPECTED_VERSION
+            || output.id !== `${expectedName}@${process.env.EXPECTED_VERSION}`
+            || typeof output.integrity !== "string"
+            || !/^sha512-[A-Za-z0-9+/]{86}==$/u.test(output.integrity)
+          ) throw new Error("npm did not return one exact published Slopcamera identity");
+          process.stdout.write(`${output.id} ${output.integrity}`);
           NODE
           )"
-          printf 'stage_id=%s\n' "$stage_id" >> "$GITHUB_OUTPUT"
+          printf 'published_identity=%s\n' "$published_identity" >> "$GITHUB_OUTPUT"
