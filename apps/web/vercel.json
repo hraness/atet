@@ -11,28 +11,6 @@
       "has": [
         {
           "type": "host",
-          "value": "slop.camera"
-        }
-      ],
-      "destination": "https://slopcamera.com/",
-      "permanent": true
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "slop.camera"
-        }
-      ],
-      "destination": "https://slopcamera.com/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
           "value": "atet.sh"
         }
       ],

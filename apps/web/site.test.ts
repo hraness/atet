@@ -1433,8 +1433,6 @@ describe("static Slopcamera site", () => {
       { source: "/docs/:path*", destination: "https://github.com/hraness/slopcamera/blob/main/docs/README.md", permanent: true },
     ])
     expect(hostRedirects).toEqual([
-      { source: "/", host: { type: "host", value: "slop.camera" }, destination: "https://slopcamera.com/", permanent: true },
-      { source: "/:path*", host: { type: "host", value: "slop.camera" }, destination: "https://slopcamera.com/:path*", permanent: true },
       { source: "/", host: { type: "host", value: "atet.sh" }, destination: "https://slopcamera.com/", permanent: true },
       { source: "/:path*", host: { type: "host", value: "atet.sh" }, destination: "https://slopcamera.com/:path*", permanent: true },
       { source: "/", host: { type: "host", value: "transmute.rocks" }, destination: "https://slopcamera.com/", permanent: true },
@@ -1455,7 +1453,6 @@ describe("static Slopcamera site", () => {
     }
 
     expect(new Set(hostRedirects.map(redirect => redirect.host?.value))).toEqual(new Set([
-      "slop.camera",
       "atet.sh",
       "transmute.rocks",
       "www.transmute.rocks",

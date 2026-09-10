@@ -21,6 +21,6 @@ does not run on Preview, alternate hosts, or the not-found page. Configure the
 Vercel project with this directory as its Root Directory. The checked
 `vercel.json` installs from this directory's frozen Bun lockfile without relying
 on the parent workspace catalog, serves only built files under a strict CSP,
-and redirects `slop.camera`, `atet.sh`, and the reviewed predecessor hosts
+and redirects `atet.sh` and the reviewed predecessor hosts
 directly to `https://slopcamera.com` with their paths preserved. Provider domain
 attachment and production acceptance are separate deployment steps.

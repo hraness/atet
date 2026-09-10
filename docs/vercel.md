@@ -13,7 +13,6 @@ or production-only variable.
 - Root directory: `apps/web`.
 - Production branch: `main`.
 - Canonical Production domain: `slopcamera.com`.
-- Secondary domain: `slop.camera` permanently redirects to `slopcamera.com`.
 - Reviewed predecessor redirects: `atet.sh`, `hraness.graphics`,
   `hraness.studio`, `transmute.rocks`, and `www.transmute.rocks` permanently
   redirect the same path and query to `slopcamera.com`.
