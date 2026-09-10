@@ -14,7 +14,7 @@ import { HostResponseSchema } from "./src/host-protocol";
 
 const desktopRoot = resolve(import.meta.dir, "..");
 const packageRoot = join(desktopRoot, "zig-out", "package");
-export const macOSAppPath = join(packageRoot, "slopcamera-3.2.4-macos-ReleaseFast.app");
+export const macOSAppPath = join(packageRoot, "slopcamera-3.2.5-macos-ReleaseFast.app");
 
 type RuntimeManifest = Readonly<{
   capture: Readonly<{ name: "slopcamera-capture"; sha256: string }>;
