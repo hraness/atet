@@ -86,7 +86,7 @@ describe("operation registry", () => {
     const descriptions = registry.list().map(operation => (
       registry.describe(operation.kind, operation.version)
     ));
-    expect(SLOPCAMERA_APPLICATION_TOOL_VERSION).toBe("slopcamera-3.2.5");
+    expect(SLOPCAMERA_APPLICATION_TOOL_VERSION).toBe("slopcamera-3.2.6");
     expect(registry.list().every(operation => (
       operation.inputSchemaId.startsWith("slopcamera.operation.")
       && operation.outputSchemaId.startsWith("slopcamera.operation.")

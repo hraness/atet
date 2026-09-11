@@ -1,4 +1,4 @@
-:root {
+:root:not([data-hraness-theme="paper"]) {
   --font-body: "Nebula Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-sans: var(--font-body);
   --font-text: var(--font-body);
@@ -47,7 +47,7 @@
   color-scheme: light;
 }
 
-html[data-theme="dark"] {
+html[data-theme="dark"]:not([data-hraness-theme="paper"]) {
   --paper: #0b0b0e;
   --paper-raised: #141419;
   --ink: #f4f1e8;
@@ -62,7 +62,7 @@ html[data-theme="dark"] {
 }
 
 @media (prefers-color-scheme: dark) {
-  html[data-theme="system"] {
+  html[data-theme="system"]:not([data-hraness-theme="paper"]) {
     --paper: #0b0b0e;
     --paper-raised: #141419;
     --ink: #f4f1e8;
@@ -75,6 +75,24 @@ html[data-theme="dark"] {
     --night-line: #2f2f36;
     color-scheme: dark;
   }
+}
+
+/* Bridge legacy product roles to the portable paper contract. Terminal and
+ * output colors stay fixed so appearance never changes the media itself. */
+:root[data-hraness-theme="paper"] {
+  --font-body: var(--font-text);
+  --paper: var(--background);
+  --paper-raised: var(--surface);
+  --ink: var(--foreground);
+  --line-strong: var(--control-border);
+  --gold: var(--primary);
+  --gold-ink: var(--primary-foreground);
+  --gold-bright: #e8aa48;
+  --night: #0b0b0e;
+  --night-ink: #f4f1e8;
+  --night-muted: #aaa79e;
+  --night-line: #35343a;
+  --gutter: var(--hraness-marketing-gutter);
 }
 
 *,
@@ -159,7 +177,7 @@ h3 {
 .slopcamera-product-hero {
   align-items: center;
   gap: clamp(2rem, 4vw, 3.5rem);
-  padding-block: clamp(2.5rem, 5vw, 4.5rem);
+  padding-block: clamp(2rem, 4vw, 3rem);
 }
 
 .slopcamera-product-hero .hraness-marketing-hero__copy {
@@ -167,7 +185,7 @@ h3 {
 }
 
 .slopcamera-product-hero .hraness-marketing-hero__heading {
-  font-size: clamp(2.25rem, 4vw, 3.5rem);
+  font-size: var(--hraness-paper-heading-size);
   max-inline-size: 17ch;
 }
 
@@ -318,3 +336,23 @@ h3 {
   }
 
 }
+
+[data-hraness-theme="paper"] .hraness-marketing-hero__heading {
+  font-weight: var(--hraness-marketing-heading-weight);
+  line-height: var(--hraness-paper-heading-leading);
+  letter-spacing: var(--hraness-paper-heading-tracking);
+}
+[data-hraness-theme="paper"] .hraness-marketing-page h2 {
+  font-size: var(--hraness-paper-section-heading-size);
+  line-height: 1.2;
+  letter-spacing: -.025em;
+}
+[data-hraness-theme="paper"] .hraness-marketing-hero__summary {
+  font-size: var(--hraness-paper-summary-size);
+  line-height: 1.6;
+}
+[data-hraness-theme="paper"] :is(.hraness-marketing-page, .hraness-marketing-proof-frame) {
+  --hraness-marketing-inverse: var(--night);
+  --hraness-marketing-inverse-ink: var(--night-ink);
+}
+[data-hraness-theme="paper"] .hraness-marketing-proof-frame { box-shadow: none; }

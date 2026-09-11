@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import App from "./App";
 import "@hraness/design-kit/fonts.css";
+import "../vendor/paper-theme/paper-theme.css";
 import "./index.css";
 import { detectRuntimeBridge } from "./runtime-bridge";
 
