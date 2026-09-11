@@ -1268,7 +1268,7 @@
   },
   {
     "identityLineCount": 83,
-    "identityLinesSha256": "c6db239f3883f0c309c2f04f4a37d953170f1e8b8d7e0742ab2fce4ff38ceb31",
+    "identityLinesSha256": "2f28d9a6bfbfb4643903d6d0e5a0cbc45c99d7e9488f06990f681530bd0c7772",
     "occurrenceCount": 443,
     "path": "apps/desktop/dist/cli/main.js",
     "categories": [
@@ -1533,7 +1533,7 @@
     "identityLineCount": 142,
     "identityLinesSha256": "e91181ab2773a1435458dfd1882ddfa12cf529dfc20648fa1460e9c868bc17a0",
     "occurrenceCount": 237,
-    "path": "dist/index-7tzd9155.js",
+    "path": "dist/index-jchqst8w.js",
     "categories": [
       "generated"
     ]

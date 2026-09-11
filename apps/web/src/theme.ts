@@ -3,8 +3,8 @@ import { installAppearanceMenus } from "@hraness/design-kit/browser"
 import { installCopyCommands } from "./copy-command"
 
 installAppearanceMenus({
-  darkThemeColor: "#0b0b0e",
-  lightThemeColor: "#faf8f3",
+  darkThemeColor: "#12100f",
+  lightThemeColor: "#f8f7f4",
   storageKey: "slopcamera.appearance",
 })
 

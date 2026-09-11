@@ -1,11 +1,11 @@
 :root[data-slopcamera-surface="product"] {
   color-scheme: dark;
-  --slopcamera-bg: #111110;
-  --slopcamera-surface: #1c1c1a;
-  --slopcamera-raised: #242421;
-  --slopcamera-border: #3b3b36;
-  --slopcamera-text: #f4f3ed;
-  --slopcamera-muted: #aaa99f;
+  --slopcamera-bg: var(--background);
+  --slopcamera-surface: var(--surface);
+  --slopcamera-raised: var(--surface-raised);
+  --slopcamera-border: var(--line);
+  --slopcamera-text: var(--foreground);
+  --slopcamera-muted: var(--muted);
   --slopcamera-active: #ff665c;
   --slopcamera-warning: #e5bc6c;
   --slopcamera-success: #76c895;
@@ -77,9 +77,7 @@ body,
 
 body[data-slopcamera-surface="product"] {
   margin: 0;
-  background:
-    radial-gradient(circle at 80% -10%, rgb(255 102 92 / 10%), transparent 42%),
-    var(--slopcamera-bg);
+  background: var(--slopcamera-bg);
   -webkit-font-smoothing: antialiased;
 }
 
