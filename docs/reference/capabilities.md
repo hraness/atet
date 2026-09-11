@@ -4,9 +4,9 @@ This reference describes the current Slopcamera CLI and its runtime requirements
 
 ## Current Slopcamera and historical Atet
 
-Slopcamera v3.2.5 installs from its [canonical release archive](https://github.com/hraness/slopcamera/releases/download/v3.2.5/hraness-slopcamera-3.2.5.tgz) or from [source](../how-to/use-current-source.md). The historical **Atet v3.2.3** archive contains `@hraness/atet` and the `atet` command; it does not install Slopcamera.
+Slopcamera v3.2.6 installs from its [canonical release archive](https://github.com/hraness/slopcamera/releases/download/v3.2.6/hraness-slopcamera-3.2.6.tgz) or from [source](../how-to/use-current-source.md). The historical **Atet v3.2.3** archive contains `@hraness/atet` and the `atet` command; it does not install Slopcamera.
 
-| Surface | Historical Atet v3.2.3 | Slopcamera v3.2.5 |
+| Surface | Historical Atet v3.2.3 | Slopcamera v3.2.6 |
 | --- | --- | --- |
 | Diagrams, vectorization, Gateway media, recording, ordinary project edits, local workflows | Available with the relevant local tools and credentials | Available |
 | Editable spatial scenes, calibrated scene cameras, V2 shots, Three hardware and Spark profiles, saved-world import | Available | Available |

@@ -34,11 +34,11 @@ project database.
 ## Install Slopcamera
 
 Install [Bun 1.3.14 or newer](https://bun.sh), then install the verified
-[Slopcamera v3.2.5 release](https://github.com/hraness/slopcamera/releases/tag/v3.2.5)
+[Slopcamera v3.2.6 release](https://github.com/hraness/slopcamera/releases/tag/v3.2.6)
 from its canonical archive:
 
 ```sh
-bun add --global https://github.com/hraness/slopcamera/releases/download/v3.2.5/hraness-slopcamera-3.2.5.tgz
+bun add --global https://github.com/hraness/slopcamera/releases/download/v3.2.6/hraness-slopcamera-3.2.6.tgz
 slopcamera skill install --target agents
 ```
 
