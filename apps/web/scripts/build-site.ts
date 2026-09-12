@@ -11,9 +11,10 @@ import {
 import { collectBunStylexGraph } from "@hraness/ui/stylex-build/bun"
 import { stylexVite } from "@hraness/ui/stylex-build/vite"
 import { build as viteBuild, version as viteVersion } from "vite"
-import { inspectPreviewCssResources } from "./preview-css"
+import { inspectSiteCssResources } from "./site-css"
 import { readPreviewFile as bytesAt } from "./preview-file"
 import { projectSiteArtifacts, siteSha256, snapshotSiteFoundation, type SiteArtifact } from "./site-contract"
+import { snapshotMarketingPreset } from "./marketing-preset"
 import type { SiteAssets } from "../src/site-content"
 
 const packages = [
@@ -32,7 +33,7 @@ const sourceFiles = [
   "src/site-renderer.ts", "src/site-template.ts", "src/site-content.ts", "src/published-release.ts",
   "src/site-foundation.ts", "src/site-foundation.css", "src/site-ua-compatibility.css", "src/site-ask-ai-compatibility.css", "src/site-footer-compatibility.css", "src/styles.css",
   "vendor/paper-theme/paper-theme.css",
-  "scripts/build.ts", "scripts/build-site.ts", "scripts/site-contract.ts", "scripts/preview-css.ts", "scripts/preview-file.ts",
+  "scripts/build.ts", "scripts/build-site.ts", "scripts/site-contract.ts", "scripts/site-css.ts", "scripts/marketing-preset.ts", "scripts/preview-css.ts", "scripts/preview-file.ts",
 ] as const
 
 function below(root: string, path: string): string {
@@ -55,6 +56,7 @@ async function sourceRoot(app: string): Promise<string> {
 
 export type BuiltSite = Readonly<{
   files: readonly Readonly<{ artifact: SiteArtifact; bytes: Uint8Array }>[]
+  attributions: readonly Readonly<{ artifact: SiteArtifact; bytes: Uint8Array }>[]
   stylesPath: string
   foundationPath: string
   evidenceDirectory: string
@@ -75,19 +77,28 @@ export async function buildSite(appDirectory: string, assets: SiteAssets): Promi
     return { path, ...expected, manifestSha256: siteSha256(`${canonicalJson(manifest)}\n`) }
   }))
   const fontCss = await realpath(fileURLToPath(import.meta.resolve("@hraness/design-kit/fonts.css")))
+  const presetRoot = join(app, "vendor/marketing-preset")
+  const preset = await snapshotMarketingPreset(presetRoot)
+  const presetPaths = [...preset.files.keys()]
   const fonts = await Promise.all(fontFiles.map(async path => {
     const absolute = join(dirname(fontCss), "fonts", path)
     const bytes = await bytesAt(absolute, 2 * 1024 * 1024)
     return { path: below(root, absolute), sha256: siteSha256(bytes), bytes: bytes.byteLength }
   }))
-  const sourcePaths = [...sourceFiles.map(path => join(app, path)), ...packageInputs.map(item => item.path), fontCss,
+  const presetAssets = presetPaths.filter(path => /\.(?:woff2|svg)$/u.test(path)).map(path => {
+    const bytes = preset.files.get(path)!
+    return { path: below(root, join(presetRoot, path)), sha256: siteSha256(bytes), bytes: bytes.byteLength }
+  })
+  fonts.push(...presetAssets.filter(item => item.path.endsWith(".woff2")))
+  const images = presetAssets.filter(item => item.path.endsWith(".svg"))
+  const sourcePaths = [...sourceFiles.map(path => join(app, path)), ...[...presetPaths, "provenance.json"].map(path => join(presetRoot, path)), ...packageInputs.map(item => item.path), fontCss,
     ...(root === app ? [] : [join(root, "package.json"), join(root, "bun.lock")])]
   const inputs = await Promise.all(sourcePaths.map(async path => ({
     path: below(root, path), bytes: await bytesAt(path, 2 * 1024 * 1024),
   })))
   const snapshot = inputs.map(({ path, bytes }) => ({ path, bytes: bytes.byteLength, sha256: siteSha256(bytes) }))
   const fingerprint = siteSha256(canonicalJson({
-    assets, bun: Bun.version, compilerSha256, fonts, inputs: snapshot,
+    assets, bun: Bun.version, compilerSha256, fonts, images, inputs: snapshot, marketingSourceCommit: preset.sourceCommit,
     unionPolicySha256: stylexUnionPolicySha256, vite: viteVersion,
   }))
   const finalCssPath = `assets/site-${fingerprint}.css`
@@ -107,7 +118,7 @@ export async function buildSite(appDirectory: string, assets: SiteAssets): Promi
     const foundation = snapshotSiteFoundation(await viteBuild({
       base: "./", configFile: false, envFile: false, mode: "production",
       plugins: [stylexVite({ generation, graphId: "site-foundation", rootDirectory: root })],
-    }), fonts.map(font => font.sha256), join(app, "src/site-foundation.ts"), inspectPreviewCssResources)
+    }), fonts.map(font => font.sha256), join(app, "src/site-foundation.ts"), inspectSiteCssResources, images.map(image => image.sha256))
     const renderer = await collectBunStylexGraph({
       build: { minify: true, sourcemap: "none" }, generation, graphId: "site-renderer", rootDirectory: root,
     })
@@ -137,13 +148,17 @@ export async function buildSite(appDirectory: string, assets: SiteAssets): Promi
       const bytes = await bytesAt(join(finalized, artifact.path))
       assert.equal(bytes.byteLength, artifact.bytes)
       assert.equal(siteSha256(bytes), artifact.sha256)
-      if (artifact.path === finalCssPath) assert.deepEqual(inspectPreviewCssResources(new TextDecoder("utf-8", { fatal: true }).decode(bytes), artifact.path), [],
+      if (artifact.path === finalCssPath) assert.deepEqual(inspectSiteCssResources(new TextDecoder("utf-8", { fatal: true }).decode(bytes), artifact.path), [],
         "Site recipes must not introduce resources outside the captured foundation")
       return { artifact, bytes }
     }))
     for (const input of snapshot) assert.deepEqual(await artifactForFile(root, input.path), input, "Site source or compiler input changed during compilation")
     for (const font of fonts) assert.deepEqual(await artifactForFile(root, font.path), font, "Site installed font changed during compilation")
-    return { evidenceDirectory: finalized, files, foundationPath: `/${foundation.cssPath}`, stylesPath: `/${finalCssPath}` }
+    const attributions = ["LICENSE", "fonts/instrument-serif/OFL.txt", "fonts/instrument-serif/UPSTREAM.md", "marketing-assets/UPSTREAM.md"].map(path => {
+      const bytes = preset.files.get(path)!
+      return { artifact: { path: `marketing-preset/${path}`, bytes: bytes.byteLength, sha256: siteSha256(bytes) }, bytes }
+    })
+    return { evidenceDirectory: finalized, files, attributions, foundationPath: `/${foundation.cssPath}`, stylesPath: `/${finalCssPath}` }
   } catch (error) {
     throw new Error(`Site compilation failed; retained evidence: ${outputDirectory}`, { cause: error })
   }

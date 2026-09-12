@@ -167,7 +167,17 @@ describe("install/copy compiled ownership (pure, process-free)", () => {
 
   test("removes only local ownership from legacy CSS and retains global native focus and marketing boundaries", async () => {
     const css = await read("src/styles.css")
-    expect(css).not.toMatch(/\.copy-command|\.cli-install|\.install-commands|\.panel-label|\.install-note|\.panel-note/u)
+    // Only the reviewed editorial heading layout and archive-text wrapping stay
+    // in marketing CSS. The compiled install/copy recipes retain every other rule.
+    const editorialInstall = `[data-hraness-marketing-preset="editorial"] .hraness-marketing-install__heading-group {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+[data-hraness-marketing-preset="editorial"] .hraness-marketing-install__heading-group > .install-note {
+  overflow-wrap: anywhere;
+}`
+    expect(css.split(editorialInstall)).toHaveLength(2)
+    expect(css.replace(editorialInstall, "")).not.toMatch(/\.copy-command|\.cli-install|\.install-commands|\.panel-label|\.install-note|\.panel-note/u)
     expect(css).toContain(".quiet-note,\n.trust-links")
     expect(css).toContain(":where(.trust-links, .origin-note, .hraness-marketing-question__answer, .hraness-marketing-maker__links) a")
     expect(css).toContain("outline: 2px solid var(--focus)")

@@ -30,6 +30,7 @@
     "scripts/build-site.ts",
     "scripts/site-contract.ts",
     "scripts/site-contract.test.ts",
+    "scripts/site-css.test.ts",
     "scripts/site-template.test.ts",
     "scripts/site-copy-content.test.ts",
     "scripts/site-install.test.ts",
@@ -67,6 +68,9 @@
     "src/preview-renderer.ts",
     "src/preview-foundation.ts",
     "src/preview.stylex.ts",
-    "scripts/generate-icons.ts"
+    "scripts/generate-icons.ts",
+    "scripts/verify-site-marketing.ts",
+    "scripts/site-marketing-browser-contract.ts",
+    "scripts/site-marketing-browser-contract.test.ts"
   ]
 }

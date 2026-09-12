@@ -202,13 +202,18 @@ export interface ShellElement {
   readonly text: string
   readonly semantics: Readonly<Record<string, string | null>>
 }
+export interface ShellFocusedSkip extends ShellElement {
+  readonly geometrySpace: "viewport"
+  readonly scrollY: number
+  readonly documentRect: readonly number[]
+}
 export interface ShellEvidence {
   readonly direction: "ltr" | "rtl"
   readonly dom: string
   readonly elements: readonly ShellElement[]
   readonly focus: readonly ShellElement[]
   readonly hover: readonly ShellElement[]
-  readonly skip: ShellElement
+  readonly skip: ShellFocusedSkip
   readonly recovery: boolean
   readonly appearance: readonly ShellAppearanceEvidence[]
 }
@@ -321,7 +326,7 @@ export function compareShellEvidence(actual: ShellEvidence, baseline: ShellEvide
   assert.equal(actual.dom, baseline.dom, `${label}: semantic document changed`)
   assert.equal(actual.recovery, baseline.recovery)
   compareShellElements(actual.elements, baseline.elements, label)
-  compareShellElements([actual.skip], [baseline.skip], `${label} focused skip`)
+  compareShellFocusedSkip(actual.skip, baseline.skip, `${label} focused skip`)
   compareShellElements(actual.focus, baseline.focus, `${label} keyboard focus`)
   compareShellElements(actual.hover, baseline.hover, `${label} pointer hover`)
   for (const evidence of [actual, baseline]) {
@@ -810,6 +815,34 @@ export function assertShellFocusUnchanged(settled: ShellFocusSettlement, evidenc
   }
 }
 
+/** The fixed skip belongs to the viewport. Keep the browser's restored document
+ * scroll as evidence, without adding it to the fixed element's visual position.
+ * All ordinary element measurements retain their original document coordinates. */
+export function recordShellFocusedSkip(settled: ShellFocusSettlement, evidence: ShellElement, label: string): ShellFocusedSkip {
+  assert.equal(settled.elements.length, 1, `${label}: focused skip owner inventory`)
+  assert.equal(evidence.key, ".skip-link[0]")
+  assert.equal(evidence.styles.position, "fixed", `${label}: focused skip must remain fixed`)
+  assert.ok(Number.isFinite(settled.scrollY), `${label}: focused skip scroll is invalid`)
+  assertShellFocusUnchanged(settled, [evidence], label)
+  return { ...evidence, rect: [...settled.elements[0]!.rect], geometrySpace: "viewport", scrollY: settled.scrollY,
+    documentRect: [...evidence.rect] }
+}
+export function compareShellFocusedSkip(actual: ShellFocusedSkip, baseline: ShellFocusedSkip, label: string): void {
+  for (const evidence of [actual, baseline]) {
+    assert.equal(evidence.key, ".skip-link[0]")
+    assert.equal(evidence.styles.position, "fixed", `${label}: focused skip must remain fixed`)
+    assert.equal(evidence.geometrySpace, "viewport", `${label}: focused skip geometry space changed`)
+    assert.ok(Number.isFinite(evidence.scrollY), `${label}: focused skip scroll is invalid`)
+    assert.deepEqual(evidence.documentRect, [evidence.rect[0], evidence.rect[1]! + evidence.scrollY, ...evidence.rect.slice(2)],
+      `${label}: focused skip coordinate evidence changed`)
+  }
+  try { compareShellElements([actual], [baseline], label) }
+  catch (error) {
+    const coordinates = ({ rect, documentRect, scrollY }: ShellFocusedSkip) => ({ viewport: rect, document: documentRect, scrollY })
+    throw new AggregateError([error], `${label}: fixed viewport mismatch ${JSON.stringify({ current: coordinates(actual), baseline: coordinates(baseline) })}`)
+  }
+}
+
 /** A failed settled sample remains red even if a later diagnostic frame changes. */
 export async function assertShellSkipReveal(rect: readonly number[], label: string, diagnostic: () => Promise<unknown>): Promise<void> {
   if (rect[0]! >= 0 && rect[1]! >= 0 && rect[2]! > 0) return
@@ -989,7 +1022,8 @@ export function shellContextLifecycle(error: (message: string) => void) {
 }
 
 export async function checkShellCase(browser: Browser, payload: ShellPayload, scenario: ShellCase,
-  source: "current" | "baseline", negative: boolean): Promise<ShellEvidence> {
+  source: "current" | "baseline", negative: boolean,
+  observeCurrentDesign?: (page: Page) => Promise<void>): Promise<ShellEvidence> {
   const context = await browser.newContext({ viewport: { width: scenario.width, height: scenario.height },
     deviceScaleFactor: scenario.reflowEquivalent ? 2 : 1, colorScheme: scenario.system, forcedColors: scenario.forced,
     hasTouch: scenario.coarse, bypassCSP: false, serviceWorkers: "block", reducedMotion: "reduce" })
@@ -1026,8 +1060,7 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       const settled = await page.locator(".skip-link").evaluate(settleShellFocusState, { label, focus: "skip" as const, properties })
       await assertShellSkipReveal(settled.elements[0]!.rect, label, () => skipRevealDiagnostic(page))
       const evidence = (await measure(page, [".skip-link"]))[0]!
-      assertShellFocusUnchanged(settled, [evidence], label)
-      return evidence
+      return recordShellFocusedSkip(settled, evidence, label)
     }
     const transferredFocus = (phase: "initial" | "reload") => page.locator("#main").evaluate(settleShellFocusState,
       { label: `${source} ${scenario.name} ${phase} transfer`, focus: "main" as const, properties })
@@ -1214,6 +1247,10 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       await settleCase()
       compareShellElements(await measure(page, [".topbar", ".wordmark", ...(scenario.route === "/404.html" ? [".route-state"] : [])]), original, "Restored final CSS")
     }
+    // A separate current-design verifier may add observations inside this same
+    // owned context. Historical callers omit the hook and retain their exact
+    // comparison. All network, error, deadline and cleanup checks still follow.
+    if (observeCurrentDesign !== undefined) await observeCurrentDesign(page)
     let recovery = false
     if (scenario.route === "/404.html") {
       await page.locator('.route-state a[href="/"]').last().click()
