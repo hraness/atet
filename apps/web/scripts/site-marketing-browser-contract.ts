@@ -135,9 +135,10 @@ function translateSiblings(items: readonly ShellElement[], evidence: ShellEviden
 const geometryProperties = ["width", "height", "max-width", "margin-left", "margin-right", "grid-template-columns"] as const
 const spacingProperties = ["padding-top", "padding-bottom", "padding-left", "padding-right"] as const
 const headingProperties = ["font-family", "font-size", "font-weight", "line-height", "letter-spacing", "color", ...geometryProperties] as const
-export interface MarketingPaintReference { readonly ink: string; readonly line: string; readonly strongLine: string }
+export interface MarketingPaintReference { readonly ink: string; readonly line: string; readonly strongLine: string; readonly primaryInk: string }
 export interface MarketingPaintPair { readonly current: MarketingPaintReference; readonly baseline: MarketingPaintReference }
 const borderSides = ["top", "right", "bottom", "left"] as const
+const primaryActionKeys = [".hraness-marketing-hero__actions a[0]", ".hraness-marketing-cta__actions a[data-emphasis=\"primary\"][0]"] as const
 const fieldLayerDefaults = { "background-attachment": "scroll", "background-origin": "padding-box", "background-clip": "border-box" } as const
 const marketingBorderPaint: Readonly<Record<string, { readonly sides: readonly string[]; readonly reference: "line" | "strongLine" }>> = {
   ...Object.fromEntries(marketingSectionIds.map(id => [`#${id}[0]`, { sides: id === "install" ? borderSides : ["top"], reference: "line" as const }])),
@@ -162,7 +163,8 @@ export async function measureMarketingPaintReference(page: Page, scenario: Shell
       document.documentElement.append(element)
       try { return getComputedStyle(element).color } finally { element.remove() }
     }
-    return { ink: sample(ink), line: sample(forced ? ink : `color-mix(in oklch, ${ink} 12%, transparent)`),
+    const primaryInk = mode === "baseline" ? ink : forced ? getComputedStyle(document.documentElement).backgroundColor : "rgb(255, 255, 255)"
+    return { ink: sample(ink), primaryInk: forced ? primaryInk : sample(primaryInk), line: sample(forced ? ink : `color-mix(in oklch, ${ink} 12%, transparent)`),
       strongLine: sample(forced ? ink : `color-mix(in oklch, ${ink} 22%, transparent)`) }
   }, { mode, dark, forced: scenario.forced === "active" })
 }
@@ -176,6 +178,10 @@ export function assertMarketingDerivedPaint(elements: readonly ShellElement[], r
     }
   }
   assert.equal(elements.find(item => item.key === ".hraness-marketing-hero__actions a[1]")!.styles.color, reference.ink, "Only the secondary action uses field ink")
+  for (const key of primaryActionKeys) {
+    const matches = elements.filter(item => item.key === key); assert.equal(matches.length, 1, `Exactly one primary action ${key}`)
+    assert.equal(matches[0]!.styles.color, reference.primaryInk, `${key} retains readable accent contrast ink`)
+  }
 }
 /** This map and the separately asserted marketingBorderPaint are the complete
  * exception surface. Unlisted paint, content and semantics remain exact. */
@@ -195,6 +201,7 @@ export const marketingDifferenceMap: Readonly<Record<string, { readonly properti
   ".hraness-marketing-proof-frame__caption[0]": { properties: [...geometryProperties, "color"], axes: [0, 1, 2, 3] },
   ".transcript[0]": { properties: geometryProperties, axes: [0, 1, 2, 3] },
   ".hraness-marketing-install__heading-group > .install-note[0]": { properties: ["width", "height", "overflow-wrap"], axes: [0, 1, 2, 3] },
+  '.hraness-marketing-cta__actions a[data-emphasis="primary"][0]': { properties: ["width", "height", "min-height", "border-radius"], axes: [0, 1, 2, 3] },
   ...Object.fromEntries([0, 1].map(index => [`.hraness-marketing-hero__actions a[${index}]`,
     { properties: ["width", "height", "min-height", "border-radius", ...(index === 1 ? ["color"] : [])], axes: [0, 1, 2, 3] }])),
 })
@@ -205,6 +212,9 @@ export function compareMarketingElements(actual: readonly ShellElement[], baseli
     if (allowed === undefined) return item
     assert.ok(item.rect[2]! > 0 && item.rect[3]! > 0, `${label}: collapsed landmark ${item.key}`)
     const styles = { ...item.styles }
+    const repairedPrimaryInk = primaryActionKeys.includes(item.key as typeof primaryActionKeys[number]) && paint !== undefined
+      && item.styles.color === paint.current.primaryInk && old.styles.color === paint.baseline.primaryInk
+    if (repairedPrimaryInk) styles.color = old.styles.color!
     // Adding the three positively asserted field layers repeats these unchanged
     // defaults in CSSOM. No other owner, value or layer count is equivalent.
     if (item.key === "#main[0]") for (const [property, value] of Object.entries(fieldLayerDefaults)) {
@@ -219,7 +229,7 @@ export function compareMarketingElements(actual: readonly ShellElement[], baseli
     // CSSOM exposes currentColor even on absent decoration/outline/borders.
     // Admit only that exact derivation from the independently asserted ink;
     // active paint and independently authored values remain strict.
-    if (allowed.properties.includes("color")) {
+    if (allowed.properties.includes("color") || repairedPrimaryInk) {
       const inactive = [
         ...(old.styles["text-decoration-line"] === "none" ? ["text-decoration-color"] : []),
         ...(old.styles["outline-style"] === "none" ? ["outline-color"] : []),
@@ -249,7 +259,7 @@ export function compareMarketingEvidence(actual: ShellEvidence, baseline: ShellE
 export const marketingDetailSelectors = ["#main", "#page-title", ...marketingHeadingIds.map(id => `#${id}`), ".hraness-marketing-hero", ".hraness-marketing-hero__copy",
   ".hraness-marketing-hero__frame", ".hraness-marketing-hero__summary", ".hraness-marketing-hero__actions a", ".hraness-marketing-proof-frame",
   ".hraness-marketing-proof-frame__chrome", ".hraness-marketing-proof-frame__content", ".transcript", ".hraness-marketing-proof-frame__caption",
-  ".hraness-marketing-install__heading-group > .install-note", ...marketingSectionIds.map(id => `#${id}`)] as const
+  ".hraness-marketing-install__heading-group > .install-note", '.hraness-marketing-cta__actions a[data-emphasis="primary"]', ...marketingSectionIds.map(id => `#${id}`)] as const
 function landmark(elements: readonly ShellElement[], selector: string): ShellElement {
   const matches = elements.filter(item => item.key === `${selector}[0]`)
   assert.equal(matches.length, 1, `Exactly one ${selector}`); return matches[0]!
@@ -386,7 +396,8 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
   assertMarketingDerivedPaint(original, paint)
   const summary = pick(".hraness-marketing-hero__summary")
   near(summary.styles["font-size"]!, 17, "Summary size"); near(summary.styles["line-height"]!, 27.2, "Summary leading")
-  for (const action of original.filter(value => value.key.startsWith(".hraness-marketing-hero__actions a["))) {
+  assert.equal(await page.locator('#main .hraness-marketing-action[data-emphasis="primary"]').count(), 2, "Exactly two homepage primary actions")
+  for (const action of original.filter(value => value.key.startsWith(".hraness-marketing-hero__actions a[") || primaryActionKeys.includes(value.key as typeof primaryActionKeys[number]))) {
     assert.ok(action.rect[3]! >= (scenario.coarse ? 48 : 42) - .5, "Action target height")
     near(action.styles["border-radius"]!, 4, "Action radius")
   }

@@ -122,6 +122,17 @@ a {
   text-underline-offset: 0.16em;
 }
 
+/* The legacy link reset must not replace primary actions' contrast ink. */
+#main[data-hraness-marketing-preset="editorial"] .hraness-marketing-action[data-emphasis="primary"] {
+  color: var(--hraness-marketing-accent-ink);
+}
+
+@media (forced-colors: active) {
+  #main[data-hraness-marketing-preset="editorial"] .hraness-marketing-action[data-emphasis="primary"] {
+    color: Canvas;
+  }
+}
+
 button,
 input {
   font: inherit;

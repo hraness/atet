@@ -136,18 +136,20 @@ test("proof requires complete six-line readable extent and text containment, not
   expect(() => assertMarketingProof(elements, [{ ...extents[0]!, fragments: [[40, 400, 100, 16]] }, extents[1]!])).toThrow()
 })
 
-test("only finite active borders follow their exact ink mix; alpha, width, style and primary accent stay strict", () => {
-  const current = { ink: "rgb(36, 42, 47)", line: "rgba(36, 42, 47, 0.12)", strongLine: "rgba(36, 42, 47, 0.22)" }
-  const baseline = { ink: "rgb(28, 25, 23)", line: "rgba(28, 25, 23, 0.12)", strongLine: "rgba(28, 25, 23, 0.22)" }
+test("finite active borders and repaired primary contrast retain exact paint and alpha", () => {
+  const current = { ink: "rgb(36, 42, 47)", primaryInk: "rgb(255, 255, 255)", line: "rgba(36, 42, 47, 0.12)", strongLine: "rgba(36, 42, 47, 0.22)" }
+  const baseline = { ink: "rgb(28, 25, 23)", primaryInk: "rgb(28, 25, 23)", line: "rgba(28, 25, 23, 0.12)", strongLine: "rgba(28, 25, 23, 0.22)" }
+  const primaryKeys = [".hraness-marketing-hero__actions a[0]", '.hraness-marketing-cta__actions a[data-emphasis="primary"][0]']
   const keys = [...marketingSectionIds.map(id => `#${id}[0]`), ".hraness-marketing-proof-frame[0]", ".hraness-marketing-proof-frame__chrome[0]",
     ".hraness-marketing-proof-frame__caption[0]", ".hraness-marketing-hero__actions a[1]"]
-  const make = (reference: typeof current) => keys.map(key => {
+  const make = (reference: typeof current) => [...keys.map(key => {
     const sides = key === ".hraness-marketing-proof-frame__chrome[0]" ? ["bottom"]
       : key === "#install[0]" || key === ".hraness-marketing-proof-frame[0]" || key.endsWith("a[1]") ? ["top", "right", "bottom", "left"] : ["top"]
     return element(key, { color: reference.ink, ...Object.fromEntries(sides.flatMap(side => [
       [`border-${side}-width`, "1px"], [`border-${side}-style`, "solid"], [`border-${side}-color`, key.endsWith("a[1]") ? reference.strongLine : reference.line],
     ])) })
-  })
+  }), ...primaryKeys.map(key => element(key, { color: reference.primaryInk, "background-color": "blue", "border-top-color": "blue",
+    "text-decoration-line": "none", "text-decoration-color": reference.primaryInk, "outline-style": "none", "outline-color": reference.primaryInk }))]
   const original = make(baseline), changed = make(current), paint = { current, baseline }
   expect(() => assertMarketingDerivedPaint(changed, current)).not.toThrow()
   expect(() => compareMarketingElements(changed, original, "exact derived paint", paint)).not.toThrow()
@@ -157,9 +159,14 @@ test("only finite active borders follow their exact ink mix; alpha, width, style
     expect(() => compareMarketingElements(bad, original, "border regression", paint)).toThrow()
   }
   expect(() => assertMarketingDerivedPaint(changed.map(item => item.key.endsWith("a[1]") ? { ...item, styles: { ...item.styles, color: "red" } } : item), current)).toThrow()
-  const primary = element(".hraness-marketing-hero__actions a[0]", { color: "white", "border-top-color": "gold" })
-  expect(() => compareMarketingElements([{ ...primary, styles: { ...primary.styles, color: current.ink } }], [primary], "primary accent", paint)).toThrow()
-  expect(() => compareMarketingElements([{ ...primary, styles: { ...primary.styles, "border-top-color": current.strongLine } }], [primary], "primary border", paint)).toThrow()
+  for (const key of primaryKeys) {
+    for (const [property, value] of [["color", current.ink], ["border-top-color", current.strongLine], ["background-color", "red"], ["text-decoration-line", "underline"]]) {
+      const bad = changed.map(item => item.key === key ? { ...item, styles: { ...item.styles, [property!]: value! } } : item)
+      expect(() => compareMarketingElements(bad, original, "primary paint regression", paint)).toThrow()
+      if (property === "color") expect(() => assertMarketingDerivedPaint(bad, current)).toThrow()
+    }
+  }
+  expect(() => assertMarketingDerivedPaint(changed.filter(item => item.key !== primaryKeys[1]), current)).toThrow()
 })
 test("unchanged footer and Ask AI translate only by the measured main flow delta", () => {
   const baseline = [element("#main[0]"), element(".slopcamera-ask-ai[0]"), element("#hraness-site-footer[0]")]
