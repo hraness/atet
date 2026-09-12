@@ -618,9 +618,9 @@ describe("static Slopcamera site", () => {
   test("publishes two sealed ordinary documents with one complete union and bound local fonts", async () => {
     const artifacts = builtAssets.siteArtifacts
     const paths = artifacts.map(item => item.path)
-    expect(artifacts).toHaveLength(17)
+    expect(artifacts).toHaveLength(20)
     expect(paths).toEqual([...paths].sort())
-    expect(new Set(paths).size).toBe(17)
+    expect(new Set(paths).size).toBe(20)
     expect(paths.filter(path => path.endsWith(".html"))).toEqual(["404.html", "index.html"])
     expect(paths.filter(path => path.endsWith(".css")).sort()).toEqual([
       builtAssets.stylesPath.slice(1), builtAssets.siteFoundationPath.slice(1),
@@ -635,15 +635,21 @@ describe("static Slopcamera site", () => {
       expect(artifact.sha256).toBe(new Bun.CryptoHasher("sha256").update(bytes).digest("hex"))
     }
     const fonts = paths.filter(path => path.endsWith(".woff2"))
-    expect(fonts).toHaveLength(13)
+    expect(fonts).toHaveLength(14)
+    const images = paths.filter(path => path.endsWith(".svg"))
+    expect(images).toHaveLength(2)
+    for (const name of ["grain.svg", "cells.svg"]) {
+      const expected = await readFile(join(appDirectory, "vendor/marketing-preset/marketing-assets", name))
+      expect(images.some(path => artifacts.find(item => item.path === path)!.sha256 === new Bun.CryptoHasher("sha256").update(expected).digest("hex"))).toBe(true)
+    }
     const foundation = await readBuilt(builtAssets.siteFoundationPath.slice(1))
     const union = await readBuilt(builtAssets.stylesPath.slice(1))
-    expect(foundation.match(/@font-face\b/gu)).toHaveLength(13)
+    expect(foundation.match(/@font-face\b/gu)).toHaveLength(14)
     expect([...foundation.matchAll(/url\(["']?([^"')]+)["']?\)/gu)].map(match => {
       const url = new URL(match[1]!, "https://slopcamera.com" + builtAssets.siteFoundationPath)
       expect(url.origin).toBe("https://slopcamera.com")
       return url.pathname.slice(1)
-    }).sort()).toEqual([...fonts].sort())
+    }).sort()).toEqual([...fonts, ...images].sort())
     expect(foundation).not.toMatch(/sourceMappingURL|@import\b/u)
     expect(union).not.toMatch(/url\(|@font-face|sourceMappingURL/u)
     expect(foundation).toContain("components.slopcamera-legacy")
@@ -947,6 +953,17 @@ describe("static Slopcamera site", () => {
     }
   })
 
+  test("ships the shared preset attributions without exposing its checker or private evidence", async () => {
+    expect(builtAssets.siteAttributions.map(item => item.path)).toEqual([
+      "marketing-preset/LICENSE", "marketing-preset/fonts/instrument-serif/OFL.txt",
+      "marketing-preset/fonts/instrument-serif/UPSTREAM.md", "marketing-preset/marketing-assets/UPSTREAM.md",
+    ])
+    for (const item of builtAssets.siteAttributions) {
+      const bytes = await readFile(join(appDirectory, "dist", item.path))
+      expect(new Bun.CryptoHasher("sha256").update(bytes).digest("hex")).toBe(item.sha256)
+    }
+  })
+
   test("uses the shared premium marketing system", async () => {
     const [css, html] = await Promise.all([readSource("styles.css"), readSource("index.html")])
 
@@ -964,6 +981,9 @@ describe("static Slopcamera site", () => {
     expect(css).not.toMatch(/@font-face|url\([^)]*\.woff/)
     expect(html).toContain('<h1 class="hraness-marketing-hero__heading" id="page-title">Direct scenes and films with your coding agent</h1>')
     expect(html).toContain('data-hraness-marketing="proof-frame"')
+    expect(html).toContain('<main class="hraness-marketing-field" data-hraness-marketing-preset="editorial"')
+    expect(await readSource("404.html")).not.toContain("data-hraness-marketing-preset")
+    expect(await readSource("preview.html")).not.toContain("data-hraness-marketing-preset")
     expect(html).toContain("Built by Ben Guo")
     expect(html).not.toContain('class="hraness-marketing-hero__eyebrow"')
     expect(html).toContain('class="hraness-marketing-hero slopcamera-product-hero" data-align="start"')
@@ -972,13 +992,15 @@ describe("static Slopcamera site", () => {
     expect(html).not.toMatch(/<h1[^>]*>[^<]*(?:bounded|exact|authority|custody|immutable|inspectable|canonical|projection|receipt)/iu)
     const builtCss = await readBuilt(builtAssets.siteFoundationPath.slice(1))
     expect(builtCss).toMatch(/font-family:\s*"?Nebula Sans"?/u)
+    expect(builtCss).toContain("Instrument Serif")
+    expect(builtCss).toContain(".hraness-marketing-field")
     expect(builtCss).toContain(".hraness-marketing-hero")
     expect(builtCss).toContain(".hraness-marketing-interface-grid")
     const book = builtAssets.siteArtifacts.find(item => /\/NebulaSans-Book-[A-Za-z0-9_-]+\.woff2$/u.test(item.path))
     expect(book).toBeDefined()
     expect(book!.bytes).toBeGreaterThan(60_000)
     expect((await readFile(join(appDirectory, "dist", book!.path))).byteLength).toBe(book!.bytes)
-    expect(builtAssets.siteArtifacts.filter(item => item.path.endsWith(".woff2"))).toHaveLength(13)
+    expect(builtAssets.siteArtifacts.filter(item => item.path.endsWith(".woff2"))).toHaveLength(14)
     expect(builtAssets.siteArtifacts.some(item => /PROVENANCE|\.(?:otf|json|map|ts|js)$/u.test(item.path))).toBe(false)
   })
 
@@ -1320,6 +1342,7 @@ describe("static Slopcamera site", () => {
       "index.html",
       "index.md",
       "llms.txt",
+      "marketing-preset",
       "og.png",
       "preview.html",
       "robots.txt",

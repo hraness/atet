@@ -174,10 +174,14 @@ h3 {
   padding-block-end: clamp(1rem, 4vw, 2rem);
 }
 
+[data-hraness-marketing-preset="editorial"] .hraness-marketing-page {
+  --hraness-marketing-background: transparent;
+}
+
 .slopcamera-product-hero {
   align-items: center;
   gap: clamp(2rem, 4vw, 3.5rem);
-  padding-block: clamp(2rem, 4vw, 3rem);
+  padding-block: var(--hraness-marketing-hero-space, clamp(2rem, 4vw, 3rem));
 }
 
 .slopcamera-product-hero .hraness-marketing-hero__copy {
@@ -339,13 +343,14 @@ h3 {
 
 [data-hraness-theme="paper"] .hraness-marketing-hero__heading {
   font-weight: var(--hraness-marketing-heading-weight);
-  line-height: var(--hraness-paper-heading-leading);
-  letter-spacing: var(--hraness-paper-heading-tracking);
+  line-height: var(--hraness-marketing-h1-leading, var(--hraness-paper-heading-leading));
+  letter-spacing: var(--hraness-marketing-h1-tracking, var(--hraness-paper-heading-tracking));
 }
 [data-hraness-theme="paper"] .hraness-marketing-page h2 {
   font-size: var(--hraness-paper-section-heading-size);
-  line-height: 1.2;
-  letter-spacing: -.025em;
+  font-weight: var(--hraness-marketing-display-weight, 500);
+  line-height: var(--hraness-marketing-h2-leading, 1.2);
+  letter-spacing: var(--hraness-marketing-h2-tracking, -.025em);
 }
 [data-hraness-theme="paper"] .hraness-marketing-hero__summary {
   font-size: var(--hraness-paper-summary-size);

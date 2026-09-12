@@ -4,14 +4,16 @@ import { projectSiteArtifacts, siteSha256, snapshotSiteFoundation as snapshotWit
 const digest = siteSha256("fixture compiler identity")
 const otherDigest = siteSha256("different fixture identity")
 const entrypoint = "/fixture/apps/web/src/site-foundation.ts"
-const fontSources = Array.from({ length: 13 }, (_, index) => new Uint8Array([119, 79, 70, 50, index]))
+const fontSources = Array.from({ length: 14 }, (_, index) => new Uint8Array([119, 79, 70, 50, index]))
 const fontHashes = fontSources.map(siteSha256)
+const imageSources = ["<svg>grain fixture</svg>", "<svg>cells fixture</svg>"]
+const imageHashes = imageSources.map(siteSha256)
 
 // This pure boundary takes a controlled parser result. The separate CSS suite
 // proves that the real parser discovers nested and escaped resources.
 function snapshotSiteFoundation(value: unknown, hashes: readonly string[] = fontHashes, entry: string = entrypoint) {
   return snapshotWithInspection(value, hashes, entry,
-    source => [...source.matchAll(/url\(([^)]+)\)/gu)].map(match => match[1]!))
+    source => [...source.matchAll(/url\(([^)]+)\)/gu)].map(match => match[1]!), imageHashes)
 }
 
 function foundationOutput() {
@@ -21,8 +23,10 @@ function foundationOutput() {
       isEntry: true, facadeModuleId: entrypoint, imports: [], dynamicImports: [], exports: [],
     },
     { type: "asset", fileName: "assets/style-fixture.css", source: fontSources.map((_, index) =>
-      `@font-face{font-family:fixture${index};src:url(./font-${index}.woff2)}`).join("") },
+      `@font-face{font-family:fixture${index};src:url(./font-${index}.woff2)}`).join("")
+      + imageSources.map((_, index) => `.texture${index}{background:url(./texture-${index}.svg)}`).join("") },
     ...fontSources.map((source, index) => ({ type: "asset", fileName: `assets/font-${index}.woff2`, source })),
+    ...imageSources.map((source, index) => ({ type: "asset", fileName: `assets/texture-${index}.svg`, source })),
   ] }
 }
 
@@ -52,15 +56,15 @@ function completeFixture() {
 }
 
 describe("site shell artifact publication (pure synthetic controls)", () => {
-  test("projects both sealed templates, two stylesheets and thirteen fonts without mutation", () => {
+  test("projects both sealed templates, two stylesheets, fourteen fonts and two textures without mutation", () => {
     const { complete, expected } = completeFixture()
     complete.artifacts.push(artifact("graphs/site-renderer/chunks/shared-fixture.js", "export{}"))
     const original = structuredClone({ complete, expected })
     const projected = projectSiteArtifacts(complete, expected)
-    expect(projected).toHaveLength(17)
+    expect(projected).toHaveLength(20)
     expect(projected.filter(item => item.path.endsWith(".html")).map(item => item.path)).toEqual(["404.html", "index.html"])
     expect(projected.filter(item => item.path.endsWith(".css"))).toHaveLength(2)
-    expect(projected.filter(item => item.path.endsWith(".woff2"))).toHaveLength(13)
+    expect(projected.filter(item => item.path.endsWith(".woff2"))).toHaveLength(14)
     expect(projected.some(item => /\.(?:js|map|json|ts)$/u.test(item.path))).toBe(false)
     expect(projected.find(item => item.path === "index.html")).toEqual(complete.artifacts[1])
     expect(projected.map(item => item.path)).toEqual(projected.map(item => item.path).sort())
@@ -153,6 +157,17 @@ describe("site shell artifact publication (pure synthetic controls)", () => {
     expect(() => snapshotSiteFoundation(foundationOutput(), [...fontHashes.slice(1), "A".repeat(64)])).toThrow("digest")
   })
 
+  test("requires both exact snapshot textures and rejects substituted bytes", () => {
+    const missing = foundationOutput()
+    missing.output.pop()
+    expect(() => snapshotSiteFoundation(missing)).toThrow()
+    const changed = foundationOutput()
+    changed.output.at(-1)!.source = "<svg>unapproved texture</svg>"
+    expect(() => snapshotSiteFoundation(changed)).toThrow("approved snapshot inputs")
+    expect(() => snapshotWithInspection(foundationOutput(), fontHashes, entrypoint, () => [], imageHashes.slice(1))).toThrow()
+    expect(() => snapshotWithInspection(foundationOutput(), fontHashes, entrypoint, () => [], [imageHashes[0]!, imageHashes[0]!])).toThrow("distinct")
+  })
+
   test.each(["../font-0.woff2", "/font-0.woff2", "%66ont-0.woff2", "font[0].woff2", "font-0.woff2?x", "font-0.woff2#x",
     "data:font/woff2;base64,AA", "https://example.test/font.woff2", "//example.test/font.woff2", "font-0.woff2 "])("rejects an unsafe font URL: %s", url => {
     const output = foundationOutput()
@@ -163,18 +178,18 @@ describe("site shell artifact publication (pure synthetic controls)", () => {
   test("binds every CSS URL exactly once and propagates parser errors", () => {
     const output = foundationOutput()
     output.output[1]!.source = String(output.output[1]!.source).replace("./font-0.woff2", "./font-1.woff2")
-    expect(() => snapshotSiteFoundation(output)).toThrow("link every captured font")
-    expect(() => snapshotWithInspection(foundationOutput(), fontHashes, entrypoint, () => []))
-      .toThrow("link every captured font")
+    expect(() => snapshotSiteFoundation(output)).toThrow("link every captured font and texture")
+    expect(() => snapshotWithInspection(foundationOutput(), fontHashes, entrypoint, () => [], imageHashes))
+      .toThrow("link every captured font and texture")
     expect(() => snapshotWithInspection(foundationOutput(), fontHashes, entrypoint,
-      () => [...fontSources.map((_, index) => `./font-${index}.woff2`), "https://example.test/image-set.png"]))
-      .toThrow("canonical local emitted WOFF2")
+      () => [...fontSources.map((_, index) => `./font-${index}.woff2`), "https://example.test/image-set.png"], imageHashes))
+      .toThrow("canonical local emitted font and texture")
     expect(() => snapshotWithInspection(foundationOutput(), fontHashes, entrypoint,
-      () => { throw new Error("CSS parser failure") })).toThrow("CSS parser failure")
+      () => { throw new Error("CSS parser failure") }, imageHashes)).toThrow("CSS parser failure")
     const renamed = foundationOutput()
     renamed.output[2]!.fileName = "assets/GeistMono_wght_-Vc9u_qg9.woff2"
     renamed.output[1]!.source = String(renamed.output[1]!.source).replace("./font-0.woff2", "./GeistMono_wght_-Vc9u_qg9.woff2")
-    expect(snapshotSiteFoundation(renamed).artifacts).toHaveLength(15)
+    expect(snapshotSiteFoundation(renamed).artifacts).toHaveLength(18)
   })
 
   test.each(["../outside.css", "/outside.css", "graphs//x.css", "graphs/%2e%2e/x.css", "graphs\\other.js", "graphs/./x.js", "graphs/../x.js",

@@ -989,7 +989,8 @@ export function shellContextLifecycle(error: (message: string) => void) {
 }
 
 export async function checkShellCase(browser: Browser, payload: ShellPayload, scenario: ShellCase,
-  source: "current" | "baseline", negative: boolean): Promise<ShellEvidence> {
+  source: "current" | "baseline", negative: boolean,
+  observeCurrentDesign?: (page: Page) => Promise<void>): Promise<ShellEvidence> {
   const context = await browser.newContext({ viewport: { width: scenario.width, height: scenario.height },
     deviceScaleFactor: scenario.reflowEquivalent ? 2 : 1, colorScheme: scenario.system, forcedColors: scenario.forced,
     hasTouch: scenario.coarse, bypassCSP: false, serviceWorkers: "block", reducedMotion: "reduce" })
@@ -1214,6 +1215,10 @@ export async function checkShellCase(browser: Browser, payload: ShellPayload, sc
       await settleCase()
       compareShellElements(await measure(page, [".topbar", ".wordmark", ...(scenario.route === "/404.html" ? [".route-state"] : [])]), original, "Restored final CSS")
     }
+    // A separate current-design verifier may add observations inside this same
+    // owned context. Historical callers omit the hook and retain their exact
+    // comparison. All network, error, deadline and cleanup checks still follow.
+    if (observeCurrentDesign !== undefined) await observeCurrentDesign(page)
     let recovery = false
     if (scenario.route === "/404.html") {
       await page.locator('.route-state a[href="/"]').last().click()

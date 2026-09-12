@@ -155,6 +155,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   previewStylesPath: string
   stylesPath: string
   siteArtifacts: readonly SiteArtifact[]
+  siteAttributions: readonly SiteArtifact[]
   siteEvidenceDirectory: string
   siteFoundationPath: string
   themePath: string
@@ -177,7 +178,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   await mkdir(join(outputDirectory, "assets"), { recursive: true })
 
   await Promise.all([
-    ...[...site.files, ...preview.files].map(async ({ artifact, bytes }) => {
+    ...[...site.files, ...site.attributions, ...preview.files].map(async ({ artifact, bytes }) => {
       const destination = join(outputDirectory, artifact.path)
       await mkdir(dirname(destination), { recursive: true })
       await writeFile(destination, bytes, { flag: "wx", mode: 0o644 })
@@ -208,6 +209,7 @@ export async function buildWebsite(options: BuildOptions = {}): Promise<Readonly
   return {
     analyticsPath, stylesPath: site.stylesPath, themePath,
     siteArtifacts: site.files.map(item => item.artifact),
+    siteAttributions: site.attributions.map(item => item.artifact),
     siteEvidenceDirectory: site.evidenceDirectory,
     siteFoundationPath: site.foundationPath,
     previewArtifacts: preview.files.map(item => item.artifact),
@@ -221,7 +223,7 @@ if (import.meta.main) {
   const result = await buildWebsite()
   const generatedFiles = copiedFiles.length
     + Object.keys(generatedTextFiles).length
-    + 2 + result.siteArtifacts.length + result.previewArtifacts.length
+    + 2 + result.siteArtifacts.length + result.siteAttributions.length + result.previewArtifacts.length
     + (result.analyticsPath === null ? 0 : 1)
   console.log(`Built ${generatedFiles} static files in ${defaultOutputDirectory}`)
   console.log(`Site compiler evidence retained in ${result.siteEvidenceDirectory}`)
