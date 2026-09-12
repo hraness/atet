@@ -905,7 +905,7 @@ describe("static Slopcamera site", () => {
     expect(html).toContain('<a class="skip-link {{SITE_SKIP_CLASS}}" href="#main">')
     expect(html).toContain('<nav aria-label="Primary" class="{{SITE_NAVIGATION_CLASS}}">')
     expect(html).toContain('<div class="topbar-actions {{SITE_ACTIONS_CLASS}}">')
-    expect(html).toContain('<main id="main" tabindex="-1">')
+    expect(html).toContain('<main class="hraness-marketing-field" data-hraness-marketing-preset="editorial" id="main" tabindex="-1">')
     expect(html).not.toMatch(/<section(?![^>]*aria-labelledby)/)
     expect(fragmentLinks.every(fragment => ids.has(fragment))).toBe(true)
     expect(notFound.match(/<h1\b/gu)).toHaveLength(1)
