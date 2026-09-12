@@ -191,6 +191,12 @@ test("install archive text and heading remain contained after the editorial size
   const extent = { selector, fragments: [[45, 200, 225, 20], [45, 220, 100, 20]], client: [230, 100], scroll: [230, 100] }
   const column = [45, 100, 230, 200], viewport = 320
   expect(() => assertMarketingInstallNote(note, heading, extent, column, viewport)).not.toThrow()
+  const wideColumn = [45, 100, 600, 200], wideHeading = { ...heading, rect: [45, 100, 600, 80] }
+  expect(() => assertMarketingInstallNote(note, wideHeading, extent, wideColumn, 768)).not.toThrow()
+  expect(() => assertMarketingInstallNote(note, { ...wideHeading, rect: [45, 100, 650, 80] }, extent, wideColumn, 768)).toThrow()
+  const rtlNote = { ...note, rect: [415, 200, 230, 100] }, rtlExtent = { ...extent, fragments: [[415, 200, 225, 20], [415, 220, 100, 20]] }
+  expect(() => assertMarketingInstallNote(rtlNote, wideHeading, rtlExtent, wideColumn, 768, "rtl")).not.toThrow()
+  expect(() => assertMarketingInstallNote(note, wideHeading, extent, wideColumn, 768, "rtl")).toThrow()
   expect(() => assertMarketingInstallNote(note, { ...heading, rect: [45, 100, 557, 80] }, extent, column, viewport)).toThrow()
   expect(() => assertMarketingInstallNote(note, heading, { ...extent, fragments: [[45, 200, 557, 20]] }, column, viewport)).toThrow()
   expect(() => assertMarketingInstallNote(note, heading, { ...extent, scroll: [557, 100] }, column, viewport)).toThrow()

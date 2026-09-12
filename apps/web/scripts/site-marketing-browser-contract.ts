@@ -310,7 +310,7 @@ export function assertMarketingPaint(elements: readonly ShellElement[], scenario
   }
 }
 export interface MarketingTextExtent { readonly selector: string; readonly fragments: readonly (readonly number[])[]; readonly client: readonly number[]; readonly scroll: readonly number[] }
-export function assertMarketingInstallNote(note: ShellElement, heading: ShellElement, extent: MarketingTextExtent, column: readonly number[], viewportWidth: number): void {
+export function assertMarketingInstallNote(note: ShellElement, heading: ShellElement, extent: MarketingTextExtent, column: readonly number[], viewportWidth: number, direction: "ltr" | "rtl" = "ltr"): void {
   assert.equal(extent.selector, ".hraness-marketing-install__heading-group > .install-note")
   assert.equal(note.styles["overflow-wrap"], "anywhere", "Archive URL wraps without changing its literal text")
   assert.ok(note.rect.every(Number.isFinite) && note.rect[2]! > 0 && note.rect[3]! > 0)
@@ -319,8 +319,13 @@ export function assertMarketingInstallNote(note: ShellElement, heading: ShellEle
   assert.ok(note.rect[0]! >= column[0]! - .5 && note.rect[1]! >= column[1]! - .5
     && note.rect[0]! + note.rect[2]! <= column[0]! + column[2]! + .5
     && note.rect[1]! + note.rect[3]! <= column[1]! + column[3]! + .5, "Install note stays inside its actual column")
-  near(heading.rect[0]!, note.rect[0]!, "Install heading and note share their column")
-  assert.ok(heading.rect[2]! <= note.rect[2]! + .5, "Install heading uses the contained column")
+  assert.ok(heading.rect.length === 4 && heading.rect.every(Number.isFinite) && heading.rect[2]! > 0 && heading.rect[3]! > 0)
+  assert.ok(heading.rect[0]! >= column[0]! - .5 && heading.rect[1]! >= column[1]! - .5
+    && heading.rect[0]! + heading.rect[2]! <= column[0]! + column[2]! + .5
+    && heading.rect[1]! + heading.rect[3]! <= column[1]! + column[3]! + .5, "Install heading stays inside its actual column")
+  // The compiled note retains max-width:62ch; the heading can use more of the
+  // same grid column. Both preserve their logical start, including RTL.
+  near(heading.rect[0]! + (direction === "rtl" ? heading.rect[2]! : 0), note.rect[0]! + (direction === "rtl" ? note.rect[2]! : 0), "Install heading and note share their logical column start")
   assert.ok(extent.fragments.length > 0 && extent.fragments.length <= 256)
   assert.ok(extent.client.length === 2 && extent.scroll.length === 2 && [...extent.client, ...extent.scroll].every(value => Number.isFinite(value) && value > 0))
   assert.ok(extent.scroll[0]! <= extent.client[0]! + 1 && extent.scroll[1]! <= extent.client[1]! + 1, "Complete install text has no concealed overflow")
@@ -447,7 +452,7 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
   const installColumn = await page.locator(".hraness-marketing-install__heading-group").evaluate(element => {
     const rect = element.getBoundingClientRect(); return [rect.x, rect.y + scrollY, rect.width, rect.height]
   })
-  assertMarketingInstallNote(pick(".hraness-marketing-install__heading-group > .install-note"), pick("#install-title"), textExtents[2]!, installColumn, scenario.width)
+  assertMarketingInstallNote(pick(".hraness-marketing-install__heading-group > .install-note"), pick("#install-title"), textExtents[2]!, installColumn, scenario.width, scenario.direction)
   for (let index = 1; index < sections.length; index++) assert.ok(sections[index]!.rect[1]! >= sections[index - 1]!.rect[1]! + sections[index - 1]!.rect[3]! - .5, "Section order/clearance")
   assert.ok(hero.rect[1]! + hero.rect[3]! <= sections[0]!.rect[1]! + .5, "Hero clears install section")
   const copy = pick(".hraness-marketing-hero__copy"), frame = pick(".hraness-marketing-hero__frame")
