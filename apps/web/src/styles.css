@@ -275,6 +275,14 @@ h3 {
 
 /* Install panel */
 
+[data-hraness-marketing-preset="editorial"] .hraness-marketing-install__heading-group {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+[data-hraness-marketing-preset="editorial"] .hraness-marketing-install__heading-group > .install-note {
+  overflow-wrap: anywhere;
+}
+
 /* Maker */
 
 .origin-note {

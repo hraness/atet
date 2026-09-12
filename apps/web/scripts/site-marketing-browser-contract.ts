@@ -152,6 +152,7 @@ export const marketingDifferenceMap: Readonly<Record<string, { readonly properti
   ".hraness-marketing-proof-frame__chrome[0]": { properties: [...geometryProperties, "color"], axes: [0, 1, 2, 3] },
   ".hraness-marketing-proof-frame__caption[0]": { properties: [...geometryProperties, "color"], axes: [0, 1, 2, 3] },
   ".transcript[0]": { properties: geometryProperties, axes: [0, 1, 2, 3] },
+  ".hraness-marketing-install__heading-group > .install-note[0]": { properties: ["width", "height", "overflow-wrap"], axes: [0, 1, 2, 3] },
   ...Object.fromEntries([0, 1].map(index => [`.hraness-marketing-hero__actions a[${index}]`,
     { properties: ["width", "height", "min-height", "border-radius"], axes: [0, 1, 2, 3] }])),
 })
@@ -195,7 +196,8 @@ export function compareMarketingEvidence(actual: ShellEvidence, baseline: ShellE
 }
 export const marketingDetailSelectors = ["#main", "#page-title", ...marketingHeadingIds.map(id => `#${id}`), ".hraness-marketing-hero", ".hraness-marketing-hero__copy",
   ".hraness-marketing-hero__frame", ".hraness-marketing-hero__summary", ".hraness-marketing-hero__actions a", ".hraness-marketing-proof-frame",
-  ".hraness-marketing-proof-frame__chrome", ".hraness-marketing-proof-frame__content", ".transcript", ".hraness-marketing-proof-frame__caption", ...marketingSectionIds.map(id => `#${id}`)] as const
+  ".hraness-marketing-proof-frame__chrome", ".hraness-marketing-proof-frame__content", ".transcript", ".hraness-marketing-proof-frame__caption",
+  ".hraness-marketing-install__heading-group > .install-note", ...marketingSectionIds.map(id => `#${id}`)] as const
 function landmark(elements: readonly ShellElement[], selector: string): ShellElement {
   const matches = elements.filter(item => item.key === `${selector}[0]`)
   assert.equal(matches.length, 1, `Exactly one ${selector}`); return matches[0]!
@@ -238,6 +240,25 @@ export function assertMarketingPaint(elements: readonly ShellElement[], scenario
   }
 }
 export interface MarketingTextExtent { readonly selector: string; readonly fragments: readonly (readonly number[])[]; readonly client: readonly number[]; readonly scroll: readonly number[] }
+export function assertMarketingInstallNote(note: ShellElement, heading: ShellElement, extent: MarketingTextExtent, column: readonly number[], viewportWidth: number): void {
+  assert.equal(extent.selector, ".hraness-marketing-install__heading-group > .install-note")
+  assert.equal(note.styles["overflow-wrap"], "anywhere", "Archive URL wraps without changing its literal text")
+  assert.ok(note.rect.every(Number.isFinite) && note.rect[2]! > 0 && note.rect[3]! > 0)
+  assert.ok(column.length === 4 && column.every(Number.isFinite) && column[2]! > 0 && column[3]! > 0)
+  assert.ok(note.rect[0]! >= -.5 && note.rect[0]! + note.rect[2]! <= viewportWidth + .5, "Install note fits the viewport")
+  assert.ok(note.rect[0]! >= column[0]! - .5 && note.rect[1]! >= column[1]! - .5
+    && note.rect[0]! + note.rect[2]! <= column[0]! + column[2]! + .5
+    && note.rect[1]! + note.rect[3]! <= column[1]! + column[3]! + .5, "Install note stays inside its actual column")
+  near(heading.rect[0]!, note.rect[0]!, "Install heading and note share their column")
+  assert.ok(heading.rect[2]! <= note.rect[2]! + .5, "Install heading uses the contained column")
+  assert.ok(extent.fragments.length > 0 && extent.fragments.length <= 256)
+  assert.ok(extent.client.length === 2 && extent.scroll.length === 2 && [...extent.client, ...extent.scroll].every(value => Number.isFinite(value) && value > 0))
+  assert.ok(extent.scroll[0]! <= extent.client[0]! + 1 && extent.scroll[1]! <= extent.client[1]! + 1, "Complete install text has no concealed overflow")
+  for (const fragment of extent.fragments) assert.ok(fragment.length === 4 && fragment.every(Number.isFinite) && fragment[2]! > 0 && fragment[3]! > 0
+    && fragment[0]! >= note.rect[0]! - .5 && fragment[1]! >= note.rect[1]! - .5
+    && fragment[0]! + fragment[2]! <= note.rect[0]! + note.rect[2]! + .5
+    && fragment[1]! + fragment[3]! <= note.rect[1]! + note.rect[3]! + .5, "Every install text and archive URL fragment is visible")
+}
 export function assertMarketingProof(elements: readonly ShellElement[], extents: readonly MarketingTextExtent[]): void {
   const frame = landmark(elements, ".hraness-marketing-proof-frame"), chrome = landmark(elements, ".hraness-marketing-proof-frame__chrome")
   const content = landmark(elements, ".hraness-marketing-proof-frame__content"), transcript = landmark(elements, ".transcript"), caption = landmark(elements, ".hraness-marketing-proof-frame__caption")
@@ -331,7 +352,7 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
     assert.ok(proof.rect[2]! > 0 && proof.rect[3]! > 0 && proof.rect[0]! >= -.5 && proof.rect[0]! + proof.rect[2]! <= scenario.width + .5, `${selector} visible bounded proof`)
     assert.equal(proof.styles.visibility, "visible"); assert.equal(proof.styles.opacity, "1")
   }
-  const textExtents = await page.evaluate(() => [".transcript", ".hraness-marketing-proof-frame__caption"].map(selector => {
+  const textExtents = await page.evaluate(() => [".transcript", ".hraness-marketing-proof-frame__caption", ".hraness-marketing-install__heading-group > .install-note"].map(selector => {
     const owner = document.querySelector<HTMLElement>(selector)
     if (owner === null) throw new Error(`Missing text owner ${selector}`)
     const walker = document.createTreeWalker(owner, NodeFilter.SHOW_TEXT), fragments: number[][] = []
@@ -349,7 +370,11 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
     }
     return { selector, fragments, client: [owner.clientWidth, owner.clientHeight], scroll: [owner.scrollWidth, owner.scrollHeight] }
   }))
-  assertMarketingProof(original, textExtents)
+  assertMarketingProof(original, textExtents.slice(0, 2))
+  const installColumn = await page.locator(".hraness-marketing-install__heading-group").evaluate(element => {
+    const rect = element.getBoundingClientRect(); return [rect.x, rect.y + scrollY, rect.width, rect.height]
+  })
+  assertMarketingInstallNote(pick(".hraness-marketing-install__heading-group > .install-note"), pick("#install-title"), textExtents[2]!, installColumn, scenario.width)
   for (let index = 1; index < sections.length; index++) assert.ok(sections[index]!.rect[1]! >= sections[index - 1]!.rect[1]! + sections[index - 1]!.rect[3]! - .5, "Section order/clearance")
   assert.ok(hero.rect[1]! + hero.rect[3]! <= sections[0]!.rect[1]! + .5, "Hero clears install section")
   const copy = pick(".hraness-marketing-hero__copy"), frame = pick(".hraness-marketing-hero__frame")

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { marketingScope, marketingBaselineProfile, marketingBaselineRevision, marketingBaselineTree, marketingCases,
   marketingDeadlineMs, parseMarketingRequest, parseMarketingPhase, parseMarketingCaseFailure, marketingCaseFailure,
-  compareMarketingElements, headingSize, marketingHeadingIds, marketingSectionIds, assertMarketingPaint, assertMarketingProof, assertMarketingFlow,
+  compareMarketingElements, headingSize, marketingHeadingIds, marketingSectionIds, assertMarketingPaint, assertMarketingProof, assertMarketingFlow, assertMarketingInstallNote,
   type MarketingRequest, type MarketingTextExtent } from "./site-marketing-browser-contract"
 import { parseShellRequest, type ShellElement } from "./site-shell-browser-contract"
 import { assertMarketingBaselineManifest, assertMarketingFontInventory } from "./verify-site-marketing"
@@ -129,6 +129,26 @@ test("unchanged footer and Ask AI translate only by the measured main flow delta
   const actual = baseline.map((item, index) => ({ ...item, rect: index === 0 ? [20, 100, 200, 150] : [20, 150, 200, 100] }))
   expect(() => assertMarketingFlow(actual, baseline)).not.toThrow()
   expect(() => assertMarketingFlow(actual.map((item, index) => index === 2 ? { ...item, rect: [20, 175, 200, 100] } : item), baseline)).toThrow()
+})
+
+test("install archive text and heading remain contained after the editorial size change", () => {
+  const selector = ".hraness-marketing-install__heading-group > .install-note"
+  const note = { ...element(`${selector}[0]`, { "overflow-wrap": "anywhere" }), rect: [45, 200, 230, 100] }
+  const heading = { ...element("#install-title[0]"), rect: [45, 100, 230, 80] }
+  const extent = { selector, fragments: [[45, 200, 225, 20], [45, 220, 100, 20]], client: [230, 100], scroll: [230, 100] }
+  const column = [45, 100, 230, 200], viewport = 320
+  expect(() => assertMarketingInstallNote(note, heading, extent, column, viewport)).not.toThrow()
+  expect(() => assertMarketingInstallNote(note, { ...heading, rect: [45, 100, 557, 80] }, extent, column, viewport)).toThrow()
+  expect(() => assertMarketingInstallNote(note, heading, { ...extent, fragments: [[45, 200, 557, 20]] }, column, viewport)).toThrow()
+  expect(() => assertMarketingInstallNote(note, heading, { ...extent, scroll: [557, 100] }, column, viewport)).toThrow()
+  expect(() => assertMarketingInstallNote({ ...note, styles: { ...note.styles, "overflow-wrap": "normal" } }, heading, extent, column, viewport)).toThrow()
+  expect(() => assertMarketingInstallNote({ ...note, rect: [45, 200, 557, 100] }, heading,
+    { ...extent, client: [557, 100], scroll: [557, 100] }, column, viewport)).toThrow()
+  expect(() => assertMarketingInstallNote({ ...note, rect: [30, 200, 240, 100] }, { ...heading, rect: [30, 100, 230, 80] },
+    { ...extent, client: [240, 100], scroll: [240, 100] }, column, viewport)).toThrow()
+  const old = { ...note, styles: { ...note.styles, "overflow-wrap": "normal" }, rect: [45, 150, 557, 60] }
+  expect(() => compareMarketingElements([note], [old], "Only declared note wrapping and flow")).not.toThrow()
+  expect(() => compareMarketingElements([{ ...note, styles: { ...note.styles, color: "transparent" } }], [old], "Install note paint stays strict")).toThrow()
 })
 
 
