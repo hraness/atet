@@ -125,7 +125,7 @@ a {
 /* Bind the compiled shell header to Lantern chrome tokens. The static shell does not
  * carry the design-kit TopBar marker, so this scoped bridge keeps its glass paint
  * and blur identical to the canonical material without changing other headers. */
-:root[data-hraness-material="lantern"] .topbar.hraness-material-chrome {
+:root[data-hraness-material="lantern"] [class~="topbar"][class~="hraness-material-chrome"] {
   --hraness-material-chrome-paint: color-mix(in oklch, var(--surface, var(--ui-background, Canvas)) 90%, transparent);
   --hraness-material-chrome-blur: blur(20px) saturate(1.1);
 }
@@ -133,7 +133,7 @@ a {
 /* Keep the site-owned shell paint ahead of legacy vendor fallbacks. The
  * compiled header atoms still provide the variable-driven contract; this
  * selector only guarantees the Lantern value wins the final cascade. */
-:root[data-hraness-material="lantern"] header.topbar.hraness-material-chrome {
+:root[data-hraness-material="lantern"] header[class~="topbar"][class~="hraness-material-chrome"] {
   background-color: color-mix(in oklch, var(--surface, var(--ui-background, Canvas)) 90%, transparent);
   backdrop-filter: blur(20px) saturate(1.1);
 }
@@ -141,7 +141,7 @@ a {
 /* The standalone site stylesheet is loaded after the compiler graph. Keep a
  * matching owned hook there so the final page cascade cannot fall back to the
  * legacy 84% shell paint. */
-.topbar.hraness-material-chrome {
+[class~="topbar"][class~="hraness-material-chrome"] {
   background-color: color-mix(in oklch, var(--surface, var(--ui-background, Canvas)) 90%, transparent);
   backdrop-filter: blur(20px) saturate(1.1);
 }
