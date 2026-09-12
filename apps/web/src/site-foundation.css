@@ -9,8 +9,17 @@
 @import "@hraness/site-footer/compiler-foundation.css";
 @import "@hraness/design-kit/product-marketing.css";
 @import "../vendor/marketing-preset/product-marketing-preset.css";
+@import "../vendor/lantern-material/lantern-material.css";
 @import "./site-ua-compatibility.css" layer(base.slopcamera-ua);
 @import "../vendor/paper-theme/paper-theme.css" layer(components.slopcamera-legacy);
 @import "./styles.css" layer(components.slopcamera-legacy);
 @import "./site-ask-ai-compatibility.css";
 @import "./site-footer-compatibility.css";
+
+/* The shell paint must remain in the unlayered site-owned cascade so it wins
+   over the legacy layered vendor fallback while retaining the compiled atom
+   contract in site-shell.stylex.ts. */
+.topbar.hraness-material-chrome {
+  background-color: color-mix(in oklch, var(--surface, var(--ui-background, Canvas)) 90%, transparent);
+  backdrop-filter: blur(20px) saturate(1.1);
+}

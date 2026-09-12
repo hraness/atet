@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="system" data-hraness-theme="paper">
+<html lang="en" data-theme="system" data-hraness-theme="paper" data-hraness-material="lantern">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,7 +43,7 @@
   </head>
   <body>
     <a class="skip-link {{SITE_SKIP_CLASS}}" href="#main">Skip to content</a>
-    <header class="topbar {{SITE_HEADER_CLASS}}">
+    <header class="topbar hraness-material-chrome {{SITE_HEADER_CLASS}}">
       <a aria-label="Slopcamera home" class="wordmark {{SITE_WORDMARK_CLASS}}" href="/">Slopcamera</a>
       <div class="topbar-actions {{SITE_ACTIONS_CLASS}}">
         <nav aria-label="Primary" class="{{SITE_NAVIGATION_CLASS}}">
@@ -57,9 +57,9 @@
       </div>
     </header>
 
-    <main class="hraness-marketing-field" data-hraness-marketing-preset="editorial" id="main" tabindex="-1">
+    <main data-hraness-marketing-preset="editorial" id="main" tabindex="-1">
       <div class="hraness-marketing-page" data-hraness-marketing="page">
-        <header aria-labelledby="page-title" class="hraness-marketing-hero slopcamera-product-hero" data-align="start" data-hraness-marketing="hero" data-tone="paper">
+        <header aria-labelledby="page-title" class="hraness-marketing-hero slopcamera-product-hero hraness-material-wall" data-align="start" data-hraness-marketing="hero" data-tone="paper">
           <div class="hraness-marketing-hero__copy">
             <p class="hraness-marketing-hero__name">Slopcamera</p>
             <h1 class="hraness-marketing-hero__heading" id="page-title">Direct scenes and films with your coding agent</h1>
@@ -75,7 +75,7 @@
             <p class="hraness-marketing-hero__boundary">Free and open source under the MIT license · Source build · Bun 1.3.14 or newer · Recording needs macOS</p>
           </div>
           <div class="hraness-marketing-hero__frame">
-            <figure class="hraness-marketing-proof-frame" data-hraness-marketing="proof-frame">
+            <figure class="hraness-marketing-proof-frame hraness-material-pane" data-hraness-marketing="proof-frame">
               <div aria-hidden="true" class="hraness-marketing-proof-frame__chrome">
                 <span class="hraness-marketing-proof-frame__lights"><span></span><span></span><span></span></span>
                 <span class="hraness-marketing-proof-frame__title">slopcamera · your first local diagram</span>
@@ -244,15 +244,15 @@
             <h2 class="hraness-marketing-questions__heading" id="questions-title">Before you install.</h2>
           </header>
           <div class="hraness-marketing-question-list">
-            <details class="hraness-marketing-question"><summary>Does Slopcamera require an account or subscription?</summary><div class="hraness-marketing-question__answer"><p>No Slopcamera account or subscription exists. Slopcamera is free and open source under the MIT license. Model-backed generation uses caller-owned Vercel AI Gateway access.</p></div></details>
-            <details class="hraness-marketing-question"><summary>What does it cost?</summary><div class="hraness-marketing-question__answer"><p>Slopcamera is free. Editing, diagrams, vectorization, and exports run locally. Model usage is billed to your Vercel AI Gateway account.</p></div></details>
-            <details class="hraness-marketing-question"><summary>Where do my Gateway credentials live?</summary><div class="hraness-marketing-question__answer"><p>In the local CLI or SDK environment; never stored, printed, or sent to this website. A linked Vercel project can inject it for one command with <code>vercel env run -- &lt;command&gt;</code>.</p></div></details>
-            <details class="hraness-marketing-question"><summary>Which platforms does Slopcamera run on?</summary><div class="hraness-marketing-question__answer"><p>The CLI needs Bun 1.3.14+ on macOS, Linux, or Windows; recording needs macOS permissions. GPU, browser, codec, and engine requirements vary; <code>slopcamera doctor</code> and the <a href="https://github.com/hraness/slopcamera/blob/main/docs/reference/capabilities.md">capability reference</a> identify those requirements.</p></div></details>
-            <details class="hraness-marketing-question"><summary>Does Slopcamera overwrite original media?</summary><div class="hraness-marketing-question__answer"><p>Normal edit operations leave original recordings and imported media unchanged. Diagram rendering replaces its named derived outputs.</p></div></details>
-            <details class="hraness-marketing-question"><summary>When can local media leave the machine?</summary><div class="hraness-marketing-question__answer"><p>Editing and rendering stay local. Gateway generation and selected cloud analysis upload named media only after acknowledgement. Native Python and custom Bun workflows run with your current-user access, including potential network access.</p></div></details>
-            <details class="hraness-marketing-question"><summary>Which agents can use the skill, and how do I install it for Claude Code?</summary><div class="hraness-marketing-question__answer"><p>After the source build, <code>slopcamera skill install</code> installs its guide for Codex. Use <code>--target claude</code> for Claude Code or <code>--target agents</code> for other readers. Add <code>--scope project</code> inside a repository for a project-only install.</p></div></details>
-            <details class="hraness-marketing-question"><summary>Does the Slopcamera website generate or edit media?</summary><div class="hraness-marketing-question__answer"><p>No. The website explains and installs the local system. Media work runs through local tools; MCP exposes only its documented subset.</p></div></details>
-            <details class="hraness-marketing-question"><summary>Who made Slopcamera?</summary><div class="hraness-marketing-question__answer"><p>Ben Guo, who builds Hraness projects from Puerto Rico. The <a href="#maker">maker section</a> has the short version and links.</p></div></details>
+            <details class="hraness-marketing-question hraness-material-disclosure"><summary>Does Slopcamera require an account or subscription?</summary><div class="hraness-marketing-question__answer"><p>No Slopcamera account or subscription exists. Slopcamera is free and open source under the MIT license. Model-backed generation uses caller-owned Vercel AI Gateway access.</p></div></details>
+            <details class="hraness-marketing-question hraness-material-disclosure"><summary>What does it cost?</summary><div class="hraness-marketing-question__answer"><p>Slopcamera is free. Editing, diagrams, vectorization, and exports run locally. Model usage is billed to your Vercel AI Gateway account.</p></div></details>
+            <details class="hraness-marketing-question hraness-material-disclosure"><summary>Where do my Gateway credentials live?</summary><div class="hraness-marketing-question__answer"><p>In the local CLI or SDK environment; never stored, printed, or sent to this website. A linked Vercel project can inject it for one command with <code>vercel env run -- &lt;command&gt;</code>.</p></div></details>
+            <details class="hraness-marketing-question hraness-material-disclosure"><summary>Which platforms does Slopcamera run on?</summary><div class="hraness-marketing-question__answer"><p>The CLI needs Bun 1.3.14+ on macOS, Linux, or Windows; recording needs macOS permissions. GPU, browser, codec, and engine requirements vary; <code>slopcamera doctor</code> and the <a href="https://github.com/hraness/slopcamera/blob/main/docs/reference/capabilities.md">capability reference</a> identify those requirements.</p></div></details>
+            <details class="hraness-marketing-question hraness-material-disclosure"><summary>Does Slopcamera overwrite original media?</summary><div class="hraness-marketing-question__answer"><p>Normal edit operations leave original recordings and imported media unchanged. Diagram rendering replaces its named derived outputs.</p></div></details>
+            <details class="hraness-marketing-question hraness-material-disclosure"><summary>When can local media leave the machine?</summary><div class="hraness-marketing-question__answer"><p>Editing and rendering stay local. Gateway generation and selected cloud analysis upload named media only after acknowledgement. Native Python and custom Bun workflows run with your current-user access, including potential network access.</p></div></details>
+            <details class="hraness-marketing-question hraness-material-disclosure"><summary>Which agents can use the skill, and how do I install it for Claude Code?</summary><div class="hraness-marketing-question__answer"><p>After the source build, <code>slopcamera skill install</code> installs its guide for Codex. Use <code>--target claude</code> for Claude Code or <code>--target agents</code> for other readers. Add <code>--scope project</code> inside a repository for a project-only install.</p></div></details>
+            <details class="hraness-marketing-question hraness-material-disclosure"><summary>Does the Slopcamera website generate or edit media?</summary><div class="hraness-marketing-question__answer"><p>No. The website explains and installs the local system. Media work runs through local tools; MCP exposes only its documented subset.</p></div></details>
+            <details class="hraness-marketing-question hraness-material-disclosure"><summary>Who made Slopcamera?</summary><div class="hraness-marketing-question__answer"><p>Ben Guo, who builds Hraness projects from Puerto Rico. The <a href="#maker">maker section</a> has the short version and links.</p></div></details>
           </div>
         </section>
 

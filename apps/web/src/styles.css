@@ -122,6 +122,30 @@ a {
   text-underline-offset: 0.16em;
 }
 
+/* Bind the compiled shell header to Lantern chrome tokens. The static shell does not
+ * carry the design-kit TopBar marker, so this scoped bridge keeps its glass paint
+ * and blur identical to the canonical material without changing other headers. */
+:root[data-hraness-material="lantern"] [class~="topbar"][class~="hraness-material-chrome"] {
+  --hraness-material-chrome-paint: color-mix(in oklch, var(--surface, var(--ui-background, Canvas)) 90%, transparent);
+  --hraness-material-chrome-blur: blur(20px) saturate(1.1);
+}
+
+/* Keep the site-owned shell paint ahead of legacy vendor fallbacks. The
+ * compiled header atoms still provide the variable-driven contract; this
+ * selector only guarantees the Lantern value wins the final cascade. */
+:root[data-hraness-material="lantern"] header[class~="topbar"][class~="hraness-material-chrome"] {
+  background-color: color-mix(in oklch, var(--surface, var(--ui-background, Canvas)) 90%, transparent);
+  backdrop-filter: blur(20px) saturate(1.1);
+}
+
+/* The standalone site stylesheet is loaded after the compiler graph. Keep a
+ * matching owned hook there so the final page cascade cannot fall back to the
+ * legacy 84% shell paint. */
+[class~="topbar"][class~="hraness-material-chrome"] {
+  background-color: color-mix(in oklch, var(--surface, var(--ui-background, Canvas)) 90%, transparent);
+  backdrop-filter: blur(20px) saturate(1.1);
+}
+
 /* The homepage header action is outlined; its ink follows the header surface. */
 .topbar nav[aria-label="Primary"] > .site-action {
   --gold-ink: var(--ink);
@@ -199,18 +223,41 @@ h3 {
   --hraness-marketing-background: transparent;
 }
 
-/* The preset and field share main here. Bridge the v0.6.7 descendant-field
- * selector to the same finite role list without changing accent surfaces. */
-[data-hraness-marketing-preset="editorial"].hraness-marketing-field :where(
-  .hraness-marketing-page, .hraness-marketing-header, .hraness-marketing-hero,
-  .hraness-marketing-pillars, .hraness-marketing-install, .hraness-marketing-section,
-  .hraness-marketing-primitives, .hraness-marketing-stats, .hraness-marketing-interfaces,
-  .hraness-marketing-trust, .hraness-marketing-quotes, .hraness-marketing-pricing,
-  .hraness-marketing-questions, .hraness-marketing-maker, .hraness-marketing-cta,
-  .hraness-marketing-proof-frame
-):not([data-tone="accent"]) {
-  --hraness-marketing-ink: var(--hraness-marketing-field-ink);
-  --hraness-marketing-muted: var(--hraness-marketing-field-muted);
+/* Lantern changes paint only. Preserve the fixed transcript and native preview. */
+[data-hraness-material="lantern"] .hraness-material-wall {
+  background-size: auto, auto, auto, auto;
+}
+
+/* Retain the established question targets and focus geometry. */
+[data-hraness-material="lantern"] .hraness-material-disclosure > summary {
+  min-block-size: 3.25rem;
+  padding-block: 1rem;
+}
+[data-hraness-material="lantern"] .hraness-material-disclosure > summary:focus-visible {
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  [data-hraness-material="lantern"] .hraness-material-disclosure > summary {
+    min-block-size: 3rem;
+  }
+}
+
+[data-hraness-material="lantern"] .hraness-material-disclosure[open] > summary {
+  background-color: var(--hraness-material-warm-plane);
+  color: var(--hraness-material-ink);
+}
+
+[data-hraness-material="lantern"] .hraness-marketing-page ::selection {
+  background-color: var(--hraness-material-warm-plane);
+  color: var(--hraness-material-ink);
+}
+
+@media (forced-colors: active) {
+  [data-hraness-material="lantern"] .hraness-material-disclosure[open] > summary,
+  [data-hraness-material="lantern"] .hraness-marketing-page ::selection {
+    background-color: Highlight;
+    color: HighlightText;
+  }
 }
 
 .slopcamera-product-hero {

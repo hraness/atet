@@ -19,6 +19,7 @@ import { capturePreviewOutputTimeout, createPreviewEndpointWaiter, previewFailur
 import { shellContentType, shellRecord, siteShellHeaders, type ShellPayload } from "./site-shell-browser-contract"
 import { readShellSnapshot, assertShellSnapshotUnchanged, parseShellArguments, type ShellSnapshot, type ShellArtifact } from "./verify-site-shell"
 import { snapshotMarketingPreset } from "./marketing-preset"
+import { snapshotLanternMaterial } from "./lantern-material"
 import { parseMarketingCaseFailure as parseShellCaseFailure, parseMarketingPhase as parseShellPhase,
   parseMarketingRequest as parseShellRequest, marketingCases as siteShellCases, marketingDeadlineMs,
   marketingScope, marketingBaselineProfile, marketingBaselineRevision, marketingBaselineTree,
@@ -61,11 +62,14 @@ export function assertMarketingFontInventory(artifacts: readonly ShellArtifact[]
   assert.equal(fonts.length, ordinary.length + preview.length, "Font escaped its captured compiler graph")
   assert.equal(new Set(fonts.map(file => file.path)).size, fonts.length, "Duplicate font artifact")
 }
-interface MarketingSnapshot extends ShellSnapshot { readonly presetSourceCommit: string; readonly presetManifestSha256: string; readonly fieldAssets: readonly [string, string] }
+interface MarketingSnapshot extends ShellSnapshot { readonly presetSourceCommit: string; readonly presetManifestSha256: string; readonly fieldAssets: readonly [string, string]; readonly materialSourceCommit: string; readonly materialManifestSha256: string }
 async function readMarketingSnapshot(directory: string): Promise<MarketingSnapshot> {
   const snapshot = await readShellSnapshot(directory, true), vendor = join(directory, "vendor/marketing-preset")
   const preset = await snapshotMarketingPreset(vendor), manifest = await readPreviewFile(join(vendor, "provenance.json"), 32 * 1024)
-  const inputs = [...snapshot.inputs, ...[...preset.files].map(([path, bytes]) => ({ path: `vendor/marketing-preset/${path}`, bytes: bytes.byteLength, sha256: digest(bytes) })),
+  const material = await snapshotLanternMaterial(join(directory, "vendor/lantern-material"))
+  const materialManifest = await readPreviewFile(join(directory, "vendor/lantern-material/provenance.json"), 32 * 1024)
+  const inputs = [...snapshot.inputs, ...[...material.files].map(([path, bytes]) => ({ path: `vendor/lantern-material/${path}`, bytes: bytes.byteLength, sha256: digest(bytes) })),
+    { path: "vendor/lantern-material/provenance.json", bytes: materialManifest.byteLength, sha256: digest(materialManifest) }, ...[...preset.files].map(([path, bytes]) => ({ path: `vendor/marketing-preset/${path}`, bytes: bytes.byteLength, sha256: digest(bytes) })),
     { path: "vendor/marketing-preset/provenance.json", bytes: manifest.byteLength, sha256: digest(manifest) }].sort((a, b) => a.path.localeCompare(b.path))
   assertMarketingFontInventory(snapshot.artifacts)
   const fieldAssets: string[] = []
@@ -77,7 +81,7 @@ async function readMarketingSnapshot(directory: string): Promise<MarketingSnapsh
     if (name.endsWith(".svg")) fieldAssets.push(`/${matches[0]!.path}`)
   }
   assert.equal(fieldAssets.length, 2)
-  return { ...snapshot, inputs, presetSourceCommit: preset.sourceCommit, presetManifestSha256: digest(manifest), fieldAssets: fieldAssets as [string, string] }
+  return { ...snapshot, inputs, materialSourceCommit: material.sourceCommit, materialManifestSha256: digest(materialManifest), presetSourceCommit: preset.sourceCommit, presetManifestSha256: digest(manifest), fieldAssets: fieldAssets as [string, string] }
 }
 export function assertMarketingBaselineManifest(value: unknown, snapshot: ShellSnapshot): void {
   const manifest = shellRecord(value)
@@ -276,6 +280,7 @@ export async function verifySiteMarketing(args: readonly string[]): Promise<void
       return { ...observation.result, nativeBrowserZoom: false, reflowEquivalent: "1440x900 at 200% => 720x450 CSS viewport",
         productionHeaders: siteShellHeaders, internetRequestsAllowed: false, analytics: "unaltered scripts on neutral loopback origin",
         candidate, baselineIdentity, baselineManifestSha256: digest(manifestBefore), currentArtifacts: current.artifacts,
+        materialSourceCommit: current.materialSourceCommit, materialManifestSha256: current.materialManifestSha256,
         presetSourceCommit: current.presetSourceCommit, presetManifestSha256: current.presetManifestSha256,
         expectationsSha256: current.inputs.find(input => input.path === "scripts/site-marketing-browser-contract.ts")!.sha256 }
     }, async () => {

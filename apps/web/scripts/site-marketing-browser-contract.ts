@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { lanternHeaderAtoms, lanternPaintReference, observeLanternInteraction, projectLanternPaint, withLanternTransparency, type LanternPaint } from "./site-lantern-browser-contract"
 import { isAbsolute } from "node:path"
 import type { Page } from "playwright-core"
 import { assertShellNode, compareShellElements, compareShellEvidence, compareShellFocusedSkip, measure, resolvedShellTheme, settle,
@@ -6,7 +7,7 @@ import { assertShellNode, compareShellElements, compareShellEvidence, compareShe
   type ShellCase, type ShellElement, type ShellEvidence, type ShellPayload } from "./site-shell-browser-contract"
 
 /** Separately reviewed redesign contract. It never certifies historical parity. */
-export const marketingScope = "marketing-editorial-v1"
+export const marketingScope = "marketing-lantern-v2"
 export const marketingBaselineRevision = "bf1e1a905e81b24fe5c5a04f4fe9d75ea17521f9"
 export const marketingBaselineTree = "7669115d5cec5872bc17ae4498a6b040173eb300"
 export const marketingBaselineProfile = "marketing-before-editorial-bf1e1a9-v1"
@@ -75,8 +76,10 @@ export function parseMarketingPhase(value: unknown, sequence: 0 | 1 | 2, request
     assert.ok(Array.isArray(item.designCases) && item.designCases.length === marketingCases.length)
     item.designCases.forEach((sample, index) => {
       const observation = shellRecord(sample), scenario = marketingCases[index]!
-      keys(observation, ["name", "scope", "h1Px", "h2Px", "foundationRestored"])
-      assert.equal(observation.name, scenario.name); assert.equal(observation.scope, scenario.route === "/" ? "editorial-main" : "unchanged-404")
+      keys(observation, ["name", "scope", "h1Px", "h2Px", "foundationRestored", "materialStates", "transparencyRestored"])
+      assert.equal(observation.materialStates, scenario.route === "/")
+      assert.equal(observation.transparencyRestored, needsLanternTransparency(scenario))
+      assert.equal(observation.name, scenario.name); assert.equal(observation.scope, scenario.route === "/" ? "lantern-homepage" : "unchanged-404")
       assert.equal(observation.h1Px, scenario.route === "/" ? headingSize(scenario.width, 1) : null)
       assert.equal(observation.h2Px, scenario.route === "/" ? headingSize(scenario.width, 2) : null)
       assert.equal(observation.foundationRestored, scenario.route === "/" && scenario.width === 1440 && scenario.theme === "system" && scenario.system === "light")
@@ -105,19 +108,40 @@ export function headingSize(width: number, level: 1 | 2): number {
 }
 const near = (actual: string | number, expected: number, label: string, tolerance = .1) =>
   assert.ok(Math.abs(Number.parseFloat(String(actual)) - expected) <= tolerance, `${label}: ${actual} != ${expected}`)
-function normalizeMainOptIn(dom: string): string {
-  const current = '<main class="hraness-marketing-field" data-hraness-marketing-preset="editorial" id="main" tabindex="-1">'
+export function normalizeMainOptIn(dom: string): string {
+  const current = '<main data-hraness-marketing-preset="editorial" id="main" tabindex="-1">'
   assert.equal(dom.split(current).length, 2, "Exactly one reviewed main opt-in required")
-  return dom.replace(current, '<main id="main" tabindex="-1">')
+  const hooks = [
+    ['class="hraness-marketing-hero slopcamera-product-hero hraness-material-wall"', 'class="hraness-marketing-hero slopcamera-product-hero"', 1],
+    ['class="hraness-marketing-proof-frame hraness-material-pane"', 'class="hraness-marketing-proof-frame"', 1],
+    ['class="hraness-marketing-question hraness-material-disclosure"', 'class="hraness-marketing-question"', 9],
+  ] as const
+  let normalized = dom.replace(current, '<main id="main" tabindex="-1">')
+  for (const [from, to, count] of hooks) {
+    assert.equal(normalized.split(from).length - 1, count, "Exact material hook ownership and count")
+    normalized = normalized.replaceAll(from, to)
+  }
+  return normalized
 }
-/** Both sides already use the same compiled shell/install transport. Preserve
- * every actual class and attribute; only the declared main opening differs. */
+/** Preserve every authored class and attribute except the finite semantic
+ * opt-ins and three independently admitted compiled header paint atoms. */
 export async function marketingDom(page: Page, current: boolean): Promise<string> {
-  const dom = await page.evaluate(() => {
+  const atoms = await lanternHeaderAtoms(page, current)
+  const dom = await page.evaluate(({ atoms, current }) => {
     const root = document.body.cloneNode(true) as HTMLElement
     for (const script of root.querySelectorAll("script")) script.remove()
+    const header = root.querySelector(".topbar")
+    if (header === null) throw new Error("Missing header clone")
+    for (const atom of atoms) {
+      if (!header.classList.contains(atom)) throw new Error("Header atom disappeared")
+      header.classList.remove(atom)
+    }
+    if (current && root.querySelector('#main[data-hraness-marketing-preset="editorial"]') !== null) {
+      if (!header.classList.contains("hraness-material-chrome")) throw new Error("Missing chrome hook")
+      header.classList.remove("hraness-material-chrome")
+    }
     return root.outerHTML
-  })
+  }, { atoms, current })
   return current && await page.locator('#main[data-hraness-marketing-preset="editorial"]').count() === 1 ? normalizeMainOptIn(dom) : dom
 }
 /** Only document-flow Y moves for unchanged siblings below the redesigned main.
@@ -135,9 +159,10 @@ function translateSiblings(items: readonly ShellElement[], evidence: ShellEviden
 const geometryProperties = ["width", "height", "max-width", "margin-left", "margin-right", "grid-template-columns"] as const
 const spacingProperties = ["padding-top", "padding-bottom", "padding-left", "padding-right"] as const
 const headingProperties = ["font-family", "font-size", "font-weight", "line-height", "letter-spacing", "color", ...geometryProperties] as const
+const lanternWallProperties = ["background-position", "background-size", "background-repeat", "background-attachment", "background-origin", "background-clip"] as const
 export interface MarketingHeaderPaint { readonly color: string; readonly border: string; readonly background: string }
 export interface MarketingHeaderReference { readonly idle: MarketingHeaderPaint; readonly hover: MarketingHeaderPaint }
-export interface MarketingPaintReference { readonly ink: string; readonly line: string; readonly strongLine: string; readonly primaryInk: string; readonly header?: MarketingHeaderReference }
+export interface MarketingPaintReference { readonly ink: string; readonly line: string; readonly strongLine: string; readonly primaryInk: string; readonly header?: MarketingHeaderReference; readonly lantern?: LanternPaint }
 export interface MarketingPaintPair { readonly current: MarketingPaintReference; readonly baseline: MarketingPaintReference }
 const borderSides = ["top", "right", "bottom", "left"] as const
 const primaryActionKeys = [".hraness-marketing-hero__actions a[0]", ".hraness-marketing-cta__actions a[data-emphasis=\"primary\"][0]"] as const
@@ -172,7 +197,7 @@ export async function measureMarketingPaintReference(page: Page, scenario: Shell
     const main = document.querySelector("#main")
     if (main === null) throw new Error("Missing main color reference")
     const ink = mode === "baseline" ? getComputedStyle(main).color : forced ? getComputedStyle(document.documentElement).color
-      : dark ? "rgb(236, 238, 233)" : "rgb(36, 42, 47)"
+      : dark ? "rgb(245, 242, 237)" : "rgb(28, 25, 23)"
     const sample = (color: string) => {
       const element = document.createElement("span")
       element.style.display = "none"; element.style.color = color
@@ -210,6 +235,7 @@ export async function measureMarketingPaintReference(page: Page, scenario: Shell
 }
 export function assertMarketingDerivedPaint(elements: readonly ShellElement[], reference: MarketingPaintReference): void {
   for (const [key, contract] of Object.entries(marketingBorderPaint)) {
+    if (key === ".hraness-marketing-proof-frame[0]" && reference.lantern !== undefined) continue
     const matches = elements.filter(item => item.key === key); assert.equal(matches.length, 1, `Exactly one derived border owner ${key}`)
     for (const side of contract.sides) {
       assert.equal(matches[0]!.styles[`border-${side}-width`], "1px", `${key} retains its one-pixel ${side} border`)
@@ -229,7 +255,7 @@ export const marketingDifferenceMap: Readonly<Record<string, { readonly properti
   "body[0]": { properties: ["height"], axes: [3] },
   "#main[0]": { properties: ["height", "position", "color", "background-color", "background-image", "background-position", "background-size", "background-repeat"], axes: [3] },
   "#page-title[0]": { properties: headingProperties, axes: [0, 1, 2, 3] },
-  ".hraness-marketing-hero[0]": { properties: [...geometryProperties, ...spacingProperties, "color", "background-color", "background-image"], axes: [0, 1, 2, 3] },
+  ".hraness-marketing-hero[0]": { properties: [...geometryProperties, ...spacingProperties, "color", "background-color", "background-image", ...lanternWallProperties], axes: [0, 1, 2, 3] },
   ".hraness-marketing-hero__summary[0]": { properties: [...geometryProperties, "font-size", "line-height", "color"], axes: [0, 1, 2, 3] },
   ...Object.fromEntries(marketingSectionIds.map(id => [`#${id}[0]`, { properties: [...geometryProperties, ...spacingProperties, "color", ...(id === "install" ? ["border-radius"] : [])], axes: [0, 1, 2, 3] }])),
   ...Object.fromEntries(marketingHeadingIds.map(id => [`#${id}[0]`, { properties: headingProperties, axes: [0, 1, 2, 3] }])),
@@ -247,7 +273,8 @@ export const marketingDifferenceMap: Readonly<Record<string, { readonly properti
 })
 export function compareMarketingElements(actual: readonly ShellElement[], baseline: readonly ShellElement[], label: string, paint?: MarketingPaintPair): void {
   assert.deepEqual(actual.map(value => value.key), baseline.map(value => value.key), `${label}: exact landmark inventory`)
-  const projected = actual.map((item, index) => {
+  const material = paint?.current.lantern === undefined ? actual : projectLanternPaint(actual, baseline, paint.current.lantern)
+  const projected = material.map((item, index) => {
     const allowed = marketingDifferenceMap[item.key], old = baseline[index]!
     if (allowed === undefined) return item
     assert.ok(item.rect[2]! > 0 && item.rect[3]! > 0, `${label}: collapsed landmark ${item.key}`)
@@ -334,10 +361,11 @@ export function compareMarketingEvidence(actual: ShellEvidence, baseline: ShellE
   if (scenario.route === "/404.html") { compareShellEvidence(actual, baseline, scenario.name); return }
   assert.ok(paint?.current.header !== undefined && paint.baseline.header !== undefined, "Exact header paint references required")
   const header = { current: paint.current.header, baseline: paint.baseline.header }
-  assert.equal(normalizeMainOptIn(actual.dom), baseline.dom, "Copy, commands, logo and DOM outside the exact opt-in must remain unchanged")
+  assert.equal(normalizeMainOptIn(actual.dom), baseline.dom, "Copy, commands, logo and DOM outside the exact opt-ins must remain unchanged")
   assert.equal(actual.direction, baseline.direction); assert.equal(actual.recovery, baseline.recovery)
   assertMarketingFlow(actual.elements, baseline.elements)
-  compareMarketingElements(translateSiblings(projectMarketingHeaderRecords(actual.elements, baseline.elements, "idle", header, scenario), actual), translateSiblings(baseline.elements, baseline), `${scenario.name} finite design differences`, paint)
+  const materialElements = paint.current.lantern === undefined ? actual.elements : projectLanternPaint(actual.elements, baseline.elements, paint.current.lantern)
+  compareMarketingElements(translateSiblings(projectMarketingHeaderRecords(materialElements, baseline.elements, "idle", header, scenario), actual), translateSiblings(baseline.elements, baseline), `${scenario.name} finite design differences`, paint)
   compareShellFocusedSkip(actual.skip, baseline.skip, `${scenario.name} skip`)
   compareShellElements(translateSiblings(projectMarketingHeaderRecords(actual.focus, baseline.focus, "focus", header, scenario), actual), translateSiblings(baseline.focus, baseline), `${scenario.name} native focus`)
   compareShellElements(translateSiblings(projectMarketingHeaderRecords(actual.hover, baseline.hover, "hover", header, scenario), actual), translateSiblings(baseline.hover, baseline), `${scenario.name} native hover`)
@@ -446,14 +474,15 @@ export function assertMarketingProof(elements: readonly ShellElement[], extents:
 export async function measureMarketingDetails(page: Page, scenario: ShellCase): Promise<ShellElement[]> {
   return scenario.route === "/" ? measure(page, marketingDetailSelectors) : []
 }
-export interface MarketingObservation { readonly name: string; readonly scope: "editorial-main" | "unchanged-404"; readonly h1Px: number | null; readonly h2Px: number | null; readonly foundationRestored: boolean }
-export async function observeMarketingDesign(page: Page, scenario: ShellCase, payload: ShellPayload, fieldAssets: readonly [string, string], negative: boolean): Promise<{ observation: MarketingObservation; elements: readonly ShellElement[]; paint?: MarketingPaintReference }> {
+export interface MarketingObservation { readonly name: string; readonly scope: "lantern-homepage" | "unchanged-404"; readonly h1Px: number | null; readonly h2Px: number | null; readonly foundationRestored: boolean; readonly materialStates: boolean; readonly transparencyRestored: boolean }
+export const needsLanternTransparency = (scenario: ShellCase): boolean => scenario.route === "/" && (scenario.width === 390 || scenario.width === 1440) && scenario.theme !== "system" && scenario.direction === undefined && !scenario.coarse && scenario.forced === "none"
+export async function observeMarketingDesign(page: Page, scenario: ShellCase, payload: ShellPayload, _fieldAssets: readonly [string, string], negative: boolean): Promise<{ observation: MarketingObservation; elements: readonly ShellElement[]; paint?: MarketingPaintReference }> {
   if (scenario.route === "/404.html") {
-    assert.equal(await page.locator('[data-hraness-marketing-preset],.hraness-marketing-field').count(), 0)
-    return { observation: { name: scenario.name, scope: "unchanged-404", h1Px: null, h2Px: null, foundationRestored: false }, elements: [] }
+    assert.equal(await page.locator('[data-hraness-marketing-preset],.hraness-marketing-field,[data-hraness-material],[class*="hraness-material-"]').count(), 0)
+    return { observation: { name: scenario.name, scope: "unchanged-404", h1Px: null, h2Px: null, foundationRestored: false, materialStates: false, transparencyRestored: false }, elements: [] }
   }
   assert.equal(await page.locator('[data-hraness-marketing-preset]').count(), 1)
-  assert.equal(await page.locator('#main[data-hraness-marketing-preset="editorial"].hraness-marketing-field').count(), 1)
+  assert.equal(await page.locator('html[data-hraness-material="lantern"] #main[data-hraness-marketing-preset="editorial"]').count(), 1)
   assert.equal(await page.locator('.topbar[data-hraness-marketing-preset]').count(), 0)
   const selectors = marketingDetailSelectors
   const original = await measureMarketingDetails(page, scenario), pick = (key: string) => {
@@ -487,9 +516,24 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
   const phone = scenario.width <= 760
   near(hero.styles["padding-top"]!, phone ? 44 : 56, "Hero top rhythm")
   near(hero.styles["padding-bottom"]!, phone ? 72 : 64, "Hero bottom rhythm")
-  const canvas = await page.evaluate(() => ({ color: getComputedStyle(document.documentElement).color, background: getComputedStyle(document.documentElement).backgroundColor }))
-  assertMarketingPaint(original, scenario, fieldAssets, payload.origin, canvas)
-  const paint = await measureMarketingPaintReference(page, scenario, "current"); assert.ok(paint !== undefined)
+  assert.equal(await page.locator(".hraness-marketing-field").count(), 0)
+  assert.equal(await page.locator(".hraness-material-wall").count(), 1)
+  assert.equal(await page.locator(".hraness-marketing-hero.hraness-material-wall").count(), 1)
+  assert.equal(await page.locator(".hraness-material-pane").count(), 1)
+  const reference = await lanternPaintReference(page, scenario)
+  const basePaint = await measureMarketingPaintReference(page, scenario, "current"); assert.ok(basePaint !== undefined)
+  const paint = { ...basePaint, lantern: reference }
+  const material = [...original, ...(await measure(page, [".topbar"]))]
+  projectLanternPaint(material, material, reference)
+  assert.equal(field.styles["background-image"], "none", "Material is confined to hero")
+  assert.equal(field.styles.position, "static", "Plain document main")
+  const dark = resolvedShellTheme(scenario.theme, scenario.system) === "dark"
+  const muted = scenario.forced === "active" ? reference.pane.color : dark ? "rgb(170, 162, 154)" : "rgb(108, 102, 95)"
+  for (const item of original.filter(item => ["#main[0]", "#page-title[0]", ...marketingHeadingIds.map(id => `#${id}[0]`), ...marketingSectionIds.map(id => `#${id}[0]`),
+    ".hraness-marketing-hero[0]", ".hraness-marketing-hero__copy[0]", ".hraness-marketing-hero__frame[0]", ".hraness-marketing-proof-frame[0]", ".hraness-marketing-proof-frame__content[0]"].includes(item.key)))
+    assert.equal(item.styles.color, reference.pane.color, `${item.key} exact Paper foreground`)
+  for (const selector of [".hraness-marketing-hero__summary", ".hraness-marketing-proof-frame__chrome", ".hraness-marketing-proof-frame__caption"])
+    assert.equal(pick(selector).styles.color, muted, `${selector} exact Paper secondary ink`)
   assertMarketingDerivedPaint(original, paint)
   const summary = pick(".hraness-marketing-hero__summary")
   near(summary.styles["font-size"]!, 17, "Summary size"); near(summary.styles["line-height"]!, 27.2, "Summary leading")
@@ -500,7 +544,7 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
   }
   const sections = marketingSectionIds.map(id => pick(`#${id}`)), gutter = phone ? 20 : 32
   near(pick("#install").styles["border-radius"]!, 10, "Canonical install frame radius")
-  near(pick(".hraness-marketing-proof-frame").styles["border-radius"]!, 10, "Canonical proof frame radius")
+  near(pick(".hraness-marketing-proof-frame").styles["border-radius"]!, 14, "Canonical Lantern pane radius")
   for (const section of [hero, ...sections]) {
     near(section.rect[2]!, Math.min(section.key === "#install[0]" ? scenario.width - 2 * gutter : scenario.width, 1120), `${section.key} measure`)
     const inset = section.key === "#install[0]" ? Math.min(40, Math.max(24, scenario.width * .04)) : gutter
@@ -575,5 +619,18 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
     compareShellElements(await measure(page, selectors), original, "Exact restored editorial foundation")
     compareShellElements(await measure(page, [".topbar", ".wordmark"]), shellBefore, "Exact restored shell foundation")
   }
-  return { observation: { name: scenario.name, scope: "editorial-main", h1Px: expectedH1, h2Px: expectedH2, foundationRestored: negative }, elements: original, paint }
+  await observeLanternInteraction(page, scenario, reference)
+  if (needsLanternTransparency(scenario)) {
+    await withLanternTransparency(page, async () => {
+      await settle(page, scenario.direction)
+      const reduced = await lanternPaintReference(page, scenario, true)
+      const observed = await measure(page, [".topbar", ".hraness-marketing-hero", ".hraness-marketing-proof-frame"])
+      projectLanternPaint(observed, observed, reduced)
+    })
+    await settle(page, scenario.direction)
+    compareShellElements(await measure(page, selectors), original, "Exact restored transparency preference")
+    projectLanternPaint(await measure(page, [".topbar"]), await measure(page, [".topbar"]), reference)
+  }
+  return { observation: { name: scenario.name, scope: "lantern-homepage", h1Px: expectedH1, h2Px: expectedH2, foundationRestored: negative,
+    materialStates: true, transparencyRestored: needsLanternTransparency(scenario) }, elements: original, paint }
 }

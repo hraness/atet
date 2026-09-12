@@ -1,12 +1,13 @@
 import { expect, test } from "bun:test"
 import { marketingScope, marketingBaselineProfile, marketingBaselineRevision, marketingBaselineTree, marketingCases,
-  marketingDeadlineMs, parseMarketingRequest, parseMarketingPhase, parseMarketingCaseFailure, marketingCaseFailure,
+  marketingDeadlineMs, needsLanternTransparency, normalizeMainOptIn, parseMarketingRequest, parseMarketingPhase, parseMarketingCaseFailure, marketingCaseFailure,
   compareMarketingElements, headingSize, marketingHeadingIds, marketingSectionIds, assertMarketingPaint, assertMarketingProof, assertMarketingFlow, assertMarketingInstallNote,
   assertMarketingDerivedPaint, marketingPrimaryContrast, marketingHeaderColors, assertMarketingHeaderPaint, projectMarketingHeaderAction,
   type MarketingHeaderPaint, type MarketingRequest, type MarketingTextExtent } from "./site-marketing-browser-contract"
 import { compareShellElements, parseShellRequest, type ShellElement } from "./site-shell-browser-contract"
 import { assertMarketingBaselineManifest, assertMarketingFontInventory } from "./verify-site-marketing"
 import type { ShellSnapshot } from "./verify-site-shell"
+import { normalizeLanternPaintValue, normalizeLanternWallImage } from "./site-lantern-browser-contract"
 
 function request(): MarketingRequest {
   const finalCss = `/assets/site-${"a".repeat(64)}.css`
@@ -22,8 +23,9 @@ function result(input = request()) {
     sequence: 2, kind: "result", node: "24.18.1", playwright: "1.62.0", browser: "151.0.7922.34",
     cases: marketingCases.map(value => value.name), comparison: "unchanged-shell-and-copy-with-reviewed-homepage-design", closed: true,
     negativeControls: ["/-final-css", "/-foundation-css", "/404.html-final-css"],
-    designCases: marketingCases.map(value => ({ name: value.name, scope: value.route === "/" ? "editorial-main" : "unchanged-404",
+    designCases: marketingCases.map(value => ({ name: value.name, scope: value.route === "/" ? "lantern-homepage" : "unchanged-404",
       h1Px: value.route === "/" ? headingSize(value.width, 1) : null, h2Px: value.route === "/" ? headingSize(value.width, 2) : null,
+      materialStates: value.route === "/", transparencyRestored: needsLanternTransparency(value),
       foundationRestored: value.route === "/" && value.width === 1440 && value.theme === "system" && value.system === "light" })) }
 }
 test("new design protocol cannot enter historical parity and refuses scope/payload ambiguity", () => {
@@ -46,6 +48,33 @@ test("terminal proof requires all 76 cases, actual design observations and both 
     { designCases: complete.designCases.map((item, index) => index === 0 ? { ...item, h1Px: 16 } : item) }, { baselineCompared: true }]) {
     expect(() => parseMarketingPhase({ ...complete, ...patch }, 2, input)).toThrow()
   }
+})
+test("Lantern DOM normalization admits only the finite reviewed opt-in hooks", () => {
+  const dom = '<main data-hraness-marketing-preset="editorial" id="main" tabindex="-1"><header class="topbar xborder xbackground xbackdrop"><div class="hraness-marketing-hero slopcamera-product-hero hraness-material-wall"></div><figure class="hraness-marketing-proof-frame hraness-material-pane"></figure>'
+    + '<details class="hraness-marketing-question hraness-material-disclosure"></details>'.repeat(9) + '</main>'
+  const normalized = normalizeMainOptIn(dom)
+  expect(normalized).not.toContain("hraness-material-")
+  expect(normalized).toContain('<main id="main" tabindex="-1">')
+  expect(normalized).toContain('class="topbar xborder xbackground xbackdrop"')
+  expect(() => normalizeMainOptIn(dom.replace("hraness-material-pane", "hraness-material-pane extra"))).toThrow()
+})
+test("Lantern wall normalization collapses only near-white serialization epsilon", () => {
+  const expected = "linear-gradient(oklch(.999994 .0000497986 none / .16), oklch(.4 .1 none / .2))"
+  const actual = "linear-gradient(oklch(1 5.96e-8 none / .16), oklch(.4 .1 none / .2))"
+  expect(normalizeLanternWallImage(actual)).toBe(normalizeLanternWallImage(expected))
+  expect(normalizeLanternWallImage(actual)).toContain("oklch(.4 .1 none / .2)")
+  expect(normalizeLanternWallImage(actual.replace(".16", ".17"))).not.toBe(normalizeLanternWallImage(expected))
+  expect(normalizeLanternWallImage(actual.replace(".1 none", ".1002 none"))).not.toBe(normalizeLanternWallImage(expected))
+})
+test("Lantern paint normalization also collapses near-black epsilon without broad color tolerance", () => {
+  expect(normalizeLanternPaintValue("inset 0 1px 0 oklch(5.96e-8 5.96e-8 none / .28)"))
+    .toBe("inset 0 1px 0 oklch(0 0 none / .28)")
+  expect(normalizeLanternPaintValue("inset 0 1px 0 oklch(0 none none / .28)"))
+    .toBe("inset 0 1px 0 oklch(0 0 none / .28)")
+  expect(normalizeLanternPaintValue("oklch(.0002 0 none / .28)"))
+    .toBe("oklch(.0002 0 none / .28)")
+  expect(normalizeLanternPaintValue("oklch(0 .0002 none / .28)"))
+    .toBe("oklch(0 .0002 none / .28)")
 })
 test("failure receipt names only the fully completed prefix and cannot impersonate success", () => {
   const input = request(), prefix = marketingCases.slice(0, 3).map(value => value.name)
@@ -191,7 +220,7 @@ test("only the three main field layers expand unchanged default background longh
   expect(() => compareMarketingElements([changed], [old], "three unchanged field defaults")).not.toThrow()
   for (const [key, value] of [["background-attachment", "scroll, fixed, scroll"], ["background-origin", "content-box, padding-box, padding-box"], ["background-clip", "border-box, border-box"]])
     expect(() => compareMarketingElements([{ ...changed, styles: { ...changed.styles, [key!]: value! } }], [old], "layer regression")).toThrow()
-  expect(() => compareMarketingElements([{ ...changed, key: ".hraness-marketing-hero[0]" }], [{ ...old, key: ".hraness-marketing-hero[0]" }], "unlisted layer owner")).toThrow()
+  expect(() => compareMarketingElements([{ ...changed, key: ".hraness-marketing-hero__summary[0]" }], [{ ...old, key: ".hraness-marketing-hero__summary[0]" }], "unlisted layer owner")).toThrow()
 })
 test("proof requires complete six-line readable extent and text containment, not merely positive dimensions", () => {
   const block = (selector: string, rect: number[], styles: Record<string, string> = {}): ShellElement => ({ ...element(`${selector}[0]`, styles), rect })
