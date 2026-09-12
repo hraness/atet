@@ -468,7 +468,17 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
       sheet.disabled = true; return sheet
     }, `${payload.origin}${payload.stylesheets[0]}`)
     try {
-      await settle(page, scenario.direction)
+      // This deliberate removal also unregisters the foundation's FontFaces.
+      // Settle only this held disabled state; normal/restore paths still use
+      // the original strict local-font admission below.
+      await foundation.evaluate(async sheet => {
+        const assertDisabled = () => {
+          if (!(sheet instanceof CSSStyleSheet) || ![...document.styleSheets].includes(sheet) || !sheet.disabled) throw new Error("Lost disabled foundation identity")
+        }
+        assertDisabled()
+        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+        assertDisabled()
+      })
       const disabled = await measure(page, ["#main", "#page-title"])
       assert.ok(disabled[0]!.styles["background-image"] !== field.styles["background-image"] || disabled[1]!.styles["font-family"] !== h1.styles["font-family"], "Foundation removal must expose the actual preset dependency")
     } finally {
