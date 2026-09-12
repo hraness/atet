@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { checkLanternMaterialSnapshot } from "../vendor/lantern-material/check.mjs";
+
+await checkLanternMaterialSnapshot(fileURLToPath(new URL("../vendor/lantern-material/", import.meta.url)));
 
 // Offline integrity only: upgrades use the reviewed source's snapshot installer.
 const directories = ["vendor/paper-theme", "../desktop/frontend/vendor/paper-theme"];

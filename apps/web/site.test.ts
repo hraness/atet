@@ -670,6 +670,10 @@ describe("static Slopcamera site", () => {
         expect(classes).toBeDefined()
         expect(classes!.length).toBeGreaterThan(0)
         for (const name of classes!) {
+          if (marker === "topbar" && path === "index.html" && name === "hraness-material-chrome") {
+            expect(foundation).toContain(".hraness-material-chrome")
+            continue
+          }
           expect(name).toMatch(/^x[A-Za-z0-9_-]+$/u)
           expect(union).toContain("." + name)
         }
@@ -905,7 +909,7 @@ describe("static Slopcamera site", () => {
     expect(html).toContain('<a class="skip-link {{SITE_SKIP_CLASS}}" href="#main">')
     expect(html).toContain('<nav aria-label="Primary" class="{{SITE_NAVIGATION_CLASS}}">')
     expect(html).toContain('<div class="topbar-actions {{SITE_ACTIONS_CLASS}}">')
-    expect(html).toContain('<main class="hraness-marketing-field" data-hraness-marketing-preset="editorial" id="main" tabindex="-1">')
+    expect(html).toContain('<main data-hraness-marketing-preset="editorial" id="main" tabindex="-1">')
     expect(html).not.toMatch(/<section(?![^>]*aria-labelledby)/)
     expect(fragmentLinks.every(fragment => ids.has(fragment))).toBe(true)
     expect(notFound.match(/<h1\b/gu)).toHaveLength(1)
@@ -959,6 +963,7 @@ describe("static Slopcamera site", () => {
     expect(builtAssets.siteAttributions.map(item => item.path)).toEqual([
       "marketing-preset/LICENSE", "marketing-preset/fonts/instrument-serif/OFL.txt",
       "marketing-preset/fonts/instrument-serif/UPSTREAM.md", "marketing-preset/marketing-assets/UPSTREAM.md",
+      "lantern-material/LICENSE",
     ])
     for (const item of builtAssets.siteAttributions) {
       const bytes = await readFile(join(appDirectory, "dist", item.path))
@@ -985,12 +990,14 @@ describe("static Slopcamera site", () => {
     expect(css).not.toMatch(/@font-face|url\([^)]*\.woff/)
     expect(html).toContain('<h1 class="hraness-marketing-hero__heading" id="page-title">Direct scenes and films with your coding agent</h1>')
     expect(html).toContain('data-hraness-marketing="proof-frame"')
-    expect(html).toContain('<main class="hraness-marketing-field" data-hraness-marketing-preset="editorial"')
+    expect(html).toContain('<main data-hraness-marketing-preset="editorial"')
+    expect(html).toContain('data-hraness-material="lantern"')
+    expect(html).not.toContain('class="hraness-marketing-field"')
     expect(await readSource("404.html")).not.toContain("data-hraness-marketing-preset")
     expect(await readSource("preview.html")).not.toContain("data-hraness-marketing-preset")
     expect(html).toContain("Built by Ben Guo")
     expect(html).not.toContain('class="hraness-marketing-hero__eyebrow"')
-    expect(html).toContain('class="hraness-marketing-hero slopcamera-product-hero" data-align="start"')
+    expect(html).toContain('class="hraness-marketing-hero slopcamera-product-hero hraness-material-wall" data-align="start"')
     expect(css).toContain("grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr)")
     expect(css).toContain("overflow-wrap: anywhere")
     expect(html).not.toMatch(/<h1[^>]*>[^<]*(?:bounded|exact|authority|custody|immutable|inspectable|canonical|projection|receipt)/iu)
@@ -1345,6 +1352,7 @@ describe("static Slopcamera site", () => {
       "icon.svg",
       "index.html",
       "index.md",
+      "lantern-material",
       "llms.txt",
       "marketing-preset",
       "og.png",

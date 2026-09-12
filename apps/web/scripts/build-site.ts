@@ -15,6 +15,7 @@ import { inspectSiteCssResources } from "./site-css"
 import { readPreviewFile as bytesAt } from "./preview-file"
 import { projectSiteArtifacts, siteSha256, snapshotSiteFoundation, type SiteArtifact } from "./site-contract"
 import { snapshotMarketingPreset } from "./marketing-preset"
+import { snapshotLanternMaterial } from "./lantern-material"
 import type { SiteAssets } from "../src/site-content"
 
 const packages = [
@@ -33,7 +34,7 @@ const sourceFiles = [
   "src/site-renderer.ts", "src/site-template.ts", "src/site-content.ts", "src/published-release.ts",
   "src/site-foundation.ts", "src/site-foundation.css", "src/site-ua-compatibility.css", "src/site-ask-ai-compatibility.css", "src/site-footer-compatibility.css", "src/styles.css",
   "vendor/paper-theme/paper-theme.css",
-  "scripts/build.ts", "scripts/build-site.ts", "scripts/site-contract.ts", "scripts/site-css.ts", "scripts/marketing-preset.ts", "scripts/preview-css.ts", "scripts/preview-file.ts",
+  "scripts/build.ts", "scripts/build-site.ts", "scripts/site-contract.ts", "scripts/site-css.ts", "scripts/marketing-preset.ts", "scripts/lantern-material.ts", "scripts/preview-css.ts", "scripts/preview-file.ts",
 ] as const
 
 function below(root: string, path: string): string {
@@ -80,6 +81,9 @@ export async function buildSite(appDirectory: string, assets: SiteAssets): Promi
   const presetRoot = join(app, "vendor/marketing-preset")
   const preset = await snapshotMarketingPreset(presetRoot)
   const presetPaths = [...preset.files.keys()]
+  const materialRoot = join(app, "vendor/lantern-material")
+  const material = await snapshotLanternMaterial(materialRoot)
+  const materialPaths = [...material.files.keys(), "provenance.json"]
   const fonts = await Promise.all(fontFiles.map(async path => {
     const absolute = join(dirname(fontCss), "fonts", path)
     const bytes = await bytesAt(absolute, 2 * 1024 * 1024)
@@ -91,14 +95,14 @@ export async function buildSite(appDirectory: string, assets: SiteAssets): Promi
   })
   fonts.push(...presetAssets.filter(item => item.path.endsWith(".woff2")))
   const images = presetAssets.filter(item => item.path.endsWith(".svg"))
-  const sourcePaths = [...sourceFiles.map(path => join(app, path)), ...[...presetPaths, "provenance.json"].map(path => join(presetRoot, path)), ...packageInputs.map(item => item.path), fontCss,
+  const sourcePaths = [...sourceFiles.map(path => join(app, path)), ...[...presetPaths, "provenance.json"].map(path => join(presetRoot, path)), ...materialPaths.map(path => join(materialRoot, path)), ...packageInputs.map(item => item.path), fontCss,
     ...(root === app ? [] : [join(root, "package.json"), join(root, "bun.lock")])]
   const inputs = await Promise.all(sourcePaths.map(async path => ({
     path: below(root, path), bytes: await bytesAt(path, 2 * 1024 * 1024),
   })))
   const snapshot = inputs.map(({ path, bytes }) => ({ path, bytes: bytes.byteLength, sha256: siteSha256(bytes) }))
   const fingerprint = siteSha256(canonicalJson({
-    assets, bun: Bun.version, compilerSha256, fonts, images, inputs: snapshot, marketingSourceCommit: preset.sourceCommit,
+    assets, bun: Bun.version, compilerSha256, fonts, images, inputs: snapshot, marketingSourceCommit: preset.sourceCommit, materialSourceCommit: material.sourceCommit,
     unionPolicySha256: stylexUnionPolicySha256, vite: viteVersion,
   }))
   const finalCssPath = `assets/site-${fingerprint}.css`
@@ -158,6 +162,8 @@ export async function buildSite(appDirectory: string, assets: SiteAssets): Promi
       const bytes = preset.files.get(path)!
       return { artifact: { path: `marketing-preset/${path}`, bytes: bytes.byteLength, sha256: siteSha256(bytes) }, bytes }
     })
+    const materialLicense = material.files.get("LICENSE")!
+    attributions.push({ artifact: { path: "lantern-material/LICENSE", bytes: materialLicense.byteLength, sha256: siteSha256(materialLicense) }, bytes: materialLicense })
     return { evidenceDirectory: finalized, files, attributions, foundationPath: `/${foundation.cssPath}`, stylesPath: `/${finalCssPath}` }
   } catch (error) {
     throw new Error(`Site compilation failed; retained evidence: ${outputDirectory}`, { cause: error })

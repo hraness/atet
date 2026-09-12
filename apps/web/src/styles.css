@@ -199,18 +199,41 @@ h3 {
   --hraness-marketing-background: transparent;
 }
 
-/* The preset and field share main here. Bridge the v0.6.7 descendant-field
- * selector to the same finite role list without changing accent surfaces. */
-[data-hraness-marketing-preset="editorial"].hraness-marketing-field :where(
-  .hraness-marketing-page, .hraness-marketing-header, .hraness-marketing-hero,
-  .hraness-marketing-pillars, .hraness-marketing-install, .hraness-marketing-section,
-  .hraness-marketing-primitives, .hraness-marketing-stats, .hraness-marketing-interfaces,
-  .hraness-marketing-trust, .hraness-marketing-quotes, .hraness-marketing-pricing,
-  .hraness-marketing-questions, .hraness-marketing-maker, .hraness-marketing-cta,
-  .hraness-marketing-proof-frame
-):not([data-tone="accent"]) {
-  --hraness-marketing-ink: var(--hraness-marketing-field-ink);
-  --hraness-marketing-muted: var(--hraness-marketing-field-muted);
+/* Lantern changes paint only. Preserve the fixed transcript and native preview. */
+[data-hraness-material="lantern"] .hraness-material-wall {
+  background-size: auto, auto, auto, auto;
+}
+
+/* Retain the established question targets and focus geometry. */
+[data-hraness-material="lantern"] .hraness-material-disclosure > summary {
+  min-block-size: 3.25rem;
+  padding-block: 1rem;
+}
+[data-hraness-material="lantern"] .hraness-material-disclosure > summary:focus-visible {
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  [data-hraness-material="lantern"] .hraness-material-disclosure > summary {
+    min-block-size: 3rem;
+  }
+}
+
+[data-hraness-material="lantern"] .hraness-material-disclosure[open] > summary {
+  background-color: var(--hraness-material-warm-plane);
+  color: var(--hraness-material-ink);
+}
+
+[data-hraness-material="lantern"] .hraness-marketing-page ::selection {
+  background-color: var(--hraness-material-warm-plane);
+  color: var(--hraness-material-ink);
+}
+
+@media (forced-colors: active) {
+  [data-hraness-material="lantern"] .hraness-material-disclosure[open] > summary,
+  [data-hraness-material="lantern"] .hraness-marketing-page ::selection {
+    background-color: Highlight;
+    color: HighlightText;
+  }
 }
 
 .slopcamera-product-hero {
