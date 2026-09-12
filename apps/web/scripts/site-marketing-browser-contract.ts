@@ -302,7 +302,7 @@ export function projectMarketingHeaderAction(item: ShellElement, old: ShellEleme
   assertMarketingHeaderPaint(item, current, `${label} current`)
   assertMarketingHeaderPaint(old, baseline, `${label} baseline`)
   assert.equal(item.key, old.key)
-  const styles = { ...item.styles, color: old.styles.color! }
+  const styles: Record<string, string> = { ...item.styles, color: old.styles.color! }
   for (const side of borderSides) styles[`border-${side}-color`] = old.styles[`border-${side}-color`]!
   for (const [style, color] of [["text-decoration-line", "text-decoration-color"], ["outline-style", "outline-color"]]) {
     if (old.styles[style!] === "none" && item.styles[style!] === "none"
