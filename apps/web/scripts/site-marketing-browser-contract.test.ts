@@ -98,15 +98,26 @@ test("every admitted field paint change is positive, including H2 transparency a
   elements.push(...[".hraness-marketing-hero__summary", ".hraness-marketing-proof-frame__chrome", ".hraness-marketing-proof-frame__caption"].map(selector => element(`${selector}[0]`, { color: muted })))
   const field = elements[0]!
   elements[0] = { ...field, styles: { ...field.styles, position: "relative", "background-image": `url("${origin}/grain.svg"), url("${origin}/cells.svg"), linear-gradient(rgb(240, 239, 234) 0%, rgb(220, 225, 223) 34%, rgb(201, 211, 221) 70%, rgb(227, 231, 232) 100%)`,
-    "background-size": "64px 64px, 266.667%, 100% 100%", "background-position": "0px 0px, 50% 0%, 0px 0px", "background-repeat": "repeat, repeat, repeat" } }
+    "background-size": "64px 64px, 266.667%, 100% 100%", "background-position": "0px 0px, 50% 0%, 0px 0px", "background-repeat": "repeat, repeat, repeat",
+    "background-attachment": "scroll, scroll, scroll", "background-origin": "padding-box, padding-box, padding-box", "background-clip": "border-box, border-box, border-box" } }
   const canvas = { color: "rgb(0, 0, 0)", background: "rgb(255, 255, 255)" }
   expect(() => assertMarketingPaint(elements, scenario, assets, origin, canvas)).not.toThrow()
   for (const [key, property, value] of [["#workflow-title[0]", "color", "rgba(0, 0, 0, 0)"], ["#main[0]", "background-size", "0px 0px, 0px 0px, 0px 0px"],
     ["#main[0]", "background-position", "10000px 0px, 50% 0%, 0px 0px"], ["#main[0]", "background-repeat", "no-repeat"],
+    ["#main[0]", "background-attachment", "scroll, fixed, scroll"], ["#main[0]", "background-origin", "content-box, padding-box, padding-box"],
+    ["#main[0]", "background-clip", "border-box, border-box"],
     [".hraness-marketing-proof-frame__caption[0]", "color", "red"], [".hraness-marketing-hero[0]", "background-color", "red"]]) {
     const changed = elements.map(item => item.key === key ? { ...item, styles: { ...item.styles, [property!]: value! } } : item)
     expect(() => assertMarketingPaint(changed, scenario, assets, origin, canvas)).toThrow()
   }
+})
+test("only the three main field layers expand unchanged default background longhands", () => {
+  const defaults = { "background-attachment": "scroll", "background-origin": "padding-box", "background-clip": "border-box" }
+  const old = element("#main[0]", defaults), changed = element("#main[0]", Object.fromEntries(Object.entries(defaults).map(([key, value]) => [key, [value, value, value].join(", ")])))
+  expect(() => compareMarketingElements([changed], [old], "three unchanged field defaults")).not.toThrow()
+  for (const [key, value] of [["background-attachment", "scroll, fixed, scroll"], ["background-origin", "content-box, padding-box, padding-box"], ["background-clip", "border-box, border-box"]])
+    expect(() => compareMarketingElements([{ ...changed, styles: { ...changed.styles, [key!]: value! } }], [old], "layer regression")).toThrow()
+  expect(() => compareMarketingElements([{ ...changed, key: ".hraness-marketing-hero[0]" }], [{ ...old, key: ".hraness-marketing-hero[0]" }], "unlisted layer owner")).toThrow()
 })
 test("proof requires complete six-line readable extent and text containment, not merely positive dimensions", () => {
   const block = (selector: string, rect: number[], styles: Record<string, string> = {}): ShellElement => ({ ...element(`${selector}[0]`, styles), rect })

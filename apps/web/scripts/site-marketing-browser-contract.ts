@@ -138,6 +138,7 @@ const headingProperties = ["font-family", "font-size", "font-weight", "line-heig
 export interface MarketingPaintReference { readonly ink: string; readonly line: string; readonly strongLine: string }
 export interface MarketingPaintPair { readonly current: MarketingPaintReference; readonly baseline: MarketingPaintReference }
 const borderSides = ["top", "right", "bottom", "left"] as const
+const fieldLayerDefaults = { "background-attachment": "scroll", "background-origin": "padding-box", "background-clip": "border-box" } as const
 const marketingBorderPaint: Readonly<Record<string, { readonly sides: readonly string[]; readonly reference: "line" | "strongLine" }>> = {
   ...Object.fromEntries(marketingSectionIds.map(id => [`#${id}[0]`, { sides: id === "install" ? borderSides : ["top"], reference: "line" as const }])),
   ".hraness-marketing-proof-frame[0]": { sides: borderSides, reference: "line" },
@@ -204,6 +205,11 @@ export function compareMarketingElements(actual: readonly ShellElement[], baseli
     if (allowed === undefined) return item
     assert.ok(item.rect[2]! > 0 && item.rect[3]! > 0, `${label}: collapsed landmark ${item.key}`)
     const styles = { ...item.styles }
+    // Adding the three positively asserted field layers repeats these unchanged
+    // defaults in CSSOM. No other owner, value or layer count is equivalent.
+    if (item.key === "#main[0]") for (const [property, value] of Object.entries(fieldLayerDefaults)) {
+      if (old.styles[property] === value && item.styles[property] === [value, value, value].join(", ")) styles[property] = value
+    }
     const border = marketingBorderPaint[item.key]
     if (paint !== undefined && border !== undefined) for (const side of border.sides) {
       const property = `border-${side}-color`
@@ -270,6 +276,8 @@ export function assertMarketingPaint(elements: readonly ShellElement[], scenario
   assert.equal(hero.styles["background-image"], "none"); assert.equal(hero.styles["background-color"], "rgba(0, 0, 0, 0)")
   assert.equal(field.styles["background-color"], forced ? canvas.background : "rgba(0, 0, 0, 0)")
   assert.equal(field.styles.position, "relative")
+  for (const [property, value] of Object.entries(fieldLayerDefaults))
+    assert.equal(field.styles[property], forced ? value : [value, value, value].join(", "), `Every field layer retains default ${property}`)
   if (forced) {
     assert.equal(field.styles["background-image"], "none"); assert.equal(field.styles["background-size"], "auto")
     assert.match(field.styles["background-position"]!, /^(?:0px|0%) (?:0px|0%)$/u); assert.equal(field.styles["background-repeat"], "repeat")
