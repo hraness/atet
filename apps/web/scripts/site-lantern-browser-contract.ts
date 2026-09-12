@@ -18,9 +18,9 @@ export const lanternPaintOwners = {
  * structural and strict while collapsing only that known neutral epsilon.
  */
 export function normalizeLanternPaintValue(value: string): string {
-  return value.replace(/oklch\(\s*([+-]?(?:\d*\.\d+|\d+\.?\d*)(?:e[+-]?\d+)?)\s+([+-]?(?:\d*\.\d+|\d+\.?\d*)(?:e[+-]?\d+)?)\s+none\s*\/\s*([^\)]+)\)/giu,
+  return value.replace(/oklch\(\s*([+-]?(?:\d*\.\d+|\d+\.?\d*)(?:e[+-]?\d+)?)\s+(none|[+-]?(?:\d*\.\d+|\d+\.?\d*)(?:e[+-]?\d+)?)\s+none\s*\/\s*([^\)]+)\)/giu,
     (token, lightness: string, chroma: string, alpha: string) => {
-      const l = Number(lightness), c = Number(chroma)
+      const l = Number(lightness), c = chroma.toLowerCase() === "none" ? 0 : Number(chroma)
       if (!Number.isFinite(l) || !Number.isFinite(c) || Math.abs(c) > 1e-4) return token
       if (Math.abs(1 - l) <= 1e-4) return `oklch(1 0 none / ${alpha.trim()})`
       if (Math.abs(l) <= 1e-4) return `oklch(0 0 none / ${alpha.trim()})`

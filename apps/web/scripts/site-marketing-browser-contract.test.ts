@@ -69,6 +69,8 @@ test("Lantern wall normalization collapses only near-white serialization epsilon
 test("Lantern paint normalization also collapses near-black epsilon without broad color tolerance", () => {
   expect(normalizeLanternPaintValue("inset 0 1px 0 oklch(5.96e-8 5.96e-8 none / .28)"))
     .toBe("inset 0 1px 0 oklch(0 0 none / .28)")
+  expect(normalizeLanternPaintValue("inset 0 1px 0 oklch(0 none none / .28)"))
+    .toBe("inset 0 1px 0 oklch(0 0 none / .28)")
   expect(normalizeLanternPaintValue("oklch(.0002 0 none / .28)"))
     .toBe("oklch(.0002 0 none / .28)")
   expect(normalizeLanternPaintValue("oklch(0 .0002 none / .28)"))
