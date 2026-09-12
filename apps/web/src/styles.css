@@ -126,6 +126,11 @@ a {
 .topbar nav[aria-label="Primary"] > .site-action {
   --gold-ink: var(--ink);
 }
+@media (forced-colors: active) {
+  .topbar nav[aria-label="Primary"] > .site-action {
+    --gold-ink: var(--primary-foreground);
+  }
+}
 
 /* The legacy link reset must not replace primary actions' contrast ink. */
 #main[data-hraness-marketing-preset="editorial"] .hraness-marketing-action[data-emphasis="primary"] {

@@ -158,6 +158,7 @@ export function marketingPrimaryContrast(scenario: ShellCase): string | undefine
 /** The outlined homepage action uses Paper foreground; the frozen baseline
  * incorrectly uses primary-foreground until hovered. No other shell changes. */
 export function marketingHeaderColors(scenario: ShellCase, mode: "current" | "baseline"): { idle: string; hover: string } {
+  if (scenario.forced === "active") return { idle: "HighlightText", hover: "CanvasText" }
   const dark = resolvedShellTheme(scenario.theme, scenario.system) === "dark"
   const ink = dark ? "rgb(245, 242, 237)" : "rgb(28, 25, 23)"
   return { idle: mode === "current" ? ink : dark ? "rgb(18, 16, 15)" : "rgb(248, 247, 244)", hover: ink }
@@ -183,20 +184,23 @@ export async function measureMarketingPaintReference(page: Page, scenario: Shell
       const color = hover ? headerColors.hover : headerColors.idle
       if (!forced) return { color, border: color, background: "rgba(0, 0, 0, 0)" }
       // Native forced-color adjustment is semantic. This independent anchor
-      // models only the existing compiled CanvasText idle/transparent hover
-      // backgrounds and currentColor border; it cannot copy a faulty target.
+      // models the source's semantic system colors and currentColor border.
+      // Both sides retain the compiled CanvasText idle background and its
+      // matched Paper contrast ink; hover becomes the existing outline.
       const element = document.createElement("a")
       element.href = "#install"; element.style.position = "fixed"; element.style.top = "-10000px"
-      element.style.color = "LinkText"; element.style.border = "1px solid currentColor"
-      element.style.backgroundColor = hover ? "transparent" : "CanvasText"
+      element.style.color = color; element.style.border = "1px solid currentColor"
+      const transparent = hover
+      element.style.backgroundColor = transparent ? "transparent" : "CanvasText"
       document.documentElement.append(element)
       try {
         const style = getComputedStyle(element), background = style.backgroundColor
         const canvas = getComputedStyle(document.documentElement).backgroundColor
         const channels = /^rgb\((\d+, \d+, \d+)\)$/u.exec(canvas)
         if (channels === null) throw new Error("Forced header Canvas requires opaque RGB serialization")
-        const expected = hover ? `rgba(${channels[1]}, 0)` : canvas
+        const expected = transparent ? `rgba(${channels[1]}, 0)` : sample("CanvasText")
         if (background !== expected) throw new Error(`Unexpected native header reference background: ${background}`)
+        if (style.color !== sample(color) || style.borderTopColor !== style.color) throw new Error("Unexpected native header reference system ink")
         return { color: style.color, border: style.borderTopColor, background }
       } finally { element.remove() }
     }

@@ -919,7 +919,7 @@ describe("static Slopcamera site", () => {
     expect(notFound).toContain('href="/sitemap.xml"')
     expect(notFound).toContain("machine-readable site guide")
     expect(css).toContain(":where(a, button, [tabindex]):focus-visible")
-    const headerInk = '.topbar nav[aria-label="Primary"] > .site-action {\n  --gold-ink: var(--ink);\n}'
+    const headerInk = '.topbar nav[aria-label="Primary"] > .site-action {\n  --gold-ink: var(--ink);\n}\n@media (forced-colors: active) {\n  .topbar nav[aria-label="Primary"] > .site-action {\n    --gold-ink: var(--primary-foreground);\n  }\n}'
     expect(css.split(headerInk)).toHaveLength(2)
     expect(css.replace(headerInk, "")).not.toContain(".topbar")
     expect(css).not.toContain(".route-state")
@@ -977,7 +977,7 @@ describe("static Slopcamera site", () => {
     expect(css).toContain('html[data-theme="dark"]')
     expect(css).not.toMatch(/--font-display|ui-serif|Baskerville|text-transform:\s*uppercase|letter-spacing:\s*0\.\d+em/u)
     expect(css).not.toMatch(/transition|animation|@keyframes/u)
-    const headerInk = '.topbar nav[aria-label="Primary"] > .site-action {\n  --gold-ink: var(--ink);\n}'
+    const headerInk = '.topbar nav[aria-label="Primary"] > .site-action {\n  --gold-ink: var(--ink);\n}\n@media (forced-colors: active) {\n  .topbar nav[aria-label="Primary"] > .site-action {\n    --gold-ink: var(--primary-foreground);\n  }\n}'
     expect(css.split(headerInk)).toHaveLength(2)
     expect(css.replace(headerInk, "")).not.toContain(".topbar")
     expect(css).toContain(".transcript")

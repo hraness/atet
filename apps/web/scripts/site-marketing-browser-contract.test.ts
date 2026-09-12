@@ -81,12 +81,18 @@ test("outlined header requires exact Paper ink in light, dark and System, with p
       if (next.color !== prior.color) expect(() => assertMarketingHeaderPaint(headerAction(prior, key), next, "unchanged defective ink")).toThrow()
     }
   }
-  const native = { color: "rgb(0, 0, 159)", border: "rgb(0, 0, 159)", background: "rgb(255, 255, 255)" }
-  expect(() => assertMarketingHeaderPaint(headerAction(native), native, "native forced idle Canvas")).not.toThrow()
-  const hover = { ...native, background: "rgba(255, 255, 255, 0)" }
-  expect(() => assertMarketingHeaderPaint(headerAction(hover), hover, "native forced transparent hover")).not.toThrow()
-  for (const background of [native.background, "rgba(255, 255, 255, 0.5)", "rgba(0, 0, 0, 0)"])
-    expect(() => assertMarketingHeaderPaint(headerAction({ ...hover, background }), hover, "wrong forced transparent paint")).toThrow()
+  const forced = { ...scenario, forced: "active" as const }
+  expect(marketingHeaderColors(forced, "current")).toEqual({ idle: "HighlightText", hover: "CanvasText" })
+  expect(marketingHeaderColors(forced, "baseline")).toEqual({ idle: "HighlightText", hover: "CanvasText" })
+  // Named regression: explicit CanvasText paints black in the native light
+  // palette; it is not rewritten to the white Canvas background.
+  const baseline = { color: "rgb(255, 255, 255)", border: "rgb(255, 255, 255)", background: "rgb(0, 0, 0)" }
+  const current = { ...baseline }
+  const old = headerAction(baseline), actual = headerAction(current)
+  expect(() => compareShellElements([projectMarketingHeaderAction(actual, old, current, baseline, "retained forced contrast")], [old], "all remaining paint")).not.toThrow()
+  for (const background of ["rgba(255, 255, 255, 0)", "rgb(255, 255, 255)", "rgba(255, 255, 255, 0.5)", "rgba(0, 0, 0, 0)"])
+    expect(() => projectMarketingHeaderAction(headerAction({ ...current, background }), old, current, baseline, "wrong forced paint")).toThrow()
+  expect(() => projectMarketingHeaderAction(actual, headerAction({ ...baseline, background: "rgb(255, 255, 255)" }), current, baseline, "wrong baseline paint")).toThrow()
 })
 test("header paint repair never admits altered geometry, focus, outline, semantics or unrelated owners", () => {
   const current = { color: "rgb(245, 242, 237)", border: "rgb(245, 242, 237)", background: "rgba(0, 0, 0, 0)" }
