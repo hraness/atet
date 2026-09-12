@@ -7,7 +7,7 @@ import { marketingScope, marketingBaselineProfile, marketingBaselineRevision, ma
 import { compareShellElements, parseShellRequest, type ShellElement } from "./site-shell-browser-contract"
 import { assertMarketingBaselineManifest, assertMarketingFontInventory } from "./verify-site-marketing"
 import type { ShellSnapshot } from "./verify-site-shell"
-import { normalizeLanternWallImage } from "./site-lantern-browser-contract"
+import { normalizeLanternPaintValue, normalizeLanternWallImage } from "./site-lantern-browser-contract"
 
 function request(): MarketingRequest {
   const finalCss = `/assets/site-${"a".repeat(64)}.css`
@@ -65,6 +65,14 @@ test("Lantern wall normalization collapses only near-white serialization epsilon
   expect(normalizeLanternWallImage(actual)).toContain("oklch(.4 .1 none / .2)")
   expect(normalizeLanternWallImage(actual.replace(".16", ".17"))).not.toBe(normalizeLanternWallImage(expected))
   expect(normalizeLanternWallImage(actual.replace(".1 none", ".1002 none"))).not.toBe(normalizeLanternWallImage(expected))
+})
+test("Lantern paint normalization also collapses near-black epsilon without broad color tolerance", () => {
+  expect(normalizeLanternPaintValue("inset 0 1px 0 oklch(5.96e-8 5.96e-8 none / .28)"))
+    .toBe("inset 0 1px 0 oklch(0 0 none / .28)")
+  expect(normalizeLanternPaintValue("oklch(.0002 0 none / .28)"))
+    .toBe("oklch(.0002 0 none / .28)")
+  expect(normalizeLanternPaintValue("oklch(0 .0002 none / .28)"))
+    .toBe("oklch(0 .0002 none / .28)")
 })
 test("failure receipt names only the fully completed prefix and cannot impersonate success", () => {
   const input = request(), prefix = marketingCases.slice(0, 3).map(value => value.name)
