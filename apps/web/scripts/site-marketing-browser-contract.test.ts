@@ -2,8 +2,9 @@ import { expect, test } from "bun:test"
 import { marketingScope, marketingBaselineProfile, marketingBaselineRevision, marketingBaselineTree, marketingCases,
   marketingDeadlineMs, parseMarketingRequest, parseMarketingPhase, parseMarketingCaseFailure, marketingCaseFailure,
   compareMarketingElements, headingSize, marketingHeadingIds, marketingSectionIds, assertMarketingPaint, assertMarketingProof, assertMarketingFlow, assertMarketingInstallNote,
-  assertMarketingDerivedPaint, marketingPrimaryContrast, type MarketingRequest, type MarketingTextExtent } from "./site-marketing-browser-contract"
-import { parseShellRequest, type ShellElement } from "./site-shell-browser-contract"
+  assertMarketingDerivedPaint, marketingPrimaryContrast, marketingHeaderColors, assertMarketingHeaderPaint, projectMarketingHeaderAction,
+  type MarketingHeaderPaint, type MarketingRequest, type MarketingTextExtent } from "./site-marketing-browser-contract"
+import { compareShellElements, parseShellRequest, type ShellElement } from "./site-shell-browser-contract"
 import { assertMarketingBaselineManifest, assertMarketingFontInventory } from "./verify-site-marketing"
 import type { ShellSnapshot } from "./verify-site-shell"
 
@@ -58,6 +59,59 @@ function element(key: string, styles: Record<string, string> = {}): ShellElement
   return { key, rect: [20, 100, 200, 100], styles: { width: "200px", height: "100px", color: "rgb(20, 20, 20)",
     "background-color": "rgba(0, 0, 0, 0)", "font-size": "16px", ...styles }, text: "Original product copy", semantics: { href: null } }
 }
+function headerAction(reference: MarketingHeaderPaint, key = '.topbar nav[aria-label="Primary"] a[4]'): ShellElement {
+  return { ...element(key, { color: reference.color, "background-color": reference.background, "background-image": "none", opacity: "1", visibility: "visible",
+    "text-decoration-line": "none", "text-decoration-color": reference.color, "outline-style": "none", "outline-color": reference.color,
+    ...Object.fromEntries(["top", "right", "bottom", "left"].flatMap(side => [[`border-${side}-width`, "1px"],
+      [`border-${side}-style`, "solid"], [`border-${side}-color`, reference.border]])) }),
+    text: "Install Slopcamera", semantics: { href: "#install" } }
+}
+test("outlined header requires exact Paper ink in light, dark and System, with positive native paint in every state", () => {
+  const scenario = marketingCases[0]!, reference = (color: string): MarketingHeaderPaint => ({ color, border: color, background: "rgba(0, 0, 0, 0)" })
+  for (const system of ["light", "dark"] as const) for (const theme of ["light", "dark", "system"] as const) {
+    const selected = theme === "system" ? system : theme
+    const current = marketingHeaderColors({ ...scenario, system, theme }, "current"), baseline = marketingHeaderColors({ ...scenario, system, theme }, "baseline")
+    expect(current.idle).toBe(selected === "dark" ? "rgb(245, 242, 237)" : "rgb(28, 25, 23)")
+    expect(current.hover).toBe(current.idle)
+    expect(baseline.idle).toBe(selected === "dark" ? "rgb(18, 16, 15)" : "rgb(248, 247, 244)")
+    expect(baseline.hover).toBe(current.idle)
+    for (const state of ["idle", "hover"] as const) for (const key of ['.topbar nav[aria-label="Primary"] a[4]', ".topbar a[5]"]) {
+      const next = reference(current[state]), prior = reference(baseline[state]), actual = headerAction(next, key), old = headerAction(prior, key)
+      expect(() => compareShellElements([projectMarketingHeaderAction(actual, old, next, prior, state)], [old], state)).not.toThrow()
+      if (next.color !== prior.color) expect(() => assertMarketingHeaderPaint(headerAction(prior, key), next, "unchanged defective ink")).toThrow()
+    }
+  }
+  const native = { color: "rgb(0, 0, 159)", border: "rgb(0, 0, 159)", background: "rgb(255, 255, 255)" }
+  expect(() => assertMarketingHeaderPaint(headerAction(native), native, "native forced idle Canvas")).not.toThrow()
+  const hover = { ...native, background: "rgba(255, 255, 255, 0)" }
+  expect(() => assertMarketingHeaderPaint(headerAction(hover), hover, "native forced transparent hover")).not.toThrow()
+  for (const background of [native.background, "rgba(255, 255, 255, 0.5)", "rgba(0, 0, 0, 0)"])
+    expect(() => assertMarketingHeaderPaint(headerAction({ ...hover, background }), hover, "wrong forced transparent paint")).toThrow()
+})
+test("header paint repair never admits altered geometry, focus, outline, semantics or unrelated owners", () => {
+  const current = { color: "rgb(245, 242, 237)", border: "rgb(245, 242, 237)", background: "rgba(0, 0, 0, 0)" }
+  const baseline = { ...current, color: "rgb(18, 16, 15)", border: "rgb(18, 16, 15)" }
+  const actual = headerAction(current), old = headerAction(baseline)
+  const compare = (item: ShellElement) => compareShellElements([projectMarketingHeaderAction(item, old, current, baseline, "bounded repair")], [old], "all other paint/geometry")
+  for (const changed of [
+    { ...actual, key: ".route-state a[0]" }, { ...actual, text: "Other action" }, { ...actual, semantics: { href: "/other" } },
+    { ...actual, styles: { ...actual.styles, "border-left-style": "none" } }, { ...actual, styles: { ...actual.styles, "border-right-width": "0px" } },
+    { ...actual, styles: { ...actual.styles, "outline-style": "solid", "outline-color": "red" } },
+    { ...actual, styles: { ...actual.styles, "text-decoration-line": "underline" } }, { ...actual, styles: { ...actual.styles, "outline-color": "red" } },
+    { ...actual, styles: { ...actual.styles, "background-color": "rgba(0, 0, 0, 0.1)" } },
+  ]) expect(() => compare(changed)).toThrow()
+  // Property law: admitting exact ink cannot erase arbitrary genuine movement
+  // or a changed alpha on any of the four independent currentColor borders.
+  let seed = 0x625af187
+  for (let run = 0; run < 64; run++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+    const axis = seed % 4, shift = (seed % 1000) + 1, side = ["top", "right", "bottom", "left"][axis]!
+    const moved = { ...actual, rect: actual.rect.map((value, index) => index === axis ? value + shift : value) }
+    expect(() => compare(moved)).toThrow()
+    const alpha = (seed % 998 + 1) / 1000
+    expect(() => compare({ ...actual, styles: { ...actual.styles, [`border-${side}-color`]: `rgba(245, 242, 237, ${alpha})` } })).toThrow()
+  }
+})
 test("finite typography exception never exempts text, semantics, unrelated paint, inventory or collapsed content", () => {
   const old = element("#page-title[0]"), changed = { ...old, styles: { ...old.styles, "font-size": "44px" }, rect: [32, 120, 240, 106] }
   expect(() => compareMarketingElements([changed], [old], "allowed heading typography")).not.toThrow()

@@ -135,7 +135,9 @@ function translateSiblings(items: readonly ShellElement[], evidence: ShellEviden
 const geometryProperties = ["width", "height", "max-width", "margin-left", "margin-right", "grid-template-columns"] as const
 const spacingProperties = ["padding-top", "padding-bottom", "padding-left", "padding-right"] as const
 const headingProperties = ["font-family", "font-size", "font-weight", "line-height", "letter-spacing", "color", ...geometryProperties] as const
-export interface MarketingPaintReference { readonly ink: string; readonly line: string; readonly strongLine: string; readonly primaryInk: string }
+export interface MarketingHeaderPaint { readonly color: string; readonly border: string; readonly background: string }
+export interface MarketingHeaderReference { readonly idle: MarketingHeaderPaint; readonly hover: MarketingHeaderPaint }
+export interface MarketingPaintReference { readonly ink: string; readonly line: string; readonly strongLine: string; readonly primaryInk: string; readonly header?: MarketingHeaderReference }
 export interface MarketingPaintPair { readonly current: MarketingPaintReference; readonly baseline: MarketingPaintReference }
 const borderSides = ["top", "right", "bottom", "left"] as const
 const primaryActionKeys = [".hraness-marketing-hero__actions a[0]", ".hraness-marketing-cta__actions a[data-emphasis=\"primary\"][0]"] as const
@@ -153,12 +155,19 @@ export function marketingPrimaryContrast(scenario: ShellCase): string | undefine
   return scenario.forced === "active" ? undefined : resolvedShellTheme(scenario.theme, scenario.system) === "dark"
     ? "rgb(18, 16, 15)" : "rgb(248, 247, 244)"
 }
+/** The outlined homepage action uses Paper foreground; the frozen baseline
+ * incorrectly uses primary-foreground until hovered. No other shell changes. */
+export function marketingHeaderColors(scenario: ShellCase, mode: "current" | "baseline"): { idle: string; hover: string } {
+  const dark = resolvedShellTheme(scenario.theme, scenario.system) === "dark"
+  const ink = dark ? "rgb(245, 242, 237)" : "rgb(28, 25, 23)"
+  return { idle: mode === "current" ? ink : dark ? "rgb(18, 16, 15)" : "rgb(248, 247, 244)", hover: ink }
+}
 /** Use the pinned browser's color serialization, with explicit immutable alpha
  * and expected ink. These nonrendered probes are removed before any comparison. */
 export async function measureMarketingPaintReference(page: Page, scenario: ShellCase, mode: "current" | "baseline"): Promise<MarketingPaintReference | undefined> {
   if (scenario.route !== "/") return undefined
   const dark = resolvedShellTheme(scenario.theme, scenario.system) === "dark"
-  return page.evaluate(({ mode, dark, forced, primaryContrast }) => {
+  return page.evaluate(({ mode, dark, forced, primaryContrast, headerColors }) => {
     const main = document.querySelector("#main")
     if (main === null) throw new Error("Missing main color reference")
     const ink = mode === "baseline" ? getComputedStyle(main).color : forced ? getComputedStyle(document.documentElement).color
@@ -170,9 +179,30 @@ export async function measureMarketingPaintReference(page: Page, scenario: Shell
       try { return getComputedStyle(element).color } finally { element.remove() }
     }
     const primaryInk = mode === "baseline" ? ink : forced ? getComputedStyle(document.documentElement).backgroundColor : primaryContrast!
+    const headerState = (hover: boolean) => {
+      const color = hover ? headerColors.hover : headerColors.idle
+      if (!forced) return { color, border: color, background: "rgba(0, 0, 0, 0)" }
+      // Native forced-color adjustment is semantic. This independent anchor
+      // models only the existing compiled CanvasText idle/transparent hover
+      // backgrounds and currentColor border; it cannot copy a faulty target.
+      const element = document.createElement("a")
+      element.href = "#install"; element.style.position = "fixed"; element.style.top = "-10000px"
+      element.style.color = "LinkText"; element.style.border = "1px solid currentColor"
+      element.style.backgroundColor = hover ? "transparent" : "CanvasText"
+      document.documentElement.append(element)
+      try {
+        const style = getComputedStyle(element), background = style.backgroundColor
+        const canvas = getComputedStyle(document.documentElement).backgroundColor
+        const channels = /^rgb\((\d+, \d+, \d+)\)$/u.exec(canvas)
+        if (channels === null) throw new Error("Forced header Canvas requires opaque RGB serialization")
+        const expected = hover ? `rgba(${channels[1]}, 0)` : canvas
+        if (background !== expected) throw new Error(`Unexpected native header reference background: ${background}`)
+        return { color: style.color, border: style.borderTopColor, background }
+      } finally { element.remove() }
+    }
     return { ink: sample(ink), primaryInk: forced ? primaryInk : sample(primaryInk), line: sample(forced ? ink : `color-mix(in oklch, ${ink} 12%, transparent)`),
-      strongLine: sample(forced ? ink : `color-mix(in oklch, ${ink} 22%, transparent)`) }
-  }, { mode, dark, forced: scenario.forced === "active", primaryContrast: marketingPrimaryContrast(scenario) })
+      strongLine: sample(forced ? ink : `color-mix(in oklch, ${ink} 22%, transparent)`), header: { idle: headerState(false), hover: headerState(true) } }
+  }, { mode, dark, forced: scenario.forced === "active", primaryContrast: marketingPrimaryContrast(scenario), headerColors: marketingHeaderColors(scenario, mode) })
 }
 export function assertMarketingDerivedPaint(elements: readonly ShellElement[], reference: MarketingPaintReference): void {
   for (const [key, contract] of Object.entries(marketingBorderPaint)) {
@@ -249,15 +279,64 @@ export function compareMarketingElements(actual: readonly ShellElement[], baseli
   })
   compareShellElements(projected, baseline, label)
 }
+const headerActionKey = '.topbar nav[aria-label="Primary"] a[4]'
+const focusedHeaderActionKey = ".topbar a[5]"
+export function assertMarketingHeaderPaint(item: ShellElement, reference: MarketingHeaderPaint, label: string): void {
+  assert.ok(item.key === headerActionKey || item.key === focusedHeaderActionKey, `${label}: exact homepage header action owner`)
+  assert.equal(item.text, "Install Slopcamera"); assert.equal(item.semantics.href, "#install")
+  assert.equal(item.styles.color, reference.color, `${label}: readable header foreground`)
+  assert.equal(item.styles["background-color"], reference.background, `${label}: exact outlined/native Canvas background`)
+  assert.equal(item.styles["background-image"], "none")
+  assert.equal(item.styles.opacity, "1"); assert.equal(item.styles.visibility, "visible")
+  for (const side of borderSides) {
+    assert.equal(item.styles[`border-${side}-width`], "1px", `${label}: unchanged ${side} border width`)
+    assert.equal(item.styles[`border-${side}-style`], "solid", `${label}: unchanged ${side} border style`)
+    assert.equal(item.styles[`border-${side}-color`], reference.border, `${label}: readable ${side} border`)
+  }
+}
+/** Admit only the exact independently asserted foreground and currentColor
+ * changes of this one action. Geometry, active focus paint and all other
+ * records still enter the original strict comparator unchanged. */
+export function projectMarketingHeaderAction(item: ShellElement, old: ShellElement, current: MarketingHeaderPaint,
+  baseline: MarketingHeaderPaint, label: string): ShellElement {
+  assertMarketingHeaderPaint(item, current, `${label} current`)
+  assertMarketingHeaderPaint(old, baseline, `${label} baseline`)
+  assert.equal(item.key, old.key)
+  const styles = { ...item.styles, color: old.styles.color! }
+  for (const side of borderSides) styles[`border-${side}-color`] = old.styles[`border-${side}-color`]!
+  for (const [style, color] of [["text-decoration-line", "text-decoration-color"], ["outline-style", "outline-color"]]) {
+    if (old.styles[style!] === "none" && item.styles[style!] === "none"
+      && old.styles[color!] === baseline.color && item.styles[color!] === current.color) styles[color!] = old.styles[color!]!
+  }
+  return { ...item, styles }
+}
+function projectMarketingHeaderRecords(actual: readonly ShellElement[], baseline: readonly ShellElement[],
+  state: "idle" | "focus" | "hover", references: { current: MarketingHeaderReference; baseline: MarketingHeaderReference },
+  scenario: ShellCase): ShellElement[] {
+  assert.deepEqual(actual.map(item => item.key), baseline.map(item => item.key), "Exact native state inventory")
+  const key = state === "focus" ? focusedHeaderActionKey : headerActionKey
+  const count = actual.filter(item => item.key === key).length
+  assert.equal(count, state === "hover" ? scenario.width <= 544 ? 1 : 5 : 1, `Complete ${state} header coverage`)
+  let index = 0
+  return actual.map((item, position) => {
+    if (item.key !== key) return item
+    // Existing native hover records all navigation links after hovering each
+    // visible target. The install action is exactly the final target.
+    const selected = state === "hover" && ++index === count ? "hover" : "idle"
+    return projectMarketingHeaderAction(item, baseline[position]!, references.current[selected], references.baseline[selected], `${scenario.name} ${state}`)
+  })
+}
 export function compareMarketingEvidence(actual: ShellEvidence, baseline: ShellEvidence, scenario: ShellCase, paint?: MarketingPaintPair): void {
   if (scenario.route === "/404.html") { compareShellEvidence(actual, baseline, scenario.name); return }
+  assert.ok(paint?.current.header !== undefined && paint.baseline.header !== undefined, "Exact header paint references required")
+  const header = { current: paint.current.header, baseline: paint.baseline.header }
   assert.equal(normalizeMainOptIn(actual.dom), baseline.dom, "Copy, commands, logo and DOM outside the exact opt-in must remain unchanged")
   assert.equal(actual.direction, baseline.direction); assert.equal(actual.recovery, baseline.recovery)
   assertMarketingFlow(actual.elements, baseline.elements)
-  compareMarketingElements(translateSiblings(actual.elements, actual), translateSiblings(baseline.elements, baseline), `${scenario.name} finite design differences`, paint)
+  compareMarketingElements(translateSiblings(projectMarketingHeaderRecords(actual.elements, baseline.elements, "idle", header, scenario), actual), translateSiblings(baseline.elements, baseline), `${scenario.name} finite design differences`, paint)
   compareShellFocusedSkip(actual.skip, baseline.skip, `${scenario.name} skip`)
-  compareShellElements(translateSiblings(actual.focus, actual), translateSiblings(baseline.focus, baseline), `${scenario.name} native focus`)
-  compareShellElements(translateSiblings(actual.hover, actual), translateSiblings(baseline.hover, baseline), `${scenario.name} native hover`)
+  compareShellElements(translateSiblings(projectMarketingHeaderRecords(actual.focus, baseline.focus, "focus", header, scenario), actual), translateSiblings(baseline.focus, baseline), `${scenario.name} native focus`)
+  compareShellElements(translateSiblings(projectMarketingHeaderRecords(actual.hover, baseline.hover, "hover", header, scenario), actual), translateSiblings(baseline.hover, baseline), `${scenario.name} native hover`)
   assert.deepEqual(actual.appearance.map(value => [value.step, value.active]), shellAppearanceSteps.map(value => [value.name, value.active]))
   assert.deepEqual(actual.appearance.map(value => [value.step, value.active]), baseline.appearance.map(value => [value.step, value.active]))
   actual.appearance.forEach((value, index) => compareShellElements(value.elements, baseline.appearance[index]!.elements, `${scenario.name} appearance ${value.step}`))

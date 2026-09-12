@@ -124,7 +124,9 @@ describe("ordinary shell authored contract (pure, process-free)", () => {
     expect(recipes).toContain('[forcedColors]: {\n        default: "CanvasText",')
     expect(recipes).toContain('minHeight: { default: "var(--hraness-marketing-action-height)", [coarsePointer]: "3rem" }')
     expect(renderer).toContain('document === "index.html" ? homeSlots : recoverySlots')
-    expect(legacy).not.toMatch(/\.skip-link|\.topbar|\.wordmark|\.route-state/u)
+    const headerInk = '.topbar nav[aria-label="Primary"] > .site-action {\n  --gold-ink: var(--ink);\n}'
+    expect(legacy.split(headerInk)).toHaveLength(2)
+    expect(legacy.replace(headerInk, "")).not.toMatch(/\.skip-link|\.topbar|\.wordmark|\.route-state/u)
     expect(legacy).toContain(".hraness-marketing-page")
     expect(legacy).not.toContain(".copy-command")
   })

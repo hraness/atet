@@ -919,7 +919,9 @@ describe("static Slopcamera site", () => {
     expect(notFound).toContain('href="/sitemap.xml"')
     expect(notFound).toContain("machine-readable site guide")
     expect(css).toContain(":where(a, button, [tabindex]):focus-visible")
-    expect(css).not.toContain(".topbar")
+    const headerInk = '.topbar nav[aria-label="Primary"] > .site-action {\n  --gold-ink: var(--ink);\n}'
+    expect(css.split(headerInk)).toHaveLength(2)
+    expect(css.replace(headerInk, "")).not.toContain(".topbar")
     expect(css).not.toContain(".route-state")
     expect(css).not.toMatch(/\.reading-(?:article|card|index|module)/u)
     expect(css).toContain("@media (max-width: 64rem)")
@@ -975,7 +977,9 @@ describe("static Slopcamera site", () => {
     expect(css).toContain('html[data-theme="dark"]')
     expect(css).not.toMatch(/--font-display|ui-serif|Baskerville|text-transform:\s*uppercase|letter-spacing:\s*0\.\d+em/u)
     expect(css).not.toMatch(/transition|animation|@keyframes/u)
-    expect(css).not.toContain(".topbar")
+    const headerInk = '.topbar nav[aria-label="Primary"] > .site-action {\n  --gold-ink: var(--ink);\n}'
+    expect(css.split(headerInk)).toHaveLength(2)
+    expect(css.replace(headerInk, "")).not.toContain(".topbar")
     expect(css).toContain(".transcript")
     expect(css).toContain(".origin-note")
     expect(css).not.toMatch(/@font-face|url\([^)]*\.woff/)

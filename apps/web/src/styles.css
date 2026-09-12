@@ -122,6 +122,11 @@ a {
   text-underline-offset: 0.16em;
 }
 
+/* The homepage header action is outlined; its ink follows the header surface. */
+.topbar nav[aria-label="Primary"] > .site-action {
+  --gold-ink: var(--ink);
+}
+
 /* The legacy link reset must not replace primary actions' contrast ink. */
 #main[data-hraness-marketing-preset="editorial"] .hraness-marketing-action[data-emphasis="primary"] {
   color: var(--hraness-marketing-accent-ink);
