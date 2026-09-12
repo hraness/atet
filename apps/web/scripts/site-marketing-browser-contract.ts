@@ -289,7 +289,10 @@ export function assertMarketingPaint(elements: readonly ShellElement[], scenario
   }
   for (const selector of [".hraness-marketing-hero__summary", ".hraness-marketing-proof-frame__chrome", ".hraness-marketing-proof-frame__caption"])
     assert.equal(pick(selector).styles.color, muted, `${selector} exact field secondary ink`)
-  assert.equal(hero.styles["background-image"], "none"); assert.equal(hero.styles["background-color"], "rgba(0, 0, 0, 0)")
+  const canvasChannels = forced ? /^rgb\((\d+, \d+, \d+)\)$/u.exec(canvas.background) : null
+  if (forced) assert.ok(canvasChannels !== null, "Forced Canvas requires the pinned browser's opaque RGB serialization")
+  const transparent = forced ? `rgba(${canvasChannels![1]}, 0)` : "rgba(0, 0, 0, 0)"
+  assert.equal(hero.styles["background-image"], "none"); assert.equal(hero.styles["background-color"], transparent, "Hero retains exact transparent Canvas paint")
   assert.equal(field.styles["background-color"], forced ? canvas.background : "rgba(0, 0, 0, 0)")
   assert.equal(field.styles.position, "relative")
   for (const [property, value] of Object.entries(fieldLayerDefaults))

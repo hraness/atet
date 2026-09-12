@@ -110,6 +110,20 @@ test("every admitted field paint change is positive, including H2 transparency a
     const changed = elements.map(item => item.key === key ? { ...item, styles: { ...item.styles, [property!]: value! } } : item)
     expect(() => assertMarketingPaint(changed, scenario, assets, origin, canvas)).toThrow()
   }
+  for (const [background, color, transparent] of [["rgb(255, 255, 255)", "rgb(0, 0, 0)", "rgba(255, 255, 255, 0)"], ["rgb(0, 0, 0)", "rgb(255, 255, 255)", "rgba(0, 0, 0, 0)"]]) {
+    const forcedCanvas = { background: background!, color: color! }, forced = { ...scenario, forced: "active" as const }
+    const forcedElements = elements.map(item => ({ ...item, styles: { ...item.styles, color: color!,
+      ...(item.key === "#main[0]" ? { "background-image": "none", "background-color": background!, "background-size": "auto", "background-position": "0px 0px", "background-repeat": "repeat",
+        "background-attachment": "scroll", "background-origin": "padding-box", "background-clip": "border-box" } : {}),
+      ...(item.key === ".hraness-marketing-hero[0]" ? { "background-color": transparent! } : {}),
+    } }))
+    expect(() => assertMarketingPaint(forcedElements, forced, assets, origin, forcedCanvas)).not.toThrow()
+    for (const bad of [background!, transparent!.replace(", 0)", ", 0.5)")])
+      expect(() => assertMarketingPaint(forcedElements.map(item => item.key === ".hraness-marketing-hero[0]" ? { ...item, styles: { ...item.styles, "background-color": bad } } : item), forced, assets, origin, forcedCanvas)).toThrow()
+    const unknownCanvas = "color(srgb 1 1 1)"
+    expect(() => assertMarketingPaint(forcedElements.map(item => ["#main[0]", ".hraness-marketing-hero[0]"].includes(item.key)
+      ? { ...item, styles: { ...item.styles, "background-color": unknownCanvas } } : item), forced, assets, origin, { ...forcedCanvas, background: unknownCanvas })).toThrow()
+  }
 })
 test("only the three main field layers expand unchanged default background longhands", () => {
   const defaults = { "background-attachment": "scroll", "background-origin": "padding-box", "background-clip": "border-box" }
