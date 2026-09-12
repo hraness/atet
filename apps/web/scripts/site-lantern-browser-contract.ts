@@ -11,6 +11,20 @@ export const lanternPaintOwners = {
   ".hraness-marketing-hero[0]": ["background-color", "background-image", "background-position", "background-size", "background-repeat", "background-attachment", "background-origin", "background-clip"],
   ".hraness-marketing-proof-frame[0]": ["background-color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "border-radius"],
 } as const
+/**
+ * Chromium serializes near-neutral white color-mix stops with tiny floating
+ * point differences depending on whether the declaration came from a
+ * stylesheet or a detached reference element. Keep the wall comparison
+ * structural and strict while collapsing only that known neutral epsilon.
+ */
+export function normalizeLanternWallImage(value: string): string {
+  return value.replace(/oklch\(\s*([+-]?(?:\d*\.\d+|\d+\.?\d*)(?:e[+-]?\d+)?)\s+([+-]?(?:\d*\.\d+|\d+\.?\d*)(?:e[+-]?\d+)?)\s+none\s*\/\s*([^\)]+)\)/giu,
+    (token, lightness: string, chroma: string, alpha: string) => {
+      const l = Number(lightness), c = Number(chroma)
+      return Number.isFinite(l) && Number.isFinite(c) && Math.abs(1 - l) <= 1e-4 && Math.abs(c) <= 1e-4
+        ? `oklch(1 0 none / ${alpha.trim()})` : token
+    })
+}
 export async function lanternPaintReference(page: Page, scenario: ShellCase, reduced = false): Promise<LanternPaint> {
   return page.evaluate(({ dark, forced, reduced }) => {
     const ink = forced ? "CanvasText" : dark ? "#f5f2ed" : "#1c1917"
@@ -55,7 +69,9 @@ export function projectLanternPaint(actual: readonly ShellElement[], baseline: r
     if (expected === undefined) return item
     const styles = { ...item.styles }, old = baseline[index]!
     for (const property of lanternPaintOwners[item.key as keyof typeof lanternPaintOwners]) {
-      assert.equal(item.styles[property], expected[property], `${item.key} exact Lantern ${property}`)
+      const actualValue = property === "background-image" ? normalizeLanternWallImage(item.styles[property]!) : item.styles[property]
+      const expectedValue = property === "background-image" ? normalizeLanternWallImage(expected[property]!) : expected[property]
+      assert.equal(actualValue, expectedValue, `${item.key} exact Lantern ${property}`)
       assert.ok(Object.hasOwn(old.styles, property), `${item.key} baseline paint inventory`)
       styles[property] = old.styles[property]!
     }

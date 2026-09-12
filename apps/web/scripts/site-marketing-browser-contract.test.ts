@@ -7,6 +7,7 @@ import { marketingScope, marketingBaselineProfile, marketingBaselineRevision, ma
 import { compareShellElements, parseShellRequest, type ShellElement } from "./site-shell-browser-contract"
 import { assertMarketingBaselineManifest, assertMarketingFontInventory } from "./verify-site-marketing"
 import type { ShellSnapshot } from "./verify-site-shell"
+import { normalizeLanternWallImage } from "./site-lantern-browser-contract"
 
 function request(): MarketingRequest {
   const finalCss = `/assets/site-${"a".repeat(64)}.css`
@@ -56,6 +57,14 @@ test("Lantern DOM normalization admits only the finite reviewed opt-in hooks", (
   expect(normalized).toContain('<main id="main" tabindex="-1">')
   expect(normalized).toContain('class="topbar xborder xbackground xbackdrop"')
   expect(() => normalizeMainOptIn(dom.replace("hraness-material-pane", "hraness-material-pane extra"))).toThrow()
+})
+test("Lantern wall normalization collapses only near-white serialization epsilon", () => {
+  const expected = "linear-gradient(oklch(.999994 .0000497986 none / .16), oklch(.4 .1 none / .2))"
+  const actual = "linear-gradient(oklch(1 5.96e-8 none / .16), oklch(.4 .1 none / .2))"
+  expect(normalizeLanternWallImage(actual)).toBe(normalizeLanternWallImage(expected))
+  expect(normalizeLanternWallImage(actual)).toContain("oklch(.4 .1 none / .2)")
+  expect(normalizeLanternWallImage(actual.replace(".16", ".17"))).not.toBe(normalizeLanternWallImage(expected))
+  expect(normalizeLanternWallImage(actual.replace(".1 none", ".1002 none"))).not.toBe(normalizeLanternWallImage(expected))
 })
 test("failure receipt names only the fully completed prefix and cannot impersonate success", () => {
   const input = request(), prefix = marketingCases.slice(0, 3).map(value => value.name)
