@@ -147,12 +147,18 @@ const marketingBorderPaint: Readonly<Record<string, { readonly sides: readonly s
   ".hraness-marketing-proof-frame__caption[0]": { sides: ["top"], reference: "line" },
   ".hraness-marketing-hero__actions a[1]": { sides: borderSides, reference: "strongLine" },
 }
+/** Immutable paper-theme.css primary-foreground (84), bridged to accent ink
+ * (148). Forced colors uses the separately measured native Canvas value. */
+export function marketingPrimaryContrast(scenario: ShellCase): string | undefined {
+  return scenario.forced === "active" ? undefined : resolvedShellTheme(scenario.theme, scenario.system) === "dark"
+    ? "rgb(18, 16, 15)" : "rgb(248, 247, 244)"
+}
 /** Use the pinned browser's color serialization, with explicit immutable alpha
  * and expected ink. These nonrendered probes are removed before any comparison. */
 export async function measureMarketingPaintReference(page: Page, scenario: ShellCase, mode: "current" | "baseline"): Promise<MarketingPaintReference | undefined> {
   if (scenario.route !== "/") return undefined
   const dark = resolvedShellTheme(scenario.theme, scenario.system) === "dark"
-  return page.evaluate(({ mode, dark, forced }) => {
+  return page.evaluate(({ mode, dark, forced, primaryContrast }) => {
     const main = document.querySelector("#main")
     if (main === null) throw new Error("Missing main color reference")
     const ink = mode === "baseline" ? getComputedStyle(main).color : forced ? getComputedStyle(document.documentElement).color
@@ -163,10 +169,10 @@ export async function measureMarketingPaintReference(page: Page, scenario: Shell
       document.documentElement.append(element)
       try { return getComputedStyle(element).color } finally { element.remove() }
     }
-    const primaryInk = mode === "baseline" ? ink : forced ? getComputedStyle(document.documentElement).backgroundColor : "rgb(255, 255, 255)"
+    const primaryInk = mode === "baseline" ? ink : forced ? getComputedStyle(document.documentElement).backgroundColor : primaryContrast!
     return { ink: sample(ink), primaryInk: forced ? primaryInk : sample(primaryInk), line: sample(forced ? ink : `color-mix(in oklch, ${ink} 12%, transparent)`),
       strongLine: sample(forced ? ink : `color-mix(in oklch, ${ink} 22%, transparent)`) }
-  }, { mode, dark, forced: scenario.forced === "active" })
+  }, { mode, dark, forced: scenario.forced === "active", primaryContrast: marketingPrimaryContrast(scenario) })
 }
 export function assertMarketingDerivedPaint(elements: readonly ShellElement[], reference: MarketingPaintReference): void {
   for (const [key, contract] of Object.entries(marketingBorderPaint)) {

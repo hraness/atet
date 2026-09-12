@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { marketingScope, marketingBaselineProfile, marketingBaselineRevision, marketingBaselineTree, marketingCases,
   marketingDeadlineMs, parseMarketingRequest, parseMarketingPhase, parseMarketingCaseFailure, marketingCaseFailure,
   compareMarketingElements, headingSize, marketingHeadingIds, marketingSectionIds, assertMarketingPaint, assertMarketingProof, assertMarketingFlow, assertMarketingInstallNote,
-  assertMarketingDerivedPaint, type MarketingRequest, type MarketingTextExtent } from "./site-marketing-browser-contract"
+  assertMarketingDerivedPaint, marketingPrimaryContrast, type MarketingRequest, type MarketingTextExtent } from "./site-marketing-browser-contract"
 import { parseShellRequest, type ShellElement } from "./site-shell-browser-contract"
 import { assertMarketingBaselineManifest, assertMarketingFontInventory } from "./verify-site-marketing"
 import type { ShellSnapshot } from "./verify-site-shell"
@@ -136,8 +136,17 @@ test("proof requires complete six-line readable extent and text containment, not
   expect(() => assertMarketingProof(elements, [{ ...extents[0]!, fragments: [[40, 400, 100, 16]] }, extents[1]!])).toThrow()
 })
 
+test("primary contrast follows the exact Paper palette and selected/system theme", () => {
+  const scenario = marketingCases[0]!
+  for (const system of ["light", "dark"] as const) {
+    expect(marketingPrimaryContrast({ ...scenario, theme: "light", system })).toBe("rgb(248, 247, 244)")
+    expect(marketingPrimaryContrast({ ...scenario, theme: "dark", system })).toBe("rgb(18, 16, 15)")
+    expect(marketingPrimaryContrast({ ...scenario, theme: "system", system })).toBe(system === "dark" ? "rgb(18, 16, 15)" : "rgb(248, 247, 244)")
+    expect(marketingPrimaryContrast({ ...scenario, system, forced: "active" })).toBeUndefined()
+  }
+})
 test("finite active borders and repaired primary contrast retain exact paint and alpha", () => {
-  const current = { ink: "rgb(36, 42, 47)", primaryInk: "rgb(255, 255, 255)", line: "rgba(36, 42, 47, 0.12)", strongLine: "rgba(36, 42, 47, 0.22)" }
+  const current = { ink: "rgb(36, 42, 47)", primaryInk: "rgb(248, 247, 244)", line: "rgba(36, 42, 47, 0.12)", strongLine: "rgba(36, 42, 47, 0.22)" }
   const baseline = { ink: "rgb(28, 25, 23)", primaryInk: "rgb(28, 25, 23)", line: "rgba(28, 25, 23, 0.12)", strongLine: "rgba(28, 25, 23, 0.22)" }
   const primaryKeys = [".hraness-marketing-hero__actions a[0]", '.hraness-marketing-cta__actions a[data-emphasis="primary"][0]']
   const keys = [...marketingSectionIds.map(id => `#${id}[0]`), ".hraness-marketing-proof-frame[0]", ".hraness-marketing-proof-frame__chrome[0]",
