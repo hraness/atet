@@ -285,7 +285,19 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
     near(heading.styles["font-size"]!, size, heading.key); near(heading.styles["line-height"]!, size * leading, heading.key)
     near(heading.styles["letter-spacing"]!, size * tracking, heading.key)
     assert.ok(heading.rect[2]! > 0 && heading.rect[3]! >= size * leading - .5 && heading.rect[3]! <= size * leading * 8, "Readable, noncollapsed heading")
-    assert.ok(heading.rect[0]! >= -.5 && heading.rect[0]! + heading.rect[2]! <= scenario.width + .5, "Heading fits the viewport")
+    if (!(heading.rect[0]! >= -.5 && heading.rect[0]! + heading.rect[2]! <= scenario.width + .5)) {
+      const geometry = await page.locator(heading.key.replace(/\[0\]$/u, "")).evaluate(element => {
+        const values = [], properties = ["width", "min-width", "max-width", "display", "box-sizing", "overflow-x", "grid-template-columns"]
+        let current: Element | null = element
+        for (let depth = 0; current !== null && depth < 3; depth++, current = current.parentElement) {
+          const rect = current.getBoundingClientRect(), style = getComputedStyle(current)
+          values.push({ tag: current.tagName, id: current.id, rect: [rect.x, rect.y, rect.width, rect.height],
+            styles: Object.fromEntries(properties.map(property => [property, style.getPropertyValue(property)])) })
+        }
+        return values
+      })
+      assert.fail(`Heading fits the viewport: ${JSON.stringify({ heading: heading.key, viewport: scenario.width, rect: heading.rect, geometry })}`)
+    }
     assert.equal(heading.styles.visibility, "visible"); assert.equal(heading.styles.opacity, "1")
   }
   assert.equal(h1.text, "Direct scenes and films with your coding agent")
