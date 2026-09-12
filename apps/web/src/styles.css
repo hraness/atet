@@ -122,6 +122,14 @@ a {
   text-underline-offset: 0.16em;
 }
 
+/* Bind the compiled shell header to Lantern chrome tokens. The static shell does not
+ * carry the design-kit TopBar marker, so this scoped bridge keeps its glass paint
+ * and blur identical to the canonical material without changing other headers. */
+:root[data-hraness-material="lantern"] .topbar.hraness-material-chrome {
+  --hraness-material-chrome-paint: color-mix(in oklch, var(--surface, var(--ui-background, Canvas)) 90%, transparent);
+  --hraness-material-chrome-blur: blur(20px) saturate(1.1);
+}
+
 /* The homepage header action is outlined; its ink follows the header surface. */
 .topbar nav[aria-label="Primary"] > .site-action {
   --gold-ink: var(--ink);
