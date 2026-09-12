@@ -4,7 +4,7 @@ import { marketingScope, marketingBaselineProfile, marketingBaselineRevision, ma
   compareMarketingElements, headingSize, marketingHeadingIds, marketingSectionIds, assertMarketingPaint, assertMarketingProof, assertMarketingFlow,
   type MarketingRequest, type MarketingTextExtent } from "./site-marketing-browser-contract"
 import { parseShellRequest, type ShellElement } from "./site-shell-browser-contract"
-import { assertMarketingBaselineManifest } from "./verify-site-marketing"
+import { assertMarketingBaselineManifest, assertMarketingFontInventory } from "./verify-site-marketing"
 import type { ShellSnapshot } from "./verify-site-shell"
 
 function request(): MarketingRequest {
@@ -129,4 +129,18 @@ test("unchanged footer and Ask AI translate only by the measured main flow delta
   const actual = baseline.map((item, index) => ({ ...item, rect: index === 0 ? [20, 100, 200, 150] : [20, 150, 200, 100] }))
   expect(() => assertMarketingFlow(actual, baseline)).not.toThrow()
   expect(() => assertMarketingFlow(actual.map((item, index) => index === 2 ? { ...item, rect: [20, 175, 200, 100] } : item), baseline)).toThrow()
+})
+
+
+test("full snapshot retains fourteen ordinary fonts and the thirteen independent preview fonts", () => {
+  const graph = (name: string, count: number) => Array.from({ length: count }, (_, index) => ({
+    path: `graphs/${name}/assets/font-${index}.woff2`, bytes: 1, sha256: "a".repeat(64),
+  }))
+  const ordinary = graph("site-foundation", 14), preview = graph("preview-foundation", 13)
+  const all = [...ordinary, ...preview]
+  expect(() => assertMarketingFontInventory(all)).not.toThrow()
+  for (const artifacts of [ordinary, preview, [...ordinary.slice(1), ...preview], [...ordinary, ...preview.slice(1)],
+    [...all, all[0]!], [...ordinary.slice(1), ...preview, { ...ordinary[0]!, path: "fonts/escaped.woff2" }]]) {
+    expect(() => assertMarketingFontInventory(artifacts)).toThrow()
+  }
 })

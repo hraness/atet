@@ -17,7 +17,7 @@ import { assertWorkerInputsUnchanged, assertWorkerProtocolSnapshot, decodeWorker
 import { capturePreviewOutputTimeout, createPreviewEndpointWaiter, previewFailureSummary,
   type EndpointEvidence, type PreviewOutputTimeoutEvidence } from "./verify-preview-layout"
 import { shellContentType, shellRecord, siteShellHeaders, type ShellPayload } from "./site-shell-browser-contract"
-import { readShellSnapshot, assertShellSnapshotUnchanged, parseShellArguments, type ShellSnapshot } from "./verify-site-shell"
+import { readShellSnapshot, assertShellSnapshotUnchanged, parseShellArguments, type ShellSnapshot, type ShellArtifact } from "./verify-site-shell"
 import { snapshotMarketingPreset } from "./marketing-preset"
 import { parseMarketingCaseFailure as parseShellCaseFailure, parseMarketingPhase as parseShellPhase,
   parseMarketingRequest as parseShellRequest, marketingCases as siteShellCases, marketingDeadlineMs,
@@ -50,13 +50,24 @@ function candidateIdentity(directory: string): CandidateIdentity {
   assert.equal(values.length, 2); assert.ok(values.every(value => /^[a-f0-9]{40}$/u.test(value)))
   return { sha: values[0]!, tree: values[1]! }
 }
+/** Full dist retains both independent compiler graphs; only the ordinary
+ * graph gains the editorial face. Keep each finite inventory and all bytes. */
+export function assertMarketingFontInventory(artifacts: readonly ShellArtifact[]): void {
+  const fonts = artifacts.filter(file => file.path.endsWith(".woff2"))
+  const ordinary = fonts.filter(file => /^graphs\/site-foundation\/assets\/[A-Za-z0-9_.-]+\.woff2$/u.test(file.path))
+  const preview = fonts.filter(file => /^graphs\/preview-foundation\/assets\/[A-Za-z0-9_.-]+\.woff2$/u.test(file.path))
+  assert.equal(ordinary.length, 14, "Ordinary marketing graph must retain fourteen fonts")
+  assert.equal(preview.length, 13, "Independent preview graph must retain thirteen fonts")
+  assert.equal(fonts.length, ordinary.length + preview.length, "Font escaped its captured compiler graph")
+  assert.equal(new Set(fonts.map(file => file.path)).size, fonts.length, "Duplicate font artifact")
+}
 interface MarketingSnapshot extends ShellSnapshot { readonly presetSourceCommit: string; readonly presetManifestSha256: string; readonly fieldAssets: readonly [string, string] }
 async function readMarketingSnapshot(directory: string): Promise<MarketingSnapshot> {
   const snapshot = await readShellSnapshot(directory, true), vendor = join(directory, "vendor/marketing-preset")
   const preset = await snapshotMarketingPreset(vendor), manifest = await readPreviewFile(join(vendor, "provenance.json"), 32 * 1024)
   const inputs = [...snapshot.inputs, ...[...preset.files].map(([path, bytes]) => ({ path: `vendor/marketing-preset/${path}`, bytes: bytes.byteLength, sha256: digest(bytes) })),
     { path: "vendor/marketing-preset/provenance.json", bytes: manifest.byteLength, sha256: digest(manifest) }].sort((a, b) => a.path.localeCompare(b.path))
-  assert.equal(snapshot.artifacts.filter(file => file.path.endsWith(".woff2")).length, 14)
+  assertMarketingFontInventory(snapshot.artifacts)
   const fieldAssets: string[] = []
   for (const name of ["fonts/instrument-serif/instrument-serif-latin-400.woff2", "marketing-assets/grain.svg", "marketing-assets/cells.svg"]) {
     const source = preset.files.get(name); assert.ok(source !== undefined)
