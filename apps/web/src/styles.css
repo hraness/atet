@@ -178,6 +178,20 @@ h3 {
   --hraness-marketing-background: transparent;
 }
 
+/* The preset and field share main here. Bridge the v0.6.7 descendant-field
+ * selector to the same finite role list without changing accent surfaces. */
+[data-hraness-marketing-preset="editorial"].hraness-marketing-field :where(
+  .hraness-marketing-page, .hraness-marketing-header, .hraness-marketing-hero,
+  .hraness-marketing-pillars, .hraness-marketing-install, .hraness-marketing-section,
+  .hraness-marketing-primitives, .hraness-marketing-stats, .hraness-marketing-interfaces,
+  .hraness-marketing-trust, .hraness-marketing-quotes, .hraness-marketing-pricing,
+  .hraness-marketing-questions, .hraness-marketing-maker, .hraness-marketing-cta,
+  .hraness-marketing-proof-frame
+):not([data-tone="accent"]) {
+  --hraness-marketing-ink: var(--hraness-marketing-field-ink);
+  --hraness-marketing-muted: var(--hraness-marketing-field-muted);
+}
+
 .slopcamera-product-hero {
   align-items: center;
   gap: clamp(2rem, 4vw, 3.5rem);
