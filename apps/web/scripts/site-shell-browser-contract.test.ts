@@ -1134,6 +1134,27 @@ test("fixed skip parity uses strict viewport geometry while retaining document s
   expect(() => recordShellFocusedSkip(current.settled, { ...current.measured, styles: { ...current.measured.styles, position: "absolute" } }, "nonfixed skip")).toThrow()
 })
 
+test("fixed viewport parity is invariant under independently generated finite document scroll offsets", () => {
+  // Reproducible bounded numeric law; no browser, dependency or deadline change.
+  let seed = 0x51c04a7
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 0x1_0000_0000 }
+  const scroll = () => (random() * 2 - 1) * 2 ** (Math.floor(random() * 71) - 20)
+  for (let iteration = 0; iteration < 128; iteration += 1) {
+    const x = random() * 64, y = random() * 64, width = 32 + random() * 256, height = 24 + random() * 64
+    const record = (scrollY: number, viewportY = y) => {
+      const owner = { key: ".skip-link[0]", rect: [x, viewportY, width, height], styles: { ...focusPaint, position: "fixed" } }
+      return recordShellFocusedSkip({ elements: [owner], scrollY },
+        { ...owner, rect: [x, viewportY + scrollY, width, height], text: "Skip to content", semantics: { href: "#main" } },
+        `numeric law ${iteration}`)
+    }
+    const oldScroll = scroll(), currentScroll = scroll(), baseline = record(oldScroll), current = record(currentScroll)
+    expect(current.rect).toEqual(baseline.rect)
+    expect(current.scrollY).toBe(currentScroll)
+    expect(() => compareShellFocusedSkip(current, baseline, `scroll-invariant ${iteration}`)).not.toThrow()
+    expect(() => compareShellFocusedSkip(record(currentScroll, y + 1), baseline, `actual viewport shift ${iteration}`)).toThrow()
+  }
+})
+
 test("native transfer rejects main focus loss or skip focus immediately, continuously and after transient regain", async () => {
   for (const owner of ["skip", "main"] as const) {
     for (const patch of owner === "skip" ? [{ focused: true }, { focus: true }, { focusVisible: true }]
