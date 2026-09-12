@@ -138,6 +138,14 @@ a {
   backdrop-filter: blur(20px) saturate(1.1);
 }
 
+/* The standalone site stylesheet is loaded after the compiler graph. Keep a
+ * matching owned hook there so the final page cascade cannot fall back to the
+ * legacy 84% shell paint. */
+.topbar.hraness-material-chrome {
+  background-color: color-mix(in oklch, var(--surface, var(--ui-background, Canvas)) 90%, transparent);
+  backdrop-filter: blur(20px) saturate(1.1);
+}
+
 /* The homepage header action is outlined; its ink follows the header surface. */
 .topbar nav[aria-label="Primary"] > .site-action {
   --gold-ink: var(--ink);
