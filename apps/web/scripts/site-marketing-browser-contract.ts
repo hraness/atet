@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { isAbsolute } from "node:path"
 import type { Page } from "playwright-core"
-import { assertShellNode, compareShellElements, compareShellEvidence, measure, resolvedShellTheme, settle,
+import { assertShellNode, compareShellElements, compareShellEvidence, compareShellFocusedSkip, measure, resolvedShellTheme, settle,
   shellAppearanceSteps, shellRecord, shellResource, siteShellCases, siteShellDeadlineMs,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellPayload } from "./site-shell-browser-contract"
 
@@ -255,7 +255,7 @@ export function compareMarketingEvidence(actual: ShellEvidence, baseline: ShellE
   assert.equal(actual.direction, baseline.direction); assert.equal(actual.recovery, baseline.recovery)
   assertMarketingFlow(actual.elements, baseline.elements)
   compareMarketingElements(translateSiblings(actual.elements, actual), translateSiblings(baseline.elements, baseline), `${scenario.name} finite design differences`, paint)
-  compareShellElements([actual.skip], [baseline.skip], `${scenario.name} skip`)
+  compareShellFocusedSkip(actual.skip, baseline.skip, `${scenario.name} skip`)
   compareShellElements(translateSiblings(actual.focus, actual), translateSiblings(baseline.focus, baseline), `${scenario.name} native focus`)
   compareShellElements(translateSiblings(actual.hover, actual), translateSiblings(baseline.hover, baseline), `${scenario.name} native hover`)
   assert.deepEqual(actual.appearance.map(value => [value.step, value.active]), shellAppearanceSteps.map(value => [value.name, value.active]))

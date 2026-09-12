@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import type { WebSocketRoute } from "playwright-core"
-import { assertShellFocusFragments, assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, denyShellWebSocket, observeShellFocus, parseShellCaseFailure, parseShellPhase, parseShellRequest,
+import { assertShellFocusFragments, assertShellFocusUnchanged, assertShellNode, assertShellSkipReveal, assertShellSystemPaintChanged, compareShellElements, compareShellEvidence, compareShellFocusedSkip, denyShellWebSocket, observeShellFocus, parseShellCaseFailure, parseShellPhase, parseShellRequest, recordShellFocusedSkip,
   resolvedShellTheme, settleShellAppearancePaint, settleShellFocusState, settleShellSystemPaint, ShellPairFailure, settleShellPair, shellAppearanceSteps, shellCaseFailure, shellContextLifecycle, shellFocusFragments, shellOperationTracker, shellResource, siteShellBaselineRevision, siteShellBaselineTree, siteShellCases, siteShellHeaders, withShellCaseCleanup, withShellSettledNavigation,
   type ShellCase, type ShellElement, type ShellEvidence, type ShellRequest } from "./site-shell-browser-contract"
 
@@ -1111,6 +1111,29 @@ test("recorded focus evidence cannot change geometry, paint or owner inventory a
   }
 })
 
+test("fixed skip parity uses strict viewport geometry while retaining document scroll independently", () => {
+  const sample = (scrollY: number, y = 12) => {
+    const owner = { key: ".skip-link[0]", rect: [12, y, 100, 48], styles: { ...focusPaint, position: "fixed" } }
+    const settled = { elements: [owner], scrollY }
+    const measured = { ...owner, rect: [12, y + scrollY, 100, 48], text: "Skip to content", semantics: { href: "#main" } }
+    return { settled, measured, recorded: recordShellFocusedSkip(settled, measured, "native skip") }
+  }
+  const baseline = sample(16), current = sample(0)
+  expect(baseline.measured.rect[1]).toBe(28)
+  expect(current.measured.rect[1]).toBe(12)
+  expect(baseline.recorded.scrollY).toBe(16)
+  expect(current.recorded.scrollY).toBe(0)
+  expect(() => compareShellFocusedSkip(current.recorded, baseline.recorded, "fixed skip")).not.toThrow()
+  expect(() => compareShellElements([current.measured], [baseline.measured], "ordinary document geometry")).toThrow()
+  expect(() => compareShellFocusedSkip(sample(16, 28).recorded, baseline.recorded, "moved viewport skip")).toThrow()
+  for (const patch of [{ rect: [12, 12, 99, 48] }, { styles: { ...current.recorded.styles, "outline-width": "3px" } },
+    { semantics: { href: "#wrong" } }, { scrollY: NaN }, { documentRect: [12, 28, 100, 48] }, { geometrySpace: "document" as "viewport" }]) {
+    expect(() => compareShellFocusedSkip({ ...current.recorded, ...patch }, baseline.recorded, "changed skip")).toThrow()
+  }
+  expect(() => recordShellFocusedSkip(baseline.settled, { ...baseline.measured, rect: [12, 12, 100, 48] }, "lost scroll binding")).toThrow()
+  expect(() => recordShellFocusedSkip(current.settled, { ...current.measured, styles: { ...current.measured.styles, position: "absolute" } }, "nonfixed skip")).toThrow()
+})
+
 test("native transfer rejects main focus loss or skip focus immediately, continuously and after transient regain", async () => {
   for (const owner of ["skip", "main"] as const) {
     for (const patch of owner === "skip" ? [{ focused: true }, { focus: true }, { focusVisible: true }]
@@ -1366,7 +1389,9 @@ function evidence(): ShellEvidence {
     ['[data-hraness-appearance-menu] [role="menuitemradio"] .hraness-appearance-icon', 3],
     ['[data-hraness-appearance-menu] [role="menuitemradio"] .hraness-appearance-icon svg', 3],
   ] as const
-  return { direction: "ltr", dom: "<main></main>", elements: [old], skip: old, hover: [old], focus: [old], recovery: false,
+  return { direction: "ltr", dom: "<main></main>", elements: [old],
+    skip: { ...old, key: ".skip-link[0]", styles: { ...old.styles, position: "fixed" }, geometrySpace: "viewport", scrollY: 0, documentRect: old.rect },
+    hover: [old], focus: [old], recovery: false,
     appearance: shellAppearanceSteps.map(step => ({ step: step.name, active: step.active,
       elements: menuElements.flatMap(([selector, count]) => Array.from({ length: count }, (_, index) => ({
         ...old, key: `${selector}[${index}]`, text: "Light",
