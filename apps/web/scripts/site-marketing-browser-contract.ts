@@ -135,8 +135,49 @@ function translateSiblings(items: readonly ShellElement[], evidence: ShellEviden
 const geometryProperties = ["width", "height", "max-width", "margin-left", "margin-right", "grid-template-columns"] as const
 const spacingProperties = ["padding-top", "padding-bottom", "padding-left", "padding-right"] as const
 const headingProperties = ["font-family", "font-size", "font-weight", "line-height", "letter-spacing", "color", ...geometryProperties] as const
-/** This finite map is the complete comparison exception surface. No selector
- * match means exact original comparison. Content and semantics never differ. */
+export interface MarketingPaintReference { readonly ink: string; readonly line: string; readonly strongLine: string }
+export interface MarketingPaintPair { readonly current: MarketingPaintReference; readonly baseline: MarketingPaintReference }
+const borderSides = ["top", "right", "bottom", "left"] as const
+const marketingBorderPaint: Readonly<Record<string, { readonly sides: readonly string[]; readonly reference: "line" | "strongLine" }>> = {
+  ...Object.fromEntries(marketingSectionIds.map(id => [`#${id}[0]`, { sides: id === "install" ? borderSides : ["top"], reference: "line" as const }])),
+  ".hraness-marketing-proof-frame[0]": { sides: borderSides, reference: "line" },
+  ".hraness-marketing-proof-frame__chrome[0]": { sides: ["bottom"], reference: "line" },
+  ".hraness-marketing-proof-frame__caption[0]": { sides: ["top"], reference: "line" },
+  ".hraness-marketing-hero__actions a[1]": { sides: borderSides, reference: "strongLine" },
+}
+/** Use the pinned browser's color serialization, with explicit immutable alpha
+ * and expected ink. These nonrendered probes are removed before any comparison. */
+export async function measureMarketingPaintReference(page: Page, scenario: ShellCase, mode: "current" | "baseline"): Promise<MarketingPaintReference | undefined> {
+  if (scenario.route !== "/") return undefined
+  const dark = resolvedShellTheme(scenario.theme, scenario.system) === "dark"
+  return page.evaluate(({ mode, dark, forced }) => {
+    const main = document.querySelector("#main")
+    if (main === null) throw new Error("Missing main color reference")
+    const ink = mode === "baseline" ? getComputedStyle(main).color : forced ? getComputedStyle(document.documentElement).color
+      : dark ? "rgb(236, 238, 233)" : "rgb(36, 42, 47)"
+    const sample = (color: string) => {
+      const element = document.createElement("span")
+      element.style.display = "none"; element.style.color = color
+      document.documentElement.append(element)
+      try { return getComputedStyle(element).color } finally { element.remove() }
+    }
+    return { ink: sample(ink), line: sample(forced ? ink : `color-mix(in oklch, ${ink} 12%, transparent)`),
+      strongLine: sample(forced ? ink : `color-mix(in oklch, ${ink} 22%, transparent)`) }
+  }, { mode, dark, forced: scenario.forced === "active" })
+}
+export function assertMarketingDerivedPaint(elements: readonly ShellElement[], reference: MarketingPaintReference): void {
+  for (const [key, contract] of Object.entries(marketingBorderPaint)) {
+    const matches = elements.filter(item => item.key === key); assert.equal(matches.length, 1, `Exactly one derived border owner ${key}`)
+    for (const side of contract.sides) {
+      assert.equal(matches[0]!.styles[`border-${side}-width`], "1px", `${key} retains its one-pixel ${side} border`)
+      assert.equal(matches[0]!.styles[`border-${side}-style`], "solid", `${key} retains its solid ${side} border`)
+      assert.equal(matches[0]!.styles[`border-${side}-color`], reference[contract.reference], `${key} exact derived ${side} border color`)
+    }
+  }
+  assert.equal(elements.find(item => item.key === ".hraness-marketing-hero__actions a[1]")!.styles.color, reference.ink, "Only the secondary action uses field ink")
+}
+/** This map and the separately asserted marketingBorderPaint are the complete
+ * exception surface. Unlisted paint, content and semantics remain exact. */
 export const marketingDifferenceMap: Readonly<Record<string, { readonly properties: readonly string[]; readonly axes: readonly number[] }>> = Object.freeze({
   "body[0]": { properties: ["height"], axes: [3] },
   "#main[0]": { properties: ["height", "position", "color", "background-color", "background-image", "background-position", "background-size", "background-repeat"], axes: [3] },
@@ -154,15 +195,20 @@ export const marketingDifferenceMap: Readonly<Record<string, { readonly properti
   ".transcript[0]": { properties: geometryProperties, axes: [0, 1, 2, 3] },
   ".hraness-marketing-install__heading-group > .install-note[0]": { properties: ["width", "height", "overflow-wrap"], axes: [0, 1, 2, 3] },
   ...Object.fromEntries([0, 1].map(index => [`.hraness-marketing-hero__actions a[${index}]`,
-    { properties: ["width", "height", "min-height", "border-radius"], axes: [0, 1, 2, 3] }])),
+    { properties: ["width", "height", "min-height", "border-radius", ...(index === 1 ? ["color"] : [])], axes: [0, 1, 2, 3] }])),
 })
-export function compareMarketingElements(actual: readonly ShellElement[], baseline: readonly ShellElement[], label: string): void {
+export function compareMarketingElements(actual: readonly ShellElement[], baseline: readonly ShellElement[], label: string, paint?: MarketingPaintPair): void {
   assert.deepEqual(actual.map(value => value.key), baseline.map(value => value.key), `${label}: exact landmark inventory`)
   const projected = actual.map((item, index) => {
     const allowed = marketingDifferenceMap[item.key], old = baseline[index]!
     if (allowed === undefined) return item
     assert.ok(item.rect[2]! > 0 && item.rect[3]! > 0, `${label}: collapsed landmark ${item.key}`)
     const styles = { ...item.styles }
+    const border = marketingBorderPaint[item.key]
+    if (paint !== undefined && border !== undefined) for (const side of border.sides) {
+      const property = `border-${side}-color`
+      if (item.styles[property] === paint.current[border.reference] && old.styles[property] === paint.baseline[border.reference]) styles[property] = old.styles[property]!
+    }
     for (const property of allowed.properties) if (Object.hasOwn(old.styles, property)) styles[property] = old.styles[property]!
     // CSSOM exposes currentColor even on absent decoration/outline/borders.
     // Admit only that exact derivation from the independently asserted ink;
@@ -181,12 +227,12 @@ export function compareMarketingElements(actual: readonly ShellElement[], baseli
   })
   compareShellElements(projected, baseline, label)
 }
-export function compareMarketingEvidence(actual: ShellEvidence, baseline: ShellEvidence, scenario: ShellCase): void {
+export function compareMarketingEvidence(actual: ShellEvidence, baseline: ShellEvidence, scenario: ShellCase, paint?: MarketingPaintPair): void {
   if (scenario.route === "/404.html") { compareShellEvidence(actual, baseline, scenario.name); return }
   assert.equal(normalizeMainOptIn(actual.dom), baseline.dom, "Copy, commands, logo and DOM outside the exact opt-in must remain unchanged")
   assert.equal(actual.direction, baseline.direction); assert.equal(actual.recovery, baseline.recovery)
   assertMarketingFlow(actual.elements, baseline.elements)
-  compareMarketingElements(translateSiblings(actual.elements, actual), translateSiblings(baseline.elements, baseline), `${scenario.name} finite design differences`)
+  compareMarketingElements(translateSiblings(actual.elements, actual), translateSiblings(baseline.elements, baseline), `${scenario.name} finite design differences`, paint)
   compareShellElements([actual.skip], [baseline.skip], `${scenario.name} skip`)
   compareShellElements(translateSiblings(actual.focus, actual), translateSiblings(baseline.focus, baseline), `${scenario.name} native focus`)
   compareShellElements(translateSiblings(actual.hover, actual), translateSiblings(baseline.hover, baseline), `${scenario.name} native hover`)
@@ -286,7 +332,7 @@ export async function measureMarketingDetails(page: Page, scenario: ShellCase): 
   return scenario.route === "/" ? measure(page, marketingDetailSelectors) : []
 }
 export interface MarketingObservation { readonly name: string; readonly scope: "editorial-main" | "unchanged-404"; readonly h1Px: number | null; readonly h2Px: number | null; readonly foundationRestored: boolean }
-export async function observeMarketingDesign(page: Page, scenario: ShellCase, payload: ShellPayload, fieldAssets: readonly [string, string], negative: boolean): Promise<{ observation: MarketingObservation; elements: readonly ShellElement[] }> {
+export async function observeMarketingDesign(page: Page, scenario: ShellCase, payload: ShellPayload, fieldAssets: readonly [string, string], negative: boolean): Promise<{ observation: MarketingObservation; elements: readonly ShellElement[]; paint?: MarketingPaintReference }> {
   if (scenario.route === "/404.html") {
     assert.equal(await page.locator('[data-hraness-marketing-preset],.hraness-marketing-field').count(), 0)
     return { observation: { name: scenario.name, scope: "unchanged-404", h1Px: null, h2Px: null, foundationRestored: false }, elements: [] }
@@ -328,6 +374,8 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
   near(hero.styles["padding-bottom"]!, phone ? 72 : 64, "Hero bottom rhythm")
   const canvas = await page.evaluate(() => ({ color: getComputedStyle(document.documentElement).color, background: getComputedStyle(document.documentElement).backgroundColor }))
   assertMarketingPaint(original, scenario, fieldAssets, payload.origin, canvas)
+  const paint = await measureMarketingPaintReference(page, scenario, "current"); assert.ok(paint !== undefined)
+  assertMarketingDerivedPaint(original, paint)
   const summary = pick(".hraness-marketing-hero__summary")
   near(summary.styles["font-size"]!, 17, "Summary size"); near(summary.styles["line-height"]!, 27.2, "Summary leading")
   for (const action of original.filter(value => value.key.startsWith(".hraness-marketing-hero__actions a["))) {
@@ -401,5 +449,5 @@ export async function observeMarketingDesign(page: Page, scenario: ShellCase, pa
     compareShellElements(await measure(page, selectors), original, "Exact restored editorial foundation")
     compareShellElements(await measure(page, [".topbar", ".wordmark"]), shellBefore, "Exact restored shell foundation")
   }
-  return { observation: { name: scenario.name, scope: "editorial-main", h1Px: expectedH1, h2Px: expectedH2, foundationRestored: negative }, elements: original }
+  return { observation: { name: scenario.name, scope: "editorial-main", h1Px: expectedH1, h2Px: expectedH2, foundationRestored: negative }, elements: original, paint }
 }

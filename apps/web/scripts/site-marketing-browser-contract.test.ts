@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { marketingScope, marketingBaselineProfile, marketingBaselineRevision, marketingBaselineTree, marketingCases,
   marketingDeadlineMs, parseMarketingRequest, parseMarketingPhase, parseMarketingCaseFailure, marketingCaseFailure,
   compareMarketingElements, headingSize, marketingHeadingIds, marketingSectionIds, assertMarketingPaint, assertMarketingProof, assertMarketingFlow, assertMarketingInstallNote,
-  type MarketingRequest, type MarketingTextExtent } from "./site-marketing-browser-contract"
+  assertMarketingDerivedPaint, type MarketingRequest, type MarketingTextExtent } from "./site-marketing-browser-contract"
 import { parseShellRequest, type ShellElement } from "./site-shell-browser-contract"
 import { assertMarketingBaselineManifest, assertMarketingFontInventory } from "./verify-site-marketing"
 import type { ShellSnapshot } from "./verify-site-shell"
@@ -123,6 +123,32 @@ test("proof requires complete six-line readable extent and text containment, not
   }
   expect(() => assertMarketingProof(elements, [{ ...extents[0]!, scroll: [498, 400] }, extents[1]!])).toThrow()
   expect(() => assertMarketingProof(elements, [{ ...extents[0]!, fragments: [[40, 400, 100, 16]] }, extents[1]!])).toThrow()
+})
+
+test("only finite active borders follow their exact ink mix; alpha, width, style and primary accent stay strict", () => {
+  const current = { ink: "rgb(36, 42, 47)", line: "rgba(36, 42, 47, 0.12)", strongLine: "rgba(36, 42, 47, 0.22)" }
+  const baseline = { ink: "rgb(28, 25, 23)", line: "rgba(28, 25, 23, 0.12)", strongLine: "rgba(28, 25, 23, 0.22)" }
+  const keys = [...marketingSectionIds.map(id => `#${id}[0]`), ".hraness-marketing-proof-frame[0]", ".hraness-marketing-proof-frame__chrome[0]",
+    ".hraness-marketing-proof-frame__caption[0]", ".hraness-marketing-hero__actions a[1]"]
+  const make = (reference: typeof current) => keys.map(key => {
+    const sides = key === ".hraness-marketing-proof-frame__chrome[0]" ? ["bottom"]
+      : key === "#install[0]" || key === ".hraness-marketing-proof-frame[0]" || key.endsWith("a[1]") ? ["top", "right", "bottom", "left"] : ["top"]
+    return element(key, { color: reference.ink, ...Object.fromEntries(sides.flatMap(side => [
+      [`border-${side}-width`, "1px"], [`border-${side}-style`, "solid"], [`border-${side}-color`, key.endsWith("a[1]") ? reference.strongLine : reference.line],
+    ])) })
+  })
+  const original = make(baseline), changed = make(current), paint = { current, baseline }
+  expect(() => assertMarketingDerivedPaint(changed, current)).not.toThrow()
+  expect(() => compareMarketingElements(changed, original, "exact derived paint", paint)).not.toThrow()
+  for (const [property, value] of [["border-top-color", "rgba(36, 42, 47, 0.2)"], ["border-top-width", "2px"], ["border-top-style", "dashed"]]) {
+    const bad = changed.map(item => item.key === "#install[0]" ? { ...item, styles: { ...item.styles, [property!]: value! } } : item)
+    expect(() => assertMarketingDerivedPaint(bad, current)).toThrow()
+    expect(() => compareMarketingElements(bad, original, "border regression", paint)).toThrow()
+  }
+  expect(() => assertMarketingDerivedPaint(changed.map(item => item.key.endsWith("a[1]") ? { ...item, styles: { ...item.styles, color: "red" } } : item), current)).toThrow()
+  const primary = element(".hraness-marketing-hero__actions a[0]", { color: "white", "border-top-color": "gold" })
+  expect(() => compareMarketingElements([{ ...primary, styles: { ...primary.styles, color: current.ink } }], [primary], "primary accent", paint)).toThrow()
+  expect(() => compareMarketingElements([{ ...primary, styles: { ...primary.styles, "border-top-color": current.strongLine } }], [primary], "primary border", paint)).toThrow()
 })
 test("unchanged footer and Ask AI translate only by the measured main flow delta", () => {
   const baseline = [element("#main[0]"), element(".slopcamera-ask-ai[0]"), element("#hraness-site-footer[0]")]

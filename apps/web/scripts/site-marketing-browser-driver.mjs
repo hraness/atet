@@ -7,7 +7,7 @@ import { bounded, withPreviewCancellation } from "./preview-browser-contract"
 import { assertShellNode, checkShellCase, ShellPairFailure, settleShellPair } from "./site-shell-browser-contract"
 import { marketingCases, marketingDeadlineMs, marketingScope, marketingBaselineProfile, parseMarketingRequest,
   parseMarketingPhase, marketingCaseFailure, compareMarketingEvidence, compareMarketingElements, measureMarketingDetails,
-  observeMarketingDesign, marketingDom } from "./site-marketing-browser-contract"
+  observeMarketingDesign, marketingDom, measureMarketingPaintReference } from "./site-marketing-browser-contract"
 import { decodeWorkerJson, encodeWorkerJson, publishWorkerPhase, workerAttachmentMs, workerProtocolLimit } from "./preview-browser-protocol"
 import { readPreviewFile } from "./preview-file"
 import { assertOwnedPreviewEndpoint, closeOwnedPreviewBrowser } from "./preview-browser-shutdown"
@@ -54,7 +54,7 @@ async function main() {
         const remaining = selectedDeadline - (performance.now() - started)
         assert.ok(remaining > 0, "Shell matrix exceeded its absolute deadline")
         const negative = scenario.width === 1440 && scenario.theme === "system" && scenario.system === "light"
-        let design, baselineDetails, currentDom, baselineDom
+        let design, baselineDetails, currentDom, baselineDom, baselinePaint
         const [evidence, old] = await cancellation.wait(() => {
           activePair = settleShellPair(
             () => checkShellCase(browser, request.current, scenario, "current", negative,
@@ -62,15 +62,17 @@ async function main() {
             // Both sides already contain compiled install transports. This is
             // the new bf1e1a9 design baseline, never the historical migration.
             () => checkShellCase(browser, request.baseline, scenario, "current", false,
-              async page => { baselineDetails = await measureMarketingDetails(page, scenario); baselineDom = await marketingDom(page, false) }))
+              async page => { baselineDetails = await measureMarketingDetails(page, scenario); baselineDom = await marketingDom(page, false); baselinePaint = await measureMarketingPaintReference(page, scenario, "baseline") }))
           return bounded(activePair, `Current/baseline ${scenario.name}`, Math.min(60_000, remaining))
         })
         stage = "comparison"
         assert.ok(design !== undefined && baselineDetails !== undefined, "Current design observations missing")
         assert.ok(typeof currentDom === "string" && typeof baselineDom === "string", "Exact DOM inventories missing")
         assert.equal(currentDom, baselineDom, "Original compiled class, attribute, copy and structure inventories stay exact")
-        compareMarketingEvidence(evidence, old, scenario)
-        compareMarketingElements(design.elements, baselineDetails, `${scenario.name} proof/headings/actions`)
+        const paint = scenario.route === "/" ? { current: design.paint, baseline: baselinePaint } : undefined
+        if (paint !== undefined) assert.ok(paint.current !== undefined && paint.baseline !== undefined, "Both exact derived paint references are required")
+        compareMarketingEvidence(evidence, old, scenario, paint)
+        compareMarketingElements(design.elements, baselineDetails, `${scenario.name} proof/headings/actions`, paint)
         designCases.push(design.observation)
         cases.push(scenario.name)
         if (negative) negativeControls.push(`${scenario.route}-final-css`, ...(scenario.route === "/" ? ["/-foundation-css"] : []))
